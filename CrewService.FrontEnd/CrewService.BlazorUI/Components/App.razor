@@ -1,0 +1,46 @@
+﻿@using CrewService.BlazorUI.Services
+
+@inject AppThemeService AppThemeService
+
+<!DOCTYPE html>
+<html lang="en" data-bs-theme=@Mode>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href=@Theme />
+    <link rel="stylesheet" href="app.css" />
+ 
+    <link rel="stylesheet" href="CrewService.BlazorUI.styles.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+
+</html>
+
+@code{
+    private string Mode = "light";
+    private string Theme = "bootstrap/bootstrap.min spacelab.css";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override void OnInitialized() 
+    {
+        if (!string.IsNullOrEmpty(AppThemeService.Theme))
+            Theme = AppThemeService.Theme;
+
+        if (!string.IsNullOrEmpty(AppThemeService.Mode))
+            Mode = AppThemeService.Mode.ToLower();
+
+        base.OnInitialized(); 
+    }
+}

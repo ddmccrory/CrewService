@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+import "protos/railroad.proto";
+
+package parent;
+
+service ParentSrvc{
+
+	rpc GetParentAsync(GetParentRequest) returns (GetParentResponse) {
+		option (google.api.http) = {
+			get: "/parent/{ctrlNbr}"
+		};
+	}
+
+	rpc GetAllParentsAsync(GetAllParentsRequest) returns (GetAllParentsResponse) {
+		option (google.api.http) = {
+			get: "/parent"
+		};
+	}
+
+	rpc CreateParentAsync(CreateParentRequest) returns (CreateParentResponse) {
+		option (google.api.http) = {
+			post: "/parent",
+			body: "*"
+		};
+	}	
+	
+	rpc UpdateParentAsync(UpdateParentRequest) returns (UpdateParentResponse){
+		option (google.api.http) = {
+			put: "/parent",
+			body: "*"
+		};
+	}
+
+	rpc DeleteParentAsync(DeleteParentRequest) returns (DeleteParentResponse){
+		option (google.api.http) = {
+			delete: "/parent/{ctrlNbr}"
+		};
+	}
+}
+
+message GetParentRequest {
+	int64 ctrlNbr = 1;
+}
+message GetParentResponse {
+	int64 ctrlNbr = 1;
+	string name = 2;
+	repeated railroad.GetRailroadResponse railroads = 3;
+}
+
+message GetAllParentsRequest {}
+
+message GetAllParentsResponse {
+	repeated GetParentResponse parent = 1;
+}
+
+message CreateParentRequest {
+	string name = 1;
+}
+
+message CreateParentResponse {
+	int64 ctrlNbr = 1;
+	string name = 2;
+}
+
+message UpdateParentRequest {
+	int64 ctrlNbr = 1;
+	string name = 2;
+}
+
+message UpdateParentResponse {
+	int64 ctrlNbr = 1;
+	string name = 2;
+}
+
+message DeleteParentRequest {
+	int64 ctrlNbr = 1;
+}
+
+message DeleteParentResponse {
+	int64 ctrlNbr = 1;
+	string name = 2;
+}

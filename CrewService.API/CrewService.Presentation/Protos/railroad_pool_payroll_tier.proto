@@ -1,0 +1,66 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package railroadpoolpayrolltier;
+
+service RailroadPoolPayrollTierSrvc {
+  rpc GetAllAsync(GetAllRailroadPoolPayrollTierRequest) returns (GetAllRailroadPoolPayrollTierResponse) {
+    option (google.api.http) = { get: "/v1/railroad-pool-payroll-tiers" };
+  }
+  rpc GetAsync(GetRailroadPoolPayrollTierRequest) returns (RailroadPoolPayrollTierResponse) {
+    option (google.api.http) = { get: "/v1/railroad-pool-payroll-tiers/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateRailroadPoolPayrollTierRequest) returns (RailroadPoolPayrollTierResponse) {
+    option (google.api.http) = { post: "/v1/railroad-pool-payroll-tiers" body: "*" };
+  }
+  rpc UpdateAsync(UpdateRailroadPoolPayrollTierRequest) returns (RailroadPoolPayrollTierResponse) {
+    option (google.api.http) = { put: "/v1/railroad-pool-payroll-tiers/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteRailroadPoolPayrollTierRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/railroad-pool-payroll-tiers/{ctrl_nbr}" };
+  }
+}
+
+message GetAllRailroadPoolPayrollTierRequest {
+  int64 railroad_pool_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllRailroadPoolPayrollTierResponse {
+  repeated RailroadPoolPayrollTierResponse tiers = 1;
+  int32 total_count = 2;
+}
+
+message GetRailroadPoolPayrollTierRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateRailroadPoolPayrollTierRequest {
+  int64 railroad_pool_ctrl_nbr = 1;
+  int32 number_of_days = 2;
+  int32 type_of_day = 3;
+  int32 rate_percentage = 4;
+}
+
+message UpdateRailroadPoolPayrollTierRequest {
+  int64 ctrl_nbr = 1;
+  int32 number_of_days = 2;
+  int32 type_of_day = 3;
+  int32 rate_percentage = 4;
+}
+
+message DeleteRailroadPoolPayrollTierRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message RailroadPoolPayrollTierResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_pool_ctrl_nbr = 2;
+  int32 number_of_days = 3;
+  int32 type_of_day = 4;
+  int32 rate_percentage = 5;
+  bool success = 6;
+  repeated string messages = 7;
+}

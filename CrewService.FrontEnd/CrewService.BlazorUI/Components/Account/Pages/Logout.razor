@@ -1,0 +1,27 @@
+﻿@page "/Account/Logout"
+
+@using CrewService.BlazorUI.Services
+@using Microsoft.AspNetCore.Authentication
+
+@inject NavigationManager NavigationManager
+@inject AppThemeService AppThemeService
+
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (HttpContext.User.Identity!.IsAuthenticated)
+        {
+            AppThemeService.ResetThemeValues();
+
+            await HttpContext.SignOutAsync();
+
+            NavigationManager.NavigateTo("/Account/Login");
+        }
+    }
+}

@@ -1,0 +1,45 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+
+package account;
+
+service AccountSrvc {
+
+	rpc ModifyTheme (ThemeRequest) returns (ThemeResponse){
+			option (google.api.http) = {
+				post: "/account/manage/theme"
+			};
+	}
+
+	rpc ModifyProfile (ProfileRequest) returns (ProfileResponse){
+		option (google.api.http) = {
+			post: "/account/manage"
+		};
+	}
+}
+
+message ThemeRequest{
+	string user_name = 1;
+	string theme_name = 2;
+	string theme_mode = 3;
+}
+
+message ThemeResponse{
+	bool success = 1;
+	repeated string message = 2;
+}
+
+message ProfileRequest{
+	string user_name = 1;
+	string first_name = 2;
+	string middle_name = 3;
+	string last_name = 4;
+}
+
+message ProfileResponse{
+	bool success = 1;
+	repeated string message = 2;
+}

@@ -1,0 +1,8 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+package common;
+
+message DeleteResponse {
+  bool success = 1;
+  repeated string messages = 2;
+}

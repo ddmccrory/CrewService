@@ -1,0 +1,52 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package employee;
+
+service PriorServiceCreditSrvc {
+  rpc GetAsync(GetPriorServiceCreditRequest) returns (PriorServiceCreditResponse) {
+    option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/prior-service-credit" };
+  }
+  rpc CreateAsync(CreatePriorServiceCreditRequest) returns (PriorServiceCreditResponse) {
+    option (google.api.http) = { post: "/v1/employees/{employee_ctrl_nbr}/prior-service-credit" body: "*" };
+  }
+  rpc UpdateAsync(UpdatePriorServiceCreditRequest) returns (PriorServiceCreditResponse) {
+    option (google.api.http) = { put: "/v1/employees/{employee_ctrl_nbr}/prior-service-credit" body: "*" };
+  }
+  rpc DeleteAsync(DeletePriorServiceCreditRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/employees/{employee_ctrl_nbr}/prior-service-credit" };
+  }
+}
+
+message GetPriorServiceCreditRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message CreatePriorServiceCreditRequest {
+  int64 employee_ctrl_nbr = 1;
+  int32 service_years = 2;
+  int32 service_months = 3;
+  int32 service_days = 4;
+}
+
+message UpdatePriorServiceCreditRequest {
+  int64 employee_ctrl_nbr = 1;
+  int32 service_years = 2;
+  int32 service_months = 3;
+  int32 service_days = 4;
+}
+
+message DeletePriorServiceCreditRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message PriorServiceCreditResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int32 service_years = 3;
+  int32 service_months = 4;
+  int32 service_days = 5;
+  bool success = 6;
+  repeated string messages = 7;
+}

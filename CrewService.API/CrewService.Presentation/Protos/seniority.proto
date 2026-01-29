@@ -1,0 +1,74 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package seniority;
+
+service SenioritySrvc {
+  rpc GetAllAsync(GetAllSeniorityRequest) returns (GetAllSeniorityResponse) {
+    option (google.api.http) = { get: "/v1/seniority" };
+  }
+  rpc GetAsync(GetSeniorityRequest) returns (SeniorityResponse) {
+    option (google.api.http) = { get: "/v1/seniority/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateSeniorityRequest) returns (SeniorityResponse) {
+    option (google.api.http) = { post: "/v1/seniority" body: "*" };
+  }
+  rpc UpdateAsync(UpdateSeniorityRequest) returns (SeniorityResponse) {
+    option (google.api.http) = { put: "/v1/seniority/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteSeniorityRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/seniority/{ctrl_nbr}" };
+  }
+}
+
+message GetAllSeniorityRequest {
+  int64 roster_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllSeniorityResponse {
+  repeated SeniorityResponse seniority = 1;
+  int32 total_count = 2;
+}
+
+message GetSeniorityRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateSeniorityRequest {
+  int64 roster_ctrl_nbr = 1;
+  int64 railroad_pool_employee_ctrl_nbr = 2;
+  bool last_active_roster = 3;
+  string roster_date = 4;
+  int32 rank = 5;
+  int32 state_id = 6;
+  bool can_train = 7;
+}
+
+message UpdateSeniorityRequest {
+  int64 ctrl_nbr = 1;
+  bool last_active_roster = 2;
+  string roster_date = 3;
+  int32 rank = 4;
+  int32 state_id = 5;
+  bool can_train = 6;
+}
+
+message DeleteSeniorityRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message SeniorityResponse {
+  int64 ctrl_nbr = 1;
+  int64 roster_ctrl_nbr = 2;
+  int64 railroad_pool_employee_ctrl_nbr = 3;
+  bool last_active_roster = 4;
+  string roster_date = 5;
+  int32 rank = 6;
+  int32 state_id = 7;
+  bool can_train = 8;
+  bool success = 9;
+  repeated string messages = 10;
+}

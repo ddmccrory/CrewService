@@ -1,0 +1,77 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package roster;
+
+service RosterSrvc {
+  rpc GetAllAsync(GetAllRosterRequest) returns (GetAllRosterResponse) {
+    option (google.api.http) = { get: "/v1/rosters" };
+  }
+  rpc GetAsync(GetRosterRequest) returns (RosterResponse) {
+    option (google.api.http) = { get: "/v1/rosters/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateRosterRequest) returns (RosterResponse) {
+    option (google.api.http) = { post: "/v1/rosters" body: "*" };
+  }
+  rpc UpdateAsync(UpdateRosterRequest) returns (RosterResponse) {
+    option (google.api.http) = { put: "/v1/rosters/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteRosterRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/rosters/{ctrl_nbr}" };
+  }
+}
+
+message GetAllRosterRequest {
+  int64 craft_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllRosterResponse {
+  repeated RosterResponse rosters = 1;
+  int32 total_count = 2;
+}
+
+message GetRosterRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateRosterRequest {
+  int64 craft_ctrl_nbr = 1;
+  int64 railroad_payroll_department_ctrl_nbr = 2;
+  string roster_name = 3;
+  string roster_plural_name = 4;
+  int32 roster_number = 5;
+  bool training = 6;
+  bool extra_board = 7;
+  bool overtime_board = 8;
+}
+
+message UpdateRosterRequest {
+  int64 ctrl_nbr = 1;
+  string roster_name = 2;
+  string roster_plural_name = 3;
+  int32 roster_number = 4;
+  bool training = 5;
+  bool extra_board = 6;
+  bool overtime_board = 7;
+}
+
+message DeleteRosterRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message RosterResponse {
+  int64 ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  int64 railroad_payroll_department_ctrl_nbr = 3;
+  string roster_name = 4;
+  string roster_plural_name = 5;
+  int32 roster_number = 6;
+  bool training = 7;
+  bool extra_board = 8;
+  bool overtime_board = 9;
+  bool success = 10;
+  repeated string messages = 11;
+}

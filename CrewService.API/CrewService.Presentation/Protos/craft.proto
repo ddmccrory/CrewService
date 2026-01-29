@@ -1,0 +1,99 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package craft;
+
+service CraftSrvc {
+  rpc GetAllAsync(GetAllCraftRequest) returns (GetAllCraftResponse) {
+    option (google.api.http) = { get: "/v1/crafts" };
+  }
+  rpc GetAsync(GetCraftRequest) returns (CraftResponse) {
+    option (google.api.http) = { get: "/v1/crafts/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateCraftRequest) returns (CraftResponse) {
+    option (google.api.http) = { post: "/v1/crafts" body: "*" };
+  }
+  rpc UpdateAsync(UpdateCraftRequest) returns (CraftResponse) {
+    option (google.api.http) = { put: "/v1/crafts/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteCraftRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/crafts/{ctrl_nbr}" };
+  }
+}
+
+message GetAllCraftRequest {
+  int64 railroad_pool_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllCraftResponse {
+  repeated CraftResponse crafts = 1;
+  int32 total_count = 2;
+}
+
+message GetCraftRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateCraftRequest {
+  int64 railroad_pool_ctrl_nbr = 1;
+  string craft_name = 2;
+  string craft_plural_name = 3;
+  int32 craft_number = 4;
+  bool auto_mark_up = 5;
+  bool approve_all_mark_offs = 6;
+  int32 mark_off_hours = 7;
+  int32 mark_up_hours = 8;
+  int32 required_rest_hours = 9;
+  int32 maximum_vacation_day_time = 10;
+  int32 unpaid_meal_period_minutes = 11;
+  bool hoursof_service = 12;
+  bool process_payroll = 13;
+  bool show_notifications = 14;
+  int32 vacation_assignment_type = 15;
+}
+
+message UpdateCraftRequest {
+  int64 ctrl_nbr = 1;
+  string craft_name = 2;
+  string craft_plural_name = 3;
+  int32 craft_number = 4;
+  bool auto_mark_up = 5;
+  bool approve_all_mark_offs = 6;
+  int32 mark_off_hours = 7;
+  int32 mark_up_hours = 8;
+  int32 required_rest_hours = 9;
+  int32 maximum_vacation_day_time = 10;
+  int32 unpaid_meal_period_minutes = 11;
+  bool hoursof_service = 12;
+  bool process_payroll = 13;
+  bool show_notifications = 14;
+  int32 vacation_assignment_type = 15;
+}
+
+message DeleteCraftRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CraftResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_pool_ctrl_nbr = 2;
+  string craft_name = 3;
+  string craft_plural_name = 4;
+  int32 craft_number = 5;
+  bool auto_mark_up = 6;
+  bool approve_all_mark_offs = 7;
+  int32 mark_off_hours = 8;
+  int32 mark_up_hours = 9;
+  int32 required_rest_hours = 10;
+  int32 maximum_vacation_day_time = 11;
+  int32 unpaid_meal_period_minutes = 12;
+  bool hoursof_service = 13;
+  bool process_payroll = 14;
+  bool show_notifications = 15;
+  int32 vacation_assignment_type = 16;
+  bool success = 17;
+  repeated string messages = 18;
+}

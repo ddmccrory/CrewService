@@ -1,0 +1,235 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package employee;
+
+service EmployeeSrvc {
+  rpc GetAllEmployeesAsync(GetAllEmployeesRequest) returns (GetAllEmployeesResponse) {
+    option (google.api.http) = { get: "/v1/employees" };
+  }
+  rpc GetEmployeeAsync(GetEmployeeRequest) returns (GetEmployeeResponse) {
+    option (google.api.http) = { get: "/v1/employees/{ctrl_nbr}" };
+  }
+  rpc GetEmployeeByNumberAsync(GetEmployeeByNumberRequest) returns (GetEmployeeResponse) {
+    option (google.api.http) = { get: "/v1/employees/by-number/{employee_number}" };
+  }
+  rpc CreateEmployeeAsync(CreateEmployeeRequest) returns (CreateEmployeeResponse) {
+    option (google.api.http) = { post: "/v1/employees" body: "*" };
+  }
+  rpc UpdateEmployeeAsync(UpdateEmployeeRequest) returns (UpdateEmployeeResponse) {
+    option (google.api.http) = { put: "/v1/employees/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteEmployeeAsync(DeleteEmployeeRequest) returns (DeleteEmployeeResponse) {
+    option (google.api.http) = { delete: "/v1/employees/{ctrl_nbr}" };
+  }
+  rpc AddAddressAsync(AddAddressRequest) returns (AddressResponse) {
+    option (google.api.http) = { post: "/v1/employees/{employee_ctrl_nbr}/addresses" body: "*" };
+  }
+  rpc UpdateAddressAsync(UpdateAddressRequest) returns (AddressResponse) {
+    option (google.api.http) = { put: "/v1/employees/{employee_ctrl_nbr}/addresses/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAddressAsync(DeleteAddressRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/employees/{employee_ctrl_nbr}/addresses/{ctrl_nbr}" };
+  }
+  rpc AddPhoneNumberAsync(AddPhoneNumberRequest) returns (PhoneNumberResponse) {
+    option (google.api.http) = { post: "/v1/employees/{employee_ctrl_nbr}/phones" body: "*" };
+  }
+  rpc UpdatePhoneNumberAsync(UpdatePhoneNumberRequest) returns (PhoneNumberResponse) {
+    option (google.api.http) = { put: "/v1/employees/{employee_ctrl_nbr}/phones/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeletePhoneNumberAsync(DeletePhoneNumberRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/employees/{employee_ctrl_nbr}/phones/{ctrl_nbr}" };
+  }
+  rpc AddEmailAddressAsync(AddEmailAddressRequest) returns (EmailAddressResponse) {
+    option (google.api.http) = { post: "/v1/employees/{employee_ctrl_nbr}/emails" body: "*" };
+  }
+  rpc UpdateEmailAddressAsync(UpdateEmailAddressRequest) returns (EmailAddressResponse) {
+    option (google.api.http) = { put: "/v1/employees/{employee_ctrl_nbr}/emails/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteEmailAddressAsync(DeleteEmailAddressRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/employees/{employee_ctrl_nbr}/emails/{ctrl_nbr}" };
+  }
+}
+
+message GetAllEmployeesRequest {
+  int32 page_number = 1;
+  int32 page_size = 2;
+}
+
+message GetAllEmployeesResponse {
+  repeated GetEmployeeResponse employees = 1;
+  int32 total_count = 2;
+}
+
+message GetEmployeeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetEmployeeByNumberRequest {
+  string employee_number = 1;
+}
+
+message GetEmployeeResponse {
+  int64 ctrl_nbr = 1;
+  int64 client_ctrl_nbr = 2;
+  string user_id = 3;
+  string employee_number = 4;
+  string gender = 5;
+  string race = 6;
+  bool marriage_status = 7;
+  google.protobuf.Timestamp birth_date = 8;
+  google.protobuf.Timestamp employment_date = 9;
+  int64 employment_status_ctrl_nbr = 10;
+  bool allow_fmla_mark_off = 11;
+  bool call_for_overtime = 12;
+  bool process_payroll = 13;
+  bool tie_up_off_property = 14;
+  string drivers_license_number = 15;
+  string issuing_state = 16;
+  repeated AddressResponse addresses = 17;
+  repeated PhoneNumberResponse phone_numbers = 18;
+  repeated EmailAddressResponse email_addresses = 19;
+}
+
+message CreateEmployeeRequest {
+  int64 client_ctrl_nbr = 1;
+  string user_id = 2;
+  string employee_number = 3;
+  string social_security_number = 4;
+  string gender = 5;
+  string race = 6;
+  google.protobuf.Timestamp birth_date = 7;
+  google.protobuf.Timestamp employment_date = 8;
+  int64 employment_status_ctrl_nbr = 9;
+  string drivers_license_number = 10;
+  string issuing_state = 11;
+  bool marriage_status = 12;
+}
+
+message CreateEmployeeResponse {
+  int64 ctrl_nbr = 1;
+  string employee_number = 2;
+  bool success = 3;
+  repeated string messages = 4;
+}
+
+message UpdateEmployeeRequest {
+  int64 ctrl_nbr = 1;
+  string drivers_license_number = 2;
+  string issuing_state = 3;
+  bool marriage_status = 4;
+  bool allow_fmla_mark_off = 5;
+  bool call_for_overtime = 6;
+  bool process_payroll = 7;
+  bool tie_up_off_property = 8;
+}
+
+message UpdateEmployeeResponse {
+  int64 ctrl_nbr = 1;
+  bool success = 2;
+  repeated string messages = 3;
+}
+
+message DeleteEmployeeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message DeleteEmployeeResponse {
+  bool success = 1;
+  repeated string messages = 2;
+}
+
+message AddAddressRequest {
+  int64 employee_ctrl_nbr = 1;
+  string address1 = 2;
+  string address2 = 3;
+  string city = 4;
+  string state = 5;
+  string zip_code = 6;
+  int64 address_type_ctrl_nbr = 7;
+}
+
+message UpdateAddressRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 ctrl_nbr = 2;
+  string address1 = 3;
+  string address2 = 4;
+  string city = 5;
+  string state = 6;
+  string zip_code = 7;
+}
+
+message DeleteAddressRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 ctrl_nbr = 2;
+}
+
+message AddressResponse {
+  int64 ctrl_nbr = 1;
+  int64 address_type_ctrl_nbr = 2;
+  string address1 = 3;
+  string address2 = 4;
+  string city = 5;
+  string state = 6;
+  string zip_code = 7;
+  bool success = 8;
+  repeated string messages = 9;
+}
+
+message AddPhoneNumberRequest {
+  int64 employee_ctrl_nbr = 1;
+  string number = 2;
+  int32 calling_order = 3;
+  bool dial_one = 4;
+  int64 phone_type_ctrl_nbr = 5;
+}
+
+message UpdatePhoneNumberRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 ctrl_nbr = 2;
+  string number = 3;
+  int32 calling_order = 4;
+  bool dial_one = 5;
+}
+
+message DeletePhoneNumberRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 ctrl_nbr = 2;
+}
+
+message PhoneNumberResponse {
+  int64 ctrl_nbr = 1;
+  int64 phone_type_ctrl_nbr = 2;
+  string number = 3;
+  int32 calling_order = 4;
+  bool dial_one = 5;
+  bool success = 6;
+  repeated string messages = 7;
+}
+
+message AddEmailAddressRequest {
+  int64 employee_ctrl_nbr = 1;
+  string email = 2;
+  int64 email_type_ctrl_nbr = 3;
+}
+
+message UpdateEmailAddressRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 ctrl_nbr = 2;
+  string email = 3;
+}
+
+message DeleteEmailAddressRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 ctrl_nbr = 2;
+}
+
+message EmailAddressResponse {
+  int64 ctrl_nbr = 1;
+  int64 email_type_ctrl_nbr = 2;
+  string email = 3;
+  bool success = 4;
+  repeated string messages = 5;
+}

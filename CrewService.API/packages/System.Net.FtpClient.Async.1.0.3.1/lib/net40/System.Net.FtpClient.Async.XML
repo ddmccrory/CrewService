@@ -1,0 +1,565 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>System.Net.FtpClient.Async</name>
+    </assembly>
+    <members>
+        <member name="T:System.Net.FtpClient.Extensions.Async.ChecksumExtensionAsync">
+            <summary>
+            ChecksumExtension
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Extensions.Async.ChecksumExtensionAsync.GetChecksumAsync(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpHash},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the checksum asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.Extensions.MD5Async">
+            <summary>
+            MD5Async
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.Extensions.MD5Async.GetMD5Async(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the m d5 asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.Extensions.XCRCAsync">
+            <summary>
+            XCRCAsync
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.Extensions.XCRCAsync.GetXCRCAsync(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the XCRC asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.Extensions.XMD5Async">
+            <summary>
+            XMD5Async
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.Extensions.XMD5Async.GetXMD5Async(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the xm d5 asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.Extensions.XSHA1Async">
+            <summary>
+            XSHA1Async
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.Extensions.XSHA1Async.GetXSHA1Async(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the XSH a1 asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.Extensions.XSHA256Async">
+            <summary>
+            XSHA256Async
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.Extensions.XSHA256Async.GetXSHA256Async(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the XSH a256 asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.Extensions.XSHA512Async">
+            <summary>
+            XSHA512Async
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.Extensions.XSHA512Async.GetXSHA512Async(System.Net.FtpClient.FtpClient,System.String,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the XSH a512 asynchronous.
+            </summary>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="T:System.Net.FtpClient.Async.FtpClientAsyncExtension">
+            <summary>
+            FtpClientAsyncExtension
+            </summary>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.ConnectAsync``1(``0,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Connects the asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.CreateDirectoryAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Creates the directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.CreateDirectoryAsync``1(``0,System.String,System.Boolean,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Creates the directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="force">if set to <c>true</c> [force].</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DeleteDirectoryAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Deletes the directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DeleteDirectoryAsync``1(``0,System.String,System.Boolean,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Deletes the directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="force">if set to <c>true</c> [force].</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DeleteDirectoryAsync``1(``0,System.String,System.Boolean,System.Net.FtpClient.FtpListOption,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Deletes the directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="force">if set to <c>true</c> [force].</param>
+            <param name="options">The options.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DeleteFileAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Deletes the file asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DereferenceLinkAsync``1(``0,System.Net.FtpClient.FtpListItem,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpListItem},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Dereferences the link asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="item">The item.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DereferenceLinkAsync``1(``0,System.Net.FtpClient.FtpListItem,System.Int32,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpListItem},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Dereferences the link asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="item">The item.</param>
+            <param name="recMax">The record maximum.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DirectoryExistsAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.Boolean},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Directories the exists asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.DisconnectAsync``1(``0,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Disconnects the asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.ExecuteAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpReply},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Executes the asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="command">The command.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.FileExistsAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.Boolean},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Files the exists asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.FileExistsAsync``1(``0,System.String,System.Net.FtpClient.FtpListOption,System.Threading.Tasks.TaskFactory{System.Boolean},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Files the exists asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="options">The options.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetFileSizeAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.Int64},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the file size asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetHashAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the hash asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetHashAlgorithmAsync``1(``0,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpHashAlgorithm},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the hash algorithm asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetListingAsync``1(``0,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpListItem[]},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the listing asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetListingAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpListItem[]},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the listing asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetListingAsync``1(``0,System.String,System.Net.FtpClient.FtpListOption,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpListItem[]},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the listing asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="options">The options.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetModifiedTimeAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.DateTime},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the modified time asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetNameListingAsync``1(``0,System.Threading.Tasks.TaskFactory{System.String[]},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the name listing asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetNameListingAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.String[]},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the name listing asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetObjectInfoAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.Net.FtpClient.FtpListItem},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the object information asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.GetWorkingDirectoryAsync``1(``0,System.Threading.Tasks.TaskFactory{System.String},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Gets the working directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenAppendAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the append asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenAppendAsync``1(``0,System.String,System.Net.FtpClient.FtpDataType,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the append asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="type">The type.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenReadAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the read asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenReadAsync``1(``0,System.String,System.Int64,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the read asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="restart">The restart.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenReadAsync``1(``0,System.String,System.Net.FtpClient.FtpDataType,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the read asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="type">The type.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenReadAsync``1(``0,System.String,System.Net.FtpClient.FtpDataType,System.Int64,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the read asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="type">The type.</param>
+            <param name="restart">The restart.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenWriteAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the write asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.OpenWriteAsync``1(``0,System.String,System.Net.FtpClient.FtpDataType,System.Threading.Tasks.TaskFactory{System.IO.Stream},System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Opens the write asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="type">The type.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.RenameAsync``1(``0,System.String,System.String,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Renames the asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="dest">The dest.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.SetHashAlgorithmAsync``1(``0,System.Net.FtpClient.FtpHashAlgorithm,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Sets the hash algorithm asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="type">The type.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Net.FtpClient.Async.FtpClientAsyncExtension.SetWorkingDirectoryAsync``1(``0,System.String,System.Threading.Tasks.TaskFactory,System.Threading.Tasks.TaskCreationOptions,System.Threading.Tasks.TaskScheduler)">
+            <summary>
+            Sets the working directory asynchronous.
+            </summary>
+            <typeparam name="TFtpClient">The type of the FTP client.</typeparam>
+            <param name="client">The client.</param>
+            <param name="path">The path.</param>
+            <param name="factory">The factory.</param>
+            <param name="creationOptions">The creation options.</param>
+            <param name="scheduler">The scheduler.</param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

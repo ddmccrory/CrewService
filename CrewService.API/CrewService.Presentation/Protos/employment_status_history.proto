@@ -1,0 +1,55 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package employment;
+
+service EmploymentStatusHistorySrvc {
+  rpc GetAllByEmployeeAsync(GetAllStatusHistoryRequest) returns (GetAllStatusHistoryResponse) {
+    option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/status-history" };
+  }
+  rpc GetAsync(GetStatusHistoryRequest) returns (StatusHistoryResponse) {
+    option (google.api.http) = { get: "/v1/employment-status-history/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateStatusHistoryRequest) returns (StatusHistoryResponse) {
+    option (google.api.http) = { post: "/v1/employees/{employee_ctrl_nbr}/status-history" body: "*" };
+  }
+  rpc DeleteAsync(DeleteStatusHistoryRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/employment-status-history/{ctrl_nbr}" };
+  }
+}
+
+message GetAllStatusHistoryRequest {
+  int64 employee_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllStatusHistoryResponse {
+  repeated StatusHistoryResponse history = 1;
+  int32 total_count = 2;
+}
+
+message GetStatusHistoryRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateStatusHistoryRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 employment_status_ctrl_nbr = 2;
+  google.protobuf.Timestamp status_change_date = 3;
+}
+
+message DeleteStatusHistoryRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message StatusHistoryResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int64 employment_status_ctrl_nbr = 3;
+  google.protobuf.Timestamp status_change_date = 4;
+  bool success = 5;
+  repeated string messages = 6;
+}

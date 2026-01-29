@@ -1,0 +1,69 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package employment;
+
+service EmploymentStatusSrvc {
+  rpc GetAllAsync(GetAllEmploymentStatusRequest) returns (GetAllEmploymentStatusResponse) {
+    option (google.api.http) = { get: "/v1/employment-statuses" };
+  }
+  rpc GetAsync(GetEmploymentStatusRequest) returns (EmploymentStatusResponse) {
+    option (google.api.http) = { get: "/v1/employment-statuses/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateEmploymentStatusRequest) returns (EmploymentStatusResponse) {
+    option (google.api.http) = { post: "/v1/employment-statuses" body: "*" };
+  }
+  rpc UpdateAsync(UpdateEmploymentStatusRequest) returns (EmploymentStatusResponse) {
+    option (google.api.http) = { put: "/v1/employment-statuses/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteEmploymentStatusRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/employment-statuses/{ctrl_nbr}" };
+  }
+}
+
+message GetAllEmploymentStatusRequest {
+  int64 client_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllEmploymentStatusResponse {
+  repeated EmploymentStatusResponse statuses = 1;
+  int32 total_count = 2;
+}
+
+message GetEmploymentStatusRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateEmploymentStatusRequest {
+  int64 client_ctrl_nbr = 1;
+  string status_code = 2;
+  string status_name = 3;
+  int32 status_number = 4;
+  string employment_code = 5;
+}
+
+message UpdateEmploymentStatusRequest {
+  int64 ctrl_nbr = 1;
+  string status_code = 2;
+  string status_name = 3;
+  int32 status_number = 4;
+  string employment_code = 5;
+}
+
+message DeleteEmploymentStatusRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message EmploymentStatusResponse {
+  int64 ctrl_nbr = 1;
+  int64 client_ctrl_nbr = 2;
+  string status_code = 3;
+  string status_name = 4;
+  int32 status_number = 5;
+  string employment_code = 6;
+  bool success = 7;
+  repeated string messages = 8;
+}

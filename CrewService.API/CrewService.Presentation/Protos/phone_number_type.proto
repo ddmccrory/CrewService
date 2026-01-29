@@ -1,0 +1,66 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package contacttypes;
+
+service PhoneNumberTypeSrvc {
+  rpc GetAllAsync(GetAllPhoneNumberTypeRequest) returns (GetAllPhoneNumberTypeResponse) {
+    option (google.api.http) = { get: "/v1/phone-number-types" };
+  }
+  rpc GetAsync(GetPhoneNumberTypeRequest) returns (PhoneNumberTypeResponse) {
+    option (google.api.http) = { get: "/v1/phone-number-types/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreatePhoneNumberTypeRequest) returns (PhoneNumberTypeResponse) {
+    option (google.api.http) = { post: "/v1/phone-number-types" body: "*" };
+  }
+  rpc UpdateAsync(UpdatePhoneNumberTypeRequest) returns (PhoneNumberTypeResponse) {
+    option (google.api.http) = { put: "/v1/phone-number-types/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeletePhoneNumberTypeRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/phone-number-types/{ctrl_nbr}" };
+  }
+}
+
+message GetAllPhoneNumberTypeRequest {
+  int64 client_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllPhoneNumberTypeResponse {
+  repeated PhoneNumberTypeResponse phoneNumberTypeList = 1;
+  int32 total_count = 2;
+}
+
+message GetPhoneNumberTypeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreatePhoneNumberTypeRequest {
+  int64 client_ctrl_nbr = 1;
+  string name = 2;
+  int32 number = 3;
+  bool emergency_type = 4;
+}
+
+message UpdatePhoneNumberTypeRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  int32 number = 3;
+  bool emergency_type = 4;
+}
+
+message DeletePhoneNumberTypeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message PhoneNumberTypeResponse {
+  int64 ctrl_nbr = 1;
+  int64 client_ctrl_nbr = 2;
+  string name = 3;
+  int32 number = 4;
+  bool emergency_type = 5;
+  bool success = 6;
+  repeated string messages = 7;
+}

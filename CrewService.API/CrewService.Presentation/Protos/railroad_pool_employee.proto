@@ -1,0 +1,62 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package railroadpoolemployee;
+
+service RailroadPoolEmployeeSrvc {
+  rpc GetAllAsync(GetAllRailroadPoolEmployeeRequest) returns (GetAllRailroadPoolEmployeeResponse) {
+    option (google.api.http) = { get: "/v1/railroad-pool-employees" };
+  }
+  rpc GetAsync(GetRailroadPoolEmployeeRequest) returns (RailroadPoolEmployeeResponse) {
+    option (google.api.http) = { get: "/v1/railroad-pool-employees/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateRailroadPoolEmployeeRequest) returns (RailroadPoolEmployeeResponse) {
+    option (google.api.http) = { post: "/v1/railroad-pool-employees" body: "*" };
+  }
+  rpc UpdateAsync(UpdateRailroadPoolEmployeeRequest) returns (RailroadPoolEmployeeResponse) {
+    option (google.api.http) = { put: "/v1/railroad-pool-employees/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteRailroadPoolEmployeeRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/railroad-pool-employees/{ctrl_nbr}" };
+  }
+}
+
+message GetAllRailroadPoolEmployeeRequest {
+  int64 railroad_pool_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllRailroadPoolEmployeeResponse {
+  repeated RailroadPoolEmployeeResponse employees = 1;
+  int32 total_count = 2;
+}
+
+message GetRailroadPoolEmployeeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateRailroadPoolEmployeeRequest {
+  int64 railroad_pool_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  bool is_active = 3;
+}
+
+message UpdateRailroadPoolEmployeeRequest {
+  int64 ctrl_nbr = 1;
+  bool is_active = 2;
+}
+
+message DeleteRailroadPoolEmployeeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message RailroadPoolEmployeeResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_pool_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  bool is_active = 4;
+  bool success = 5;
+  repeated string messages = 6;
+}

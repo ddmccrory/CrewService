@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+
+package railroad;
+
+service RailroadSrvc{
+
+	rpc GetRailroadAsync(GetRailroadRequest) returns (GetRailroadResponse) {
+		option (google.api.http) = {
+			get: "/railroad/{ctrlNbr}"
+		};
+	}
+
+	rpc GetAllRailroadsAsync(GetAllRailroadsRequest) returns (GetAllRailroadsResponse) {
+		option (google.api.http) = {
+			get: "/railroad"
+		};
+	}
+
+	rpc GetAllParentRailroadsAsync(GetAllParentRailroadsRequest) returns (GetAllParentRailroadsResponse) {
+		option (google.api.http) = {
+			get: "/parentrailroads/{parent_ctrlNbr}"
+		};
+	}
+
+	rpc CreateRailroadAsync(CreateRailroadRequest) returns (CreateRailroadResponse) {
+		option (google.api.http) = {
+			post: "/railroad",
+			body: "*"
+		};
+	}	
+	
+	rpc UpdateRailroadAsync(UpdateRailroadRequest) returns (UpdateRailroadResponse){
+		option (google.api.http) = {
+			put: "/railroad",
+			body: "*"
+		};
+	}
+
+	rpc DeleteRailroadAsync(DeleteRailroadRequest) returns (DeleteRailroadResponse){
+		option (google.api.http) = {
+			delete: "/railroad/{ctrlNbr}"
+		};
+	}
+}
+
+message GetRailroadRequest {
+	int64 ctrlNbr = 1;
+}
+
+message GetRailroadResponse {
+	int64 ctrlNbr = 1;
+	string rr_mark = 2;
+	string name = 3;
+}
+
+message GetAllRailroadsRequest {}
+
+message GetAllRailroadsResponse {
+	repeated GetRailroadResponse railroad = 1;
+}
+
+message GetAllParentRailroadsRequest {
+	int64 parent_ctrlNbr = 1;
+}
+
+message GetAllParentRailroadsResponse {
+	int64 parent_ctrlNbr = 1;
+	repeated GetRailroadResponse railroad = 2;
+}
+
+message CreateRailroadRequest {
+	int64 parent_ctrlNbr = 1;
+	string rr_mark = 2;
+	string name = 3;
+}
+
+message CreateRailroadResponse {
+	int64 ctrlNbr = 1;
+	int64 parent_ctrlNbr = 2;
+	string rr_mark = 3;
+	string name = 4;
+}
+
+message UpdateRailroadRequest {
+	int64 ctrlNbr = 1;
+	int64 parent_ctrlNbr = 2;
+	string rr_mark = 3;
+	string name = 4;
+}
+
+message UpdateRailroadResponse {
+	int64 ctrlNbr = 1;
+	int64 parent_ctrlNbr = 2;
+	string rr_mark = 3;
+	string name = 4;
+}
+
+message DeleteRailroadRequest {
+	int64 ctrlNbr = 1;
+}
+
+message DeleteRailroadResponse {
+	int64 ctrlNbr = 1;
+	string rr_mark = 2;
+	string name = 3;
+}

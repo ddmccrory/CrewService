@@ -1,0 +1,66 @@
+﻿syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package seniority;
+
+service SeniorityStateSrvc {
+  rpc GetAllAsync(GetAllSeniorityStateRequest) returns (GetAllSeniorityStateResponse) {
+    option (google.api.http) = { get: "/v1/seniority-states" };
+  }
+  rpc GetAsync(GetSeniorityStateRequest) returns (SeniorityStateResponse) {
+    option (google.api.http) = { get: "/v1/seniority-states/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreateSeniorityStateRequest) returns (SeniorityStateResponse) {
+    option (google.api.http) = { post: "/v1/seniority-states" body: "*" };
+  }
+  rpc UpdateAsync(UpdateSeniorityStateRequest) returns (SeniorityStateResponse) {
+    option (google.api.http) = { put: "/v1/seniority-states/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeleteSeniorityStateRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/seniority-states/{ctrl_nbr}" };
+  }
+}
+
+message GetAllSeniorityStateRequest {
+  int32 page_number = 1;
+  int32 page_size = 2;
+}
+
+message GetAllSeniorityStateResponse {
+  repeated SeniorityStateResponse states = 1;
+  int32 total_count = 2;
+}
+
+message GetSeniorityStateRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateSeniorityStateRequest {
+  string state_description = 1;
+  bool active = 2;
+  bool cut_back = 3;
+  bool inactive = 4;
+}
+
+message UpdateSeniorityStateRequest {
+  int64 ctrl_nbr = 1;
+  string state_description = 2;
+  bool active = 3;
+  bool cut_back = 4;
+  bool inactive = 5;
+}
+
+message DeleteSeniorityStateRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message SeniorityStateResponse {
+  int64 ctrl_nbr = 1;
+  string state_description = 2;
+  bool active = 3;
+  bool cut_back = 4;
+  bool inactive = 5;
+  bool success = 6;
+  repeated string messages = 7;
+}

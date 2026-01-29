@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Protos\auth.proto" />
+    <None Remove="Protos\account.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Api.CommonProtos" Version="2.17.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.33.4" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.76.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CrewService.Application\CrewService.Application.csproj" />
+    <ProjectReference Include="..\CrewService.Infrastructure\CrewService.Infrastructure.csproj" />
+    <ProjectReference Include="..\CrewService.Persistance\CrewService.Persistance.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\common.proto" GrpcServices="None" />
+    <Protobuf Include="Protos\account.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\address_type.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\auth.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\craft.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\email_address_type.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\employee.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\employment_status.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\employment_status_history.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\parent.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\phone_number_type.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\prior_service_credit.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\railroad.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\railroad_pool.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\railroad_pool_employee.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\railroad_pool_payroll_tier.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\roster.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\seniority.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\seniority_state.proto" GrpcServices="Server" />
+  </ItemGroup>
+
+</Project>
