@@ -1,6 +1,9 @@
-﻿using CrewService.Domain.Models.Employees;
+﻿using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Services;
@@ -12,12 +15,25 @@ internal sealed class CrewAssignmentDbContext(DbContextOptions<CrewAssignmentDbC
 {
     private readonly CurrentUserService _currentUserService = new();
 
-    public DbSet<Parent> Parents => Set<Parent>();
-    public DbSet<Railroad> Railroads => Set<Railroad>();
-    public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<Address> Addresses => Set<Address>();
-    public DbSet<PhoneNumber> PhoneNumbers => Set<PhoneNumber>();
+    public DbSet<AddressType> AddressTypes => Set<AddressType>();
+    public DbSet<Craft> Crafts => Set<Craft>();
     public DbSet<EmailAddress> EmailAddresses => Set<EmailAddress>();
+    public DbSet<EmailAddressType> EmailAddressTypes => Set<EmailAddressType>();
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<EmployeePriorServiceCredit> EmployeePriorServiceCredits => Set<EmployeePriorServiceCredit>();
+    public DbSet<EmploymentStatus> EmploymentStatuses => Set<EmploymentStatus>();
+    public DbSet<EmploymentStatusHistory> EmploymentStatusHistory => Set<EmploymentStatusHistory>();
+    public DbSet<Parent> Parents => Set<Parent>();
+    public DbSet<PhoneNumber> PhoneNumbers => Set<PhoneNumber>();
+    public DbSet<PhoneNumberType> PhoneNumberTypes => Set<PhoneNumberType>();
+    public DbSet<Railroad> Railroads => Set<Railroad>();
+    public DbSet<RailroadPool> RailroadPools => Set<RailroadPool>();
+    public DbSet<RailroadPoolEmployee> RailroadPoolEmployees => Set<RailroadPoolEmployee>();
+    public DbSet<RailroadPoolPayrollTier> RailroadPoolPayrollTiers => Set<RailroadPoolPayrollTier>();
+    public DbSet<Roster> Rosters => Set<Roster>();
+    public DbSet<Seniority> Seniority => Set<Seniority>();
+    public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
