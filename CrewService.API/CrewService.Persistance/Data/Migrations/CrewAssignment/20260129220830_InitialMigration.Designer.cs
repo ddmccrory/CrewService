@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 {
     [DbContext(typeof(CrewAssignmentDbContext))]
-    [Migration("20260129195144_InitialMigration")]
+    [Migration("20260129220830_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />

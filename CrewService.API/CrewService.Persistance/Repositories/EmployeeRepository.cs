@@ -1,5 +1,5 @@
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
-using CrewService.Domain.Repositories;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;

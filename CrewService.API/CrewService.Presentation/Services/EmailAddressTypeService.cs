@@ -1,5 +1,5 @@
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.ContactTypes;
-using CrewService.Domain.Repositories;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;

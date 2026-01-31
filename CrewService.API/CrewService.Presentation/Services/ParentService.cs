@@ -1,5 +1,5 @@
-﻿using CrewService.Domain.Models.Parents;
-using CrewService.Domain.Repositories;
+﻿using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Models.Parents;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;

@@ -1,7 +1,9 @@
-﻿using CrewService.Domain.Repositories;
+﻿using CrewService.Domain.Interfaces;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Repositories;
+using CrewService.Persistance.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,8 +13,11 @@ namespace CrewService.Persistance;
 
 public static class DependencyInjection
 {
+
     public static IServiceCollection AddPersistance(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+
         string? connectionString = configuration.GetConnectionString("SQLiteConnection");
 
         //services.AddDbContext<UserAccessDbContext>(options => options

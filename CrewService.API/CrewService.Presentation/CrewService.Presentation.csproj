@@ -29,10 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="Protos\common.proto" GrpcServices="None" />
     <Protobuf Include="Protos\account.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\address_type.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\auth.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\common.proto" GrpcServices="None" />
     <Protobuf Include="Protos\craft.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\email_address_type.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\employee.proto" GrpcServices="Server" />
@@ -42,6 +42,7 @@
     <Protobuf Include="Protos\phone_number_type.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\prior_service_credit.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\railroad_employee.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad_pool.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad_pool_employee.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad_pool_payroll_tier.proto" GrpcServices="Server" />

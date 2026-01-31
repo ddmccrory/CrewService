@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CrewService.Persistance.Data.Migrations.Identity
 {
     /// <inheritdoc />
-    public partial class IdentityCreate : Migration
+    public partial class InitialMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -39,6 +39,11 @@ namespace CrewService.Persistance.Data.Migrations.Identity
                     ThemeMode = table.Column<string>(type: "TEXT", nullable: true),
                     RefreshToken = table.Column<string>(type: "TEXT", nullable: true),
                     RefreshTokenExpiration = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EmployeeNumber = table.Column<string>(type: "TEXT", nullable: true),
+                    LastLogin = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IPAddress = table.Column<string>(type: "TEXT", nullable: true),
+                    OnProperty = table.Column<bool>(type: "INTEGER", nullable: false),
+                    PrimaryRoleId = table.Column<string>(type: "TEXT", nullable: true),
                     UserName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),

@@ -1,0 +1,115 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+
+package railroademployee;
+
+service RailroadEmployeeSrvc {
+	rpc GetRailroadEmployeeAsync(GetRailroadEmployeeRequest) returns (GetRailroadEmployeeResponse) {
+		option (google.api.http) = {
+			get: "/railroademployee/{ctrlNbr}"
+		};
+	}
+
+	rpc GetAllRailroadEmployeesAsync(GetAllRailroadEmployeesRequest) returns (GetAllRailroadEmployeesResponse) {
+		option (google.api.http) = {
+			get: "/railroademployee"
+		};
+	}
+
+	rpc GetRailroadEmployeesByRailroadAsync(GetRailroadEmployeesByRailroadRequest) returns (GetAllRailroadEmployeesResponse) {
+		option (google.api.http) = {
+			get: "/railroademployee/railroad/{railroad_ctrlNbr}"
+		};
+	}
+
+	rpc GetRailroadEmployeeByEmployeeAsync(GetRailroadEmployeeByEmployeeRequest) returns (GetRailroadEmployeeResponse) {
+		option (google.api.http) = {
+			get: "/railroademployee/employee/{employee_ctrlNbr}/railroad/{railroad_ctrlNbr}"
+		};
+	}
+
+	rpc CreateRailroadEmployeeAsync(CreateRailroadEmployeeRequest) returns (CreateRailroadEmployeeResponse) {
+		option (google.api.http) = {
+			post: "/railroademployee",
+			body: "*"
+		};
+	}
+
+	rpc UpdateRailroadEmployeeAsync(UpdateRailroadEmployeeRequest) returns (UpdateRailroadEmployeeResponse) {
+		option (google.api.http) = {
+			put: "/railroademployee",
+			body: "*"
+		};
+	}
+
+	// Use shared common.DeleteResponse
+	rpc DeleteRailroadEmployeeAsync(DeleteRailroadEmployeeRequest) returns (common.DeleteResponse) {
+		option (google.api.http) = {
+			delete: "/railroademployee/{ctrlNbr}"
+		};
+	}
+}
+
+message GetRailroadEmployeeRequest {
+	int64 ctrlNbr = 1;
+}
+
+message GetRailroadEmployeeResponse {
+	int64 ctrlNbr = 1;
+	int64 employee_ctrlNbr = 2;
+	int64 railroad_ctrlNbr = 3;
+	bool assigned_pools_only = 4;
+}
+
+message GetAllRailroadEmployeesRequest {
+	int32 page_number = 1;
+	int32 page_size = 2;
+}
+
+message GetAllRailroadEmployeesResponse {
+	repeated GetRailroadEmployeeResponse railroad_employees = 1;
+}
+
+message GetRailroadEmployeesByRailroadRequest {
+	int64 railroad_ctrlNbr = 1;
+}
+
+message GetRailroadEmployeeByEmployeeRequest {
+	int64 employee_ctrlNbr = 1;
+	int64 railroad_ctrlNbr = 2;
+}
+
+message CreateRailroadEmployeeRequest {
+	int64 employee_ctrlNbr = 1;
+	int64 railroad_ctrlNbr = 2;
+	bool assigned_pools_only = 3;
+}
+
+message CreateRailroadEmployeeResponse {
+	int64 ctrlNbr = 1;
+	int64 employee_ctrlNbr = 2;
+	int64 railroad_ctrlNbr = 3;
+	bool assigned_pools_only = 4;
+}
+
+message UpdateRailroadEmployeeRequest {
+	int64 ctrlNbr = 1;
+	int64 employee_ctrlNbr = 2;
+	int64 railroad_ctrlNbr = 3;
+	bool assigned_pools_only = 4;
+}
+
+message UpdateRailroadEmployeeResponse {
+	int64 ctrlNbr = 1;
+	int64 employee_ctrlNbr = 2;
+	int64 railroad_ctrlNbr = 3;
+	bool assigned_pools_only = 4;
+}
+
+message DeleteRailroadEmployeeRequest {
+	int64 ctrlNbr = 1;
+}

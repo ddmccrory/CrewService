@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Models.ContactTypes;
+﻿using CrewService.Domain.Interfaces;
+using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
@@ -6,14 +7,21 @@ using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
-using CrewService.Persistance.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Data;
 
-internal sealed class CrewAssignmentDbContext(DbContextOptions<CrewAssignmentDbContext> options) : DbContext(options)
+internal sealed class CrewAssignmentDbContext : DbContext
 {
-    private readonly CurrentUserService _currentUserService = new();
+    private readonly ICurrentUserService _currentUserService;
+
+    public CrewAssignmentDbContext(
+        DbContextOptions<CrewAssignmentDbContext> options,
+        ICurrentUserService currentUserService)
+        : base(options)
+    {
+        _currentUserService = currentUserService;
+    }
 
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<AddressType> AddressTypes => Set<AddressType>();
@@ -28,6 +36,7 @@ internal sealed class CrewAssignmentDbContext(DbContextOptions<CrewAssignmentDbC
     public DbSet<PhoneNumber> PhoneNumbers => Set<PhoneNumber>();
     public DbSet<PhoneNumberType> PhoneNumberTypes => Set<PhoneNumberType>();
     public DbSet<Railroad> Railroads => Set<Railroad>();
+    public DbSet<RailroadEmployee> RailroadEmployees => Set<RailroadEmployee>();
     public DbSet<RailroadPool> RailroadPools => Set<RailroadPool>();
     public DbSet<RailroadPoolEmployee> RailroadPoolEmployees => Set<RailroadPoolEmployee>();
     public DbSet<RailroadPoolPayrollTier> RailroadPoolPayrollTiers => Set<RailroadPoolPayrollTier>();
@@ -51,16 +60,21 @@ internal sealed class CrewAssignmentDbContext(DbContextOptions<CrewAssignmentDbC
 
     private void UpdateAuditableEntities()
     {
+        string auditName = _currentUserService.GetUserName();
+
+        if (string.IsNullOrWhiteSpace(auditName))
+            throw new InvalidOperationException("Audit name cannot be null or empty. Ensure user context is available.");
+
         foreach (var entry in ChangeTracker.Entries<Entity>())
         {
             switch (entry.State)
             {
                 case EntityState.Added:
-                    entry.Entity.CreatedBy = AuditStamp.Create(_currentUserService.GetUserName());
-                    entry.Entity.ModifiedBy = AuditStamp.Create(_currentUserService.GetUserName());
+                    entry.Entity.CreatedBy = AuditStamp.Create(auditName);
+                    entry.Entity.ModifiedBy = AuditStamp.Create(auditName);
                     break;
                 case EntityState.Modified:
-                    entry.Entity.ModifiedBy = AuditStamp.Create(_currentUserService.GetUserName());
+                    entry.Entity.ModifiedBy = AuditStamp.Create(auditName);
                     break;
             }
         }

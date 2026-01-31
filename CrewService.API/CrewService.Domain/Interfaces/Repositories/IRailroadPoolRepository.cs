@@ -1,7 +1,7 @@
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.ValueObjects;
 
-namespace CrewService.Domain.Repositories;
+namespace CrewService.Domain.Interfaces.Repositories;
 
 public interface IRailroadPoolRepository
 {

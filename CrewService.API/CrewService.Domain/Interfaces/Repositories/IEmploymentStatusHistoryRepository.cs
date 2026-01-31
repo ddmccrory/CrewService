@@ -1,6 +1,6 @@
 using CrewService.Domain.Models.Employment;
 
-namespace CrewService.Domain.Repositories;
+namespace CrewService.Domain.Interfaces.Repositories;
 
 public interface IEmploymentStatusHistoryRepository
 {

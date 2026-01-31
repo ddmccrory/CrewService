@@ -11,14 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.Identity
 {
     [DbContext(typeof(UserAccessDbContext))]
-    [Migration("20241103164526_IdentityCreate")]
-    partial class IdentityCreate
+    [Migration("20260129221105_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
 
             modelBuilder.Entity("CrewService.Infrastructure.Models.UserAccount.User", b =>
                 {
@@ -39,6 +39,9 @@ namespace CrewService.Persistance.Data.Migrations.Identity
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("EmployeeNumber")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FirstName")
                         .HasColumnType("TEXT");
 
@@ -46,6 +49,12 @@ namespace CrewService.Persistance.Data.Migrations.Identity
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FullNameLNF")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IPAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastLogin")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("LastName")
@@ -68,6 +77,9 @@ namespace CrewService.Persistance.Data.Migrations.Identity
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("OnProperty")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("TEXT");
 
@@ -76,6 +88,9 @@ namespace CrewService.Persistance.Data.Migrations.Identity
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("PrimaryRoleId")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("RefreshToken")
                         .HasColumnType("TEXT");

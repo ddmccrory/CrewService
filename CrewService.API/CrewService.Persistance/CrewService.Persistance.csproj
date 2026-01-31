@@ -30,4 +30,9 @@
     <ProjectReference Include="..\CrewService.Infrastructure\CrewService.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Data\Migrations\CrewAssignment\" />
+    <Folder Include="Data\Migrations\Identity\" />
+  </ItemGroup>
+
 </Project>

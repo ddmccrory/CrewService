@@ -1,5 +1,5 @@
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Railroads;
-using CrewService.Domain.Repositories;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 

@@ -4,7 +4,6 @@ namespace CrewService.Infrastructure.Models.UserAccount;
 
 public sealed class User : IdentityUser
 {
-    // Existing
     public string? FirstName { get; set; }
     public string? MiddleName { get; set; }
     public string? LastName { get; set; }
@@ -14,8 +13,6 @@ public sealed class User : IdentityUser
     public string? ThemeMode { get; set; }
     public string? RefreshToken { get; set; }
     public DateTime RefreshTokenExpiration { get; set; }
-
-    // Add from ApplicationUser
     public string? EmployeeNumber { get; set; }
     public DateTime LastLogin { get; set; }
     public string? IPAddress { get; set; }
