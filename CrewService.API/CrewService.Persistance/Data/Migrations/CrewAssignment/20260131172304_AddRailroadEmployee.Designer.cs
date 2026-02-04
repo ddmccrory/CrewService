@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 {
-    [DbContext(typeof(CrewAssignmentDbContext))]
+    [DbContext(typeof(CrewServiceDbContext))]
     [Migration("20260131172304_AddRailroadEmployee")]
     partial class AddRailroadEmployee
     {

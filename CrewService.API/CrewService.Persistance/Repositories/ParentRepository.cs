@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal sealed class ParentRepository(CrewAssignmentDbContext dbContext)
+internal sealed class ParentRepository(CrewServiceDbContext dbContext)
     : Repository<Parent>(dbContext), IParentRepository
 {
 

@@ -11,12 +11,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Data;
 
-internal sealed class CrewAssignmentDbContext : DbContext
+internal sealed class CrewServiceDbContext : DbContext
 {
     private readonly ICurrentUserService _currentUserService;
 
-    public CrewAssignmentDbContext(
-        DbContextOptions<CrewAssignmentDbContext> options,
+    public CrewServiceDbContext(
+        DbContextOptions<CrewServiceDbContext> options,
         ICurrentUserService currentUserService)
         : base(options)
     {
@@ -46,7 +46,7 @@ internal sealed class CrewAssignmentDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewAssignmentDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
 
         //modelBuilder.HasDefaultSchema("crew_assignment");
     }

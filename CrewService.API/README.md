@@ -1,169 +1,184 @@
-# CrewService Solution
+﻿# CrewService Solution
 
-CrewService is a modular .NET 9 gRPC-based microservice designed for extensible crew and employee management. The solution is architected to support multiple business modules, with the **Employee Management** module as the initial implementation. Additional modules will be added in the future.
+CrewService is a modular .NET 10 gRPC-based microservice for crew and employee management. The host project groups logical layers and domain modules to simplify deployment, transactionality, and consistent bootstrapping.
 
 ## Table of Contents
 
+- [Summary](#summary)
+- [Quickstart](#quickstart)
 - [Overview](#overview)
-- [Modules](#modules)
-  - [Employee Management Module](#employee-management-module)
-- [Architecture](#architecture)
-- [Authentication & Security](#authentication--security)
-- [gRPC & Transcoding](#grpc--transcoding)
-- [Swagger & API Documentation](#swagger--api-documentation)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [Development](#development)
+- [Repository layout](#repository-layout)
+- [UI context — creation mapping](#ui-context---creation-mapping)
+- [Orchestration Unit of Work (UoW)](#orchestration-unit-of-work-uow)
+- [Sequence diagram](#sequence-diagram)
+- [Development notes](#development-notes)
 - [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
+## Summary
+
+- Targets: `.NET 10`, C# 14  
+- Purpose: Provide gRPC endpoints (with JSON transcoding), a clean layered structure for domain-driven design, and a short‑lived orchestration UoW for atomic multi-context flows.
+
+## Quickstart
+
+Prerequisites:
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)  
+- __Visual Studio__ 2026 (recommended)  
+- Database (SQL Server or configured EF provider)
+
+Steps:
+
+1. Clone:
+   - `git clone https://github.com/ddmccrory/CrewService.git`
+2. Restore packages:
+   - `dotnet restore`
+3. Configure secrets (JWT, connection strings).
+4. Run migrations and start:
+   - `dotnet run --project CrewService.API`
+
 ## Overview
 
-CrewService exposes a set of gRPC endpoints for managing crew, employee, and related domain entities. It leverages modern .NET features, including:
+Core goals:
 
-- .NET 9 and C# 13.0
-- gRPC with JSON transcoding for REST compatibility
-- JWT-based authentication
-- Modular, layered architecture
-- Swagger/OpenAPI documentation
+- Expose gRPC endpoints with JSON transcoding for REST compatibility.
+- Use a clean, layered organization for domain-driven development.
+- Support multiple creation scopes driven by UI context (Users, Employees, Railroad, Railroad Pool).
 
-## Modules
+## Repository layout
 
-### Employee Management Module
+Top-level API/host project groups the implementation layers and domain modules so the host can manage cross-cutting concerns consistently.
 
-The **Employee Management** module is the first module implemented in this solution. It provides core models, services, and endpoints for managing employee-related data and operations. This includes:
+- `CrewService.API` (host)
+  - Application layers / entry points
+  - Persistence (EF Core DbContext, migrations)
+  - Presentation (gRPC services, JSON transcoding, swagger)
+  - Infrastructure (adapters, Identity concrete `User` at `CrewService.Infrastructure\Models\UserAccount\User.cs`)
+  - Domain (aggregates, value objects, domain events: `Employee`, `RailroadEmployee`, `RailroadPoolEmployee`, etc.)
+  - GrpcService (service registrations and gRPC-Web / transcoding wiring)
+- `CrewService.FrontEnd` — Blazor UI and pages
+- `docs/` — diagrams and supporting docs
+- `tests/` — unit and integration tests
 
-- **Employee records**: CRUD operations for employee entities
-- **Employment status and history**: Track and manage employment status changes
-- **Seniority and roster management**: Manage employee seniority, rosters, and related assignments
-- **Contact information**: Manage employee addresses, phone numbers, and email addresses
+Rationale: grouping Domain, Infrastructure, Persistence, Presentation, and GrpcService under the host simplifies achieving a single transactional boundary and consistent bootstrapping.
 
-#### Example: Roster Management
+## UI context — creation mapping
 
-The `RosterService` provides gRPC endpoints for managing rosters, including:
+The active UI determines which entities to create:
 
-- Retrieving all rosters
-- Retrieving a specific roster by control number
-- Creating, updating, and deleting rosters
+- Users UI → create `User` only.  
+- Employees UI → create `User` + `Employee`.  
+- Railroad UI → create `User` + `Employee` + `RailroadEmployee`.  
+- Railroad Pool UI → create `User` + `Employee` + `RailroadEmployee` + `RailroadPoolEmployee`.
 
-The `Roster` model includes properties such as:
-- `CraftCtrlNbr`, `RailroadPayrollDepartmentCtrlNbr`
-- `RosterName`, `RosterPluralName`
-- `RosterNumber`, `Training`, `ExtraBoard`, `OvertimeBoard`
+The orchestrator should accept a composite payload or an explicit scope flag and create only the required entities.
 
-> **Note:** All current models pertain to employee management. The solution is designed to support additional modules (such as Payroll, Scheduling, etc.) in the future.
+## Orchestration Unit of Work (UoW)
 
-## Architecture
+Purpose:
+- Provide a short‑lived orchestration UoW that creates a single shared `DbConnection` + `DbTransaction` and instantiates one or both DbContexts:
+  - `UserAccessDbContext` (identity / `User`)
+  - `CrewServiceDbContext` (domain entities)
 
-The solution follows a clean, layered architecture:
+High-level behavior:
+- Factory creates and opens a `DbConnection`, begins a `DbTransaction`.
+- Builds `DbContextOptions` for requested contexts using the same connection.
+- Instantiates contexts and calls `Database.UseTransaction(transaction)` on each enlisted context.
+- Provides repository instances bound to those contexts.
+- Caller performs operations, then calls `CommitAsync()`; on error, call `RollbackAsync()` then dispose.
 
-- **Presentation**: gRPC service classes, API endpoints, and service registration.
-- **Application**: Core business logic, service contracts, and use cases.
-- **Infrastructure**: External system integrations (e.g., email, logging).
-- **Persistence**: Database context, repositories, and migrations.
+DI / Registration:
+- Add an `IOrchestrationUnitOfWorkFactory` registered in DI (transient) returning `IOrchestrationUnitOfWork`.
+- Keep existing scoped DbContext registrations for non-orchestration flows unchanged.
+- Repositories remain one-per-entity under `CrewService.Persistance.Repositories` and accept a context instance via constructor.
 
-## Authentication & Security
+Safety rules:
+- Use single explicit `DbTransaction` on one opened connection to avoid MSDTC promotions.
+- Call `SaveChanges()` on the context that creates the `User` to obtain `User.Id` before creating dependent entities (still inside the same transaction).
+- Never pass EF entity instances across DbContexts; pass IDs only.
+- Keep transaction lifetime minimal and avoid long-running I/O inside transaction boundaries.
 
-- **JWT Bearer Authentication** is enforced for all endpoints (except those explicitly excluded).
-- The JWT key, issuer, and audience are configured via user secrets or environment variables.
-- Token validation includes signature, lifetime, and (optionally) issuer/audience.
+Migrations & schema:
+- Ensure `Employee.UserId -> User.Id` FK exists and migrations are coordinated.
+- Prefer explicit cascade behavior (recommend `Restrict` for explicit deletes).
 
-## gRPC & Transcoding
+Observability & safety:
+- Make orchestration idempotent (idempotency key or unique constraints).
+- Add correlation IDs to logs for each orchestration.
+- Provide integration tests for success and failure paths.
 
-- All services are exposed via gRPC.
-- JSON transcoding is enabled, allowing RESTful HTTP/JSON clients to interact with gRPC endpoints.
-- gRPC-Web is enabled for browser compatibility.
+## Sequence diagram
 
-## Swagger & API Documentation
+The following mermaid sequence diagram shows the orchestrator flow for the four employee UI contexts:
 
-- Swagger/OpenAPI documentation is available in development mode.
-- Security definitions are included for JWT authentication.
-- The Swagger UI is accessible at `/swagger` when running locally.
+Users_UI->>Orchestrator: CreateUser(payload: user-only)  
+Employees_UI->>Orchestrator: CreateUser(payload: user + employee)  
+Railroad_UI->>Orchestrator: CreateUser(payload: user + employee + railroadEmployee)  
+RailroadPool_UI->>Orchestrator: CreateUser(payload: user + employee + railroadEmployee + pool)
 
-## Getting Started
+Orchestrator->>Orchestrator: Validate payload & determine creation scope  
+Orchestrator->>DbContext: Begin transaction / UnitOfWork
 
-### Prerequisites
+Orchestrator->>UserManager: Create User (email, password, profile)  
+UserManager-->>Orchestrator: Created User.Id
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [Visual Studio 2026](https://visualstudio.microsoft.com/)
-- (Optional) [Docker](https://www.docker.com/) for containerized deployment
+alt Employee requested  
+    Orchestrator->>EmployeeRepo: Create Employee (User.Id, employee data)  
+    EmployeeRepo-->>Orchestrator: Employee.Id, EmployeeNumber  
+    Orchestrator->>UserManager: Update User (mirror EmployeeNumber / PrimaryRole) [optional]  
+end
 
-### Setup
+alt RailroadEmployee requested  
+    Orchestrator->>RailroadEmployeeRepo: Create RailroadEmployee (Employee.Id, railroad data)  
+    RailroadEmployeeRepo-->>Orchestrator: RailroadEmployee.Id  
+end
 
-1. **Clone the repository:**
+alt RailroadPoolEmployee requested  
+    Orchestrator->>RailroadPoolRepo: Create RailroadPoolEmployee (RailroadEmployee.Id, pool data)  
+    RailroadPoolRepo-->>Orchestrator: PoolEmployee.Id  
+end
 
-   ```bash
-   git clone https://github.com/yourusername/crewservice.git
-   cd crewservice
-   ```
+Orchestrator->>DbContext: Commit transaction  
+DbContext-->>Orchestrator: Commit OK
 
-2. **Configure User Secrets (for development):**
+Orchestrator->>Outbox: Store domain events / integration messages  
+Outbox-->>EventBus: Publish events asynchronously  
+EventBus-->>Orchestrator: Publish ACK
 
-   ```bash
-   dotnet user-secrets init
-   dotnet user-secrets set "Jwt:Key" "your_secret_key"
-   dotnet user-secrets set "Jwt:Issuer" "your_issuer"
-   dotnet user-secrets set "Jwt:Audience" "your_audience"
-   ```
+## Development notes
 
-3. **Restore dependencies:**
-
-   ```bash
-   dotnet restore
-   ```
-
-4. **Run the service:**
-
-   ```bash
-   dotnet run
-   ```
-
-   The service should now be running on `https://localhost:5001` (or the configured URL).
-
-5. **Access Swagger UI (Development only):**
-- Navigate to [https://localhost:5001/swagger](https://localhost:5001/swagger)
-
-## Configuration
-
-Configuration is managed via `appsettings.json`, environment variables, and user secrets. Key settings include:
-
-- `Jwt:Key` (required): Secret key for JWT signing.
-- `Jwt:Issuer` (optional): JWT token issuer.
-- `Jwt:Audience` (optional): JWT token audience.
-
-## Development
-
-- The solution targets **.NET 9** and **C# 13.0**.
-- All gRPC services are registered in `Program.cs` and support gRPC-Web and JSON transcoding.
-- Use Visual Studio 2026 for best experience.
-
-### Adding a New gRPC Service
-
-1. Define your service contract in a `.proto` file.
-2. Implement the service in the `CrewService.Presentation` project.
-3. Register the service in `CrewService.GrpcService/Program.cs` using `app.MapGrpcService<YourService>().EnableGrpcWeb();`
-
-### Adding a New Module
-
-- Create new domain models, services, and endpoints following the existing structure.
-- Register new services and update documentation as needed.
+- Separate `DbContext` classes are used: one for Identity persistence and another for domain persistence.
+- Cross-context transaction strategies:
+  - Same DB/connection: consolidate contexts or share `DbConnection`/`DbTransaction`.
+  - Different DBs: prefer outbox + message broker or a saga for eventual consistency.
+- Enforce DB uniqueness (email, employee number) and make create operations idempotent.
+- Treat PII as sensitive: encrypt at rest and avoid returning PII in responses.
+- Assign roles/claims within the same transactional boundary if they depend on created domain entities; otherwise, perform role assignment as a subsequent idempotent operation.
 
 ## Testing
 
-- Unit and integration tests should be added to a dedicated test project (not included in this repository).
-- Use the Swagger UI or gRPC clients (e.g., [grpcurl](https://github.com/fullstorydev/grpcurl)) for manual endpoint testing.
+Recommended integration tests:
+- user-only
+- user → employee
+- user → employee → railroad employee
+- full path (user → employee → railroad employee → railroad pool)
+- simulated failures at each step to verify rollback and idempotency/retry behavior
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request.
+Fork, create a feature branch, add tests for behavior changes, and open a pull request.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT — see `LICENSE` in repository root.
 
----
+## Notes
 
-*This README describes the Employee Management module as the initial focus. Future modules will be documented as they are added.*
+- Projects target: `.NET 10`
+- Repositories are located under `CrewService.Persistance.Repositories`.
+- UoW must support both single‑context and dual‑context flows; factory should accept options (e.g., `needUserContext`, `needCrewContext`).
+

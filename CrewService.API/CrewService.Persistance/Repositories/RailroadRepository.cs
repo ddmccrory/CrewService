@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal sealed class RailroadRepository(CrewAssignmentDbContext dbContext)
+internal sealed class RailroadRepository(CrewServiceDbContext dbContext)
     : Repository<Railroad>(dbContext), IRailroadRepository
 {
     public async Task<List<Railroad>> GetAllRailroadsByParentCtrlNbrAsync(long parentCtrlNbr)

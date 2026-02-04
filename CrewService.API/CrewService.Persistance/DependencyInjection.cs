@@ -28,7 +28,7 @@ public static class DependencyInjection
 
         services.AddDbContext<UserAccessDbContext>(options => options.UseSqlite(connectionString));
 
-        services.AddDbContext<CrewAssignmentDbContext>(options => options.UseSqlite(connectionString));
+        services.AddDbContext<CrewServiceDbContext>(options => options.UseSqlite(connectionString));
 
         services.AddIdentityCore<User>(options =>
         {

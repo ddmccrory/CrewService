@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal abstract class Repository<TEntity>(CrewAssignmentDbContext dbContext)
+internal abstract class Repository<TEntity>(CrewServiceDbContext dbContext)
     where TEntity : Entity
 {
-    protected readonly CrewAssignmentDbContext DbContext = dbContext;
+    protected readonly CrewServiceDbContext DbContext = dbContext;
 
     public virtual async Task<List<TEntity>> GetAllAsync()
     {

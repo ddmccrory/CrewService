@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal sealed class EmployeeRepository(CrewAssignmentDbContext dbContext)
+internal sealed class EmployeeRepository(CrewServiceDbContext dbContext)
     : Repository<Employee>(dbContext), IEmployeeRepository
 {
     public override async Task<List<Employee>> GetAllAsync()

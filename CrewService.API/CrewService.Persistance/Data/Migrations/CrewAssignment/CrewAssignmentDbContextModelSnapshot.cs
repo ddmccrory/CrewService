@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 {
-    [DbContext(typeof(CrewAssignmentDbContext))]
+    [DbContext(typeof(CrewServiceDbContext))]
     partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
