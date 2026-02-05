@@ -21,6 +21,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CrewService.Application", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CrewService.GrpcService", "CrewService.GrpcService\CrewService.GrpcService.csproj", "{72302D42-DD5B-4AAE-9137-F54D11B1037E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{DA87D051-E15F-45E6-8FBA-5845A8B13D76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrewService.UnitTests", "CrewService.UnitTests\CrewService.UnitTests.csproj", "{0DA346C4-C9AB-4BB4-9131-DE1781614087}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +55,10 @@ Global
 		{72302D42-DD5B-4AAE-9137-F54D11B1037E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{72302D42-DD5B-4AAE-9137-F54D11B1037E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{72302D42-DD5B-4AAE-9137-F54D11B1037E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0DA346C4-C9AB-4BB4-9131-DE1781614087}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DA346C4-C9AB-4BB4-9131-DE1781614087}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0DA346C4-C9AB-4BB4-9131-DE1781614087}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DA346C4-C9AB-4BB4-9131-DE1781614087}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -64,6 +72,7 @@ Global
 		{447BBFA1-C591-45D2-A469-E961A83B2719} = {9361E284-7135-44C6-B965-099AEA237936}
 		{53884E6D-B006-4899-AC34-4AB82CCFEE83} = {DD104FBE-908F-4B00-995E-315E3BE00F2E}
 		{72302D42-DD5B-4AAE-9137-F54D11B1037E} = {9361E284-7135-44C6-B965-099AEA237936}
+		{0DA346C4-C9AB-4BB4-9131-DE1781614087} = {DA87D051-E15F-45E6-8FBA-5845A8B13D76}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {30D2907F-9B9C-4CFA-B293-0D63F54A7DC6}
