@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Employment;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -37,19 +38,33 @@ public sealed class EmploymentStatus : Entity
         int statusNumber,
         string employmentCode)
     {
-        return new EmploymentStatus(
+        var entity = new EmploymentStatus(
             ControlNumber.Create(clientCtrlNbr),
             statusCode,
             statusName,
             statusNumber,
             employmentCode);
+        entity.Raise(new EmploymentStatusCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public void Update(string statusCode, string statusName, int statusNumber, string employmentCode)
     {
-        StatusCode = statusCode;
-        StatusName = statusName;
-        StatusNumber = statusNumber;
-        EmploymentCode = employmentCode;
+        var changes = new Dictionary<string, object?>();
+
+        if (StatusCode != statusCode) { StatusCode = statusCode; changes["statusCode"] = statusCode; }
+        if (StatusName != statusName) { StatusName = statusName; changes["statusName"] = statusName; }
+        if (StatusNumber != statusNumber) { StatusNumber = statusNumber; changes["statusNumber"] = statusNumber; }
+        if (EmploymentCode != employmentCode) { EmploymentCode = employmentCode; changes["employmentCode"] = employmentCode; }
+
+        if (changes.Count > 0)
+        {
+            Raise(new EmploymentStatusUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
+    }
+
+    public void Delete()
+    {
+        Raise(new EmploymentStatusDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

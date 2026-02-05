@@ -149,6 +149,24 @@ Orchestrator->>Outbox: Store domain events / integration messages
 Outbox-->>EventBus: Publish events asynchronously  
 EventBus-->>Orchestrator: Publish ACK
 
+## Domain events envelope & guidance
+
+Envelope (fields added to the base `DomainEvent`):
+- `EventId` (GUID)
+- `EventType` (string) — concrete event type name
+- `AggregateType` (string)
+- `AggregateId` (long)
+- `OccurredAt` (UTC timestamp)
+- `CorrelationId`, `OrchestrationId`, `IdempotencyKey` (optional)
+- `EventVersion` (int)
+- `PayloadJson` (JSON string) — minimal canonical payload
+
+Guidance:
+- Keep payloads minimal: IDs, non-PII keys, changed-fields map, or a snapshot reference ID.
+- Do not publish inside aggregates or repositories. The orchestration UoW will persist events to the outbox inside the same DB transaction.
+- Use `CorrelationId`/`OrchestrationId` in orchestration flows so consumers can reconstruct composite operations.
+- Avoid embedding PII in the payload; include references and allow authorized consumers to fetch details.
+
 ## Development notes
 
 - Separate `DbContext` classes are used: one for Identity persistence and another for domain persistence.

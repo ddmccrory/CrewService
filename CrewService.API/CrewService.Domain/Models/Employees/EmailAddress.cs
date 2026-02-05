@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Employees;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -30,15 +31,34 @@ public sealed class EmailAddress : Entity
         long emailTypeCtrlNbr,
         string email)
     {
-        return new EmailAddress(
+        var entity = new EmailAddress(
             employeeCtrlNbr,
             ControlNumber.Create(emailTypeCtrlNbr),
             email);
+        entity.Raise(new EmailAddressCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public EmailAddress Update(string? email = null)
     {
-        if (email is not null) Email = email;
+        var changes = new Dictionary<string, object?>();
+
+        if (email is not null)
+        {
+            Email = email;
+            changes["email"] = email;
+        }
+
+        if (changes.Count > 0)
+        {
+            Raise(new EmailAddressUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
+
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new EmailAddressDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Seniority;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -77,7 +78,7 @@ public sealed class Craft : Entity
         bool showNotifications,
         int vacationAssignmentType)
     {
-        return new Craft(
+        var entity = new Craft(
             ControlNumber.Create(railroadPoolCtrlNbr),
             craftName,
             craftPluralName,
@@ -93,6 +94,8 @@ public sealed class Craft : Entity
             processPayroll,
             showNotifications,
             vacationAssignmentType);
+        entity.Raise(new CraftCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public Craft Update(
@@ -111,21 +114,33 @@ public sealed class Craft : Entity
         bool? showNotifications = null,
         int? vacationAssignmentType = null)
     {
-        if (craftName is not null) CraftName = craftName;
-        if (craftPluralName is not null) CraftPluralName = craftPluralName;
-        if (craftNumber is not null) CraftNumber = craftNumber.Value;
-        if (autoMarkUp is not null) AutoMarkUp = autoMarkUp.Value;
-        if (approveAllMarkOffs is not null) ApproveAllMarkOffs = approveAllMarkOffs.Value;
-        if (markOffHours is not null) MarkOffHours = markOffHours.Value;
-        if (markUpHours is not null) MarkUpHours = markUpHours.Value;
-        if (requiredRestHours is not null) RequiredRestHours = requiredRestHours.Value;
-        if (maximumVacationDayTime is not null) MaximumVacationDayTime = maximumVacationDayTime.Value;
-        if (unpaidMealPeriodMinutes is not null) UnpaidMealPeriodMinutes = unpaidMealPeriodMinutes.Value;
-        if (hoursofService is not null) HoursofService = hoursofService.Value;
-        if (processPayroll is not null) ProcessPayroll = processPayroll.Value;
-        if (showNotifications is not null) ShowNotifications = showNotifications.Value;
-        if (vacationAssignmentType is not null) VacationAssignmentType = vacationAssignmentType.Value;
+        var changes = new Dictionary<string, object?>();
+
+        if (craftName is not null) { CraftName = craftName; changes["craftName"] = craftName; }
+        if (craftPluralName is not null) { CraftPluralName = craftPluralName; changes["craftPluralName"] = craftPluralName; }
+        if (craftNumber is not null) { CraftNumber = craftNumber.Value; changes["craftNumber"] = craftNumber.Value; }
+        if (autoMarkUp is not null) { AutoMarkUp = autoMarkUp.Value; changes["autoMarkUp"] = autoMarkUp.Value; }
+        if (approveAllMarkOffs is not null) { ApproveAllMarkOffs = approveAllMarkOffs.Value; changes["approveAllMarkOffs"] = approveAllMarkOffs.Value; }
+        if (markOffHours is not null) { MarkOffHours = markOffHours.Value; changes["markOffHours"] = markOffHours.Value; }
+        if (markUpHours is not null) { MarkUpHours = markUpHours.Value; changes["markUpHours"] = markUpHours.Value; }
+        if (requiredRestHours is not null) { RequiredRestHours = requiredRestHours.Value; changes["requiredRestHours"] = requiredRestHours.Value; }
+        if (maximumVacationDayTime is not null) { MaximumVacationDayTime = maximumVacationDayTime.Value; changes["maximumVacationDayTime"] = maximumVacationDayTime.Value; }
+        if (unpaidMealPeriodMinutes is not null) { UnpaidMealPeriodMinutes = unpaidMealPeriodMinutes.Value; changes["unpaidMealPeriodMinutes"] = unpaidMealPeriodMinutes.Value; }
+        if (hoursofService is not null) { HoursofService = hoursofService.Value; changes["hoursofService"] = hoursofService.Value; }
+        if (processPayroll is not null) { ProcessPayroll = processPayroll.Value; changes["processPayroll"] = processPayroll.Value; }
+        if (showNotifications is not null) { ShowNotifications = showNotifications.Value; changes["showNotifications"] = showNotifications.Value; }
+        if (vacationAssignmentType is not null) { VacationAssignmentType = vacationAssignmentType.Value; changes["vacationAssignmentType"] = vacationAssignmentType.Value; }
+
+        if (changes.Count > 0)
+        {
+            Raise(new CraftUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
 
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new CraftDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

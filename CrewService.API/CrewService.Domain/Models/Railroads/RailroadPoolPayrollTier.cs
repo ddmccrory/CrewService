@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Railroads;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -28,18 +29,47 @@ public sealed class RailroadPoolPayrollTier : Entity
 
     public static RailroadPoolPayrollTier Create(long railroadPoolCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
     {
-        return new RailroadPoolPayrollTier(
+        var entity = new RailroadPoolPayrollTier(
             ControlNumber.Create(railroadPoolCtrlNbr),
             numberOfDays,
             typeOfDay,
             ratePercentage);
+        entity.Raise(new RailroadPoolPayrollTierCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public RailroadPoolPayrollTier Update(int? numberOfDays = null, int? typeOfDay = null, int? ratePercentage = null)
     {
-        if (numberOfDays.HasValue) NumberOfDays = numberOfDays.Value;
-        if (typeOfDay.HasValue) TypeOfDay = typeOfDay.Value;
-        if (ratePercentage.HasValue) RatePercentage = ratePercentage.Value;
+        var changes = new Dictionary<string, object?>();
+
+        if (numberOfDays.HasValue)
+        {
+            NumberOfDays = numberOfDays.Value;
+            changes["numberOfDays"] = numberOfDays.Value;
+        }
+
+        if (typeOfDay.HasValue)
+        {
+            TypeOfDay = typeOfDay.Value;
+            changes["typeOfDay"] = typeOfDay.Value;
+        }
+
+        if (ratePercentage.HasValue)
+        {
+            RatePercentage = ratePercentage.Value;
+            changes["ratePercentage"] = ratePercentage.Value;
+        }
+
+        if (changes.Count > 0)
+        {
+            Raise(new RailroadPoolPayrollTierUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
+
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new RailroadPoolPayrollTierDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }
