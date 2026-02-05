@@ -5,24 +5,17 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Data;
 
-internal sealed class CrewServiceDbContext : DbContext
+internal sealed class CrewServiceDbContext(
+    DbContextOptions<CrewServiceDbContext> options,
+    ICurrentUserService currentUserService) : DbContext(options)
 {
-    private readonly ICurrentUserService _currentUserService;
-
-    public CrewServiceDbContext(
-        DbContextOptions<CrewServiceDbContext> options,
-        ICurrentUserService currentUserService)
-        : base(options)
-    {
-        _currentUserService = currentUserService;
-    }
-
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<AddressType> AddressTypes => Set<AddressType>();
     public DbSet<Craft> Crafts => Set<Craft>();
@@ -43,6 +36,7 @@ internal sealed class CrewServiceDbContext : DbContext
     public DbSet<Roster> Rosters => Set<Roster>();
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,7 +54,7 @@ internal sealed class CrewServiceDbContext : DbContext
 
     private void UpdateAuditableEntities()
     {
-        string auditName = _currentUserService.GetUserName();
+        string auditName = currentUserService.GetUserName();
 
         if (string.IsNullOrWhiteSpace(auditName))
             throw new InvalidOperationException("Audit name cannot be null or empty. Ensure user context is available.");
