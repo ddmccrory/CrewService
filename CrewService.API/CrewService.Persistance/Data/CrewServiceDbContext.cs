@@ -14,7 +14,7 @@ namespace CrewService.Persistance.Data;
 
 internal sealed class CrewServiceDbContext(
     DbContextOptions<CrewServiceDbContext> options,
-    ICurrentUserService currentUserService) : DbContext(options)
+    ICurrentUserService currentUserService) : DbContext(options), IOutboxDbContext
 {
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<AddressType> AddressTypes => Set<AddressType>();

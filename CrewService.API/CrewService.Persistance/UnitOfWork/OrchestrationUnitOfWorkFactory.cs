@@ -15,11 +15,13 @@ namespace CrewService.Persistance.UnitOfWork;
 internal sealed class OrchestrationUnitOfWorkFactory(
     IConfiguration configuration,
     ICurrentUserService currentUserService,
-    ILoggerFactory loggerFactory) : IOrchestrationUnitOfWorkFactory
+    ILoggerFactory loggerFactory,
+    IOutboxDispatcher? dispatcher = null) : IOrchestrationUnitOfWorkFactory
 {
     private readonly IConfiguration _configuration = configuration;
     private readonly ICurrentUserService _currentUserService = currentUserService;
     private readonly ILoggerFactory _loggerFactory = loggerFactory;
+    private readonly IOutboxDispatcher? _dispatcher = dispatcher;
 
     public async Task<IOrchestrationUnitOfWork> CreateAsync(
         OrchestrationUnitOfWorkOptions? options = null,
@@ -68,6 +70,7 @@ internal sealed class OrchestrationUnitOfWorkFactory(
             correlationId,
             orchestrationId,
             options.IdempotencyKey,
-            logger);
+            logger,
+            _dispatcher);
     }
 }

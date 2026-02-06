@@ -23,6 +23,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private readonly CrewServiceDbContext _crewContext;
     private readonly ILogger<OrchestrationUnitOfWork> _logger;
     private readonly string _idempotencyKey;
+    private readonly IOutboxDispatcher? _dispatcher;
 
     private bool _committed;
     private bool _disposed;
@@ -101,7 +102,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
         string correlationId,
         string orchestrationId,
         string? idempotencyKey,
-        ILogger<OrchestrationUnitOfWork> logger)
+        ILogger<OrchestrationUnitOfWork> logger,
+        IOutboxDispatcher? dispatcher = null)  // Add this parameter
     {
         _connection = connection;
         _transaction = transaction;
@@ -110,6 +112,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
         OrchestrationId = orchestrationId;
         _idempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();
         _logger = logger;
+        _dispatcher = dispatcher;
     }
 
     public async Task CommitAsync(CancellationToken cancellationToken = default)
@@ -132,17 +135,20 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             var domainEvents = CollectDomainEvents();
 
             // Convert domain events to OutboxMessage rows
+            var outboxMessages = new List<OutboxMessage>();
             foreach (var domainEvent in domainEvents)
             {
                 var outboxMessage = CreateOutboxMessage(domainEvent);
+                outboxMessages.Add(outboxMessage);
                 _crewContext.OutboxMessages.Add(outboxMessage);
             }
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {
+                var eventCount = domainEvents.Count;
                 _logger.LogDebug(
                     "Persisting {EventCount} domain events to outbox. OrchestrationId: {OrchestrationId}",
-                    domainEvents.Count, OrchestrationId);
+                    eventCount, OrchestrationId);
             }
 
             // Save all entity changes + outbox rows in single SaveChanges
@@ -153,11 +159,22 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
 
             _committed = true;
 
+            // Dispatch messages for immediate publishing (if dispatcher available)
+            if (_dispatcher is not null && outboxMessages.Count > 0)
+            {
+                _dispatcher.EnqueueForDispatch(outboxMessages);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("Dispatched {Count} messages for immediate publishing.", outboxMessages.Count);
+                }
+            }
+
             if (_logger.IsEnabled(LogLevel.Information))
             {
+                var outboxCount = outboxMessages.Count;
                 _logger.LogInformation(
                     "Orchestration UoW committed successfully. CorrelationId: {CorrelationId}, OrchestrationId: {OrchestrationId}, EventsWritten: {EventCount}",
-                    CorrelationId, OrchestrationId, domainEvents.Count);
+                    CorrelationId, OrchestrationId, outboxCount);
             }
         }
         catch (Exception ex)

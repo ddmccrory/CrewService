@@ -38,6 +38,8 @@ public static class DependencyInjection
         }).AddRoles<IdentityRole>()
           .AddEntityFrameworkStores<UserAccessDbContext>();
 
+        services.AddScoped<IOutboxDbContext>(sp => sp.GetRequiredService<CrewServiceDbContext>());
+
         // Orchestration UoW Factory (transient - creates new UoW per request)
         services.AddTransient<IOrchestrationUnitOfWorkFactory, OrchestrationUnitOfWorkFactory>();
 
