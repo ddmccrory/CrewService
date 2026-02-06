@@ -4,6 +4,7 @@ using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
+using CrewService.Persistance.UnitOfWork;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -36,6 +37,9 @@ public static class DependencyInjection
             options.SignIn.RequireConfirmedEmail = true;
         }).AddRoles<IdentityRole>()
           .AddEntityFrameworkStores<UserAccessDbContext>();
+
+        // Orchestration UoW Factory (transient - creates new UoW per request)
+        services.AddTransient<IOrchestrationUnitOfWorkFactory, OrchestrationUnitOfWorkFactory>();
 
         // Core Repositories
         services.AddScoped<IParentRepository, ParentRepository>();
