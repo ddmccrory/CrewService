@@ -5,9 +5,18 @@ namespace CrewService.Domain.Interfaces.Repositories;
 
 public interface IRailroadPoolRepository
 {
-    Task<RailroadPool?> GetByIdAsync(ControlNumber ctrlNbr, CancellationToken cancellationToken = default);
-    Task AddAsync(RailroadPool railroadPool, CancellationToken cancellationToken = default);
-    Task UpdateAsync(RailroadPool railroadPool, CancellationToken cancellationToken = default);
-    Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<RailroadPool>> GetAllByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken cancellationToken = default);
+    Task<List<RailroadPool>> GetAllAsync();
+    Task<RailroadPool?> GetByIdAsync(ControlNumber ctrlNbr);
+    Task<RailroadPool?> GetByCtrlNbrAsync(long ctrlNbr);
+    Task<List<RailroadPool>> GetByRailroadCtrlNbrAsync(long railroadCtrlNbr);
+    Task<List<RailroadPool>> GetAllByRailroadAsync(long railroadCtrlNbr);
+    Task<List<RailroadPool>> GetAllByRailroadAsync(ControlNumber railroadCtrlNbr);
+
+    Task AddAsync(RailroadPool railroadPool);
+    Task UpdateAsync(RailroadPool railroadPool);
+    Task DeleteAsync(ControlNumber ctrlNbr);
+
+    void Add(RailroadPool railroadPool);
+    void Update(RailroadPool railroadPool);
+    void Remove(RailroadPool railroadPool);
 }

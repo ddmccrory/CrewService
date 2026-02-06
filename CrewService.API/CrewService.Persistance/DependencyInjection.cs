@@ -37,11 +37,29 @@ public static class DependencyInjection
         }).AddRoles<IdentityRole>()
           .AddEntityFrameworkStores<UserAccessDbContext>();
 
+        // Core Repositories
         services.AddScoped<IParentRepository, ParentRepository>();
-
         services.AddScoped<IRailroadRepository, RailroadRepository>();
-
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IRailroadEmployeeRepository, RailroadEmployeeRepository>();
+        services.AddScoped<IRailroadPoolRepository, RailroadPoolRepository>();
+        services.AddScoped<IRailroadPoolEmployeeRepository, RailroadPoolEmployeeRepository>();
+
+        // ContactType Repositories
+        services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();
+        services.AddScoped<IPhoneNumberTypeRepository, PhoneNumberTypeRepository>();
+        services.AddScoped<IEmailAddressTypeRepository, EmailAddressTypeRepository>();
+
+        // Employment Repositories
+        services.AddScoped<IEmploymentStatusRepository, EmploymentStatusRepository>();
+        services.AddScoped<IEmploymentStatusHistoryRepository, EmploymentStatusHistoryRepository>();
+        services.AddScoped<IEmployeePriorServiceCreditRepository, EmployeePriorServiceCreditRepository>();
+
+        // Seniority Repositories
+        services.AddScoped<ICraftRepository, CraftRepository>();
+        services.AddScoped<IRosterRepository, RosterRepository>();
+        services.AddScoped<ISeniorityRepository, SeniorityRepository>();
+        services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
 
         return services;
     }

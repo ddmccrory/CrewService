@@ -26,18 +26,15 @@ internal abstract class Repository<TEntity>(CrewServiceDbContext dbContext)
     public void Add(TEntity entity)
     {
         DbContext.Set<TEntity>().Add(entity);
-        DbContext.SaveChangesAsync();
     }
 
     public void Update(TEntity entity)
     {
         DbContext.Set<TEntity>().Update(entity);
-        DbContext.SaveChangesAsync();
     }
 
     public void Remove(TEntity entity)
     {
         DbContext.Set<TEntity>().Remove(entity);
-        DbContext.SaveChangesAsync();
     }
 }
