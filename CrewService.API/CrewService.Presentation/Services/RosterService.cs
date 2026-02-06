@@ -1,3 +1,4 @@
+using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
@@ -18,9 +19,9 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
         {
             response.Rosters.Add(new RosterResponse
             {
-                CtrlNbr = roster.CtrlNbr.Value,
-                CraftCtrlNbr = roster.CraftCtrlNbr.Value,
-                RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr.Value,
+                CtrlNbr = roster.CtrlNbr?.Value ?? 0,
+                CraftCtrlNbr = roster.CraftCtrlNbr?.Value ?? 0,
+                RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
                 RosterName = roster.RosterName,
                 RosterPluralName = roster.RosterPluralName,
                 RosterNumber = roster.RosterNumber,
@@ -37,20 +38,18 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
     {
         var roster = await _rosterRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
 
-        return roster is null
-            ? throw new RpcException(new Status(StatusCode.NotFound, $"Roster, with control number {request.CtrlNbr}, was not found."))
-            : await Task.FromResult(new RosterResponse
-            {
-                CtrlNbr = roster.CtrlNbr.Value,
-                CraftCtrlNbr = roster.CraftCtrlNbr.Value,
-                RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr.Value,
-                RosterName = roster.RosterName,
-                RosterPluralName = roster.RosterPluralName,
-                RosterNumber = roster.RosterNumber,
-                Training = roster.Training,
-                ExtraBoard = roster.ExtraBoard,
-                OvertimeBoard = roster.OvertimeBoard
-            });
+        return await Task.FromResult(new RosterResponse
+        {
+            CtrlNbr = roster?.CtrlNbr?.Value ?? 0,
+            CraftCtrlNbr = roster?.CraftCtrlNbr?.Value ?? 0,
+            RailroadPayrollDepartmentCtrlNbr = roster?.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
+            RosterName = roster?.RosterName ?? string.Empty,
+            RosterPluralName = roster?.RosterPluralName ?? string.Empty,
+            RosterNumber = roster?.RosterNumber ?? 0,
+            Training = roster?.Training ?? false,
+            ExtraBoard = roster?.ExtraBoard ?? false,
+            OvertimeBoard = roster?.OvertimeBoard ?? false
+        });
     }
 
     public override async Task<RosterResponse> CreateAsync(CreateRosterRequest request, ServerCallContext context)
@@ -69,9 +68,9 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
         return await Task.FromResult(new RosterResponse
         {
-            CtrlNbr = roster.CtrlNbr.Value,
-            CraftCtrlNbr = roster.CraftCtrlNbr.Value,
-            RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr.Value,
+            CtrlNbr = roster.CtrlNbr?.Value ?? 0,
+            CraftCtrlNbr = roster.CraftCtrlNbr?.Value ?? 0,
+            RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
             RosterName = roster.RosterName,
             RosterPluralName = roster.RosterPluralName,
             RosterNumber = roster.RosterNumber,
@@ -98,9 +97,9 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
         return await Task.FromResult(new RosterResponse
         {
-            CtrlNbr = roster.CtrlNbr.Value,
-            CraftCtrlNbr = roster.CraftCtrlNbr.Value,
-            RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr.Value,
+            CtrlNbr = roster.CtrlNbr?.Value ?? 0,
+            CraftCtrlNbr = roster.CraftCtrlNbr?.Value ?? 0,
+            RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
             RosterName = roster.RosterName,
             RosterPluralName = roster.RosterPluralName,
             RosterNumber = roster.RosterNumber,
@@ -120,7 +119,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
         return await Task.FromResult(new DeleteResponse
         {
             Success = true,
-            Messages = { $"Roster {roster.CtrlNbr.Value} deleted." }
+            Messages = { $"Roster {roster.CtrlNbr?.Value ?? 0} deleted." }
         });
     }
 }

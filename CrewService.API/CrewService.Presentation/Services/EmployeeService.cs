@@ -1,3 +1,4 @@
+using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
@@ -411,8 +412,10 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     private static void ValidateCreateRequest(CreateEmployeeRequest request)
     {
+        var errors = new Dictionary<string, string[]>();
+
         if (request.ClientCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid client control number."));
+            errors.Add("ClientCtrlNbr", ["Must be greater than 0"]);
 
         if (string.IsNullOrEmpty(request.UserId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid user ID."));
@@ -424,7 +427,10 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid social security number."));
 
         if (request.EmploymentStatusCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid employment status control number."));
+            errors.Add("EmploymentStatusCtrlNbr", ["Must be greater than 0"]);
+
+        if (errors.Count > 0)
+            throw new ValidationException(errors);
     }
 
     #endregion

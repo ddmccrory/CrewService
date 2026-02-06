@@ -1,5 +1,6 @@
 using CrewService.Application;
 using CrewService.Infrastructure;
+using CrewService.Infrastructure.Exceptions;
 using CrewService.Persistance;
 using CrewService.Presentation;
 using CrewService.Presentation.Services;
@@ -52,7 +53,10 @@ builder.Services.AddApplication()
                 .AddPersistance(builder.Configuration)
                 .AddPresentation();
 
-builder.Services.AddGrpc().AddJsonTranscoding();
+builder.Services.AddGrpc(options =>
+{
+    options.Interceptors.Add<GrpcExceptionInterceptor>();
+}).AddJsonTranscoding();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();

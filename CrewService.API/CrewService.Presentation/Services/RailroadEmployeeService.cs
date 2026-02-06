@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Interfaces.Repositories;
+﻿using CrewService.Domain.Exceptions;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -26,7 +27,7 @@ public class RailroadEmployeeService(IRailroadEmployeeRepository railroadEmploye
     public override async Task<GetRailroadEmployeeResponse> GetRailroadEmployeeAsync(GetRailroadEmployeeRequest request, ServerCallContext context)
     {
         if (request.CtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid control number."));
+            throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
         var entity = await _railroadEmployeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadEmployee with control number {request.CtrlNbr} was not found."));
@@ -36,8 +37,16 @@ public class RailroadEmployeeService(IRailroadEmployeeRepository railroadEmploye
 
     public override async Task<GetRailroadEmployeeResponse> GetRailroadEmployeeByEmployeeAsync(GetRailroadEmployeeByEmployeeRequest request, ServerCallContext context)
     {
-        if (request.EmployeeCtrlNbr <= 0 || request.RailroadCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide valid employee and railroad control numbers."));
+        var errors = new Dictionary<string, string[]>();
+
+        if (request.EmployeeCtrlNbr <= 0)
+            errors.Add("EmployeeCtrlNbr", ["Must be greater than 0"]);
+
+        if (request.RailroadCtrlNbr <= 0)
+            errors.Add("RailroadCtrlNbr", ["Must be greater than 0"]);
+
+        if (errors.Count > 0)
+            throw new ValidationException(errors);
 
         var entity = await _railroadEmployeeRepository.GetByEmployeeAndRailroadAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
@@ -63,11 +72,16 @@ public class RailroadEmployeeService(IRailroadEmployeeRepository railroadEmploye
 
     public override Task<CreateRailroadEmployeeResponse> CreateRailroadEmployeeAsync(CreateRailroadEmployeeRequest request, ServerCallContext context)
     {
+        var errors = new Dictionary<string, string[]>();
+
         if (request.EmployeeCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid employee control number."));
+            errors.Add("EmployeeCtrlNbr", ["Must be greater than 0"]);
 
         if (request.RailroadCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad control number."));
+            errors.Add("RailroadCtrlNbr", ["Must be greater than 0"]);
+
+        if (errors.Count > 0)
+            throw new ValidationException(errors);
 
         var entity = RailroadEmployee.Create(request.EmployeeCtrlNbr, request.RailroadCtrlNbr, request.AssignedPoolsOnly);
 
@@ -87,7 +101,7 @@ public class RailroadEmployeeService(IRailroadEmployeeRepository railroadEmploye
     public override async Task<UpdateRailroadEmployeeResponse> UpdateRailroadEmployeeAsync(UpdateRailroadEmployeeRequest request, ServerCallContext context)
     {
         if (request.CtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid control number."));
+            throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
         var entity = await _railroadEmployeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadEmployee with control number {request.CtrlNbr} was not found."));
@@ -108,7 +122,7 @@ public class RailroadEmployeeService(IRailroadEmployeeRepository railroadEmploye
     public override async Task<DeleteResponse> DeleteRailroadEmployeeAsync(DeleteRailroadEmployeeRequest request, ServerCallContext context)
     {
         if (request.CtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid control number."));
+            throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
         var entity = await _railroadEmployeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadEmployee with control number {request.CtrlNbr} was not found."));

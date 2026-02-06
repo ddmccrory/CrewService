@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Interfaces.Repositories;
+﻿using CrewService.Domain.Exceptions;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -64,7 +65,7 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
     public override async Task<CreateRailroadResponse> CreateRailroadAsync(CreateRailroadRequest request, ServerCallContext context)
     {
         if (request is null || string.IsNullOrEmpty(request.Name))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad object."));
+            throw new ValidationException("Name", "Required");
 
         var railroad = Railroad.Create(request.ParentCtrlNbr, request.RrMark, request.Name);
 
@@ -81,17 +82,19 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
 
     public override async Task<UpdateRailroadResponse> UpdateRailroadAsync(UpdateRailroadRequest request, ServerCallContext context)
     {
+        var errors = new Dictionary<string, string[]>();
+
         if (request.CtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad control number."));
+            errors.Add("CtrlNbr", ["Must be greater than 0"]);
 
         if (request.ParentCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad parent control number."));
+            errors.Add("ParentCtrlNbr", ["Must be greater than 0"]);
 
         if (string.IsNullOrEmpty(request.RrMark))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad name."));
+            errors.Add("RrMark", ["Required"]);
 
         if (string.IsNullOrEmpty(request.Name))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad name."));
+            errors.Add("Name", ["Required"]);
 
         var railroad = await _railroadRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Railroad, with control number {request.CtrlNbr}, was not found."));
