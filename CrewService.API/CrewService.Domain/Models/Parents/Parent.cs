@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.DomainEvents;
+﻿using CrewService.Domain.DomainEvents.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
@@ -34,9 +34,14 @@ public sealed class Parent : Entity
         {
             Name = Name.Create(name);
 
-            Raise(new ParentCreatedDomainEvent(CtrlNbr));
+            Raise(new ParentUpdatedDomainEvent(CtrlNbr, payload: new { Changes = new { name } }));
         }
 
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new ParentDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

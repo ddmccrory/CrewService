@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Employment;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -30,9 +31,16 @@ public sealed class EmploymentStatusHistory : Entity
         long employmentStatusCtrlNbr,
         DateTime statusChangeDate)
     {
-        return new EmploymentStatusHistory(
+        var entity = new EmploymentStatusHistory(
             ControlNumber.Create(employeeCtrlNbr),
             ControlNumber.Create(employmentStatusCtrlNbr),
             statusChangeDate);
+        entity.Raise(new EmploymentStatusHistoryCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
+    }
+
+    public void Delete()
+    {
+        Raise(new EmploymentStatusHistoryDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

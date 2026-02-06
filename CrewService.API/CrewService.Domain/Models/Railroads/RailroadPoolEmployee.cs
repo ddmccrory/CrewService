@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Railroads;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -27,15 +28,34 @@ public sealed class RailroadPoolEmployee : Entity
 
     public static RailroadPoolEmployee Create(long railroadPoolCtrlNbr, long employeeCtrlNbr, bool isActive = true)
     {
-        return new RailroadPoolEmployee(
+        var entity = new RailroadPoolEmployee(
             ControlNumber.Create(railroadPoolCtrlNbr),
             ControlNumber.Create(employeeCtrlNbr),
             isActive);
+        entity.Raise(new RailroadPoolEmployeeCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public RailroadPoolEmployee Update(bool? isActive = null)
     {
-        if (isActive.HasValue) IsActive = isActive.Value;
+        var changes = new Dictionary<string, object?>();
+
+        if (isActive.HasValue)
+        {
+            IsActive = isActive.Value;
+            changes["isActive"] = isActive.Value;
+        }
+
+        if (changes.Count > 0)
+        {
+            Raise(new RailroadPoolEmployeeUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
+
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new RailroadPoolEmployeeDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

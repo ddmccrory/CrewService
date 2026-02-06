@@ -613,6 +613,76 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("SeniorityStates");
                 });
 
+            modelBuilder.Entity("CrewService.Domain.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AggregateId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AggregateType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OrchestrationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Retries")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("MessageId");
+
+                    b.HasIndex("CorrelationId")
+                        .HasDatabaseName("IX_OutboxMessages_CorrelationId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("IX_OutboxMessages_IdempotencyKey")
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("OrchestrationId")
+                        .HasDatabaseName("IX_OutboxMessages_OrchestrationId");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("IX_OutboxMessages_Status_CreatedAt");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
             modelBuilder.Entity("CrewService.Domain.Models.ContactTypes.AddressType", b =>
                 {
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>

@@ -48,11 +48,12 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddApplication()
-                .AddInfrastructure()
+                .AddInfrastructure(builder.Configuration)
                 .AddPersistance(builder.Configuration)
                 .AddPresentation();
 
 builder.Services.AddGrpc().AddJsonTranscoding();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 

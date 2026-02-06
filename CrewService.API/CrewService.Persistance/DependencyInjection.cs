@@ -4,6 +4,7 @@ using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
+using CrewService.Persistance.UnitOfWork;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -37,11 +38,34 @@ public static class DependencyInjection
         }).AddRoles<IdentityRole>()
           .AddEntityFrameworkStores<UserAccessDbContext>();
 
+        services.AddScoped<IOutboxDbContext>(sp => sp.GetRequiredService<CrewServiceDbContext>());
+
+        // Orchestration UoW Factory (transient - creates new UoW per request)
+        services.AddTransient<IOrchestrationUnitOfWorkFactory, OrchestrationUnitOfWorkFactory>();
+
+        // Core Repositories
         services.AddScoped<IParentRepository, ParentRepository>();
-
         services.AddScoped<IRailroadRepository, RailroadRepository>();
-
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IRailroadEmployeeRepository, RailroadEmployeeRepository>();
+        services.AddScoped<IRailroadPoolRepository, RailroadPoolRepository>();
+        services.AddScoped<IRailroadPoolEmployeeRepository, RailroadPoolEmployeeRepository>();
+
+        // ContactType Repositories
+        services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();
+        services.AddScoped<IPhoneNumberTypeRepository, PhoneNumberTypeRepository>();
+        services.AddScoped<IEmailAddressTypeRepository, EmailAddressTypeRepository>();
+
+        // Employment Repositories
+        services.AddScoped<IEmploymentStatusRepository, EmploymentStatusRepository>();
+        services.AddScoped<IEmploymentStatusHistoryRepository, EmploymentStatusHistoryRepository>();
+        services.AddScoped<IEmployeePriorServiceCreditRepository, EmployeePriorServiceCreditRepository>();
+
+        // Seniority Repositories
+        services.AddScoped<ICraftRepository, CraftRepository>();
+        services.AddScoped<IRosterRepository, RosterRepository>();
+        services.AddScoped<ISeniorityRepository, SeniorityRepository>();
+        services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
 
         return services;
     }

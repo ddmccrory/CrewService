@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Seniority;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -50,7 +51,7 @@ public sealed class Roster : Entity
         bool extraBoard,
         bool overtimeBoard)
     {
-        return new Roster(
+        var entity = new Roster(
             ControlNumber.Create(craftCtrlNbr),
             ControlNumber.Create(railroadPayrollDepartmentCtrlNbr),
             rosterName,
@@ -59,6 +60,8 @@ public sealed class Roster : Entity
             training,
             extraBoard,
             overtimeBoard);
+        entity.Raise(new RosterCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public Roster Update(
@@ -69,13 +72,25 @@ public sealed class Roster : Entity
         bool? extraBoard = null,
         bool? overtimeBoard = null)
     {
-        if (rosterName is not null) RosterName = rosterName;
-        if (rosterPluralName is not null) RosterPluralName = rosterPluralName;
-        if (rosterNumber is not null) RosterNumber = rosterNumber.Value;
-        if (training is not null) Training = training.Value;
-        if (extraBoard is not null) ExtraBoard = extraBoard.Value;
-        if (overtimeBoard is not null) OvertimeBoard = overtimeBoard.Value;
+        var changes = new Dictionary<string, object?>();
+
+        if (rosterName is not null) { RosterName = rosterName; changes["rosterName"] = rosterName; }
+        if (rosterPluralName is not null) { RosterPluralName = rosterPluralName; changes["rosterPluralName"] = rosterPluralName; }
+        if (rosterNumber is not null) { RosterNumber = rosterNumber.Value; changes["rosterNumber"] = rosterNumber.Value; }
+        if (training is not null) { Training = training.Value; changes["training"] = training.Value; }
+        if (extraBoard is not null) { ExtraBoard = extraBoard.Value; changes["extraBoard"] = extraBoard.Value; }
+        if (overtimeBoard is not null) { OvertimeBoard = overtimeBoard.Value; changes["overtimeBoard"] = overtimeBoard.Value; }
+
+        if (changes.Count > 0)
+        {
+            Raise(new RosterUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
 
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new RosterDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

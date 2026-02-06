@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Employees;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -38,20 +39,48 @@ public sealed class PhoneNumber : Entity
         int callingOrder,
         bool dialOne)
     {
-        return new PhoneNumber(
+        var entity = new PhoneNumber(
             employeeCtrlNbr,
             ControlNumber.Create(phoneTypeCtrlNbr),
             number,
             callingOrder,
             dialOne);
+        entity.Raise(new PhoneNumberCreatedDomainEvent(entity.CtrlNbr));
+        return entity;
     }
 
     public PhoneNumber Update(string? number = null, int? callingOrder = null, bool? dialOne = null)
     {
-        if (number is not null) Number = number;
-        if (callingOrder.HasValue) CallingOrder = callingOrder.Value;
-        if (dialOne.HasValue) DialOne = dialOne.Value;
+        var changes = new Dictionary<string, object?>();
+
+        if (number is not null)
+        {
+            Number = number;
+            changes["number"] = number;
+        }
+
+        if (callingOrder.HasValue)
+        {
+            CallingOrder = callingOrder.Value;
+            changes["callingOrder"] = callingOrder.Value;
+        }
+
+        if (dialOne.HasValue)
+        {
+            DialOne = dialOne.Value;
+            changes["dialOne"] = dialOne.Value;
+        }
+
+        if (changes.Count > 0)
+        {
+            Raise(new PhoneNumberUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+        }
 
         return this;
+    }
+
+    public void Delete()
+    {
+        Raise(new PhoneNumberDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }
