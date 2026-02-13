@@ -34,7 +34,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
 
     public override async Task<SeniorityResponse> GetAsync(GetSeniorityRequest request, ServerCallContext context)
     {
-        var seniority = await _seniorityRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr));
+        var seniority = await _seniorityRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
 
         return seniority is null
             ? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority, with control number {request.CtrlNbr}, was not found."))
@@ -79,7 +79,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
 
     public override async Task<SeniorityResponse> UpdateAsync(UpdateSeniorityRequest request, ServerCallContext context)
     {
-        var seniority = await _seniorityRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var seniority = await _seniorityRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority, with control number {request.CtrlNbr}, was not found."));
 
         seniority.Update(
@@ -106,7 +106,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteSeniorityRequest request, ServerCallContext context)
     {
-        var seniority = await _seniorityRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var seniority = await _seniorityRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority, with control number {request.CtrlNbr}, was not found."));
 
         await _seniorityRepository.DeleteAsync(seniority.CtrlNbr);

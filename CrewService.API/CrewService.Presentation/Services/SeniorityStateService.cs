@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
@@ -26,7 +27,7 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
 
     public override async Task<SeniorityStateResponse> GetAsync(GetSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
 
         return MapToResponse(state);
@@ -47,7 +48,7 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
 
     public override async Task<SeniorityStateResponse> UpdateAsync(UpdateSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
 
         state.Update(request.StateDescription, request.Active, request.CutBack, request.Inactive);
@@ -59,7 +60,7 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
 
         _repository.Remove(state);

@@ -67,6 +67,7 @@ internal sealed class OrchestrationUnitOfWorkFactory(
             connection,
             (DbTransaction)transaction,
             crewContext,
+            _currentUserService,
             correlationId,
             orchestrationId,
             options.IdempotencyKey,

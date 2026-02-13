@@ -45,5 +45,13 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
                 value => Name.Create(value));
             audit.Property(a => a.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(r => r.DeletedBy, audit =>
+        {
+            audit.Property(a => a.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(a => a.AuditName).HasMaxLength(50);
+        });
     }
 }

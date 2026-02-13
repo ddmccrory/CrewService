@@ -38,5 +38,13 @@ internal class RailroadPoolPayrollTierConfiguration : IEntityTypeConfiguration<R
                 value => Name.Create(value));
             audit.Property(a => a.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(t => t.DeletedBy, audit =>
+        {
+            audit.Property(a => a.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(a => a.AuditName).HasMaxLength(50);
+        });
     }
 }

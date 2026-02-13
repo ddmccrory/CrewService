@@ -12,7 +12,7 @@ public class RailroadPoolEmployeeService(IRailroadPoolEmployeeRepository employe
     public override async Task<GetAllRailroadPoolEmployeeResponse> GetAllAsync(GetAllRailroadPoolEmployeeRequest request, ServerCallContext context)
     {
         var response = new GetAllRailroadPoolEmployeeResponse();
-        var employees = await _employeeRepository.GetAllByPoolAsync(ControlNumber.Create(request.RailroadPoolCtrlNbr));
+        var employees = await _employeeRepository.GetByRailroadPoolCtrlNbrAsync(ControlNumber.Create(request.RailroadPoolCtrlNbr));
         response.Employees.AddRange(employees.Select(MapToResponse));
         response.TotalCount = employees.Count;
         return response;
@@ -20,7 +20,7 @@ public class RailroadPoolEmployeeService(IRailroadPoolEmployeeRepository employe
 
     public override async Task<RailroadPoolEmployeeResponse> GetAsync(GetRailroadPoolEmployeeRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadPoolEmployee {request.CtrlNbr} not found."));
         return MapToResponse(employee);
     }
@@ -34,7 +34,7 @@ public class RailroadPoolEmployeeService(IRailroadPoolEmployeeRepository employe
 
     public override async Task<RailroadPoolEmployeeResponse> UpdateAsync(UpdateRailroadPoolEmployeeRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadPoolEmployee {request.CtrlNbr} not found."));
         employee.Update(request.IsActive);
         await _employeeRepository.UpdateAsync(employee);

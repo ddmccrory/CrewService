@@ -38,5 +38,13 @@ internal class EmailAddressTypeConfiguration : IEntityTypeConfiguration<EmailAdd
                 value => Name.Create(value));
             audit.Property(x => x.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(e => e.DeletedBy, audit =>
+        {
+            audit.Property(x => x.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(x => x.AuditName).HasMaxLength(50);
+        });
     }
 }

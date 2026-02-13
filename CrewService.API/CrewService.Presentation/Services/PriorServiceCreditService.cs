@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
+using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
@@ -10,7 +11,7 @@ public class PriorServiceCreditService(IEmployeePriorServiceCreditRepository rep
 
     public override async Task<PriorServiceCreditResponse> GetAsync(GetPriorServiceCreditRequest request, ServerCallContext context)
     {
-        var credit = await _repository.GetByEmployeeCtrlNbrAsync(request.EmployeeCtrlNbr)
+        var credit = await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Prior service credit for employee {request.EmployeeCtrlNbr} was not found."));
 
         return MapToResponse(credit);
@@ -18,7 +19,7 @@ public class PriorServiceCreditService(IEmployeePriorServiceCreditRepository rep
 
     public override async Task<PriorServiceCreditResponse> CreateAsync(CreatePriorServiceCreditRequest request, ServerCallContext context)
     {
-        var existing = await _repository.GetByEmployeeCtrlNbrAsync(request.EmployeeCtrlNbr);
+        var existing = await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr));
         if (existing is not null)
             throw new RpcException(new Status(StatusCode.AlreadyExists, $"Prior service credit for employee {request.EmployeeCtrlNbr} already exists."));
 
@@ -35,7 +36,7 @@ public class PriorServiceCreditService(IEmployeePriorServiceCreditRepository rep
 
     public override async Task<PriorServiceCreditResponse> UpdateAsync(UpdatePriorServiceCreditRequest request, ServerCallContext context)
     {
-        var credit = await _repository.GetByEmployeeCtrlNbrAsync(request.EmployeeCtrlNbr)
+        var credit = await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Prior service credit for employee {request.EmployeeCtrlNbr} was not found."));
 
         credit.Update(request.ServiceYears, request.ServiceMonths, request.ServiceDays);
@@ -47,7 +48,7 @@ public class PriorServiceCreditService(IEmployeePriorServiceCreditRepository rep
 
     public override async Task<DeleteResponse> DeleteAsync(DeletePriorServiceCreditRequest request, ServerCallContext context)
     {
-        var credit = await _repository.GetByEmployeeCtrlNbrAsync(request.EmployeeCtrlNbr)
+        var credit = await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Prior service credit for employee {request.EmployeeCtrlNbr} was not found."));
 
         _repository.Remove(credit);

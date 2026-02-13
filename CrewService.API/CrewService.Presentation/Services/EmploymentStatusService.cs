@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employment;
+using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
@@ -11,8 +12,8 @@ public class EmploymentStatusService(IEmploymentStatusRepository repository) : E
     public override async Task<GetAllEmploymentStatusResponse> GetAllAsync(GetAllEmploymentStatusRequest request, ServerCallContext context)
     {
         var statuses = request.PageSize > 0
-            ? await _repository.GetAllAsync(request.ClientCtrlNbr, request.PageNumber, request.PageSize)
-            : await _repository.GetAllAsync(request.ClientCtrlNbr);
+            ? await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize)
+            : await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
 
         var response = new GetAllEmploymentStatusResponse { TotalCount = statuses.Count };
 
@@ -26,7 +27,7 @@ public class EmploymentStatusService(IEmploymentStatusRepository repository) : E
 
     public override async Task<EmploymentStatusResponse> GetAsync(GetEmploymentStatusRequest request, ServerCallContext context)
     {
-        var status = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var status = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status with control number {request.CtrlNbr} was not found."));
 
         return MapToResponse(status);
@@ -48,7 +49,7 @@ public class EmploymentStatusService(IEmploymentStatusRepository repository) : E
 
     public override async Task<EmploymentStatusResponse> UpdateAsync(UpdateEmploymentStatusRequest request, ServerCallContext context)
     {
-        var status = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var status = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status with control number {request.CtrlNbr} was not found."));
 
         status.Update(request.StatusCode, request.StatusName, request.StatusNumber, request.EmploymentCode);
@@ -60,7 +61,7 @@ public class EmploymentStatusService(IEmploymentStatusRepository repository) : E
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteEmploymentStatusRequest request, ServerCallContext context)
     {
-        var status = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var status = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status with control number {request.CtrlNbr} was not found."));
 
         _repository.Remove(status);

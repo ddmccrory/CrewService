@@ -1,5 +1,6 @@
 ﻿using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
@@ -23,14 +24,14 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
             });
         }
 
-        return await Task.FromResult(response);
+        return response;
     }
 
     public override async Task<GetAllParentRailroadsResponse> GetAllParentRailroadsAsync(GetAllParentRailroadsRequest request, ServerCallContext context)
     {
         var response = new GetAllParentRailroadsResponse();
-        var railroads = await _railroadRepository.GetAllRailroadsByParentCtrlNbrAsync(request.ParentCtrlNbr);
-       
+        var railroads = await _railroadRepository.GetByParentCtrlNbrAsync(ControlNumber.Create(request.ParentCtrlNbr));
+
         response.ParentCtrlNbr = request.ParentCtrlNbr;
 
         foreach (var railroad in railroads)
@@ -43,21 +44,21 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
             });
         }
 
-        return await Task.FromResult(response);
+        return response;
     }
 
     public override async Task<GetRailroadResponse> GetRailroadAsync(GetRailroadRequest request, ServerCallContext context)
     {
-        var railroad = await _railroadRepository.GetByCtrlNbrAsync(request.CtrlNbr);
+        var railroad = await _railroadRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
 
         return railroad is null
             ? throw new RpcException(new Status(StatusCode.NotFound, $"Railroad, with control number {request.CtrlNbr}, was not found."))
-            : await Task.FromResult(new GetRailroadResponse
+            : new GetRailroadResponse
             {
                 CtrlNbr = railroad.CtrlNbr.Value,
                 RrMark = railroad.RailroadMark,
                 Name = railroad.Name.Value,
-            });
+            };
     }
 
     public override async Task<CreateRailroadResponse> CreateRailroadAsync(CreateRailroadRequest request, ServerCallContext context)
@@ -69,13 +70,13 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
 
         _railroadRepository.Add(railroad);
 
-        return await Task.FromResult(new CreateRailroadResponse
+        return new CreateRailroadResponse
         {
             CtrlNbr = railroad.CtrlNbr.Value,
             ParentCtrlNbr = railroad.ParentCtrlNbr.Value,
             RrMark = railroad.RailroadMark,
             Name = railroad.Name.Value,
-        });
+        };
     }
 
     public override async Task<UpdateRailroadResponse> UpdateRailroadAsync(UpdateRailroadRequest request, ServerCallContext context)
@@ -92,20 +93,20 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
         if (string.IsNullOrEmpty(request.Name))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad name."));
 
-        var railroad = await _railroadRepository.GetByCtrlNbrAsync(request.CtrlNbr) ??
+        var railroad = await _railroadRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Railroad, with control number {request.CtrlNbr}, was not found."));
 
         railroad.Update(request.ParentCtrlNbr, request.RrMark, request.Name);
 
         _railroadRepository.Update(railroad);
 
-        return await Task.FromResult(new UpdateRailroadResponse
+        return new UpdateRailroadResponse
         {
             CtrlNbr = railroad.CtrlNbr.Value,
             ParentCtrlNbr = railroad.ParentCtrlNbr.Value,
             RrMark = railroad.RailroadMark,
             Name = railroad.Name.Value,
-        }); ;
+        };
     }
 
     public override async Task<DeleteRailroadResponse> DeleteRailroadAsync(DeleteRailroadRequest request, ServerCallContext context)
@@ -113,16 +114,16 @@ public class RailroadService(IRailroadRepository railroadRepository) : RailroadS
         if (request.CtrlNbr <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad control number."));
 
-        var railroad = await _railroadRepository.GetByCtrlNbrAsync(request.CtrlNbr) ??
+        var railroad = await _railroadRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Railroad, with control number {request.CtrlNbr}, was not found."));
 
         _railroadRepository.Remove(railroad);
 
-        return await Task.FromResult(new DeleteRailroadResponse
+        return new DeleteRailroadResponse
         {
             CtrlNbr = railroad.CtrlNbr.Value,
             RrMark = railroad.RailroadMark,
             Name = railroad.Name.Value,
-        });
+        };
     }
 }

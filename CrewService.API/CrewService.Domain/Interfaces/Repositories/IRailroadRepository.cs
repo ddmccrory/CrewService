@@ -1,18 +1,9 @@
 ﻿using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Interfaces.Repositories;
 
-public interface IRailroadRepository
+public interface IRailroadRepository : IRepository<Railroad>
 {
-    Task<List<Railroad>> GetAllAsync();
-
-    Task<Railroad?> GetByCtrlNbrAsync(long railroadCtrlNbr);
-
-    Task<List<Railroad>> GetAllRailroadsByParentCtrlNbrAsync(long parentCtrlNbr);
-
-    void Add(Railroad railroad);
-
-    void Update(Railroad railroad);
-
-    void Remove(Railroad railroad);
+    Task<List<Railroad>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
 }

@@ -2,6 +2,7 @@
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Primitives;
+
 public abstract class Entity
 {
     private readonly List<IDomainEvent> _domainEvents = [];
@@ -13,6 +14,28 @@ public abstract class Entity
     public AuditStamp? CreatedBy { get; set; }
 
     public AuditStamp? ModifiedBy { get; set; }
+
+    public bool IsDeleted { get; private set; }
+
+    public DateTime? DeletedAt { get; private set; }
+
+    public AuditStamp? DeletedBy { get; private set; }
+
+    public void SoftDelete(string deletedByUser)
+    {
+        if (IsDeleted) return; // Idempotent
+
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+        DeletedBy = AuditStamp.Create(deletedByUser);
+    }
+
+    public void Restore()
+    {
+        IsDeleted = false;
+        DeletedAt = null;
+        DeletedBy = null;
+    }
 
     protected void Raise(IDomainEvent domainEvent)
     {

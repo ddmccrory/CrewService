@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
@@ -11,8 +12,8 @@ public class AddressTypeService(IAddressTypeRepository repository) : AddressType
     public override async Task<GetAllAddressTypeResponse> GetAllAsync(GetAllAddressTypeRequest request, ServerCallContext context)
     {
         var types = request.PageSize > 0
-            ? await _repository.GetAllAsync(request.ClientCtrlNbr, request.PageNumber, request.PageSize)
-            : await _repository.GetAllAsync(request.ClientCtrlNbr);
+            ? await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize)
+            : await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
 
         var response = new GetAllAddressTypeResponse();
 
@@ -28,7 +29,7 @@ public class AddressTypeService(IAddressTypeRepository repository) : AddressType
 
     public override async Task<AddressTypeResponse> GetAsync(GetAddressTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Address type with control number {request.CtrlNbr} was not found."));
 
         return MapToResponse(type);
@@ -49,7 +50,7 @@ public class AddressTypeService(IAddressTypeRepository repository) : AddressType
 
     public override async Task<AddressTypeResponse> UpdateAsync(UpdateAddressTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Address type with control number {request.CtrlNbr} was not found."));
 
         type.Update(request.Name, request.Number, request.EmergencyType);
@@ -61,7 +62,7 @@ public class AddressTypeService(IAddressTypeRepository repository) : AddressType
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteAddressTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Address type with control number {request.CtrlNbr} was not found."));
 
         _repository.Remove(type);

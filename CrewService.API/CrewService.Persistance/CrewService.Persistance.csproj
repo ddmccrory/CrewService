@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Data\Migrations\CrewAssignment\" />
+    <Folder Include="Data\Migrations\CrewService\" />
     <Folder Include="Data\Migrations\Identity\" />
   </ItemGroup>
 
