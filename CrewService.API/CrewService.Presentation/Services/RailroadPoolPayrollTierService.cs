@@ -12,7 +12,7 @@ public class RailroadPoolPayrollTierService(IRailroadPoolPayrollTierRepository t
     public override async Task<GetAllRailroadPoolPayrollTierResponse> GetAllAsync(GetAllRailroadPoolPayrollTierRequest request, ServerCallContext context)
     {
         var response = new GetAllRailroadPoolPayrollTierResponse();
-        var tiers = await _tierRepository.GetAllByPoolAsync(ControlNumber.Create(request.RailroadPoolCtrlNbr));
+        var tiers = await _tierRepository.GetByRailroadPoolCtrlNbrAsync(ControlNumber.Create(request.RailroadPoolCtrlNbr));
         response.Tiers.AddRange(tiers.Select(MapToResponse));
         response.TotalCount = tiers.Count;
         return response;
@@ -20,7 +20,7 @@ public class RailroadPoolPayrollTierService(IRailroadPoolPayrollTierRepository t
 
     public override async Task<RailroadPoolPayrollTierResponse> GetAsync(GetRailroadPoolPayrollTierRequest request, ServerCallContext context)
     {
-        var tier = await _tierRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var tier = await _tierRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadPoolPayrollTier {request.CtrlNbr} not found."));
         return MapToResponse(tier);
     }
@@ -34,7 +34,7 @@ public class RailroadPoolPayrollTierService(IRailroadPoolPayrollTierRepository t
 
     public override async Task<RailroadPoolPayrollTierResponse> UpdateAsync(UpdateRailroadPoolPayrollTierRequest request, ServerCallContext context)
     {
-        var tier = await _tierRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var tier = await _tierRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadPoolPayrollTier {request.CtrlNbr} not found."));
         tier.Update(request.NumberOfDays, request.TypeOfDay, request.RatePercentage);
         await _tierRepository.UpdateAsync(tier);

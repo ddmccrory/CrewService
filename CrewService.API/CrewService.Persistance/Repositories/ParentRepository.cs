@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Interfaces.Repositories;
+﻿using CrewService.Domain.Interfaces;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
@@ -6,22 +7,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal sealed class ParentRepository(CrewServiceDbContext dbContext)
-    : Repository<Parent>(dbContext), IParentRepository
+internal sealed class ParentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<Parent>(dbContext, currentUserService), IParentRepository
 {
-
     public override async Task<List<Parent>> GetAllAsync()
     {
-        return await DbContext.Set<Parent>().Include(c => c.Railroads).ToListAsync();
+        return await DbContext.Set<Parent>()
+            .Include(p => p.Railroads)
+            .ToListAsync();
     }
 
-    public override async Task<Parent?> GetByCtrlNbrAsync(long ctrlNbr)
+    public override async Task<Parent?> GetByCtrlNbrAsync(ControlNumber ctrlNbr)
     {
-        if (ctrlNbr <= 0)
-            throw new ArgumentNullException(nameof(ctrlNbr), "(The Parent control number cannot be zero or less");
-
         return await DbContext.Set<Parent>()
-            .Include(c => c.Railroads)
-            .SingleOrDefaultAsync(c => c.CtrlNbr == ControlNumber.Create(ctrlNbr));
+            .Include(p => p.Railroads)
+            .SingleOrDefaultAsync(p => p.CtrlNbr == ctrlNbr);
     }
 }

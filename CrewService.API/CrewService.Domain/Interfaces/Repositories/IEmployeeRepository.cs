@@ -2,13 +2,7 @@ using CrewService.Domain.Models.Employees;
 
 namespace CrewService.Domain.Interfaces.Repositories;
 
-public interface IEmployeeRepository
+public interface IEmployeeRepository : IRepository<Employee>
 {
-    Task<List<Employee>> GetAllAsync();
-    Task<List<Employee>> GetAllAsync(int pageNumber, int pageSize);
-    Task<Employee?> GetByCtrlNbrAsync(long employeeCtrlNbr);
     Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber);
-    void Add(Employee employee);
-    void Update(Employee employee);
-    void Remove(Employee employee);
 }

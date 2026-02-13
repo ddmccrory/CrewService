@@ -42,7 +42,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<CraftResponse> GetAsync(GetCraftRequest request, ServerCallContext context)
     {
-        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr));
+        var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
 
         return craft is null
             ? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."))
@@ -111,7 +111,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<CraftResponse> UpdateAsync(UpdateCraftRequest request, ServerCallContext context)
     {
-        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
 
         craft.Update(
@@ -155,7 +155,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteCraftRequest request, ServerCallContext context)
     {
-        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
 
         await _craftRepository.DeleteAsync(craft.CtrlNbr);

@@ -35,7 +35,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
     public override async Task<RosterResponse> GetAsync(GetRosterRequest request, ServerCallContext context)
     {
-        var roster = await _rosterRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr));
+        var roster = await _rosterRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
 
         return roster is null
             ? throw new RpcException(new Status(StatusCode.NotFound, $"Roster, with control number {request.CtrlNbr}, was not found."))
@@ -83,7 +83,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
     public override async Task<RosterResponse> UpdateAsync(UpdateRosterRequest request, ServerCallContext context)
     {
-        var roster = await _rosterRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var roster = await _rosterRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster, with control number {request.CtrlNbr}, was not found."));
 
         roster.Update(
@@ -112,7 +112,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteRosterRequest request, ServerCallContext context)
     {
-        var roster = await _rosterRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var roster = await _rosterRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster, with control number {request.CtrlNbr}, was not found."));
 
         await _rosterRepository.DeleteAsync(roster.CtrlNbr);

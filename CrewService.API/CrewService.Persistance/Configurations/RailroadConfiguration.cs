@@ -44,5 +44,14 @@ internal class RailroadConfiguration : IEntityTypeConfiguration<Railroad>
 
             modifiedByBuilder.Property(a => a.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(c => c.DeletedBy, deletedByBuilder =>
+        {
+            deletedByBuilder.Property(a => a.AuditName).HasConversion(
+                auditName => auditName.Value,
+                value => Name.Create(value));
+
+            deletedByBuilder.Property(a => a.AuditName).HasMaxLength(50);
+        });
     }
 }

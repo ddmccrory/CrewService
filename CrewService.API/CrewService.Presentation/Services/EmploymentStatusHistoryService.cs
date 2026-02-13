@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employment;
+using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
@@ -12,8 +13,8 @@ public class EmploymentStatusHistoryService(IEmploymentStatusHistoryRepository r
     public override async Task<GetAllStatusHistoryResponse> GetAllByEmployeeAsync(GetAllStatusHistoryRequest request, ServerCallContext context)
     {
         var history = request.PageSize > 0
-            ? await _repository.GetAllByEmployeeAsync(request.EmployeeCtrlNbr, request.PageNumber, request.PageSize)
-            : await _repository.GetAllByEmployeeAsync(request.EmployeeCtrlNbr);
+            ? await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr), request.PageNumber, request.PageSize)
+            : await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr));
 
         var response = new GetAllStatusHistoryResponse { TotalCount = history.Count };
 
@@ -27,7 +28,7 @@ public class EmploymentStatusHistoryService(IEmploymentStatusHistoryRepository r
 
     public override async Task<StatusHistoryResponse> GetAsync(GetStatusHistoryRequest request, ServerCallContext context)
     {
-        var record = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var record = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status history with control number {request.CtrlNbr} was not found."));
 
         return MapToResponse(record);
@@ -47,7 +48,7 @@ public class EmploymentStatusHistoryService(IEmploymentStatusHistoryRepository r
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteStatusHistoryRequest request, ServerCallContext context)
     {
-        var record = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var record = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status history with control number {request.CtrlNbr} was not found."));
 
         _repository.Remove(record);

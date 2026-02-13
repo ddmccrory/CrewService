@@ -49,5 +49,13 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
                 value => Name.Create(value));
             audit.Property(a => a.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(c => c.DeletedBy, audit =>
+        {
+            audit.Property(a => a.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(a => a.AuditName).HasMaxLength(50);
+        });
     }
 }

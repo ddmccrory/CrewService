@@ -76,21 +76,22 @@ message GetEmployeeResponse {
   int64 client_ctrl_nbr = 2;
   string user_id = 3;
   string employee_number = 4;
-  string gender = 5;
-  string race = 6;
-  bool marriage_status = 7;
-  google.protobuf.Timestamp birth_date = 8;
-  google.protobuf.Timestamp employment_date = 9;
-  int64 employment_status_ctrl_nbr = 10;
-  bool allow_fmla_mark_off = 11;
-  bool call_for_overtime = 12;
-  bool process_payroll = 13;
-  bool tie_up_off_property = 14;
-  string drivers_license_number = 15;
-  string issuing_state = 16;
-  repeated AddressResponse addresses = 17;
-  repeated PhoneNumberResponse phone_numbers = 18;
-  repeated EmailAddressResponse email_addresses = 19;
+  string social_security_number = 5;
+  string gender = 6;
+  string race = 7;
+  bool marriage_status = 8;
+  google.protobuf.Timestamp birth_date = 9;
+  google.protobuf.Timestamp employment_date = 10;
+  int64 employment_status_ctrl_nbr = 11;
+  bool allow_fmla_mark_off = 12;
+  bool call_for_overtime = 13;
+  bool process_payroll = 14;
+  bool tie_up_off_property = 15;
+  string drivers_license_number = 16;
+  string issuing_state = 17;
+  repeated AddressResponse addresses = 18;
+  repeated PhoneNumberResponse phone_numbers = 19;
+  repeated EmailAddressResponse email_addresses = 20;
 }
 
 message CreateEmployeeRequest {

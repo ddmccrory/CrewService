@@ -38,5 +38,13 @@ internal class AddressTypeConfiguration : IEntityTypeConfiguration<AddressType>
                 value => Name.Create(value));
             audit.Property(x => x.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(a => a.DeletedBy, audit =>
+        {
+            audit.Property(x => x.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(x => x.AuditName).HasMaxLength(50);
+        });
     }
 }

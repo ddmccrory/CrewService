@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
@@ -6,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal sealed class EmployeeRepository(CrewServiceDbContext dbContext)
-    : Repository<Employee>(dbContext), IEmployeeRepository
+internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<Employee>(dbContext, currentUserService), IEmployeeRepository
 {
     public override async Task<List<Employee>> GetAllAsync()
     {
@@ -18,7 +19,7 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext)
             .ToListAsync();
     }
 
-    public async Task<List<Employee>> GetAllAsync(int pageNumber, int pageSize)
+    public override async Task<List<Employee>> GetAllAsync(int pageNumber, int pageSize)
     {
         return await DbContext.Set<Employee>()
             .Include(e => e.Addresses)
@@ -29,22 +30,19 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext)
             .ToListAsync();
     }
 
-    public override async Task<Employee?> GetByCtrlNbrAsync(long ctrlNbr)
+    public override async Task<Employee?> GetByCtrlNbrAsync(ControlNumber ctrlNbr)
     {
-        if (ctrlNbr <= 0)
-            throw new ArgumentNullException(nameof(ctrlNbr), "The Employee control number cannot be zero or less");
-
         return await DbContext.Set<Employee>()
             .Include(e => e.Addresses)
             .Include(e => e.PhoneNumbers)
             .Include(e => e.EmailAddresses)
-            .SingleOrDefaultAsync(e => e.CtrlNbr == ControlNumber.Create(ctrlNbr));
+            .SingleOrDefaultAsync(e => e.CtrlNbr == ctrlNbr);
     }
 
     public async Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber)
     {
         if (string.IsNullOrWhiteSpace(employeeNumber))
-            throw new ArgumentNullException(nameof(employeeNumber), "The Employee number cannot be null or empty");
+            throw new ArgumentException("The Employee number cannot be null or empty", nameof(employeeNumber));
 
         return await DbContext.Set<Employee>()
             .Include(e => e.Addresses)

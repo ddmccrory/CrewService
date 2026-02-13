@@ -12,7 +12,7 @@ public class RailroadPoolService(IRailroadPoolRepository poolRepository) : Railr
     public override async Task<GetAllRailroadPoolResponse> GetAllAsync(GetAllRailroadPoolRequest request, ServerCallContext context)
     {
         var response = new GetAllRailroadPoolResponse();
-        var pools = await _poolRepository.GetAllByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr));
+        var pools = await _poolRepository.GetByRailroadCtrlNbrAsync(ControlNumber.Create(request.RailroadCtrlNbr));
         response.Pools.AddRange(pools.Select(MapToResponse));
         response.TotalCount = pools.Count;
         return response;
@@ -20,7 +20,7 @@ public class RailroadPoolService(IRailroadPoolRepository poolRepository) : Railr
 
     public override async Task<RailroadPoolResponse> GetAsync(GetRailroadPoolRequest request, ServerCallContext context)
     {
-        var pool = await _poolRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var pool = await _poolRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadPool {request.CtrlNbr} not found."));
         return MapToResponse(pool);
     }
@@ -34,7 +34,7 @@ public class RailroadPoolService(IRailroadPoolRepository poolRepository) : Railr
 
     public override async Task<RailroadPoolResponse> UpdateAsync(UpdateRailroadPoolRequest request, ServerCallContext context)
     {
-        var pool = await _poolRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+        var pool = await _poolRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"RailroadPool {request.CtrlNbr} not found."));
         pool.Update(request.PoolName, request.PoolNumber);
         await _poolRepository.UpdateAsync(pool);

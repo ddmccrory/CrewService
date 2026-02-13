@@ -35,5 +35,13 @@ internal class SeniorityStateConfiguration : IEntityTypeConfiguration<SeniorityS
                 value => Name.Create(value));
             audit.Property(a => a.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(s => s.DeletedBy, audit =>
+        {
+            audit.Property(a => a.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(a => a.AuditName).HasMaxLength(50);
+        });
     }
 }

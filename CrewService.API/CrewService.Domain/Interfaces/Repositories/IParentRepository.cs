@@ -2,15 +2,7 @@
 
 namespace CrewService.Domain.Interfaces.Repositories;
 
-public interface IParentRepository
+public interface IParentRepository : IRepository<Parent>
 {
-    Task<List<Parent>> GetAllAsync();
-
-    Task<Parent?> GetByCtrlNbrAsync(long parentCtrlNbr);
-
-    void Add(Parent parent);
-
-    void Update(Parent parent);
-
-    void Remove(Parent parent);
+    // All methods inherited from IRepository<Parent>
 }

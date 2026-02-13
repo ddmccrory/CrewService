@@ -9,6 +9,7 @@ using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace CrewService.Persistance.Data;
 
@@ -42,7 +43,19 @@ internal sealed class CrewServiceDbContext(
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
 
-        //modelBuilder.HasDefaultSchema("crew_assignment");
+        // Apply global soft-delete filter to all Entity types
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(Entity).IsAssignableFrom(entityType.ClrType))
+            {
+                var parameter = Expression.Parameter(entityType.ClrType, "e");
+                var property = Expression.Property(parameter, nameof(Entity.IsDeleted));
+                var filterExpression = Expression.Equal(property, Expression.Constant(false));
+                var lambda = Expression.Lambda(filterExpression, parameter);
+
+                entityType.SetQueryFilter(lambda);
+            }
+        }
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

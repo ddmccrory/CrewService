@@ -40,5 +40,13 @@ internal class RailroadEmployeeConfiguration : IEntityTypeConfiguration<Railroad
                 value => Name.Create(value));
             audit.Property(a => a.AuditName).HasMaxLength(50);
         });
+
+        builder.OwnsOne(e => e.DeletedBy, audit =>
+        {
+            audit.Property(a => a.AuditName).HasConversion(
+                name => name.Value,
+                value => Name.Create(value));
+            audit.Property(a => a.AuditName).HasMaxLength(50);
+        });
     }
 }

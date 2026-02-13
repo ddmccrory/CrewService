@@ -21,6 +21,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private readonly DbConnection _connection;
     private readonly DbTransaction _transaction;
     private readonly CrewServiceDbContext _crewContext;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<OrchestrationUnitOfWork> _logger;
     private readonly string _idempotencyKey;
     private readonly IOutboxDispatcher? _dispatcher;
@@ -66,48 +67,50 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Core Employee / Railroad
     // ──────────────────────────────────────────────────────────────────
-    public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_crewContext);
-    public IRailroadEmployeeRepository RailroadEmployees => _railroadEmployees ??= new RailroadEmployeeRepository(_crewContext);
-    public IRailroadPoolEmployeeRepository RailroadPoolEmployees => _railroadPoolEmployees ??= new RailroadPoolEmployeeRepository(_crewContext);
-    public IRailroadRepository Railroads => _railroads ??= new RailroadRepository(_crewContext);
-    public IRailroadPoolRepository RailroadPools => _railroadPools ??= new RailroadPoolRepository(_crewContext);
-    public IParentRepository Parents => _parents ??= new ParentRepository(_crewContext);
+    public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_crewContext, _currentUserService);
+    public IRailroadEmployeeRepository RailroadEmployees => _railroadEmployees ??= new RailroadEmployeeRepository(_crewContext, _currentUserService);
+    public IRailroadPoolEmployeeRepository RailroadPoolEmployees => _railroadPoolEmployees ??= new RailroadPoolEmployeeRepository(_crewContext, _currentUserService);
+    public IRailroadRepository Railroads => _railroads ??= new RailroadRepository(_crewContext, _currentUserService);
+    public IRailroadPoolRepository RailroadPools => _railroadPools ??= new RailroadPoolRepository(_crewContext, _currentUserService);
+    public IParentRepository Parents => _parents ??= new ParentRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: ContactTypes
     // ──────────────────────────────────────────────────────────────────
-    public IAddressTypeRepository AddressTypes => _addressTypes ??= new AddressTypeRepository(_crewContext);
-    public IPhoneNumberTypeRepository PhoneNumberTypes => _phoneNumberTypes ??= new PhoneNumberTypeRepository(_crewContext);
-    public IEmailAddressTypeRepository EmailAddressTypes => _emailAddressTypes ??= new EmailAddressTypeRepository(_crewContext);
+    public IAddressTypeRepository AddressTypes => _addressTypes ??= new AddressTypeRepository(_crewContext, _currentUserService);
+    public IPhoneNumberTypeRepository PhoneNumberTypes => _phoneNumberTypes ??= new PhoneNumberTypeRepository(_crewContext, _currentUserService);
+    public IEmailAddressTypeRepository EmailAddressTypes => _emailAddressTypes ??= new EmailAddressTypeRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Employment
     // ──────────────────────────────────────────────────────────────────
-    public IEmploymentStatusRepository EmploymentStatuses => _employmentStatuses ??= new EmploymentStatusRepository(_crewContext);
-    public IEmploymentStatusHistoryRepository EmploymentStatusHistory => _employmentStatusHistory ??= new EmploymentStatusHistoryRepository(_crewContext);
-    public IEmployeePriorServiceCreditRepository EmployeePriorServiceCredits => _employeePriorServiceCredits ??= new EmployeePriorServiceCreditRepository(_crewContext);
+    public IEmploymentStatusRepository EmploymentStatuses => _employmentStatuses ??= new EmploymentStatusRepository(_crewContext, _currentUserService);
+    public IEmploymentStatusHistoryRepository EmploymentStatusHistory => _employmentStatusHistory ??= new EmploymentStatusHistoryRepository(_crewContext, _currentUserService);
+    public IEmployeePriorServiceCreditRepository EmployeePriorServiceCredits => _employeePriorServiceCredits ??= new EmployeePriorServiceCreditRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Seniority
     // ──────────────────────────────────────────────────────────────────
-    public ICraftRepository Crafts => _crafts ??= new CraftRepository(_crewContext);
-    public IRosterRepository Rosters => _rosters ??= new RosterRepository(_crewContext);
-    public ISeniorityRepository Seniority => _seniority ??= new SeniorityRepository(_crewContext);
-    public ISeniorityStateRepository SeniorityStates => _seniorityStates ??= new SeniorityStateRepository(_crewContext);
+    public ICraftRepository Crafts => _crafts ??= new CraftRepository(_crewContext, _currentUserService);
+    public IRosterRepository Rosters => _rosters ??= new RosterRepository(_crewContext, _currentUserService);
+    public ISeniorityRepository Seniority => _seniority ??= new SeniorityRepository(_crewContext, _currentUserService);
+    public ISeniorityStateRepository SeniorityStates => _seniorityStates ??= new SeniorityStateRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
         DbConnection connection,
         DbTransaction transaction,
         CrewServiceDbContext crewContext,
+        ICurrentUserService currentUserService,
         string correlationId,
         string orchestrationId,
         string? idempotencyKey,
         ILogger<OrchestrationUnitOfWork> logger,
-        IOutboxDispatcher? dispatcher = null)  // Add this parameter
+        IOutboxDispatcher? dispatcher = null)
     {
         _connection = connection;
         _transaction = transaction;
         _crewContext = crewContext;
+        _currentUserService = currentUserService;
         CorrelationId = correlationId;
         OrchestrationId = orchestrationId;
         _idempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();

@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
@@ -11,8 +12,8 @@ public class PhoneNumberTypeService(IPhoneNumberTypeRepository repository) : Pho
     public override async Task<GetAllPhoneNumberTypeResponse> GetAllAsync(GetAllPhoneNumberTypeRequest request, ServerCallContext context)
     {
         var types = request.PageSize > 0
-            ? await _repository.GetAllAsync(request.ClientCtrlNbr, request.PageNumber, request.PageSize)
-            : await _repository.GetAllAsync(request.ClientCtrlNbr);
+            ? await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize)
+            : await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
 
         var response = new GetAllPhoneNumberTypeResponse { TotalCount = types.Count };
 
@@ -28,7 +29,7 @@ public class PhoneNumberTypeService(IPhoneNumberTypeRepository repository) : Pho
 
     public override async Task<PhoneNumberTypeResponse> GetAsync(GetPhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Phone number type with control number {request.CtrlNbr} was not found."));
 
         return MapToResponse(type);
@@ -49,7 +50,7 @@ public class PhoneNumberTypeService(IPhoneNumberTypeRepository repository) : Pho
 
     public override async Task<PhoneNumberTypeResponse> UpdateAsync(UpdatePhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Phone number type with control number {request.CtrlNbr} was not found."));
 
         type.Update(request.Name, request.Number, request.EmergencyType);
@@ -61,7 +62,7 @@ public class PhoneNumberTypeService(IPhoneNumberTypeRepository repository) : Pho
 
     public override async Task<DeleteResponse> DeleteAsync(DeletePhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(request.CtrlNbr)
+        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Phone number type with control number {request.CtrlNbr} was not found."));
 
         _repository.Remove(type);
