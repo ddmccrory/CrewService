@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Interfaces.Repositories;
+﻿using CrewService.Domain.Exceptions;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -65,7 +66,7 @@ public class ParentService(IParentRepository parentRepository) : ParentSrvc.Pare
     public override async Task<CreateParentResponse> CreateParentAsync(CreateParentRequest request, ServerCallContext context)
     {
         if (string.IsNullOrEmpty(request.Name))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid parent name."));
+            throw new ValidationException("Name", "Required");
 
         var parent = Parent.Create(request.Name);
 
@@ -80,11 +81,13 @@ public class ParentService(IParentRepository parentRepository) : ParentSrvc.Pare
 
     public override async Task<UpdateParentResponse> UpdateParentAsync(UpdateParentRequest request, ServerCallContext context)
     {
+        var errors = new Dictionary<string, string[]>();
+
         if (request.CtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid parent control number."));
+            errors.Add("CtrlNbr", ["Must be greater than 0"]);
 
         if (string.IsNullOrEmpty(request.Name))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid parent name."));
+            errors.Add("Name", ["Required"]);
 
         var parent = await _parentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Parent, with control number {request.CtrlNbr}, was not found."));
@@ -103,7 +106,7 @@ public class ParentService(IParentRepository parentRepository) : ParentSrvc.Pare
     public override async Task<DeleteParentResponse> DeleteParentAsync(DeleteParentRequest request, ServerCallContext context)
     {
         if (request.CtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid parent control number."));
+            throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
         var parent = await _parentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Parent, with control number {request.CtrlNbr}, was not found."));

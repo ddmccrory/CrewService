@@ -1,3 +1,4 @@
+using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.ValueObjects;

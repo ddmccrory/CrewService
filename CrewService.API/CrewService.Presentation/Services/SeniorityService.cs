@@ -1,3 +1,4 @@
+using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
@@ -34,21 +35,20 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
 
     public override async Task<SeniorityResponse> GetAsync(GetSeniorityRequest request, ServerCallContext context)
     {
-        var seniority = await _seniorityRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
+        var seniority = await _seniorityRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority, with control number {request.CtrlNbr}, was not found."));
 
-        return seniority is null
-            ? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority, with control number {request.CtrlNbr}, was not found."))
-            : await Task.FromResult(new SeniorityResponse
-            {
-                CtrlNbr = seniority.CtrlNbr.Value,
-                RosterCtrlNbr = seniority.RosterCtrlNbr.Value,
-                RailroadPoolEmployeeCtrlNbr = seniority.RailroadPoolEmployeeCtrlNbr.Value,
-                LastActiveRoster = seniority.LastActiveRoster,
-                RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
-                Rank = seniority.Rank,
-                StateId = seniority.StateID,
-                CanTrain = seniority.CanTrain
-            });
+        return await Task.FromResult(new SeniorityResponse
+        {
+            CtrlNbr = seniority.CtrlNbr.Value,
+            RosterCtrlNbr = seniority.RosterCtrlNbr.Value,
+            RailroadPoolEmployeeCtrlNbr = seniority.RailroadPoolEmployeeCtrlNbr.Value,
+            LastActiveRoster = seniority.LastActiveRoster,
+            RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
+            Rank = seniority.Rank,
+            StateId = seniority.StateID,
+            CanTrain = seniority.CanTrain
+        });
     }
 
     public override async Task<SeniorityResponse> CreateAsync(CreateSeniorityRequest request, ServerCallContext context)

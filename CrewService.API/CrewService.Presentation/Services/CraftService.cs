@@ -1,3 +1,4 @@
+using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
@@ -42,29 +43,28 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<CraftResponse> GetAsync(GetCraftRequest request, ServerCallContext context)
     {
-        var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
+        var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
 
-        return craft is null
-            ? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."))
-            : await Task.FromResult(new CraftResponse
-            {
-                CtrlNbr = craft.CtrlNbr.Value,
-                RailroadPoolCtrlNbr = craft.RailroadPoolCtrlNbr.Value,
-                CraftName = craft.CraftName,
-                CraftPluralName = craft.CraftPluralName,
-                CraftNumber = craft.CraftNumber,
-                AutoMarkUp = craft.AutoMarkUp,
-                ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
-                MarkOffHours = craft.MarkOffHours,
-                MarkUpHours = craft.MarkUpHours,
-                RequiredRestHours = craft.RequiredRestHours,
-                MaximumVacationDayTime = craft.MaximumVacationDayTime,
-                UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
-                HoursofService = craft.HoursofService,
-                ProcessPayroll = craft.ProcessPayroll,
-                ShowNotifications = craft.ShowNotifications,
-                VacationAssignmentType = craft.VacationAssignmentType
-            });
+        return await Task.FromResult(new CraftResponse
+        {
+            CtrlNbr = craft.CtrlNbr.Value,
+            RailroadPoolCtrlNbr = craft.RailroadPoolCtrlNbr.Value,
+            CraftName = craft.CraftName,
+            CraftPluralName = craft.CraftPluralName,
+            CraftNumber = craft.CraftNumber,
+            AutoMarkUp = craft.AutoMarkUp,
+            ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
+            MarkOffHours = craft.MarkOffHours,
+            MarkUpHours = craft.MarkUpHours,
+            RequiredRestHours = craft.RequiredRestHours,
+            MaximumVacationDayTime = craft.MaximumVacationDayTime,
+            UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
+            HoursofService = craft.HoursofService,
+            ProcessPayroll = craft.ProcessPayroll,
+            ShowNotifications = craft.ShowNotifications,
+            VacationAssignmentType = craft.VacationAssignmentType
+        });
     }
 
     public override async Task<CraftResponse> CreateAsync(CreateCraftRequest request, ServerCallContext context)
@@ -111,8 +111,13 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<CraftResponse> UpdateAsync(UpdateCraftRequest request, ServerCallContext context)
     {
+//<<<<<<< HEAD
         var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
+//=======
+//        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
+//            ?? throw new NotFoundException("Craft", request.CtrlNbr);
+//>>>>>>> df57b2d (feat: implement domain exception handling)
 
         craft.Update(
             request.CraftName,
@@ -155,8 +160,22 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteCraftRequest request, ServerCallContext context)
     {
+//<<<<<<< HEAD
         var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
+//=======
+//        // Idempotent delete - succeed silently if not found
+//        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr));
+
+        if (craft is null)
+        {
+            return await Task.FromResult(new DeleteResponse
+            {
+                Success = true,
+                Messages = { $"Craft {request.CtrlNbr} not found or already deleted." }
+            });
+        }
+//>>>>>>> df57b2d (feat: implement domain exception handling)
 
         await _craftRepository.DeleteAsync(craft.CtrlNbr);
 

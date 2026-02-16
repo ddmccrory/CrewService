@@ -6,6 +6,9 @@
 - Provide explicit assessments and clear recommendations rather than silence or mere agreement; ensure the user knows when you endorse a design.
 - Do not generate any code until explicitly instructed to do so.
 
+## Branch Naming Conventions
+- Prefer release-based branch naming with version numbers (e.g., "0.1.1/feature-name" or "release/0.1.1-feature-name") instead of simple feature branch names.
+
 ## Project Structure
 - The repository layout for the API project includes the following components: 'GrpcService', 'Domain', 'Infrastructure', 'Application', 'Persistence', and 'Presentation'.
 - Each entity (User, Employee, RailroadEmployee, RailroadPoolEmployee) has its own set of API endpoints, and an additional orchestration endpoint will be added alongside per-entity endpoints.
