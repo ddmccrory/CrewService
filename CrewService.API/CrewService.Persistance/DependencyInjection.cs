@@ -1,9 +1,11 @@
 ﻿using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.TenantConfig;
+using CrewService.Persistance.Modules.WorkManagement;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -74,6 +76,13 @@ public static class DependencyInjection
         services.AddScoped<IDynamicGroupRepository, DynamicGroupRepository>();
         services.AddScoped<IGroupAttributeDefinitionRepository, GroupAttributeDefinitionRepository>();
         services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
+
+        // WorkManagement Module Repositories
+        services.AddScoped<IAssignmentTemplateRepository, AssignmentTemplateRepository>();
+        services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
+        services.AddScoped<IPositionRoleRepository, PositionRoleRepository>();
+        services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
+        services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
 
         return services;
     }

@@ -50,6 +50,7 @@
     <Protobuf Include="Protos\seniority.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\seniority_state.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\tenant_config.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\modules\work_management.proto" GrpcServices="Server" />
   </ItemGroup>
 
 </Project>
