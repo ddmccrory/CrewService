@@ -10,25 +10,19 @@
 - Prefer release-based branch naming with version numbers (e.g., "0.1.1/feature-name" or "release/0.1.1-feature-name") instead of simple feature branch names.
 
 ## Project Structure
-- The repository layout for the API project includes the following components: 'GrpcService', 'Domain', 'Infrastructure', 'Application', 'Persistence', and 'Presentation'.
-- Each entity (User, Employee, RailroadEmployee, RailroadPoolEmployee) has its own set of API endpoints, and an additional orchestration endpoint will be added alongside per-entity endpoints.
-- The Application layer is part of the CrewService.API project and should be documented in README.md as 'Application (use cases, application services, DTOs, commands/queries)'.
-- README.md should be concise and serve as a single source of truth, consolidating information and removing duplicated sections. Ensure it includes a dedicated Orchestration UoW section and avoids repeated content.
-- DbContext files will remain separate in the CrewService project, with one for Identity and one for the crewservice domain/persistence. Repositories accept DbContext in their constructors, and orchestrations should account for this, with a dedicated Orchestration UoW section included in the README.
+- **Architecture:** Modular monolith — one process, many modules. Each module owns contracts (proto), domain, application logic, and infrastructure.
+- **Layer projects:** GrpcService (host), Domain, Application, Infrastructure, Persistance, Presentation.
+- **Module folders:** New modules are organized under `Modules/` subfolders within Domain, Persistance, and Presentation. Legacy entities remain under `Models/`, `Configurations/`, `Repositories/`, and `Services/`.
+- **Bounded contexts:** TenantConfig, Employees, WorkManagement, Crews, Boards, Policies, Dispatching, AbsenceVacancy, Payroll, Reporting (planned).
+- **One `.proto` per module** under `Protos/modules/`; legacy per-entity protos remain under `Protos/`.
+- **Two DbContexts:** IdentityDbContext (UserAccessDbContext) for Identity; OperationsDbContext (CrewServiceDbContext) for all operational domain tables. Repositories accept DbContext in their constructors.
+- **Module boundary rule:** Modules do not call each other's EF repositories or DbContext directly. Integrate via in-process application interfaces and domain events.
+- README.md is the single source of truth for architecture and layout.
 
 ## Orchestration Unit of Work
-- Focus discussions on the Orchestration Unit of Work (UoW) and proceed with unit-of-work changes.
-- Endorse emitting domain events for all CRUD operations and using the Outbox pattern inside the orchestration UoW. 
-- Use event types such as UserCreated, UserUpdated, UserDeleted, EmployeeCreated, EmployeeUpdated, EmployeeDeleted, RailroadEmployee events, and optional composite events.
-- Include envelope fields in events: eventid, EventType, AggregateType, AggregateId, OccurredAt, CorrelationId, OrchestrationId, IdempotencyKey, EventVersion, with minimal payloads avoiding PII.
-- Raise events inside aggregates/repositories, ensuring the UoW translates domain events to Outbox rows persisted in the same transaction.
-- Implement a background publisher to publish and mark outbox rows, including CorrelationId and OrchestrationId, with idempotency handling.
-- Consider a soft-delete preference, outbox schema, and retention policies.
-- Recommended next steps include adding domain event hooks, creating Outbox DDL, wiring UoW CommitAsync to persist outbox, implementing the background publisher, and conducting integration tests.
-- Create domain-event batches in the following specific order: 
-  1. Employees + Railroads
-  2. RailroadEmployee + RailroadPool + RailroadPoolEmployee + RailroadPoolPayrollTier
-  3. Address/Phone/Email and their Type entities
-  4. Seniority domain (Craft, Roster, Seniority, SeniorityState)
-  5. Employment & Parents (EmploymentStatus, EmploymentStatusHistory, EmployeePriorServiceCredit, Parent)
-  6. Remaining entities.
+- Short-lived orchestration UoW shares a single DbConnection + DbTransaction across both DbContexts.
+- Emit domain events for all CRUD operations; use the Outbox pattern inside the UoW.
+- Include envelope fields: EventId, EventType, AggregateType, AggregateId, OccurredAt, CorrelationId, OrchestrationId, IdempotencyKey, EventVersion, with minimal payloads avoiding PII.
+- Raise events inside aggregates; UoW translates domain events to Outbox rows in the same transaction.
+- Background publisher publishes and marks outbox rows with CorrelationId and OrchestrationId.
+- Soft-delete preference, outbox schema, and retention policies apply.

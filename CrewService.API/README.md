@@ -1,17 +1,20 @@
-﻿# CrewService Solution
+﻿# Crew Service Platform
 
-CrewService is a modular .NET 10 gRPC-based microservice for crew and employee management. The host project groups logical layers and domain modules to simplify deployment, transactionality, and consistent bootstrapping.
+A dynamic railroad crew management and dispatch platform built as a **modular monolith** with gRPC-first APIs and REST transcoding. Designed for highly variable organizational structures, agreement-driven staffing rules, and real-world dispatch operations.
 
 ## Table of Contents
 
 - [Summary](#summary)
 - [Quickstart](#quickstart)
-- [Overview](#overview)
+- [Architecture overview](#architecture-overview)
+- [Deployables](#deployables)
+- [Domain modules](#domain-modules)
 - [Repository layout](#repository-layout)
-- [UI context — creation mapping](#ui-context---creation-mapping)
+- [Data strategy](#data-strategy)
 - [Orchestration Unit of Work (UoW)](#orchestration-unit-of-work-uow)
 - [Domain events & Outbox](#domain-events--outbox)
-- [Sequence diagram](#sequence-diagram)
+- [gRPC contract strategy](#grpc-contract-strategy)
+- [Implementation order](#implementation-order)
 - [Development notes](#development-notes)
 - [Testing](#testing)
 - [Contributing](#contributing)
@@ -21,15 +24,19 @@ CrewService is a modular .NET 10 gRPC-based microservice for crew and employee m
 
 ## Summary
 
-- **Targets:** .NET 10, C# 14  
-- **Purpose:** Provide gRPC endpoints (with JSON transcoding), a clean layered structure for domain-driven design, and a short‑lived orchestration UoW for atomic multi-context flows with Outbox-based event publishing.
+- **Targets:** .NET 10, C# 14
+- **Architecture:** Modular monolith — one process, many modules
+- **API surface:** Canonical gRPC + REST/JSON via transcoding (same `.proto` contracts)
+- **Front end:** Blazor Server (Crew.Web) calling Crew.Api via generated gRPC clients
+- **Datastores:** SQLite (dev), SQL Server (prod); one physical database per Parent tenant
+- **Tenancy:** Parent-based multi-tenant with per-Parent DB isolation
 
 ## Quickstart
 
 **Prerequisites:**
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)  
-- Visual Studio 2026 (recommended)  
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Visual Studio 2026 (recommended)
 - Database (SQLite for dev, SQL Server for prod)
 
 **Steps:**
@@ -39,195 +46,183 @@ CrewService is a modular .NET 10 gRPC-based microservice for crew and employee m
 3. Configure secrets (JWT, connection strings via User Secrets)
 4. Run migrations and start: `dotnet run --project CrewService.API/CrewService.GrpcService`
 
-## Overview
+## Architecture overview
 
-**Core goals:**
+**Fundamental principles:**
 
-- Expose gRPC endpoints with JSON transcoding for REST compatibility
-- Use a clean, layered organization for domain-driven development
-- Support multiple creation scopes driven by UI context (Users, Employees, Railroad, Railroad Pool)
-- Reliable domain event publishing via Outbox pattern
+- Organizational structure is **dynamic and tenant-defined** (Dynamic Groups)
+- Operational behavior is **policy-driven and agreement-aware**
+- No operational logic depends on hard-coded hierarchy levels
+- Modules integrate via **in-process application interfaces** and **domain events** — never direct cross-module DbContext access
+
+## Deployables
+
+| Deployable | Description |
+|---|---|
+| **Crew.Api** (`CrewService.GrpcService`) | ASP.NET Core host: gRPC endpoints (canonical) + REST/JSON transcoding (secondary) |
+| **Crew.Web** (planned) | Blazor Server app calling Crew.Api via generated gRPC clients |
+
+## Domain modules
+
+Each module owns its contracts (proto), application logic, domain rules, and infrastructure:
+
+| Module | Bounded Context | Status |
+|---|---|---|
+| **TenantConfig** | Dynamic Groups, GroupTypes, Attributes, WorkArea designation | Scaffolded |
+| **Employees** | Employee profile, availability, crafts, qualifications, seniority, notifications | Existing (legacy structure) |
+| **WorkManagement** | Assignment Templates, WorkInstances, PositionSlots, extras, promotion | Scaffolded |
+| **Crews** | Regular/Relief crews, positions, incumbency, crew-to-work attachment | Scaffolded |
+| **Boards** | Extra boards (primary/auxiliary), membership, ordering/rotation state | Scaffolded |
+| **Policies** | Agreement-driven policies per craft: ordering, cascade, calling windows, displacement | Scaffolded |
+| **Dispatching** | Projection, calling-time binding, holds, decision logs, overrides | Scaffolded |
+| **AbsenceVacancy** | Absence requests, approvals, vacancy impact on work slots | Scaffolded |
+| **Payroll** | Time entry, agreement payments, payroll records, approval/locking | Scaffolded |
+| **Reporting** | Read models, dashboards (optional, deferred) | Planned |
+
+**Boundary rule:** Modules do not call each other's EF Core DbContext directly. They integrate via in-process application interfaces (clean) or domain events (cleaner for future extraction).
 
 ## Repository layout
 
 ```
 CrewService/
-├── CrewService.API/                    # API host and layers
-│   ├── CrewService.GrpcService/        # Host entry point, gRPC-Web, Swagger
-│   ├── CrewService.Application/        # Use cases, application services (placeholder)
-│   ├── CrewService.Domain/             # Aggregates, value objects, domain events
-│   │   ├── DomainEvents/               # DomainEvent base record
-│   │   ├── Interfaces/                 # IOrchestrationUnitOfWork, repositories
-│   │   ├── Models/                     # Employees, Railroads, Seniority entities
-│   │   └── Outbox/                     # OutboxMessage, OutboxMessageStatus
-│   ├── CrewService.Infrastructure/     # Adapters, Identity User, Outbox publisher
-│   │   └── Outbox/                     # OutboxPublisherService, OutboxDispatcher
-│   ├── CrewService.Persistance/        # EF Core DbContexts, migrations, repositories
-│   │   ├── Data/                       # CrewServiceDbContext, UserAccessDbContext
-│   │   ├── Repositories/               # Entity repositories
-│   │   └── UnitOfWork/                 # OrchestrationUnitOfWork, Factory
-│   └── CrewService.Presentation/       # gRPC service implementations
-├── CrewService.FrontEnd/               # Blazor UI (BlazorUI project)
-├── docs/                               # Diagrams and supporting documentation
-└── tests/                              # Unit and integration tests
+├── CrewService.API/
+│   ├── CrewService.GrpcService/            # Host entry point, DI composition root
+│   ├── CrewService.Domain/                 # Aggregates, value objects, domain events
+│   │   ├── Primitives/                     # Entity base class
+│   │   ├── ValueObjects/                   # ControlNumber, AuditStamp, Name
+│   │   ├── Interfaces/                     # Shared interfaces, IOrchestrationUnitOfWork
+│   │   ├── Outbox/                         # OutboxMessage, OutboxMessageStatus
+│   │   ├── DomainEvents/                   # DomainEvent base + legacy entity events
+│   │   ├── Models/                         # Legacy entity models (Employees, Railroads, etc.)
+│   │   └── Modules/                        # New modular domain entities
+│   │       ├── TenantConfig/
+│   │       ├── WorkManagement/
+│   │       ├── Crews/
+│   │       ├── Boards/
+│   │       ├── Policies/
+│   │       ├── Dispatching/
+│   │       ├── AbsenceVacancy/
+│   │       └── Payroll/
+│   ├── CrewService.Application/            # Use cases, application services, DTOs
+│   ├── CrewService.Infrastructure/         # Adapters, Identity User, Outbox publisher
+│   ├── CrewService.Persistance/            # EF Core DbContexts, migrations, repositories
+│   │   ├── Data/                           # OperationsDbContext (CrewServiceDbContext), IdentityDbContext (UserAccessDbContext)
+│   │   ├── Configurations/                 # Legacy EF configurations
+│   │   ├── Repositories/                   # Legacy repositories
+│   │   ├── UnitOfWork/                     # OrchestrationUnitOfWork, Factory
+│   │   └── Modules/                        # New modular configurations + repositories
+│   │       ├── TenantConfig/
+│   │       ├── WorkManagement/
+│   │       ├── Crews/
+│   │       ├── Boards/
+│   │       ├── Policies/
+│   │       ├── Dispatching/
+│   │       ├── AbsenceVacancy/
+│   │       └── Payroll/
+│   ├── CrewService.Presentation/           # gRPC service implementations + protos
+│   │   ├── Protos/                         # Legacy per-entity proto files
+│   │   │   └── modules/                    # New per-module proto files
+│   │   └── Services/                       # Legacy gRPC services
+│   │       └── Modules/                    # New per-module gRPC services
+│   └── CrewService.UnitTests/
+├── docs/                                   # Diagrams, specs, scope documents
+└── tests/                                  # Integration tests
 ```
 
-**Rationale:** Grouping Domain, Infrastructure, Persistence, Presentation, and GrpcService under the API host simplifies achieving a single transactional boundary and consistent bootstrapping.
+## Data strategy
 
-## UI context — creation mapping
-
-The active UI determines which entities to create:
-
-| UI Context        | Entities Created                                        |
-|-------------------|---------------------------------------------------------|
-| Users UI          | `User` only                                             |
-| Employees UI      | `User` + `Employee`                                     |
-| Railroad UI       | `User` + `Employee` + `RailroadEmployee`                |
-| Railroad Pool UI  | `User` + `Employee` + `RailroadEmployee` + `RailroadPoolEmployee` |
-
-The orchestrator accepts a composite payload or explicit scope flag and creates only the required entities.
+- **Single physical database** per Parent tenant per environment
+- **Two DbContexts** per Parent DB:
+  - `IdentityDbContext` (`UserAccessDbContext`) — ASP.NET Core Identity + invitations
+  - `OperationsDbContext` (`CrewServiceDbContext`) — all operational domain tables
+- Separate EF migrations history tables per context
+- Operations tables partitioned by **module ownership** (schema prefix in SQL Server, naming prefix in SQLite)
+- Effective-dated records use `[start_utc, end_utc)` semantics (end nullable for open-ended)
 
 ## Orchestration Unit of Work (UoW)
 
-**Purpose:** Provide a short-lived orchestration UoW that creates a single shared `DbConnection` + `DbTransaction` and instantiates one or both DbContexts:
+**Purpose:** Short-lived orchestration UoW creating a single shared `DbConnection` + `DbTransaction` across both DbContexts.
 
-- `UserAccessDbContext` (Identity / `User`)
-- `CrewServiceDbContext` (domain entities)
-
-**Components:**
-
-| Component                          | Location                                    | Description                                    |
-|------------------------------------|---------------------------------------------|------------------------------------------------|
-| `IOrchestrationUnitOfWork`         | Domain/Interfaces                           | Interface exposing all repositories + commit/rollback |
-| `IOrchestrationUnitOfWorkFactory`  | Domain/Interfaces                           | Factory interface for creating UoW instances   |
-| `OrchestrationUnitOfWork`          | Persistance/UnitOfWork                      | Concrete implementation with transaction mgmt  |
-| `OrchestrationUnitOfWorkFactory`   | Persistance/UnitOfWork                      | Creates dedicated connection/transaction per UoW |
-
-**Repositories exposed by UoW:**
-
-- **Core:** `Employees`, `RailroadEmployees`, `RailroadPoolEmployees`, `Railroads`, `RailroadPools`, `Parents`
-- **Contact Types:** `AddressTypes`, `PhoneNumberTypes`, `EmailAddressTypes`
-- **Employment:** `EmploymentStatuses`, `EmploymentStatusHistory`, `EmployeePriorServiceCredits`
-- **Seniority:** `Crafts`, `Rosters`, `Seniority`, `SeniorityStates`
-
-**DI Registration:**
-
-- `IOrchestrationUnitOfWorkFactory` registered as **transient** (creates new UoW per request)
-- Existing scoped `DbContext` registrations remain for non-orchestration flows
-- Repositories accept context via constructor
+| Component | Location | Description |
+|---|---|---|
+| `IOrchestrationUnitOfWork` | Domain/Interfaces | Interface: repositories + commit/rollback |
+| `IOrchestrationUnitOfWorkFactory` | Domain/Interfaces | Factory for creating UoW instances |
+| `OrchestrationUnitOfWork` | Persistance/UnitOfWork | Concrete implementation |
+| `OrchestrationUnitOfWorkFactory` | Persistance/UnitOfWork | Creates dedicated connection/transaction per UoW |
 
 **Safety rules:**
 
-- Use single explicit `DbTransaction` on one opened connection to avoid MSDTC promotions
-- Call `SaveChanges()` to obtain IDs before creating dependent entities (still inside the same transaction)
+- Single explicit `DbTransaction` on one opened connection (no MSDTC)
+- `SaveChanges()` to obtain IDs before creating dependent entities (within same transaction)
 - Never pass EF entity instances across DbContexts; pass IDs only
-- Keep transaction lifetime minimal; avoid long-running I/O inside transaction boundaries
-
-**Migrations & schema:**
-
-- Ensure `Employee.UserId -> User.Id` FK exists and migrations are coordinated
-- Prefer explicit cascade behavior (recommend `Restrict` for explicit deletes)
-
-**Observability & safety:**
-
+- Keep transaction lifetime minimal
 - Make orchestration idempotent (idempotency key or unique constraints)
-- Add correlation IDs to logs for each orchestration
-- Provide integration tests for success and failure paths
+- Add correlation IDs for tracing
 
 ## Domain events & Outbox
 
-**Domain Event envelope** (`DomainEvent` base record in `Domain/DomainEvents`):
+**Domain Event envelope** (`DomainEvent` base record):
 
-| Field             | Type       | Description                              |
-|-------------------|------------|------------------------------------------|
-| `EventId`         | `Guid`     | Unique event identifier                  |
-| `EventType`       | `string`   | Concrete event type name                 |
-| `AggregateType`   | `string`   | Aggregate root type                      |
-| `AggregateId`     | `long`     | Aggregate identifier                     |
-| `OccurredAt`      | `DateTime` | UTC timestamp                            |
-| `CorrelationId`   | `string?`  | Request correlation (optional)           |
-| `OrchestrationId` | `string?`  | Groups related events in a flow          |
-| `IdempotencyKey`  | `string?`  | Deduplication key (optional)             |
-| `EventVersion`    | `int`      | Schema version (default: 1)              |
-| `PayloadJson`     | `string?`  | Minimal JSON payload (camelCase)         |
+| Field | Type | Description |
+|---|---|---|
+| `EventId` | `Guid` | Unique event identifier |
+| `EventType` | `string` | Concrete event type name |
+| `AggregateType` | `string` | Aggregate root type |
+| `AggregateId` | `long` | Aggregate identifier |
+| `OccurredAt` | `DateTime` | UTC timestamp |
+| `CorrelationId` | `string?` | Request correlation |
+| `OrchestrationId` | `string?` | Groups related events |
+| `IdempotencyKey` | `string?` | Deduplication key |
+| `EventVersion` | `int` | Schema version (default: 1) |
+| `PayloadJson` | `string?` | Minimal JSON payload (camelCase, no PII) |
 
-**Outbox components:**
+**Outbox flow:**
 
-| Component               | Location              | Description                                      |
-|-------------------------|-----------------------|--------------------------------------------------|
-| `OutboxMessage`         | Domain/Outbox         | Entity persisted in same transaction as aggregate |
-| `OutboxMessageStatus`   | Domain/Outbox         | Enum: Pending, Published, Failed                 |
-| `OutboxDispatcher`      | Infrastructure/Outbox | In-process Channel for immediate dispatch        |
-| `OutboxPublisherService`| Infrastructure/Outbox | Hybrid BackgroundService (channel + polling)     |
-| `IMessagePublisher`     | Domain/Interfaces     | Abstraction for publishing (NoOp in dev)         |
+1. UoW collects domain events from aggregates
+2. On `CommitAsync()`, events → `OutboxMessage` rows in the same transaction
+3. `OutboxDispatcher` signals background publisher via Channel
+4. `OutboxPublisherService` publishes immediately (channel) or polls (fallback)
 
-**Flow:**
+## gRPC contract strategy
 
-1. Orchestration UoW collects domain events from aggregates
-2. On `CommitAsync()`, events are converted to `OutboxMessage` rows and persisted in the same transaction
-3. After commit, `OutboxDispatcher` signals the background publisher via Channel
-4. `OutboxPublisherService` publishes immediately (channel) or polls for missed messages (fallback)
+One `.proto` per module with REST transcoding annotations in the same proto:
 
-**Guidance:**
+| Proto | Module |
+|---|---|
+| `modules/tenant_config.proto` | TenantConfig |
+| `modules/employees.proto` | Employees (planned consolidation) |
+| `modules/work_management.proto` | WorkManagement |
+| `modules/crews.proto` | Crews |
+| `modules/boards.proto` | Boards |
+| `modules/policies.proto` | Policies |
+| `modules/dispatching.proto` | Dispatching |
+| `modules/absence_vacancy.proto` | AbsenceVacancy |
+| `modules/payroll.proto` | Payroll |
 
-- Keep payloads minimal: IDs, non-PII keys, changed-fields map, or snapshot reference
-- Do not publish inside aggregates/repositories—UoW handles Outbox persistence
-- Use `CorrelationId`/`OrchestrationId` so consumers can reconstruct composite operations
-- Avoid embedding PII in payloads; include references only
+Legacy per-entity protos remain in `Protos/` until consolidated into module protos.
 
-## Sequence diagram
+## Implementation order
 
-```mermaid
-sequenceDiagram
-    participant UI as UI Context
-    participant Orch as Orchestrator
-    participant UoW as OrchestrationUnitOfWork
-    participant UserRepo as UserManager
-    participant EmpRepo as EmployeeRepository
-    participant RREmpRepo as RailroadEmployeeRepository
-    participant PoolRepo as RailroadPoolEmployeeRepository
-    participant Outbox as OutboxMessage Table
-    participant Publisher as OutboxPublisherService
+Aligned with SPEC-0 §10:
 
-    UI->>Orch: CreateUser(payload, scope)
-    Orch->>UoW: CreateAsync()
-    UoW-->>Orch: IOrchestrationUnitOfWork
-
-    Orch->>UserRepo: Create User
-    UserRepo-->>Orch: User.Id
-
-    alt Employee scope
-        Orch->>EmpRepo: Create Employee(User.Id)
-        EmpRepo-->>Orch: Employee.Id
-    end
-
-    alt RailroadEmployee scope
-        Orch->>RREmpRepo: Create RailroadEmployee(Employee.Id)
-        RREmpRepo-->>Orch: RailroadEmployee.Id
-    end
-
-    alt RailroadPoolEmployee scope
-        Orch->>PoolRepo: Create RailroadPoolEmployee(RailroadEmployee.Id)
-        PoolRepo-->>Orch: RailroadPoolEmployee.Id
-    end
-
-    Orch->>UoW: CommitAsync()
-    UoW->>Outbox: Persist OutboxMessages
-    UoW->>UoW: SaveChanges + Commit Transaction
-    UoW-->>Orch: Success
-
-    UoW->>Publisher: Signal via Channel
-    Publisher->>Outbox: Publish + Mark Published
-```
+1. **TenantConfig** — group tree + types + attributes + WorkArea designation
+2. **Employees refactor** — restructure existing entities into module, add availability/qualifications/memberships
+3. **WorkManagement** — templates, work instances, position slots, extras, promote ad-hoc → template
+4. **Crews** — regular/relief crews, positions, incumbency, attachment to work
+5. **Boards + Policies** — board definitions, cascade config, ordering strategies, displacement surface
+6. **Dispatching** — projections, calling-time binding, decision logs, overrides, booking holds
+7. **AbsenceVacancy** — absence requests, approvals, vacancy impacts
+8. **Payroll** — time entry, calculation, agreement payments, approval/locking
+9. **Crew.Web** — Blazor Server app with gRPC client facades per module
+10. **Tenancy + Auth** — Parent registry, tenant resolution, per-Parent OIDC/internal auth, invitations
 
 ## Development notes
 
-- **Separate DbContexts:** `UserAccessDbContext` (Identity) and `CrewServiceDbContext` (domain)
-- **Cross-context transactions:** Same DB/connection—share `DbConnection`/`DbTransaction` via UoW
-- **Different DBs:** Use Outbox + message broker or saga for eventual consistency
-- **Uniqueness:** Enforce DB uniqueness (email, employee number); make create operations idempotent
-- **PII:** Treat as sensitive; encrypt at rest, avoid returning in responses
-- **Roles/Claims:** Assign within the same transactional boundary if dependent on domain entities
+- **Separate DbContexts:** `UserAccessDbContext` (Identity) and `CrewServiceDbContext` (operations)
+- **Cross-context transactions:** Same DB/connection via shared `DbConnection`/`DbTransaction` in UoW
+- **Uniqueness:** Enforce DB uniqueness; make create operations idempotent
+- **PII:** Treat as sensitive; encrypt at rest, avoid returning in responses or event payloads
+- **Module boundaries:** No cross-module EF navigation; integrate via app interfaces + domain events
 
 **Configuration (appsettings.json / User Secrets):**
 
@@ -252,19 +247,16 @@ sequenceDiagram
 
 ## Testing
 
-**Recommended integration tests:**
-
-- User-only creation
-- User → Employee
-- User → Employee → RailroadEmployee
-- Full path (User → Employee → RailroadEmployee → RailroadPoolEmployee)
-- Simulated failures at each step to verify rollback
-- Idempotency/retry behavior
+- Effective-date overlap validators
+- No-double-booking under concurrency
+- Deterministic calling order and skip reason capture
+- Cross-Parent access rejection
+- Orchestration success and failure paths
 - Outbox publishing and message delivery
 
 ## Contributing
 
-Fork, create a feature branch, add tests for behavior changes, and open a pull request.
+Fork, create a release-based feature branch (e.g., `0.2.0/feature-name`), add tests, and open a pull request.
 
 ## License
 
