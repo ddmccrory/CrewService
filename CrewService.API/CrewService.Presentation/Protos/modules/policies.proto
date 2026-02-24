@@ -1,0 +1,31 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package policies;
+
+service PoliciesSrvc {
+  rpc GetDisplacementPolicy(GetDisplacementPolicyRequest) returns (DisplacementPolicyResponse) {
+    option (google.api.http) = { get: "/v1/policies/displacement/{craft_ctrl_nbr}" };
+  }
+  rpc UpsertDisplacementPolicy(UpsertDisplacementPolicyRequest) returns (DisplacementPolicyResponse) {
+    option (google.api.http) = { put: "/v1/policies/displacement/{craft_ctrl_nbr}" body: "*" };
+  }
+}
+
+message GetDisplacementPolicyRequest { int64 craft_ctrl_nbr = 1; }
+message UpsertDisplacementPolicyRequest {
+  int64 craft_ctrl_nbr = 1;
+  int32 window_hours = 2;
+  string seniority_basis = 3;
+  string default_action = 4;
+  string eligibility_selector_json = 5;
+}
+message DisplacementPolicyResponse {
+  int64 ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  int32 window_hours = 3;
+  string seniority_basis = 4;
+  string default_action = 5;
+  string eligibility_selector_json = 6;
+}
