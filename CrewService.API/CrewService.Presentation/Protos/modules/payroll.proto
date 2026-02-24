@@ -1,0 +1,79 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package payroll;
+
+service PayrollSrvc {
+  rpc GetTimeEntries(GetTimeEntriesRequest) returns (GetTimeEntriesResponse) {
+    option (google.api.http) = { get: "/v1/payroll/time-entries" };
+  }
+  rpc CreateTimeEntry(CreateTimeEntryRequest) returns (TimeEntryResponse) {
+    option (google.api.http) = { post: "/v1/payroll/time-entries" body: "*" };
+  }
+  rpc GetPayrollRun(GetPayrollRunRequest) returns (PayrollRunResponse) {
+    option (google.api.http) = { get: "/v1/payroll/runs/{pay_period}" };
+  }
+  rpc CreatePayrollRun(CreatePayrollRunRequest) returns (PayrollRunResponse) {
+    option (google.api.http) = { post: "/v1/payroll/runs" body: "*" };
+  }
+  rpc LockPayrollRun(LockPayrollRunRequest) returns (PayrollRunResponse) {
+    option (google.api.http) = { post: "/v1/payroll/runs/{ctrl_nbr}/lock" body: "*" };
+  }
+  rpc GetPayrollRecords(GetPayrollRecordsRequest) returns (GetPayrollRecordsResponse) {
+    option (google.api.http) = { get: "/v1/payroll/runs/{payroll_run_ctrl_nbr}/records" };
+  }
+}
+
+message GetTimeEntriesRequest {
+  int64 employee_ctrl_nbr = 1;
+  string start_utc = 2;
+  string end_utc = 3;
+}
+message GetTimeEntriesResponse {
+  repeated TimeEntryResponse entries = 1;
+  int32 total_count = 2;
+}
+message CreateTimeEntryRequest {
+  int64 employee_ctrl_nbr = 1;
+  string date_utc = 2;
+  string entry_type = 3;
+  double hours = 4;
+  string reason_code = 5;
+  string notes = 6;
+}
+message TimeEntryResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string date_utc = 3;
+  string entry_type = 4;
+  double hours = 5;
+  string reason_code = 6;
+  string notes = 7;
+  bool is_adjustment = 8;
+}
+
+message GetPayrollRunRequest { string pay_period = 1; }
+message CreatePayrollRunRequest { string pay_period = 1; }
+message LockPayrollRunRequest { int64 ctrl_nbr = 1; }
+message PayrollRunResponse {
+  int64 ctrl_nbr = 1;
+  string pay_period = 2;
+  string status = 3;
+  int32 version = 4;
+}
+
+message GetPayrollRecordsRequest { int64 payroll_run_ctrl_nbr = 1; }
+message GetPayrollRecordsResponse {
+  repeated PayrollRecordResponse records = 1;
+  int32 total_count = 2;
+}
+message PayrollRecordResponse {
+  int64 ctrl_nbr = 1;
+  int64 payroll_run_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string earnings_type = 4;
+  double amount = 5;
+  double hours = 6;
+  string policy_ref = 7;
+}

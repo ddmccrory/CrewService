@@ -7,6 +7,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Payroll;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.TenantConfig;
@@ -16,6 +17,7 @@ using CrewService.Persistance.Modules.Boards;
 using CrewService.Persistance.Modules.Policies;
 using CrewService.Persistance.Modules.Dispatching;
 using CrewService.Persistance.Modules.AbsenceVacancy;
+using CrewService.Persistance.Modules.Payroll;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -121,6 +123,11 @@ public static class DependencyInjection
         // AbsenceVacancy Module Repositories
         services.AddScoped<IAbsenceRequestRepository, AbsenceRequestRepository>();
         services.AddScoped<IVacancyImpactRepository, VacancyImpactRepository>();
+
+        // Payroll Module Repositories
+        services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
+        services.AddScoped<IPayrollRunRepository, PayrollRunRepository>();
+        services.AddScoped<IPayrollRecordRepository, PayrollRecordRepository>();
 
         return services;
     }
