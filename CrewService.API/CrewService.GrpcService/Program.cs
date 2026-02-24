@@ -111,5 +111,6 @@ app.MapGrpcService<CrewsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<BoardsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<PoliciesService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<DispatchingService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<AbsenceVacancyService>().EnableGrpcWeb().RequireAuthorization();
 
 app.Run();
