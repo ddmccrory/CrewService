@@ -3,11 +3,13 @@ using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Modules.WorkManagement;
 using CrewService.Persistance.Modules.Crews;
+using CrewService.Persistance.Modules.Boards;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -93,6 +95,11 @@ public static class DependencyInjection
         services.AddScoped<ICrewAttachmentTemplateRepository, CrewAttachmentTemplateRepository>();
         services.AddScoped<ICrewAttachmentInstanceRepository, CrewAttachmentInstanceRepository>();
         services.AddScoped<IReliefCoverageRuleRepository, ReliefCoverageRuleRepository>();
+
+        // Boards Module Repositories
+        services.AddScoped<IExtraBoardRepository, ExtraBoardRepository>();
+        services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
+        services.AddScoped<IBoardCascadePolicyRepository, BoardCascadePolicyRepository>();
 
         return services;
     }

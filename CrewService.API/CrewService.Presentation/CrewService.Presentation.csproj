@@ -52,6 +52,7 @@
     <Protobuf Include="Protos\modules\tenant_config.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\work_management.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\crews.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\modules\boards.proto" GrpcServices="Server" />
   </ItemGroup>
 
 </Project>
