@@ -1,7 +1,9 @@
 ﻿using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -66,6 +68,12 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
+
+        // TenantConfig Module Repositories
+        services.AddScoped<IGroupTypeRepository, GroupTypeRepository>();
+        services.AddScoped<IDynamicGroupRepository, DynamicGroupRepository>();
+        services.AddScoped<IGroupAttributeDefinitionRepository, GroupAttributeDefinitionRepository>();
+        services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
 
         return services;
     }
