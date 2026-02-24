@@ -107,5 +107,6 @@ app.MapGrpcService<SeniorityStateService>().EnableGrpcWeb().RequireAuthorization
 // Module services
 app.MapGrpcService<TenantConfigService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<WorkManagementService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<CrewsService>().EnableGrpcWeb().RequireAuthorization();
 
 app.Run();

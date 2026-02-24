@@ -2,10 +2,12 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Crews;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Modules.WorkManagement;
+using CrewService.Persistance.Modules.Crews;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -83,6 +85,14 @@ public static class DependencyInjection
         services.AddScoped<IPositionRoleRepository, PositionRoleRepository>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
+
+        // Crews Module Repositories
+        services.AddScoped<ICrewRepository, CrewRepository>();
+        services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();
+        services.AddScoped<ICrewIncumbencyRepository, CrewIncumbencyRepository>();
+        services.AddScoped<ICrewAttachmentTemplateRepository, CrewAttachmentTemplateRepository>();
+        services.AddScoped<ICrewAttachmentInstanceRepository, CrewAttachmentInstanceRepository>();
+        services.AddScoped<IReliefCoverageRuleRepository, ReliefCoverageRuleRepository>();
 
         return services;
     }
