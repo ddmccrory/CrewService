@@ -54,6 +54,7 @@
     <Protobuf Include="Protos\modules\crews.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\boards.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\policies.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\modules\dispatching.proto" GrpcServices="Server" />
   </ItemGroup>
 
 </Project>
