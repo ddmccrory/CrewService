@@ -1,5 +1,6 @@
 ﻿using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Crews;

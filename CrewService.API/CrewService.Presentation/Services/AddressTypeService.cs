@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 

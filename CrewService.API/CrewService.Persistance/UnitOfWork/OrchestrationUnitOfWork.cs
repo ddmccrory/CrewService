@@ -2,6 +2,7 @@
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Persistance.Data;

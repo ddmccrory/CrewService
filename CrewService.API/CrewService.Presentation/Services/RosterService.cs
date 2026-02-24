@@ -1,6 +1,7 @@
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
