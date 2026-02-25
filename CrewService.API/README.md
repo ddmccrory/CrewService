@@ -68,16 +68,17 @@ Each module owns its contracts (proto), application logic, domain rules, and inf
 
 | Module | Bounded Context | Status |
 |---|---|---|
-| **TenantConfig** | Dynamic Groups, GroupTypes, Attributes, WorkArea designation | Scaffolded |
-| **Employees** | Employee profile, contact info, crafts, seniority, rosters, employment status, prior service credits | Existing (legacy structure) |
-| **WorkManagement** | Assignment Templates, WorkInstances, PositionRoles, PositionSlots, SlotRequirements | Scaffolded |
-| **Crews** | Regular/Relief crews, positions, incumbency, crew-to-work attachment, relief coverage rules | Scaffolded |
-| **Boards** | Extra boards (primary/auxiliary), membership, ordering/rotation state, cascade policies | Scaffolded |
-| **Policies** | Displacement policies/cases/claims, bulletin policies, seniority move policies, seniority moves, auto-placement | Scaffolded |
-| **Bulletins** | Structural position vacancies, bulletins (bid posting), bulletin bids with priority ranking, award/forced assignment | Scaffolded |
-| **Dispatching** | Projection, calling-time binding, decision logs, overrides, employee bookings | Scaffolded |
-| **AbsenceVacancy** | Absence requests, approvals, vacancy impact on work slots | Scaffolded |
-| **Payroll** | Time entry, payroll runs, payroll records, approval/locking | Scaffolded |
+| **TenantConfig** | GroupTypes, DynamicGroups (hierarchical tree), GroupAttributeDefinitions, GroupAttributeValues, WorkArea designation | Scaffolded |
+| **Employees** | Employee, Addresses, PhoneNumbers, EmailAddresses, contact types (AddressType, PhoneNumberType, EmailAddressType), EmploymentStatus, EmploymentStatusHistory, EmployeePriorServiceCredits, Craft, Roster, Seniority, SeniorityState, Parent, Railroad, PayrollTier | Existing (legacy structure) |
+| **WorkManagement** | AssignmentTemplates, WorkInstances, PositionRoles, PositionSlots, SlotRequirements | Scaffolded |
+| **Crews** | Regular/Relief Crews, CrewPositions, CrewIncumbency, CrewAttachmentTemplates, CrewAttachmentInstances, ReliefCoverageRules | Scaffolded |
+| **Boards** | ExtraBoards (primary/auxiliary), BoardMembers, BoardCascadePolicies | Scaffolded |
+| **Policies** | CraftDisplacementPolicy, DisplacementCases, DisplacementClaims, BulletinPolicy, SeniorityMovePolicy, SeniorityMoves, auto-placement on extra board | Scaffolded |
+| **Bulletins** | PositionVacancies (structural, discriminated target for crew/board), Bulletins (bid posting with computed window), BulletinBids (priority ranking, seniority capture), award/forced assignment, auto-withdrawal of lower-priority bids | Scaffolded |
+| **Dispatching** | DispatchProjections, DispatchDecisionLogs, DispatchOverrides, EmployeeBookings | Scaffolded |
+| **AbsenceVacancy** | AbsenceRequests, VacancyImpacts on PositionSlots | Scaffolded |
+| **Payroll** | TimeEntries, PayrollRuns, PayrollRecords, approval/locking | Scaffolded |
+| **Auth/Account** | JWT authentication, user accounts, registration, role management | Existing (legacy protos) |
 | **Reporting** | Read models, dashboards (optional, deferred) | Planned |
 
 **Boundary rule:** Modules do not call each other's EF Core DbContext directly. They integrate via in-process application interfaces (clean) or domain events (cleaner for future extraction).
@@ -89,12 +90,19 @@ CrewService/
 ├── CrewService.API/
 │   ├── CrewService.GrpcService/            # Host entry point, DI composition root
 │   ├── CrewService.Domain/                 # Aggregates, value objects, domain events
-│   │   ├── Primitives/                     # Entity base class
+│   │   ├── Primitives/                     # Entity base class (soft delete, domain event raising)
 │   │   ├── ValueObjects/                   # ControlNumber, AuditStamp, Name
-│   │   ├── Interfaces/                     # Shared interfaces, IOrchestrationUnitOfWork
+│   │   ├── Interfaces/                     # IRepository, IOrchestrationUnitOfWork, IDomainEvent, ICurrentUserService
+│   │   ├── Exceptions/                     # DomainException, NotFoundException, ConflictException, ForbiddenException, ValidationException
 │   │   ├── Outbox/                         # OutboxMessage, OutboxMessageStatus
-│   │   ├── DomainEvents/                   # DomainEvent base + legacy entity events
-│   │   ├── Models/                         # Legacy entity models (Employees, Railroads, etc.)
+│   │   ├── DomainEvents/                   # DomainEvent base + legacy per-entity events (Employees, ContactTypes, Employment, Seniority, Railroads, Parents)
+│   │   ├── Models/                         # Legacy entity models
+│   │   │   ├── Employees/                  # Employee, Address, PhoneNumber, EmailAddress, EmployeePriorServiceCredit
+│   │   │   ├── ContactTypes/               # AddressType, PhoneNumberType, EmailAddressType
+│   │   │   ├── Employment/                 # EmploymentStatus, EmploymentStatusHistory
+│   │   │   ├── Seniority/                  # Craft, Roster, Seniority, SeniorityState
+│   │   │   ├── Parents/                    # Parent
+│   │   │   └── Railroads/                  # Railroad, PayrollTier
 │   │   └── Modules/                        # New modular domain entities
 │   │       ├── TenantConfig/
 │   │       ├── WorkManagement/
@@ -105,8 +113,11 @@ CrewService/
 │   │       ├── Dispatching/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
-│   ├── CrewService.Application/            # Use cases, application services, DTOs
-│   ├── CrewService.Infrastructure/         # Adapters, Identity User, Outbox publisher
+│   ├── CrewService.Application/            # Use cases, application services, DTOs (placeholder)
+│   ├── CrewService.Infrastructure/         # Cross-cutting concerns
+│   │   ├── Exceptions/                     # GrpcExceptionInterceptor, GlobalExceptionHandler
+│   │   ├── Models/UserAccount/             # Identity User model
+│   │   └── Outbox/                         # OutboxDispatcher (Channel), OutboxPublisherService, NoOpMessagePublisher, Options
 │   ├── CrewService.Persistance/            # EF Core DbContexts, migrations, repositories
 │   │   ├── Data/                           # OperationsDbContext (CrewServiceDbContext), IdentityDbContext (UserAccessDbContext)
 │   │   ├── Configurations/                 # Legacy EF configurations
@@ -123,10 +134,10 @@ CrewService/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
 │   ├── CrewService.Presentation/           # gRPC service implementations + protos
-│   │   ├── Protos/                         # Legacy per-entity proto files
+│   │   ├── Protos/                         # Legacy per-entity proto files + common.proto
 │   │   │   └── modules/                    # New per-module proto files
-│   │   └── Services/                       # Legacy gRPC services
-│   │       └── Modules/                    # New per-module gRPC services
+│   │   └── Services/                       # Legacy gRPC services (Auth, Account, Employee, ContactTypes, Employment, Seniority, Railroad, PayrollTier, Parent)
+│   │       └── Modules/                    # New per-module gRPC services (TenantConfig, WorkManagement, Crews, Boards, Policies, Bulletins, Dispatching, AbsenceVacancy, Payroll)
 │   └── CrewService.UnitTests/
 ├── docs/                                   # Diagrams, specs, scope documents
 └── tests/                                  # Integration tests
@@ -190,10 +201,11 @@ CrewService/
 
 One `.proto` per module with REST transcoding annotations in the same proto:
 
+**Module protos** (`Protos/modules/`):
+
 | Proto | Module |
 |---|---|
 | `modules/tenant_config.proto` | TenantConfig |
-| `modules/employees.proto` | Employees (planned consolidation) |
 | `modules/work_management.proto` | WorkManagement |
 | `modules/crews.proto` | Crews |
 | `modules/boards.proto` | Boards |
@@ -203,7 +215,27 @@ One `.proto` per module with REST transcoding annotations in the same proto:
 | `modules/absence_vacancy.proto` | AbsenceVacancy |
 | `modules/payroll.proto` | Payroll |
 
-Legacy per-entity protos remain in `Protos/` until consolidated into module protos.
+**Legacy per-entity protos** (`Protos/`) — will consolidate into module protos:
+
+| Proto | Entity/Feature |
+|---|---|
+| `auth.proto` | JWT authentication (login, token refresh) |
+| `account.proto` | User registration, account management |
+| `employee.proto` | Employee CRUD |
+| `address_type.proto` | Address type lookups |
+| `phone_number_type.proto` | Phone number type lookups |
+| `email_address_type.proto` | Email address type lookups |
+| `employment_status.proto` | Employment status lookups |
+| `employment_status_history.proto` | Employment status history |
+| `prior_service_credit.proto` | Employee prior service credits |
+| `craft.proto` | Crafts |
+| `roster.proto` | Rosters |
+| `seniority.proto` | Seniority records |
+| `seniority_state.proto` | Seniority states |
+| `parent.proto` | Parent tenants |
+| `railroad.proto` | Railroads |
+| `payroll_tier.proto` | Payroll tiers |
+| `common.proto` | Shared messages (DeleteResponse, etc.) |
 
 ## Implementation order
 
