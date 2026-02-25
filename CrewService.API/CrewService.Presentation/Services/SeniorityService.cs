@@ -22,7 +22,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
             {
                 CtrlNbr = seniority.CtrlNbr.Value,
                 RosterCtrlNbr = seniority.RosterCtrlNbr.Value,
-                RailroadPoolEmployeeCtrlNbr = seniority.RailroadPoolEmployeeCtrlNbr.Value,
+                EmployeeCtrlNbr = seniority.EmployeeCtrlNbr.Value,
                 LastActiveRoster = seniority.LastActiveRoster,
                 RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
                 Rank = seniority.Rank,
@@ -43,7 +43,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
         {
             CtrlNbr = seniority.CtrlNbr.Value,
             RosterCtrlNbr = seniority.RosterCtrlNbr.Value,
-            RailroadPoolEmployeeCtrlNbr = seniority.RailroadPoolEmployeeCtrlNbr.Value,
+            EmployeeCtrlNbr = seniority.EmployeeCtrlNbr.Value,
             LastActiveRoster = seniority.LastActiveRoster,
             RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
             Rank = seniority.Rank,
@@ -56,7 +56,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
     {
         var seniority = Seniority.Create(
             request.RosterCtrlNbr,
-            request.RailroadPoolEmployeeCtrlNbr,
+            request.EmployeeCtrlNbr,
             request.LastActiveRoster,
             DateTime.Parse(request.RosterDate),
             request.Rank,
@@ -69,7 +69,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
         {
             CtrlNbr = seniority.CtrlNbr.Value,
             RosterCtrlNbr = seniority.RosterCtrlNbr.Value,
-            RailroadPoolEmployeeCtrlNbr = seniority.RailroadPoolEmployeeCtrlNbr.Value,
+            EmployeeCtrlNbr = seniority.EmployeeCtrlNbr.Value,
             LastActiveRoster = seniority.LastActiveRoster,
             RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
             Rank = seniority.Rank,
@@ -96,7 +96,7 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
         {
             CtrlNbr = seniority.CtrlNbr.Value,
             RosterCtrlNbr = seniority.RosterCtrlNbr.Value,
-            RailroadPoolEmployeeCtrlNbr = seniority.RailroadPoolEmployeeCtrlNbr.Value,
+            EmployeeCtrlNbr = seniority.EmployeeCtrlNbr.Value,
             LastActiveRoster = seniority.LastActiveRoster,
             RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
             Rank = seniority.Rank,

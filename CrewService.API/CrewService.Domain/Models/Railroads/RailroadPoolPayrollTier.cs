@@ -9,28 +9,28 @@ namespace CrewService.Domain.Models.Railroads;
 /// </summary>
 public sealed class RailroadPoolPayrollTier : Entity
 {
-    public ControlNumber RailroadPoolCtrlNbr { get; private set; }
+    public ControlNumber DynamicGroupCtrlNbr { get; private set; }
     public int NumberOfDays { get; private set; }
     public int TypeOfDay { get; private set; } // 1=Calendar, 2=Working
     public int RatePercentage { get; private set; }
 
     private RailroadPoolPayrollTier()
     {
-        RailroadPoolCtrlNbr = null!;
+        DynamicGroupCtrlNbr = null!;
     }
 
-    private RailroadPoolPayrollTier(ControlNumber railroadPoolCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
+    private RailroadPoolPayrollTier(ControlNumber dynamicGroupCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
     {
-        RailroadPoolCtrlNbr = railroadPoolCtrlNbr;
+        DynamicGroupCtrlNbr = dynamicGroupCtrlNbr;
         NumberOfDays = numberOfDays;
         TypeOfDay = typeOfDay;
         RatePercentage = ratePercentage;
     }
 
-    public static RailroadPoolPayrollTier Create(long railroadPoolCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
+    public static RailroadPoolPayrollTier Create(long dynamicGroupCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
     {
         var entity = new RailroadPoolPayrollTier(
-            ControlNumber.Create(railroadPoolCtrlNbr),
+            ControlNumber.Create(dynamicGroupCtrlNbr),
             numberOfDays,
             typeOfDay,
             ratePercentage);

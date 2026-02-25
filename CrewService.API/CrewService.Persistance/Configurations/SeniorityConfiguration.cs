@@ -19,7 +19,7 @@ internal class SeniorityConfiguration : IEntityTypeConfiguration<Seniority>
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
-        builder.Property(s => s.RailroadPoolEmployeeCtrlNbr).HasConversion(
+        builder.Property(s => s.EmployeeCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 

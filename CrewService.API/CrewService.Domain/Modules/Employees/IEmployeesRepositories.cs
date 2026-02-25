@@ -5,6 +5,7 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.Employees;
@@ -109,20 +110,9 @@ public interface IRailroadEmployeeRepository : IRepository<RailroadEmployee>
     Task<List<RailroadEmployee>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr);
 }
 
-public interface IRailroadPoolRepository : IRepository<RailroadPool>
-{
-    Task<List<RailroadPool>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr);
-}
-
-public interface IRailroadPoolEmployeeRepository : IRepository<RailroadPoolEmployee>
-{
-    Task<List<RailroadPoolEmployee>> GetByRailroadPoolCtrlNbrAsync(ControlNumber railroadPoolCtrlNbr);
-    Task<List<RailroadPoolEmployee>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
-}
-
 public interface IRailroadPoolPayrollTierRepository : IRepository<RailroadPoolPayrollTier>
 {
-    Task<List<RailroadPoolPayrollTier>> GetByRailroadPoolCtrlNbrAsync(ControlNumber railroadPoolCtrlNbr);
+    Task<List<RailroadPoolPayrollTier>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr);
 }
 
 // ??????????????????????????????????????????????????????????????????
@@ -131,7 +121,7 @@ public interface IRailroadPoolPayrollTierRepository : IRepository<RailroadPoolPa
 
 public interface ICraftRepository : IRepository<Craft>
 {
-    Task<List<Craft>> GetByRailroadPoolCtrlNbrAsync(ControlNumber railroadPoolCtrlNbr);
+    Task<List<Craft>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr);
 }
 
 public interface IRosterRepository : IRepository<Roster>
@@ -142,7 +132,7 @@ public interface IRosterRepository : IRepository<Roster>
 public interface ISeniorityRepository : IRepository<Seniority>
 {
     Task<List<Seniority>> GetByRosterCtrlNbrAsync(ControlNumber rosterCtrlNbr);
-    Task<List<Seniority>> GetByRailroadPoolEmployeeCtrlNbrAsync(ControlNumber railroadPoolEmployeeCtrlNbr);
+    Task<List<Seniority>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
 }
 
 public interface ISeniorityStateRepository : IRepository<SeniorityState>

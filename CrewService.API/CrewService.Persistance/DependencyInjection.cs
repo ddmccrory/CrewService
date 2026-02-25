@@ -65,8 +65,6 @@ public static class DependencyInjection
         services.AddScoped<IRailroadRepository, RailroadRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<IRailroadEmployeeRepository, RailroadEmployeeRepository>();
-        services.AddScoped<IRailroadPoolRepository, RailroadPoolRepository>();
-        services.AddScoped<IRailroadPoolEmployeeRepository, RailroadPoolEmployeeRepository>();
 
         // ContactType Repositories
         services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();

@@ -21,7 +21,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             response.Crafts.Add(new CraftResponse
             {
                 CtrlNbr = craft.CtrlNbr.Value,
-                RailroadPoolCtrlNbr = craft.RailroadPoolCtrlNbr.Value,
+                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
                 CraftName = craft.CraftName,
                 CraftPluralName = craft.CraftPluralName,
                 CraftNumber = craft.CraftNumber,
@@ -50,7 +50,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            RailroadPoolCtrlNbr = craft.RailroadPoolCtrlNbr.Value,
+            DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
             CraftNumber = craft.CraftNumber,
@@ -71,7 +71,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
     public override async Task<CraftResponse> CreateAsync(CreateCraftRequest request, ServerCallContext context)
     {
         var craft = Craft.Create(
-            request.RailroadPoolCtrlNbr,
+            request.DynamicGroupCtrlNbr,
             request.CraftName,
             request.CraftPluralName,
             request.CraftNumber,
@@ -92,7 +92,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            RailroadPoolCtrlNbr = craft.RailroadPoolCtrlNbr.Value,
+            DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
             CraftNumber = craft.CraftNumber,
@@ -141,7 +141,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            RailroadPoolCtrlNbr = craft.RailroadPoolCtrlNbr.Value,
+            DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
             CraftNumber = craft.CraftNumber,

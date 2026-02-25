@@ -15,7 +15,7 @@ internal class RailroadPoolPayrollTierConfiguration : IEntityTypeConfiguration<R
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
-        builder.Property(t => t.RailroadPoolCtrlNbr).HasConversion(
+        builder.Property(t => t.DynamicGroupCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 

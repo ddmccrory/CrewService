@@ -11,10 +11,10 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class CraftRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Craft>(dbContext, currentUserService), ICraftRepository
 {
-    public async Task<List<Craft>> GetByRailroadPoolCtrlNbrAsync(ControlNumber railroadPoolCtrlNbr)
+    public async Task<List<Craft>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr)
     {
         return await DbContext.Set<Craft>()
-            .Where(c => c.RailroadPoolCtrlNbr == railroadPoolCtrlNbr)
+            .Where(c => c.DynamicGroupCtrlNbr == dynamicGroupCtrlNbr)
             .OrderBy(c => c.CraftNumber)
             .ToListAsync();
     }

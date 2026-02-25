@@ -43,8 +43,6 @@
     <Protobuf Include="Protos\prior_service_credit.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad_employee.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\railroad_pool.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\railroad_pool_employee.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad_pool_payroll_tier.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\roster.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\seniority.proto" GrpcServices="Server" />

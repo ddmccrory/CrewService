@@ -11,10 +11,10 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class RailroadPoolPayrollTierRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<RailroadPoolPayrollTier>(dbContext, currentUserService), IRailroadPoolPayrollTierRepository
 {
-    public async Task<List<RailroadPoolPayrollTier>> GetByRailroadPoolCtrlNbrAsync(ControlNumber railroadPoolCtrlNbr)
+    public async Task<List<RailroadPoolPayrollTier>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr)
     {
         return await DbContext.Set<RailroadPoolPayrollTier>()
-            .Where(t => t.RailroadPoolCtrlNbr == railroadPoolCtrlNbr)
+            .Where(t => t.DynamicGroupCtrlNbr == dynamicGroupCtrlNbr)
             .ToListAsync();
     }
 }

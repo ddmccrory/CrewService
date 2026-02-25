@@ -14,7 +14,7 @@ public class RailroadPoolPayrollTierService(IRailroadPoolPayrollTierRepository t
     public override async Task<GetAllRailroadPoolPayrollTierResponse> GetAllAsync(GetAllRailroadPoolPayrollTierRequest request, ServerCallContext context)
     {
         var response = new GetAllRailroadPoolPayrollTierResponse();
-        var tiers = await _tierRepository.GetByRailroadPoolCtrlNbrAsync(ControlNumber.Create(request.RailroadPoolCtrlNbr));
+        var tiers = await _tierRepository.GetByDynamicGroupCtrlNbrAsync(ControlNumber.Create(request.DynamicGroupCtrlNbr));
         response.Tiers.AddRange(tiers.Select(MapToResponse));
         response.TotalCount = tiers.Count;
         return response;
@@ -29,7 +29,7 @@ public class RailroadPoolPayrollTierService(IRailroadPoolPayrollTierRepository t
 
     public override async Task<RailroadPoolPayrollTierResponse> CreateAsync(CreateRailroadPoolPayrollTierRequest request, ServerCallContext context)
     {
-        var tier = RailroadPoolPayrollTier.Create(request.RailroadPoolCtrlNbr, request.NumberOfDays, request.TypeOfDay, request.RatePercentage);
+        var tier = RailroadPoolPayrollTier.Create(request.DynamicGroupCtrlNbr, request.NumberOfDays, request.TypeOfDay, request.RatePercentage);
         await _tierRepository.AddAsync(tier);
         return MapToResponse(tier);
     }
@@ -54,7 +54,7 @@ public class RailroadPoolPayrollTierService(IRailroadPoolPayrollTierRepository t
         return new RailroadPoolPayrollTierResponse
         {
             CtrlNbr = tier.CtrlNbr.Value,
-            RailroadPoolCtrlNbr = tier.RailroadPoolCtrlNbr.Value,
+            DynamicGroupCtrlNbr = tier.DynamicGroupCtrlNbr.Value,
             NumberOfDays = tier.NumberOfDays,
             TypeOfDay = tier.TypeOfDay,
             RatePercentage = tier.RatePercentage

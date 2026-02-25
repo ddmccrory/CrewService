@@ -25,9 +25,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ──────────────────────────────────────────────────────────────────
     IEmployeeRepository Employees { get; }
     IRailroadEmployeeRepository RailroadEmployees { get; }
-    IRailroadPoolEmployeeRepository RailroadPoolEmployees { get; }
     IRailroadRepository Railroads { get; }
-    IRailroadPoolRepository RailroadPools { get; }
     IParentRepository Parents { get; }
 
     // ──────────────────────────────────────────────────────────────────

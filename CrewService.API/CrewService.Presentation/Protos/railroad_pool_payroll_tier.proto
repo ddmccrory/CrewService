@@ -23,7 +23,7 @@ service RailroadPoolPayrollTierSrvc {
 }
 
 message GetAllRailroadPoolPayrollTierRequest {
-  int64 railroad_pool_ctrl_nbr = 1;
+int64 dynamic_group_ctrl_nbr = 1;
   int32 page_number = 2;
   int32 page_size = 3;
 }
@@ -38,7 +38,7 @@ message GetRailroadPoolPayrollTierRequest {
 }
 
 message CreateRailroadPoolPayrollTierRequest {
-  int64 railroad_pool_ctrl_nbr = 1;
+int64 dynamic_group_ctrl_nbr = 1;
   int32 number_of_days = 2;
   int32 type_of_day = 3;
   int32 rate_percentage = 4;
@@ -57,7 +57,7 @@ message DeleteRailroadPoolPayrollTierRequest {
 
 message RailroadPoolPayrollTierResponse {
   int64 ctrl_nbr = 1;
-  int64 railroad_pool_ctrl_nbr = 2;
+  int64 dynamic_group_ctrl_nbr = 2;
   int32 number_of_days = 3;
   int32 type_of_day = 4;
   int32 rate_percentage = 5;

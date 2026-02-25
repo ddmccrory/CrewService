@@ -7,7 +7,7 @@ namespace CrewService.Domain.Models.Seniority;
 public sealed class Seniority : Entity
 {
     public ControlNumber RosterCtrlNbr { get; private set; }
-    public ControlNumber RailroadPoolEmployeeCtrlNbr { get; private set; }
+    public ControlNumber EmployeeCtrlNbr { get; private set; }
     public bool LastActiveRoster { get; private set; }
     public DateTime RosterDate { get; private set; }
     public int Rank { get; private set; }
@@ -17,12 +17,12 @@ public sealed class Seniority : Entity
     private Seniority()
     {
         RosterCtrlNbr = null!;
-        RailroadPoolEmployeeCtrlNbr = null!;
+        EmployeeCtrlNbr = null!;
     }
 
     private Seniority(
         ControlNumber rosterCtrlNbr,
-        ControlNumber railroadPoolEmployeeCtrlNbr,
+        ControlNumber employeeCtrlNbr,
         bool lastActiveRoster,
         DateTime rosterDate,
         int rank,
@@ -30,7 +30,7 @@ public sealed class Seniority : Entity
         bool canTrain)
     {
         RosterCtrlNbr = rosterCtrlNbr;
-        RailroadPoolEmployeeCtrlNbr = railroadPoolEmployeeCtrlNbr;
+        EmployeeCtrlNbr = employeeCtrlNbr;
         LastActiveRoster = lastActiveRoster;
         RosterDate = rosterDate;
         Rank = rank;
@@ -40,7 +40,7 @@ public sealed class Seniority : Entity
 
     public static Seniority Create(
         long rosterCtrlNbr,
-        long railroadPoolEmployeeCtrlNbr,
+        long employeeCtrlNbr,
         bool lastActiveRoster,
         DateTime rosterDate,
         int rank,
@@ -49,7 +49,7 @@ public sealed class Seniority : Entity
     {
         var entity = new Seniority(
             ControlNumber.Create(rosterCtrlNbr),
-            ControlNumber.Create(railroadPoolEmployeeCtrlNbr),
+            ControlNumber.Create(employeeCtrlNbr),
             lastActiveRoster,
             rosterDate,
             rank,

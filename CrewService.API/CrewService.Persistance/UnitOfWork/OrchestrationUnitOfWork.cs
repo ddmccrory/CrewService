@@ -35,9 +35,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     private IEmployeeRepository? _employees;
     private IRailroadEmployeeRepository? _railroadEmployees;
-    private IRailroadPoolEmployeeRepository? _railroadPoolEmployees;
     private IRailroadRepository? _railroads;
-    private IRailroadPoolRepository? _railroadPools;
     private IParentRepository? _parents;
 
     // ──────────────────────────────────────────────────────────────────
@@ -70,9 +68,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_crewContext, _currentUserService);
     public IRailroadEmployeeRepository RailroadEmployees => _railroadEmployees ??= new RailroadEmployeeRepository(_crewContext, _currentUserService);
-    public IRailroadPoolEmployeeRepository RailroadPoolEmployees => _railroadPoolEmployees ??= new RailroadPoolEmployeeRepository(_crewContext, _currentUserService);
     public IRailroadRepository Railroads => _railroads ??= new RailroadRepository(_crewContext, _currentUserService);
-    public IRailroadPoolRepository RailroadPools => _railroadPools ??= new RailroadPoolRepository(_crewContext, _currentUserService);
     public IParentRepository Parents => _parents ??= new ParentRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
