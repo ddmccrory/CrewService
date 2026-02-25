@@ -49,6 +49,20 @@ service TenantConfigSrvc {
   rpc GetAncestors(GetAncestorsRequest) returns (GetAllGroupsResponse) {
     option (google.api.http) = { get: "/v1/tenant-config/groups/{ctrl_nbr}/ancestors" };
   }
+
+  // Railroad Group Placements
+  rpc PlaceRailroadInGroup(PlaceRailroadInGroupRequest) returns (RailroadGroupPlacementResponse) {
+    option (google.api.http) = { post: "/v1/tenant-config/railroad-placements" body: "*" };
+  }
+  rpc RemoveRailroadFromGroup(RemoveRailroadFromGroupRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/tenant-config/railroad-placements/{ctrl_nbr}" };
+  }
+  rpc GetRailroadPlacements(GetRailroadPlacementsRequest) returns (GetRailroadPlacementsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/railroad-placements/by-railroad/{railroad_ctrl_nbr}" };
+  }
+  rpc GetRailroadsInGroup(GetRailroadsInGroupRequest) returns (GetRailroadPlacementsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/railroad-placements/by-group/{group_ctrl_nbr}" };
+  }
 }
 
 // GroupType messages
@@ -147,4 +161,33 @@ message GetWorkAreasRequest {}
 
 message GetAncestorsRequest {
   int64 ctrl_nbr = 1;
+}
+
+// Railroad Group Placement messages
+message PlaceRailroadInGroupRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 group_ctrl_nbr = 2;
+}
+
+message RemoveRailroadFromGroupRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetRailroadPlacementsRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message GetRailroadsInGroupRequest {
+  int64 group_ctrl_nbr = 1;
+  bool include_descendants = 2;
+}
+
+message RailroadGroupPlacementResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  int64 group_ctrl_nbr = 3;
+}
+
+message GetRailroadPlacementsResponse {
+  repeated RailroadGroupPlacementResponse placements = 1;
 }

@@ -25,3 +25,11 @@ public interface IGroupAttributeValueRepository : IRepository<GroupAttributeValu
 {
     Task<List<GroupAttributeValue>> GetByGroupCtrlNbrAsync(ControlNumber groupCtrlNbr);
 }
+
+public interface IRailroadGroupPlacementRepository : IRepository<RailroadGroupPlacement>
+{
+    Task<List<RailroadGroupPlacement>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr);
+    Task<List<RailroadGroupPlacement>> GetByGroupCtrlNbrAsync(ControlNumber groupCtrlNbr);
+    Task<List<RailroadGroupPlacement>> GetByGroupSubtreeAsync(string pathPrefix);
+    Task<RailroadGroupPlacement?> GetByRailroadAndGroupAsync(ControlNumber railroadCtrlNbr, ControlNumber groupCtrlNbr);
+}

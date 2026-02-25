@@ -89,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<IDynamicGroupRepository, DynamicGroupRepository>();
         services.AddScoped<IGroupAttributeDefinitionRepository, GroupAttributeDefinitionRepository>();
         services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
+        services.AddScoped<IRailroadGroupPlacementRepository, RailroadGroupPlacementRepository>();
 
         // WorkManagement Module Repositories
         services.AddScoped<IAssignmentTemplateRepository, AssignmentTemplateRepository>();
