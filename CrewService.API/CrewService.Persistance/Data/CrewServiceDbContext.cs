@@ -9,14 +9,16 @@ using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
+using CrewService.Persistance.Encryption;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
 namespace CrewService.Persistance.Data;
 
 internal sealed class CrewServiceDbContext(
-    DbContextOptions<CrewServiceDbContext> options,
-    ICurrentUserService currentUserService) : DbContext(options), IOutboxDbContext
+DbContextOptions<CrewServiceDbContext> options,
+ICurrentUserService currentUserService,
+IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 {
     // Legacy Employees
     public DbSet<Address> Addresses => Set<Address>();
@@ -55,6 +57,17 @@ internal sealed class CrewServiceDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
+
+        // Encrypt sensitive PII fields at rest
+        var encryptedConverter = new EncryptedStringConverter(fieldEncryptor);
+        modelBuilder.Entity<Employee>()
+            .Property(e => e.SocialSecurityNumber)
+            .HasConversion(encryptedConverter);
+        modelBuilder.Entity<Employee>()
+            .Property(e => e.DriversLicenseNumber)
+            .HasConversion(
+                v => v == null ? null : fieldEncryptor.Encrypt(v),
+                v => v == null ? null : fieldEncryptor.Decrypt(v));
 
         // Apply global soft-delete filter to all Entity types
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

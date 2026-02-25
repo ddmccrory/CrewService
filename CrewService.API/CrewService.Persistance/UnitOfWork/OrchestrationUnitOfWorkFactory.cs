@@ -15,11 +15,13 @@ namespace CrewService.Persistance.UnitOfWork;
 internal sealed class OrchestrationUnitOfWorkFactory(
     IConfiguration configuration,
     ICurrentUserService currentUserService,
+    IFieldEncryptor fieldEncryptor,
     ILoggerFactory loggerFactory,
     IOutboxDispatcher? dispatcher = null) : IOrchestrationUnitOfWorkFactory
 {
     private readonly IConfiguration _configuration = configuration;
     private readonly ICurrentUserService _currentUserService = currentUserService;
+    private readonly IFieldEncryptor _fieldEncryptor = fieldEncryptor;
     private readonly ILoggerFactory _loggerFactory = loggerFactory;
     private readonly IOutboxDispatcher? _dispatcher = dispatcher;
 
@@ -58,7 +60,7 @@ internal sealed class OrchestrationUnitOfWorkFactory(
             .Options;
 
         // Create the CrewServiceDbContext with the shared connection
-        var crewContext = new CrewServiceDbContext(crewContextOptions, _currentUserService);
+        var crewContext = new CrewServiceDbContext(crewContextOptions, _currentUserService, _fieldEncryptor);
 
         // Enlist the context in the shared transaction
         await crewContext.Database.UseTransactionAsync(transaction, cancellationToken);

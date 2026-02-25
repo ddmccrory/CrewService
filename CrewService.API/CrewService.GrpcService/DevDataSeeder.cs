@@ -5,7 +5,9 @@ using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 
 namespace CrewService.GrpcService;
@@ -159,6 +161,8 @@ internal static class DevDataSeeder
         var workEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Work", 1, emergencyType: false);
         await emailAddressTypeRepo.AddAsync(workEmailType);
 
+        var userManager = sp.GetRequiredService<UserManager<User>>();
+
         string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
                                "Jennifer", "Michael", "Linda", "David", "Elizabeth",
                                "William", "Barbara", "Richard", "Susan", "Joseph",
@@ -181,11 +185,26 @@ internal static class DevDataSeeder
         {
             var firstName = firstNames[i % firstNames.Length];
             var lastName  = lastNames[i / firstNames.Length % lastNames.Length];
+            var empNumber = $"EMP{i + 1:D4}";
+            var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@csx.example.com";
+
+            var user = new User
+            {
+                UserName       = email,
+                Email          = email,
+                EmailConfirmed = true,
+                FirstName      = firstName,
+                LastName       = lastName,
+                FullName       = $"{firstName} {lastName}",
+                FullNameLNF    = $"{lastName}, {firstName}",
+                EmployeeNumber = empNumber
+            };
+            await userManager.CreateAsync(user, "Seed@123");
 
             var employee = Employee.Create(
                 csxParent.CtrlNbr.Value,
-                userId: $"seed-user-{i + 1:D4}",
-                employeeNumber: $"EMP{i + 1:D4}",
+                userId: user.Id,
+                employeeNumber: empNumber,
                 ssn: $"{100 + i:D3}-{50 + i % 100:D2}-{1000 + i:D4}",
                 gender: genders[i % genders.Length],
                 race: races[i % races.Length],
@@ -207,7 +226,7 @@ internal static class DevDataSeeder
                 cellPhoneType.CtrlNbr.Value);
 
             employee.AddEmailAddress(
-                $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@csx.example.com",
+                email,
                 workEmailType.CtrlNbr.Value);
 
             await employeeRepo.AddAsync(employee);
