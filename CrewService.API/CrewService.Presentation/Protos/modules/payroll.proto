@@ -1,7 +1,6 @@
 syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 import "google/api/annotations.proto";
-import "Protos/common.proto";
 package payroll;
 
 service PayrollSrvc {

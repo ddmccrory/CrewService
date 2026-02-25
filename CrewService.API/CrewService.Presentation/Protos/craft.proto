@@ -23,7 +23,7 @@ service CraftSrvc {
 }
 
 message GetAllCraftRequest {
-  int64 railroad_pool_ctrl_nbr = 1;
+int64 dynamic_group_ctrl_nbr = 1;
   int32 page_number = 2;
   int32 page_size = 3;
 }
@@ -38,7 +38,7 @@ message GetCraftRequest {
 }
 
 message CreateCraftRequest {
-  int64 railroad_pool_ctrl_nbr = 1;
+int64 dynamic_group_ctrl_nbr = 1;
   string craft_name = 2;
   string craft_plural_name = 3;
   int32 craft_number = 4;
@@ -78,8 +78,8 @@ message DeleteCraftRequest {
 }
 
 message CraftResponse {
-  int64 ctrl_nbr = 1;
-  int64 railroad_pool_ctrl_nbr = 2;
+int64 ctrl_nbr = 1;
+int64 dynamic_group_ctrl_nbr = 2;
   string craft_name = 3;
   string craft_plural_name = 4;
   int32 craft_number = 5;

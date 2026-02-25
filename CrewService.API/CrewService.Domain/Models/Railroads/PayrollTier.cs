@@ -5,40 +5,40 @@ using CrewService.Domain.ValueObjects;
 namespace CrewService.Domain.Models.Railroads;
 
 /// <summary>
-/// Represents a payroll tier for a railroad pool.
+/// Represents a payroll tier for a dynamic group (pool).
 /// </summary>
-public sealed class RailroadPoolPayrollTier : Entity
+public sealed class PayrollTier : Entity
 {
-    public ControlNumber RailroadPoolCtrlNbr { get; private set; }
+    public ControlNumber DynamicGroupCtrlNbr { get; private set; }
     public int NumberOfDays { get; private set; }
     public int TypeOfDay { get; private set; } // 1=Calendar, 2=Working
     public int RatePercentage { get; private set; }
 
-    private RailroadPoolPayrollTier()
+    private PayrollTier()
     {
-        RailroadPoolCtrlNbr = null!;
+        DynamicGroupCtrlNbr = null!;
     }
 
-    private RailroadPoolPayrollTier(ControlNumber railroadPoolCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
+    private PayrollTier(ControlNumber dynamicGroupCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
     {
-        RailroadPoolCtrlNbr = railroadPoolCtrlNbr;
+        DynamicGroupCtrlNbr = dynamicGroupCtrlNbr;
         NumberOfDays = numberOfDays;
         TypeOfDay = typeOfDay;
         RatePercentage = ratePercentage;
     }
 
-    public static RailroadPoolPayrollTier Create(long railroadPoolCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
+    public static PayrollTier Create(long dynamicGroupCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
     {
-        var entity = new RailroadPoolPayrollTier(
-            ControlNumber.Create(railroadPoolCtrlNbr),
+        var entity = new PayrollTier(
+            ControlNumber.Create(dynamicGroupCtrlNbr),
             numberOfDays,
             typeOfDay,
             ratePercentage);
-        entity.Raise(new RailroadPoolPayrollTierCreatedDomainEvent(entity.CtrlNbr));
+        entity.Raise(new PayrollTierCreatedDomainEvent(entity.CtrlNbr));
         return entity;
     }
 
-    public RailroadPoolPayrollTier Update(int? numberOfDays = null, int? typeOfDay = null, int? ratePercentage = null)
+    public PayrollTier Update(int? numberOfDays = null, int? typeOfDay = null, int? ratePercentage = null)
     {
         var changes = new Dictionary<string, object?>();
 
@@ -62,7 +62,7 @@ public sealed class RailroadPoolPayrollTier : Entity
 
         if (changes.Count > 0)
         {
-            Raise(new RailroadPoolPayrollTierUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
+            Raise(new PayrollTierUpdatedDomainEvent(CtrlNbr, payload: new { Changes = changes }));
         }
 
         return this;
@@ -70,6 +70,6 @@ public sealed class RailroadPoolPayrollTier : Entity
 
     public void Delete()
     {
-        Raise(new RailroadPoolPayrollTierDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
+        Raise(new PayrollTierDeletedDomainEvent(CtrlNbr, payload: new { DeletedAt = DateTime.UtcNow }));
     }
 }

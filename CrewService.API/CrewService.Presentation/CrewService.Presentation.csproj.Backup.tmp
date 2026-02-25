@@ -42,7 +42,7 @@
     <Protobuf Include="Protos\phone_number_type.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\prior_service_credit.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\railroad.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\payroll_tier.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\railroad_employee.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\roster.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\seniority.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\seniority_state.proto" GrpcServices="Server" />

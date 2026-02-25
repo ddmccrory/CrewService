@@ -64,9 +64,6 @@ public static class DependencyInjection
         services.AddScoped<IParentRepository, ParentRepository>();
         services.AddScoped<IRailroadRepository, RailroadRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-        services.AddScoped<IRailroadEmployeeRepository, RailroadEmployeeRepository>();
-        services.AddScoped<IRailroadPoolRepository, RailroadPoolRepository>();
-        services.AddScoped<IRailroadPoolEmployeeRepository, RailroadPoolEmployeeRepository>();
 
         // ContactType Repositories
         services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();
@@ -83,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
+        services.AddScoped<IPayrollTierRepository, PayrollTierRepository>();
 
         // TenantConfig Module Repositories
         services.AddScoped<IGroupTypeRepository, GroupTypeRepository>();

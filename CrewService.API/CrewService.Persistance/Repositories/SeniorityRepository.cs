@@ -19,10 +19,10 @@ internal sealed class SeniorityRepository(CrewServiceDbContext dbContext, ICurre
             .ToListAsync();
     }
 
-    public async Task<List<Seniority>> GetByRailroadPoolEmployeeCtrlNbrAsync(ControlNumber railroadPoolEmployeeCtrlNbr)
+    public async Task<List<Seniority>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr)
     {
         return await DbContext.Set<Seniority>()
-            .Where(s => s.RailroadPoolEmployeeCtrlNbr == railroadPoolEmployeeCtrlNbr)
+            .Where(s => s.EmployeeCtrlNbr == employeeCtrlNbr)
             .OrderByDescending(s => s.RosterDate)
             .ToListAsync();
     }

@@ -15,7 +15,7 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
-        builder.Property(c => c.RailroadPoolCtrlNbr).HasConversion(
+        builder.Property(c => c.DynamicGroupCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 

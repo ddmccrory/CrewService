@@ -6,7 +6,7 @@ namespace CrewService.Domain.Models.Seniority;
 
 public sealed class Craft : Entity
 {
-    public ControlNumber RailroadPoolCtrlNbr { get; private set; }
+    public ControlNumber DynamicGroupCtrlNbr { get; private set; }
     public string CraftName { get; private set; } = string.Empty;
     public string CraftPluralName { get; private set; } = string.Empty;
     public int CraftNumber { get; private set; }
@@ -24,11 +24,11 @@ public sealed class Craft : Entity
 
     private Craft()
     {
-        RailroadPoolCtrlNbr = null!;
+        DynamicGroupCtrlNbr = null!;
     }
 
     private Craft(
-        ControlNumber railroadPoolCtrlNbr,
+        ControlNumber dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,
         int craftNumber,
@@ -44,7 +44,7 @@ public sealed class Craft : Entity
         bool showNotifications,
         int vacationAssignmentType)
     {
-        RailroadPoolCtrlNbr = railroadPoolCtrlNbr;
+        DynamicGroupCtrlNbr = dynamicGroupCtrlNbr;
         CraftName = craftName;
         CraftPluralName = craftPluralName;
         CraftNumber = craftNumber;
@@ -62,7 +62,7 @@ public sealed class Craft : Entity
     }
 
     public static Craft Create(
-        long railroadPoolCtrlNbr,
+        long dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,
         int craftNumber,
@@ -79,7 +79,7 @@ public sealed class Craft : Entity
         int vacationAssignmentType)
     {
         var entity = new Craft(
-            ControlNumber.Create(railroadPoolCtrlNbr),
+            ControlNumber.Create(dynamicGroupCtrlNbr),
             craftName,
             craftPluralName,
             craftNumber,
