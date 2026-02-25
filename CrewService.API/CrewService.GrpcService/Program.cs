@@ -97,7 +97,7 @@ app.MapGrpcService<PhoneNumberTypeService>().EnableGrpcWeb().RequireAuthorizatio
 app.MapGrpcService<PriorServiceCreditService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RailroadService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RailroadEmployeeService>().EnableGrpcWeb().RequireAuthorization();
-app.MapGrpcService<RailroadPoolPayrollTierService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<PayrollTierService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RosterService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityStateService>().EnableGrpcWeb().RequireAuthorization();

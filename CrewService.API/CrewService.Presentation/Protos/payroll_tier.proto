@@ -1,0 +1,66 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package payrolltier;
+
+service PayrollTierSrvc {
+  rpc GetAllAsync(GetAllPayrollTierRequest) returns (GetAllPayrollTierResponse) {
+    option (google.api.http) = { get: "/v1/payroll-tiers" };
+  }
+  rpc GetAsync(GetPayrollTierRequest) returns (PayrollTierResponse) {
+    option (google.api.http) = { get: "/v1/payroll-tiers/{ctrl_nbr}" };
+  }
+  rpc CreateAsync(CreatePayrollTierRequest) returns (PayrollTierResponse) {
+    option (google.api.http) = { post: "/v1/payroll-tiers" body: "*" };
+  }
+  rpc UpdateAsync(UpdatePayrollTierRequest) returns (PayrollTierResponse) {
+    option (google.api.http) = { put: "/v1/payroll-tiers/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAsync(DeletePayrollTierRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/payroll-tiers/{ctrl_nbr}" };
+  }
+}
+
+message GetAllPayrollTierRequest {
+  int64 dynamic_group_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllPayrollTierResponse {
+  repeated PayrollTierResponse tiers = 1;
+  int32 total_count = 2;
+}
+
+message GetPayrollTierRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreatePayrollTierRequest {
+  int64 dynamic_group_ctrl_nbr = 1;
+  int32 number_of_days = 2;
+  int32 type_of_day = 3;
+  int32 rate_percentage = 4;
+}
+
+message UpdatePayrollTierRequest {
+  int64 ctrl_nbr = 1;
+  int32 number_of_days = 2;
+  int32 type_of_day = 3;
+  int32 rate_percentage = 4;
+}
+
+message DeletePayrollTierRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message PayrollTierResponse {
+  int64 ctrl_nbr = 1;
+  int64 dynamic_group_ctrl_nbr = 2;
+  int32 number_of_days = 3;
+  int32 type_of_day = 4;
+  int32 rate_percentage = 5;
+  bool success = 6;
+  repeated string messages = 7;
+}

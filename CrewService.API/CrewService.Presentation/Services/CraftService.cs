@@ -1,5 +1,3 @@
-using CrewService.Domain.Exceptions;
-using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
@@ -112,13 +110,8 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<CraftResponse> UpdateAsync(UpdateCraftRequest request, ServerCallContext context)
     {
-//<<<<<<< HEAD
         var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
-//=======
-//        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr))
-//            ?? throw new NotFoundException("Craft", request.CtrlNbr);
-//>>>>>>> df57b2d (feat: implement domain exception handling)
 
         craft.Update(
             request.CraftName,
@@ -161,22 +154,8 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteCraftRequest request, ServerCallContext context)
     {
-//<<<<<<< HEAD
         var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
-//=======
-//        // Idempotent delete - succeed silently if not found
-//        var craft = await _craftRepository.GetByIdAsync(ControlNumber.Create(request.CtrlNbr));
-
-        if (craft is null)
-        {
-            return await Task.FromResult(new DeleteResponse
-            {
-                Success = true,
-                Messages = { $"Craft {request.CtrlNbr} not found or already deleted." }
-            });
-        }
-//>>>>>>> df57b2d (feat: implement domain exception handling)
 
         await _craftRepository.DeleteAsync(craft.CtrlNbr);
 

@@ -33,7 +33,7 @@ internal sealed class CrewServiceDbContext(
     public DbSet<PhoneNumberType> PhoneNumberTypes => Set<PhoneNumberType>();
     public DbSet<Railroad> Railroads => Set<Railroad>();
     public DbSet<RailroadEmployee> RailroadEmployees => Set<RailroadEmployee>();
-    public DbSet<RailroadPoolPayrollTier> RailroadPoolPayrollTiers => Set<RailroadPoolPayrollTier>();
+    public DbSet<PayrollTier> PayrollTiers => Set<PayrollTier>();
     public DbSet<Roster> Rosters => Set<Roster>();
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();

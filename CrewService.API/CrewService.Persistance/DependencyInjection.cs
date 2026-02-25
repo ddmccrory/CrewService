@@ -81,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
+        services.AddScoped<IPayrollTierRepository, PayrollTierRepository>();
 
         // TenantConfig Module Repositories
         services.AddScoped<IGroupTypeRepository, GroupTypeRepository>();

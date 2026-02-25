@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CrewService.Persistance.Configurations;
 
-internal class RailroadPoolPayrollTierConfiguration : IEntityTypeConfiguration<RailroadPoolPayrollTier>
+internal class PayrollTierConfiguration : IEntityTypeConfiguration<PayrollTier>
 {
-    public void Configure(EntityTypeBuilder<RailroadPoolPayrollTier> builder)
+    public void Configure(EntityTypeBuilder<PayrollTier> builder)
     {
         builder.HasKey(t => t.CtrlNbr);
 

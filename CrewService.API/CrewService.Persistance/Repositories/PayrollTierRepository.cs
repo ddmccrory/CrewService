@@ -8,12 +8,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Repositories;
 
-internal sealed class RailroadPoolPayrollTierRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<RailroadPoolPayrollTier>(dbContext, currentUserService), IRailroadPoolPayrollTierRepository
+internal sealed class PayrollTierRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<PayrollTier>(dbContext, currentUserService), IPayrollTierRepository
 {
-    public async Task<List<RailroadPoolPayrollTier>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr)
+    public async Task<List<PayrollTier>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr)
     {
-        return await DbContext.Set<RailroadPoolPayrollTier>()
+        return await DbContext.Set<PayrollTier>()
             .Where(t => t.DynamicGroupCtrlNbr == dynamicGroupCtrlNbr)
             .ToListAsync();
     }
