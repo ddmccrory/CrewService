@@ -1,4 +1,5 @@
 # Ignore SQLite DB files
+CrewService.API/CrewService.Persistance/Data/*.db
 CrewService.API/CrewService.Persistance/Data/*.db-shm
 CrewService.API/CrewService.Persistance/Data/*.db-wal
 
