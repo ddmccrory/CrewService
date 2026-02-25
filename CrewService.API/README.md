@@ -69,14 +69,15 @@ Each module owns its contracts (proto), application logic, domain rules, and inf
 | Module | Bounded Context | Status |
 |---|---|---|
 | **TenantConfig** | Dynamic Groups, GroupTypes, Attributes, WorkArea designation | Scaffolded |
-| **Employees** | Employee profile, availability, crafts, qualifications, seniority, notifications | Existing (legacy structure) |
-| **WorkManagement** | Assignment Templates, WorkInstances, PositionSlots, extras, promotion | Scaffolded |
-| **Crews** | Regular/Relief crews, positions, incumbency, crew-to-work attachment | Scaffolded |
-| **Boards** | Extra boards (primary/auxiliary), membership, ordering/rotation state | Scaffolded |
-| **Policies** | Agreement-driven policies per craft: ordering, cascade, calling windows, displacement | Scaffolded |
-| **Dispatching** | Projection, calling-time binding, holds, decision logs, overrides | Scaffolded |
+| **Employees** | Employee profile, contact info, crafts, seniority, rosters, employment status, prior service credits | Existing (legacy structure) |
+| **WorkManagement** | Assignment Templates, WorkInstances, PositionRoles, PositionSlots, SlotRequirements | Scaffolded |
+| **Crews** | Regular/Relief crews, positions, incumbency, crew-to-work attachment, relief coverage rules | Scaffolded |
+| **Boards** | Extra boards (primary/auxiliary), membership, ordering/rotation state, cascade policies | Scaffolded |
+| **Policies** | Displacement policies/cases/claims, bulletin policies, seniority move policies, seniority moves, auto-placement | Scaffolded |
+| **Bulletins** | Structural position vacancies, bulletins (bid posting), bulletin bids with priority ranking, award/forced assignment | Scaffolded |
+| **Dispatching** | Projection, calling-time binding, decision logs, overrides, employee bookings | Scaffolded |
 | **AbsenceVacancy** | Absence requests, approvals, vacancy impact on work slots | Scaffolded |
-| **Payroll** | Time entry, agreement payments, payroll records, approval/locking | Scaffolded |
+| **Payroll** | Time entry, payroll runs, payroll records, approval/locking | Scaffolded |
 | **Reporting** | Read models, dashboards (optional, deferred) | Planned |
 
 **Boundary rule:** Modules do not call each other's EF Core DbContext directly. They integrate via in-process application interfaces (clean) or domain events (cleaner for future extraction).
@@ -100,6 +101,7 @@ CrewService/
 │   │       ├── Crews/
 │   │       ├── Boards/
 │   │       ├── Policies/
+│   │       ├── Bulletins/
 │   │       ├── Dispatching/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
@@ -116,6 +118,7 @@ CrewService/
 │   │       ├── Crews/
 │   │       ├── Boards/
 │   │       ├── Policies/
+│   │       ├── Bulletins/
 │   │       ├── Dispatching/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
@@ -194,7 +197,8 @@ One `.proto` per module with REST transcoding annotations in the same proto:
 | `modules/work_management.proto` | WorkManagement |
 | `modules/crews.proto` | Crews |
 | `modules/boards.proto` | Boards |
-| `modules/policies.proto` | Policies |
+| `modules/policies.proto` | Policies (displacement, bulletin policy, seniority move policy, seniority moves) |
+| `modules/bulletins.proto` | Bulletins (vacancies, bulletins, bids) |
 | `modules/dispatching.proto` | Dispatching |
 | `modules/absence_vacancy.proto` | AbsenceVacancy |
 | `modules/payroll.proto` | Payroll |
@@ -207,14 +211,15 @@ Aligned with SPEC-0 §10:
 
 1. **TenantConfig** — group tree + types + attributes + WorkArea designation
 2. **Employees refactor** — restructure existing entities into module, add availability/qualifications/memberships
-3. **WorkManagement** — templates, work instances, position slots, extras, promote ad-hoc → template
-4. **Crews** — regular/relief crews, positions, incumbency, attachment to work
-5. **Boards + Policies** — board definitions, cascade config, ordering strategies, displacement surface
-6. **Dispatching** — projections, calling-time binding, decision logs, overrides, booking holds
-7. **AbsenceVacancy** — absence requests, approvals, vacancy impacts
-8. **Payroll** — time entry, calculation, agreement payments, approval/locking
-9. **Crew.Web** — Blazor Server app with gRPC client facades per module
-10. **Tenancy + Auth** — Parent registry, tenant resolution, per-Parent OIDC/internal auth, invitations
+3. **WorkManagement** — templates, work instances, position roles, position slots, slot requirements
+4. **Crews** — regular/relief crews, positions, incumbency, attachment to work, relief coverage rules
+5. **Boards + Policies** — board definitions, cascade config, ordering strategies, displacement policies/cases/claims
+6. **Bulletins + Policies** — structural vacancies, bulletin posting/bidding/award, bulletin policy, seniority move policy, seniority moves, forced assignment, auto-withdrawal of lower-priority bids
+7. **Dispatching** — projections, calling-time binding, decision logs, overrides, employee bookings
+8. **AbsenceVacancy** — absence requests, approvals, vacancy impacts on position slots
+9. **Payroll** — time entry, payroll runs, payroll records, approval/locking
+10. **Crew.Web** — Blazor Server app with gRPC client facades per module
+11. **Tenancy + Auth** — Parent registry, tenant resolution, per-Parent OIDC/internal auth, invitations
 
 ## Development notes
 
