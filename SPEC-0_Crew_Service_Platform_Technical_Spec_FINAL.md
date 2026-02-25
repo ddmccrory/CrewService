@@ -247,10 +247,15 @@ Tables (ASP.NET Core Identity with GUID keys):
 - `group_id` PK, `group_type_id` FK, `name`, `parent_group_id` FK nullable, `path` (materialized path) or closure table, `is_work_area` bool, audit
 `group_attribute_definition` / `group_attribute_value`:
 - definition per group_type and values per group.
+`railroad_group_placement`:
+- `ctrl_nbr` PK, `railroad_ctrl_nbr` FK, `group_ctrl_nbr` FK, audit
+- Places a Railroad as a leaf attachment on a DynamicGroup node. No placement rows = direct child of Parent. See `spec_railroad_group_placement.md`.
 
 Indexes:
 - `dynamic_group(parent_group_id, name)`
 - `dynamic_group(path)` if using materialized path
+- `railroad_group_placement(railroad_ctrl_nbr, group_ctrl_nbr)` UNIQUE
+- `railroad_group_placement(group_ctrl_nbr)`
 
 ### 7.3 OperationsDbContext — Employees
 `employee`:
