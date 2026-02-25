@@ -43,6 +43,7 @@ internal sealed class CrewServiceDbContext(
     public DbSet<DynamicGroup> DynamicGroups => Set<DynamicGroup>();
     public DbSet<GroupAttributeDefinition> GroupAttributeDefinitions => Set<GroupAttributeDefinition>();
     public DbSet<GroupAttributeValue> GroupAttributeValues => Set<GroupAttributeValue>();
+    public DbSet<RailroadGroupPlacement> RailroadGroupPlacements => Set<RailroadGroupPlacement>();
 
     // WorkManagement Module
     public DbSet<Domain.Modules.WorkManagement.AssignmentTemplate> AssignmentTemplates => Set<Domain.Modules.WorkManagement.AssignmentTemplate>();

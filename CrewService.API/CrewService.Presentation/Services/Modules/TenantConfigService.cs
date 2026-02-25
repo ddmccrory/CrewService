@@ -6,10 +6,12 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class TenantConfigService(
     IGroupTypeRepository groupTypeRepository,
-    IDynamicGroupRepository dynamicGroupRepository) : TenantConfigSrvc.TenantConfigSrvcBase
+    IDynamicGroupRepository dynamicGroupRepository,
+    IRailroadGroupPlacementRepository railroadGroupPlacementRepository) : TenantConfigSrvc.TenantConfigSrvcBase
 {
     private readonly IGroupTypeRepository _groupTypeRepository = groupTypeRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
+    private readonly IRailroadGroupPlacementRepository _railroadGroupPlacementRepository = railroadGroupPlacementRepository;
 
     // GroupTypes
     public override async Task<GetAllGroupTypesResponse> GetAllGroupTypes(GetAllGroupTypesRequest request, ServerCallContext context)
@@ -156,6 +158,65 @@ public class TenantConfigService(
         return response;
     }
 
+    // Railroad Group Placements
+    public override async Task<RailroadGroupPlacementResponse> PlaceRailroadInGroup(PlaceRailroadInGroupRequest request, ServerCallContext context)
+    {
+        var existing = await _railroadGroupPlacementRepository.GetByRailroadAndGroupAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr),
+            ControlNumber.Create(request.GroupCtrlNbr));
+
+        if (existing is not null)
+            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Railroad {request.RailroadCtrlNbr} is already placed in group {request.GroupCtrlNbr}."));
+
+        var placement = RailroadGroupPlacement.Create(request.RailroadCtrlNbr, request.GroupCtrlNbr);
+        await _railroadGroupPlacementRepository.AddAsync(placement);
+        return MapPlacement(placement);
+    }
+
+    public override async Task<DeleteResponse> RemoveRailroadFromGroup(RemoveRailroadFromGroupRequest request, ServerCallContext context)
+    {
+        await _railroadGroupPlacementRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
+    public override async Task<GetRailroadPlacementsResponse> GetRailroadPlacements(GetRailroadPlacementsRequest request, ServerCallContext context)
+    {
+        var placements = await _railroadGroupPlacementRepository.GetByRailroadCtrlNbrAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr));
+
+        var response = new GetRailroadPlacementsResponse();
+        foreach (var p in placements)
+            response.Placements.Add(MapPlacement(p));
+
+        return response;
+    }
+
+    public override async Task<GetRailroadPlacementsResponse> GetRailroadsInGroup(GetRailroadsInGroupRequest request, ServerCallContext context)
+    {
+        List<RailroadGroupPlacement> placements;
+
+        if (request.IncludeDescendants)
+        {
+            var group = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr))
+                ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.GroupCtrlNbr} not found."));
+
+            placements = group.Path is not null
+                ? await _railroadGroupPlacementRepository.GetByGroupSubtreeAsync(group.Path)
+                : await _railroadGroupPlacementRepository.GetByGroupCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr));
+        }
+        else
+        {
+            placements = await _railroadGroupPlacementRepository.GetByGroupCtrlNbrAsync(
+                ControlNumber.Create(request.GroupCtrlNbr));
+        }
+
+        var response = new GetRailroadPlacementsResponse();
+        foreach (var p in placements)
+            response.Placements.Add(MapPlacement(p));
+
+        return response;
+    }
+
     private static GroupTypeResponse MapGroupType(GroupType gt) => new()
     {
         CtrlNbr = gt.CtrlNbr.Value,
@@ -173,5 +234,12 @@ public class TenantConfigService(
         ParentGroupCtrlNbr = g.ParentGroupCtrlNbr?.Value ?? 0,
         Path = g.Path ?? string.Empty,
         IsWorkArea = g.IsWorkArea
+    };
+
+    private static RailroadGroupPlacementResponse MapPlacement(RailroadGroupPlacement p) => new()
+    {
+        CtrlNbr = p.CtrlNbr.Value,
+        RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
+        GroupCtrlNbr = p.GroupCtrlNbr.Value
     };
 }
