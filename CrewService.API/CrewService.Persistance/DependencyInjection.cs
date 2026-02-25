@@ -8,6 +8,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
@@ -18,6 +19,7 @@ using CrewService.Persistance.Modules.Boards;
 using CrewService.Persistance.Modules.Policies;
 using CrewService.Persistance.Modules.Dispatching;
 using CrewService.Persistance.Modules.AbsenceVacancy;
+using CrewService.Persistance.Modules.Bulletins;
 using CrewService.Persistance.Modules.Payroll;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
@@ -112,6 +114,14 @@ public static class DependencyInjection
         services.AddScoped<ICraftDisplacementPolicyRepository, CraftDisplacementPolicyRepository>();
         services.AddScoped<IDisplacementCaseRepository, DisplacementCaseRepository>();
         services.AddScoped<IDisplacementClaimRepository, DisplacementClaimRepository>();
+        services.AddScoped<IBulletinPolicyRepository, BulletinPolicyRepository>();
+        services.AddScoped<ISeniorityMovePolicyRepository, SeniorityMovePolicyRepository>();
+        services.AddScoped<ISeniorityMoveRepository, SeniorityMoveRepository>();
+
+        // Bulletins Module Repositories
+        services.AddScoped<IPositionVacancyRepository, PositionVacancyRepository>();
+        services.AddScoped<IBulletinRepository, BulletinRepository>();
+        services.AddScoped<IBulletinBidRepository, BulletinBidRepository>();
 
         // Dispatching Module Repositories
         services.AddScoped<IDispatchProjectionRepository, DispatchProjectionRepository>();

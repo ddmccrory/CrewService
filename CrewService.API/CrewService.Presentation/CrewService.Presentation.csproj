@@ -50,6 +50,7 @@
     <Protobuf Include="Protos\modules\work_management.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\crews.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\boards.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\modules\bulletins.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\policies.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\dispatching.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\modules\absence_vacancy.proto" GrpcServices="Server" />
