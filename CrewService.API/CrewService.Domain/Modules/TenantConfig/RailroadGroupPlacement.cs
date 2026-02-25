@@ -32,4 +32,9 @@ public sealed class RailroadGroupPlacement : Entity
         placement.Raise(new RailroadPlacedInGroupDomainEvent(placement));
         return placement;
     }
+
+    public void Remove()
+    {
+        Raise(new RailroadRemovedFromGroupDomainEvent(CtrlNbr.Value, RailroadCtrlNbr.Value, GroupCtrlNbr.Value));
+    }
 }

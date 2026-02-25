@@ -1,3 +1,4 @@
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -7,11 +8,13 @@ namespace CrewService.Presentation.Services.Modules;
 public class TenantConfigService(
     IGroupTypeRepository groupTypeRepository,
     IDynamicGroupRepository dynamicGroupRepository,
-    IRailroadGroupPlacementRepository railroadGroupPlacementRepository) : TenantConfigSrvc.TenantConfigSrvcBase
+    IRailroadGroupPlacementRepository railroadGroupPlacementRepository,
+    IRailroadRepository railroadRepository) : TenantConfigSrvc.TenantConfigSrvcBase
 {
     private readonly IGroupTypeRepository _groupTypeRepository = groupTypeRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
     private readonly IRailroadGroupPlacementRepository _railroadGroupPlacementRepository = railroadGroupPlacementRepository;
+    private readonly IRailroadRepository _railroadRepository = railroadRepository;
 
     // GroupTypes
     public override async Task<GetAllGroupTypesResponse> GetAllGroupTypes(GetAllGroupTypesRequest request, ServerCallContext context)
@@ -161,6 +164,12 @@ public class TenantConfigService(
     // Railroad Group Placements
     public override async Task<RailroadGroupPlacementResponse> PlaceRailroadInGroup(PlaceRailroadInGroupRequest request, ServerCallContext context)
     {
+        _ = await _railroadRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.RailroadCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Railroad {request.RailroadCtrlNbr} not found."));
+
+        _ = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.GroupCtrlNbr} not found."));
+
         var existing = await _railroadGroupPlacementRepository.GetByRailroadAndGroupAsync(
             ControlNumber.Create(request.RailroadCtrlNbr),
             ControlNumber.Create(request.GroupCtrlNbr));
@@ -175,7 +184,11 @@ public class TenantConfigService(
 
     public override async Task<DeleteResponse> RemoveRailroadFromGroup(RemoveRailroadFromGroupRequest request, ServerCallContext context)
     {
-        await _railroadGroupPlacementRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var placement = await _railroadGroupPlacementRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Placement {request.CtrlNbr} not found."));
+
+        placement.Remove();
+        await _railroadGroupPlacementRepository.UpdateAsync(placement);
         return new DeleteResponse { Success = true };
     }
 
