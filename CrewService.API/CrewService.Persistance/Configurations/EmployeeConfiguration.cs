@@ -24,8 +24,8 @@ internal class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             value => ControlNumber.Create(value));
 
         builder.Property(e => e.EmployeeNumber).HasMaxLength(4).IsRequired();
-        builder.Property(e => e.SocialSecurityNumber).HasMaxLength(9).IsRequired();
-        builder.Property(e => e.DriversLicenseNumber).HasMaxLength(50);
+        builder.Property(e => e.SocialSecurityNumber).HasMaxLength(256).IsRequired();
+        builder.Property(e => e.DriversLicenseNumber).HasMaxLength(256);
         builder.Property(e => e.IssuingState).HasMaxLength(2);
         builder.Property(e => e.Gender).HasMaxLength(1).IsRequired();
         builder.Property(e => e.Race).HasMaxLength(100).IsRequired();

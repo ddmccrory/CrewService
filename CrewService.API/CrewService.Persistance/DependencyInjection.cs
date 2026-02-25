@@ -21,6 +21,7 @@ using CrewService.Persistance.Modules.Dispatching;
 using CrewService.Persistance.Modules.AbsenceVacancy;
 using CrewService.Persistance.Modules.Bulletins;
 using CrewService.Persistance.Modules.Payroll;
+using CrewService.Persistance.Encryption;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -37,6 +38,7 @@ public static class DependencyInjection
     public static IServiceCollection AddPersistance(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddSingleton<IFieldEncryptor, AesFieldEncryptor>();
 
         string? connectionString = configuration.GetConnectionString("SQLiteConnection");
 

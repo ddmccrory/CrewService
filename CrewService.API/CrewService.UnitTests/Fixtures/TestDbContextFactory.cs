@@ -9,6 +9,7 @@ internal sealed class TestDbContextFactory : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly ICurrentUserService _currentUserService = new TestCurrentUserService();
+    private readonly IFieldEncryptor _fieldEncryptor = new TestFieldEncryptor();
 
     public TestDbContextFactory()
     {
@@ -25,7 +26,7 @@ internal sealed class TestDbContextFactory : IDisposable
             .UseSqlite(_connection)
             .Options;
 
-        return new CrewServiceDbContext(options, _currentUserService);
+        return new CrewServiceDbContext(options, _currentUserService, _fieldEncryptor);
     }
 
     public ICurrentUserService CurrentUserService => _currentUserService;
