@@ -28,3 +28,9 @@ public interface ISeniorityMovePolicyRepository : IRepository<SeniorityMovePolic
 {
     Task<SeniorityMovePolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr);
 }
+
+public interface ISeniorityMoveRepository : IRepository<SeniorityMove>
+{
+    Task<List<SeniorityMove>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr);
+    Task<List<SeniorityMove>> GetByCraftAsync(ControlNumber craftCtrlNbr);
+}

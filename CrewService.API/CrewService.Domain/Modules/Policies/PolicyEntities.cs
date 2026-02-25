@@ -62,6 +62,12 @@ public sealed class DisplacementCase : Entity
     {
         Status = status;
     }
+
+    public void AutoPlaceOnExtraBoard()
+    {
+        Status = "AutoPlaced";
+        Raise(new DisplacementAutoPlacedDomainEvent(this));
+    }
 }
 
 public sealed class DisplacementClaim : Entity
@@ -144,6 +150,37 @@ public sealed class SeniorityMovePolicy : Entity
     {
         EligibilityDays = eligibilityDays;
         SeniorityBasis = seniorityBasis;
+    }
+}
+
+public sealed class SeniorityMove : Entity
+{
+    public ControlNumber EmployeeCtrlNbr { get; private set; }
+    public ControlNumber CraftCtrlNbr { get; private set; }
+    public ControlNumber TargetPositionCtrlNbr { get; private set; }
+    public ControlNumber? DisplacedEmployeeCtrlNbr { get; private set; }
+    public DateTime ExercisedUtc { get; private set; }
+    public int DaysOnCurrentPosition { get; private set; }
+
+    private SeniorityMove() { EmployeeCtrlNbr = null!; CraftCtrlNbr = null!; TargetPositionCtrlNbr = null!; }
+
+    public static SeniorityMove Create(long employeeCtrlNbr, long craftCtrlNbr,
+        long targetPositionCtrlNbr, long? displacedEmployeeCtrlNbr, int daysOnCurrentPosition)
+    {
+        var move = new SeniorityMove
+        {
+            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            TargetPositionCtrlNbr = ControlNumber.Create(targetPositionCtrlNbr),
+            DisplacedEmployeeCtrlNbr = displacedEmployeeCtrlNbr.HasValue
+                ? ControlNumber.Create(displacedEmployeeCtrlNbr.Value)
+                : null,
+            ExercisedUtc = DateTime.UtcNow,
+            DaysOnCurrentPosition = daysOnCurrentPosition
+        };
+        move.Raise(new SeniorityMoveExercisedDomainEvent(
+            employeeCtrlNbr, targetPositionCtrlNbr, craftCtrlNbr));
+        return move;
     }
 }
 
