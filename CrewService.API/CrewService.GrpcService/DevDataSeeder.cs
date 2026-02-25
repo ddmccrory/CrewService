@@ -41,8 +41,8 @@ internal static class DevDataSeeder
 
         // Idempotent guard – if group types already exist, skip seeding
         var existing = await groupTypeRepo.GetAllAsync();
-        if (existing.Count > 0)
-            return;
+        if (existing.Count == 0)
+        {
 
         // ?? Group Types ??????????????????????????????????????????????
         var regionType = GroupType.Create("Region", "Geographic region", isWorkArea: false);
@@ -129,25 +129,34 @@ internal static class DevDataSeeder
 
         var csxtPlacement = RailroadGroupPlacement.Create(csxtRR.CtrlNbr.Value, jaxYard.CtrlNbr.Value);
         await placementRepo.AddAsync(csxtPlacement);
+        }
 
         // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????
         var employeeRepo = sp.GetRequiredService<IEmployeeRepository>();
+        var existingEmployees = await employeeRepo.GetAllAsync();
+        if (existingEmployees.Count > 0)
+            return;
+
         var employmentStatusRepo = sp.GetRequiredService<IEmploymentStatusRepository>();
         var addressTypeRepo = sp.GetRequiredService<IAddressTypeRepository>();
         var phoneNumberTypeRepo = sp.GetRequiredService<IPhoneNumberTypeRepository>();
         var emailAddressTypeRepo = sp.GetRequiredService<IEmailAddressTypeRepository>();
 
+        // Look up the CSX Corporation parent (created above or in a prior run)
+        var parents = await parentRepo.GetAllAsync();
+        var csxParent = parents.First(p => p.Name.Value == "CSX Corporation");
+
         // Reference data
-        var activeStatus = EmploymentStatus.Create(holdingCorp.CtrlNbr.Value, "A", "Active", 1, "FT");
+        var activeStatus = EmploymentStatus.Create(csxParent.CtrlNbr.Value, "A", "Active", 1, "FT");
         await employmentStatusRepo.AddAsync(activeStatus);
 
-        var homeAddressType = AddressType.Create(holdingCorp.CtrlNbr.Value, "Home", 1, emergencyType: false);
+        var homeAddressType = AddressType.Create(csxParent.CtrlNbr.Value, "Home", 1, emergencyType: false);
         await addressTypeRepo.AddAsync(homeAddressType);
 
-        var cellPhoneType = PhoneNumberType.Create(holdingCorp.CtrlNbr.Value, "Cell", 1, emergencyType: false);
+        var cellPhoneType = PhoneNumberType.Create(csxParent.CtrlNbr.Value, "Cell", 1, emergencyType: false);
         await phoneNumberTypeRepo.AddAsync(cellPhoneType);
 
-        var workEmailType = EmailAddressType.Create(holdingCorp.CtrlNbr.Value, "Work", 1, emergencyType: false);
+        var workEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Work", 1, emergencyType: false);
         await emailAddressTypeRepo.AddAsync(workEmailType);
 
         string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
@@ -174,7 +183,7 @@ internal static class DevDataSeeder
             var lastName  = lastNames[i / firstNames.Length % lastNames.Length];
 
             var employee = Employee.Create(
-                holdingCorp.CtrlNbr.Value,
+                csxParent.CtrlNbr.Value,
                 userId: $"seed-user-{i + 1:D4}",
                 employeeNumber: $"EMP{i + 1:D4}",
                 ssn: $"{100 + i:D3}-{50 + i % 100:D2}-{1000 + i:D4}",
