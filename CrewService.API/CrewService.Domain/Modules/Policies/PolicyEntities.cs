@@ -93,9 +93,75 @@ public sealed class DisplacementClaim : Entity
     }
 }
 
+public sealed class BulletinPolicy : Entity
+{
+    public ControlNumber CraftCtrlNbr { get; private set; }
+    public int BidWindowHours { get; private set; }
+    public bool ForcedAssignmentEnabled { get; private set; }
+    public string ForcedAssignmentBasis { get; private set; } = "JUNIOR_FIRST";
+
+    private BulletinPolicy() { CraftCtrlNbr = null!; }
+
+    public static BulletinPolicy Create(long craftCtrlNbr, int bidWindowHours,
+        bool forcedAssignmentEnabled = true, string forcedAssignmentBasis = "JUNIOR_FIRST")
+    {
+        return new BulletinPolicy
+        {
+            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            BidWindowHours = bidWindowHours,
+            ForcedAssignmentEnabled = forcedAssignmentEnabled,
+            ForcedAssignmentBasis = forcedAssignmentBasis
+        };
+    }
+
+    public void Update(int bidWindowHours, bool forcedAssignmentEnabled, string forcedAssignmentBasis)
+    {
+        BidWindowHours = bidWindowHours;
+        ForcedAssignmentEnabled = forcedAssignmentEnabled;
+        ForcedAssignmentBasis = forcedAssignmentBasis;
+    }
+}
+
+public sealed class SeniorityMovePolicy : Entity
+{
+    public ControlNumber CraftCtrlNbr { get; private set; }
+    public int EligibilityDays { get; private set; }
+    public string SeniorityBasis { get; private set; } = string.Empty;
+
+    private SeniorityMovePolicy() { CraftCtrlNbr = null!; }
+
+    public static SeniorityMovePolicy Create(long craftCtrlNbr, int eligibilityDays, string seniorityBasis)
+    {
+        return new SeniorityMovePolicy
+        {
+            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            EligibilityDays = eligibilityDays,
+            SeniorityBasis = seniorityBasis
+        };
+    }
+
+    public void Update(int eligibilityDays, string seniorityBasis)
+    {
+        EligibilityDays = eligibilityDays;
+        SeniorityBasis = seniorityBasis;
+    }
+}
+
 // Domain Events
 public sealed record DisplacementCaseOpenedDomainEvent : DomainEvent
 {
     public DisplacementCaseOpenedDomainEvent(DisplacementCase c)
         : base(nameof(DisplacementCase), c.CtrlNbr.Value, new { EmployeeCtrlNbr = c.EmployeeCtrlNbr.Value, CraftCtrlNbr = c.CraftCtrlNbr.Value }) { }
+}
+
+public sealed record DisplacementAutoPlacedDomainEvent : DomainEvent
+{
+    public DisplacementAutoPlacedDomainEvent(DisplacementCase c)
+        : base(nameof(DisplacementCase), c.CtrlNbr.Value, new { EmployeeCtrlNbr = c.EmployeeCtrlNbr.Value, CraftCtrlNbr = c.CraftCtrlNbr.Value }) { }
+}
+
+public sealed record SeniorityMoveExercisedDomainEvent : DomainEvent
+{
+    public SeniorityMoveExercisedDomainEvent(long employeeCtrlNbr, long targetPositionCtrlNbr, long craftCtrlNbr)
+        : base("SeniorityMove", employeeCtrlNbr, new { TargetPositionCtrlNbr = targetPositionCtrlNbr, CraftCtrlNbr = craftCtrlNbr }) { }
 }
