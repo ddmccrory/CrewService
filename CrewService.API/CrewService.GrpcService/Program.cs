@@ -1,4 +1,5 @@
 using CrewService.Application;
+using CrewService.GrpcService;
 using CrewService.Infrastructure;
 using CrewService.Infrastructure.Exceptions;
 using CrewService.Persistance;
@@ -73,6 +74,8 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
     });
+
+    await DevDataSeeder.SeedAsync(app.Services);
 }
 
 app.UseHttpsRedirection();
@@ -112,4 +115,4 @@ app.MapGrpcService<DispatchingService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<AbsenceVacancyService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<PayrollService>().EnableGrpcWeb().RequireAuthorization();
 
-app.Run();
+await app.RunAsync();
