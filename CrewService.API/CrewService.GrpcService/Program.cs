@@ -4,6 +4,7 @@ using CrewService.Infrastructure.Exceptions;
 using CrewService.Persistance;
 using CrewService.Presentation;
 using CrewService.Presentation.Services;
+using CrewService.Presentation.Services.Modules;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -102,5 +103,15 @@ app.MapGrpcService<RailroadPoolPayrollTierService>().EnableGrpcWeb().RequireAuth
 app.MapGrpcService<RosterService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityStateService>().EnableGrpcWeb().RequireAuthorization();
+
+// Module services
+app.MapGrpcService<TenantConfigService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<WorkManagementService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<CrewsService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<BoardsService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<PoliciesService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<DispatchingService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<AbsenceVacancyService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<PayrollService>().EnableGrpcWeb().RequireAuthorization();
 
 app.Run();

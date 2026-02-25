@@ -5,6 +5,7 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
@@ -17,6 +18,7 @@ internal sealed class CrewServiceDbContext(
     DbContextOptions<CrewServiceDbContext> options,
     ICurrentUserService currentUserService) : DbContext(options), IOutboxDbContext
 {
+    // Legacy Employees
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<AddressType> AddressTypes => Set<AddressType>();
     public DbSet<Craft> Crafts => Set<Craft>();
@@ -38,6 +40,19 @@ internal sealed class CrewServiceDbContext(
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    // TenantConfig Module
+    public DbSet<GroupType> GroupTypes => Set<GroupType>();
+    public DbSet<DynamicGroup> DynamicGroups => Set<DynamicGroup>();
+    public DbSet<GroupAttributeDefinition> GroupAttributeDefinitions => Set<GroupAttributeDefinition>();
+    public DbSet<GroupAttributeValue> GroupAttributeValues => Set<GroupAttributeValue>();
+
+    // WorkManagement Module
+    public DbSet<Domain.Modules.WorkManagement.AssignmentTemplate> AssignmentTemplates => Set<Domain.Modules.WorkManagement.AssignmentTemplate>();
+    public DbSet<Domain.Modules.WorkManagement.WorkInstance> WorkInstances => Set<Domain.Modules.WorkManagement.WorkInstance>();
+    public DbSet<Domain.Modules.WorkManagement.PositionRole> PositionRoles => Set<Domain.Modules.WorkManagement.PositionRole>();
+    public DbSet<Domain.Modules.WorkManagement.PositionSlot> PositionSlots => Set<Domain.Modules.WorkManagement.PositionSlot>();
+    public DbSet<Domain.Modules.WorkManagement.SlotRequirement> SlotRequirements => Set<Domain.Modules.WorkManagement.SlotRequirement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

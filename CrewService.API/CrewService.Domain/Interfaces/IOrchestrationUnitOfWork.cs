@@ -1,4 +1,5 @@
 ﻿using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Employees;
 
 namespace CrewService.Domain.Interfaces;
 

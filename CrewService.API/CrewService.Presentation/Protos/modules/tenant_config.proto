@@ -1,0 +1,150 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package tenant_config;
+
+service TenantConfigSrvc {
+  // GroupTypes
+  rpc GetAllGroupTypes(GetAllGroupTypesRequest) returns (GetAllGroupTypesResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/group-types" };
+  }
+  rpc GetGroupType(GetGroupTypeRequest) returns (GroupTypeResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/group-types/{ctrl_nbr}" };
+  }
+  rpc CreateGroupType(CreateGroupTypeRequest) returns (GroupTypeResponse) {
+    option (google.api.http) = { post: "/v1/tenant-config/group-types" body: "*" };
+  }
+  rpc UpdateGroupType(UpdateGroupTypeRequest) returns (GroupTypeResponse) {
+    option (google.api.http) = { put: "/v1/tenant-config/group-types/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteGroupType(DeleteGroupTypeRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/tenant-config/group-types/{ctrl_nbr}" };
+  }
+
+  // Groups
+  rpc GetAllGroups(GetAllGroupsRequest) returns (GetAllGroupsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/groups" };
+  }
+  rpc GetGroup(GetGroupRequest) returns (GroupResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/groups/{ctrl_nbr}" };
+  }
+  rpc CreateGroup(CreateGroupRequest) returns (GroupResponse) {
+    option (google.api.http) = { post: "/v1/tenant-config/groups" body: "*" };
+  }
+  rpc UpdateGroup(UpdateGroupRequest) returns (GroupResponse) {
+    option (google.api.http) = { put: "/v1/tenant-config/groups/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteGroup(DeleteGroupRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/tenant-config/groups/{ctrl_nbr}" };
+  }
+
+  // Tree / WorkArea queries
+  rpc GetGroupTree(GetGroupTreeRequest) returns (GetAllGroupsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/groups/tree" };
+  }
+  rpc GetWorkAreas(GetWorkAreasRequest) returns (GetAllGroupsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/work-areas" };
+  }
+  rpc GetAncestors(GetAncestorsRequest) returns (GetAllGroupsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/groups/{ctrl_nbr}/ancestors" };
+  }
+}
+
+// GroupType messages
+message GetAllGroupTypesRequest {
+  int32 page_number = 1;
+  int32 page_size = 2;
+}
+
+message GetAllGroupTypesResponse {
+  repeated GroupTypeResponse group_types = 1;
+  int32 total_count = 2;
+}
+
+message GetGroupTypeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateGroupTypeRequest {
+  string name = 1;
+  string description = 2;
+  bool is_work_area = 3;
+  string flags_json = 4;
+}
+
+message UpdateGroupTypeRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string description = 3;
+  bool is_work_area = 4;
+  string flags_json = 5;
+}
+
+message DeleteGroupTypeRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GroupTypeResponse {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string description = 3;
+  bool is_work_area = 4;
+  string flags_json = 5;
+}
+
+// Group messages
+message GetAllGroupsRequest {
+  int64 parent_group_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+
+message GetAllGroupsResponse {
+  repeated GroupResponse groups = 1;
+  int32 total_count = 2;
+}
+
+message GetGroupRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateGroupRequest {
+  int64 group_type_ctrl_nbr = 1;
+  string name = 2;
+  int64 parent_group_ctrl_nbr = 3;
+  string path = 4;
+  bool is_work_area = 5;
+}
+
+message UpdateGroupRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  int64 parent_group_ctrl_nbr = 3;
+  string path = 4;
+  bool is_work_area = 5;
+}
+
+message DeleteGroupRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GroupResponse {
+  int64 ctrl_nbr = 1;
+  int64 group_type_ctrl_nbr = 2;
+  string name = 3;
+  int64 parent_group_ctrl_nbr = 4;
+  string path = 5;
+  bool is_work_area = 6;
+}
+
+// Tree / WorkArea queries
+message GetGroupTreeRequest {
+  int64 root_ctrl_nbr = 1;
+}
+
+message GetWorkAreasRequest {}
+
+message GetAncestorsRequest {
+  int64 ctrl_nbr = 1;
+}

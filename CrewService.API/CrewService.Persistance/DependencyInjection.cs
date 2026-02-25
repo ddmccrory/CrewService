@@ -1,7 +1,24 @@
 ﻿using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Payroll;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Modules.TenantConfig;
+using CrewService.Persistance.Modules.WorkManagement;
+using CrewService.Persistance.Modules.Crews;
+using CrewService.Persistance.Modules.Boards;
+using CrewService.Persistance.Modules.Policies;
+using CrewService.Persistance.Modules.Dispatching;
+using CrewService.Persistance.Modules.AbsenceVacancy;
+using CrewService.Persistance.Modules.Payroll;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -66,6 +83,52 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
+
+        // TenantConfig Module Repositories
+        services.AddScoped<IGroupTypeRepository, GroupTypeRepository>();
+        services.AddScoped<IDynamicGroupRepository, DynamicGroupRepository>();
+        services.AddScoped<IGroupAttributeDefinitionRepository, GroupAttributeDefinitionRepository>();
+        services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
+
+        // WorkManagement Module Repositories
+        services.AddScoped<IAssignmentTemplateRepository, AssignmentTemplateRepository>();
+        services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
+        services.AddScoped<IPositionRoleRepository, PositionRoleRepository>();
+        services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
+        services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
+
+        // Crews Module Repositories
+        services.AddScoped<ICrewRepository, CrewRepository>();
+        services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();
+        services.AddScoped<ICrewIncumbencyRepository, CrewIncumbencyRepository>();
+        services.AddScoped<ICrewAttachmentTemplateRepository, CrewAttachmentTemplateRepository>();
+        services.AddScoped<ICrewAttachmentInstanceRepository, CrewAttachmentInstanceRepository>();
+        services.AddScoped<IReliefCoverageRuleRepository, ReliefCoverageRuleRepository>();
+
+        // Boards Module Repositories
+        services.AddScoped<IExtraBoardRepository, ExtraBoardRepository>();
+        services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
+        services.AddScoped<IBoardCascadePolicyRepository, BoardCascadePolicyRepository>();
+
+        // Policies Module Repositories
+        services.AddScoped<ICraftDisplacementPolicyRepository, CraftDisplacementPolicyRepository>();
+        services.AddScoped<IDisplacementCaseRepository, DisplacementCaseRepository>();
+        services.AddScoped<IDisplacementClaimRepository, DisplacementClaimRepository>();
+
+        // Dispatching Module Repositories
+        services.AddScoped<IDispatchProjectionRepository, DispatchProjectionRepository>();
+        services.AddScoped<IDispatchDecisionLogRepository, DispatchDecisionLogRepository>();
+        services.AddScoped<IDispatchOverrideRepository, DispatchOverrideRepository>();
+        services.AddScoped<IEmployeeBookingRepository, EmployeeBookingRepository>();
+
+        // AbsenceVacancy Module Repositories
+        services.AddScoped<IAbsenceRequestRepository, AbsenceRequestRepository>();
+        services.AddScoped<IVacancyImpactRepository, VacancyImpactRepository>();
+
+        // Payroll Module Repositories
+        services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
+        services.AddScoped<IPayrollRunRepository, PayrollRunRepository>();
+        services.AddScoped<IPayrollRecordRepository, PayrollRecordRepository>();
 
         return services;
     }

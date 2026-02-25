@@ -1,6 +1,7 @@
 ﻿using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;

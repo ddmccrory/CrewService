@@ -1,0 +1,77 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package crews;
+
+service CrewsSrvc {
+  rpc GetAllCrews(GetAllCrewsRequest) returns (GetAllCrewsResponse) {
+    option (google.api.http) = { get: "/v1/crews" };
+  }
+  rpc GetCrew(GetCrewRequest) returns (CrewResponse) {
+    option (google.api.http) = { get: "/v1/crews/{ctrl_nbr}" };
+  }
+  rpc CreateCrew(CreateCrewRequest) returns (CrewResponse) {
+    option (google.api.http) = { post: "/v1/crews" body: "*" };
+  }
+  rpc UpdateCrew(UpdateCrewRequest) returns (CrewResponse) {
+    option (google.api.http) = { put: "/v1/crews/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteCrew(DeleteCrewRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/crews/{ctrl_nbr}" };
+  }
+  rpc GetCrewPositions(GetCrewPositionsRequest) returns (GetCrewPositionsResponse) {
+    option (google.api.http) = { get: "/v1/crews/{crew_ctrl_nbr}/positions" };
+  }
+  rpc CreateCrewPosition(CreateCrewPositionRequest) returns (CrewPositionResponse) {
+    option (google.api.http) = { post: "/v1/crews/positions" body: "*" };
+  }
+}
+
+message GetAllCrewsRequest {
+  int64 home_group_ctrl_nbr = 1;
+  string crew_type = 2;
+  int32 page_number = 3;
+  int32 page_size = 4;
+}
+message GetAllCrewsResponse {
+  repeated CrewResponse crews = 1;
+  int32 total_count = 2;
+}
+message GetCrewRequest { int64 ctrl_nbr = 1; }
+message CreateCrewRequest {
+  string crew_type = 1;
+  int64 home_group_ctrl_nbr = 2;
+  string name = 3;
+  bool is_active = 4;
+}
+message UpdateCrewRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  bool is_active = 3;
+}
+message DeleteCrewRequest { int64 ctrl_nbr = 1; }
+message CrewResponse {
+  int64 ctrl_nbr = 1;
+  string crew_type = 2;
+  int64 home_group_ctrl_nbr = 3;
+  string name = 4;
+  bool is_active = 5;
+}
+
+message GetCrewPositionsRequest { int64 crew_ctrl_nbr = 1; }
+message GetCrewPositionsResponse {
+  repeated CrewPositionResponse positions = 1;
+  int32 total_count = 2;
+}
+message CreateCrewPositionRequest {
+  int64 crew_ctrl_nbr = 1;
+  int64 position_role_ctrl_nbr = 2;
+  int32 display_order = 3;
+}
+message CrewPositionResponse {
+  int64 ctrl_nbr = 1;
+  int64 crew_ctrl_nbr = 2;
+  int64 position_role_ctrl_nbr = 3;
+  int32 display_order = 4;
+}

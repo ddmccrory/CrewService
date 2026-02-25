@@ -1,0 +1,133 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package work_management;
+
+service WorkManagementSrvc {
+  // Assignment Templates
+  rpc GetAllTemplates(GetAllTemplatesRequest) returns (GetAllTemplatesResponse) {
+    option (google.api.http) = { get: "/v1/work-management/templates" };
+  }
+  rpc GetTemplate(GetTemplateRequest) returns (TemplateResponse) {
+    option (google.api.http) = { get: "/v1/work-management/templates/{ctrl_nbr}" };
+  }
+  rpc CreateTemplate(CreateTemplateRequest) returns (TemplateResponse) {
+    option (google.api.http) = { post: "/v1/work-management/templates" body: "*" };
+  }
+  rpc UpdateTemplate(UpdateTemplateRequest) returns (TemplateResponse) {
+    option (google.api.http) = { put: "/v1/work-management/templates/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/work-management/templates/{ctrl_nbr}" };
+  }
+
+  // Work Instances
+  rpc GetWorkInstances(GetWorkInstancesRequest) returns (GetWorkInstancesResponse) {
+    option (google.api.http) = { get: "/v1/work-management/instances" };
+  }
+  rpc CreateWorkInstance(CreateWorkInstanceRequest) returns (WorkInstanceResponse) {
+    option (google.api.http) = { post: "/v1/work-management/instances" body: "*" };
+  }
+
+  // Position Slots
+  rpc GetPositionSlots(GetPositionSlotsRequest) returns (GetPositionSlotsResponse) {
+    option (google.api.http) = { get: "/v1/work-management/instances/{work_instance_ctrl_nbr}/slots" };
+  }
+  rpc CreatePositionSlot(CreatePositionSlotRequest) returns (PositionSlotResponse) {
+    option (google.api.http) = { post: "/v1/work-management/slots" body: "*" };
+  }
+  rpc BindSlot(BindSlotRequest) returns (PositionSlotResponse) {
+    option (google.api.http) = { post: "/v1/work-management/slots/{ctrl_nbr}/bind" body: "*" };
+  }
+  rpc UnbindSlot(UnbindSlotRequest) returns (PositionSlotResponse) {
+    option (google.api.http) = { post: "/v1/work-management/slots/{ctrl_nbr}/unbind" body: "*" };
+  }
+}
+
+// Template messages
+message GetAllTemplatesRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+}
+message GetAllTemplatesResponse {
+  repeated TemplateResponse templates = 1;
+  int32 total_count = 2;
+}
+message GetTemplateRequest { int64 ctrl_nbr = 1; }
+message CreateTemplateRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+  string recurrence_json = 4;
+  bool is_active = 5;
+}
+message UpdateTemplateRequest {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+  string recurrence_json = 4;
+  bool is_active = 5;
+}
+message DeleteTemplateRequest { int64 ctrl_nbr = 1; }
+message TemplateResponse {
+  int64 ctrl_nbr = 1;
+  int64 work_area_group_ctrl_nbr = 2;
+  string code = 3;
+  string name = 4;
+  string recurrence_json = 5;
+  bool is_active = 6;
+}
+
+// WorkInstance messages
+message GetWorkInstancesRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  string start_utc = 2;
+  string end_utc = 3;
+}
+message GetWorkInstancesResponse {
+  repeated WorkInstanceResponse instances = 1;
+  int32 total_count = 2;
+}
+message CreateWorkInstanceRequest {
+  int64 assignment_template_ctrl_nbr = 1;
+  int64 work_area_group_ctrl_nbr = 2;
+  string start_utc = 3;
+  string end_utc = 4;
+  string call_time_utc = 5;
+}
+message WorkInstanceResponse {
+  int64 ctrl_nbr = 1;
+  int64 assignment_template_ctrl_nbr = 2;
+  int64 work_area_group_ctrl_nbr = 3;
+  string start_utc = 4;
+  string end_utc = 5;
+  string call_time_utc = 6;
+  string status = 7;
+}
+
+// PositionSlot messages
+message GetPositionSlotsRequest { int64 work_instance_ctrl_nbr = 1; }
+message GetPositionSlotsResponse {
+  repeated PositionSlotResponse slots = 1;
+  int32 total_count = 2;
+}
+message CreatePositionSlotRequest {
+  int64 work_instance_ctrl_nbr = 1;
+  int64 position_role_ctrl_nbr = 2;
+}
+message BindSlotRequest {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string source = 3;
+}
+message UnbindSlotRequest { int64 ctrl_nbr = 1; }
+message PositionSlotResponse {
+  int64 ctrl_nbr = 1;
+  int64 work_instance_ctrl_nbr = 2;
+  int64 position_role_ctrl_nbr = 3;
+  string status = 4;
+  int64 bound_employee_ctrl_nbr = 5;
+  string binding_source = 6;
+}

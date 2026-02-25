@@ -1,6 +1,7 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Persistance.Data;
 
 namespace CrewService.Persistance.Repositories;

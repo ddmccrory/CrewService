@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employment;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
