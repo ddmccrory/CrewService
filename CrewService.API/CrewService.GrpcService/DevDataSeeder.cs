@@ -1,3 +1,6 @@
+using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Modules.Employees;
@@ -126,5 +129,79 @@ internal static class DevDataSeeder
 
         var csxtPlacement = RailroadGroupPlacement.Create(csxtRR.CtrlNbr.Value, jaxYard.CtrlNbr.Value);
         await placementRepo.AddAsync(csxtPlacement);
+
+        // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????
+        var employeeRepo = sp.GetRequiredService<IEmployeeRepository>();
+        var employmentStatusRepo = sp.GetRequiredService<IEmploymentStatusRepository>();
+        var addressTypeRepo = sp.GetRequiredService<IAddressTypeRepository>();
+        var phoneNumberTypeRepo = sp.GetRequiredService<IPhoneNumberTypeRepository>();
+        var emailAddressTypeRepo = sp.GetRequiredService<IEmailAddressTypeRepository>();
+
+        // Reference data
+        var activeStatus = EmploymentStatus.Create(holdingCorp.CtrlNbr.Value, "A", "Active", 1, "FT");
+        await employmentStatusRepo.AddAsync(activeStatus);
+
+        var homeAddressType = AddressType.Create(holdingCorp.CtrlNbr.Value, "Home", 1, emergencyType: false);
+        await addressTypeRepo.AddAsync(homeAddressType);
+
+        var cellPhoneType = PhoneNumberType.Create(holdingCorp.CtrlNbr.Value, "Cell", 1, emergencyType: false);
+        await phoneNumberTypeRepo.AddAsync(cellPhoneType);
+
+        var workEmailType = EmailAddressType.Create(holdingCorp.CtrlNbr.Value, "Work", 1, emergencyType: false);
+        await emailAddressTypeRepo.AddAsync(workEmailType);
+
+        string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
+                               "Jennifer", "Michael", "Linda", "David", "Elizabeth",
+                               "William", "Barbara", "Richard", "Susan", "Joseph",
+                               "Jessica", "Thomas", "Sarah", "Christopher", "Karen"];
+        string[] lastNames  = ["Smith", "Johnson", "Williams", "Brown", "Jones",
+                               "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+                               "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+                               "Thomas", "Taylor", "Moore", "Jackson", "Martin"];
+        string[] streets    = ["Main St", "Oak Ave", "Elm St", "Cedar Ln", "Pine Rd",
+                               "Maple Dr", "Walnut St", "Birch Ct", "Ash Blvd", "Spruce Way"];
+        string[] cities     = ["Jacksonville", "Atlanta", "Chicago", "Nashville", "Dallas",
+                               "Denver", "Baltimore", "Louisville", "Charlotte", "Tampa"];
+        string[] states     = ["FL", "GA", "IL", "TN", "TX", "CO", "MD", "KY", "NC", "FL"];
+        string[] zips       = ["32099", "30301", "60601", "37201", "75201",
+                               "80201", "21201", "40201", "28201", "33601"];
+        string[] genders    = ["M", "F"];
+        string[] races      = ["W", "B", "H", "A", "O"];
+
+        for (int i = 0; i < 100; i++)
+        {
+            var firstName = firstNames[i % firstNames.Length];
+            var lastName  = lastNames[i / firstNames.Length % lastNames.Length];
+
+            var employee = Employee.Create(
+                holdingCorp.CtrlNbr.Value,
+                userId: $"seed-user-{i + 1:D4}",
+                employeeNumber: $"EMP{i + 1:D4}",
+                ssn: $"{100 + i:D3}-{50 + i % 100:D2}-{1000 + i:D4}",
+                gender: genders[i % genders.Length],
+                race: races[i % races.Length],
+                birthDate: new DateTime(1965, 1, 1).AddDays(i * 73),
+                employmentDate: new DateTime(2015, 1, 1).AddDays(i * 12),
+                activeStatus.CtrlNbr.Value);
+
+            employee.AddAddress(
+                $"{100 + i} {streets[i % streets.Length]}",
+                cities[i % cities.Length],
+                states[i % states.Length],
+                zips[i % zips.Length],
+                homeAddressType.CtrlNbr.Value);
+
+            employee.AddPhoneNumber(
+                $"555-{100 + i:D3}-{1000 + i:D4}",
+                callingOrder: 1,
+                dialOne: true,
+                cellPhoneType.CtrlNbr.Value);
+
+            employee.AddEmailAddress(
+                $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@csx.example.com",
+                workEmailType.CtrlNbr.Value);
+
+            await employeeRepo.AddAsync(employee);
+        }
     }
 }
