@@ -5,7 +5,6 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
-using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.Employees;
@@ -101,13 +100,6 @@ public interface IParentRepository : IRepository<Parent>
 public interface IRailroadRepository : IRepository<Railroad>
 {
     Task<List<Railroad>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
-}
-
-public interface IRailroadEmployeeRepository : IRepository<RailroadEmployee>
-{
-    Task<List<RailroadEmployee>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
-    Task<RailroadEmployee?> GetByEmployeeAndRailroadAsync(ControlNumber employeeCtrlNbr, ControlNumber railroadCtrlNbr);
-    Task<List<RailroadEmployee>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr);
 }
 
 public interface IPayrollTierRepository : IRepository<PayrollTier>

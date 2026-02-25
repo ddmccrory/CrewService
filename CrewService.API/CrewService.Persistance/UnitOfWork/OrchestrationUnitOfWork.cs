@@ -34,7 +34,6 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // Lazy-initialized repositories: Core Employee / Railroad
     // ──────────────────────────────────────────────────────────────────
     private IEmployeeRepository? _employees;
-    private IRailroadEmployeeRepository? _railroadEmployees;
     private IRailroadRepository? _railroads;
     private IParentRepository? _parents;
 
@@ -67,7 +66,6 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // Repository Properties: Core Employee / Railroad
     // ──────────────────────────────────────────────────────────────────
     public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_crewContext, _currentUserService);
-    public IRailroadEmployeeRepository RailroadEmployees => _railroadEmployees ??= new RailroadEmployeeRepository(_crewContext, _currentUserService);
     public IRailroadRepository Railroads => _railroads ??= new RailroadRepository(_crewContext, _currentUserService);
     public IParentRepository Parents => _parents ??= new ParentRepository(_crewContext, _currentUserService);
 
