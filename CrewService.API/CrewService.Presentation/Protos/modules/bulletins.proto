@@ -1,0 +1,110 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "Protos/common.proto";
+package bulletins;
+
+service BulletinsSrvc {
+  // Position Vacancies
+  rpc GetOpenVacancies(GetOpenVacanciesRequest) returns (GetVacanciesResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/vacancies/open" };
+  }
+  rpc GetVacanciesByCraft(GetVacanciesByCraftRequest) returns (GetVacanciesResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/vacancies/craft/{craft_ctrl_nbr}" };
+  }
+  rpc GetVacancy(GetVacancyRequest) returns (PositionVacancyResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/vacancies/{ctrl_nbr}" };
+  }
+  rpc AbolishVacancy(AbolishVacancyRequest) returns (PositionVacancyResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/vacancies/{ctrl_nbr}/abolish" };
+  }
+
+  // Bulletins
+  rpc GetPostedBulletins(GetPostedBulletinsRequest) returns (GetBulletinsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/posted" };
+  }
+  rpc GetPostedBulletinsByCraft(GetPostedBulletinsByCraftRequest) returns (GetBulletinsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/posted/craft/{craft_ctrl_nbr}" };
+  }
+  rpc GetBulletin(GetBulletinRequest) returns (BulletinResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/{ctrl_nbr}" };
+  }
+
+  // Bids
+  rpc SubmitBid(SubmitBidRequest) returns (BulletinBidResponse) {
+    option (google.api.http) = { post: "/v1/bulletins/bids" body: "*" };
+  }
+  rpc WithdrawBid(WithdrawBidRequest) returns (BulletinBidResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/bids/{ctrl_nbr}/withdraw" };
+  }
+  rpc GetBidsByBulletin(GetBidsByBulletinRequest) returns (GetBidsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/{bulletin_ctrl_nbr}/bids" };
+  }
+  rpc GetBidsByEmployee(GetBidsByEmployeeRequest) returns (GetBidsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/bids/employee/{employee_ctrl_nbr}" };
+  }
+}
+
+// Vacancy messages
+message GetOpenVacanciesRequest {}
+message GetVacanciesByCraftRequest { int64 craft_ctrl_nbr = 1; }
+message GetVacancyRequest { int64 ctrl_nbr = 1; }
+message AbolishVacancyRequest { int64 ctrl_nbr = 1; }
+message GetVacanciesResponse {
+  repeated PositionVacancyResponse vacancies = 1;
+  int32 total_count = 2;
+}
+message PositionVacancyResponse {
+  int64 ctrl_nbr = 1;
+  string target_type = 2;
+  int64 target_ctrl_nbr = 3;
+  int64 craft_ctrl_nbr = 4;
+  string vacancy_reason_code = 5;
+  int64 previous_incumbent_ctrl_nbr = 6;
+  string status = 7;
+  string opened_utc = 8;
+  string closed_utc = 9;
+}
+
+// Bulletin messages
+message GetPostedBulletinsRequest {}
+message GetPostedBulletinsByCraftRequest { int64 craft_ctrl_nbr = 1; }
+message GetBulletinRequest { int64 ctrl_nbr = 1; }
+message GetBulletinsResponse {
+  repeated BulletinResponse bulletins = 1;
+  int32 total_count = 2;
+}
+message BulletinResponse {
+  int64 ctrl_nbr = 1;
+  int64 position_vacancy_ctrl_nbr = 2;
+  int64 craft_ctrl_nbr = 3;
+  string bid_window_opens_utc = 4;
+  string bid_window_closes_utc = 5;
+  string status = 6;
+  int64 awarded_employee_ctrl_nbr = 7;
+  string award_type = 8;
+}
+
+// Bid messages
+message SubmitBidRequest {
+  int64 bulletin_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int32 priority = 3;
+  int32 seniority_rank = 4;
+}
+message WithdrawBidRequest { int64 ctrl_nbr = 1; }
+message GetBidsByBulletinRequest { int64 bulletin_ctrl_nbr = 1; }
+message GetBidsByEmployeeRequest { int64 employee_ctrl_nbr = 1; }
+message GetBidsResponse {
+  repeated BulletinBidResponse bids = 1;
+  int32 total_count = 2;
+}
+message BulletinBidResponse {
+  int64 ctrl_nbr = 1;
+  int64 bulletin_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  int32 priority = 4;
+  string submitted_utc = 5;
+  int32 seniority_rank = 6;
+  string status = 7;
+}

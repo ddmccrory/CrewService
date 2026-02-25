@@ -108,3 +108,9 @@ public sealed record ExtraBoardUpdatedDomainEvent : DomainEvent
 {
     public ExtraBoardUpdatedDomainEvent(ExtraBoard b) : base(nameof(ExtraBoard), b.CtrlNbr.Value, new { b.Name, b.IsActive }) { }
 }
+
+public sealed record ExtraBoardVacatedDomainEvent : DomainEvent
+{
+    public ExtraBoardVacatedDomainEvent(ExtraBoard b, long? previousMemberCtrlNbr, string vacancyReasonCode)
+        : base(nameof(ExtraBoard), b.CtrlNbr.Value, new { CraftCtrlNbr = b.CraftCtrlNbr.Value, PreviousMemberCtrlNbr = previousMemberCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
+}

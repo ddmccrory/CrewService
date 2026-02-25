@@ -68,15 +68,17 @@ Each module owns its contracts (proto), application logic, domain rules, and inf
 
 | Module | Bounded Context | Status |
 |---|---|---|
-| **TenantConfig** | Dynamic Groups, GroupTypes, Attributes, WorkArea designation | Scaffolded |
-| **Employees** | Employee profile, availability, crafts, qualifications, seniority, notifications | Existing (legacy structure) |
-| **WorkManagement** | Assignment Templates, WorkInstances, PositionSlots, extras, promotion | Scaffolded |
-| **Crews** | Regular/Relief crews, positions, incumbency, crew-to-work attachment | Scaffolded |
-| **Boards** | Extra boards (primary/auxiliary), membership, ordering/rotation state | Scaffolded |
-| **Policies** | Agreement-driven policies per craft: ordering, cascade, calling windows, displacement | Scaffolded |
-| **Dispatching** | Projection, calling-time binding, holds, decision logs, overrides | Scaffolded |
-| **AbsenceVacancy** | Absence requests, approvals, vacancy impact on work slots | Scaffolded |
-| **Payroll** | Time entry, agreement payments, payroll records, approval/locking | Scaffolded |
+| **TenantConfig** | GroupTypes, DynamicGroups (hierarchical tree), GroupAttributeDefinitions, GroupAttributeValues, WorkArea designation | Scaffolded |
+| **Employees** | Employee, Addresses, PhoneNumbers, EmailAddresses, contact types (AddressType, PhoneNumberType, EmailAddressType), EmploymentStatus, EmploymentStatusHistory, EmployeePriorServiceCredits, Craft, Roster, Seniority, SeniorityState, Parent, Railroad, PayrollTier | Existing (legacy structure) |
+| **WorkManagement** | AssignmentTemplates, WorkInstances, PositionRoles, PositionSlots, SlotRequirements | Scaffolded |
+| **Crews** | Regular/Relief Crews, CrewPositions, CrewIncumbency, CrewAttachmentTemplates, CrewAttachmentInstances, ReliefCoverageRules | Scaffolded |
+| **Boards** | ExtraBoards (primary/auxiliary), BoardMembers, BoardCascadePolicies | Scaffolded |
+| **Policies** | CraftDisplacementPolicy, DisplacementCases, DisplacementClaims, BulletinPolicy, SeniorityMovePolicy, SeniorityMoves, auto-placement on extra board | Scaffolded |
+| **Bulletins** | PositionVacancies (structural, discriminated target for crew/board), Bulletins (bid posting with computed window), BulletinBids (priority ranking, seniority capture), award/forced assignment, auto-withdrawal of lower-priority bids | Scaffolded |
+| **Dispatching** | DispatchProjections, DispatchDecisionLogs, DispatchOverrides, EmployeeBookings | Scaffolded |
+| **AbsenceVacancy** | AbsenceRequests, VacancyImpacts on PositionSlots | Scaffolded |
+| **Payroll** | TimeEntries, PayrollRuns, PayrollRecords, approval/locking | Scaffolded |
+| **Auth/Account** | JWT authentication, user accounts, registration, role management | Existing (legacy protos) |
 | **Reporting** | Read models, dashboards (optional, deferred) | Planned |
 
 **Boundary rule:** Modules do not call each other's EF Core DbContext directly. They integrate via in-process application interfaces (clean) or domain events (cleaner for future extraction).
@@ -88,23 +90,34 @@ CrewService/
 ├── CrewService.API/
 │   ├── CrewService.GrpcService/            # Host entry point, DI composition root
 │   ├── CrewService.Domain/                 # Aggregates, value objects, domain events
-│   │   ├── Primitives/                     # Entity base class
+│   │   ├── Primitives/                     # Entity base class (soft delete, domain event raising)
 │   │   ├── ValueObjects/                   # ControlNumber, AuditStamp, Name
-│   │   ├── Interfaces/                     # Shared interfaces, IOrchestrationUnitOfWork
+│   │   ├── Interfaces/                     # IRepository, IOrchestrationUnitOfWork, IDomainEvent, ICurrentUserService
+│   │   ├── Exceptions/                     # DomainException, NotFoundException, ConflictException, ForbiddenException, ValidationException
 │   │   ├── Outbox/                         # OutboxMessage, OutboxMessageStatus
-│   │   ├── DomainEvents/                   # DomainEvent base + legacy entity events
-│   │   ├── Models/                         # Legacy entity models (Employees, Railroads, etc.)
+│   │   ├── DomainEvents/                   # DomainEvent base + legacy per-entity events (Employees, ContactTypes, Employment, Seniority, Railroads, Parents)
+│   │   ├── Models/                         # Legacy entity models
+│   │   │   ├── Employees/                  # Employee, Address, PhoneNumber, EmailAddress, EmployeePriorServiceCredit
+│   │   │   ├── ContactTypes/               # AddressType, PhoneNumberType, EmailAddressType
+│   │   │   ├── Employment/                 # EmploymentStatus, EmploymentStatusHistory
+│   │   │   ├── Seniority/                  # Craft, Roster, Seniority, SeniorityState
+│   │   │   ├── Parents/                    # Parent
+│   │   │   └── Railroads/                  # Railroad, PayrollTier
 │   │   └── Modules/                        # New modular domain entities
 │   │       ├── TenantConfig/
 │   │       ├── WorkManagement/
 │   │       ├── Crews/
 │   │       ├── Boards/
 │   │       ├── Policies/
+│   │       ├── Bulletins/
 │   │       ├── Dispatching/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
-│   ├── CrewService.Application/            # Use cases, application services, DTOs
-│   ├── CrewService.Infrastructure/         # Adapters, Identity User, Outbox publisher
+│   ├── CrewService.Application/            # Use cases, application services, DTOs (placeholder)
+│   ├── CrewService.Infrastructure/         # Cross-cutting concerns
+│   │   ├── Exceptions/                     # GrpcExceptionInterceptor, GlobalExceptionHandler
+│   │   ├── Models/UserAccount/             # Identity User model
+│   │   └── Outbox/                         # OutboxDispatcher (Channel), OutboxPublisherService, NoOpMessagePublisher, Options
 │   ├── CrewService.Persistance/            # EF Core DbContexts, migrations, repositories
 │   │   ├── Data/                           # OperationsDbContext (CrewServiceDbContext), IdentityDbContext (UserAccessDbContext)
 │   │   ├── Configurations/                 # Legacy EF configurations
@@ -116,14 +129,15 @@ CrewService/
 │   │       ├── Crews/
 │   │       ├── Boards/
 │   │       ├── Policies/
+│   │       ├── Bulletins/
 │   │       ├── Dispatching/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
 │   ├── CrewService.Presentation/           # gRPC service implementations + protos
-│   │   ├── Protos/                         # Legacy per-entity proto files
+│   │   ├── Protos/                         # Legacy per-entity proto files + common.proto
 │   │   │   └── modules/                    # New per-module proto files
-│   │   └── Services/                       # Legacy gRPC services
-│   │       └── Modules/                    # New per-module gRPC services
+│   │   └── Services/                       # Legacy gRPC services (Auth, Account, Employee, ContactTypes, Employment, Seniority, Railroad, PayrollTier, Parent)
+│   │       └── Modules/                    # New per-module gRPC services (TenantConfig, WorkManagement, Crews, Boards, Policies, Bulletins, Dispatching, AbsenceVacancy, Payroll)
 │   └── CrewService.UnitTests/
 ├── docs/                                   # Diagrams, specs, scope documents
 └── tests/                                  # Integration tests
@@ -187,19 +201,41 @@ CrewService/
 
 One `.proto` per module with REST transcoding annotations in the same proto:
 
+**Module protos** (`Protos/modules/`):
+
 | Proto | Module |
 |---|---|
 | `modules/tenant_config.proto` | TenantConfig |
-| `modules/employees.proto` | Employees (planned consolidation) |
 | `modules/work_management.proto` | WorkManagement |
 | `modules/crews.proto` | Crews |
 | `modules/boards.proto` | Boards |
-| `modules/policies.proto` | Policies |
+| `modules/policies.proto` | Policies (displacement, bulletin policy, seniority move policy, seniority moves) |
+| `modules/bulletins.proto` | Bulletins (vacancies, bulletins, bids) |
 | `modules/dispatching.proto` | Dispatching |
 | `modules/absence_vacancy.proto` | AbsenceVacancy |
 | `modules/payroll.proto` | Payroll |
 
-Legacy per-entity protos remain in `Protos/` until consolidated into module protos.
+**Legacy per-entity protos** (`Protos/`) — will consolidate into module protos:
+
+| Proto | Entity/Feature |
+|---|---|
+| `auth.proto` | JWT authentication (login, token refresh) |
+| `account.proto` | User registration, account management |
+| `employee.proto` | Employee CRUD |
+| `address_type.proto` | Address type lookups |
+| `phone_number_type.proto` | Phone number type lookups |
+| `email_address_type.proto` | Email address type lookups |
+| `employment_status.proto` | Employment status lookups |
+| `employment_status_history.proto` | Employment status history |
+| `prior_service_credit.proto` | Employee prior service credits |
+| `craft.proto` | Crafts |
+| `roster.proto` | Rosters |
+| `seniority.proto` | Seniority records |
+| `seniority_state.proto` | Seniority states |
+| `parent.proto` | Parent tenants |
+| `railroad.proto` | Railroads |
+| `payroll_tier.proto` | Payroll tiers |
+| `common.proto` | Shared messages (DeleteResponse, etc.) |
 
 ## Implementation order
 
@@ -207,14 +243,15 @@ Aligned with SPEC-0 §10:
 
 1. **TenantConfig** — group tree + types + attributes + WorkArea designation
 2. **Employees refactor** — restructure existing entities into module, add availability/qualifications/memberships
-3. **WorkManagement** — templates, work instances, position slots, extras, promote ad-hoc → template
-4. **Crews** — regular/relief crews, positions, incumbency, attachment to work
-5. **Boards + Policies** — board definitions, cascade config, ordering strategies, displacement surface
-6. **Dispatching** — projections, calling-time binding, decision logs, overrides, booking holds
-7. **AbsenceVacancy** — absence requests, approvals, vacancy impacts
-8. **Payroll** — time entry, calculation, agreement payments, approval/locking
-9. **Crew.Web** — Blazor Server app with gRPC client facades per module
-10. **Tenancy + Auth** — Parent registry, tenant resolution, per-Parent OIDC/internal auth, invitations
+3. **WorkManagement** — templates, work instances, position roles, position slots, slot requirements
+4. **Crews** — regular/relief crews, positions, incumbency, attachment to work, relief coverage rules
+5. **Boards + Policies** — board definitions, cascade config, ordering strategies, displacement policies/cases/claims
+6. **Bulletins + Policies** — structural vacancies, bulletin posting/bidding/award, bulletin policy, seniority move policy, seniority moves, forced assignment, auto-withdrawal of lower-priority bids
+7. **Dispatching** — projections, calling-time binding, decision logs, overrides, employee bookings
+8. **AbsenceVacancy** — absence requests, approvals, vacancy impacts on position slots
+9. **Payroll** — time entry, payroll runs, payroll records, approval/locking
+10. **Crew.Web** — Blazor Server app with gRPC client facades per module
+11. **Tenancy + Auth** — Parent registry, tenant resolution, per-Parent OIDC/internal auth, invitations
 
 ## Development notes
 

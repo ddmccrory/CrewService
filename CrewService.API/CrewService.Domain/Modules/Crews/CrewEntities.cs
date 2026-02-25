@@ -152,3 +152,9 @@ public sealed record CrewUpdatedDomainEvent : DomainEvent
     public CrewUpdatedDomainEvent(Crew c)
         : base(nameof(Crew), c.CtrlNbr.Value, new { c.Name, c.IsActive }) { }
 }
+
+public sealed record CrewPositionVacatedDomainEvent : DomainEvent
+{
+    public CrewPositionVacatedDomainEvent(CrewPosition p, long? previousIncumbentCtrlNbr, string vacancyReasonCode)
+        : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
+}
