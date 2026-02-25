@@ -22,6 +22,14 @@ internal static class DevDataSeeder
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
 
+        // Provide a synthetic SYSTEM user so auditing works outside an HTTP request
+        var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+        httpContextAccessor.HttpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.Name, "SYSTEM")], "Seed"))
+        };
+
         var groupTypeRepo = sp.GetRequiredService<IGroupTypeRepository>();
         var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
         var parentRepo = sp.GetRequiredService<IParentRepository>();
