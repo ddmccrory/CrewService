@@ -14,7 +14,7 @@
 - **Architecture:** Modular monolith – one process, many modules. Each module owns contracts (proto), domain, application logic, and infrastructure.
 - **Layer projects:** GrpcService (host), Domain, Application, Infrastructure, Persistence, Presentation.
 - **Module folders:** New modules are organized under `Modules/` subfolders within Domain, Persistence, and Presentation. Legacy entities remain under `Models/`, `Configurations/`, `Repositories/`, and `Services/`.
-- **Bounded contexts:** TenantConfig, Employees, WorkManagement, Crews, Boards, Policies, Dispatching, AbsenceVacancy, Payroll, Reporting (planned).
+- **Bounded contexts:** TenantConfig, Employees, UserAccess, WorkManagement, Crews, Boards, Policies, Dispatching, AbsenceVacancy, Payroll, Reporting (planned).
 - **One `.proto` per module** under `Protos/modules/`; legacy per-entity protos remain under `Protos/`.
 - **Two DbContexts:** IdentityDbContext (UserAccessDbContext) for Identity; OperationsDbContext (CrewServiceDbContext) for all operational domain tables. Repositories accept DbContext in their constructors.
 - **Module boundary rule:** Modules do not call each other's EF repositories or DbContext directly. Integrate via in-process application interfaces and domain events.

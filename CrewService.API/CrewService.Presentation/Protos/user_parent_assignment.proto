@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+
+package user_parent_assignment;
+
+service UserParentAssignmentSrvc {
+
+	rpc GetAssignmentAsync(GetAssignmentRequest) returns (GetAssignmentResponse) {
+		option (google.api.http) = {
+			get: "/user-parent-assignment/{ctrlNbr}"
+		};
+	}
+
+	rpc GetAssignmentsByUserAsync(GetAssignmentsByUserRequest) returns (GetAssignmentsByUserResponse) {
+		option (google.api.http) = {
+			get: "/user-parent-assignment/user/{userId}"
+		};
+	}
+
+	rpc GetAssignmentsByParentAsync(GetAssignmentsByParentRequest) returns (GetAssignmentsByParentResponse) {
+		option (google.api.http) = {
+			get: "/user-parent-assignment/parent/{parentCtrlNbr}"
+		};
+	}
+
+	rpc CreateAssignmentAsync(CreateAssignmentRequest) returns (CreateAssignmentResponse) {
+		option (google.api.http) = {
+			post: "/user-parent-assignment",
+			body: "*"
+		};
+	}
+
+	rpc UpdateAssignmentRoleAsync(UpdateAssignmentRoleRequest) returns (UpdateAssignmentRoleResponse) {
+		option (google.api.http) = {
+			put: "/user-parent-assignment",
+			body: "*"
+		};
+	}
+
+	rpc DeleteAssignmentAsync(DeleteAssignmentRequest) returns (DeleteAssignmentResponse) {
+		option (google.api.http) = {
+			delete: "/user-parent-assignment/{ctrlNbr}"
+		};
+	}
+}
+
+message GetAssignmentRequest {
+	int64 ctrlNbr = 1;
+}
+
+message GetAssignmentResponse {
+	int64 ctrlNbr = 1;
+	string userId = 2;
+	int64 parentCtrlNbr = 3;
+	string role = 4;
+}
+
+message GetAssignmentsByUserRequest {
+	string userId = 1;
+}
+
+message GetAssignmentsByUserResponse {
+	repeated GetAssignmentResponse assignments = 1;
+}
+
+message GetAssignmentsByParentRequest {
+	int64 parentCtrlNbr = 1;
+}
+
+message GetAssignmentsByParentResponse {
+	repeated GetAssignmentResponse assignments = 1;
+}
+
+message CreateAssignmentRequest {
+	string userId = 1;
+	int64 parentCtrlNbr = 2;
+	string role = 3;
+}
+
+message CreateAssignmentResponse {
+	int64 ctrlNbr = 1;
+	string userId = 2;
+	int64 parentCtrlNbr = 3;
+	string role = 4;
+}
+
+message UpdateAssignmentRoleRequest {
+	int64 ctrlNbr = 1;
+	string role = 2;
+}
+
+message UpdateAssignmentRoleResponse {
+	int64 ctrlNbr = 1;
+	string userId = 2;
+	int64 parentCtrlNbr = 3;
+	string role = 4;
+}
+
+message DeleteAssignmentRequest {
+	int64 ctrlNbr = 1;
+}
+
+message DeleteAssignmentResponse {
+	int64 ctrlNbr = 1;
+	string userId = 2;
+	int64 parentCtrlNbr = 3;
+	string role = 4;
+}

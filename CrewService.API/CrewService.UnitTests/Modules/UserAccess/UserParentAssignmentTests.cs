@@ -1,0 +1,277 @@
+using CrewService.Domain.DomainEvents;
+using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.UserAccess;
+using CrewService.Domain.ValueObjects;
+using CrewService.Persistance.Repositories;
+using CrewService.UnitTests.Fixtures;
+using Microsoft.EntityFrameworkCore;
+
+namespace CrewService.UnitTests.Modules.UserAccess;
+
+public sealed class UserParentAssignmentTests : IDisposable
+{
+    private readonly TestDbContextFactory _factory = new();
+
+    public void Dispose() => _factory.Dispose();
+
+    /// <summary>
+    /// Verifies that a UserParentAssignment can be created, persisted, and retrieved by CtrlNbr.
+    /// </summary>
+    [Fact]
+    public async Task Create_And_GetByCtrlNbr_Returns_Assignment()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent = Parent.Create("Test Parent");
+        await parentRepo.AddAsync(parent);
+
+        var assignment = UserParentAssignment.Create("user-001", parent.CtrlNbr.Value, "Admin");
+        await repo.AddAsync(assignment);
+
+        // Act
+        var found = await repo.GetByCtrlNbrAsync(assignment.CtrlNbr);
+
+        // Assert
+        Assert.NotNull(found);
+        Assert.Equal("user-001", found.UserId);
+        Assert.Equal(parent.CtrlNbr, found.ParentCtrlNbr);
+        Assert.Equal("Admin", found.Role);
+    }
+
+    /// <summary>
+    /// Verifies domain event is raised on creation.
+    /// </summary>
+    [Fact]
+    public void Create_Raises_CreatedDomainEvent()
+    {
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, "Dispatcher");
+
+        Assert.Single(assignment.DomainEvents);
+        Assert.IsType<CrewService.Domain.DomainEvents.UserAccess.UserParentAssignmentCreatedDomainEvent>(assignment.DomainEvents[0]);
+    }
+
+    /// <summary>
+    /// Verifies GetByUserIdAsync returns all assignments for a given user.
+    /// </summary>
+    [Fact]
+    public async Task GetByUserId_Returns_All_Assignments_For_User()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent1 = Parent.Create("Parent A");
+        await parentRepo.AddAsync(parent1);
+
+        var parent2 = Parent.Create("Parent B");
+        await parentRepo.AddAsync(parent2);
+
+        var a1 = UserParentAssignment.Create("user-multi", parent1.CtrlNbr.Value, "Admin");
+        await repo.AddAsync(a1);
+
+        var a2 = UserParentAssignment.Create("user-multi", parent2.CtrlNbr.Value, "ReadOnly");
+        await repo.AddAsync(a2);
+
+        // A different user's assignment — should not be returned
+        var a3 = UserParentAssignment.Create("user-other", parent1.CtrlNbr.Value, "Manager");
+        await repo.AddAsync(a3);
+
+        // Act
+        var results = await repo.GetByUserIdAsync("user-multi");
+
+        // Assert
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal("user-multi", r.UserId));
+    }
+
+    /// <summary>
+    /// Verifies GetByParentCtrlNbrAsync returns all assignments for a given parent.
+    /// </summary>
+    [Fact]
+    public async Task GetByParentCtrlNbr_Returns_All_Assignments_For_Parent()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent = Parent.Create("Shared Parent");
+        await parentRepo.AddAsync(parent);
+
+        var a1 = UserParentAssignment.Create("user-x", parent.CtrlNbr.Value, "Admin");
+        await repo.AddAsync(a1);
+
+        var a2 = UserParentAssignment.Create("user-y", parent.CtrlNbr.Value, "Dispatcher");
+        await repo.AddAsync(a2);
+
+        // Act
+        var results = await repo.GetByParentCtrlNbrAsync(parent.CtrlNbr.Value);
+
+        // Assert
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, r => r.UserId == "user-x");
+        Assert.Contains(results, r => r.UserId == "user-y");
+    }
+
+    /// <summary>
+    /// Verifies GetByUserAndParentAsync returns the exact match or null.
+    /// </summary>
+    [Fact]
+    public async Task GetByUserAndParent_Returns_Exact_Match_Or_Null()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent = Parent.Create("Exact Match Parent");
+        await parentRepo.AddAsync(parent);
+
+        var assignment = UserParentAssignment.Create("user-exact", parent.CtrlNbr.Value, "Manager");
+        await repo.AddAsync(assignment);
+
+        // Act
+        var found = await repo.GetByUserAndParentAsync("user-exact", parent.CtrlNbr.Value);
+        var notFound = await repo.GetByUserAndParentAsync("user-nonexistent", parent.CtrlNbr.Value);
+
+        // Assert
+        Assert.NotNull(found);
+        Assert.Equal(assignment.CtrlNbr, found.CtrlNbr);
+        Assert.Null(notFound);
+    }
+
+    /// <summary>
+    /// Verifies that inserting a duplicate (UserId, ParentCtrlNbr) violates the unique index.
+    /// </summary>
+    [Fact]
+    public async Task Duplicate_UserId_ParentCtrlNbr_Throws()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent = Parent.Create("Dup Parent");
+        await parentRepo.AddAsync(parent);
+
+        var a1 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, "Admin");
+        await repo.AddAsync(a1);
+
+        var a2 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, "ReadOnly");
+
+        // Act & Assert — unique index violation
+        await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddAsync(a2));
+    }
+
+    /// <summary>
+    /// Verifies UpdateRole changes the role and raises an updated domain event.
+    /// </summary>
+    [Fact]
+    public async Task UpdateRole_Changes_Role_And_Raises_Event()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent = Parent.Create("Role Change Parent");
+        await parentRepo.AddAsync(parent);
+
+        var assignment = UserParentAssignment.Create("user-role", parent.CtrlNbr.Value, "ReadOnly");
+        await repo.AddAsync(assignment);
+
+        // Act
+        assignment.UpdateRole("Admin");
+        await repo.UpdateAsync(assignment);
+
+        // Re-fetch
+        var updated = await repo.GetByCtrlNbrAsync(assignment.CtrlNbr);
+
+        // Assert
+        Assert.NotNull(updated);
+        Assert.Equal("Admin", updated.Role);
+        // Created event + Updated event
+        Assert.Equal(2, assignment.DomainEvents.Count);
+        Assert.IsType<CrewService.Domain.DomainEvents.UserAccess.UserParentAssignmentUpdatedDomainEvent>(assignment.DomainEvents[1]);
+    }
+
+    /// <summary>
+    /// Verifies UpdateRole with the same value does NOT raise a domain event.
+    /// </summary>
+    [Fact]
+    public void UpdateRole_Same_Value_Does_Not_Raise_Event()
+    {
+        var assignment = UserParentAssignment.Create("user-noop", 250101120000001, "Admin");
+        var initialCount = assignment.DomainEvents.Count;
+
+        assignment.UpdateRole("Admin");
+
+        Assert.Equal(initialCount, assignment.DomainEvents.Count);
+    }
+
+    /// <summary>
+    /// Verifies that soft-deleting an assignment via Remove() excludes it from queries.
+    /// </summary>
+    [Fact]
+    public async Task Remove_SoftDeletes_Assignment()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parent = Parent.Create("Delete Parent");
+        await parentRepo.AddAsync(parent);
+
+        var assignment = UserParentAssignment.Create("user-del", parent.CtrlNbr.Value, "Dispatcher");
+        await repo.AddAsync(assignment);
+
+        // Act — soft-delete via repository
+        await repo.DeleteAsync(assignment.CtrlNbr);
+
+        var remaining = await repo.GetByUserIdAsync("user-del");
+
+        // Assert — soft-deleted row should be excluded by global query filter
+        Assert.Empty(remaining);
+    }
+
+    /// <summary>
+    /// Verifies that a user can be assigned to different parents with different roles.
+    /// </summary>
+    [Fact]
+    public async Task User_Can_Have_Different_Roles_Per_Parent()
+    {
+        // Arrange
+        using var ctx = _factory.CreateContext();
+        var parentRepo = new ParentRepository(ctx, _factory.CurrentUserService);
+        var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
+
+        var parentA = Parent.Create("Corp A");
+        await parentRepo.AddAsync(parentA);
+
+        var parentB = Parent.Create("Corp B");
+        await parentRepo.AddAsync(parentB);
+
+        var a1 = UserParentAssignment.Create("user-roles", parentA.CtrlNbr.Value, "Admin");
+        await repo.AddAsync(a1);
+
+        var a2 = UserParentAssignment.Create("user-roles", parentB.CtrlNbr.Value, "ReadOnly");
+        await repo.AddAsync(a2);
+
+        // Act
+        var forUser = await repo.GetByUserIdAsync("user-roles");
+        var adminAssignment = await repo.GetByUserAndParentAsync("user-roles", parentA.CtrlNbr.Value);
+        var readOnlyAssignment = await repo.GetByUserAndParentAsync("user-roles", parentB.CtrlNbr.Value);
+
+        // Assert
+        Assert.Equal(2, forUser.Count);
+        Assert.NotNull(adminAssignment);
+        Assert.Equal("Admin", adminAssignment.Role);
+        Assert.NotNull(readOnlyAssignment);
+        Assert.Equal("ReadOnly", readOnlyAssignment.Role);
+    }
+}
