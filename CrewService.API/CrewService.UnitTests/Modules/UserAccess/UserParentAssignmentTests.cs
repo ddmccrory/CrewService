@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents;
+using CrewService.Domain.DomainEvents.UserAccess;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
@@ -273,5 +274,75 @@ public sealed class UserParentAssignmentTests : IDisposable
         Assert.Equal("Admin", adminAssignment.Role);
         Assert.NotNull(readOnlyAssignment);
         Assert.Equal("ReadOnly", readOnlyAssignment.Role);
+    }
+
+    /// <summary>
+    /// Verifies Create throws ArgumentException when userId is null or empty.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Create_With_Invalid_UserId_Throws(string? userId)
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            UserParentAssignment.Create(userId!, 250101120000001, Roles.Dispatcher));
+    }
+
+    /// <summary>
+    /// Verifies Create throws ArgumentException when role is null or empty.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Create_With_Invalid_Role_Throws(string? role)
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            UserParentAssignment.Create("user-001", 250101120000001, role!));
+    }
+
+    /// <summary>
+    /// Verifies UpdateRole throws ArgumentException when role is null or empty.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void UpdateRole_With_Invalid_Role_Throws(string? role)
+    {
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.ReadOnly);
+
+        Assert.ThrowsAny<ArgumentException>(() => assignment.UpdateRole(role!));
+    }
+
+    /// <summary>
+    /// Verifies Delete raises UserParentAssignmentDeletedDomainEvent.
+    /// </summary>
+    [Fact]
+    public void Delete_Raises_DeletedDomainEvent()
+    {
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.Dispatcher);
+        var initialCount = assignment.DomainEvents.Count;
+
+        assignment.Delete();
+
+        Assert.Equal(initialCount + 1, assignment.DomainEvents.Count);
+        Assert.IsType<UserParentAssignmentDeletedDomainEvent>(assignment.DomainEvents[^1]);
+    }
+
+    /// <summary>
+    /// Verifies that Roles.AllPerParentRoles contains all expected per-parent roles
+    /// and does not include SystemAdmin.
+    /// </summary>
+    [Fact]
+    public void Roles_AllPerParentRoles_Contains_Expected_Roles()
+    {
+        Assert.Contains(Roles.ParentAdmin, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.RailroadAdmin, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.CraftManager, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.CrewManager, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.Dispatcher, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.PayrollClerk, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.ReadOnly, Roles.AllPerParentRoles);
+        Assert.DoesNotContain(Roles.SystemAdmin, Roles.AllPerParentRoles);
+        Assert.Equal(7, Roles.AllPerParentRoles.Count);
     }
 }

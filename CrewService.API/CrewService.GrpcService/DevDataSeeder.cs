@@ -3,8 +3,10 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -13,12 +15,11 @@ using System.Security.Claims;
 namespace CrewService.GrpcService;
 
 /// <summary>
-/// Seeds the development database with sample data for the RailroadGroupPlacement
-/// feature, covering all three supported scenarios:
-///   1. Simple – railroad under a parent with no placement rows
-///   2. Simple + WorkArea – railroad placed into a single work-area group
-///   3. Holding company – multi-level tree (Region ? Subdivision ? WorkArea)
-/// Idempotent: skips seeding when GroupTypes already exist.
+/// Seeds the development database with sample data covering:
+///   1. GroupTypes, DynamicGroups, Parents, Railroads, RailroadGroupPlacements
+///   2. Employees with Addresses, Phone Numbers, Email Addresses
+///   3. SystemAdmin bootstrap user and per-parent role assignments
+/// Idempotent: each section checks for existing data before seeding.
 /// </summary>
 internal static class DevDataSeeder
 {
@@ -161,7 +162,7 @@ internal static class DevDataSeeder
         var workEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Work", 1, emergencyType: false);
         await emailAddressTypeRepo.AddAsync(workEmailType);
 
-        var userManager = sp.GetRequiredService<UserManager<User>>();
+        var userMgr = sp.GetRequiredService<UserManager<User>>();
 
         string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
                                "Jennifer", "Michael", "Linda", "David", "Elizabeth",
@@ -199,7 +200,7 @@ internal static class DevDataSeeder
                 FullNameLNF    = $"{lastName}, {firstName}",
                 EmployeeNumber = empNumber
             };
-            await userManager.CreateAsync(user, "Seed@123");
+            await userMgr.CreateAsync(user, "Seed@123");
 
             var employee = Employee.Create(
                 csxParent.CtrlNbr.Value,
@@ -230,6 +231,52 @@ internal static class DevDataSeeder
                 workEmailType.CtrlNbr.Value);
 
             await employeeRepo.AddAsync(employee);
+        }
+
+        // ?? SystemAdmin bootstrap user ???????????????????????????????????
+        var assignmentRepo = sp.GetRequiredService<IUserParentAssignmentRepository>();
+        var existingAssignments = await assignmentRepo.GetAllAsync();
+        if (existingAssignments.Count > 0)
+            return;
+
+        var adminUser = await userMgr.FindByEmailAsync("admin@crewservice.dev");
+        if (adminUser is null)
+        {
+            adminUser = new User
+            {
+                UserName       = "admin@crewservice.dev",
+                Email          = "admin@crewservice.dev",
+                EmailConfirmed = true,
+                FirstName      = "System",
+                LastName       = "Admin",
+                FullName       = "System Admin",
+                FullNameLNF    = "Admin, System",
+                PrimaryRoleId  = Roles.SystemAdmin
+            };
+            await userMgr.CreateAsync(adminUser, "Admin@123");
+        }
+
+        // ?? Per-parent role assignments for dev testing ??????????????????
+        var allParents = await parentRepo.GetAllAsync();
+        var csxCorp = allParents.First(p => p.Name.Value == "CSX Corporation");
+
+        // SystemAdmin doesn't need per-parent assignments (PrimaryRoleId handles it),
+        // but seed role assignments on employee users for testing authorization.
+        var allEmployees = await employeeRepo.GetAllAsync();
+
+        // First employee ? ParentAdmin
+        if (allEmployees.Count > 0)
+        {
+            var a = UserParentAssignment.Create(allEmployees[0].UserId, csxCorp.CtrlNbr.Value, Roles.ParentAdmin);
+            await assignmentRepo.AddAsync(a);
+        }
+
+        // Next employees ? one of each remaining role
+        string[] rolesToSeed = [Roles.RailroadAdmin, Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk, Roles.ReadOnly];
+        for (int r = 0; r < rolesToSeed.Length && r + 1 < allEmployees.Count; r++)
+        {
+            var a = UserParentAssignment.Create(allEmployees[r + 1].UserId, csxCorp.CtrlNbr.Value, rolesToSeed[r]);
+            await assignmentRepo.AddAsync(a);
         }
     }
 }
