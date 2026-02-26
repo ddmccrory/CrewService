@@ -17,6 +17,9 @@ A dynamic railroad crew management and dispatch platform built as a **modular mo
 - [Implementation order](#implementation-order)
 - [Development notes](#development-notes)
 - [Testing](#testing)
+- [Field encryption](#field-encryption)
+- [Soft delete & global query filters](#soft-delete--global-query-filters)
+- [Spec sheets](#spec-sheets)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -43,7 +46,7 @@ A dynamic railroad crew management and dispatch platform built as a **modular mo
 
 1. Clone: `git clone https://github.com/ddmccrory/CrewService.git`
 2. Restore packages: `dotnet restore`
-3. Configure secrets (JWT, connection strings via User Secrets)
+3. Configure secrets (JWT key, Encryption key, connection strings via User Secrets)
 4. Run migrations and start: `dotnet run --project CrewService.API/CrewService.GrpcService`
 
 ## Architecture overview
@@ -78,6 +81,7 @@ Each module owns its contracts (proto), application logic, domain rules, and inf
 | **Dispatching** | DispatchProjections, DispatchDecisionLogs, DispatchOverrides, EmployeeBookings | Scaffolded |
 | **AbsenceVacancy** | AbsenceRequests, VacancyImpacts on PositionSlots | Scaffolded |
 | **Payroll** | TimeEntries, PayrollRuns, PayrollRecords, approval/locking | Scaffolded |
+| **UserAccess** | UserParentAssignment (user-to-parent assignment with role), multi-parent support for non-employee users | Scaffolded |
 | **Auth/Account** | JWT authentication, user accounts, registration, role management | Existing (legacy protos) |
 | **Reporting** | Read models, dashboards (optional, deferred) | Planned |
 
@@ -88,23 +92,25 @@ Each module owns its contracts (proto), application logic, domain rules, and inf
 ```
 CrewService/
 ├── CrewService.API/
-│   ├── CrewService.GrpcService/            # Host entry point, DI composition root
+│   ├── CrewService.GrpcService/            # Host entry point, DI composition root, DevDataSeeder
 │   ├── CrewService.Domain/                 # Aggregates, value objects, domain events
 │   │   ├── Primitives/                     # Entity base class (soft delete, domain event raising)
 │   │   ├── ValueObjects/                   # ControlNumber, AuditStamp, Name
-│   │   ├── Interfaces/                     # IRepository, IOrchestrationUnitOfWork, IDomainEvent, ICurrentUserService
+│   │   ├── Interfaces/                     # IRepository, IOrchestrationUnitOfWork, IDomainEvent, ICurrentUserService, IFieldEncryptor, IMessagePublisher
 │   │   ├── Exceptions/                     # DomainException, NotFoundException, ConflictException, ForbiddenException, ValidationException
 │   │   ├── Outbox/                         # OutboxMessage, OutboxMessageStatus
-│   │   ├── DomainEvents/                   # DomainEvent base + legacy per-entity events (Employees, ContactTypes, Employment, Seniority, Railroads, Parents)
+│   │   ├── DomainEvents/                   # DomainEvent base + legacy per-entity events (Employees, ContactTypes, Employment, Seniority, Railroads, Parents, UserAccess)
 │   │   ├── Models/                         # Legacy entity models
 │   │   │   ├── Employees/                  # Employee, Address, PhoneNumber, EmailAddress, EmployeePriorServiceCredit
 │   │   │   ├── ContactTypes/               # AddressType, PhoneNumberType, EmailAddressType
 │   │   │   ├── Employment/                 # EmploymentStatus, EmploymentStatusHistory
 │   │   │   ├── Seniority/                  # Craft, Roster, Seniority, SeniorityState
 │   │   │   ├── Parents/                    # Parent
-│   │   │   └── Railroads/                  # Railroad, PayrollTier
+│   │   │   ├── Railroads/                  # Railroad, PayrollTier
+│   │   │   └── UserAccess/                 # UserParentAssignment
 │   │   └── Modules/                        # New modular domain entities
 │   │       ├── TenantConfig/
+│   │       ├── UserAccess/                  # IUserParentAssignmentRepository
 │   │       ├── WorkManagement/
 │   │       ├── Crews/
 │   │       ├── Boards/
@@ -116,12 +122,14 @@ CrewService/
 │   ├── CrewService.Application/            # Use cases, application services, DTOs (placeholder)
 │   ├── CrewService.Infrastructure/         # Cross-cutting concerns
 │   │   ├── Exceptions/                     # GrpcExceptionInterceptor, GlobalExceptionHandler
-│   │   ├── Models/UserAccount/             # Identity User model
+│   │   ├── Models/UserAccount/             # Identity User model (ASP.NET Identity)
 │   │   └── Outbox/                         # OutboxDispatcher (Channel), OutboxPublisherService, NoOpMessagePublisher, Options
 │   ├── CrewService.Persistance/            # EF Core DbContexts, migrations, repositories
 │   │   ├── Data/                           # OperationsDbContext (CrewServiceDbContext), IdentityDbContext (UserAccessDbContext)
-│   │   ├── Configurations/                 # Legacy EF configurations
-│   │   ├── Repositories/                   # Legacy repositories
+│   │   ├── Configurations/                 # Legacy EF configurations + UserParentAssignmentConfiguration
+│   │   ├── Encryption/                     # AesFieldEncryptor, EncryptedStringConverter (PII at-rest encryption)
+│   │   ├── Repositories/                   # Legacy repositories + UserParentAssignmentRepository
+│   │   ├── Services/                       # CurrentUserService (ICurrentUserService implementation)
 │   │   ├── UnitOfWork/                     # OrchestrationUnitOfWork, Factory
 │   │   └── Modules/                        # New modular configurations + repositories
 │   │       ├── TenantConfig/
@@ -134,13 +142,15 @@ CrewService/
 │   │       ├── AbsenceVacancy/
 │   │       └── Payroll/
 │   ├── CrewService.Presentation/           # gRPC service implementations + protos
-│   │   ├── Protos/                         # Legacy per-entity proto files + common.proto
+│   │   ├── Protos/                         # Legacy per-entity proto files + common.proto + user_parent_assignment.proto
 │   │   │   └── modules/                    # New per-module proto files
-│   │   └── Services/                       # Legacy gRPC services (Auth, Account, Employee, ContactTypes, Employment, Seniority, Railroad, PayrollTier, Parent)
+│   │   └── Services/                       # Legacy gRPC services (Auth, Account, Employee, ContactTypes, Employment, Seniority, Railroad, PayrollTier, Parent, UserParentAssignment)
 │   │       └── Modules/                    # New per-module gRPC services (TenantConfig, WorkManagement, Crews, Boards, Policies, Bulletins, Dispatching, AbsenceVacancy, Payroll)
-│   └── CrewService.UnitTests/
-├── docs/                                   # Diagrams, specs, scope documents
-└── tests/                                  # Integration tests
+│   └── CrewService.UnitTests/              # xUnit tests, fixtures, module tests
+│       ├── Fixtures/                       # TestDbContextFactory, TestCurrentUserService, TestFieldEncryptor
+│       └── Modules/TenantConfig/           # RailroadGroupPlacementTests
+├── specs/                                  # Feature spec sheets (spec_*.md at repo root)
+└── tests/                                  # Integration tests (planned)
 ```
 
 ## Data strategy
@@ -235,6 +245,7 @@ One `.proto` per module with REST transcoding annotations in the same proto:
 | `parent.proto` | Parent tenants |
 | `railroad.proto` | Railroads |
 | `payroll_tier.proto` | Payroll tiers |
+| `user_parent_assignment.proto` | User-to-parent assignment with roles |
 | `common.proto` | Shared messages (DeleteResponse, etc.) |
 
 ## Implementation order
@@ -258,8 +269,12 @@ Aligned with SPEC-0 §10:
 - **Separate DbContexts:** `UserAccessDbContext` (Identity) and `CrewServiceDbContext` (operations)
 - **Cross-context transactions:** Same DB/connection via shared `DbConnection`/`DbTransaction` in UoW
 - **Uniqueness:** Enforce DB uniqueness; make create operations idempotent
-- **PII:** Treat as sensitive; encrypt at rest, avoid returning in responses or event payloads
+- **PII:** Treat as sensitive; encrypt at rest (AES), avoid returning in responses or event payloads
 - **Module boundaries:** No cross-module EF navigation; integrate via app interfaces + domain events
+- **Auto-migration:** In `Development` environment, `MigrateDatabasesAsync()` runs automatically at startup for both DbContexts
+- **Dev seeding:** `DevDataSeeder.SeedAsync()` runs after migrations in dev mode, idempotently seeding GroupTypes, DynamicGroups, Parents, Railroads, and RailroadGroupPlacements
+- **Swagger:** gRPC transcoding endpoints are browsable at `/swagger` in development
+- **GrpcWeb:** All services are mapped with `.EnableGrpcWeb()` for Blazor client compatibility
 
 **Configuration (appsettings.json / User Secrets):**
 
@@ -273,6 +288,9 @@ Aligned with SPEC-0 §10:
     "Issuer": "<issuer>",
     "Audience": "<audience>"
   },
+  "Encryption": {
+    "Key": "<base64-encoded-AES-256-key>"
+  },
   "OutboxPublisher": {
     "Enabled": true,
     "PollingInterval": "00:00:30",
@@ -284,12 +302,81 @@ Aligned with SPEC-0 §10:
 
 ## Testing
 
+**Framework:** xUnit + Microsoft.NET.Test.Sdk + coverlet (code coverage)
+
+**Test fixtures** (`CrewService.UnitTests/Fixtures/`):
+
+| Fixture | Purpose |
+|---|---|
+| `TestDbContextFactory` | Creates in-memory SQLite `CrewServiceDbContext` instances for isolated tests |
+| `TestCurrentUserService` | Stub `ICurrentUserService` returning a deterministic test user |
+| `TestFieldEncryptor` | No-op `IFieldEncryptor` for tests that don't need real encryption |
+
+**Existing test coverage:**
+
+- `Modules/TenantConfig/RailroadGroupPlacementTests` — placement creation, duplicate prevention, multi-placement scenarios
+
+**Planned test areas:**
+
 - Effective-date overlap validators
 - No-double-booking under concurrency
 - Deterministic calling order and skip reason capture
 - Cross-Parent access rejection
 - Orchestration success and failure paths
 - Outbox publishing and message delivery
+- UserParentAssignment CRUD and uniqueness enforcement
+
+## Field encryption
+
+Sensitive PII fields are encrypted at rest using AES-256 with deterministic IV derivation, implemented in `CrewService.Persistance.Encryption`:
+
+| Component | Description |
+|---|---|
+| `IFieldEncryptor` | Domain interface for encrypt/decrypt operations |
+| `AesFieldEncryptor` | AES-256 implementation, reads key from `Encryption:Key` configuration |
+| `EncryptedStringConverter` | EF Core `ValueConverter<string, string>` wrapping `IFieldEncryptor` |
+
+**Encrypted fields:**
+
+| Entity | Field | Notes |
+|---|---|---|
+| `Employee` | `SocialSecurityNumber` | Uses `EncryptedStringConverter` |
+| `Employee` | `DriversLicenseNumber` | Inline converter (nullable) |
+
+Encryption is applied transparently via EF Core value converters in `CrewServiceDbContext.OnModelCreating`. No application code needs to call encrypt/decrypt manually.
+
+## Soft delete & global query filters
+
+All domain entities inherit from `Entity`, which provides soft-delete support:
+
+| Property | Type | Description |
+|---|---|---|
+| `IsDeleted` | `bool` | Marks the entity as logically deleted |
+| `DeletedAt` | `DateTime?` | UTC timestamp of deletion |
+| `DeletedBy` | `AuditStamp?` | Who performed the deletion |
+
+**Global query filter:** `CrewServiceDbContext.OnModelCreating` applies a global filter (`WHERE IsDeleted = false`) to every entity type that inherits from `Entity`. This means:
+
+- All standard queries automatically exclude soft-deleted records
+- Use `IgnoreQueryFilters()` to include deleted records (e.g., `GetByCtrlNbrIncludingDeletedAsync`)
+- `Repository.Remove()` calls `entity.SoftDelete()` — no physical deletes occur
+- `Repository.RestoreAsync()` reverses a soft delete
+
+## Spec sheets
+
+Feature specifications are stored at the repository root with the naming convention `spec_*.md`:
+
+| Spec | Topic |
+|---|---|
+| `SPEC-0_Crew_Service_Platform_Technical_Spec_FINAL.md` | Platform-level technical specification |
+| `spec_4_crew_and_assignment_staffing_model.md` | Crew and assignment staffing model |
+| `spec_5_boards_and_dispatching_addendum.md` | Boards and dispatching addendum |
+| `spec_6_authentication_tenancy_and_invitations.md` | Authentication, tenancy, and invite-only access |
+| `spec_employee_module.md` | Employee module design |
+| `spec_employee_module_merged.md` | Employee module merged spec |
+| `spec_employee_module_integration_into_dynamic_group_hierarchy.md` | Employee integration into dynamic group hierarchy |
+| `spec_railroad_group_placement.md` | Railroad placement in dynamic group hierarchy |
+| `spec_user_parent_assignment.md` | User-to-parent assignment with role-based access |
 
 ## Contributing
 

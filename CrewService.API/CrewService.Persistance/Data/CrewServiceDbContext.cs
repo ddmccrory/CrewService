@@ -5,6 +5,7 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
@@ -38,6 +39,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Roster> Rosters => Set<Roster>();
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
+    public DbSet<UserParentAssignment> UserParentAssignments => Set<UserParentAssignment>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // TenantConfig Module

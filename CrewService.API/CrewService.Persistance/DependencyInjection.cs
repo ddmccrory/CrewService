@@ -10,6 +10,7 @@ using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Payroll;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.TenantConfig;
@@ -84,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<IParentRepository, ParentRepository>();
         services.AddScoped<IRailroadRepository, RailroadRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IUserParentAssignmentRepository, UserParentAssignmentRepository>();
 
         // ContactType Repositories
         services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();
