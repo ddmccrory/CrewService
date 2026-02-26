@@ -34,6 +34,22 @@ namespace CrewService.Persistance;
 
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Applies pending EF Core migrations for both SQLite databases
+    /// (CrewService + UserAccess/Identity). Call once at startup before
+    /// seeding or serving requests.
+    /// </summary>
+    public static async Task MigrateDatabasesAsync(this IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var sp = scope.ServiceProvider;
+
+        var crewDb = sp.GetRequiredService<CrewServiceDbContext>();
+        await crewDb.Database.MigrateAsync();
+
+        var userDb = sp.GetRequiredService<UserAccessDbContext>();
+        await userDb.Database.MigrateAsync();
+    }
 
     public static IServiceCollection AddPersistance(this IServiceCollection services, IConfiguration configuration)
     {
