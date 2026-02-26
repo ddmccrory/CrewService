@@ -105,6 +105,7 @@ app.MapGrpcService<RosterService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityStateService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<UserParentAssignmentService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<InvitationService>().EnableGrpcWeb().RequireAuthorization();
 
 // Module services
 app.MapGrpcService<TenantConfigService>().EnableGrpcWeb().RequireAuthorization();

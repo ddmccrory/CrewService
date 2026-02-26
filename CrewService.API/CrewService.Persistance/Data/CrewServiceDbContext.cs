@@ -40,6 +40,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
     public DbSet<UserParentAssignment> UserParentAssignments => Set<UserParentAssignment>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // TenantConfig Module

@@ -17,9 +17,10 @@ namespace CrewService.GrpcService;
 /// <summary>
 /// Seeds the development database with sample data covering:
 ///   1. GroupTypes, DynamicGroups, Parents, Railroads, RailroadGroupPlacements
-///   2. Employees with Addresses, Phone Numbers, Email Addresses
-///   3. SystemAdmin bootstrap user and per-parent role assignments
+///   2. Employees with Addresses, Phone Numbers, Email Addresses (via auto-accept invitations)
+///   3. SystemAdmin bootstrap user and per-parent role assignments (via auto-accept invitations)
 /// Idempotent: each section checks for existing data before seeding.
+/// Dev only — uses auto-accept invitation flow to mirror production logic.
 /// </summary>
 internal static class DevDataSeeder
 {
@@ -163,6 +164,8 @@ internal static class DevDataSeeder
         await emailAddressTypeRepo.AddAsync(workEmailType);
 
         var userMgr = sp.GetRequiredService<UserManager<User>>();
+        var invitationRepo = sp.GetRequiredService<IInvitationRepository>();
+        var assignmentRepo = sp.GetRequiredService<IUserParentAssignmentRepository>();
 
         string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
                                "Jennifer", "Michael", "Linda", "David", "Elizabeth",
@@ -189,6 +192,15 @@ internal static class DevDataSeeder
             var empNumber = $"EMP{i + 1:D4}";
             var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@csx.example.com";
 
+            // Auto-accept invitation flow: create invitation, accept it, create user + assignment
+            var invitation = Invitation.Create(
+                email,
+                csxParent.CtrlNbr.Value,
+                Roles.ReadOnly,
+                "SYSTEM");
+            invitation.Accept();
+            await invitationRepo.AddAsync(invitation);
+
             var user = new User
             {
                 UserName       = email,
@@ -201,6 +213,9 @@ internal static class DevDataSeeder
                 EmployeeNumber = empNumber
             };
             await userMgr.CreateAsync(user, "Seed@123");
+
+            var assignment = UserParentAssignment.Create(user.Id, csxParent.CtrlNbr.Value, invitation.Role);
+            await assignmentRepo.AddAsync(assignment);
 
             var employee = Employee.Create(
                 csxParent.CtrlNbr.Value,
@@ -234,9 +249,8 @@ internal static class DevDataSeeder
         }
 
         // ?? SystemAdmin bootstrap user ???????????????????????????????????
-        var assignmentRepo = sp.GetRequiredService<IUserParentAssignmentRepository>();
-        var existingAssignments = await assignmentRepo.GetAllAsync();
-        if (existingAssignments.Count > 0)
+        var existingInvitations = await invitationRepo.GetAllAsync();
+        if (existingInvitations.Count > 100)
             return;
 
         var adminUser = await userMgr.FindByEmailAsync("admin@crewservice.dev");
@@ -256,27 +270,31 @@ internal static class DevDataSeeder
             await userMgr.CreateAsync(adminUser, "Admin@123");
         }
 
-        // ?? Per-parent role assignments for dev testing ??????????????????
+        // ?? Upgrade specific employee assignments via invitation flow ????
         var allParents = await parentRepo.GetAllAsync();
         var csxCorp = allParents.First(p => p.Name.Value == "CSX Corporation");
-
-        // SystemAdmin doesn't need per-parent assignments (PrimaryRoleId handles it),
-        // but seed role assignments on employee users for testing authorization.
         var allEmployees = await employeeRepo.GetAllAsync();
 
-        // First employee ? ParentAdmin
-        if (allEmployees.Count > 0)
+        // Upgrade first 6 employees to distinct roles (they already have ReadOnly from above)
+        string[] rolesToUpgrade = [Roles.ParentAdmin, Roles.RailroadAdmin, Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk];
+        for (int r = 0; r < rolesToUpgrade.Length && r < allEmployees.Count; r++)
         {
-            var a = UserParentAssignment.Create(allEmployees[0].UserId, csxCorp.CtrlNbr.Value, Roles.ParentAdmin);
-            await assignmentRepo.AddAsync(a);
-        }
+            // Create a role-upgrade invitation (auto-accepted)
+            var upgradeInvite = Invitation.Create(
+                allEmployees[r].EmailAddresses.FirstOrDefault()?.Email ?? $"emp-{r}@csx.example.com",
+                csxCorp.CtrlNbr.Value,
+                rolesToUpgrade[r],
+                "SYSTEM");
+            upgradeInvite.Accept();
+            await invitationRepo.AddAsync(upgradeInvite);
 
-        // Next employees ? one of each remaining role
-        string[] rolesToSeed = [Roles.RailroadAdmin, Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk, Roles.ReadOnly];
-        for (int r = 0; r < rolesToSeed.Length && r + 1 < allEmployees.Count; r++)
-        {
-            var a = UserParentAssignment.Create(allEmployees[r + 1].UserId, csxCorp.CtrlNbr.Value, rolesToSeed[r]);
-            await assignmentRepo.AddAsync(a);
+            // Update existing assignment role
+            var existingAssignment = await assignmentRepo.GetByUserAndParentAsync(allEmployees[r].UserId, csxCorp.CtrlNbr.Value);
+            if (existingAssignment is not null)
+            {
+                existingAssignment.UpdateRole(rolesToUpgrade[r]);
+                await assignmentRepo.UpdateAsync(existingAssignment);
+            }
         }
     }
 }

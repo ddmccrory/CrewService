@@ -86,6 +86,7 @@ public static class DependencyInjection
         services.AddScoped<IRailroadRepository, RailroadRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<IUserParentAssignmentRepository, UserParentAssignmentRepository>();
+        services.AddScoped<IInvitationRepository, InvitationRepository>();
 
         // ContactType Repositories
         services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();

@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+
+package invitation;
+
+service InvitationSrvc {
+
+	rpc CreateInvitation (CreateInvitationRequest) returns (InvitationResponse) {
+		option (google.api.http) = {
+			post: "/invitation"
+			body: "*"
+		};
+	}
+
+	rpc GetInvitation (GetInvitationRequest) returns (InvitationResponse) {
+		option (google.api.http) = {
+			get: "/invitation/{ctrl_nbr}"
+		};
+	}
+
+	rpc GetInvitationsByParent (GetInvitationsByParentRequest) returns (GetInvitationsResponse) {
+		option (google.api.http) = {
+			get: "/invitation/parent/{parent_ctrl_nbr}"
+		};
+	}
+
+	rpc GetInvitationsByEmail (GetInvitationsByEmailRequest) returns (GetInvitationsResponse) {
+		option (google.api.http) = {
+			get: "/invitation/email/{email}"
+		};
+	}
+
+	rpc RevokeInvitation (RevokeInvitationRequest) returns (InvitationResponse) {
+		option (google.api.http) = {
+			delete: "/invitation/{ctrl_nbr}"
+		};
+	}
+
+	rpc ResendInvitation (ResendInvitationRequest) returns (InvitationResponse) {
+		option (google.api.http) = {
+			post: "/invitation/{ctrl_nbr}/resend"
+		};
+	}
+}
+
+message CreateInvitationRequest {
+	string email = 1;
+	int64 parent_ctrl_nbr = 2;
+	string role = 3;
+}
+
+message GetInvitationRequest {
+	int64 ctrl_nbr = 1;
+}
+
+message GetInvitationsByParentRequest {
+	int64 parent_ctrl_nbr = 1;
+}
+
+message GetInvitationsByEmailRequest {
+	string email = 1;
+}
+
+message RevokeInvitationRequest {
+	int64 ctrl_nbr = 1;
+}
+
+message ResendInvitationRequest {
+	int64 ctrl_nbr = 1;
+}
+
+message InvitationResponse {
+	int64 ctrl_nbr = 1;
+	string email = 2;
+	int64 parent_ctrl_nbr = 3;
+	string role = 4;
+	string status = 5;
+	string token = 6;
+	int64 expires_at = 7;
+	int64 accepted_at = 8;
+}
+
+message GetInvitationsResponse {
+	repeated InvitationResponse invitations = 1;
+}
