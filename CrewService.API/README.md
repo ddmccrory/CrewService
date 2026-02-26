@@ -19,6 +19,7 @@ A dynamic railroad crew management and dispatch platform built as a **modular mo
 - [Testing](#testing)
 - [Field encryption](#field-encryption)
 - [Soft delete & global query filters](#soft-delete--global-query-filters)
+- [Roles & authorization](#roles--authorization)
 - [Spec sheets](#spec-sheets)
 - [Contributing](#contributing)
 - [License](#license)
@@ -81,8 +82,8 @@ Each module owns its contracts (proto), application logic, domain rules, and inf
 | **Dispatching** | DispatchProjections, DispatchDecisionLogs, DispatchOverrides, EmployeeBookings | Scaffolded |
 | **AbsenceVacancy** | AbsenceRequests, VacancyImpacts on PositionSlots | Scaffolded |
 | **Payroll** | TimeEntries, PayrollRuns, PayrollRecords, approval/locking | Scaffolded |
-| **UserAccess** | UserParentAssignment (user-to-parent assignment with role), multi-parent support for non-employee users | Scaffolded |
-| **Auth/Account** | JWT authentication, user accounts, registration, role management | Existing (legacy protos) |
+| **UserAccess** | UserParentAssignment (user-to-parent assignment with role), Roles constants, multi-parent support for non-employee users | Scaffolded |
+| **Auth/Account** | JWT authentication (roles from UserParentAssignment + PrimaryRoleId), user accounts, registration | Existing (legacy protos) |
 | **Reporting** | Read models, dashboards (optional, deferred) | Planned |
 
 **Boundary rule:** Modules do not call each other's EF Core DbContext directly. They integrate via in-process application interfaces (clean) or domain events (cleaner for future extraction).
@@ -361,6 +362,35 @@ All domain entities inherit from `Entity`, which provides soft-delete support:
 - Use `IgnoreQueryFilters()` to include deleted records (e.g., `GetByCtrlNbrIncludingDeletedAsync`)
 - `Repository.Remove()` calls `entity.SoftDelete()` — no physical deletes occur
 - `Repository.RestoreAsync()` reverses a soft delete
+
+## Roles & authorization
+
+**Constants:** `CrewService.Domain.Models.UserAccess.Roles`
+
+### Global role (`User.PrimaryRoleId`)
+
+| Role | Description |
+|---|---|
+| `SystemAdmin` | Full platform access across all parents; bypasses parent scoping |
+
+### Per-parent roles (`UserParentAssignment.Role`)
+
+| Role | Description |
+|---|---|
+| `ParentAdmin` | Full access within parent, including user/role management |
+| `RailroadAdmin` | Full operational access; no user management |
+| `CraftManager` | Employees, seniority, rosters, displacement, craft policies |
+| `CrewManager` | Crew staffing, bulletins, absence approvals |
+| `Dispatcher` | Dispatch, boards, mark-offs |
+| `PayrollClerk` | Time entry, payroll processing |
+| `ReadOnly` | View-only across all operational modules |
+
+**Key rules:**
+
+- No `UserParentAssignment` + no `SystemAdmin` on `PrimaryRoleId` = **blocked** (no access)
+- `SystemAdmin` is global and does not require per-parent assignment rows
+- JWT claims built from real assignments at authentication time (no hardcoded roles)
+- Dev bootstrap: `admin@crewservice.dev` / `Admin@123` seeded as `SystemAdmin`
 
 ## Spec sheets
 

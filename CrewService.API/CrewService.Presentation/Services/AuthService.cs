@@ -1,4 +1,6 @@
-﻿using CrewService.Infrastructure.Models.UserAccount;
+﻿using CrewService.Domain.Models.UserAccess;
+using CrewService.Domain.Modules.UserAccess;
+using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -10,10 +12,14 @@ using System.Text;
 
 namespace CrewService.Presentation.Services;
 
-public sealed class AuthService(IConfiguration configuration, UserManager<User> userManager) : AuthSrvc.AuthSrvcBase
+public sealed class AuthService(
+    IConfiguration configuration,
+    UserManager<User> userManager,
+    IUserParentAssignmentRepository assignmentRepository) : AuthSrvc.AuthSrvcBase
 {
     private readonly UserManager<User> _userManager = userManager;
     private readonly IConfiguration _configuration = configuration;
+    private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
 
     public override async Task<RegisterResponse> RegisterUser(RegisterRequest request, ServerCallContext context)
     {
@@ -140,7 +146,7 @@ public sealed class AuthService(IConfiguration configuration, UserManager<User> 
 
         var expireDate = DateTime.UtcNow.AddHours(1);
 
-        var token = GenerateJwtToken(user.UserName!, expireDate);
+        var token = await GenerateJwtTokenAsync(user, expireDate);
         var refreshToken = GenerateRefreshToken();
 
         user.RefreshToken = refreshToken;
@@ -157,13 +163,42 @@ public sealed class AuthService(IConfiguration configuration, UserManager<User> 
         return response;
     }
 
-    private string GenerateJwtToken(string username, DateTime experationDate)
+    private async Task<string> GenerateJwtTokenAsync(User user, DateTime expirationDate)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.Name, username),
-            new Claim(ClaimTypes.Role, "Admin")
+            new(ClaimTypes.Name, user.UserName!),
+            new(ClaimTypes.NameIdentifier, user.Id)
         };
+
+        // Global role: SystemAdmin bypasses parent scoping
+        if (string.Equals(user.PrimaryRoleId, Roles.SystemAdmin, StringComparison.Ordinal))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, Roles.SystemAdmin));
+        }
+        else
+        {
+            // Per-parent roles from UserParentAssignment
+            var assignments = await _assignmentRepository.GetByUserIdAsync(user.Id);
+
+            if (assignments.Count > 0)
+            {
+                foreach (var role in assignments.Select(a => a.Role).Distinct())
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, role));
+                }
+
+                foreach (var assignment in assignments)
+                {
+                    claims.Add(new Claim("parent_role", $"{assignment.ParentCtrlNbr.Value}:{assignment.Role}"));
+                }
+            }
+            else
+            {
+                // No assignments — default to ReadOnly (will be blocked by policies requiring parent context)
+                claims.Add(new Claim(ClaimTypes.Role, Roles.ReadOnly));
+            }
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetJwtSecretKey()));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -172,7 +207,7 @@ public sealed class AuthService(IConfiguration configuration, UserManager<User> 
                 issuer: "CrewService.GrpcService",
                 audience: "CrewService.BlazorUI",
                 claims: claims,
-                expires: experationDate,
+                expires: expirationDate,
                 signingCredentials: creds
             );
 

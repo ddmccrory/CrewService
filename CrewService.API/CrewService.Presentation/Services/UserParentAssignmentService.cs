@@ -59,6 +59,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
+        else if (!Roles.AllPerParentRoles.Contains(request.Role))
+            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
 
         if (errors.Count > 0)
             throw new ValidationException(errors);
@@ -69,7 +71,7 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
 
         var assignment = UserParentAssignment.Create(request.UserId, request.ParentCtrlNbr, request.Role);
 
-        _assignmentRepository.Add(assignment);
+        await _assignmentRepository.AddAsync(assignment);
 
         return new CreateAssignmentResponse
         {
@@ -89,6 +91,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
+        else if (!Roles.AllPerParentRoles.Contains(request.Role))
+            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
 
         if (errors.Count > 0)
             throw new ValidationException(errors);
@@ -98,7 +102,7 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
 
         assignment.UpdateRole(request.Role);
 
-        _assignmentRepository.Update(assignment);
+        await _assignmentRepository.UpdateAsync(assignment);
 
         return new UpdateAssignmentRoleResponse
         {
@@ -117,7 +121,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
         var assignment = await _assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Assignment with control number {request.CtrlNbr} was not found."));
 
-        _assignmentRepository.Remove(assignment);
+        assignment.Delete();
+        await _assignmentRepository.DeleteAsync(assignment.CtrlNbr);
 
         return new DeleteAssignmentResponse
         {
