@@ -24,16 +24,18 @@ public abstract class BaseGrpcClient<TClient>
 
         if (addAuthHeader)
         {
-            // Extract the token from claims
             var token = httpContextAccessor.HttpContext?.User.FindFirst("AccessToken")?.Value;
 
-            if (string.IsNullOrEmpty(token))
+            if (!string.IsNullOrEmpty(token))
             {
-                throw new Exception("Access token is not available.");
+                callInvoker = channel.Intercept(new AuthInterceptor(token));
             }
-
-            // Create the interceptor
-            callInvoker = channel.Intercept(new AuthInterceptor(token));
+            else
+            {
+                // Allow construction to succeed — unauthenticated users will be
+                // redirected by [Authorize] before any gRPC call is made.
+                callInvoker = channel.CreateCallInvoker();
+            }
         }
         else
         {

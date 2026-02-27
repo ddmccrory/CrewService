@@ -217,7 +217,7 @@ else
     {
         try
         {
-            var response = await ConfigClient.GetAllGroupsAsync();
+            var response = await ConfigClient.GetGroupTreeAsync();
             groups = response.Groups.Where(g => g.GroupTypeCtrlNbr == CtrlNbr).ToList();
         }
         catch (Exception ex)
