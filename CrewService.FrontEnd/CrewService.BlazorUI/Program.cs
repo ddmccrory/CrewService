@@ -1,10 +1,8 @@
 using CrewService.BlazorUI.Clients;
 using CrewService.BlazorUI.Components;
 using CrewService.BlazorUI.Components.Account;
-using CrewService.BlazorUI.Models.Entities;
 using CrewService.BlazorUI.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +14,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddScoped<AccountClient>();
 builder.Services.AddScoped<AuthClient>();
 builder.Services.AddScoped<ParentsClient>();
+builder.Services.AddScoped<RailroadsClient>();
+builder.Services.AddScoped<TenantConfigClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 
@@ -25,14 +25,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                     options.Cookie.Name = "auth_token";
                     options.LoginPath = "/Account/Login";
                     options.Cookie.MaxAge = TimeSpan.FromMinutes(30);
-                    options.AccessDeniedPath = "/AccessDenied";
+                    options.AccessDeniedPath = "/Account/AccessDenied";
                 });
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddSingleton<IEmailSender<User>, IdentityNoOpEmailSender>();
 builder.Services.AddSingleton<AppThemeService>();
 
 var app = builder.Build();

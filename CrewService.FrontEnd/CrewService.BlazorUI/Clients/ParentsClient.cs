@@ -1,17 +1,73 @@
-﻿namespace CrewService.BlazorUI.Clients;
+﻿using CrewService.Presentation;
+using Grpc.Core;
 
-public sealed class ParentsClient
+namespace CrewService.BlazorUI.Clients;
+
+public sealed class ParentsClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILogger<ParentsClient> logger)
+    : BaseGrpcClient<ParentSrvc.ParentSrvcClient>(configuration, httpContextAccessor, callInvoker => new ParentSrvc.ParentSrvcClient(callInvoker), logger)
 {
-    //public async Task<Parent[]> GetParentsAsync()
-    //{
-    //    var response = await httpClient.GetAsync("parent");
+    public async Task<GetAllParentsResponse> GetAllAsync()
+    {
+        try
+        {
+            return await _client.GetAllParentsAsyncAsync(new GetAllParentsRequest());
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 
-    //    response.EnsureSuccessStatusCode();
+    public async Task<GetParentResponse> GetByCtrlNbrAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.GetParentAsyncAsync(new GetParentRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 
-    //    var jsonString = await response.Content.ReadAsStringAsync();
+    public async Task<CreateParentResponse> CreateAsync(string name)
+    {
+        try
+        {
+            return await _client.CreateParentAsyncAsync(new CreateParentRequest { Name = name });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 
-    //    var parentList = JsonSerializer.Deserialize<ParentList>(jsonString, jsonOptionsService.Options);
+    public async Task<UpdateParentResponse> UpdateAsync(long ctrlNbr, string name)
+    {
+        try
+        {
+            return await _client.UpdateParentAsyncAsync(new UpdateParentRequest { CtrlNbr = ctrlNbr, Name = name });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 
-    //    return parentList?.Parents.ToArray() ?? [];
-    //}
+    public async Task<DeleteParentResponse> DeleteAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.DeleteParentAsyncAsync(new DeleteParentRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }

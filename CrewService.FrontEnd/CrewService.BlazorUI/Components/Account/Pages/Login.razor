@@ -72,9 +72,10 @@
         {
             var claims = new List<Claim>
             {
+                new Claim(ClaimTypes.NameIdentifier, Input.Email),
                 new Claim(ClaimTypes.Name, registeredUser.FullName),
+                new Claim(ClaimTypes.Email, Input.Email),
                 new Claim("AccessToken", registeredUser.Token)
-                // Add other claims as needed
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

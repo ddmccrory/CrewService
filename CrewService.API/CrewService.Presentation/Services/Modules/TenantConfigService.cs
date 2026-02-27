@@ -9,12 +9,16 @@ public class TenantConfigService(
     IGroupTypeRepository groupTypeRepository,
     IDynamicGroupRepository dynamicGroupRepository,
     IRailroadGroupPlacementRepository railroadGroupPlacementRepository,
-    IRailroadRepository railroadRepository) : TenantConfigSrvc.TenantConfigSrvcBase
+    IRailroadRepository railroadRepository,
+    IGroupAttributeDefinitionRepository attributeDefinitionRepository,
+    IGroupAttributeValueRepository attributeValueRepository) : TenantConfigSrvc.TenantConfigSrvcBase
 {
     private readonly IGroupTypeRepository _groupTypeRepository = groupTypeRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
     private readonly IRailroadGroupPlacementRepository _railroadGroupPlacementRepository = railroadGroupPlacementRepository;
     private readonly IRailroadRepository _railroadRepository = railroadRepository;
+    private readonly IGroupAttributeDefinitionRepository _attributeDefinitionRepository = attributeDefinitionRepository;
+    private readonly IGroupAttributeValueRepository _attributeValueRepository = attributeValueRepository;
 
     // GroupTypes
     public override async Task<GetAllGroupTypesResponse> GetAllGroupTypes(GetAllGroupTypesRequest request, ServerCallContext context)
@@ -230,6 +234,110 @@ public class TenantConfigService(
         return response;
     }
 
+    // Attribute Definitions
+    public override async Task<GetAttributeDefinitionsResponse> GetAttributeDefinitions(GetAttributeDefinitionsRequest request, ServerCallContext context)
+    {
+        var definitions = await _attributeDefinitionRepository.GetByGroupTypeCtrlNbrAsync(
+            ControlNumber.Create(request.GroupTypeCtrlNbr));
+
+        var response = new GetAttributeDefinitionsResponse();
+        foreach (var ad in definitions)
+            response.AttributeDefinitions.Add(MapAttributeDefinition(ad));
+
+        return response;
+    }
+
+    public override async Task<AttributeDefinitionResponse> GetAttributeDefinition(GetAttributeDefinitionRequest request, ServerCallContext context)
+    {
+        var definition = await _attributeDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"AttributeDefinition {request.CtrlNbr} not found."));
+
+        return MapAttributeDefinition(definition);
+    }
+
+    public override async Task<AttributeDefinitionResponse> CreateAttributeDefinition(CreateAttributeDefinitionRequest request, ServerCallContext context)
+    {
+        _ = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupTypeCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.GroupTypeCtrlNbr} not found."));
+
+        var definition = GroupAttributeDefinition.Create(
+            request.GroupTypeCtrlNbr,
+            request.AttributeName,
+            request.DataType,
+            request.IsRequired,
+            string.IsNullOrEmpty(request.DefaultValue) ? null : request.DefaultValue);
+
+        await _attributeDefinitionRepository.AddAsync(definition);
+        return MapAttributeDefinition(definition);
+    }
+
+    public override async Task<AttributeDefinitionResponse> UpdateAttributeDefinition(UpdateAttributeDefinitionRequest request, ServerCallContext context)
+    {
+        var definition = await _attributeDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"AttributeDefinition {request.CtrlNbr} not found."));
+
+        definition.Update(
+            request.AttributeName,
+            request.DataType,
+            request.IsRequired,
+            string.IsNullOrEmpty(request.DefaultValue) ? null : request.DefaultValue);
+
+        await _attributeDefinitionRepository.UpdateAsync(definition);
+        return MapAttributeDefinition(definition);
+    }
+
+    public override async Task<DeleteResponse> DeleteAttributeDefinition(DeleteAttributeDefinitionRequest request, ServerCallContext context)
+    {
+        await _attributeDefinitionRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
+    // Attribute Values
+    public override async Task<GetAttributeValuesResponse> GetAttributeValues(GetAttributeValuesRequest request, ServerCallContext context)
+    {
+        var values = await _attributeValueRepository.GetByGroupCtrlNbrAsync(
+            ControlNumber.Create(request.GroupCtrlNbr));
+
+        var response = new GetAttributeValuesResponse();
+        foreach (var av in values)
+            response.AttributeValues.Add(MapAttributeValue(av));
+
+        return response;
+    }
+
+    public override async Task<AttributeValueResponse> SetAttributeValue(SetAttributeValueRequest request, ServerCallContext context)
+    {
+        _ = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.GroupCtrlNbr} not found."));
+
+        _ = await _attributeDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.AttributeDefinitionCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"AttributeDefinition {request.AttributeDefinitionCtrlNbr} not found."));
+
+        var existing = (await _attributeValueRepository.GetByGroupCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr)))
+            .FirstOrDefault(v => v.AttributeDefinitionCtrlNbr == ControlNumber.Create(request.AttributeDefinitionCtrlNbr));
+
+        if (existing is not null)
+        {
+            existing.Update(string.IsNullOrEmpty(request.Value) ? null : request.Value);
+            await _attributeValueRepository.UpdateAsync(existing);
+            return MapAttributeValue(existing);
+        }
+
+        var value = GroupAttributeValue.Create(
+            request.GroupCtrlNbr,
+            request.AttributeDefinitionCtrlNbr,
+            string.IsNullOrEmpty(request.Value) ? null : request.Value);
+
+        await _attributeValueRepository.AddAsync(value);
+        return MapAttributeValue(value);
+    }
+
+    public override async Task<DeleteResponse> DeleteAttributeValue(DeleteAttributeValueRequest request, ServerCallContext context)
+    {
+        await _attributeValueRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
     private static GroupTypeResponse MapGroupType(GroupType gt) => new()
     {
         CtrlNbr = gt.CtrlNbr.Value,
@@ -254,5 +362,23 @@ public class TenantConfigService(
         CtrlNbr = p.CtrlNbr.Value,
         RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
         GroupCtrlNbr = p.GroupCtrlNbr.Value
+    };
+
+    private static AttributeDefinitionResponse MapAttributeDefinition(GroupAttributeDefinition ad) => new()
+    {
+        CtrlNbr = ad.CtrlNbr.Value,
+        GroupTypeCtrlNbr = ad.GroupTypeCtrlNbr.Value,
+        AttributeName = ad.AttributeName,
+        DataType = ad.DataType,
+        IsRequired = ad.IsRequired,
+        DefaultValue = ad.DefaultValue ?? string.Empty
+    };
+
+    private static AttributeValueResponse MapAttributeValue(GroupAttributeValue av) => new()
+    {
+        CtrlNbr = av.CtrlNbr.Value,
+        GroupCtrlNbr = av.GroupCtrlNbr.Value,
+        AttributeDefinitionCtrlNbr = av.AttributeDefinitionCtrlNbr.Value,
+        Value = av.Value ?? string.Empty
     };
 }
