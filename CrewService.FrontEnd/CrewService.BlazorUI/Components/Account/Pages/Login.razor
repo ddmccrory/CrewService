@@ -21,19 +21,19 @@
     <div class="col-md-4">
         <section>
             <StatusMessage Message="@errorMessage" />
-            <EditForm Model="Input" method="post" OnValidSubmit="LoginUser" FormName="login">
+            <EditForm Model="Input!" method="post" OnValidSubmit="LoginUser" FormName="login">
                 <DataAnnotationsValidator />
                 <hr />
                 <ValidationSummary class="text-danger" role="alert" />
                 <div class="form-floating mb-3">
-                    <InputText @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <InputText @bind-Value="Input!.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
                     <label for="email" class="form-label">Email</label>
-                    <ValidationMessage For="() => Input.Email" class="text-danger" />
+                    <ValidationMessage For="() => Input!.Email" class="text-danger" />
                 </div>
                 <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
+                    <InputText type="password" @bind-Value="Input!.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
                     <label for="password" class="form-label">Password</label>
-                    <ValidationMessage For="() => Input.Password" class="text-danger" />
+                    <ValidationMessage For="() => Input!.Password" class="text-danger" />
                 </div>
                 <div>
                     <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
@@ -50,13 +50,15 @@
     private HttpContext HttpContext { get; set; } = default!;
 
     [SupplyParameterFromForm]
-    private LoginInputModel Input { get; set; } = new();
+    private LoginInputModel? Input { get; set; }
 
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        Input ??= new();
+
         if (HttpMethods.IsGet(HttpContext.Request.Method))
         {
             // Clear the existing external cookie to ensure a clean login process
@@ -66,15 +68,15 @@
 
     public async Task LoginUser()
     {
-        var registeredUser = await AuthService.AuthenticateUserAsync(Input);
+        var registeredUser = await AuthService.AuthenticateUserAsync(Input!);
 
         if (registeredUser.Success)
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, Input.Email),
+                new Claim(ClaimTypes.NameIdentifier, Input!.Email),
                 new Claim(ClaimTypes.Name, registeredUser.FullName),
-                new Claim(ClaimTypes.Email, Input.Email),
+                new Claim(ClaimTypes.Email, Input!.Email),
                 new Claim("AccessToken", registeredUser.Token)
             };
 

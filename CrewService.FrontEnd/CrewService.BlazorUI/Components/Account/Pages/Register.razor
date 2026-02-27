@@ -16,24 +16,24 @@
 <div class="row">
     <div class="col-md-4">
         <StatusMessage Message="@errorMessage" />
-        <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
+        <EditForm Model="Input!" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
             <hr />
             <ValidationSummary class="text-danger" role="alert" />
             <div class="form-floating mb-3">
-                <InputText id="invitation-token" @bind-Value="Input.InvitationToken" class="form-control" aria-required="true" placeholder="Paste your invitation token" />
+                <InputText id="invitation-token" @bind-Value="Input!.InvitationToken" class="form-control" aria-required="true" placeholder="Paste your invitation token" />
                 <label for="invitation-token">Invitation Token</label>
-                <ValidationMessage For="() => Input.InvitationToken" class="text-danger" />
+                <ValidationMessage For="() => Input!.InvitationToken" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
-                <InputText id="password" type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                <InputText id="password" type="password" @bind-Value="Input!.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
                 <label for="password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
+                <ValidationMessage For="() => Input!.Password" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
-                <InputText id="confirm-password" type="password" @bind-Value="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                <InputText id="confirm-password" type="password" @bind-Value="Input!.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
                 <label for="confirm-password">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                <ValidationMessage For="() => Input!.ConfirmPassword" class="text-danger" />
             </div>
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </EditForm>
@@ -44,7 +44,7 @@
     private string? errorMessage;
 
     [SupplyParameterFromForm]
-    private RegisterInputModel Input { get; set; } = new();
+    private RegisterInputModel? Input { get; set; }
 
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
@@ -52,9 +52,11 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    protected override void OnInitialized() => Input ??= new();
+
     public async Task RegisterUser()
     {
-        var result = await AuthService.RegisterUserAsync(Input);
+        var result = await AuthService.RegisterUserAsync(Input!);
 
         if (!result.Success)
         {
