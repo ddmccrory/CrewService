@@ -44,7 +44,7 @@ message AuthResponse{
 }
 
 message RegisterRequest{
-	string email = 1;
+	string invitation_token = 1;
 	string password = 2;
 }
 

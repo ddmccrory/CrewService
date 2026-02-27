@@ -15,49 +15,92 @@ namespace CrewService.Presentation.Services;
 public sealed class AuthService(
     IConfiguration configuration,
     UserManager<User> userManager,
-    IUserParentAssignmentRepository assignmentRepository) : AuthSrvc.AuthSrvcBase
+    IUserParentAssignmentRepository assignmentRepository,
+    IInvitationRepository invitationRepository) : AuthSrvc.AuthSrvcBase
 {
     private readonly UserManager<User> _userManager = userManager;
     private readonly IConfiguration _configuration = configuration;
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
+    private readonly IInvitationRepository _invitationRepository = invitationRepository;
 
     public override async Task<RegisterResponse> RegisterUser(RegisterRequest request, ServerCallContext context)
     {
         RegisterResponse response = new();
 
-        if (!string.IsNullOrEmpty(request.Email) && !string.IsNullOrEmpty(request.Password))
-        {
-            User user = new()
-            {
-                UserName = request.Email,
-                Email = request.Email
-            };
-
-            var result = await _userManager.CreateAsync(user, request.Password);
-
-            if (result.Succeeded)
-            {
-                response.Success = true;
-                response.Message.Add("User has successfully registered.");
-            }
-            else
-            {
-                response.Success = false;
-                foreach (var erorr in result.Errors)
-                    response.Message.Add(erorr.Description);
-            }
-        }
-        else
+        if (string.IsNullOrEmpty(request.InvitationToken))
         {
             response.Success = false;
-
-            if (string.IsNullOrEmpty(request.Email))
-                response.Message.Add("UserName is required.");
-
-            if (string.IsNullOrEmpty(request.Password))
-                response.Message.Add("Password is required");
+            response.Message.Add("Invitation token is required.");
+            return response;
         }
-        
+
+        var invitation = await _invitationRepository.GetByTokenAsync(request.InvitationToken);
+
+        if (invitation is null)
+        {
+            response.Success = false;
+            response.Message.Add("Invalid invitation token.");
+            return response;
+        }
+
+        if (!invitation.IsValid)
+        {
+            response.Success = false;
+            response.Message.Add($"Invitation is no longer valid (status: {invitation.Status}).");
+
+            // Persist expired status if detected
+            if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
+            {
+                invitation.MarkExpired();
+                await _invitationRepository.UpdateAsync(invitation);
+            }
+
+            return response;
+        }
+
+        // Check if user already exists (e.g., invited to a second parent)
+        var existingUser = await _userManager.FindByEmailAsync(invitation.Email);
+
+        if (existingUser is null)
+        {
+            if (string.IsNullOrEmpty(request.Password))
+            {
+                response.Success = false;
+                response.Message.Add("Password is required.");
+                return response;
+            }
+
+            existingUser = new User
+            {
+                UserName = invitation.Email,
+                Email = invitation.Email,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(existingUser, request.Password);
+
+            if (!result.Succeeded)
+            {
+                response.Success = false;
+                foreach (var error in result.Errors)
+                    response.Message.Add(error.Description);
+                return response;
+            }
+        }
+
+        // Accept the invitation
+        invitation.Accept();
+        await _invitationRepository.UpdateAsync(invitation);
+
+        // Create the UserParentAssignment from the invitation
+        var assignment = UserParentAssignment.Create(
+            existingUser.Id,
+            invitation.ParentCtrlNbr.Value,
+            invitation.Role);
+        await _assignmentRepository.AddAsync(assignment);
+
+        response.Success = true;
+        response.Message.Add("User has successfully registered.");
         return response;
     }
 
