@@ -1,0 +1,245 @@
+@page "/parents/{CtrlNbr:long}"
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@attribute [Authorize]
+
+@inject ParentsClient ParentsClient
+@inject RailroadsClient RailroadsClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Parent Detail</PageTitle>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (parent is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/parents">Parents</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@parent.Name</li>
+        </ol>
+    </nav>
+
+    @if (!isEditing)
+    {
+        <h1>@parent.Name</h1>
+        <button class="btn btn-sm btn-outline-primary me-2" @onclick="StartEdit">Edit</button>
+        <button class="btn btn-sm btn-outline-danger" @onclick="Delete">Delete</button>
+    }
+    else
+    {
+        <EditForm Model="editModel" OnValidSubmit="SaveEdit" FormName="editParent">
+            <DataAnnotationsValidator />
+            <div class="form-floating mb-3" style="max-width: 400px;">
+                <InputText @bind-Value="editModel.Name" class="form-control" placeholder="Name" />
+                <label>Name</label>
+                <ValidationMessage For="() => editModel.Name" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-success me-2">Save</button>
+            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+        </EditForm>
+    }
+
+    <hr />
+
+    <h3>Railroads</h3>
+
+    <div class="mb-3">
+        <button class="btn btn-sm btn-primary" @onclick="ShowAddRailroad">
+            <span class="bi bi-plus-circle"></span> Add Railroad
+        </button>
+    </div>
+
+    @if (showAddRailroadForm)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Add Railroad</h5>
+                <EditForm Model="addRailroadModel" OnValidSubmit="AddRailroad" FormName="addRailroad">
+                    <DataAnnotationsValidator />
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-floating mb-3">
+                                <InputText @bind-Value="addRailroadModel.RrMark" class="form-control" placeholder="RR Mark" />
+                                <label>RR Mark</label>
+                                <ValidationMessage For="() => addRailroadModel.RrMark" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                <InputText @bind-Value="addRailroadModel.Name" class="form-control" placeholder="Name" />
+                                <label>Name</label>
+                                <ValidationMessage For="() => addRailroadModel.Name" class="text-danger" />
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success me-2">Add</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CancelAddRailroad">Cancel</button>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (parent.Railroads.Count == 0)
+    {
+        <p class="text-muted">No railroads for this parent.</p>
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>RR Mark</th>
+                    <th>Name</th>
+                    <th style="width: 120px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rr in parent.Railroads)
+                {
+                    <tr>
+                        <td><strong>@rr.RrMark</strong></td>
+                        <td>@rr.Name</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRailroad(rr.CtrlNbr)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter]
+    public long CtrlNbr { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private GetParentResponse? parent;
+    private string? errorMessage;
+    private bool isEditing;
+    private EditParentModel editModel = new();
+    private bool showAddRailroadForm;
+    private AddRailroadModel addRailroadModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadParent();
+    }
+
+    private async Task LoadParent()
+    {
+        try
+        {
+            errorMessage = null;
+            parent = await ParentsClient.GetByCtrlNbrAsync(CtrlNbr);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load parent: {ex.Message}";
+        }
+    }
+
+    private void StartEdit()
+    {
+        editModel = new() { Name = parent!.Name };
+        isEditing = true;
+    }
+
+    private void CancelEdit() => isEditing = false;
+
+    private async Task SaveEdit()
+    {
+        try
+        {
+            errorMessage = null;
+            await ParentsClient.UpdateAsync(CtrlNbr, editModel.Name);
+            isEditing = false;
+            await LoadParent();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update parent: {ex.Message}";
+        }
+    }
+
+    private async Task Delete()
+    {
+        try
+        {
+            await ParentsClient.DeleteAsync(CtrlNbr);
+            NavigationManager.NavigateTo("/parents");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete parent: {ex.Message}";
+        }
+    }
+
+    private void ShowAddRailroad() => showAddRailroadForm = true;
+    private void CancelAddRailroad()
+    {
+        showAddRailroadForm = false;
+        addRailroadModel = new();
+    }
+
+    private async Task AddRailroad()
+    {
+        try
+        {
+            errorMessage = null;
+            await RailroadsClient.CreateAsync(CtrlNbr, addRailroadModel.RrMark, addRailroadModel.Name);
+            showAddRailroadForm = false;
+            addRailroadModel = new();
+            await LoadParent();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add railroad: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteRailroad(long rrCtrlNbr)
+    {
+        try
+        {
+            errorMessage = null;
+            await RailroadsClient.DeleteAsync(rrCtrlNbr);
+            await LoadParent();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete railroad: {ex.Message}";
+        }
+    }
+
+    private sealed class EditParentModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
+        public string Name { get; set; } = "";
+    }
+
+    private sealed class AddRailroadModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(10, MinimumLength = 1)]
+        public string RrMark { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
+        public string Name { get; set; } = "";
+    }
+}

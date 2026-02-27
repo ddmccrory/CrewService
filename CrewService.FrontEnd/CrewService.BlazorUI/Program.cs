@@ -16,6 +16,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddScoped<AccountClient>();
 builder.Services.AddScoped<AuthClient>();
 builder.Services.AddScoped<ParentsClient>();
+builder.Services.AddScoped<RailroadsClient>();
+builder.Services.AddScoped<TenantConfigClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 
