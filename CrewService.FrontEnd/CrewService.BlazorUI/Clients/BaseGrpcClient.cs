@@ -1,8 +1,6 @@
 ﻿using CrewService.BlazorUI.Interceptors;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
-using Grpc.Net.Client;
-using Grpc.Net.Client.Web;
 
 namespace CrewService.BlazorUI.Clients;
 
@@ -11,14 +9,9 @@ public abstract class BaseGrpcClient<TClient>
     protected readonly TClient _client;
     protected readonly ILogger _logger;
 
-    protected BaseGrpcClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, Func<CallInvoker, TClient> clientFactory, ILogger logger, bool addAuthHeader = true)
+    protected BaseGrpcClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, Func<CallInvoker, TClient> clientFactory, ILogger logger, bool addAuthHeader = true)
     {
-        var httpHandler = new GrpcWebHandler(GrpcWebMode.GrpcWebText, new HttpClientHandler());
-
-        var baseAddress = configuration["CrewServiceApiUrl"] ??
-            throw new Exception("CrewServiceApiUrl is not defined.");
-
-        var channel = GrpcChannel.ForAddress(baseAddress, new GrpcChannelOptions { HttpHandler = httpHandler });
+        var channel = channelProvider.Channel;
 
         CallInvoker callInvoker;
 

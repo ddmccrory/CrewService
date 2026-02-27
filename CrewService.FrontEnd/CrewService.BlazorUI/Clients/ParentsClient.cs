@@ -3,8 +3,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class ParentsClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILogger<ParentsClient> logger)
-    : BaseGrpcClient<ParentSrvc.ParentSrvcClient>(configuration, httpContextAccessor, callInvoker => new ParentSrvc.ParentSrvcClient(callInvoker), logger)
+public sealed class ParentsClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<ParentsClient> logger)
+: BaseGrpcClient<ParentSrvc.ParentSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new ParentSrvc.ParentSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllParentsResponse> GetAllAsync()
     {

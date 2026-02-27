@@ -3,8 +3,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-internal sealed class AccountClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILogger<AccountClient> logger) 
-    : BaseGrpcClient<AccountSrvc.AccountSrvcClient>(configuration, httpContextAccessor, callInvoker => new AccountSrvc.AccountSrvcClient(callInvoker), logger)
+internal sealed class AccountClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<AccountClient> logger) 
+: BaseGrpcClient<AccountSrvc.AccountSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new AccountSrvc.AccountSrvcClient(callInvoker), logger)
 {
     #region Methods
 

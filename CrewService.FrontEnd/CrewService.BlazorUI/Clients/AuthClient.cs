@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-internal sealed class AuthClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILogger<AccountClient> logger) 
-    : BaseGrpcClient<AuthSrvc.AuthSrvcClient>(configuration, httpContextAccessor, callInvoker => new AuthSrvc.AuthSrvcClient(callInvoker), logger, addAuthHeader: false)
+internal sealed class AuthClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<AccountClient> logger) 
+: BaseGrpcClient<AuthSrvc.AuthSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new AuthSrvc.AuthSrvcClient(callInvoker), logger, addAuthHeader: false)
 {
     #region Methods
 

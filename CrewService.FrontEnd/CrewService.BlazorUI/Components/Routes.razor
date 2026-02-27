@@ -7,4 +7,11 @@
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <h1 class="text-danger">Page not found</h1>
+            <p>The page you requested could not be found.</p>
+            <a href="/">Return to Dashboard</a>
+        </LayoutView>
+    </NotFound>
 </Router>
