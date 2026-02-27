@@ -63,6 +63,34 @@ service TenantConfigSrvc {
   rpc GetRailroadsInGroup(GetRailroadsInGroupRequest) returns (GetRailroadPlacementsResponse) {
     option (google.api.http) = { get: "/v1/tenant-config/railroad-placements/by-group/{group_ctrl_nbr}" };
   }
+
+  // Group Attribute Definitions
+  rpc GetAttributeDefinitions(GetAttributeDefinitionsRequest) returns (GetAttributeDefinitionsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/attribute-definitions/by-group-type/{group_type_ctrl_nbr}" };
+  }
+  rpc GetAttributeDefinition(GetAttributeDefinitionRequest) returns (AttributeDefinitionResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/attribute-definitions/{ctrl_nbr}" };
+  }
+  rpc CreateAttributeDefinition(CreateAttributeDefinitionRequest) returns (AttributeDefinitionResponse) {
+    option (google.api.http) = { post: "/v1/tenant-config/attribute-definitions" body: "*" };
+  }
+  rpc UpdateAttributeDefinition(UpdateAttributeDefinitionRequest) returns (AttributeDefinitionResponse) {
+    option (google.api.http) = { put: "/v1/tenant-config/attribute-definitions/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteAttributeDefinition(DeleteAttributeDefinitionRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/tenant-config/attribute-definitions/{ctrl_nbr}" };
+  }
+
+  // Group Attribute Values
+  rpc GetAttributeValues(GetAttributeValuesRequest) returns (GetAttributeValuesResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/attribute-values/by-group/{group_ctrl_nbr}" };
+  }
+  rpc SetAttributeValue(SetAttributeValueRequest) returns (AttributeValueResponse) {
+    option (google.api.http) = { post: "/v1/tenant-config/attribute-values" body: "*" };
+  }
+  rpc DeleteAttributeValue(DeleteAttributeValueRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/tenant-config/attribute-values/{ctrl_nbr}" };
+  }
 }
 
 // GroupType messages
@@ -190,4 +218,72 @@ message RailroadGroupPlacementResponse {
 
 message GetRailroadPlacementsResponse {
   repeated RailroadGroupPlacementResponse placements = 1;
+}
+
+// Attribute Definition messages
+message GetAttributeDefinitionsRequest {
+  int64 group_type_ctrl_nbr = 1;
+}
+
+message GetAttributeDefinitionsResponse {
+  repeated AttributeDefinitionResponse attribute_definitions = 1;
+}
+
+message GetAttributeDefinitionRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateAttributeDefinitionRequest {
+  int64 group_type_ctrl_nbr = 1;
+  string attribute_name = 2;
+  string data_type = 3;
+  bool is_required = 4;
+  string default_value = 5;
+}
+
+message UpdateAttributeDefinitionRequest {
+  int64 ctrl_nbr = 1;
+  string attribute_name = 2;
+  string data_type = 3;
+  bool is_required = 4;
+  string default_value = 5;
+}
+
+message DeleteAttributeDefinitionRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message AttributeDefinitionResponse {
+  int64 ctrl_nbr = 1;
+  int64 group_type_ctrl_nbr = 2;
+  string attribute_name = 3;
+  string data_type = 4;
+  bool is_required = 5;
+  string default_value = 6;
+}
+
+// Attribute Value messages
+message GetAttributeValuesRequest {
+  int64 group_ctrl_nbr = 1;
+}
+
+message GetAttributeValuesResponse {
+  repeated AttributeValueResponse attribute_values = 1;
+}
+
+message SetAttributeValueRequest {
+  int64 group_ctrl_nbr = 1;
+  int64 attribute_definition_ctrl_nbr = 2;
+  string value = 3;
+}
+
+message DeleteAttributeValueRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message AttributeValueResponse {
+  int64 ctrl_nbr = 1;
+  int64 group_ctrl_nbr = 2;
+  int64 attribute_definition_ctrl_nbr = 3;
+  string value = 4;
 }

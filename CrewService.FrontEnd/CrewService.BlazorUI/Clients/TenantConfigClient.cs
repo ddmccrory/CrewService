@@ -252,4 +252,118 @@ public sealed class TenantConfigClient(IConfiguration configuration, IHttpContex
             throw;
         }
     }
+
+    // ?? Attribute Definitions ????????????????????????????????????????
+
+    public async Task<GetAttributeDefinitionsResponse> GetAttributeDefinitionsAsync(long groupTypeCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetAttributeDefinitionsAsync(new GetAttributeDefinitionsRequest { GroupTypeCtrlNbr = groupTypeCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<AttributeDefinitionResponse> CreateAttributeDefinitionAsync(long groupTypeCtrlNbr, string attributeName, string dataType, bool isRequired, string? defaultValue = null)
+    {
+        try
+        {
+            return await _client.CreateAttributeDefinitionAsync(new CreateAttributeDefinitionRequest
+            {
+                GroupTypeCtrlNbr = groupTypeCtrlNbr,
+                AttributeName = attributeName,
+                DataType = dataType,
+                IsRequired = isRequired,
+                DefaultValue = defaultValue ?? ""
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<AttributeDefinitionResponse> UpdateAttributeDefinitionAsync(long ctrlNbr, string attributeName, string dataType, bool isRequired, string? defaultValue = null)
+    {
+        try
+        {
+            return await _client.UpdateAttributeDefinitionAsync(new UpdateAttributeDefinitionRequest
+            {
+                CtrlNbr = ctrlNbr,
+                AttributeName = attributeName,
+                DataType = dataType,
+                IsRequired = isRequired,
+                DefaultValue = defaultValue ?? ""
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task DeleteAttributeDefinitionAsync(long ctrlNbr)
+    {
+        try
+        {
+            await _client.DeleteAttributeDefinitionAsync(new DeleteAttributeDefinitionRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    // ?? Attribute Values ?????????????????????????????????????????????
+
+    public async Task<GetAttributeValuesResponse> GetAttributeValuesAsync(long groupCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetAttributeValuesAsync(new GetAttributeValuesRequest { GroupCtrlNbr = groupCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<AttributeValueResponse> SetAttributeValueAsync(long groupCtrlNbr, long attributeDefinitionCtrlNbr, string value)
+    {
+        try
+        {
+            return await _client.SetAttributeValueAsync(new SetAttributeValueRequest
+            {
+                GroupCtrlNbr = groupCtrlNbr,
+                AttributeDefinitionCtrlNbr = attributeDefinitionCtrlNbr,
+                Value = value
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task DeleteAttributeValueAsync(long ctrlNbr)
+    {
+        try
+        {
+            await _client.DeleteAttributeValueAsync(new DeleteAttributeValueRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }
