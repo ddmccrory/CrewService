@@ -5,9 +5,8 @@ namespace CrewService.BlazorUI.Models.Account;
 internal sealed class RegisterInputModel
 {
     [Required]
-    [EmailAddress]
-    [Display(Name = "Email")]
-    public string Email { get; set; } = "";
+    [Display(Name = "Invitation Token")]
+    public string InvitationToken { get; set; } = "";
 
     [Required]
     [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 8)]

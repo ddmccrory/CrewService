@@ -33,9 +33,9 @@
             <hr />
             <ValidationSummary class="text-danger" role="alert" />
             <div class="form-floating mb-3">
-                <InputText id="email" @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
+                <InputText id="invitation-token" @bind-Value="Input.InvitationToken" class="form-control" aria-required="true" placeholder="Paste your invitation token" />
+                <label for="invitation-token">Invitation Token</label>
+                <ValidationMessage For="() => Input.InvitationToken" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
                 <InputText id="password" type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
@@ -74,7 +74,7 @@
     {
         RegisterInputModel request = new()
         {
-            Email = Input.Email,
+            InvitationToken = Input.InvitationToken,
             Password = Input.Password
         };
 

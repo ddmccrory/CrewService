@@ -3,7 +3,7 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/api/annotations.proto";
-import "protos/railroad.proto";
+import "railroad.proto";
 
 package parent;
 

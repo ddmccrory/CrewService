@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Protos\auth.proto" />
-    <None Remove="Protos\account.proto" />
+    <None Remove="..\..\Protos\auth.proto" />
+    <None Remove="..\..\Protos\account.proto" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,34 +29,34 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="Protos\account.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\address_type.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\auth.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\common.proto" GrpcServices="None" />
-    <Protobuf Include="Protos\craft.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\email_address_type.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\employee.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\employment_status.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\employment_status_history.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\parent.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\phone_number_type.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\prior_service_credit.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\railroad.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\payroll_tier.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\roster.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\seniority.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\seniority_state.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\user_parent_assignment.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\invitation.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\tenant_config.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\work_management.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\crews.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\boards.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\bulletins.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\policies.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\dispatching.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\absence_vacancy.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\modules\payroll.proto" GrpcServices="Server" />
+    <Protobuf Include="..\..\Protos\account.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\address_type.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\auth.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\common.proto" GrpcServices="None" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\craft.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\email_address_type.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\employee.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\employment_status.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\employment_status_history.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\invitation.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\parent.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\payroll_tier.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\phone_number_type.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\prior_service_credit.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\railroad.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\roster.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\seniority.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\seniority_state.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\user_parent_assignment.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\tenant_config.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\work_management.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\crews.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\boards.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\bulletins.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\policies.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\dispatching.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\absence_vacancy.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\payroll.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
   </ItemGroup>
 
 </Project>

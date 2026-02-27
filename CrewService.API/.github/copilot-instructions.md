@@ -15,6 +15,7 @@
 - **Layer projects:** GrpcService (host), Domain, Application, Infrastructure, Persistence, Presentation.
 - **Module folders:** New modules are organized under `Modules/` subfolders within Domain, Persistence, and Presentation. Legacy entities remain under `Models/`, `Configurations/`, `Repositories/`, and `Services/`.
 - **Bounded contexts:** TenantConfig, Employees, UserAccess, WorkManagement, Crews, Boards, Policies, Dispatching, AbsenceVacancy, Payroll, Reporting (planned).
+- **Protos organization:** Use a shared `Protos` folder at the repo root for gRPC proto files, referenced by both backend (CrewService.API/CrewService.Presentation) with `GrpcServices="Server"` and frontend (CrewService.FrontEnd/CrewService.BlazorUI) with `GrpcServices="Client"` via relative paths.
 - **One `.proto` per module** under `Protos/modules/`; legacy per-entity protos remain under `Protos/`.
 - **Two DbContexts:** IdentityDbContext (UserAccessDbContext) for Identity; OperationsDbContext (CrewServiceDbContext) for all operational domain tables. Repositories accept DbContext in their constructors.
 - **Module boundary rule:** Modules do not call each other's EF repositories or DbContext directly. Integrate via in-process application interfaces and domain events.

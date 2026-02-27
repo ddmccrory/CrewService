@@ -1,8 +1,8 @@
-﻿syntax = "proto3";
+syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
-import "Protos/common.proto";
+import "common.proto";
 package employment;
 
 service EmploymentStatusHistorySrvc {
