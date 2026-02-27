@@ -3,6 +3,7 @@ using CrewService.BlazorUI.Components;
 using CrewService.BlazorUI.Components.Account;
 using CrewService.BlazorUI.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, PersistingServerAuthenticationStateProvider>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<AppThemeService>();
