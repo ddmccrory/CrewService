@@ -3,8 +3,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class TenantConfigClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILogger<TenantConfigClient> logger)
-    : BaseGrpcClient<TenantConfigSrvc.TenantConfigSrvcClient>(configuration, httpContextAccessor, callInvoker => new TenantConfigSrvc.TenantConfigSrvcClient(callInvoker), logger)
+public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<TenantConfigClient> logger)
+: BaseGrpcClient<TenantConfigSrvc.TenantConfigSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new TenantConfigSrvc.TenantConfigSrvcClient(callInvoker), logger)
 {
     // ?? GroupTypes ????????????????????????????????????????????????????
 

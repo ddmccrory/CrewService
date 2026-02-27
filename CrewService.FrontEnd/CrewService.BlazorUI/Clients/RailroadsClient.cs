@@ -3,8 +3,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class RailroadsClient(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILogger<RailroadsClient> logger)
-    : BaseGrpcClient<RailroadSrvc.RailroadSrvcClient>(configuration, httpContextAccessor, callInvoker => new RailroadSrvc.RailroadSrvcClient(callInvoker), logger)
+public sealed class RailroadsClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<RailroadsClient> logger)
+: BaseGrpcClient<RailroadSrvc.RailroadSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new RailroadSrvc.RailroadSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllRailroadsResponse> GetAllAsync()
     {
