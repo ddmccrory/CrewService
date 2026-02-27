@@ -65,7 +65,7 @@ public class InvitationService(
 
         var response = new GetInvitationsResponse();
         foreach (var invitation in invitations)
-            response.Invitations.Add(MapToResponse(invitation));
+            response.Invitations.Add(MapToResponse(invitation, includeToken: false));
 
         return response;
     }
@@ -79,7 +79,7 @@ public class InvitationService(
 
         var response = new GetInvitationsResponse();
         foreach (var invitation in invitations)
-            response.Invitations.Add(MapToResponse(invitation));
+            response.Invitations.Add(MapToResponse(invitation, includeToken: false));
 
         return response;
     }
@@ -124,7 +124,7 @@ public class InvitationService(
         return MapToResponse(newInvitation);
     }
 
-    private static InvitationResponse MapToResponse(Invitation invitation)
+    private static InvitationResponse MapToResponse(Invitation invitation, bool includeToken = true)
     {
         var response = new InvitationResponse
         {
@@ -133,9 +133,11 @@ public class InvitationService(
             ParentCtrlNbr = invitation.ParentCtrlNbr.Value,
             Role = invitation.Role,
             Status = invitation.Status.ToString(),
-            Token = invitation.Token,
             ExpiresAt = invitation.ExpiresAt.Ticks
         };
+
+        if (includeToken)
+            response.Token = invitation.Token;
 
         if (invitation.AcceptedAt.HasValue)
             response.AcceptedAt = invitation.AcceptedAt.Value.Ticks;

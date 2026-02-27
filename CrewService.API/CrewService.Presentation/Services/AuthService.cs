@@ -34,13 +34,6 @@ public sealed class AuthService(
             return response;
         }
 
-        if (string.IsNullOrEmpty(request.Password))
-        {
-            response.Success = false;
-            response.Message.Add("Password is required.");
-            return response;
-        }
-
         var invitation = await _invitationRepository.GetByTokenAsync(request.InvitationToken);
 
         if (invitation is null)
@@ -54,24 +47,45 @@ public sealed class AuthService(
         {
             response.Success = false;
             response.Message.Add($"Invitation is no longer valid (status: {invitation.Status}).");
+
+            // Persist expired status if detected
+            if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
+            {
+                invitation.MarkExpired();
+                await _invitationRepository.UpdateAsync(invitation);
+            }
+
             return response;
         }
 
-        User user = new()
-        {
-            UserName = invitation.Email,
-            Email = invitation.Email,
-            EmailConfirmed = true
-        };
+        // Check if user already exists (e.g., invited to a second parent)
+        var existingUser = await _userManager.FindByEmailAsync(invitation.Email);
 
-        var result = await _userManager.CreateAsync(user, request.Password);
-
-        if (!result.Succeeded)
+        if (existingUser is null)
         {
-            response.Success = false;
-            foreach (var error in result.Errors)
-                response.Message.Add(error.Description);
-            return response;
+            if (string.IsNullOrEmpty(request.Password))
+            {
+                response.Success = false;
+                response.Message.Add("Password is required.");
+                return response;
+            }
+
+            existingUser = new User
+            {
+                UserName = invitation.Email,
+                Email = invitation.Email,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(existingUser, request.Password);
+
+            if (!result.Succeeded)
+            {
+                response.Success = false;
+                foreach (var error in result.Errors)
+                    response.Message.Add(error.Description);
+                return response;
+            }
         }
 
         // Accept the invitation
@@ -80,7 +94,7 @@ public sealed class AuthService(
 
         // Create the UserParentAssignment from the invitation
         var assignment = UserParentAssignment.Create(
-            user.Id,
+            existingUser.Id,
             invitation.ParentCtrlNbr.Value,
             invitation.Role);
         await _assignmentRepository.AddAsync(assignment);

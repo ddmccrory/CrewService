@@ -47,6 +47,10 @@ public sealed class Invitation : Entity
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(role);
         ArgumentException.ThrowIfNullOrEmpty(invitedByUserId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expirationDays);
+
+        if (!Roles.AllPerParentRoles.Contains(role))
+            throw new ArgumentException($"Unknown role '{role}'.", nameof(role));
 
         var invitation = new Invitation(
             email.ToLowerInvariant(),
@@ -67,14 +71,23 @@ public sealed class Invitation : Entity
             throw new InvalidOperationException($"Cannot accept invitation with status '{Status}'.");
 
         if (DateTime.UtcNow > ExpiresAt)
-        {
-            Status = InvitationStatus.Expired;
             throw new InvalidOperationException("Invitation has expired.");
-        }
 
         Status = InvitationStatus.Accepted;
         AcceptedAt = DateTime.UtcNow;
         Raise(new InvitationAcceptedDomainEvent(CtrlNbr));
+    }
+
+    /// <summary>
+    /// Explicitly marks a pending invitation as expired. Should be called
+    /// when expiration is detected so the status is persisted.
+    /// </summary>
+    public void MarkExpired()
+    {
+        if (Status != InvitationStatus.Pending)
+            throw new InvalidOperationException($"Cannot expire invitation with status '{Status}'.");
+
+        Status = InvitationStatus.Expired;
     }
 
     public void Revoke()

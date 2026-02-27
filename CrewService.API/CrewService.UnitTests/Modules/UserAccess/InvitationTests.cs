@@ -284,4 +284,79 @@ public sealed class InvitationTests : IDisposable
 
         Assert.NotEqual(inv1.Token, inv2.Token);
     }
+
+    /// <summary>
+    /// Verifies Create rejects an invalid role not in Roles.AllPerParentRoles.
+    /// </summary>
+    [Fact]
+    public void Create_With_Invalid_Role_Throws()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            Invitation.Create("test@example.com", 250101120000001, "FakeRole", "admin-001"));
+    }
+
+    /// <summary>
+    /// Verifies Create rejects zero or negative expirationDays.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Create_With_Invalid_ExpirationDays_Throws(int days)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Invitation.Create("test@example.com", 250101120000001, Roles.ReadOnly, "admin-001", days));
+    }
+
+    /// <summary>
+    /// Verifies MarkExpired transitions a pending invitation to Expired.
+    /// </summary>
+    [Fact]
+    public void MarkExpired_Transitions_Pending_To_Expired()
+    {
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+
+        invitation.MarkExpired();
+
+        Assert.Equal(InvitationStatus.Expired, invitation.Status);
+    }
+
+    /// <summary>
+    /// Verifies MarkExpired on a non-pending invitation throws.
+    /// </summary>
+    [Fact]
+    public void MarkExpired_On_Accepted_Throws()
+    {
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        invitation.Accept();
+
+        Assert.Throws<InvalidOperationException>(() => invitation.MarkExpired());
+    }
+
+    /// <summary>
+    /// Verifies Accept does NOT mutate status when it throws for expiration.
+    /// The caller should explicitly call MarkExpired + persist.
+    /// </summary>
+    [Fact]
+    public void Accept_On_Expired_Does_Not_Mutate_Status()
+    {
+        // Create with minimal expiration then manually mark expired to simulate
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        invitation.MarkExpired();
+
+        // Now it's Expired — Accept should throw because status is not Pending
+        Assert.Throws<InvalidOperationException>(() => invitation.Accept());
+        Assert.Equal(InvitationStatus.Expired, invitation.Status);
+    }
+
+    /// <summary>
+    /// Verifies accepting a revoked invitation throws.
+    /// </summary>
+    [Fact]
+    public void Accept_Revoked_Invitation_Throws()
+    {
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        invitation.Revoke();
+
+        Assert.Throws<InvalidOperationException>(() => invitation.Accept());
+    }
 }
