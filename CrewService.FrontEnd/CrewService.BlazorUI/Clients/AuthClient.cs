@@ -1,6 +1,6 @@
 ﻿using CrewService.BlazorUI.Models.Account;
+using CrewService.Presentation;
 using Grpc.Core;
-
 
 namespace CrewService.BlazorUI.Clients;
 
@@ -15,7 +15,7 @@ internal sealed class AuthClient(IConfiguration configuration, IHttpContextAcces
         { 
         RegisterRequest request = new()
         {
-            Email = registerModel.Email,
+            InvitationToken = registerModel.InvitationToken,
             Password = registerModel.Password
         };
 
