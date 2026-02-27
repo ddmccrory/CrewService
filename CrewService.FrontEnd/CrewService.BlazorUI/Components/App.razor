@@ -35,6 +35,12 @@
 
     protected override void OnInitialized() 
     {
+        var query = HttpContext.Request.Query;
+        if (query.TryGetValue("theme", out var theme))
+            AppThemeService.SetTheme(theme!);
+        if (query.TryGetValue("mode", out var mode))
+            AppThemeService.SetMode(mode!);
+
         if (!string.IsNullOrEmpty(AppThemeService.Theme))
             Theme = AppThemeService.Theme;
 
