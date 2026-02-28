@@ -124,6 +124,15 @@
                         claims.Add(new Claim("parent_role", parentRoleElement.GetString()!));
                     }
                 }
+
+                if (doc.RootElement.TryGetProperty("employee_number", out var empElement) && empElement.ValueKind == JsonValueKind.String)
+                {
+                    var empNumber = empElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(empNumber))
+                    {
+                        claims.Add(new Claim("employee_number", empNumber));
+                    }
+                }
             }
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

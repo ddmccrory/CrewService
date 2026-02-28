@@ -8,7 +8,41 @@ internal sealed class AccountClient(GrpcChannelProvider channelProvider, IHttpCo
 {
     #region Methods
 
-    public async Task<ThemeResponse> SaveThemeAsync(string mode, string theme)
+    public async Task<GetProfileResponse> GetProfileAsync(string userName)
+    {
+        try
+        {
+            return await _client.GetProfileAsync(new GetProfileRequest { UserName = userName ?? string.Empty });
+        }
+        catch (Exception ex)
+        {
+            base.LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<ProfileResponse> SaveProfileAsync(string userName, string firstName, string middleName, string lastName)
+    {
+        try
+        {
+            ProfileRequest request = new()
+            {
+                UserName = userName ?? string.Empty,
+                FirstName = firstName ?? string.Empty,
+                MiddleName = middleName ?? string.Empty,
+                LastName = lastName ?? string.Empty
+            };
+
+            return await _client.ModifyProfileAsync(request);
+        }
+        catch (Exception ex)
+        {
+            base.LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<ThemeResponse> SaveThemeAsync(string userName, string mode, string theme)
     {
         try
         {
@@ -16,6 +50,7 @@ internal sealed class AccountClient(GrpcChannelProvider channelProvider, IHttpCo
 
             ThemeRequest request = new()
             {
+                UserName = userName ?? string.Empty,
                 ThemeName = theme,
                 ThemeMode = mode
             };

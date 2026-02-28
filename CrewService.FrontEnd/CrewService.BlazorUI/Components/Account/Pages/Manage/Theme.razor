@@ -1443,7 +1443,10 @@
 
     private async Task OnSaveAsync()
     {
-        await AccountClient.SaveThemeAsync(AppThemeService.Mode, AppThemeService.ThemeName);
+        var userName = HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+            ?? HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? string.Empty;
+        await AccountClient.SaveThemeAsync(userName, AppThemeService.Mode, AppThemeService.ThemeName);
         AppThemeService.ClearPreviousValues();
         RedirectManager.RedirectTo("/Account/Manage/Theme");
     }

@@ -15,6 +15,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<GrpcChannelProvider>();
 builder.Services.AddScoped<AccountClient>();
 builder.Services.AddScoped<AuthClient>();
+builder.Services.AddScoped<EmployeeClient>();
 builder.Services.AddScoped<ParentsClient>();
 builder.Services.AddScoped<RailroadsClient>();
 builder.Services.AddScoped<TenantConfigClient>();
