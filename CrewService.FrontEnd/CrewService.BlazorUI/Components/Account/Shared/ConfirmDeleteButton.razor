@@ -1,0 +1,25 @@
+@* Reusable delete button with built-in confirmation dialog.
+   Any <form> rendered by this component carries a data-confirm attribute
+   which is intercepted by confirm-delete.js. *@
+
+<form method="post"
+      @formname="@FormName"
+      @onsubmit="OnClick"
+      data-confirm="@Message">
+    <AntiforgeryToken />
+    <button type="submit" class="btn btn-sm btn-outline-danger">@(ButtonText ?? "Delete")</button>
+</form>
+
+@code {
+    [Parameter, EditorRequired]
+    public string FormName { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter]
+    public string Message { get; set; } = "Are you sure you want to delete this?";
+
+    [Parameter]
+    public string? ButtonText { get; set; }
+}
