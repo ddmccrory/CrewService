@@ -7,3 +7,6 @@ CrewService.API/CrewService.Persistance/Data/*.db-wal
 .vs/
 **/obj/
 **/bin/
+
+# Misc
+*.pdf
