@@ -17,9 +17,9 @@ public sealed class Employee : Entity
     public string SocialSecurityNumber { get; private set; } = string.Empty;
     public string? DriversLicenseNumber { get; private set; }
     public string? IssuingState { get; private set; }
-    public string Gender { get; private set; } = string.Empty;
-    public string Race { get; private set; } = string.Empty;
-    public bool MarriageStatus { get; private set; }
+    public Gender Gender { get; private set; }
+    public Race Race { get; private set; }
+    public MaritalStatus MaritalStatus { get; private set; }
     public DateTime BirthDate { get; private set; }
     public DateTime EmploymentDate { get; private set; }
     public ControlNumber EmploymentStatusCtrlNbr { get; private set; }
@@ -43,8 +43,8 @@ public sealed class Employee : Entity
         string userId,
         string employeeNumber,
         string ssn,
-        string gender,
-        string race,
+        Gender gender,
+        Race race,
         DateTime birthDate,
         DateTime employmentDate,
         ControlNumber employmentStatusCtrlNbr)
@@ -70,8 +70,8 @@ public sealed class Employee : Entity
         string userId,
         string employeeNumber,
         string ssn,
-        string gender,
-        string race,
+        Gender gender,
+        Race race,
         DateTime birthDate,
         DateTime employmentDate,
         long employmentStatusCtrlNbr)
@@ -95,13 +95,27 @@ public sealed class Employee : Entity
     public Employee Update(
         string? driversLicenseNumber = null,
         string? issuingState = null,
-        bool? marriageStatus = null,
+        MaritalStatus? maritalStatus = null,
         bool? allowFMLAMarkOff = null,
         bool? callForOvertime = null,
         bool? processPayroll = null,
-        bool? tieUpOffProperty = null)
+        bool? tieUpOffProperty = null,
+        Gender? gender = null,
+        Race? race = null)
     {
         var changes = new Dictionary<string, object?>();
+
+        if (gender.HasValue)
+        {
+            Gender = gender.Value;
+            changes["gender"] = gender.Value;
+        }
+
+        if (race.HasValue)
+        {
+            Race = race.Value;
+            changes["race"] = race.Value;
+        }
 
         if (driversLicenseNumber is not null)
         {
@@ -115,10 +129,10 @@ public sealed class Employee : Entity
             changes["issuingState"] = IssuingState;
         }
 
-        if (marriageStatus.HasValue)
+        if (maritalStatus.HasValue)
         {
-            MarriageStatus = marriageStatus.Value;
-            changes["marriageStatus"] = marriageStatus.Value;
+            MaritalStatus = maritalStatus.Value;
+            changes["maritalStatus"] = maritalStatus.Value;
         }
 
         if (allowFMLAMarkOff.HasValue)

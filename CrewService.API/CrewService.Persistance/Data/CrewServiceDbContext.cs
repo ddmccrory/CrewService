@@ -96,12 +96,19 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 
     private void UpdateAuditableEntities()
     {
+        var auditableEntries = ChangeTracker.Entries<Entity>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified)
+            .ToList();
+
+        if (auditableEntries.Count == 0)
+            return;
+
         string auditName = currentUserService.GetUserName();
 
         if (string.IsNullOrWhiteSpace(auditName))
             throw new InvalidOperationException("Audit name cannot be null or empty. Ensure user context is available.");
 
-        foreach (var entry in ChangeTracker.Entries<Entity>())
+        foreach (var entry in auditableEntries)
         {
             switch (entry.State)
             {

@@ -27,8 +27,27 @@ internal class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(e => e.SocialSecurityNumber).HasMaxLength(256).IsRequired();
         builder.Property(e => e.DriversLicenseNumber).HasMaxLength(256);
         builder.Property(e => e.IssuingState).HasMaxLength(2);
-        builder.Property(e => e.Gender).HasMaxLength(1).IsRequired();
-        builder.Property(e => e.Race).HasMaxLength(100).IsRequired();
+        builder.Property(e => e.Gender)
+            .HasConversion(
+                g => g.ToString(),
+                s => Enum.Parse<Gender>(s))
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(e => e.Race)
+            .HasConversion(
+                r => r.ToString(),
+                s => Enum.Parse<Race>(s))
+            .HasMaxLength(100)
+            .IsRequired();
+
+        builder.Property(e => e.MaritalStatus)
+            .HasConversion(
+                m => m.ToString(),
+                s => Enum.Parse<MaritalStatus>(s))
+            .HasMaxLength(30)
+            .IsRequired();
+
         builder.Property(e => e.UserId).HasMaxLength(128).IsRequired();
 
         builder.HasIndex(e => e.EmployeeNumber).IsUnique();
