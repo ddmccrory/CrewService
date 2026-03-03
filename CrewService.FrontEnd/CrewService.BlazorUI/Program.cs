@@ -14,9 +14,12 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton<GrpcChannelProvider>();
 builder.Services.AddScoped<AccountClient>();
+builder.Services.AddScoped<AddressTypeClient>();
 builder.Services.AddScoped<AuthClient>();
+builder.Services.AddScoped<EmailAddressTypeClient>();
 builder.Services.AddScoped<EmployeeClient>();
 builder.Services.AddScoped<ParentsClient>();
+builder.Services.AddScoped<PhoneNumberTypeClient>();
 builder.Services.AddScoped<RailroadsClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 
@@ -55,6 +58,10 @@ else
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
