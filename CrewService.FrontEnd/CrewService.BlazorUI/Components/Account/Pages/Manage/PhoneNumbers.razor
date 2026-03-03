@@ -1,0 +1,208 @@
+@page "/Account/Manage/PhoneNumbers"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Components.Account
+@using CrewService.Presentation
+
+@inject EmployeeClient EmployeeClient
+@inject PhoneNumberTypeClient PhoneNumberTypeClient
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Phone Numbers</PageTitle>
+
+<h3>Phone Numbers</h3>
+<StatusMessage />
+
+@if (employee is not null)
+{
+    @if (employee.PhoneNumbers.Count > 0)
+    {
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Number</th>
+                    <th>Calling Order</th>
+                    <th>Dial One</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var phone in employee.PhoneNumbers)
+                {
+                    <tr>
+                        <td>@(phoneTypes.FirstOrDefault(t => t.CtrlNbr == phone.PhoneTypeCtrlNbr)?.Name)</td>
+                        <td>@phone.Number</td>
+                        <td>@phone.CallingOrder</td>
+                        <td>@(phone.DialOne ? "Yes" : "No")</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <form method="post" @formname="@($"edit-phone-{phone.CtrlNbr}")" @onsubmit="() => OnEditAsync(phone.CtrlNbr)">
+                                    <AntiforgeryToken />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Edit</button>
+                                </form>
+                                <ConfirmDeleteButton FormName="@($"delete-phone-{phone.CtrlNbr}")"
+                                                     OnClick="() => OnDeleteAsync(phone.CtrlNbr)" />
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="text-muted">No phone numbers on file.</p>
+    }
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">@(Input.EditCtrlNbr > 0 ? "Edit Phone Number" : "Add Phone Number")</h5>
+            <EditForm Model="Input" FormName="save-phone" OnValidSubmit="OnSaveAsync" method="post">
+                <DataAnnotationsValidator />
+                <input type="hidden" name="Input.EditCtrlNbr" value="@Input.EditCtrlNbr" />
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="Input.PhoneTypeCtrlNbr" class="form-select">
+                                <option value="0">-- Select Type --</option>
+                                @foreach (var t in phoneTypes)
+                                {
+                                    <option value="@t.CtrlNbr">@t.Name</option>
+                                }
+                            </InputSelect>
+                            <label>Type</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.Number" class="form-control" placeholder="Phone Number" />
+                            <label>Phone Number</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-floating">
+                            <InputNumber @bind-Value="Input.CallingOrder" class="form-control" placeholder="Order" />
+                            <label>Calling Order</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="Input.DialOne" class="form-check-input" />
+                            <label class="form-check-label">Dial One</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2">@(Input.EditCtrlNbr > 0 ? "Update Phone" : "Add Phone")</button>
+                @if (Input.EditCtrlNbr > 0)
+                {
+                    <a href="/Account/Manage/PhoneNumbers" class="btn btn-secondary mt-2 ms-2">Cancel</a>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+else
+{
+    <p class="text-muted">Employee information not available.</p>
+}
+
+@code {
+    private GetEmployeeResponse? employee;
+    private List<PhoneNumberTypeResponse> phoneTypes = [];
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "save-phone")]
+    private PhoneInputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        var employeeNumber = HttpContext.User.FindFirst("employee_number")?.Value;
+        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            try
+            {
+                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
+                var typesResponse = await PhoneNumberTypeClient.GetAllAsync(employee.ClientCtrlNbr);
+                phoneTypes = [.. typesResponse.PhoneNumberTypeList];
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private Task OnEditAsync(long ctrlNbr)
+    {
+        if (employee is null) return Task.CompletedTask;
+        var phone = employee.PhoneNumbers.FirstOrDefault(p => p.CtrlNbr == ctrlNbr);
+        if (phone is null) return Task.CompletedTask;
+
+        Input.EditCtrlNbr = phone.CtrlNbr;
+        Input.PhoneTypeCtrlNbr = phone.PhoneTypeCtrlNbr;
+        Input.Number = phone.Number;
+        Input.CallingOrder = phone.CallingOrder;
+        Input.DialOne = phone.DialOne;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSaveAsync()
+    {
+        if (employee is null) return;
+
+        if (Input.EditCtrlNbr > 0)
+        {
+            await EmployeeClient.UpdatePhoneNumberAsync(new UpdatePhoneNumberRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                CtrlNbr = Input.EditCtrlNbr,
+                Number = Input.Number ?? string.Empty,
+                CallingOrder = Input.CallingOrder,
+                DialOne = Input.DialOne
+            });
+            RedirectManager.RedirectToCurrentPageWithStatus("Phone number updated.", HttpContext);
+        }
+        else
+        {
+            await EmployeeClient.AddPhoneNumberAsync(new AddPhoneNumberRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                PhoneTypeCtrlNbr = Input.PhoneTypeCtrlNbr,
+                Number = Input.Number ?? string.Empty,
+                CallingOrder = Input.CallingOrder,
+                DialOne = Input.DialOne
+            });
+            RedirectManager.RedirectToCurrentPageWithStatus("Phone number added.", HttpContext);
+        }
+    }
+
+    private async Task OnDeleteAsync(long ctrlNbr)
+    {
+        if (employee is null) return;
+        await EmployeeClient.DeletePhoneNumberAsync(employee.CtrlNbr, ctrlNbr);
+        RedirectManager.RedirectToCurrentPageWithStatus("Phone number removed.", HttpContext);
+    }
+
+    private sealed class PhoneInputModel
+    {
+        public long EditCtrlNbr { get; set; }
+
+        [Required, Display(Name = "Phone Number")]
+        public string? Number { get; set; }
+
+        [Display(Name = "Calling Order")]
+        public int CallingOrder { get; set; } = 1;
+
+        [Display(Name = "Dial One")]
+        public bool DialOne { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Please select a phone type.")]
+        public long PhoneTypeCtrlNbr { get; set; }
+    }
+}

@@ -1,14 +1,12 @@
 ﻿@page "/Account/Manage/Theme"
 
-@rendermode InteractiveServer
-
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Services
-@using System.ComponentModel.DataAnnotations
+@using CrewService.BlazorUI.Components.Account
 
 @inject AccountClient AccountClient
 @inject AppThemeService AppThemeService
-@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Select Theme</PageTitle>
 
@@ -19,49 +17,53 @@
         Select a Theme
     </button>
     <div class="dropdown-menu">
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Cerulean"))">Cerulean</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Cosmo"))">Cosmo</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Cyborg"))">Cyborg</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Darkly"))">Darkly</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Flatly"))">Flatly</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Journal"))">Journal</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Litera"))">Litera</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Lumen"))">Lumen</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Lux"))">Lux</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Materia"))">Materia</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Minty"))">Minty</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Morph"))">Morph</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Pulse"))">Pulse</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Quartz"))">Quartz</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Sandstone"))">Sandstone</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Simplex"))">Simplex</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Sketchy"))">Sketchy</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Slate"))">Slate</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Solar"))">Solar</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Spacelab"))">Spacelab</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Superhero"))">Superhero</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("United"))">United</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Vapor"))">Vapor</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Yeti"))">Yeti</a>
-        <a class="dropdown-item" @onclick="@(() => OnThemeOptionChange("Zephyr"))">Zephyr</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Cerulean">Cerulean</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Cosmo">Cosmo</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Cyborg">Cyborg</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Darkly">Darkly</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Flatly">Flatly</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Journal">Journal</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Litera">Litera</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Lumen">Lumen</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Lux">Lux</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Materia">Materia</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Minty">Minty</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Morph">Morph</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Pulse">Pulse</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Quartz">Quartz</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Sandstone">Sandstone</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Simplex">Simplex</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Sketchy">Sketchy</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Slate">Slate</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Solar">Solar</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Spacelab">Spacelab</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Superhero">Superhero</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=United">United</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Vapor">Vapor</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Yeti">Yeti</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?theme=Zephyr">Zephyr</a>
     </div>
 </div>
 <div class="btn-group  me-1">
-    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" id="themes" aria-expanded="true">
+    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" id="modes" aria-expanded="true">
         Select a Mode
     </button>
     <div class="dropdown-menu">
-        <a class="dropdown-item" @onclick="@(() => OnModeOptionChange("Light"))">Light</a>
-        <a class="dropdown-item" @onclick="@(() => OnModeOptionChange("Dark"))">Dark</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?mode=Light">Light</a>
+        <a class="dropdown-item" href="/Account/Manage/Theme?mode=Dark">Dark</a>
     </div>
 </div>
 @if (!isHidden)
 {
     <div class="btn-group">
-        <button type="button" class="btn btn-primary" id="save" @onclick="OnSaveButtonClickAsync">Save</button>
+        <EditForm method="post" OnSubmit="OnSaveAsync" FormName="save-theme" Model="this">
+            <button type="submit" class="btn btn-primary" id="save">Save</button>
+        </EditForm>
     </div>
     <div class="btn-group">
-        <button type="button" class="btn btn-secondary" id="cancel" @onclick="OnCancelButtonClick">Cancel</button>
+        <EditForm method="post" OnSubmit="OnCancel" FormName="cancel-theme" Model="this">
+            <button type="submit" class="btn btn-secondary" id="cancel">Cancel</button>
+        </EditForm>
     </div>
 }
     <hr />
@@ -1412,60 +1414,44 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    [SupplyParameterFromQuery(Name = "theme")]
+    private string? SelectedTheme { get; set; }
+
+    [SupplyParameterFromQuery(Name = "mode")]
+    private string? SelectedMode { get; set; }
+
     protected override void OnInitialized()
     {
-        if (AppThemeService.PreviousTheme == AppThemeService.PreviousMode)
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
         {
-            isHidden = true;
+            if (!string.IsNullOrEmpty(SelectedTheme))
+            {
+                AppThemeService.SetTheme(SelectedTheme);
+            }
+
+            if (!string.IsNullOrEmpty(SelectedMode))
+            {
+                AppThemeService.SetMode(SelectedMode);
+            }
         }
-        else
-        {
-            isHidden = false;
-        }
+
+        isHidden = AppThemeService.PreviousTheme == AppThemeService.PreviousMode;
 
         ThemeName = $"{AppThemeService.ThemeName} ({AppThemeService.Mode})";
         ThemeDescription = AppThemeService.ThemeDescription;
-
-        base.OnInitialized();
     }
 
-    private void OnThemeOptionChange(string theme)
+    private async Task OnSaveAsync()
     {
-        AppThemeService.SetTheme(theme);
-
-        ThemeName = $"{AppThemeService.ThemeName} ({AppThemeService.Mode})";
-        ThemeDescription = AppThemeService.ThemeDescription;
-
-        isHidden = false;
-
-        NavigationManager.Refresh();
+        var userName = HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+            ?? HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? string.Empty;
+        await AccountClient.SaveThemeAsync(userName, AppThemeService.Mode, AppThemeService.ThemeName);
+        AppThemeService.ClearPreviousValues();
+        RedirectManager.RedirectTo("/Account/Manage/Theme");
     }
 
-    private void OnModeOptionChange(string mode)
-    {
-        AppThemeService.SetMode(mode);
-
-        ThemeName = $"{AppThemeService.ThemeName} ({AppThemeService.Mode})";
-        ThemeDescription = AppThemeService.ThemeDescription;
-
-        isHidden = false;
-
-        NavigationManager.Refresh();
-    }
-
-    private async void OnSaveButtonClickAsync()
-    {
-        var result = await AccountClient.SaveThemeAsync(AppThemeService.Mode, AppThemeService.ThemeName);
-
-        if (result.Success)
-        {
-            AppThemeService.ClearPreviousValues();
-
-            isHidden = true;
-        }       
-    }
-
-    private void OnCancelButtonClick()
+    private void OnCancel()
     {
         if (!string.IsNullOrEmpty(AppThemeService.PreviousTheme))
         {
@@ -1477,12 +1463,7 @@
             AppThemeService.SetMode(AppThemeService.PreviousMode);
         }
 
-        ThemeName = $"{AppThemeService.ThemeName} ({AppThemeService.Mode})";
-        ThemeDescription = AppThemeService.ThemeDescription;
-
         AppThemeService.ClearPreviousValues();
-        isHidden = true;
-
-        NavigationManager.Refresh();
+        RedirectManager.RedirectTo("/Account/Manage/Theme");
     }
 }

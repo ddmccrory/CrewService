@@ -17,6 +17,7 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .Include(e => e.Addresses)
             .Include(e => e.PhoneNumbers)
             .Include(e => e.EmailAddresses)
+            .AsSplitQuery()
             .ToListAsync();
     }
 
@@ -26,6 +27,7 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .Include(e => e.Addresses)
             .Include(e => e.PhoneNumbers)
             .Include(e => e.EmailAddresses)
+            .AsSplitQuery()
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -37,6 +39,7 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .Include(e => e.Addresses)
             .Include(e => e.PhoneNumbers)
             .Include(e => e.EmailAddresses)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(e => e.CtrlNbr == ctrlNbr);
     }
 
@@ -49,6 +52,7 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .Include(e => e.Addresses)
             .Include(e => e.PhoneNumbers)
             .Include(e => e.EmailAddresses)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(e => e.EmployeeNumber == employeeNumber);
     }
 }

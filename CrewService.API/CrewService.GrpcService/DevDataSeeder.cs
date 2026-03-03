@@ -137,9 +137,13 @@ internal static class DevDataSeeder
 
         // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????
         var employeeRepo = sp.GetRequiredService<IEmployeeRepository>();
+        var userMgr = sp.GetRequiredService<UserManager<User>>();
+        var invitationRepo = sp.GetRequiredService<IInvitationRepository>();
+        var assignmentRepo = sp.GetRequiredService<IUserParentAssignmentRepository>();
+
         var existingEmployees = await employeeRepo.GetAllAsync();
-        if (existingEmployees.Count > 0)
-            return;
+        if (existingEmployees.Count == 0)
+        {
 
         var employmentStatusRepo = sp.GetRequiredService<IEmploymentStatusRepository>();
         var addressTypeRepo = sp.GetRequiredService<IAddressTypeRepository>();
@@ -163,10 +167,6 @@ internal static class DevDataSeeder
         var workEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Work", 1, emergencyType: false);
         await emailAddressTypeRepo.AddAsync(workEmailType);
 
-        var userMgr = sp.GetRequiredService<UserManager<User>>();
-        var invitationRepo = sp.GetRequiredService<IInvitationRepository>();
-        var assignmentRepo = sp.GetRequiredService<IUserParentAssignmentRepository>();
-
         string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
                                "Jennifer", "Michael", "Linda", "David", "Elizabeth",
                                "William", "Barbara", "Richard", "Susan", "Joseph",
@@ -182,8 +182,8 @@ internal static class DevDataSeeder
         string[] states     = ["FL", "GA", "IL", "TN", "TX", "CO", "MD", "KY", "NC", "FL"];
         string[] zips       = ["32099", "30301", "60601", "37201", "75201",
                                "80201", "21201", "40201", "28201", "33601"];
-        string[] genders    = ["M", "F"];
-        string[] races      = ["W", "B", "H", "A", "O"];
+        Gender[] genders    = [Gender.Male, Gender.Female];
+        Race[] races        = [Race.White, Race.BlackOrAfricanAmerican, Race.Hispanic, Race.Asian, Race.Other];
 
         for (int i = 0; i < 100; i++)
         {
@@ -248,11 +248,9 @@ internal static class DevDataSeeder
             await employeeRepo.AddAsync(employee);
         }
 
-        // ?? SystemAdmin bootstrap user ???????????????????????????????????
-        var existingInvitations = await invitationRepo.GetAllAsync();
-        if (existingInvitations.Count > 100)
-            return;
+        } // end employee guard
 
+        // ?? SystemAdmin bootstrap user ???????????????????????????????????
         var adminUser = await userMgr.FindByEmailAsync("admin@crewservice.dev");
         if (adminUser is null)
         {

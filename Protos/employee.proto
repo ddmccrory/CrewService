@@ -79,7 +79,7 @@ message GetEmployeeResponse {
   string social_security_number = 5;
   string gender = 6;
   string race = 7;
-  bool marriage_status = 8;
+  string marital_status = 8;
   google.protobuf.Timestamp birth_date = 9;
   google.protobuf.Timestamp employment_date = 10;
   int64 employment_status_ctrl_nbr = 11;
@@ -106,7 +106,7 @@ message CreateEmployeeRequest {
   int64 employment_status_ctrl_nbr = 9;
   string drivers_license_number = 10;
   string issuing_state = 11;
-  bool marriage_status = 12;
+  string marital_status = 12;
 }
 
 message CreateEmployeeResponse {
@@ -120,11 +120,13 @@ message UpdateEmployeeRequest {
   int64 ctrl_nbr = 1;
   string drivers_license_number = 2;
   string issuing_state = 3;
-  bool marriage_status = 4;
+  string marital_status = 4;
   bool allow_fmla_mark_off = 5;
   bool call_for_overtime = 6;
   bool process_payroll = 7;
   bool tie_up_off_property = 8;
+  string gender = 9;
+  string race = 10;
 }
 
 message UpdateEmployeeResponse {

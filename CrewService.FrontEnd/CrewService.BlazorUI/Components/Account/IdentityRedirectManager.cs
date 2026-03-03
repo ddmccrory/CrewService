@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Components;
-using System.Diagnostics.CodeAnalysis;
 
 namespace CrewService.BlazorUI.Components.Account
 {
-    internal sealed class IdentityRedirectManager(NavigationManager navigationManager)
+    internal sealed class IdentityRedirectManager(NavigationManager navigationManager, IHttpContextAccessor httpContextAccessor)
     {
         public const string StatusCookieName = "Identity.StatusMessage";
 
@@ -15,7 +14,6 @@ namespace CrewService.BlazorUI.Components.Account
             MaxAge = TimeSpan.FromSeconds(5),
         };
 
-        [DoesNotReturn]
         public void RedirectTo(string? uri)
         {
             uri ??= "";
@@ -26,13 +24,12 @@ namespace CrewService.BlazorUI.Components.Account
                 uri = navigationManager.ToBaseRelativePath(uri);
             }
 
-            // During static rendering, NavigateTo throws a NavigationException which is handled by the framework as a redirect.
-            // So as long as this is called from a statically rendered Identity component, the InvalidOperationException is never thrown.
-            navigationManager.NavigateTo(uri);
-            throw new InvalidOperationException($"{nameof(IdentityRedirectManager)} can only be used during static rendering.");
+            var httpContext = httpContextAccessor.HttpContext
+                ?? throw new InvalidOperationException($"{nameof(IdentityRedirectManager)} can only be used during static rendering.");
+
+            httpContext.Response.Redirect(navigationManager.ToAbsoluteUri(uri).PathAndQuery);
         }
 
-        [DoesNotReturn]
         public void RedirectTo(string uri, Dictionary<string, object?> queryParameters)
         {
             var uriWithoutQuery = navigationManager.ToAbsoluteUri(uri).GetLeftPart(UriPartial.Path);
@@ -40,7 +37,6 @@ namespace CrewService.BlazorUI.Components.Account
             RedirectTo(newUri);
         }
 
-        [DoesNotReturn]
         public void RedirectToWithStatus(string uri, string message, HttpContext context)
         {
             context.Response.Cookies.Append(StatusCookieName, message, StatusCookieBuilder.Build(context));
@@ -49,10 +45,8 @@ namespace CrewService.BlazorUI.Components.Account
 
         private string CurrentPath => navigationManager.ToAbsoluteUri(navigationManager.Uri).GetLeftPart(UriPartial.Path);
 
-        [DoesNotReturn]
         public void RedirectToCurrentPage() => RedirectTo(CurrentPath);
 
-        [DoesNotReturn]
         public void RedirectToCurrentPageWithStatus(string message, HttpContext context)
             => RedirectToWithStatus(CurrentPath, message, context);
     }

@@ -3,6 +3,7 @@ using CrewService.BlazorUI.Components;
 using CrewService.BlazorUI.Components.Account;
 using CrewService.BlazorUI.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +14,12 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton<GrpcChannelProvider>();
 builder.Services.AddScoped<AccountClient>();
+builder.Services.AddScoped<AddressTypeClient>();
 builder.Services.AddScoped<AuthClient>();
+builder.Services.AddScoped<EmailAddressTypeClient>();
+builder.Services.AddScoped<EmployeeClient>();
 builder.Services.AddScoped<ParentsClient>();
+builder.Services.AddScoped<PhoneNumberTypeClient>();
 builder.Services.AddScoped<RailroadsClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 
@@ -31,6 +36,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, PersistingServerAuthenticationStateProvider>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<AppThemeService>();
@@ -52,6 +58,10 @@ else
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()

@@ -1,14 +1,314 @@
-﻿@page "/Account/Manage"
+@page "/Account/Manage"
 
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Components.Account
+@using CrewService.Presentation
+
+@inject AccountClient AccountClient
+@inject EmployeeClient EmployeeClient
 @inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Profile</PageTitle>
 
 <h3>Profile</h3>
+<StatusMessage />
 
-<p class="text-muted">Profile management will be available in a future release.</p>
+@if (isEmployee && employee is not null)
+{
+    <div class="row">
+        <div class="col-xl-6">
+            <div class="form-floating mb-3">
+                <input type="text" value="@employee.EmployeeNumber" class="form-control" disabled />
+                <label>Employee Number</label>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Social Security Number</label>
+                <div class="input-group">
+                    <input type="text" value="@ssnDisplay" class="form-control" disabled />
+                    <form method="post" @formname="show-ssn" @onsubmit="OnShowSsn" style="@(showFullSsn ? "display:none" : "")">
+                        <AntiforgeryToken />
+                        <button type="submit" class="btn btn-outline-secondary">Show</button>
+                    </form>
+                    <form method="post" @formname="hide-ssn" @onsubmit="OnHideSsn" style="@(showFullSsn ? "" : "display:none")">
+                        <AntiforgeryToken />
+                        <button type="submit" class="btn btn-outline-secondary">Hide</button>
+                    </form>
+                </div>
+            </div>
+            <div class="form-floating mb-3">
+                <input type="text" value="@(employee.BirthDate?.ToDateTime().ToString("MM/dd/yyyy"))" class="form-control" disabled />
+                <label>Birth Date</label>
+            </div>
+            <div class="form-floating mb-3">
+                <input type="text" value="@(employee.EmploymentDate?.ToDateTime().ToString("MM/dd/yyyy"))" class="form-control" disabled />
+                <label>Hire Date</label>
+            </div>
+        </div>
+    </div>
+    <hr />
+}
+
+<EditForm Model="Input" FormName="profile" OnValidSubmit="OnSaveAsync" method="post">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="row">
+        <div class="col-xl-6">
+            <div class="form-floating mb-3">
+                <input type="text" value="@username" id="username" class="form-control" placeholder="Username" disabled />
+                <label for="username" class="form-label">Username</label>
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.FirstName" id="Input.FirstName" class="form-control" placeholder="Enter your first name" />
+                <label for="Input.FirstName" class="form-label">First Name</label>
+                <ValidationMessage For="() => Input.FirstName" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.MiddleName" id="Input.MiddleName" class="form-control" placeholder="Enter your middle name or initial" />
+                <label for="Input.MiddleName" class="form-label">Middle Name</label>
+                <ValidationMessage For="() => Input.MiddleName" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.LastName" id="Input.LastName" class="form-control" placeholder="Enter your last name" />
+                <label for="Input.LastName" class="form-label">Last Name</label>
+                <ValidationMessage For="() => Input.LastName" class="text-danger" />
+            </div>
+
+            @if (isEmployee && employee is not null)
+            {
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.DriversLicenseNumber" class="form-control" placeholder="Driver's License" />
+                    <label>Driver's License</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.IssuingState" class="form-control" placeholder="Issuing State" />
+                    <label>Issuing State</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputSelect @bind-Value="Input.Gender" class="form-select">
+                        <option value="">-- Select --</option>
+                        <option value="Male" selected="@(Input.Gender == "Male")">Male</option>
+                        <option value="Female" selected="@(Input.Gender == "Female")">Female</option>
+                        <option value="NonBinary" selected="@(Input.Gender == "NonBinary")">Non-Binary</option>
+                    </InputSelect>
+                    <label>Gender</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputSelect @bind-Value="Input.Race" class="form-select">
+                        <option value="">-- Select --</option>
+                        <option value="White" selected="@(Input.Race == "White")">White</option>
+                        <option value="BlackOrAfricanAmerican" selected="@(Input.Race == "BlackOrAfricanAmerican")">Black or African American</option>
+                        <option value="Hispanic" selected="@(Input.Race == "Hispanic")">Hispanic</option>
+                        <option value="Asian" selected="@(Input.Race == "Asian")">Asian</option>
+                        <option value="AmericanIndianOrAlaskaNative" selected="@(Input.Race == "AmericanIndianOrAlaskaNative")">American Indian or Alaska Native</option>
+                        <option value="NativeHawaiianOrPacificIslander" selected="@(Input.Race == "NativeHawaiianOrPacificIslander")">Native Hawaiian or Pacific Islander</option>
+                        <option value="TwoOrMoreRaces" selected="@(Input.Race == "TwoOrMoreRaces")">Two or More Races</option>
+                        <option value="Other" selected="@(Input.Race == "Other")">Other</option>
+                        <option value="PreferNotToSay" selected="@(Input.Race == "PreferNotToSay")">Prefer Not to Say</option>
+                    </InputSelect>
+                    <label>Race</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputSelect @bind-Value="Input.MaritalStatus" class="form-select">
+                        <option value="">-- Select --</option>
+                        <option value="Single" selected="@(Input.MaritalStatus == "Single")">Single</option>
+                        <option value="Married" selected="@(Input.MaritalStatus == "Married")">Married</option>
+                        <option value="Divorced" selected="@(Input.MaritalStatus == "Divorced")">Divorced</option>
+                        <option value="Widowed" selected="@(Input.MaritalStatus == "Widowed")">Widowed</option>
+                        <option value="Separated" selected="@(Input.MaritalStatus == "Separated")">Separated</option>
+                        <option value="DomesticPartnership" selected="@(Input.MaritalStatus == "DomesticPartnership")">Domestic Partnership</option>
+                    </InputSelect>
+                    <label>Marital Status</label>
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.CallForOvertime" class="form-check-input" />
+                    <label class="form-check-label">Call for Overtime</label>
+                </div>
+                @if (isAdmin)
+                {
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.AllowFmlaMarkOff" class="form-check-input" />
+                    <label class="form-check-label">Allow FMLA Mark Off</label>
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.ProcessPayroll" class="form-check-input" />
+                    <label class="form-check-label">Process Payroll</label>
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.TieUpOffProperty" class="form-check-input" />
+                    <label class="form-check-label">Tie Up Off Property</label>
+                </div>
+                }
+            }
+
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
+        </div>
+    </div>
+</EditForm>
 
 @code {
+    private string? username;
+    private bool isEmployee;
+    private bool isAdmin;
+    private string? employeeNumber;
+    private GetEmployeeResponse? employee;
+    private bool showFullSsn;
+    private string ssnDisplay = string.Empty;
+
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "profile")]
+    private InputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        var user = HttpContext.User;
+        username = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        isAdmin = user.IsInRole("SystemAdmin") || user.IsInRole("ParentAdmin") || user.IsInRole("RailroadAdmin");
+
+        try
+        {
+            var profile = await AccountClient.GetProfileAsync(username ?? string.Empty);
+            Input.FirstName ??= profile.FirstName;
+            Input.MiddleName ??= profile.MiddleName;
+            Input.LastName ??= profile.LastName;
+        }
+        catch
+        {
+        }
+
+        employeeNumber = user.FindFirst("employee_number")?.Value;
+        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            try
+            {
+                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
+                isEmployee = true;
+
+                var ssn = employee.SocialSecurityNumber;
+                ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
+
+                var isFormPost = HttpMethods.IsPost(HttpContext.Request.Method)
+                    && HttpContext.Request.Form.ContainsKey("_handler")
+                    && HttpContext.Request.Form["_handler"] == "profile";
+                if (!isFormPost)
+                {
+                    Input.Gender = employee.Gender;
+                    Input.Race = employee.Race;
+                    Input.DriversLicenseNumber = employee.DriversLicenseNumber;
+                    Input.IssuingState = employee.IssuingState;
+                    Input.MaritalStatus = employee.MaritalStatus;
+                    Input.AllowFmlaMarkOff = employee.AllowFmlaMarkOff;
+                    Input.CallForOvertime = employee.CallForOvertime;
+                    Input.ProcessPayroll = employee.ProcessPayroll;
+                    Input.TieUpOffProperty = employee.TieUpOffProperty;
+                }
+            }
+            catch
+            {
+                isEmployee = false;
+            }
+        }
+    }
+
+    private void OnShowSsn()
+    {
+        if (employee is null) return;
+        showFullSsn = true;
+        ssnDisplay = employee.SocialSecurityNumber;
+    }
+
+    private void OnHideSsn()
+    {
+        // Default state from OnInitializedAsync is already masked.
+        // This handler exists only for the form mapping.
+    }
+
+    private async Task OnSaveAsync()
+    {
+        var messages = new List<string>();
+
+        var profileResponse = await AccountClient.SaveProfileAsync(
+            username ?? string.Empty,
+            Input.FirstName ?? string.Empty,
+            Input.MiddleName ?? string.Empty,
+            Input.LastName ?? string.Empty);
+
+        if (profileResponse.Success)
+        {
+            var identity = (ClaimsIdentity)HttpContext.User.Identity!;
+            var existing = identity.FindFirst(ClaimTypes.Name);
+            if (existing is not null)
+                identity.RemoveClaim(existing);
+            identity.AddClaim(new Claim(ClaimTypes.Name, profileResponse.FullName));
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                HttpContext.User);
+        }
+        else
+        {
+            messages.Add("Profile: " + string.Join("; ", profileResponse.Message));
+        }
+
+        if (isEmployee && employee is not null)
+        {
+            var employeeResponse = await EmployeeClient.UpdateAsync(new UpdateEmployeeRequest
+            {
+                CtrlNbr = employee.CtrlNbr,
+                Gender = Input.Gender ?? string.Empty,
+                Race = Input.Race ?? string.Empty,
+                DriversLicenseNumber = Input.DriversLicenseNumber ?? string.Empty,
+                IssuingState = Input.IssuingState ?? string.Empty,
+                MaritalStatus = Input.MaritalStatus ?? string.Empty,
+                AllowFmlaMarkOff = Input.AllowFmlaMarkOff,
+                CallForOvertime = Input.CallForOvertime,
+                ProcessPayroll = Input.ProcessPayroll,
+                TieUpOffProperty = Input.TieUpOffProperty
+            });
+
+            if (!employeeResponse.Success)
+            {
+                messages.Add("Employee: " + string.Join("; ", employeeResponse.Messages));
+            }
+        }
+
+        var statusMessage = messages.Count > 0
+            ? "Error: " + string.Join(" | ", messages)
+            : "Your profile has been updated.";
+        RedirectManager.RedirectToCurrentPageWithStatus(statusMessage, HttpContext);
+    }
+
+    private sealed class InputModel
+    {
+        [Display(Name = "First Name")]
+        public string? FirstName { get; set; }
+
+        [Display(Name = "Middle Name")]
+        public string? MiddleName { get; set; }
+
+        [Display(Name = "Last Name")]
+        public string? LastName { get; set; }
+
+        public string? Gender { get; set; }
+        public string? Race { get; set; }
+
+        [Display(Name = "Driver's License")]
+        public string? DriversLicenseNumber { get; set; }
+
+        [Display(Name = "Issuing State")]
+        public string? IssuingState { get; set; }
+
+        public string? MaritalStatus { get; set; }
+        public bool AllowFmlaMarkOff { get; set; }
+        public bool CallForOvertime { get; set; }
+        public bool ProcessPayroll { get; set; }
+        public bool TieUpOffProperty { get; set; }
+    }
 }

@@ -2,6 +2,7 @@
 
 @inject NavigationManager NavigationManager
 
+<div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">CrewService.BlazorUI</a>
@@ -11,27 +12,35 @@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
+        <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
             </NavLink>
         </div>
 
-        <AuthorizeView>
+        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin,CraftManager,CrewManager,Dispatcher,PayrollClerk">
             <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="parents">
                         <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Parents
                     </NavLink>
                 </div>
+            </Authorized>
+        </AuthorizeView>
 
+        <AuthorizeView Roles="SystemAdmin,ParentAdmin">
+            <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="config/group-types">
                         <span class="bi bi-diagram-3-nav-menu" aria-hidden="true"></span> Group Types
                     </NavLink>
                 </div>
+            </Authorized>
+        </AuthorizeView>
 
+        <AuthorizeView>
+            <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Logout">
                         <AntiforgeryToken />
@@ -56,6 +65,7 @@
             </NotAuthorized>
         </AuthorizeView>
     </nav>
+    </div>
 </div>
 
 @code {

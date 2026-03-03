@@ -1,0 +1,180 @@
+@page "/Account/Manage/EmailAddresses"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Components.Account
+@using CrewService.Presentation
+
+@inject EmployeeClient EmployeeClient
+@inject EmailAddressTypeClient EmailAddressTypeClient
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Email Addresses</PageTitle>
+
+<h3>Email Addresses</h3>
+<StatusMessage />
+
+@if (employee is not null)
+{
+    @if (employee.EmailAddresses.Count > 0)
+    {
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Email</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var email in employee.EmailAddresses)
+                {
+                    <tr>
+                        <td>@(emailTypes.FirstOrDefault(t => t.CtrlNbr == email.EmailTypeCtrlNbr)?.Name)</td>
+                        <td>@email.Email</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <form method="post" @formname="@($"edit-email-{email.CtrlNbr}")" @onsubmit="() => OnEditAsync(email.CtrlNbr)">
+                                    <AntiforgeryToken />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Edit</button>
+                                </form>
+                                <ConfirmDeleteButton FormName="@($"delete-email-{email.CtrlNbr}")"
+                                                     OnClick="() => OnDeleteAsync(email.CtrlNbr)" />
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="text-muted">No email addresses on file.</p>
+    }
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">@(Input.EditCtrlNbr > 0 ? "Edit Email Address" : "Add Email Address")</h5>
+            <EditForm Model="Input" FormName="save-email" OnValidSubmit="OnSaveAsync" method="post">
+                <DataAnnotationsValidator />
+                <input type="hidden" name="Input.EditCtrlNbr" value="@Input.EditCtrlNbr" />
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="Input.EmailTypeCtrlNbr" class="form-select">
+                                <option value="0">-- Select Type --</option>
+                                @foreach (var t in emailTypes)
+                                {
+                                    <option value="@t.CtrlNbr">@t.Name</option>
+                                }
+                            </InputSelect>
+                            <label>Type</label>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.Email" class="form-control" placeholder="Email Address" />
+                            <label>Email Address</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2">@(Input.EditCtrlNbr > 0 ? "Update Email" : "Add Email")</button>
+                @if (Input.EditCtrlNbr > 0)
+                {
+                    <a href="/Account/Manage/EmailAddresses" class="btn btn-secondary mt-2 ms-2">Cancel</a>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+else
+{
+    <p class="text-muted">Employee information not available.</p>
+}
+
+@code {
+    private GetEmployeeResponse? employee;
+    private List<EmailAddressTypeResponse> emailTypes = [];
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "save-email")]
+    private EmailInputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        var employeeNumber = HttpContext.User.FindFirst("employee_number")?.Value;
+        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            try
+            {
+                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
+                var typesResponse = await EmailAddressTypeClient.GetAllAsync(employee.ClientCtrlNbr);
+                emailTypes = [.. typesResponse.EmaiAddressTypeList];
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private Task OnEditAsync(long ctrlNbr)
+    {
+        if (employee is null) return Task.CompletedTask;
+        var email = employee.EmailAddresses.FirstOrDefault(e => e.CtrlNbr == ctrlNbr);
+        if (email is null) return Task.CompletedTask;
+
+        Input.EditCtrlNbr = email.CtrlNbr;
+        Input.EmailTypeCtrlNbr = email.EmailTypeCtrlNbr;
+        Input.Email = email.Email;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSaveAsync()
+    {
+        if (employee is null) return;
+
+        if (Input.EditCtrlNbr > 0)
+        {
+            await EmployeeClient.UpdateEmailAddressAsync(new UpdateEmailAddressRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                CtrlNbr = Input.EditCtrlNbr,
+                Email = Input.Email ?? string.Empty
+            });
+            RedirectManager.RedirectToCurrentPageWithStatus("Email address updated.", HttpContext);
+        }
+        else
+        {
+            await EmployeeClient.AddEmailAddressAsync(new AddEmailAddressRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                EmailTypeCtrlNbr = Input.EmailTypeCtrlNbr,
+                Email = Input.Email ?? string.Empty
+            });
+            RedirectManager.RedirectToCurrentPageWithStatus("Email address added.", HttpContext);
+        }
+    }
+
+    private async Task OnDeleteAsync(long ctrlNbr)
+    {
+        if (employee is null) return;
+        await EmployeeClient.DeleteEmailAddressAsync(employee.CtrlNbr, ctrlNbr);
+        RedirectManager.RedirectToCurrentPageWithStatus("Email address removed.", HttpContext);
+    }
+
+    private sealed class EmailInputModel
+    {
+        public long EditCtrlNbr { get; set; }
+
+        [Required, EmailAddress, Display(Name = "Email Address")]
+        public string? Email { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Please select an email type.")]
+        public long EmailTypeCtrlNbr { get; set; }
+    }
+}

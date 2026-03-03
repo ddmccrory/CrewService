@@ -1,4 +1,5 @@
 using CrewService.Domain.Exceptions;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Employees;
@@ -8,9 +9,10 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeSrvc.EmployeeSrvcBase
+public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrationUnitOfWorkFactory uowFactory) : EmployeeSrvc.EmployeeSrvcBase
 {
     private readonly IEmployeeRepository _employeeRepository = employeeRepository;
+    private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
 
     #region Employee Operations
 
@@ -60,8 +62,8 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             request.UserId,
             request.EmployeeNumber,
             request.SocialSecurityNumber,
-            request.Gender,
-            request.Race,
+            System.Enum.Parse<Gender>(request.Gender, ignoreCase: true),
+            System.Enum.Parse<Race>(request.Race, ignoreCase: true),
             request.BirthDate.ToDateTime(),
             request.EmploymentDate.ToDateTime(),
             request.EmploymentStatusCtrlNbr);
@@ -71,10 +73,12 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             employee.Update(
                 driversLicenseNumber: request.DriversLicenseNumber,
                 issuingState: request.IssuingState,
-                marriageStatus: request.MarriageStatus);
+                maritalStatus: string.IsNullOrEmpty(request.MaritalStatus) ? null : System.Enum.Parse<MaritalStatus>(request.MaritalStatus, ignoreCase: true));
         }
 
-        _employeeRepository.Add(employee);
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.Employees.Add(employee);
+        await uow.CommitAsync();
 
         return new CreateEmployeeResponse
         {
@@ -90,19 +94,24 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
         if (request.CtrlNbr <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid employee control number."));
 
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.CtrlNbr} was not found."));
 
         employee.Update(
             driversLicenseNumber: string.IsNullOrEmpty(request.DriversLicenseNumber) ? null : request.DriversLicenseNumber,
             issuingState: string.IsNullOrEmpty(request.IssuingState) ? null : request.IssuingState,
-            marriageStatus: request.MarriageStatus,
+            maritalStatus: string.IsNullOrEmpty(request.MaritalStatus) ? null : System.Enum.Parse<MaritalStatus>(request.MaritalStatus, ignoreCase: true),
             allowFMLAMarkOff: request.AllowFmlaMarkOff,
             callForOvertime: request.CallForOvertime,
             processPayroll: request.ProcessPayroll,
-            tieUpOffProperty: request.TieUpOffProperty);
+            tieUpOffProperty: request.TieUpOffProperty,
+            gender: string.IsNullOrEmpty(request.Gender) ? null : System.Enum.Parse<Gender>(request.Gender, ignoreCase: true),
+            race: string.IsNullOrEmpty(request.Race) ? null : System.Enum.Parse<Race>(request.Race, ignoreCase: true));
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new UpdateEmployeeResponse
         {
@@ -117,10 +126,13 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
         if (request.CtrlNbr <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid employee control number."));
 
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.CtrlNbr} was not found."));
 
-        _employeeRepository.Remove(employee);
+        uow.Employees.Remove(employee);
+        await uow.CommitAsync();
 
         return new DeleteEmployeeResponse
         {
@@ -135,7 +147,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<AddressResponse> AddAddressAsync(AddAddressRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         var address = employee.AddAddress(
@@ -146,7 +160,8 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             request.AddressTypeCtrlNbr,
             string.IsNullOrEmpty(request.Address2) ? null : request.Address2);
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new AddressResponse
         {
@@ -164,7 +179,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<AddressResponse> UpdateAddressAsync(UpdateAddressRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         var address = employee.Addresses.FirstOrDefault(a => a.CtrlNbr == ControlNumber.Create(request.CtrlNbr))
@@ -177,7 +194,8 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             state: string.IsNullOrEmpty(request.State) ? null : request.State,
             zipCode: string.IsNullOrEmpty(request.ZipCode) ? null : request.ZipCode);
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new AddressResponse
         {
@@ -195,12 +213,15 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<DeleteResponse> DeleteAddressAsync(DeleteAddressRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         employee.RemoveAddress(ControlNumber.Create(request.CtrlNbr));
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new DeleteResponse
         {
@@ -215,7 +236,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<PhoneNumberResponse> AddPhoneNumberAsync(AddPhoneNumberRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         var phone = employee.AddPhoneNumber(
@@ -224,7 +247,8 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             request.DialOne,
             request.PhoneTypeCtrlNbr);
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new PhoneNumberResponse
         {
@@ -240,7 +264,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<PhoneNumberResponse> UpdatePhoneNumberAsync(UpdatePhoneNumberRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         var phone = employee.PhoneNumbers.FirstOrDefault(p => p.CtrlNbr == ControlNumber.Create(request.CtrlNbr))
@@ -251,7 +277,8 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             callingOrder: request.CallingOrder > 0 ? request.CallingOrder : null,
             dialOne: request.DialOne);
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new PhoneNumberResponse
         {
@@ -267,12 +294,15 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<DeleteResponse> DeletePhoneNumberAsync(DeletePhoneNumberRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         employee.RemovePhoneNumber(ControlNumber.Create(request.CtrlNbr));
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new DeleteResponse
         {
@@ -287,12 +317,15 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<EmailAddressResponse> AddEmailAddressAsync(AddEmailAddressRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         var email = employee.AddEmailAddress(request.Email, request.EmailTypeCtrlNbr);
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new EmailAddressResponse
         {
@@ -306,7 +339,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<EmailAddressResponse> UpdateEmailAddressAsync(UpdateEmailAddressRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         var email = employee.EmailAddresses.FirstOrDefault(e => e.CtrlNbr == ControlNumber.Create(request.CtrlNbr))
@@ -314,7 +349,8 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
         email.Update(string.IsNullOrEmpty(request.Email) ? null : request.Email);
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new EmailAddressResponse
         {
@@ -328,12 +364,15 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
 
     public override async Task<DeleteResponse> DeleteEmailAddressAsync(DeleteEmailAddressRequest request, ServerCallContext context)
     {
-        var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.EmployeeCtrlNbr} was not found."));
 
         employee.RemoveEmailAddress(ControlNumber.Create(request.CtrlNbr));
 
-        _employeeRepository.Update(employee);
+        uow.Employees.Update(employee);
+        await uow.CommitAsync();
 
         return new DeleteResponse
         {
@@ -355,14 +394,14 @@ public class EmployeeService(IEmployeeRepository employeeRepository) : EmployeeS
             UserId = employee.UserId,
             EmployeeNumber = employee.EmployeeNumber,
             SocialSecurityNumber = employee.SocialSecurityNumber,
-            Gender = employee.Gender,
-            Race = employee.Race,
+            Gender = employee.Gender.ToString(),
+            Race = employee.Race.ToString(),
             BirthDate = Timestamp.FromDateTime(DateTime.SpecifyKind(employee.BirthDate, DateTimeKind.Utc)),
             EmploymentDate = Timestamp.FromDateTime(DateTime.SpecifyKind(employee.EmploymentDate, DateTimeKind.Utc)),
             EmploymentStatusCtrlNbr = employee.EmploymentStatusCtrlNbr.Value,
             DriversLicenseNumber = employee.DriversLicenseNumber ?? string.Empty,
             IssuingState = employee.IssuingState ?? string.Empty,
-            MarriageStatus = employee.MarriageStatus,
+            MaritalStatus = employee.MaritalStatus.ToString(),
             AllowFmlaMarkOff = employee.AllowFMLAMarkOff,
             CallForOvertime = employee.CallForOvertime,
             ProcessPayroll = employee.ProcessPayroll,

@@ -210,14 +210,19 @@ public sealed class AuthService(
     {
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Name, user.UserName!),
-            new(ClaimTypes.NameIdentifier, user.Id)
+            new(JwtRegisteredClaimNames.Name, user.UserName!),
+            new(JwtRegisteredClaimNames.Sub, user.Id)
         };
+
+        if (!string.IsNullOrWhiteSpace(user.EmployeeNumber))
+        {
+            claims.Add(new Claim("employee_number", user.EmployeeNumber));
+        }
 
         // Global role: SystemAdmin bypasses parent scoping
         if (string.Equals(user.PrimaryRoleId, Roles.SystemAdmin, StringComparison.Ordinal))
         {
-            claims.Add(new Claim(ClaimTypes.Role, Roles.SystemAdmin));
+            claims.Add(new Claim("role", Roles.SystemAdmin));
         }
         else
         {
@@ -228,7 +233,7 @@ public sealed class AuthService(
             {
                 foreach (var role in assignments.Select(a => a.Role).Distinct())
                 {
-                    claims.Add(new Claim(ClaimTypes.Role, role));
+                    claims.Add(new Claim("role", role));
                 }
 
                 foreach (var assignment in assignments)
@@ -239,7 +244,7 @@ public sealed class AuthService(
             else
             {
                 // No assignments — default to ReadOnly (will be blocked by policies requiring parent context)
-                claims.Add(new Claim(ClaimTypes.Role, Roles.ReadOnly));
+                claims.Add(new Claim("role", Roles.ReadOnly));
             }
         }
 
@@ -279,7 +284,9 @@ public sealed class AuthService(
             ValidateIssuerSigningKey = true,
             ValidIssuer = _configuration["Jwt:Issuer"],
             ValidAudience = _configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetJwtSecretKey()))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetJwtSecretKey())),
+            NameClaimType = JwtRegisteredClaimNames.Name,
+            RoleClaimType = "role"
         };
 
         var tokenHandler = new JwtSecurityTokenHandler();

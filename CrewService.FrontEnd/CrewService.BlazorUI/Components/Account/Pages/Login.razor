@@ -1,4 +1,5 @@
 ﻿@page "/Account/Login"
+@attribute [ExcludeFromInteractiveRouting]
 
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Services
@@ -7,6 +8,7 @@
 @using Microsoft.AspNetCore.Authentication.Cookies
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
+@using System.Text.Json
 
 @inject AppThemeService AppThemeService
 @inject ILogger<Login> Logger
@@ -80,11 +82,64 @@
                 new Claim("AccessToken", registeredUser.Token)
             };
 
+            // Extract role claims from the JWT token
+            var tokenParts = registeredUser.Token.Split('.');
+            if (tokenParts.Length == 3)
+            {
+                var payload = tokenParts[1].Replace('-', '+').Replace('_', '/');
+                switch (payload.Length % 4)
+                {
+                    case 2: payload += "=="; break;
+                    case 3: payload += "="; break;
+                }
+                var payloadJson = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+                using var doc = JsonDocument.Parse(payloadJson);
+
+                if (doc.RootElement.TryGetProperty("role", out var roleElement))
+                {
+                    if (roleElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var role in roleElement.EnumerateArray())
+                        {
+                            claims.Add(new Claim(ClaimTypes.Role, role.GetString()!));
+                        }
+                    }
+                    else
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, roleElement.GetString()!));
+                    }
+                }
+
+                if (doc.RootElement.TryGetProperty("parent_role", out var parentRoleElement))
+                {
+                    if (parentRoleElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var pr in parentRoleElement.EnumerateArray())
+                        {
+                            claims.Add(new Claim("parent_role", pr.GetString()!));
+                        }
+                    }
+                    else
+                    {
+                        claims.Add(new Claim("parent_role", parentRoleElement.GetString()!));
+                    }
+                }
+
+                if (doc.RootElement.TryGetProperty("employee_number", out var empElement) && empElement.ValueKind == JsonValueKind.String)
+                {
+                    var empNumber = empElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(empNumber))
+                    {
+                        claims.Add(new Claim("employee_number", empNumber));
+                    }
+                }
+            }
+
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
             var authProperties = new AuthenticationProperties
             {
-                IsPersistent = true
+                IsPersistent = false
             };
 
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity), authProperties);
