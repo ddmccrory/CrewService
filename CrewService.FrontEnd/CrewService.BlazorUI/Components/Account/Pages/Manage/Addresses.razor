@@ -1,0 +1,236 @@
+@page "/Account/Manage/Addresses"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Components.Account
+@using CrewService.Presentation
+
+@inject EmployeeClient EmployeeClient
+@inject AddressTypeClient AddressTypeClient
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Addresses</PageTitle>
+
+<h3>Addresses</h3>
+<StatusMessage />
+
+@if (employee is not null)
+{
+    @if (employee.Addresses.Count > 0)
+    {
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Address 1</th>
+                    <th>Address 2</th>
+                    <th>City</th>
+                    <th>State</th>
+                    <th>Zip</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var addr in employee.Addresses)
+                {
+                    <tr>
+                        <td>@(addressTypes.FirstOrDefault(t => t.CtrlNbr == addr.AddressTypeCtrlNbr)?.Name)</td>
+                        <td>@addr.Address1</td>
+                        <td>@addr.Address2</td>
+                        <td>@addr.City</td>
+                        <td>@addr.State</td>
+                        <td>@addr.ZipCode</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <form method="post" @formname="@($"edit-address-{addr.CtrlNbr}")" @onsubmit="() => OnEditAsync(addr.CtrlNbr)">
+                                    <AntiforgeryToken />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Edit</button>
+                                </form>
+                                <ConfirmDeleteButton FormName="@($"delete-address-{addr.CtrlNbr}")"
+                                                     OnClick="() => OnDeleteAsync(addr.CtrlNbr)" />
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="text-muted">No addresses on file.</p>
+    }
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">@(Input.EditCtrlNbr > 0 ? "Edit Address" : "Add Address")</h5>
+            <EditForm Model="Input" FormName="save-address" OnValidSubmit="OnSaveAsync" method="post">
+                <DataAnnotationsValidator />
+                <input type="hidden" name="Input.EditCtrlNbr" value="@Input.EditCtrlNbr" />
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="Input.AddressTypeCtrlNbr" class="form-select">
+                                <option value="0">-- Select Type --</option>
+                                @foreach (var t in addressTypes)
+                                {
+                                    <option value="@t.CtrlNbr">@t.Name</option>
+                                }
+                            </InputSelect>
+                            <label>Type</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.Address1" class="form-control" placeholder="Address 1" />
+                            <label>Address 1</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.Address2" class="form-control" placeholder="Address 2" />
+                            <label>Address 2</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.City" class="form-control" placeholder="City" />
+                            <label>City</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.State" class="form-control" placeholder="State" />
+                            <label>State</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <InputText @bind-Value="Input.ZipCode" class="form-control" placeholder="Zip Code" />
+                            <label>Zip Code</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2">@(Input.EditCtrlNbr > 0 ? "Update Address" : "Add Address")</button>
+                @if (Input.EditCtrlNbr > 0)
+                {
+                    <a href="/Account/Manage/Addresses" class="btn btn-secondary mt-2 ms-2">Cancel</a>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+else
+{
+    <p class="text-muted">Employee information not available.</p>
+}
+
+@code {
+    private GetEmployeeResponse? employee;
+    private List<AddressTypeResponse> addressTypes = [];
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "save-address")]
+    private AddressInputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        var employeeNumber = HttpContext.User.FindFirst("employee_number")?.Value;
+        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            try
+            {
+                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
+                var typesResponse = await AddressTypeClient.GetAllAsync(employee.ClientCtrlNbr);
+                addressTypes = [.. typesResponse.AddressTypeList];
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private Task OnEditAsync(long ctrlNbr)
+    {
+        if (employee is null) return Task.CompletedTask;
+        var addr = employee.Addresses.FirstOrDefault(a => a.CtrlNbr == ctrlNbr);
+        if (addr is null) return Task.CompletedTask;
+
+        Input.EditCtrlNbr = addr.CtrlNbr;
+        Input.AddressTypeCtrlNbr = addr.AddressTypeCtrlNbr;
+        Input.Address1 = addr.Address1;
+        Input.Address2 = addr.Address2;
+        Input.City = addr.City;
+        Input.State = addr.State;
+        Input.ZipCode = addr.ZipCode;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSaveAsync()
+    {
+        if (employee is null) return;
+
+        if (Input.EditCtrlNbr > 0)
+        {
+            await EmployeeClient.UpdateAddressAsync(new UpdateAddressRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                CtrlNbr = Input.EditCtrlNbr,
+                Address1 = Input.Address1 ?? string.Empty,
+                Address2 = Input.Address2 ?? string.Empty,
+                City = Input.City ?? string.Empty,
+                State = Input.State ?? string.Empty,
+                ZipCode = Input.ZipCode ?? string.Empty
+            });
+            RedirectManager.RedirectToCurrentPageWithStatus("Address updated.", HttpContext);
+        }
+        else
+        {
+            await EmployeeClient.AddAddressAsync(new AddAddressRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                AddressTypeCtrlNbr = Input.AddressTypeCtrlNbr,
+                Address1 = Input.Address1 ?? string.Empty,
+                Address2 = Input.Address2 ?? string.Empty,
+                City = Input.City ?? string.Empty,
+                State = Input.State ?? string.Empty,
+                ZipCode = Input.ZipCode ?? string.Empty
+            });
+            RedirectManager.RedirectToCurrentPageWithStatus("Address added.", HttpContext);
+        }
+    }
+
+    private async Task OnDeleteAsync(long ctrlNbr)
+    {
+        if (employee is null) return;
+        await EmployeeClient.DeleteAddressAsync(employee.CtrlNbr, ctrlNbr);
+        RedirectManager.RedirectToCurrentPageWithStatus("Address removed.", HttpContext);
+    }
+
+    private sealed class AddressInputModel
+    {
+        public long EditCtrlNbr { get; set; }
+
+        [Required, Display(Name = "Address 1")]
+        public string? Address1 { get; set; }
+
+        [Display(Name = "Address 2")]
+        public string? Address2 { get; set; }
+
+        [Required]
+        public string? City { get; set; }
+
+        [Required]
+        public string? State { get; set; }
+
+        [Required, Display(Name = "Zip Code")]
+        public string? ZipCode { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Please select an address type.")]
+        public long AddressTypeCtrlNbr { get; set; }
+    }
+}

@@ -48,12 +48,14 @@ internal sealed class PersistingServerAuthenticationStateProvider : Authenticati
             if (userId != null && email != null)
             {
                 var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+                var employeeNumber = principal.FindFirst("employee_number")?.Value;
 
                 _persistentComponentState.PersistAsJson(nameof(UserInfo), new UserInfo
                 {
                     UserId = userId,
                     Email = email,
-                    Roles = roles
+                    Roles = roles,
+                    EmployeeNumber = employeeNumber
                 });
             }
         }

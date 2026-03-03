@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage"
+@page "/Account/Manage"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
@@ -17,284 +17,167 @@
 <h3>Profile</h3>
 <StatusMessage />
 
-<div class="row">
-    <div class="col-xl-6">
-        <EditForm Model="ProfileInput" FormName="profile" OnValidSubmit="OnSaveProfileAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
+@if (isEmployee && employee is not null)
+{
+    <div class="row">
+        <div class="col-xl-6">
+            <div class="form-floating mb-3">
+                <input type="text" value="@employee.EmployeeNumber" class="form-control" disabled />
+                <label>Employee Number</label>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Social Security Number</label>
+                <div class="input-group">
+                    <input type="text" value="@ssnDisplay" class="form-control" disabled />
+                    <form method="post" @formname="show-ssn" @onsubmit="OnShowSsn" style="@(showFullSsn ? "display:none" : "")">
+                        <AntiforgeryToken />
+                        <button type="submit" class="btn btn-outline-secondary">Show</button>
+                    </form>
+                    <form method="post" @formname="hide-ssn" @onsubmit="OnHideSsn" style="@(showFullSsn ? "" : "display:none")">
+                        <AntiforgeryToken />
+                        <button type="submit" class="btn btn-outline-secondary">Hide</button>
+                    </form>
+                </div>
+            </div>
+            <div class="form-floating mb-3">
+                <input type="text" value="@(employee.BirthDate?.ToDateTime().ToString("MM/dd/yyyy"))" class="form-control" disabled />
+                <label>Birth Date</label>
+            </div>
+            <div class="form-floating mb-3">
+                <input type="text" value="@(employee.EmploymentDate?.ToDateTime().ToString("MM/dd/yyyy"))" class="form-control" disabled />
+                <label>Hire Date</label>
+            </div>
+        </div>
+    </div>
+    <hr />
+}
+
+<EditForm Model="Input" FormName="profile" OnValidSubmit="OnSaveAsync" method="post">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="row">
+        <div class="col-xl-6">
             <div class="form-floating mb-3">
                 <input type="text" value="@username" id="username" class="form-control" placeholder="Username" disabled />
                 <label for="username" class="form-label">Username</label>
             </div>
             <div class="form-floating mb-3">
-                <InputText @bind-Value="ProfileInput.FirstName" id="ProfileInput.FirstName" class="form-control" placeholder="Enter your first name" />
-                <label for="ProfileInput.FirstName" class="form-label">First Name</label>
-                <ValidationMessage For="() => ProfileInput.FirstName" class="text-danger" />
+                <InputText @bind-Value="Input.FirstName" id="Input.FirstName" class="form-control" placeholder="Enter your first name" />
+                <label for="Input.FirstName" class="form-label">First Name</label>
+                <ValidationMessage For="() => Input.FirstName" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
-                <InputText @bind-Value="ProfileInput.MiddleName" id="ProfileInput.MiddleName" class="form-control" placeholder="Enter your middle name or initial" />
-                <label for="ProfileInput.MiddleName" class="form-label">Middle Name</label>
-                <ValidationMessage For="() => ProfileInput.MiddleName" class="text-danger" />
+                <InputText @bind-Value="Input.MiddleName" id="Input.MiddleName" class="form-control" placeholder="Enter your middle name or initial" />
+                <label for="Input.MiddleName" class="form-label">Middle Name</label>
+                <ValidationMessage For="() => Input.MiddleName" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
-                <InputText @bind-Value="ProfileInput.LastName" id="ProfileInput.LastName" class="form-control" placeholder="Enter your last name" />
-                <label for="ProfileInput.LastName" class="form-label">Last Name</label>
-                <ValidationMessage For="() => ProfileInput.LastName" class="text-danger" />
+                <InputText @bind-Value="Input.LastName" id="Input.LastName" class="form-control" placeholder="Enter your last name" />
+                <label for="Input.LastName" class="form-label">Last Name</label>
+                <ValidationMessage For="() => Input.LastName" class="text-danger" />
             </div>
+
+            @if (isEmployee && employee is not null)
+            {
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.DriversLicenseNumber" class="form-control" placeholder="Driver's License" />
+                    <label>Driver's License</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.IssuingState" class="form-control" placeholder="Issuing State" />
+                    <label>Issuing State</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputSelect @bind-Value="Input.Gender" class="form-select">
+                        <option value="">-- Select --</option>
+                        <option value="Male" selected="@(Input.Gender == "Male")">Male</option>
+                        <option value="Female" selected="@(Input.Gender == "Female")">Female</option>
+                        <option value="NonBinary" selected="@(Input.Gender == "NonBinary")">Non-Binary</option>
+                    </InputSelect>
+                    <label>Gender</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputSelect @bind-Value="Input.Race" class="form-select">
+                        <option value="">-- Select --</option>
+                        <option value="White" selected="@(Input.Race == "White")">White</option>
+                        <option value="BlackOrAfricanAmerican" selected="@(Input.Race == "BlackOrAfricanAmerican")">Black or African American</option>
+                        <option value="Hispanic" selected="@(Input.Race == "Hispanic")">Hispanic</option>
+                        <option value="Asian" selected="@(Input.Race == "Asian")">Asian</option>
+                        <option value="AmericanIndianOrAlaskaNative" selected="@(Input.Race == "AmericanIndianOrAlaskaNative")">American Indian or Alaska Native</option>
+                        <option value="NativeHawaiianOrPacificIslander" selected="@(Input.Race == "NativeHawaiianOrPacificIslander")">Native Hawaiian or Pacific Islander</option>
+                        <option value="TwoOrMoreRaces" selected="@(Input.Race == "TwoOrMoreRaces")">Two or More Races</option>
+                        <option value="Other" selected="@(Input.Race == "Other")">Other</option>
+                        <option value="PreferNotToSay" selected="@(Input.Race == "PreferNotToSay")">Prefer Not to Say</option>
+                    </InputSelect>
+                    <label>Race</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <InputSelect @bind-Value="Input.MaritalStatus" class="form-select">
+                        <option value="">-- Select --</option>
+                        <option value="Single" selected="@(Input.MaritalStatus == "Single")">Single</option>
+                        <option value="Married" selected="@(Input.MaritalStatus == "Married")">Married</option>
+                        <option value="Divorced" selected="@(Input.MaritalStatus == "Divorced")">Divorced</option>
+                        <option value="Widowed" selected="@(Input.MaritalStatus == "Widowed")">Widowed</option>
+                        <option value="Separated" selected="@(Input.MaritalStatus == "Separated")">Separated</option>
+                        <option value="DomesticPartnership" selected="@(Input.MaritalStatus == "DomesticPartnership")">Domestic Partnership</option>
+                    </InputSelect>
+                    <label>Marital Status</label>
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.CallForOvertime" class="form-check-input" />
+                    <label class="form-check-label">Call for Overtime</label>
+                </div>
+                @if (isAdmin)
+                {
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.AllowFmlaMarkOff" class="form-check-input" />
+                    <label class="form-check-label">Allow FMLA Mark Off</label>
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.ProcessPayroll" class="form-check-input" />
+                    <label class="form-check-label">Process Payroll</label>
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.TieUpOffProperty" class="form-check-input" />
+                    <label class="form-check-label">Tie Up Off Property</label>
+                </div>
+                }
+            }
+
             <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
-        </EditForm>
-    </div>
-</div>
-
-@if (isEmployee && employee is not null)
-{
-    <hr />
-    <h3>Employee Information</h3>
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <dl class="row">
-                <dt class="col-sm-5">Employee Number</dt>
-                <dd class="col-sm-7">@employee.EmployeeNumber</dd>
-            </dl>
         </div>
     </div>
-
-    @* ───── Addresses ───── *@
-    <h4>Addresses</h4>
-    @if (employee.Addresses.Count > 0)
-    {
-        <table class="table table-sm table-striped">
-            <thead>
-                <tr>
-                    <th>Address 1</th>
-                    <th>Address 2</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Zip</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var addr in employee.Addresses)
-                {
-                    <tr>
-                        <td>@addr.Address1</td>
-                        <td>@addr.Address2</td>
-                        <td>@addr.City</td>
-                        <td>@addr.State</td>
-                        <td>@addr.ZipCode</td>
-                        <td>
-                            <form method="post" @formname="@($"delete-address-{addr.CtrlNbr}")" @onsubmit="() => OnDeleteAddressAsync(addr.CtrlNbr)">
-                                <AntiforgeryToken />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted">No addresses on file.</p>
-    }
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Add Address</h5>
-            <EditForm Model="AddressInput" FormName="add-address" OnValidSubmit="OnAddAddressAsync" method="post">
-                <DataAnnotationsValidator />
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <InputText @bind-Value="AddressInput.Address1" class="form-control" placeholder="Address 1" />
-                            <label>Address 1</label>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <InputText @bind-Value="AddressInput.Address2" class="form-control" placeholder="Address 2" />
-                            <label>Address 2</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputText @bind-Value="AddressInput.City" class="form-control" placeholder="City" />
-                            <label>City</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputText @bind-Value="AddressInput.State" class="form-control" placeholder="State" />
-                            <label>State</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputText @bind-Value="AddressInput.ZipCode" class="form-control" placeholder="Zip Code" />
-                            <label>Zip Code</label>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary mt-2">Add Address</button>
-            </EditForm>
-        </div>
-    </div>
-
-    @* ───── Phone Numbers ───── *@
-    <h4>Phone Numbers</h4>
-    @if (employee.PhoneNumbers.Count > 0)
-    {
-        <table class="table table-sm table-striped">
-            <thead>
-                <tr>
-                    <th>Number</th>
-                    <th>Calling Order</th>
-                    <th>Dial One</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var phone in employee.PhoneNumbers)
-                {
-                    <tr>
-                        <td>@phone.Number</td>
-                        <td>@phone.CallingOrder</td>
-                        <td>@(phone.DialOne ? "Yes" : "No")</td>
-                        <td>
-                            <form method="post" @formname="@($"delete-phone-{phone.CtrlNbr}")" @onsubmit="() => OnDeletePhoneAsync(phone.CtrlNbr)">
-                                <AntiforgeryToken />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted">No phone numbers on file.</p>
-    }
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Add Phone Number</h5>
-            <EditForm Model="PhoneInput" FormName="add-phone" OnValidSubmit="OnAddPhoneAsync" method="post">
-                <DataAnnotationsValidator />
-                <div class="row g-2">
-                    <div class="col-md-5">
-                        <div class="form-floating">
-                            <InputText @bind-Value="PhoneInput.Number" class="form-control" placeholder="Phone Number" />
-                            <label>Phone Number</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <InputNumber @bind-Value="PhoneInput.CallingOrder" class="form-control" placeholder="Order" />
-                            <label>Calling Order</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check">
-                            <InputCheckbox @bind-Value="PhoneInput.DialOne" class="form-check-input" />
-                            <label class="form-check-label">Dial One</label>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary mt-2">Add Phone</button>
-            </EditForm>
-        </div>
-    </div>
-
-    @* ───── Email Addresses ───── *@
-    <h4>Email Addresses</h4>
-    @if (employee.EmailAddresses.Count > 0)
-    {
-        <table class="table table-sm table-striped">
-            <thead>
-                <tr>
-                    <th>Email</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var email in employee.EmailAddresses)
-                {
-                    <tr>
-                        <td>@email.Email</td>
-                        <td>
-                            <form method="post" @formname="@($"delete-email-{email.CtrlNbr}")" @onsubmit="() => OnDeleteEmailAsync(email.CtrlNbr)">
-                                <AntiforgeryToken />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted">No email addresses on file.</p>
-    }
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Add Email Address</h5>
-            <EditForm Model="EmailInput" FormName="add-email" OnValidSubmit="OnAddEmailAsync" method="post">
-                <DataAnnotationsValidator />
-                <div class="row g-2">
-                    <div class="col-md-8">
-                        <div class="form-floating">
-                            <InputText @bind-Value="EmailInput.Email" class="form-control" placeholder="Email Address" />
-                            <label>Email Address</label>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary mt-2">Add Email</button>
-            </EditForm>
-        </div>
-    </div>
-}
+</EditForm>
 
 @code {
     private string? username;
     private bool isEmployee;
+    private bool isAdmin;
     private string? employeeNumber;
     private GetEmployeeResponse? employee;
+    private bool showFullSsn;
+    private string ssnDisplay = string.Empty;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
     [SupplyParameterFromForm(FormName = "profile")]
-    private ProfileInputModel ProfileInput { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "add-address")]
-    private AddressInputModel AddressInput { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "add-phone")]
-    private PhoneInputModel PhoneInput { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "add-email")]
-    private EmailInputModel EmailInput { get; set; } = default!;
+    private InputModel Input { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
-        ProfileInput ??= new();
-        AddressInput ??= new();
-        PhoneInput ??= new();
-        EmailInput ??= new();
+        Input ??= new();
 
         var user = HttpContext.User;
         username = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        isAdmin = user.IsInRole("SystemAdmin") || user.IsInRole("ParentAdmin") || user.IsInRole("RailroadAdmin");
 
         try
         {
             var profile = await AccountClient.GetProfileAsync(username ?? string.Empty);
-            ProfileInput.FirstName ??= profile.FirstName;
-            ProfileInput.MiddleName ??= profile.MiddleName;
-            ProfileInput.LastName ??= profile.LastName;
+            Input.FirstName ??= profile.FirstName;
+            Input.MiddleName ??= profile.MiddleName;
+            Input.LastName ??= profile.LastName;
         }
         catch
         {
@@ -307,6 +190,25 @@
             {
                 employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
                 isEmployee = true;
+
+                var ssn = employee.SocialSecurityNumber;
+                ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
+
+                var isFormPost = HttpMethods.IsPost(HttpContext.Request.Method)
+                    && HttpContext.Request.Form.ContainsKey("_handler")
+                    && HttpContext.Request.Form["_handler"] == "profile";
+                if (!isFormPost)
+                {
+                    Input.Gender = employee.Gender;
+                    Input.Race = employee.Race;
+                    Input.DriversLicenseNumber = employee.DriversLicenseNumber;
+                    Input.IssuingState = employee.IssuingState;
+                    Input.MaritalStatus = employee.MaritalStatus;
+                    Input.AllowFmlaMarkOff = employee.AllowFmlaMarkOff;
+                    Input.CallForOvertime = employee.CallForOvertime;
+                    Input.ProcessPayroll = employee.ProcessPayroll;
+                    Input.TieUpOffProperty = employee.TieUpOffProperty;
+                }
             }
             catch
             {
@@ -315,98 +217,75 @@
         }
     }
 
-    private async Task OnSaveProfileAsync()
+    private void OnShowSsn()
     {
-        var response = await AccountClient.SaveProfileAsync(
-            username ?? string.Empty,
-            ProfileInput.FirstName ?? string.Empty,
-            ProfileInput.MiddleName ?? string.Empty,
-            ProfileInput.LastName ?? string.Empty);
+        if (employee is null) return;
+        showFullSsn = true;
+        ssnDisplay = employee.SocialSecurityNumber;
+    }
 
-        if (response.Success)
+    private void OnHideSsn()
+    {
+        // Default state from OnInitializedAsync is already masked.
+        // This handler exists only for the form mapping.
+    }
+
+    private async Task OnSaveAsync()
+    {
+        var messages = new List<string>();
+
+        var profileResponse = await AccountClient.SaveProfileAsync(
+            username ?? string.Empty,
+            Input.FirstName ?? string.Empty,
+            Input.MiddleName ?? string.Empty,
+            Input.LastName ?? string.Empty);
+
+        if (profileResponse.Success)
         {
             var identity = (ClaimsIdentity)HttpContext.User.Identity!;
             var existing = identity.FindFirst(ClaimTypes.Name);
             if (existing is not null)
                 identity.RemoveClaim(existing);
-            identity.AddClaim(new Claim(ClaimTypes.Name, response.FullName));
+            identity.AddClaim(new Claim(ClaimTypes.Name, profileResponse.FullName));
 
             await HttpContext.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 HttpContext.User);
         }
-
-        var message = response.Success ? "Your profile has been updated." : "Error: " + string.Join("; ", response.Message);
-        RedirectManager.RedirectToCurrentPageWithStatus(message, HttpContext);
-    }
-
-    private async Task OnAddAddressAsync()
-    {
-        if (employee is null) return;
-
-        await EmployeeClient.AddAddressAsync(new AddAddressRequest
+        else
         {
-            EmployeeCtrlNbr = employee.CtrlNbr,
-            Address1 = AddressInput.Address1 ?? string.Empty,
-            Address2 = AddressInput.Address2 ?? string.Empty,
-            City = AddressInput.City ?? string.Empty,
-            State = AddressInput.State ?? string.Empty,
-            ZipCode = AddressInput.ZipCode ?? string.Empty
-        });
+            messages.Add("Profile: " + string.Join("; ", profileResponse.Message));
+        }
 
-        RedirectManager.RedirectToCurrentPageWithStatus("Address added.", HttpContext);
-    }
-
-    private async Task OnDeleteAddressAsync(long ctrlNbr)
-    {
-        if (employee is null) return;
-        await EmployeeClient.DeleteAddressAsync(employee.CtrlNbr, ctrlNbr);
-        RedirectManager.RedirectToCurrentPageWithStatus("Address removed.", HttpContext);
-    }
-
-    private async Task OnAddPhoneAsync()
-    {
-        if (employee is null) return;
-
-        await EmployeeClient.AddPhoneNumberAsync(new AddPhoneNumberRequest
+        if (isEmployee && employee is not null)
         {
-            EmployeeCtrlNbr = employee.CtrlNbr,
-            Number = PhoneInput.Number ?? string.Empty,
-            CallingOrder = PhoneInput.CallingOrder,
-            DialOne = PhoneInput.DialOne
-        });
+            var employeeResponse = await EmployeeClient.UpdateAsync(new UpdateEmployeeRequest
+            {
+                CtrlNbr = employee.CtrlNbr,
+                Gender = Input.Gender ?? string.Empty,
+                Race = Input.Race ?? string.Empty,
+                DriversLicenseNumber = Input.DriversLicenseNumber ?? string.Empty,
+                IssuingState = Input.IssuingState ?? string.Empty,
+                MaritalStatus = Input.MaritalStatus ?? string.Empty,
+                AllowFmlaMarkOff = Input.AllowFmlaMarkOff,
+                CallForOvertime = Input.CallForOvertime,
+                ProcessPayroll = Input.ProcessPayroll,
+                TieUpOffProperty = Input.TieUpOffProperty
+            });
 
-        RedirectManager.RedirectToCurrentPageWithStatus("Phone number added.", HttpContext);
+            if (!employeeResponse.Success)
+            {
+                messages.Add("Employee: " + string.Join("; ", employeeResponse.Messages));
+            }
+        }
+
+        var statusMessage = messages.Count > 0
+            ? "Error: " + string.Join(" | ", messages)
+            : "Your profile has been updated.";
+        RedirectManager.RedirectToCurrentPageWithStatus(statusMessage, HttpContext);
     }
 
-    private async Task OnDeletePhoneAsync(long ctrlNbr)
-    {
-        if (employee is null) return;
-        await EmployeeClient.DeletePhoneNumberAsync(employee.CtrlNbr, ctrlNbr);
-        RedirectManager.RedirectToCurrentPageWithStatus("Phone number removed.", HttpContext);
-    }
-
-    private async Task OnAddEmailAsync()
-    {
-        if (employee is null) return;
-
-        await EmployeeClient.AddEmailAddressAsync(new AddEmailAddressRequest
-        {
-            EmployeeCtrlNbr = employee.CtrlNbr,
-            Email = EmailInput.Email ?? string.Empty
-        });
-
-        RedirectManager.RedirectToCurrentPageWithStatus("Email address added.", HttpContext);
-    }
-
-    private async Task OnDeleteEmailAsync(long ctrlNbr)
-    {
-        if (employee is null) return;
-        await EmployeeClient.DeleteEmailAddressAsync(employee.CtrlNbr, ctrlNbr);
-        RedirectManager.RedirectToCurrentPageWithStatus("Email address removed.", HttpContext);
-    }
-
-    private sealed class ProfileInputModel
+    private sealed class InputModel
     {
         [Display(Name = "First Name")]
         public string? FirstName { get; set; }
@@ -416,41 +295,20 @@
 
         [Display(Name = "Last Name")]
         public string? LastName { get; set; }
-    }
 
-    private sealed class AddressInputModel
-    {
-        [Required, Display(Name = "Address 1")]
-        public string? Address1 { get; set; }
+        public string? Gender { get; set; }
+        public string? Race { get; set; }
 
-        [Display(Name = "Address 2")]
-        public string? Address2 { get; set; }
+        [Display(Name = "Driver's License")]
+        public string? DriversLicenseNumber { get; set; }
 
-        [Required]
-        public string? City { get; set; }
+        [Display(Name = "Issuing State")]
+        public string? IssuingState { get; set; }
 
-        [Required]
-        public string? State { get; set; }
-
-        [Required, Display(Name = "Zip Code")]
-        public string? ZipCode { get; set; }
-    }
-
-    private sealed class PhoneInputModel
-    {
-        [Required, Display(Name = "Phone Number")]
-        public string? Number { get; set; }
-
-        [Display(Name = "Calling Order")]
-        public int CallingOrder { get; set; } = 1;
-
-        [Display(Name = "Dial One")]
-        public bool DialOne { get; set; }
-    }
-
-    private sealed class EmailInputModel
-    {
-        [Required, EmailAddress, Display(Name = "Email Address")]
-        public string? Email { get; set; }
+        public string? MaritalStatus { get; set; }
+        public bool AllowFmlaMarkOff { get; set; }
+        public bool CallForOvertime { get; set; }
+        public bool ProcessPayroll { get; set; }
+        public bool TieUpOffProperty { get; set; }
     }
 }

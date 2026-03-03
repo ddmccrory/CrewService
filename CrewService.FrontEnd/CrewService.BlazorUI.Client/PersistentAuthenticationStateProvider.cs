@@ -36,6 +36,11 @@ namespace CrewService.BlazorUI.Client
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
+            if (!string.IsNullOrWhiteSpace(userInfo.EmployeeNumber))
+            {
+                claims.Add(new Claim("employee_number", userInfo.EmployeeNumber));
+            }
+
             authenticationStateTask = Task.FromResult(
                 new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(claims,
                     authenticationType: nameof(PersistentAuthenticationStateProvider)))));

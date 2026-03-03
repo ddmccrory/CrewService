@@ -1,21 +1,35 @@
-﻿@* @using Microsoft.AspNetCore.Identity
-@using CrewService.BlazorUI.Models.Entities
-@inject SignInManager<User> SignInManager*@
+﻿@using System.Security.Claims
 
 <ul class="nav nav-pills flex-column">
     <li class="nav-item">
         <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
     </li>
+    @if (isEmployee)
+    {
+        <li class="nav-item">
+            <NavLink class="nav-link" href="Account/Manage/Addresses">Addresses</NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link" href="Account/Manage/PhoneNumbers">Phone Numbers</NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link" href="Account/Manage/EmailAddresses">Email Addresses</NavLink>
+        </li>
+    }
     <li class="nav-item">
         <NavLink class="nav-link" href="Account/Manage/Theme">Theme</NavLink>
     </li>
 </ul>
 
 @code {
-    // private bool hasExternalLogins;
+    private bool isEmployee;
 
-    // protected override async Task OnInitializedAsync()
-    // {
-    //     hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
-    // }
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        isEmployee = !string.IsNullOrWhiteSpace(
+            HttpContext.User.FindFirst("employee_number")?.Value);
+    }
 }
