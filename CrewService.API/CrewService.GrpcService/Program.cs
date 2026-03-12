@@ -120,5 +120,6 @@ app.MapGrpcService<PayrollService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<FraComplianceService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<DailyOperationsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<MarkOffService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<VacancyAssignmentService>().EnableGrpcWeb().RequireAuthorization();
 
 await app.RunAsync();
