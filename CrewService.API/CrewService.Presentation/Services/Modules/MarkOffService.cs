@@ -1,4 +1,3 @@
-using CrewService.Application.MarkOff;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
@@ -6,7 +5,7 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class MarkOffService(IAbsenceCodeRepository absenceCodeRepo)
+public class MarkOffService()
     : MarkOffSrvc.MarkOffSrvcBase
 {
     public override Task<MarkOffAbsenceResponse> CreateAbsenceRequest(
