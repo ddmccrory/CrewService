@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312211727_AddHolidayQualificationRule")]
+    partial class AddHolidayQualificationRule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -2953,38 +2956,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("Holidays");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayPayrollRecord", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DisqualificationReason")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("HolidayCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsQualified")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("PayrollRecordCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("HolidayPayrollRecords");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayQualificationRule", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -3134,36 +3105,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("PayPeriod");
 
                     b.ToTable("PayrollRun");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.RailroadHolidaySelection", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HolidayCode")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("WorkAreaGroupCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("WorkAreaGroupCtrlNbr", "HolidayCode")
-                        .IsUnique();
-
-                    b.ToTable("RailroadHolidaySelections");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.TimeEntry", b =>
@@ -9544,78 +9485,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayPayrollRecord", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("HolidayPayrollRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("HolidayPayrollRecordCtrlNbr");
-
-                            b1.ToTable("HolidayPayrollRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("HolidayPayrollRecordCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("HolidayPayrollRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("HolidayPayrollRecordCtrlNbr");
-
-                            b1.ToTable("HolidayPayrollRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("HolidayPayrollRecordCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("HolidayPayrollRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("HolidayPayrollRecordCtrlNbr");
-
-                            b1.ToTable("HolidayPayrollRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("HolidayPayrollRecordCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayQualificationRule", b =>
                 {
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -9895,78 +9764,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRunCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.RailroadHolidaySelection", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("RailroadHolidaySelectionCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("RailroadHolidaySelectionCtrlNbr");
-
-                            b1.ToTable("RailroadHolidaySelections");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RailroadHolidaySelectionCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("RailroadHolidaySelectionCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("RailroadHolidaySelectionCtrlNbr");
-
-                            b1.ToTable("RailroadHolidaySelections");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RailroadHolidaySelectionCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("RailroadHolidaySelectionCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("RailroadHolidaySelectionCtrlNbr");
-
-                            b1.ToTable("RailroadHolidaySelections");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RailroadHolidaySelectionCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
