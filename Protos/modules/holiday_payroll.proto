@@ -7,6 +7,8 @@ import "google/protobuf/timestamp.proto";
 service HolidayPayrollSrvc {
   rpc EvaluateQualification (EvaluateQualificationRequest) returns (HolidayQualificationResponse);
   rpc GetHolidays (GetHolidaysRequest) returns (GetHolidaysResponse);
+  rpc GetUsHolidayCatalog (GetUsHolidayCatalogRequest) returns (GetUsHolidayCatalogResponse);
+  rpc GenerateHolidaysForYear (GenerateHolidaysForYearRequest) returns (GetHolidaysResponse);
 }
 
 message EvaluateQualificationRequest {
@@ -36,4 +38,20 @@ message HolidayResponse {
   string name = 2;
   string observed_date = 3;
   bool is_active = 4;
+}
+
+message GetUsHolidayCatalogRequest {}
+
+message GetUsHolidayCatalogResponse {
+  repeated UsHolidayDefinitionResponse holidays = 1;
+}
+
+message UsHolidayDefinitionResponse {
+  string code = 1;
+  string name = 2;
+}
+
+message GenerateHolidaysForYearRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int32 year = 2;
 }
