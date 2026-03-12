@@ -80,6 +80,9 @@ public sealed class PayrollRecord : Entity
     public decimal Amount { get; private set; }
     public decimal Hours { get; private set; }
     public string? PolicyRef { get; private set; }
+    public ControlNumber? OnDutyRecordCtrlNbr { get; private set; }
+    public string? ResolvedEarningCode { get; private set; }
+    public bool RequiresApproval { get; private set; }
 
     private PayrollRecord() { PayrollRunCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
@@ -96,6 +99,43 @@ public sealed class PayrollRecord : Entity
             PolicyRef = policyRef
         };
     }
+
+    public void SetEarningCode(string resolvedCode, bool requiresApproval, ControlNumber? onDutyRecordCtrlNbr = null)
+    {
+        ResolvedEarningCode = resolvedCode;
+        RequiresApproval = requiresApproval;
+        OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr;
+    }
+}
+
+public sealed class EarningApproval : Entity
+{
+    public ControlNumber PayrollRecordCtrlNbr { get; private set; }
+    public int ApprovalTier { get; private set; }
+    public ControlNumber OfficerCtrlNbr { get; private set; }
+    public string Status { get; private set; } = "PENDING";
+    public DateTime? DecidedAtUtc { get; private set; }
+
+    private EarningApproval()
+    {
+        PayrollRecordCtrlNbr = null!;
+        OfficerCtrlNbr = null!;
+    }
+
+    public static EarningApproval Create(
+        ControlNumber payrollRecordCtrlNbr, int approvalTier, ControlNumber officerCtrlNbr)
+    {
+        return new EarningApproval
+        {
+            PayrollRecordCtrlNbr = payrollRecordCtrlNbr,
+            ApprovalTier = approvalTier,
+            OfficerCtrlNbr = officerCtrlNbr,
+            CreatedBy = AuditStamp.Create("SYSTEM")
+        };
+    }
+
+    public void Approve() { Status = "APPROVED"; DecidedAtUtc = DateTime.UtcNow; }
+    public void Decline() { Status = "DECLINED"; DecidedAtUtc = DateTime.UtcNow; }
 }
 
 // Domain Events

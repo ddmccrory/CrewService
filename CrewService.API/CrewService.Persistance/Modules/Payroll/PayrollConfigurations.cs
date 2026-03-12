@@ -53,8 +53,27 @@ internal class PayrollRecordConfiguration : IEntityTypeConfiguration<PayrollReco
         builder.Property(r => r.Amount).HasPrecision(12, 2).IsRequired();
         builder.Property(r => r.Hours).HasPrecision(8, 2).IsRequired();
         builder.Property(r => r.PolicyRef).HasMaxLength(100);
+        builder.Property(r => r.OnDutyRecordCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(r => r.ResolvedEarningCode).HasMaxLength(20);
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class EarningApprovalConfiguration : IEntityTypeConfiguration<EarningApproval>
+{
+    public void Configure(EntityTypeBuilder<EarningApproval> builder)
+    {
+        builder.HasKey(a => a.CtrlNbr);
+        builder.Property(a => a.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.PayrollRecordCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.OfficerCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.Status).HasMaxLength(20).IsRequired();
+        builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.DeletedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
