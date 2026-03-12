@@ -70,6 +70,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Dispatching.OnDutyBillingRecord> OnDutyBillingRecords => Set<Domain.Modules.Dispatching.OnDutyBillingRecord>();
     public DbSet<Domain.Modules.Dispatching.OnDutyLocomotiveRecord> OnDutyLocomotiveRecords => Set<Domain.Modules.Dispatching.OnDutyLocomotiveRecord>();
     public DbSet<Domain.Modules.Dispatching.OnDutyMaterialRecord> OnDutyMaterialRecords => Set<Domain.Modules.Dispatching.OnDutyMaterialRecord>();
+    public DbSet<Domain.Modules.Dispatching.VacancyResolutionRun> VacancyResolutionRuns => Set<Domain.Modules.Dispatching.VacancyResolutionRun>();
 
     // FraCompliance Module
     public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
