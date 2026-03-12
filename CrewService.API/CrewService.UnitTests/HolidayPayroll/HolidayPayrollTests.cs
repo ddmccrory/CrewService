@@ -118,7 +118,7 @@ public class UsHolidayCatalogTests
     [Fact]
     public void All_Contains11Holidays()
     {
-        Assert.Equal(11, UsHolidayCatalog.All.Count);
+        Assert.Equal(13, UsHolidayCatalog.All.Count);
     }
 
     [Fact]
@@ -158,6 +158,27 @@ public class UsHolidayCatalogTests
         var date = holiday.DateResolver(2025);
         Assert.Equal(DayOfWeek.Thursday, date.DayOfWeek);
         Assert.Equal(11, date.Month);
+    }
+
+    [Fact]
+    public void Easter2025_April20()
+    {
+        var holiday = UsHolidayCatalog.GetByCode("EASTER")!;
+        Assert.Equal(new DateOnly(2025, 4, 20), holiday.DateResolver(2025));
+    }
+
+    [Fact]
+    public void GoodFriday2025_April18()
+    {
+        var holiday = UsHolidayCatalog.GetByCode("GOOD_FRIDAY")!;
+        Assert.Equal(new DateOnly(2025, 4, 18), holiday.DateResolver(2025));
+    }
+
+    [Fact]
+    public void Easter2026_April5()
+    {
+        var holiday = UsHolidayCatalog.GetByCode("EASTER")!;
+        Assert.Equal(new DateOnly(2026, 4, 5), holiday.DateResolver(2026));
     }
 }
 
