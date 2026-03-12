@@ -17,7 +17,6 @@ public interface IOffDutyRecordRepository
 }
 
 public sealed class OnDutyPlacementService(
-    IShiftInstanceRepository shiftInstanceRepo,
     IOnDutyRecordRepository onDutyRepo,
     IOffDutyRecordRepository offDutyRepo)
 {
