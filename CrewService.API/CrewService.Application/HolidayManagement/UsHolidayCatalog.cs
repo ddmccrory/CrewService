@@ -18,7 +18,10 @@ public static class UsHolidayCatalog
         new("COLUMBUS", "Columbus Day", year => NthWeekday(year, 10, DayOfWeek.Monday, 2)),
         new("VETERANS", "Veterans Day", year => new DateOnly(year, 11, 11)),
         new("THANKSGIVING", "Thanksgiving Day", year => NthWeekday(year, 11, DayOfWeek.Thursday, 4)),
+        new("DAY_AFTER_THANKSGIVING", "Day After Thanksgiving", year => NthWeekday(year, 11, DayOfWeek.Thursday, 4).AddDays(1)),
+        new("CHRISTMAS_EVE", "Christmas Eve", year => new DateOnly(year, 12, 24)),
         new("CHRISTMAS", "Christmas Day", year => new DateOnly(year, 12, 25)),
+        new("NEW_YEARS_EVE", "New Year's Eve", year => new DateOnly(year, 12, 31)),
     ];
 
     public static UsHolidayDefinition? GetByCode(string code) =>
