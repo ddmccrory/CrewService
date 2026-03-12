@@ -4,7 +4,9 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class HolidayPayrollService(HolidayQualificationService qualificationService)
+public class HolidayPayrollService(
+    HolidayQualificationService qualificationService,
+    IHolidayRepository holidayRepo)
     : HolidayPayrollSrvc.HolidayPayrollSrvcBase
 {
     public override async Task<HolidayQualificationResponse> EvaluateQualification(
@@ -25,9 +27,23 @@ public class HolidayPayrollService(HolidayQualificationService qualificationServ
         return resp;
     }
 
-    public override Task<GetHolidaysResponse> GetHolidays(
+    public override async Task<GetHolidaysResponse> GetHolidays(
         GetHolidaysRequest request, ServerCallContext context)
     {
-        return Task.FromResult(new GetHolidaysResponse());
+        var holidays = await holidayRepo.GetActiveByWorkAreaAsync(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), context.CancellationToken);
+
+        var resp = new GetHolidaysResponse();
+        foreach (var h in holidays)
+        {
+            resp.Holidays.Add(new HolidayResponse
+            {
+                CtrlNbr = h.CtrlNbr.Value,
+                Name = h.Name,
+                ObservedDate = h.ObservedDate.ToString("yyyy-MM-dd"),
+                IsActive = h.IsActive,
+            });
+        }
+        return resp;
     }
 }
