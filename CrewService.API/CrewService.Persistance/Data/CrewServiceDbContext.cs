@@ -71,6 +71,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Dispatching.OnDutyLocomotiveRecord> OnDutyLocomotiveRecords => Set<Domain.Modules.Dispatching.OnDutyLocomotiveRecord>();
     public DbSet<Domain.Modules.Dispatching.OnDutyMaterialRecord> OnDutyMaterialRecords => Set<Domain.Modules.Dispatching.OnDutyMaterialRecord>();
     public DbSet<Domain.Modules.Dispatching.VacancyResolutionRun> VacancyResolutionRuns => Set<Domain.Modules.Dispatching.VacancyResolutionRun>();
+    public DbSet<Domain.Modules.Dispatching.DailyEmployeeStatusRecord> DailyEmployeeStatusRecords => Set<Domain.Modules.Dispatching.DailyEmployeeStatusRecord>();
 
     // FraCompliance Module
     public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
@@ -96,6 +97,10 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Infrastructure.WorkerSchedule> WorkerSchedules => Set<Domain.Modules.Infrastructure.WorkerSchedule>();
     public DbSet<Domain.Modules.Infrastructure.WorkerExecutionLog> WorkerExecutionLogs => Set<Domain.Modules.Infrastructure.WorkerExecutionLog>();
     public DbSet<Domain.Modules.Infrastructure.ProcessingLock> ProcessingLocks => Set<Domain.Modules.Infrastructure.ProcessingLock>();
+
+    // Boards Module
+    public DbSet<Domain.Modules.Boards.RosterBoard> RosterBoards => Set<Domain.Modules.Boards.RosterBoard>();
+    public DbSet<Domain.Modules.Boards.RosterBoardPosition> RosterBoardPositions => Set<Domain.Modules.Boards.RosterBoardPosition>();
 
     // Payroll Module
     public DbSet<Domain.Modules.Payroll.EarningCodeRule> EarningCodeRules => Set<Domain.Modules.Payroll.EarningCodeRule>();
