@@ -50,7 +50,8 @@ public abstract class WorkerBase(
 
                     if (processingLock is null)
                     {
-                        logger.LogInformation("Lock {LockKey} held by another instance, skipping", lockKey);
+                        if (logger.IsEnabled(LogLevel.Information))
+                            logger.LogInformation("Lock {LockKey} held by another instance, skipping", lockKey);
                         continue;
                     }
 
