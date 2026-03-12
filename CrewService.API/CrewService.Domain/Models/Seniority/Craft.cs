@@ -18,6 +18,7 @@ public sealed class Craft : Entity
     public int MaximumVacationDayTime { get; private set; }
     public int UnpaidMealPeriodMinutes { get; private set; }
     public bool HoursofService { get; private set; }
+    public ControlNumber? RegulatoryStandardCtrlNbr { get; private set; }
     public bool ProcessPayroll { get; private set; }
     public bool ShowNotifications { get; private set; }
     public int VacationAssignmentType { get; private set; }

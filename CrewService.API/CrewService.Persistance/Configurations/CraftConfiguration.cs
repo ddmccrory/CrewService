@@ -30,6 +30,9 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
         builder.Property(c => c.MaximumVacationDayTime).IsRequired();
         builder.Property(c => c.UnpaidMealPeriodMinutes).IsRequired();
         builder.Property(c => c.HoursofService).IsRequired();
+        builder.Property(c => c.RegulatoryStandardCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
         builder.Property(c => c.ProcessPayroll).IsRequired();
         builder.Property(c => c.ShowNotifications).IsRequired();
         builder.Property(c => c.VacationAssignmentType).IsRequired();

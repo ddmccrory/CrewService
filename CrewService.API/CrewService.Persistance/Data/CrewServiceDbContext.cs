@@ -61,6 +61,23 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Dispatching Module
     public DbSet<Domain.Modules.Dispatching.ChangeNotification> ChangeNotifications => Set<Domain.Modules.Dispatching.ChangeNotification>();
 
+    // FraCompliance Module
+    public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
+    public DbSet<Domain.Modules.FraCompliance.FraDutyTour> FraDutyTours => Set<Domain.Modules.FraCompliance.FraDutyTour>();
+    public DbSet<Domain.Modules.FraCompliance.FraDutyTourSegment> FraDutyTourSegments => Set<Domain.Modules.FraCompliance.FraDutyTourSegment>();
+    public DbSet<Domain.Modules.FraCompliance.FraTransportationSegment> FraTransportationSegments => Set<Domain.Modules.FraCompliance.FraTransportationSegment>();
+    public DbSet<Domain.Modules.FraCompliance.FraOtherServiceSegment> FraOtherServiceSegments => Set<Domain.Modules.FraCompliance.FraOtherServiceSegment>();
+    public DbSet<Domain.Modules.FraCompliance.FraExcessServiceReport> FraExcessServiceReports => Set<Domain.Modules.FraCompliance.FraExcessServiceReport>();
+    public DbSet<Domain.Modules.FraCompliance.FraMonthlyAccumulator> FraMonthlyAccumulators => Set<Domain.Modules.FraCompliance.FraMonthlyAccumulator>();
+    public DbSet<Domain.Modules.FraCompliance.RegulatoryQualification> RegulatoryQualifications => Set<Domain.Modules.FraCompliance.RegulatoryQualification>();
+    public DbSet<Domain.Modules.FraCompliance.CraftRegulatoryQualification> CraftRegulatoryQualifications => Set<Domain.Modules.FraCompliance.CraftRegulatoryQualification>();
+    public DbSet<Domain.Modules.FraCompliance.EmployeeCertification> EmployeeCertifications => Set<Domain.Modules.FraCompliance.EmployeeCertification>();
+    public DbSet<Domain.Modules.FraCompliance.CertificationEligibilityCheck> CertificationEligibilityChecks => Set<Domain.Modules.FraCompliance.CertificationEligibilityCheck>();
+    public DbSet<Domain.Modules.FraCompliance.CertificationRevocationRecord> CertificationRevocationRecords => Set<Domain.Modules.FraCompliance.CertificationRevocationRecord>();
+    public DbSet<Domain.Modules.FraCompliance.DrugAlcoholTestRecord> DrugAlcoholTestRecords => Set<Domain.Modules.FraCompliance.DrugAlcoholTestRecord>();
+    public DbSet<Domain.Modules.FraCompliance.DrugAlcoholAction> DrugAlcoholActions => Set<Domain.Modules.FraCompliance.DrugAlcoholAction>();
+    public DbSet<Domain.Modules.FraCompliance.VoluntaryReferral> VoluntaryReferrals => Set<Domain.Modules.FraCompliance.VoluntaryReferral>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);

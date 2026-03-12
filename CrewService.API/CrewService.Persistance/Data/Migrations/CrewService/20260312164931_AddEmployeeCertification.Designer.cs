@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312164931_AddEmployeeCertification")]
+    partial class AddEmployeeCertification
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -1458,64 +1461,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("CertificationEligibilityChecks");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CertificationRevocationRecord", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Decision")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DecisionDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCertificationCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("HearingHeldUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateOnly?>("HearingRecordRetainUntil")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("HearingScheduledUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("PresidingOfficerCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("RevocationEndsUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("RevocationPeriodMonths")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("SuspendedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("ViolationDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ViolationType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("WrittenNoticeAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("CertificationRevocationRecords");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CraftRegulatoryQualification", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -1539,85 +1484,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .IsUnique();
 
                     b.ToTable("CraftRegulatoryQualifications");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholAction", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("ActionDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ActionType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("TestRecordCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("DrugAlcoholActions");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholTestRecord", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<decimal?>("AlcoholResult")
-                        .HasPrecision(4, 3)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DrugResult")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("FederalAuthority")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsViolation")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("SubstancesDetected")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("TestDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TestType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("DrugAlcoholTestRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.EmployeeCertification", b =>
@@ -2053,52 +1919,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .IsUnique();
 
                     b.ToTable("RegulatoryStandards");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.VoluntaryReferral", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("FollowUpEndDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("FollowUpTestsRequired")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("ReferralDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ReturnToDutyResult")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("ReturnToDutyTestDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("SapEvaluationDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("TreatmentCompletedDate")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("VoluntaryReferrals");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollRecord", b =>
@@ -5690,78 +5510,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CertificationRevocationRecord", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("CertificationRevocationRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CertificationRevocationRecordCtrlNbr");
-
-                            b1.ToTable("CertificationRevocationRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CertificationRevocationRecordCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("CertificationRevocationRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CertificationRevocationRecordCtrlNbr");
-
-                            b1.ToTable("CertificationRevocationRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CertificationRevocationRecordCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("CertificationRevocationRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CertificationRevocationRecordCtrlNbr");
-
-                            b1.ToTable("CertificationRevocationRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CertificationRevocationRecordCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CraftRegulatoryQualification", b =>
                 {
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -5825,150 +5573,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftRegulatoryQualificationCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholAction", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("DrugAlcoholActionCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("DrugAlcoholActionCtrlNbr");
-
-                            b1.ToTable("DrugAlcoholActions");
-
-                            b1.WithOwner()
-                                .HasForeignKey("DrugAlcoholActionCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("DrugAlcoholActionCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("DrugAlcoholActionCtrlNbr");
-
-                            b1.ToTable("DrugAlcoholActions");
-
-                            b1.WithOwner()
-                                .HasForeignKey("DrugAlcoholActionCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("DrugAlcoholActionCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("DrugAlcoholActionCtrlNbr");
-
-                            b1.ToTable("DrugAlcoholActions");
-
-                            b1.WithOwner()
-                                .HasForeignKey("DrugAlcoholActionCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholTestRecord", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("DrugAlcoholTestRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("DrugAlcoholTestRecordCtrlNbr");
-
-                            b1.ToTable("DrugAlcoholTestRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("DrugAlcoholTestRecordCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("DrugAlcoholTestRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("DrugAlcoholTestRecordCtrlNbr");
-
-                            b1.ToTable("DrugAlcoholTestRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("DrugAlcoholTestRecordCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("DrugAlcoholTestRecordCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("DrugAlcoholTestRecordCtrlNbr");
-
-                            b1.ToTable("DrugAlcoholTestRecords");
-
-                            b1.WithOwner()
-                                .HasForeignKey("DrugAlcoholTestRecordCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -6635,78 +6239,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryStandardCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.VoluntaryReferral", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("VoluntaryReferralCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("VoluntaryReferralCtrlNbr");
-
-                            b1.ToTable("VoluntaryReferrals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("VoluntaryReferralCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("VoluntaryReferralCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("VoluntaryReferralCtrlNbr");
-
-                            b1.ToTable("VoluntaryReferrals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("VoluntaryReferralCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("VoluntaryReferralCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("VoluntaryReferralCtrlNbr");
-
-                            b1.ToTable("VoluntaryReferrals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("VoluntaryReferralCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
