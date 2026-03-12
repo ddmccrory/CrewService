@@ -96,6 +96,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride> AbsenceCodeCraftOverrides => Set<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride>();
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceApproval> AbsenceApprovals => Set<Domain.Modules.AbsenceVacancy.AbsenceApproval>();
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceMarkUp> AbsenceMarkUps => Set<Domain.Modules.AbsenceVacancy.AbsenceMarkUp>();
+    public DbSet<Domain.Modules.AbsenceVacancy.CompensationBalance> CompensationBalances => Set<Domain.Modules.AbsenceVacancy.CompensationBalance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
