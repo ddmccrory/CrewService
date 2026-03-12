@@ -92,6 +92,11 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Policies Module
     public DbSet<Domain.Modules.Policies.CraftOperationsPolicy> CraftOperationsPolicies => Set<Domain.Modules.Policies.CraftOperationsPolicy>();
 
+    // Infrastructure Module
+    public DbSet<Domain.Modules.Infrastructure.WorkerSchedule> WorkerSchedules => Set<Domain.Modules.Infrastructure.WorkerSchedule>();
+    public DbSet<Domain.Modules.Infrastructure.WorkerExecutionLog> WorkerExecutionLogs => Set<Domain.Modules.Infrastructure.WorkerExecutionLog>();
+    public DbSet<Domain.Modules.Infrastructure.ProcessingLock> ProcessingLocks => Set<Domain.Modules.Infrastructure.ProcessingLock>();
+
     // Payroll Module
     public DbSet<Domain.Modules.Payroll.EarningCodeRule> EarningCodeRules => Set<Domain.Modules.Payroll.EarningCodeRule>();
     public DbSet<Domain.Modules.Payroll.PayRate> PayRates => Set<Domain.Modules.Payroll.PayRate>();
