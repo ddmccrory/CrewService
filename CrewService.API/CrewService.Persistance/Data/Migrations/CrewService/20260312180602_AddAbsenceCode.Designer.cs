@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312180602_AddAbsenceCode")]
+    partial class AddAbsenceCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -752,42 +755,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("UserParentAssignments");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceApproval", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("AbsenceRequestCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ApprovalOfficerCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DecidedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("AbsenceRequestCtrlNbr");
-
-                    b.ToTable("AbsenceApprovals");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCode", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -868,42 +835,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("AbsenceCodeCraftOverrides");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceMarkUp", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("AbsenceRequestCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("ActualMarkUpUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsAutoMarkUp")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("ScheduledMarkUpUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("AbsenceRequestCtrlNbr");
-
-                    b.ToTable("AbsenceMarkUps");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", b =>
                 {
                     b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("AbsenceCodeCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<long?>("ApprovedByCtrlNbr")
@@ -921,18 +855,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsSystemGenerated")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("MarkOffStartUtc")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
-
-                    b.Property<long?>("PositionSlotCtrlNbr")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("ReasonCode")
                         .IsRequired()
@@ -950,40 +875,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasKey("CtrlNbr");
 
                     b.ToTable("AbsenceRequest");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.CompensationBalance", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("AsOfUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<decimal>("BalanceHours")
-                        .HasPrecision(8, 2)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CompensationType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("EmployeeCtrlNbr", "CompensationType")
-                        .IsUnique();
-
-                    b.ToTable("CompensationBalances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.VacancyImpact", b =>
@@ -4873,84 +4764,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceApproval", b =>
-                {
-                    b.HasOne("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", null)
-                        .WithMany("Approvals")
-                        .HasForeignKey("AbsenceRequestCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("AbsenceApprovalCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AbsenceApprovalCtrlNbr");
-
-                            b1.ToTable("AbsenceApprovals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AbsenceApprovalCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("AbsenceApprovalCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AbsenceApprovalCtrlNbr");
-
-                            b1.ToTable("AbsenceApprovals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AbsenceApprovalCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("AbsenceApprovalCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AbsenceApprovalCtrlNbr");
-
-                            b1.ToTable("AbsenceApprovals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AbsenceApprovalCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCode", b =>
                 {
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -5095,84 +4908,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceMarkUp", b =>
-                {
-                    b.HasOne("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", null)
-                        .WithMany("MarkUps")
-                        .HasForeignKey("AbsenceRequestCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("AbsenceMarkUpCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AbsenceMarkUpCtrlNbr");
-
-                            b1.ToTable("AbsenceMarkUps");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AbsenceMarkUpCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("AbsenceMarkUpCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AbsenceMarkUpCtrlNbr");
-
-                            b1.ToTable("AbsenceMarkUps");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AbsenceMarkUpCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("AbsenceMarkUpCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AbsenceMarkUpCtrlNbr");
-
-                            b1.ToTable("AbsenceMarkUps");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AbsenceMarkUpCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", b =>
                 {
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -5236,78 +4971,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceRequestCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.CompensationBalance", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("CompensationBalanceCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CompensationBalanceCtrlNbr");
-
-                            b1.ToTable("CompensationBalances");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CompensationBalanceCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("CompensationBalanceCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CompensationBalanceCtrlNbr");
-
-                            b1.ToTable("CompensationBalances");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CompensationBalanceCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("CompensationBalanceCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CompensationBalanceCtrlNbr");
-
-                            b1.ToTable("CompensationBalances");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CompensationBalanceCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -9967,13 +9630,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
             modelBuilder.Entity("CrewService.Domain.Models.Parents.Parent", b =>
                 {
                     b.Navigation("Railroads");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", b =>
-                {
-                    b.Navigation("Approvals");
-
-                    b.Navigation("MarkUps");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.EmployeeCertification", b =>

@@ -119,5 +119,6 @@ app.MapGrpcService<AbsenceVacancyService>().EnableGrpcWeb().RequireAuthorization
 app.MapGrpcService<PayrollService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<FraComplianceService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<DailyOperationsService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<MarkOffService>().EnableGrpcWeb().RequireAuthorization();
 
 await app.RunAsync();

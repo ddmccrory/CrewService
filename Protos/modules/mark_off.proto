@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+
+service MarkOffSrvc {
+  rpc CreateAbsenceRequest (CreateAbsenceRequestMsg) returns (MarkOffAbsenceResponse);
+  rpc ApproveAbsence (ApproveAbsenceMsg) returns (AbsenceApprovalResponse);
+  rpc DeclineAbsence (DeclineAbsenceMsg) returns (AbsenceApprovalResponse);
+  rpc GetCompensationBalance (GetCompensationBalanceMsg) returns (CompensationBalanceResponse);
+  rpc GetAbsenceCodes (GetAbsenceCodesMsg) returns (GetAbsenceCodesResponse);
+}
+
+message CreateAbsenceRequestMsg {
+  int64 employee_ctrl_nbr = 1;
+  int64 absence_code_ctrl_nbr = 2;
+  google.protobuf.Timestamp start_utc = 3;
+  optional google.protobuf.Timestamp end_utc = 4;
+  optional int64 position_slot_ctrl_nbr = 5;
+  optional string notes = 6;
+  bool is_system_generated = 7;
+}
+
+message MarkOffAbsenceResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string reason_code = 3;
+  string status = 4;
+  google.protobuf.Timestamp start_utc = 5;
+  optional google.protobuf.Timestamp end_utc = 6;
+  bool is_system_generated = 7;
+}
+
+message ApproveAbsenceMsg {
+  int64 absence_request_ctrl_nbr = 1;
+  int64 officer_ctrl_nbr = 2;
+  optional string notes = 3;
+}
+
+message DeclineAbsenceMsg {
+  int64 absence_request_ctrl_nbr = 1;
+  int64 officer_ctrl_nbr = 2;
+  optional string notes = 3;
+}
+
+message AbsenceApprovalResponse {
+  int64 ctrl_nbr = 1;
+  string status = 2;
+  optional google.protobuf.Timestamp decided_at = 3;
+  optional string notes = 4;
+}
+
+message GetCompensationBalanceMsg {
+  int64 employee_ctrl_nbr = 1;
+  string compensation_type = 2;
+}
+
+message CompensationBalanceResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string compensation_type = 3;
+  double balance_hours = 4;
+}
+
+message GetAbsenceCodesMsg {
+  bool active_only = 1;
+}
+
+message GetAbsenceCodesResponse {
+  repeated AbsenceCodeResponse codes = 1;
+}
+
+message AbsenceCodeResponse {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string description = 3;
+  bool is_excused = 4;
+  bool is_compensated = 5;
+  bool requires_approval = 6;
+  bool is_system_only = 7;
+  optional double default_auto_mark_up_hours = 8;
+  bool is_active = 9;
+}

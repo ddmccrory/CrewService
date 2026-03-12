@@ -91,6 +91,13 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Policies Module
     public DbSet<Domain.Modules.Policies.CraftOperationsPolicy> CraftOperationsPolicies => Set<Domain.Modules.Policies.CraftOperationsPolicy>();
 
+    // AbsenceVacancy Module
+    public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCode> AbsenceCodes => Set<Domain.Modules.AbsenceVacancy.AbsenceCode>();
+    public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride> AbsenceCodeCraftOverrides => Set<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride>();
+    public DbSet<Domain.Modules.AbsenceVacancy.AbsenceApproval> AbsenceApprovals => Set<Domain.Modules.AbsenceVacancy.AbsenceApproval>();
+    public DbSet<Domain.Modules.AbsenceVacancy.AbsenceMarkUp> AbsenceMarkUps => Set<Domain.Modules.AbsenceVacancy.AbsenceMarkUp>();
+    public DbSet<Domain.Modules.AbsenceVacancy.CompensationBalance> CompensationBalances => Set<Domain.Modules.AbsenceVacancy.CompensationBalance>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);

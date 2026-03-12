@@ -13,6 +13,15 @@ public sealed class AbsenceRequest : Entity
     public string Status { get; private set; } = "PENDING";
     public ControlNumber? ApprovedByCtrlNbr { get; private set; }
     public string? Notes { get; private set; }
+    public ControlNumber? AbsenceCodeCtrlNbr { get; private set; }
+    public ControlNumber? PositionSlotCtrlNbr { get; private set; }
+    public DateTime? MarkOffStartUtc { get; private set; }
+    public bool IsSystemGenerated { get; private set; }
+
+    private readonly List<AbsenceApproval> _approvals = [];
+    private readonly List<AbsenceMarkUp> _markUps = [];
+    public IReadOnlyList<AbsenceApproval> Approvals => _approvals.AsReadOnly();
+    public IReadOnlyList<AbsenceMarkUp> MarkUps => _markUps.AsReadOnly();
 
     private AbsenceRequest() { EmployeeCtrlNbr = null!; }
 
@@ -24,6 +33,28 @@ public sealed class AbsenceRequest : Entity
             StartUtc = startUtc,
             EndUtc = endUtc,
             ReasonCode = reasonCode,
+            Notes = notes
+        };
+        request.Raise(new AbsenceRequestedDomainEvent(request));
+        return request;
+    }
+
+    public static AbsenceRequest CreateWithCode(
+        long employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
+        ControlNumber absenceCodeCtrlNbr, string reasonCode,
+        ControlNumber? positionSlotCtrlNbr = null,
+        bool isSystemGenerated = false, string? notes = null)
+    {
+        var request = new AbsenceRequest
+        {
+            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            StartUtc = startUtc,
+            EndUtc = endUtc,
+            ReasonCode = reasonCode,
+            AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
+            MarkOffStartUtc = startUtc,
+            IsSystemGenerated = isSystemGenerated,
             Notes = notes
         };
         request.Raise(new AbsenceRequestedDomainEvent(request));
@@ -53,6 +84,86 @@ public sealed class AbsenceRequest : Entity
         Status = "COMPLETED";
         EndUtc = markUpUtc;
         Raise(new AbsenceCompletedByMarkUpDomainEvent(this));
+    }
+
+    public AbsenceApproval AddApproval(ControlNumber approvalOfficerCtrlNbr)
+    {
+        var approval = AbsenceApproval.Create(CtrlNbr, approvalOfficerCtrlNbr);
+        _approvals.Add(approval);
+        return approval;
+    }
+
+    public AbsenceMarkUp AddMarkUp(DateTime scheduledMarkUpUtc, bool isAutoMarkUp)
+    {
+        var markUp = AbsenceMarkUp.Create(CtrlNbr, scheduledMarkUpUtc, isAutoMarkUp);
+        _markUps.Add(markUp);
+        return markUp;
+    }
+}
+
+public sealed class AbsenceApproval : Entity
+{
+    public ControlNumber AbsenceRequestCtrlNbr { get; private set; }
+    public ControlNumber ApprovalOfficerCtrlNbr { get; private set; }
+    public string Status { get; private set; } = "PENDING";
+    public DateTime? DecidedAtUtc { get; private set; }
+    public string? Notes { get; private set; }
+
+    private AbsenceApproval()
+    {
+        AbsenceRequestCtrlNbr = null!;
+        ApprovalOfficerCtrlNbr = null!;
+    }
+
+    internal static AbsenceApproval Create(ControlNumber absenceRequestCtrlNbr, ControlNumber approvalOfficerCtrlNbr)
+    {
+        return new AbsenceApproval
+        {
+            AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+            ApprovalOfficerCtrlNbr = approvalOfficerCtrlNbr,
+            CreatedBy = AuditStamp.Create("SYSTEM")
+        };
+    }
+
+    public void Approve(string? notes = null)
+    {
+        Status = "APPROVED";
+        DecidedAtUtc = DateTime.UtcNow;
+        Notes = notes;
+    }
+
+    public void Decline(string? notes = null)
+    {
+        Status = "DECLINED";
+        DecidedAtUtc = DateTime.UtcNow;
+        Notes = notes;
+    }
+}
+
+public sealed class AbsenceMarkUp : Entity
+{
+    public ControlNumber AbsenceRequestCtrlNbr { get; private set; }
+    public DateTime ScheduledMarkUpUtc { get; private set; }
+    public DateTime? ActualMarkUpUtc { get; private set; }
+    public bool IsAutoMarkUp { get; private set; }
+
+    private AbsenceMarkUp() { AbsenceRequestCtrlNbr = null!; }
+
+    internal static AbsenceMarkUp Create(ControlNumber absenceRequestCtrlNbr, DateTime scheduledMarkUpUtc, bool isAutoMarkUp)
+    {
+        return new AbsenceMarkUp
+        {
+            AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+            ScheduledMarkUpUtc = scheduledMarkUpUtc,
+            IsAutoMarkUp = isAutoMarkUp,
+            CreatedBy = AuditStamp.Create("SYSTEM")
+        };
+    }
+
+    public void Execute(DateTime actualMarkUpUtc)
+    {
+        ActualMarkUpUtc = actualMarkUpUtc;
+        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }
 
