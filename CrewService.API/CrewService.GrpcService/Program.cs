@@ -126,5 +126,6 @@ app.MapGrpcService<ElectronicCallingService>().EnableGrpcWeb().RequireAuthorizat
 app.MapGrpcService<BackgroundServicesService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RosterBoardService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<HolidayPayrollService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<HolidayManagementService>().EnableGrpcWeb().RequireAuthorization();
 
 await app.RunAsync();

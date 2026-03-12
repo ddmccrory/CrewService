@@ -239,7 +239,7 @@ public class HolidayAutoGenerationServiceTests
         public Task<IReadOnlyList<RailroadHolidaySelection>> GetActiveByWorkAreaAsync(
             ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<RailroadHolidaySelection>>(
-                selections.Where(s => s.WorkAreaGroupCtrlNbr.Value == workAreaGroupCtrlNbr.Value).ToList());
+                [.. selections.Where(s => s.WorkAreaGroupCtrlNbr.Value == workAreaGroupCtrlNbr.Value)]);
 
         public Task<bool> HasOwnSelectionsAsync(
             ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)

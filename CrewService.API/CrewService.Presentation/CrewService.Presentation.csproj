@@ -66,6 +66,7 @@
     <Protobuf Include="..\..\Protos\modules\background_services.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\roster_board.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\holiday_payroll.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\holiday_management.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
   </ItemGroup>
 
 </Project>
