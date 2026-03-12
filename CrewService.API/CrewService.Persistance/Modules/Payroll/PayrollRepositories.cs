@@ -22,6 +22,9 @@ internal sealed class PayrollRunRepository(CrewServiceDbContext dbContext, ICurr
 {
     public async Task<PayrollRun?> GetByPayPeriodAsync(string payPeriod) =>
         await DbContext.Set<PayrollRun>().SingleOrDefaultAsync(r => r.PayPeriod == payPeriod);
+
+    public async Task<PayrollRun?> GetByPayPeriodAsync(string payPeriod, ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<PayrollRun>().FirstOrDefaultAsync(r => r.PayPeriod == payPeriod, ct);
 }
 
 internal sealed class PayrollRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

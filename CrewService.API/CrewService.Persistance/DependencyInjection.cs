@@ -11,6 +11,16 @@ using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.UserAccess;
+using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.DailyOperations;
+using CrewService.Application.ElectronicCalling;
+using CrewService.Application.FraCompliance;
+using CrewService.Application.HolidayManagement;
+using CrewService.Application.MarkOff;
+using CrewService.Application.RosterBoardOps;
+using CrewService.Application.VacancyAssignment;
+using HolidayPayrollInterfaces = CrewService.Application.Payroll;
+using PayrollEngineInterfaces = CrewService.Application.Payroll;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.TenantConfig;
@@ -19,9 +29,13 @@ using CrewService.Persistance.Modules.Crews;
 using CrewService.Persistance.Modules.Boards;
 using CrewService.Persistance.Modules.Policies;
 using CrewService.Persistance.Modules.Dispatching;
+using CrewService.Persistance.Modules.DailyOperations;
 using CrewService.Persistance.Modules.AbsenceVacancy;
 using CrewService.Persistance.Modules.Bulletins;
 using CrewService.Persistance.Modules.Payroll;
+using CrewService.Persistance.Modules.FraCompliance;
+using CrewService.Persistance.Modules.Infrastructure;
+using CrewService.Persistance.Modules.Notifications;
 using CrewService.Persistance.Encryption;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
@@ -159,6 +173,49 @@ public static class DependencyInjection
         services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
         services.AddScoped<IPayrollRunRepository, PayrollRunRepository>();
         services.AddScoped<IPayrollRecordRepository, PayrollRecordRepository>();
+
+        // Holiday / HolidayManagement Repositories
+        services.AddScoped<HolidayPayrollInterfaces.IHolidayRepository, HolidayRepository>();
+        services.AddScoped<HolidayPayrollInterfaces.IHolidayQualificationRuleRepository, HolidayQualificationRuleRepository>();
+        services.AddScoped<HolidayPayrollInterfaces.IHolidayPayrollRecordRepository, HolidayPayrollRecordRepository>();
+        services.AddScoped<IRailroadHolidaySelectionRepository, RailroadHolidaySelectionRepository>();
+
+        // FRA Compliance Repositories (B01)
+        services.AddScoped<IFraDutyTourRepository, FraDutyTourRepository>();
+
+        // Daily Operations Repositories (B02)
+        services.AddScoped<IShiftDefinitionRepository, ShiftDefinitionRepository>();
+        services.AddScoped<IShiftInstanceRepository, ShiftInstanceRepository>();
+        services.AddScoped<IOnDutyRecordRepository, OnDutyRecordRepository>();
+        services.AddScoped<IOffDutyRecordRepository, OffDutyRecordRepository>();
+        services.AddScoped<ICraftOperationsPolicyRepository, CraftOperationsPolicyRepository>();
+
+        // Mark-Off Repositories (B03)
+        services.AddScoped<IAbsenceCodeRepository, AbsenceCodeRepository>();
+        services.AddScoped<ICompensationBalanceRepository, CompensationBalanceRepository>();
+
+        // Vacancy Assignment Repositories (B04)
+        services.AddScoped<IVacancyResolutionRunRepository, VacancyResolutionRunRepository>();
+
+        // Payroll Engine Repositories (B05)
+        services.AddScoped<PayrollEngineInterfaces.IEarningCodeRuleRepository, EarningCodeRuleRepository>();
+        services.AddScoped<PayrollEngineInterfaces.IPayRateRepository, PayRateRepository>();
+
+        // Electronic Calling Repositories (B06)
+        services.AddScoped<INotificationRequestRepository, NotificationRequestRepository>();
+
+        // Background Services Repositories (B07)
+        services.AddScoped<IWorkerScheduleRepository, WorkerScheduleRepository>();
+        services.AddScoped<IWorkerExecutionLogRepository, WorkerExecutionLogRepository>();
+
+        // Roster Board Repositories (B08)
+        services.AddScoped<IRosterBoardRepository, RosterBoardRepository>();
+        services.AddScoped<IDailyEmployeeStatusRepository, DailyEmployeeStatusRepository>();
+
+        // Contact Repositories (Core)
+        services.AddScoped<IAddressRepository, AddressRepository>();
+        services.AddScoped<IPhoneNumberRepository, PhoneNumberRepository>();
+        services.AddScoped<IEmailAddressRepository, EmailAddressRepository>();
 
         return services;
     }

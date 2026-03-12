@@ -11,17 +11,17 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class ParentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Parent>(dbContext, currentUserService), IParentRepository
 {
-    public override async Task<List<Parent>> GetAllAsync()
+    public override async Task<List<Parent>> GetAllAsync(CancellationToken ct = default)
     {
         return await DbContext.Set<Parent>()
             .Include(p => p.Railroads)
-            .ToListAsync();
+            .ToListAsync(ct);
     }
 
-    public override async Task<Parent?> GetByCtrlNbrAsync(ControlNumber ctrlNbr)
+    public override async Task<Parent?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         return await DbContext.Set<Parent>()
             .Include(p => p.Railroads)
-            .SingleOrDefaultAsync(p => p.CtrlNbr == ctrlNbr);
+            .SingleOrDefaultAsync(p => p.CtrlNbr == ctrlNbr, ct);
     }
 }

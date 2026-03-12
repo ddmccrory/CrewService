@@ -18,32 +18,22 @@ public interface IEmployeeRepository : IRepository<Employee>
     Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber);
 }
 
-public interface IAddressRepository
+public interface IAddressRepository : IRepository<Address>
 {
-    Task<List<Address>> GetAllByEmployeeAsync(long employeeCtrlNbr);
-    Task<List<Address>> GetAllByEmployeeAsync(long employeeCtrlNbr, int pageNumber, int pageSize);
-    Task<Address?> GetByCtrlNbrAsync(long ctrlNbr);
-    void Add(Address address);
-    void Update(Address address);
-    void Remove(Address address);
+    Task<List<Address>> GetAllByEmployeeAsync(ControlNumber employeeCtrlNbr);
+    Task<List<Address>> GetAllByEmployeeAsync(ControlNumber employeeCtrlNbr, int pageNumber, int pageSize);
 }
 
-public interface IPhoneNumberRepository
+public interface IPhoneNumberRepository : IRepository<PhoneNumber>
 {
-    Task<PhoneNumber?> GetByIdAsync(ControlNumber employeeCtrlNbr, CancellationToken cancellationToken = default);
-    Task AddAsync(PhoneNumber phoneNumber, CancellationToken cancellationToken = default);
-    Task UpdateAsync(PhoneNumber phoneNumber, CancellationToken cancellationToken = default);
-    Task DeleteAsync(ControlNumber employeeCtrlNbr, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PhoneNumber>> GetAllByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken cancellationToken = default);
+    Task<PhoneNumber?> GetByIdAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<IReadOnlyList<PhoneNumber>> GetAllByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
 }
 
-public interface IEmailAddressRepository
+public interface IEmailAddressRepository : IRepository<EmailAddress>
 {
-    Task<EmailAddress?> GetByIdAsync(ControlNumber employeeCtrlNbr, CancellationToken cancellationToken = default);
-    Task AddAsync(EmailAddress emailAddress, CancellationToken cancellationToken = default);
-    Task UpdateAsync(EmailAddress emailAddress, CancellationToken cancellationToken = default);
-    Task DeleteAsync(ControlNumber employeeCtrlNbr, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<EmailAddress>> GetAllByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken cancellationToken = default);
+    Task<EmailAddress?> GetByIdAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<IReadOnlyList<EmailAddress>> GetAllByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
 }
 
 public interface IEmployeePriorServiceCreditRepository : IRepository<EmployeePriorServiceCredit>

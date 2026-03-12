@@ -11,6 +11,8 @@
 - Craft qualifications — specifically Conductors/Switchmen and Engineers — are FRA-regulated and must be system-level policies, not tenant-configurable. Any government-regulated qualification requirements should be modeled as system-level, same as RegulatoryStandard.
 - Drug and alcohol compliance (Part 219), certification requirements (Parts 240/242), and all FRA regulatory processes are system-level — they apply to all covered employees across all railroads and all parents. They should NOT be modeled as tenant-configurable policies. The system enforces them universally for any employee flagged as covered.
 - Build all backend (CrewService.API) first across all branches, then build frontend (CrewService.FrontEnd/BlazorUI) separately as a follow-on phase. No data migration from SA — this is a greenfield build with seed data only. Frontend specs will be process-oriented and discussed later.
+- Use the ControlNumber value object for all CtrlNbr parameters; never use raw long. The codebase uses ControlNumber consistently.
+- Always pass CancellationToken explicitly to async methods - never rely on default = default. Repository overrides should only exist when the derived logic actually differs from the base (e.g., adding Includes). Don't override just to repeat the same logic.
 
 ## Branch Naming Conventions
 - Always bump version numbers when creating new branches. Use release-based branch naming with incremented version numbers (e.g., "0.1.2/feature-name") — never reuse the same version number across branches.

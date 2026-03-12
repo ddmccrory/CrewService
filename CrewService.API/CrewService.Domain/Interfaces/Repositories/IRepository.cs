@@ -6,16 +6,16 @@ namespace CrewService.Domain.Interfaces.Repositories;
 public interface IRepository<TEntity> where TEntity : Entity
 {
     // Read
-    Task<List<TEntity>> GetAllAsync();
-    Task<List<TEntity>> GetAllAsync(int pageNumber, int pageSize);
-    Task<TEntity?> GetByCtrlNbrAsync(ControlNumber ctrlNbr);
-    Task<TEntity?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr);
+    Task<List<TEntity>> GetAllAsync(CancellationToken ct = default);
+    Task<List<TEntity>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default);
+    Task<TEntity?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task<TEntity?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
 
     // Write (async - immediate save)
-    Task AddAsync(TEntity entity);
-    Task UpdateAsync(TEntity entity);
-    Task DeleteAsync(ControlNumber ctrlNbr);
-    Task RestoreAsync(ControlNumber ctrlNbr);
+    Task AddAsync(TEntity entity, CancellationToken ct = default);
+    Task UpdateAsync(TEntity entity, CancellationToken ct = default);
+    Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
 
     // Write (sync - for Unit of Work)
     void Add(TEntity entity);

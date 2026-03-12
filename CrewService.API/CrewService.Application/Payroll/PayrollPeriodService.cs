@@ -10,19 +10,12 @@ public interface IPayRateRepository
         ControlNumber? positionRoleCtrlNbr = null, CancellationToken ct = default);
 }
 
-public interface IPayrollRunRepository
-{
-    Task<PayrollRun?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
-    Task<PayrollRun?> GetByPeriodAsync(string payPeriod, ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-    Task AddAsync(PayrollRun run, CancellationToken ct = default);
-}
-
 public sealed class PayrollPeriodService(IPayrollRunRepository runRepo)
 {
     public async Task<PayrollRun> CreateOrGetDraftAsync(
         string payPeriod, ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
     {
-        var existing = await runRepo.GetByPeriodAsync(payPeriod, workAreaGroupCtrlNbr, ct);
+        var existing = await runRepo.GetByPayPeriodAsync(payPeriod, workAreaGroupCtrlNbr, ct);
         if (existing is not null && existing.Status == "DRAFT")
             return existing;
 

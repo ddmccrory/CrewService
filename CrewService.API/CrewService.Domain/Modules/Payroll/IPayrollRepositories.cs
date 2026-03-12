@@ -11,6 +11,7 @@ public interface ITimeEntryRepository : IRepository<TimeEntry>
 public interface IPayrollRunRepository : IRepository<PayrollRun>
 {
     Task<PayrollRun?> GetByPayPeriodAsync(string payPeriod);
+    Task<PayrollRun?> GetByPayPeriodAsync(string payPeriod, ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
 }
 
 public interface IPayrollRecordRepository : IRepository<PayrollRecord>
