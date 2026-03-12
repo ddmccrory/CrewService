@@ -36,10 +36,8 @@ public class FraComplianceService(IFraDutyTourRepository dutyTourRepository)
         GetDutyTourRequest request, ServerCallContext context)
     {
         var tour = await dutyTourRepository.GetByCtrlNbrAsync(
-            ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
-
-        if (tour is null)
-            throw new RpcException(new Status(StatusCode.NotFound, "Duty tour not found"));
+            ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, "Duty tour not found"));
 
         return MapTour(tour);
     }
