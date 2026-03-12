@@ -26,10 +26,8 @@ public class ElectronicCallingService(CrewCallingService callingService)
         PollCallStatusRequest request, ServerCallContext context)
     {
         var result = await callingService.PollAndUpdateAsync(
-            ControlNumber.Create(request.RequestCtrlNbr), context.CancellationToken);
-
-        if (result is null)
-            throw new RpcException(new Status(StatusCode.NotFound, "Notification request not found"));
+            ControlNumber.Create(request.RequestCtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, "Notification request not found"));
 
         return MapResponse(result);
     }
