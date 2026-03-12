@@ -83,6 +83,9 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.FraCompliance.DrugAlcoholAction> DrugAlcoholActions => Set<Domain.Modules.FraCompliance.DrugAlcoholAction>();
     public DbSet<Domain.Modules.FraCompliance.VoluntaryReferral> VoluntaryReferrals => Set<Domain.Modules.FraCompliance.VoluntaryReferral>();
 
+    // Policies Module
+    public DbSet<Domain.Modules.Policies.CraftOperationsPolicy> CraftOperationsPolicies => Set<Domain.Modules.Policies.CraftOperationsPolicy>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
