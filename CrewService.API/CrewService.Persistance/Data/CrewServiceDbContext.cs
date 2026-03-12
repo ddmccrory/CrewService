@@ -63,6 +63,12 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 
     // FraCompliance Module
     public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
+    public DbSet<Domain.Modules.FraCompliance.FraDutyTour> FraDutyTours => Set<Domain.Modules.FraCompliance.FraDutyTour>();
+    public DbSet<Domain.Modules.FraCompliance.FraDutyTourSegment> FraDutyTourSegments => Set<Domain.Modules.FraCompliance.FraDutyTourSegment>();
+    public DbSet<Domain.Modules.FraCompliance.FraTransportationSegment> FraTransportationSegments => Set<Domain.Modules.FraCompliance.FraTransportationSegment>();
+    public DbSet<Domain.Modules.FraCompliance.FraOtherServiceSegment> FraOtherServiceSegments => Set<Domain.Modules.FraCompliance.FraOtherServiceSegment>();
+    public DbSet<Domain.Modules.FraCompliance.FraExcessServiceReport> FraExcessServiceReports => Set<Domain.Modules.FraCompliance.FraExcessServiceReport>();
+    public DbSet<Domain.Modules.FraCompliance.FraMonthlyAccumulator> FraMonthlyAccumulators => Set<Domain.Modules.FraCompliance.FraMonthlyAccumulator>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
