@@ -58,6 +58,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.WorkManagement.PositionSlot> PositionSlots => Set<Domain.Modules.WorkManagement.PositionSlot>();
     public DbSet<Domain.Modules.WorkManagement.SlotRequirement> SlotRequirements => Set<Domain.Modules.WorkManagement.SlotRequirement>();
     public DbSet<Domain.Modules.WorkManagement.ShiftDefinition> ShiftDefinitions => Set<Domain.Modules.WorkManagement.ShiftDefinition>();
+    public DbSet<Domain.Modules.WorkManagement.ShiftInstance> ShiftInstances => Set<Domain.Modules.WorkManagement.ShiftInstance>();
+    public DbSet<Domain.Modules.WorkManagement.PositionSlotInstance> PositionSlotInstances => Set<Domain.Modules.WorkManagement.PositionSlotInstance>();
 
     // Dispatching Module
     public DbSet<Domain.Modules.Dispatching.ChangeNotification> ChangeNotifications => Set<Domain.Modules.Dispatching.ChangeNotification>();
