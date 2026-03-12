@@ -17,10 +17,8 @@ public class PayrollEngineService(
             request.HasAbsenceCode ? request.AbsenceCode : null, null);
 
         var result = await earningCodeResolver.ResolveAsync(
-            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), ctx, context.CancellationToken);
-
-        if (result is null)
-            throw new RpcException(new Status(StatusCode.NotFound, "No matching earning code rule"));
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), ctx, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, "No matching earning code rule"));
 
         return new EarningCodeResultResponse
         {

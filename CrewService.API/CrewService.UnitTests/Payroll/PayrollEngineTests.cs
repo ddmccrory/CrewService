@@ -7,13 +7,11 @@ namespace CrewService.UnitTests.Payroll;
 
 public class EarningCodeResolverTests
 {
-    private sealed class FakeRuleRepo : IEarningCodeRuleRepository
+    private sealed class FakeRuleRepo(List<EarningCodeRule> rules) : IEarningCodeRuleRepository
     {
-        private readonly List<EarningCodeRule> _rules;
-        public FakeRuleRepo(List<EarningCodeRule> rules) => _rules = rules;
         public Task<IReadOnlyList<EarningCodeRule>> GetActiveByWorkAreaAsync(
             ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<EarningCodeRule>>(_rules);
+            => Task.FromResult<IReadOnlyList<EarningCodeRule>>(rules);
     }
 
     [Fact]
