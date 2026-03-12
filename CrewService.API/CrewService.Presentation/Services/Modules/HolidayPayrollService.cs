@@ -47,7 +47,9 @@ public class HolidayPayrollService(
         GenerateHolidaysForYearRequest request, ServerCallContext context)
     {
         var holidays = await autoGenerationService.GenerateForYearAsync(
-            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), request.Year, context.CancellationToken);
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), request.Year,
+            request.ParentGroupCtrlNbr != 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
+            context.CancellationToken);
 
         var resp = new GetHolidaysResponse();
         foreach (var h in holidays)

@@ -9,16 +9,24 @@ public interface IRailroadHolidaySelectionRepository
 {
     Task<IReadOnlyList<RailroadHolidaySelection>> GetActiveByWorkAreaAsync(
         ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+
+    Task<bool> HasOwnSelectionsAsync(
+        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
 }
 
 public sealed class HolidayAutoGenerationService(
     IRailroadHolidaySelectionRepository selectionRepo,
     IHolidayRepository holidayRepo)
 {
+    /// <summary>
+    /// Generates holidays for a work area. If the work area has its own selections, those
+    /// are used. Otherwise, falls back to the parent group's selections (inherited).
+    /// </summary>
     public async Task<IReadOnlyList<Holiday>> GenerateForYearAsync(
-        ControlNumber workAreaGroupCtrlNbr, int year, CancellationToken ct = default)
+        ControlNumber workAreaGroupCtrlNbr, int year,
+        ControlNumber? parentGroupCtrlNbr = null, CancellationToken ct = default)
     {
-        var selections = await selectionRepo.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        var selections = await ResolveSelectionsAsync(workAreaGroupCtrlNbr, parentGroupCtrlNbr, ct);
         var existingHolidays = await holidayRepo.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
 
         var existingDates = existingHolidays
@@ -52,5 +60,21 @@ public sealed class HolidayAutoGenerationService(
             DayOfWeek.Sunday => actual.AddDays(1),
             _ => actual
         };
+    }
+
+    /// <summary>
+    /// Railroad-specific selections take priority. If none exist and a parent group
+    /// is provided, the parent's selections are inherited.
+    /// </summary>
+    private async Task<IReadOnlyList<RailroadHolidaySelection>> ResolveSelectionsAsync(
+        ControlNumber workAreaGroupCtrlNbr, ControlNumber? parentGroupCtrlNbr, CancellationToken ct)
+    {
+        if (await selectionRepo.HasOwnSelectionsAsync(workAreaGroupCtrlNbr, ct))
+            return await selectionRepo.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+
+        if (parentGroupCtrlNbr is not null)
+            return await selectionRepo.GetActiveByWorkAreaAsync(parentGroupCtrlNbr, ct);
+
+        return [];
     }
 }

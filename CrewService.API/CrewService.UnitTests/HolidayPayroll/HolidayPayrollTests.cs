@@ -238,7 +238,12 @@ public class HolidayAutoGenerationServiceTests
     {
         public Task<IReadOnlyList<RailroadHolidaySelection>> GetActiveByWorkAreaAsync(
             ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<RailroadHolidaySelection>>(selections);
+            => Task.FromResult<IReadOnlyList<RailroadHolidaySelection>>(
+                selections.Where(s => s.WorkAreaGroupCtrlNbr.Value == workAreaGroupCtrlNbr.Value).ToList());
+
+        public Task<bool> HasOwnSelectionsAsync(
+            ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(selections.Any(s => s.WorkAreaGroupCtrlNbr.Value == workAreaGroupCtrlNbr.Value));
     }
 
     private sealed class FakeHolidayRepo(List<Holiday> holidays) : IHolidayRepository
@@ -300,5 +305,58 @@ public class HolidayAutoGenerationServiceTests
         var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026);
         Assert.Single(result);
         Assert.Equal(new DateOnly(2026, 7, 3), result[0].ObservedDate);
+    }
+
+    [Fact]
+    public async Task ChildInheritsFromParent_WhenNoOwnSelections()
+    {
+        // Parent (group 100) has selections, child (group 1) has none
+        var selections = new List<RailroadHolidaySelection>
+        {
+            RailroadHolidaySelection.Create(ControlNumber.Create(100), "CHRISTMAS"),
+            RailroadHolidaySelection.Create(ControlNumber.Create(100), "NEW_YEAR"),
+        };
+
+        var service = new HolidayAutoGenerationService(
+            new FakeSelectionRepo(selections), new FakeHolidayRepo([]));
+
+        var result = await service.GenerateForYearAsync(
+            ControlNumber.Create(1), 2026, ControlNumber.Create(100));
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, h => h.Name == "Christmas Day");
+        Assert.Contains(result, h => h.Name == "New Year's Day");
+    }
+
+    [Fact]
+    public async Task ChildOverridesParent_WhenOwnSelectionsExist()
+    {
+        // Parent (100) has 2 selections, child (1) has its own 1 selection
+        var selections = new List<RailroadHolidaySelection>
+        {
+            RailroadHolidaySelection.Create(ControlNumber.Create(100), "CHRISTMAS"),
+            RailroadHolidaySelection.Create(ControlNumber.Create(100), "NEW_YEAR"),
+            RailroadHolidaySelection.Create(ControlNumber.Create(1), "INDEPENDENCE"),
+        };
+
+        var service = new HolidayAutoGenerationService(
+            new FakeSelectionRepo(selections), new FakeHolidayRepo([]));
+
+        var result = await service.GenerateForYearAsync(
+            ControlNumber.Create(1), 2026, ControlNumber.Create(100));
+
+        // Child's own selection wins — only Independence Day, not parent's Christmas/New Year
+        Assert.Single(result);
+        Assert.Equal("Independence Day", result[0].Name);
+    }
+
+    [Fact]
+    public async Task NoParent_NoSelections_ReturnsEmpty()
+    {
+        var service = new HolidayAutoGenerationService(
+            new FakeSelectionRepo([]), new FakeHolidayRepo([]));
+
+        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026);
+        Assert.Empty(result);
     }
 }
