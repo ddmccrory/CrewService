@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312185457_AddEarningCodeRule")]
+    partial class AddEarningCodeRule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -2538,39 +2541,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("VoluntaryReferrals");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningApproval", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ApprovalTier")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DecidedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("OfficerCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("PayrollRecordCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("EarningApprovals");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningCodeRule", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -2609,39 +2579,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("EarningCodeRules");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayRate", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("CraftCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("EffectiveDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<decimal>("HourlyRate")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<decimal>("OvertimeMultiplier")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long?>("PositionRoleCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("PayRates");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollRecord", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -2669,21 +2606,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("OnDutyRecordCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<long>("PayrollRunCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("PolicyRef")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("RequiresApproval")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ResolvedEarningCode")
-                        .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
@@ -8302,78 +8229,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningApproval", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("EarningApprovalCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("EarningApprovalCtrlNbr");
-
-                            b1.ToTable("EarningApprovals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("EarningApprovalCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("EarningApprovalCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("EarningApprovalCtrlNbr");
-
-                            b1.ToTable("EarningApprovals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("EarningApprovalCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("EarningApprovalCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("EarningApprovalCtrlNbr");
-
-                            b1.ToTable("EarningApprovals");
-
-                            b1.WithOwner()
-                                .HasForeignKey("EarningApprovalCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningCodeRule", b =>
                 {
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -8437,78 +8292,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningCodeRuleCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayRate", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("PayRateCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PayRateCtrlNbr");
-
-                            b1.ToTable("PayRates");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PayRateCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("PayRateCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PayRateCtrlNbr");
-
-                            b1.ToTable("PayRates");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PayRateCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("PayRateCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PayRateCtrlNbr");
-
-                            b1.ToTable("PayRates");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PayRateCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
