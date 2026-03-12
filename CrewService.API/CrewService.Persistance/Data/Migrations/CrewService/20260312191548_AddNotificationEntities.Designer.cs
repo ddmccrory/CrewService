@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312191548_AddNotificationEntities")]
+    partial class AddNotificationEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -2536,47 +2539,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasKey("CtrlNbr");
 
                     b.ToTable("VoluntaryReferrals");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationProviderConfig", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("BatchPauseSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("BatchSize")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ConfigJson")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PollingIntervalSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PollingTimeoutMinutes")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ProviderType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("WorkAreaGroupCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("NotificationProviderConfigs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationRequest", b =>
@@ -8409,78 +8371,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.WithOwner()
                                 .HasForeignKey("VoluntaryReferralCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationProviderConfig", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("NotificationProviderConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("NotificationProviderConfigCtrlNbr");
-
-                            b1.ToTable("NotificationProviderConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("NotificationProviderConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("NotificationProviderConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("NotificationProviderConfigCtrlNbr");
-
-                            b1.ToTable("NotificationProviderConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("NotificationProviderConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("NotificationProviderConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("NotificationProviderConfigCtrlNbr");
-
-                            b1.ToTable("NotificationProviderConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("NotificationProviderConfigCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");

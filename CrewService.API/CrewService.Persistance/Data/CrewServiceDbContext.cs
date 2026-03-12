@@ -97,6 +97,11 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Payroll.PayRate> PayRates => Set<Domain.Modules.Payroll.PayRate>();
     public DbSet<Domain.Modules.Payroll.EarningApproval> EarningApprovals => Set<Domain.Modules.Payroll.EarningApproval>();
 
+    // Notifications Module
+    public DbSet<Domain.Modules.Notifications.NotificationRequest> NotificationRequests => Set<Domain.Modules.Notifications.NotificationRequest>();
+    public DbSet<Domain.Modules.Notifications.NotificationResponse> NotificationResponses => Set<Domain.Modules.Notifications.NotificationResponse>();
+    public DbSet<Domain.Modules.Notifications.NotificationProviderConfig> NotificationProviderConfigs => Set<Domain.Modules.Notifications.NotificationProviderConfig>();
+
     // AbsenceVacancy Module
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCode> AbsenceCodes => Set<Domain.Modules.AbsenceVacancy.AbsenceCode>();
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride> AbsenceCodeCraftOverrides => Set<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride>();
