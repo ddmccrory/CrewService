@@ -1,4 +1,5 @@
 ﻿using CrewService.Domain.Interfaces;
+using CrewService.Infrastructure.Notifications;
 using CrewService.Infrastructure.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,10 @@ public static class DependencyInjection
 
         // Register background outbox publisher service (hybrid mode)
         services.AddHostedService<OutboxPublisherService>();
+
+        // Register operational notifier (Teams webhook)
+        services.AddHttpClient();
+        services.AddScoped<IOperationalNotifier, TeamsWebhookNotifier>();
 
         return services;
     }
