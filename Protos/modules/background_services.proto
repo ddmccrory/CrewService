@@ -3,11 +3,18 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service BackgroundServicesSrvc {
-  rpc GetWorkerSchedules (GetWorkerSchedulesRequest) returns (GetWorkerSchedulesResponse);
-  rpc UpdateSchedule (UpdateScheduleRequest) returns (WorkerScheduleResponse);
-  rpc GetExecutionLogs (GetExecutionLogsRequest) returns (GetExecutionLogsResponse);
+  rpc GetWorkerSchedules (GetWorkerSchedulesRequest) returns (GetWorkerSchedulesResponse) {
+    option (google.api.http) = { get: "/v1/background-services/schedules" };
+  }
+  rpc UpdateSchedule (UpdateScheduleRequest) returns (WorkerScheduleResponse) {
+    option (google.api.http) = { put: "/v1/background-services/schedules/{ctrl_nbr}" body: "*" };
+  }
+  rpc GetExecutionLogs (GetExecutionLogsRequest) returns (GetExecutionLogsResponse) {
+    option (google.api.http) = { get: "/v1/background-services/logs/{worker_schedule_ctrl_nbr}" };
+  }
 }
 
 message GetWorkerSchedulesRequest {

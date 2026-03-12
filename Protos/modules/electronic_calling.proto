@@ -3,10 +3,15 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service ElectronicCallingSrvc {
-  rpc SendCrewCall (SendCrewCallRequest) returns (NotificationRequestResponse);
-  rpc PollCallStatus (PollCallStatusRequest) returns (NotificationRequestResponse);
+  rpc SendCrewCall (SendCrewCallRequest) returns (NotificationRequestResponse) {
+    option (google.api.http) = { post: "/v1/electronic-calling/send" body: "*" };
+  }
+  rpc PollCallStatus (PollCallStatusRequest) returns (NotificationRequestResponse) {
+    option (google.api.http) = { get: "/v1/electronic-calling/poll/{request_ctrl_nbr}" };
+  }
 }
 
 message SendCrewCallRequest {

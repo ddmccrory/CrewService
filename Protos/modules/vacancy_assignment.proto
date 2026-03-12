@@ -3,10 +3,15 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service VacancyAssignmentSrvc {
-  rpc TriggerResolution (TriggerResolutionRequest) returns (VacancyResolutionRunResponse);
-  rpc GetResolutionRuns (GetResolutionRunsRequest) returns (GetResolutionRunsResponse);
+  rpc TriggerResolution (TriggerResolutionRequest) returns (VacancyResolutionRunResponse) {
+    option (google.api.http) = { post: "/v1/vacancy-assignment/trigger" body: "*" };
+  }
+  rpc GetResolutionRuns (GetResolutionRunsRequest) returns (GetResolutionRunsResponse) {
+    option (google.api.http) = { get: "/v1/vacancy-assignment/runs/{work_area_group_ctrl_nbr}" };
+  }
 }
 
 message TriggerResolutionRequest {

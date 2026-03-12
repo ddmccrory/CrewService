@@ -3,12 +3,21 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service DailyOperationsSrvc {
-  rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse);
-  rpc PlaceOnDuty (PlaceOnDutyRequest) returns (OnDutyRecordResponse);
-  rpc TieUp (TieUpRequest) returns (OffDutyRecordResponse);
-  rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse);
+  rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse) {
+    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}" };
+  }
+  rpc PlaceOnDuty (PlaceOnDutyRequest) returns (OnDutyRecordResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/on-duty" body: "*" };
+  }
+  rpc TieUp (TieUpRequest) returns (OffDutyRecordResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/tie-up" body: "*" };
+  }
+  rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/annul" body: "*" };
+  }
 }
 
 message GetCallSheetRequest {

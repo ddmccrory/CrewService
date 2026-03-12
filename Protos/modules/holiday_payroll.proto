@@ -2,11 +2,15 @@ syntax = "proto3";
 
 option csharp_namespace = "CrewService.Presentation";
 
-import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service HolidayPayrollSrvc {
-  rpc EvaluateQualification (EvaluateQualificationRequest) returns (HolidayQualificationResponse);
-  rpc GetHolidays (GetHolidaysRequest) returns (GetHolidaysResponse);
+  rpc EvaluateQualification (EvaluateQualificationRequest) returns (HolidayQualificationResponse) {
+    option (google.api.http) = { post: "/v1/holiday-payroll/evaluate" body: "*" };
+  }
+  rpc GetHolidays (GetHolidaysRequest) returns (GetHolidaysResponse) {
+    option (google.api.http) = { get: "/v1/holiday-payroll/holidays/{work_area_group_ctrl_nbr}" };
+  }
 }
 
 message EvaluateQualificationRequest {

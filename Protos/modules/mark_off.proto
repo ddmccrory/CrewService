@@ -3,13 +3,24 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service MarkOffSrvc {
-  rpc CreateAbsenceRequest (CreateAbsenceRequestMsg) returns (MarkOffAbsenceResponse);
-  rpc ApproveAbsence (ApproveAbsenceMsg) returns (AbsenceApprovalResponse);
-  rpc DeclineAbsence (DeclineAbsenceMsg) returns (AbsenceApprovalResponse);
-  rpc GetCompensationBalance (GetCompensationBalanceMsg) returns (CompensationBalanceResponse);
-  rpc GetAbsenceCodes (GetAbsenceCodesMsg) returns (GetAbsenceCodesResponse);
+  rpc CreateAbsenceRequest (CreateAbsenceRequestMsg) returns (MarkOffAbsenceResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/requests" body: "*" };
+  }
+  rpc ApproveAbsence (ApproveAbsenceMsg) returns (AbsenceApprovalResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/approve" body: "*" };
+  }
+  rpc DeclineAbsence (DeclineAbsenceMsg) returns (AbsenceApprovalResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/decline" body: "*" };
+  }
+  rpc GetCompensationBalance (GetCompensationBalanceMsg) returns (CompensationBalanceResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/compensation-balance/{employee_ctrl_nbr}" };
+  }
+  rpc GetAbsenceCodes (GetAbsenceCodesMsg) returns (GetAbsenceCodesResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/absence-codes/{work_area_group_ctrl_nbr}" };
+  }
 }
 
 message CreateAbsenceRequestMsg {

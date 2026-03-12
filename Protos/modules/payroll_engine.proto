@@ -3,12 +3,21 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 service PayrollEngineSrvc {
-  rpc ResolveEarningCode (ResolveEarningCodeRequest) returns (EarningCodeResultResponse);
-  rpc CalculateTrial (PayrollRunRequest) returns (PayrollRunStatusResponse);
-  rpc LockFinal (PayrollRunRequest) returns (PayrollRunStatusResponse);
-  rpc ApproveEarning (ApproveEarningRequest) returns (EarningApprovalStatusResponse);
+  rpc ResolveEarningCode (ResolveEarningCodeRequest) returns (EarningCodeResultResponse) {
+    option (google.api.http) = { post: "/v1/payroll-engine/resolve" body: "*" };
+  }
+  rpc CalculateTrial (PayrollRunRequest) returns (PayrollRunStatusResponse) {
+    option (google.api.http) = { post: "/v1/payroll-engine/trial" body: "*" };
+  }
+  rpc LockFinal (PayrollRunRequest) returns (PayrollRunStatusResponse) {
+    option (google.api.http) = { post: "/v1/payroll-engine/lock" body: "*" };
+  }
+  rpc ApproveEarning (ApproveEarningRequest) returns (EarningApprovalStatusResponse) {
+    option (google.api.http) = { post: "/v1/payroll-engine/approve" body: "*" };
+  }
 }
 
 message ResolveEarningCodeRequest {

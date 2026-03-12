@@ -1,10 +1,15 @@
 syntax = "proto3";
 
 option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
 
 service HolidayManagementSrvc {
-  rpc GetUsHolidayCatalog (GetUsHolidayCatalogRequest) returns (GetUsHolidayCatalogResponse);
-  rpc GenerateHolidaysForYear (GenerateHolidaysForYearRequest) returns (GenerateHolidaysForYearResponse);
+  rpc GetUsHolidayCatalog (GetUsHolidayCatalogRequest) returns (GetUsHolidayCatalogResponse) {
+    option (google.api.http) = { get: "/v1/holiday-management/catalog" };
+  }
+  rpc GenerateHolidaysForYear (GenerateHolidaysForYearRequest) returns (GenerateHolidaysForYearResponse) {
+    option (google.api.http) = { post: "/v1/holiday-management/generate" body: "*" };
+  }
 }
 
 message GetUsHolidayCatalogRequest {}
