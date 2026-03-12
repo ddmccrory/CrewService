@@ -71,6 +71,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.FraCompliance.FraMonthlyAccumulator> FraMonthlyAccumulators => Set<Domain.Modules.FraCompliance.FraMonthlyAccumulator>();
     public DbSet<Domain.Modules.FraCompliance.RegulatoryQualification> RegulatoryQualifications => Set<Domain.Modules.FraCompliance.RegulatoryQualification>();
     public DbSet<Domain.Modules.FraCompliance.CraftRegulatoryQualification> CraftRegulatoryQualifications => Set<Domain.Modules.FraCompliance.CraftRegulatoryQualification>();
+    public DbSet<Domain.Modules.FraCompliance.EmployeeCertification> EmployeeCertifications => Set<Domain.Modules.FraCompliance.EmployeeCertification>();
+    public DbSet<Domain.Modules.FraCompliance.CertificationEligibilityCheck> CertificationEligibilityChecks => Set<Domain.Modules.FraCompliance.CertificationEligibilityCheck>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

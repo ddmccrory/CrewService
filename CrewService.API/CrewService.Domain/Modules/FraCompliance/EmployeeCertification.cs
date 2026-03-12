@@ -1,0 +1,95 @@
+using CrewService.Domain.Primitives;
+using CrewService.Domain.ValueObjects;
+
+namespace CrewService.Domain.Modules.FraCompliance;
+
+public sealed class EmployeeCertification : Entity
+{
+    private readonly List<CertificationEligibilityCheck> _eligibilityChecks = [];
+
+    public ControlNumber EmployeeCtrlNbr { get; private set; }
+    public ControlNumber RegulatoryQualificationCtrlNbr { get; private set; }
+    public string CertificationType { get; private set; } = string.Empty;
+    public DateOnly CertificationDate { get; private set; }
+    public DateOnly ExpirationDate { get; private set; }
+    public string Status { get; private set; } = "Pending";
+    public string? CertificationNumber { get; private set; }
+    public DateTime? SuspendedAtUtc { get; private set; }
+    public string? SuspensionReason { get; private set; }
+    public DateTime? RevocationPeriodEndUtc { get; private set; }
+    public DateTime? LastMonitoringObservationUtc { get; private set; }
+    public DateTime? LastComplianceTestUtc { get; private set; }
+
+    public IReadOnlyList<CertificationEligibilityCheck> EligibilityChecks => _eligibilityChecks.AsReadOnly();
+
+    private EmployeeCertification()
+    {
+        EmployeeCtrlNbr = null!;
+        RegulatoryQualificationCtrlNbr = null!;
+    }
+
+    public static EmployeeCertification Create(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber regulatoryQualificationCtrlNbr,
+        string certificationType,
+        DateOnly certificationDate,
+        int recertificationIntervalMonths,
+        string? certificationNumber = null)
+    {
+        return new EmployeeCertification
+        {
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            RegulatoryQualificationCtrlNbr = regulatoryQualificationCtrlNbr,
+            CertificationType = certificationType,
+            CertificationDate = certificationDate,
+            ExpirationDate = certificationDate.AddMonths(recertificationIntervalMonths),
+            Status = "Active",
+            CertificationNumber = certificationNumber,
+            CreatedBy = AuditStamp.Create("SYSTEM")
+        };
+    }
+
+    public void Suspend(string reason)
+    {
+        Status = "Suspended";
+        SuspendedAtUtc = DateTime.UtcNow;
+        SuspensionReason = reason;
+        ModifiedBy = AuditStamp.Create("SYSTEM");
+    }
+
+    public void Revoke(DateTime revocationPeriodEndUtc)
+    {
+        Status = "Revoked";
+        RevocationPeriodEndUtc = revocationPeriodEndUtc;
+        ModifiedBy = AuditStamp.Create("SYSTEM");
+    }
+
+    public void Reinstate()
+    {
+        Status = "Active";
+        SuspendedAtUtc = null;
+        SuspensionReason = null;
+        RevocationPeriodEndUtc = null;
+        ModifiedBy = AuditStamp.Create("SYSTEM");
+    }
+
+    public void Expire()
+    {
+        Status = "Expired";
+        ModifiedBy = AuditStamp.Create("SYSTEM");
+    }
+
+    public void RecordMonitoringObservation() => LastMonitoringObservationUtc = DateTime.UtcNow;
+
+    public void RecordComplianceTest() => LastComplianceTestUtc = DateTime.UtcNow;
+
+    public CertificationEligibilityCheck AddEligibilityCheck(
+        string checkType, DateOnly evaluationDate,
+        int stalenessLimitDays, string result, string? evaluatorName)
+    {
+        var check = CertificationEligibilityCheck.Create(
+            CtrlNbr, checkType, evaluationDate, stalenessLimitDays, result, evaluatorName);
+        _eligibilityChecks.Add(check);
+        return check;
+    }
+}
