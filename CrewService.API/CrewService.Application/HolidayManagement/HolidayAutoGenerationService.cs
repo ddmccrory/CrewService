@@ -1,7 +1,9 @@
+using CrewService.Application.Payroll;
+using CrewService.Domain.Modules.HolidayManagement;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
-namespace CrewService.Application.Payroll;
+namespace CrewService.Application.HolidayManagement;
 
 public interface IRailroadHolidaySelectionRepository
 {

@@ -1,7 +1,7 @@
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
-namespace CrewService.Domain.Modules.Payroll;
+namespace CrewService.Domain.Modules.HolidayManagement;
 
 public sealed class RailroadHolidaySelection : Entity
 {

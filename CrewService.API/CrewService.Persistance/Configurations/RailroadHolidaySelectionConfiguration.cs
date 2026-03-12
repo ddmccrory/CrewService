@@ -1,4 +1,4 @@
-using CrewService.Domain.Modules.Payroll;
+using CrewService.Domain.Modules.HolidayManagement;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

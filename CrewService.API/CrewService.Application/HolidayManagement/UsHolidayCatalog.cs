@@ -1,4 +1,4 @@
-namespace CrewService.Application.Payroll;
+namespace CrewService.Application.HolidayManagement;
 
 public sealed record UsHolidayDefinition(string Code, string Name, Func<int, DateOnly> DateResolver);
 

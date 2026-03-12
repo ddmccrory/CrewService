@@ -109,7 +109,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Payroll.Holiday> Holidays => Set<Domain.Modules.Payroll.Holiday>();
     public DbSet<Domain.Modules.Payroll.HolidayQualificationRule> HolidayQualificationRules => Set<Domain.Modules.Payroll.HolidayQualificationRule>();
     public DbSet<Domain.Modules.Payroll.HolidayPayrollRecord> HolidayPayrollRecords => Set<Domain.Modules.Payroll.HolidayPayrollRecord>();
-    public DbSet<Domain.Modules.Payroll.RailroadHolidaySelection> RailroadHolidaySelections => Set<Domain.Modules.Payroll.RailroadHolidaySelection>();
+    public DbSet<Domain.Modules.HolidayManagement.RailroadHolidaySelection> RailroadHolidaySelections => Set<Domain.Modules.HolidayManagement.RailroadHolidaySelection>();
 
     // Notifications Module
     public DbSet<Domain.Modules.Notifications.NotificationRequest> NotificationRequests => Set<Domain.Modules.Notifications.NotificationRequest>();
