@@ -87,7 +87,7 @@ public sealed class RosterBoardPosition : Entity
         ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
-    public void Restore()
+    public void RestoreFromHangout()
     {
         HangoutStatus = "Active";
         HangoutAtUtc = null;

@@ -63,13 +63,13 @@ public class RosterBoardPositionTests
     }
 
     [Fact]
-    public void Restore_ResetsToActive()
+    public void RestoreFromHangout_ResetsToActive()
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "Test");
         var pos = board.AddPosition(ControlNumber.Create(10), 1);
         pos.Hangout();
-        pos.Restore();
+        pos.RestoreFromHangout();
 
         Assert.Equal("Active", pos.HangoutStatus);
         Assert.Null(pos.HangoutAtUtc);
