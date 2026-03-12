@@ -58,6 +58,7 @@
     <Protobuf Include="..\..\Protos\modules\absence_vacancy.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\payroll.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\fra_compliance.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\daily_operations.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
   </ItemGroup>
 
 </Project>

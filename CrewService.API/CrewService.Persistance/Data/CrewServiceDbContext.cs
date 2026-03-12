@@ -57,9 +57,19 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.WorkManagement.PositionRole> PositionRoles => Set<Domain.Modules.WorkManagement.PositionRole>();
     public DbSet<Domain.Modules.WorkManagement.PositionSlot> PositionSlots => Set<Domain.Modules.WorkManagement.PositionSlot>();
     public DbSet<Domain.Modules.WorkManagement.SlotRequirement> SlotRequirements => Set<Domain.Modules.WorkManagement.SlotRequirement>();
+    public DbSet<Domain.Modules.WorkManagement.ShiftDefinition> ShiftDefinitions => Set<Domain.Modules.WorkManagement.ShiftDefinition>();
+    public DbSet<Domain.Modules.WorkManagement.ShiftInstance> ShiftInstances => Set<Domain.Modules.WorkManagement.ShiftInstance>();
+    public DbSet<Domain.Modules.WorkManagement.PositionSlotInstance> PositionSlotInstances => Set<Domain.Modules.WorkManagement.PositionSlotInstance>();
+    public DbSet<Domain.Modules.WorkManagement.CrewOffDay> CrewOffDays => Set<Domain.Modules.WorkManagement.CrewOffDay>();
+    public DbSet<Domain.Modules.WorkManagement.AbolishmentRecord> AbolishmentRecords => Set<Domain.Modules.WorkManagement.AbolishmentRecord>();
 
     // Dispatching Module
     public DbSet<Domain.Modules.Dispatching.ChangeNotification> ChangeNotifications => Set<Domain.Modules.Dispatching.ChangeNotification>();
+    public DbSet<Domain.Modules.Dispatching.OnDutyRecord> OnDutyRecords => Set<Domain.Modules.Dispatching.OnDutyRecord>();
+    public DbSet<Domain.Modules.Dispatching.OffDutyRecord> OffDutyRecords => Set<Domain.Modules.Dispatching.OffDutyRecord>();
+    public DbSet<Domain.Modules.Dispatching.OnDutyBillingRecord> OnDutyBillingRecords => Set<Domain.Modules.Dispatching.OnDutyBillingRecord>();
+    public DbSet<Domain.Modules.Dispatching.OnDutyLocomotiveRecord> OnDutyLocomotiveRecords => Set<Domain.Modules.Dispatching.OnDutyLocomotiveRecord>();
+    public DbSet<Domain.Modules.Dispatching.OnDutyMaterialRecord> OnDutyMaterialRecords => Set<Domain.Modules.Dispatching.OnDutyMaterialRecord>();
 
     // FraCompliance Module
     public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
@@ -77,6 +87,9 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.FraCompliance.DrugAlcoholTestRecord> DrugAlcoholTestRecords => Set<Domain.Modules.FraCompliance.DrugAlcoholTestRecord>();
     public DbSet<Domain.Modules.FraCompliance.DrugAlcoholAction> DrugAlcoholActions => Set<Domain.Modules.FraCompliance.DrugAlcoholAction>();
     public DbSet<Domain.Modules.FraCompliance.VoluntaryReferral> VoluntaryReferrals => Set<Domain.Modules.FraCompliance.VoluntaryReferral>();
+
+    // Policies Module
+    public DbSet<Domain.Modules.Policies.CraftOperationsPolicy> CraftOperationsPolicies => Set<Domain.Modules.Policies.CraftOperationsPolicy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
