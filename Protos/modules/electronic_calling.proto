@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+
+service ElectronicCallingSrvc {
+  rpc SendCrewCall (SendCrewCallRequest) returns (NotificationRequestResponse);
+  rpc PollCallStatus (PollCallStatusRequest) returns (NotificationRequestResponse);
+}
+
+message SendCrewCallRequest {
+  int64 position_slot_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string template_type = 3;
+  int32 polling_timeout_minutes = 4;
+}
+
+message PollCallStatusRequest {
+  int64 request_ctrl_nbr = 1;
+}
+
+message NotificationRequestResponse {
+  int64 ctrl_nbr = 1;
+  string status = 2;
+  string template_type = 3;
+  google.protobuf.Timestamp sent_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  optional string external_id = 6;
+}
