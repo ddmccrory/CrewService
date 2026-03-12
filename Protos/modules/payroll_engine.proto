@@ -2,7 +2,6 @@ syntax = "proto3";
 
 option csharp_namespace = "CrewService.Presentation";
 
-import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 
 service PayrollEngineSrvc {
