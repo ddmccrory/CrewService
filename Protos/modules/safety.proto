@@ -1,0 +1,86 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package safety;
+
+service SafetySrvc {
+  rpc CreateObservation(CreateObservationRequest) returns (SafetyObservationResponse) {
+    option (google.api.http) = { post: "/v1/safety/observations" body: "*" };
+  }
+  rpc GetObservation(GetObservationRequest) returns (SafetyObservationResponse) {
+    option (google.api.http) = { get: "/v1/safety/observations/{ctrl_nbr}" };
+  }
+  rpc GetByWorkArea(GetSafetyByWorkAreaRequest) returns (GetObservationsResponse) {
+    option (google.api.http) = { get: "/v1/safety/observations/work-area/{work_area_group_ctrl_nbr}" };
+  }
+  rpc AddAction(AddActionRequest) returns (SafetyActionResponse) {
+    option (google.api.http) = { post: "/v1/safety/observations/{observation_ctrl_nbr}/actions" body: "*" };
+  }
+  rpc ResolveObservation(ResolveObservationRequest) returns (SafetyResolutionResponse) {
+    option (google.api.http) = { post: "/v1/safety/observations/{observation_ctrl_nbr}/resolve" body: "*" };
+  }
+}
+
+message CreateObservationRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 observer_employee_ctrl_nbr = 2;
+  string category_code = 3;
+  string area_code = 4;
+  string description = 5;
+  string subdivision_code = 6;
+}
+
+message GetObservationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetSafetyByWorkAreaRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  bool open_only = 2;
+}
+
+message GetObservationsResponse {
+  repeated SafetyObservationResponse items = 1;
+  int32 total_count = 2;
+}
+
+message AddActionRequest {
+  int64 observation_ctrl_nbr = 1;
+  int64 taken_by_ctrl_nbr = 2;
+  string action_description = 3;
+}
+
+message ResolveObservationRequest {
+  int64 observation_ctrl_nbr = 1;
+  int64 resolved_by_ctrl_nbr = 2;
+  string resolution_description = 3;
+}
+
+message SafetyObservationResponse {
+  int64 ctrl_nbr = 1;
+  int64 work_area_group_ctrl_nbr = 2;
+  int64 observer_employee_ctrl_nbr = 3;
+  string category_code = 4;
+  string area_code = 5;
+  string subdivision_code = 6;
+  string description = 7;
+  string observed_at_utc = 8;
+  string status = 9;
+  repeated SafetyActionResponse actions = 10;
+}
+
+message SafetyActionResponse {
+  int64 ctrl_nbr = 1;
+  int64 observation_ctrl_nbr = 2;
+  int64 taken_by_ctrl_nbr = 3;
+  string action_description = 4;
+  string taken_at_utc = 5;
+}
+
+message SafetyResolutionResponse {
+  int64 ctrl_nbr = 1;
+  int64 observation_ctrl_nbr = 2;
+  int64 resolved_by_ctrl_nbr = 3;
+  string resolution_description = 4;
+  string resolved_at_utc = 5;
+}
