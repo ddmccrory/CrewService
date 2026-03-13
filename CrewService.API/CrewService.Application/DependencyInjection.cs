@@ -7,6 +7,7 @@ using CrewService.Application.MarkOff;
 using CrewService.Application.Payroll;
 using CrewService.Application.ReportingExports;
 using CrewService.Application.ReportingExports.Formatters;
+using CrewService.Application.ReportingExports.Renderers;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
@@ -69,6 +70,8 @@ public static class DependencyInjection
         services.AddScoped<PayrollExportService>();
         services.AddScoped<PayrollImportService>();
         services.AddScoped<DailyReportGenerationService>();
+        services.AddScoped<IReportRenderer, PlainTextReportRenderer>();
+        services.AddScoped<IReportRenderer, PdfReportRenderer>();
 
         return services;
     }
