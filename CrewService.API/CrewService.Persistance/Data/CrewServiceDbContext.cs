@@ -156,6 +156,9 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.AbsenceVacancy.CompensationBalance> CompensationBalances => Set<Domain.Modules.AbsenceVacancy.CompensationBalance>();
     public DbSet<Domain.Modules.AbsenceVacancy.VacancyImpact> VacancyImpacts => Set<Domain.Modules.AbsenceVacancy.VacancyImpact>();
 
+    // RailroadInfo Module
+    public DbSet<Domain.Modules.RailroadInfo.RailroadInformation> RailroadInformations => Set<Domain.Modules.RailroadInfo.RailroadInformation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
