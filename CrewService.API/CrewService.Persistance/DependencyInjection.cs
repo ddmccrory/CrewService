@@ -10,6 +10,7 @@ using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Payroll;
+using CrewService.Domain.Modules.RailroadInfo;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.DailyOperations;
@@ -36,6 +37,7 @@ using CrewService.Persistance.Modules.Payroll;
 using CrewService.Persistance.Modules.FraCompliance;
 using CrewService.Persistance.Modules.Infrastructure;
 using CrewService.Persistance.Modules.Notifications;
+using CrewService.Persistance.Modules.RailroadInfo;
 using CrewService.Persistance.Encryption;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
@@ -219,6 +221,10 @@ public static class DependencyInjection
         // Reporting & Exports Repositories (B10)
         services.AddScoped<IPayrollExportBatchRepository, PayrollExportBatchRepository>();
         services.AddScoped<IPayrollImportRecordRepository, PayrollImportRecordRepository>();
+
+        // Railroad Information Repositories (B11)
+        services.AddScoped<IRailroadInformationRepository, RailroadInformationRepository>();
+        services.AddScoped<IRailroadInformationReadReceiptRepository, RailroadInformationReadReceiptRepository>();
 
         // Contact Repositories (Core)
         services.AddScoped<IAddressRepository, AddressRepository>();

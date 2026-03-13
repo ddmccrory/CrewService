@@ -1,0 +1,96 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package railroad_info;
+
+service RailroadInfoSrvc {
+  rpc CreateInformation(CreateInformationRequest) returns (RailroadInformationResponse) {
+    option (google.api.http) = { post: "/v1/railroad-info" body: "*" };
+  }
+  rpc GetInformation(GetInformationRequest) returns (RailroadInformationResponse) {
+    option (google.api.http) = { get: "/v1/railroad-info/{ctrl_nbr}" };
+  }
+  rpc GetByWorkArea(GetByWorkAreaRequest) returns (GetInformationListResponse) {
+    option (google.api.http) = { get: "/v1/railroad-info/work-area/{work_area_group_ctrl_nbr}" };
+  }
+  rpc PublishInformation(PublishInformationRequest) returns (RailroadInformationResponse) {
+    option (google.api.http) = { post: "/v1/railroad-info/{ctrl_nbr}/publish" body: "*" };
+  }
+  rpc CloseInformation(CloseInformationRequest) returns (RailroadInformationResponse) {
+    option (google.api.http) = { post: "/v1/railroad-info/{ctrl_nbr}/close" body: "*" };
+  }
+  rpc CancelInformation(CancelInformationRequest) returns (RailroadInformationResponse) {
+    option (google.api.http) = { post: "/v1/railroad-info/{ctrl_nbr}/cancel" body: "*" };
+  }
+  rpc AcknowledgeRead(AcknowledgeReadRequest) returns (ReadReceiptResponse) {
+    option (google.api.http) = { post: "/v1/railroad-info/{information_ctrl_nbr}/read" body: "*" };
+  }
+  rpc GetReadReceipts(GetReadReceiptsRequest) returns (GetReadReceiptsResponse) {
+    option (google.api.http) = { get: "/v1/railroad-info/{information_ctrl_nbr}/read-receipts" };
+  }
+}
+
+message CreateInformationRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  string information_type = 2;
+  string subject = 3;
+  string body = 4;
+}
+
+message GetInformationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetByWorkAreaRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  bool published_only = 2;
+}
+
+message GetInformationListResponse {
+  repeated RailroadInformationResponse items = 1;
+  int32 total_count = 2;
+}
+
+message PublishInformationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CloseInformationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CancelInformationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message RailroadInformationResponse {
+  int64 ctrl_nbr = 1;
+  int64 work_area_group_ctrl_nbr = 2;
+  string information_type = 3;
+  string subject = 4;
+  string body = 5;
+  string status = 6;
+  string published_at_utc = 7;
+  string closed_at_utc = 8;
+}
+
+message AcknowledgeReadRequest {
+  int64 information_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+}
+
+message ReadReceiptResponse {
+  int64 ctrl_nbr = 1;
+  int64 information_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string read_at_utc = 4;
+}
+
+message GetReadReceiptsRequest {
+  int64 information_ctrl_nbr = 1;
+}
+
+message GetReadReceiptsResponse {
+  repeated ReadReceiptResponse receipts = 1;
+  int32 total_count = 2;
+}
