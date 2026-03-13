@@ -207,6 +207,7 @@ public static class DependencyInjection
 
         // Reporting & Exports Repositories (B10)
         services.AddScoped<IPayrollExportBatchRepository, PayrollExportBatchRepository>();
+        services.AddScoped<IPayrollImportRecordRepository, PayrollImportRecordRepository>();
 
         // Electronic Calling Repositories (B06)
         services.AddScoped<INotificationRequestRepository, NotificationRequestRepository>();

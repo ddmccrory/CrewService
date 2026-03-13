@@ -24,3 +24,8 @@ public interface IPayrollExportBatchRepository : IRepository<PayrollExportBatch>
 {
     Task<IReadOnlyList<PayrollExportBatch>> GetByRunAsync(ControlNumber payrollRunCtrlNbr, CancellationToken ct = default);
 }
+
+public interface IPayrollImportRecordRepository : IRepository<PayrollImportRecord>
+{
+    Task<IReadOnlyList<PayrollImportRecord>> GetBySourceFileAsync(string sourceFile, CancellationToken ct = default);
+}
