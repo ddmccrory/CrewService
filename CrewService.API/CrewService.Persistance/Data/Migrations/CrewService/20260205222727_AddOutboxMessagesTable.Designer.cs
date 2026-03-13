@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 {
     [DbContext(typeof(CrewServiceDbContext))]
     [Migration("20260205222727_AddOutboxMessagesTable")]

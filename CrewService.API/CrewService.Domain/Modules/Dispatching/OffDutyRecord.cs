@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.DailyOperations;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -29,7 +30,7 @@ public sealed class OffDutyRecord : Entity
         decimal consecutiveDayResetHours,
         string releaseReason)
     {
-        return new OffDutyRecord
+        var record = new OffDutyRecord
         {
             OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
@@ -41,5 +42,7 @@ public sealed class OffDutyRecord : Entity
             ReleaseReason = releaseReason,
             CreatedBy = AuditStamp.Create("SYSTEM")
         };
+        record.Raise(new OffDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, onDutyRecordCtrlNbr));
+        return record;
     }
 }

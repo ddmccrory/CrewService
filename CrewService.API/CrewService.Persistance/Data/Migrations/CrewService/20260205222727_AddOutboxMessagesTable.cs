@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace CrewService.Persistance.CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 {
     /// <inheritdoc />
     public partial class AddOutboxMessagesTable : Migration
@@ -54,7 +54,7 @@ namespace CrewService.Persistance.CrewService.Persistance.Data.Migrations.CrewAs
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessages_Status_CreatedAt",
                 table: "OutboxMessages",
-                columns: new[] { "Status", "CreatedAt" });
+                columns: ["Status", "CreatedAt"]);
         }
 
         /// <inheritdoc />

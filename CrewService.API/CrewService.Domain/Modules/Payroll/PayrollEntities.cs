@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents;
+using CrewService.Domain.DomainEvents.Payroll;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -62,6 +63,7 @@ public sealed class PayrollRun : Entity
         Status = "LOCKED";
         LockedAtUtc = DateTime.UtcNow;
         Raise(new PayrollLockedDomainEvent(this));
+        Raise(new PayrollPeriodLockedDomainEvent(CtrlNbr, PayPeriod));
     }
 
     public void Recalculate()
@@ -105,6 +107,7 @@ public sealed class PayrollRecord : Entity
         ResolvedEarningCode = resolvedCode;
         RequiresApproval = requiresApproval;
         OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr;
+        Raise(new EarningCodeResolvedDomainEvent(CtrlNbr, resolvedCode, requiresApproval));
     }
 }
 
@@ -134,8 +137,8 @@ public sealed class EarningApproval : Entity
         };
     }
 
-    public void Approve() { Status = "APPROVED"; DecidedAtUtc = DateTime.UtcNow; }
-    public void Decline() { Status = "DECLINED"; DecidedAtUtc = DateTime.UtcNow; }
+    public void Approve() { Status = "APPROVED"; DecidedAtUtc = DateTime.UtcNow; Raise(new EarningApprovalDecidedDomainEvent(CtrlNbr, "APPROVED")); }
+    public void Decline() { Status = "DECLINED"; DecidedAtUtc = DateTime.UtcNow; Raise(new EarningApprovalDecidedDomainEvent(CtrlNbr, "DECLINED")); }
 }
 
 // Domain Events

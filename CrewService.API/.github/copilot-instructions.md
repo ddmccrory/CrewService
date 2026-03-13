@@ -13,6 +13,7 @@
 - Build all backend (CrewService.API) first across all branches, then build frontend (CrewService.FrontEnd/BlazorUI) separately as a follow-on phase. No data migration from SA — this is a greenfield build with seed data only. Frontend specs will be process-oriented and discussed later.
 - Use the ControlNumber value object for all CtrlNbr parameters; never use raw long. The codebase uses ControlNumber consistently.
 - Always pass CancellationToken explicitly to async methods - never rely on default = default. Repository overrides should only exist when the derived logic actually differs from the base (e.g., adding Includes). Don't override just to repeat the same logic.
+- All entities must have explicit EF Configuration files. Do not rely on ApplyConfigurationsFromAssembly to implicitly discover unconfigured entities.
 
 ## Branch Naming Conventions
 - Always bump version numbers when creating new branches. Use release-based branch naming with incremented version numbers (e.g., "0.1.2/feature-name") — never reuse the same version number across branches.

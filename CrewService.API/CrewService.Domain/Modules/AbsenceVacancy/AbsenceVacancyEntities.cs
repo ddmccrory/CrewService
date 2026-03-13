@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents;
+using CrewService.Domain.DomainEvents.MarkOff;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -130,6 +131,7 @@ public sealed class AbsenceApproval : Entity
         Status = "APPROVED";
         DecidedAtUtc = DateTime.UtcNow;
         Notes = notes;
+        Raise(new AbsenceApprovalDecidedDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr, "APPROVED"));
     }
 
     public void Decline(string? notes = null)
@@ -137,6 +139,7 @@ public sealed class AbsenceApproval : Entity
         Status = "DECLINED";
         DecidedAtUtc = DateTime.UtcNow;
         Notes = notes;
+        Raise(new AbsenceApprovalDecidedDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr, "DECLINED"));
     }
 }
 
@@ -151,19 +154,22 @@ public sealed class AbsenceMarkUp : Entity
 
     internal static AbsenceMarkUp Create(ControlNumber absenceRequestCtrlNbr, DateTime scheduledMarkUpUtc, bool isAutoMarkUp)
     {
-        return new AbsenceMarkUp
+        var markUp = new AbsenceMarkUp
         {
             AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
             ScheduledMarkUpUtc = scheduledMarkUpUtc,
             IsAutoMarkUp = isAutoMarkUp,
             CreatedBy = AuditStamp.Create("SYSTEM")
         };
+        markUp.Raise(new AbsenceMarkUpScheduledDomainEvent(markUp.CtrlNbr, absenceRequestCtrlNbr, scheduledMarkUpUtc));
+        return markUp;
     }
 
     public void Execute(DateTime actualMarkUpUtc)
     {
         ActualMarkUpUtc = actualMarkUpUtc;
         ModifiedBy = AuditStamp.Create("SYSTEM");
+        Raise(new AbsenceMarkedUpDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr));
     }
 }
 
