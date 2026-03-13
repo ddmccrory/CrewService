@@ -14,6 +14,7 @@
 - Use the ControlNumber value object for all CtrlNbr parameters; never use raw long. The codebase uses ControlNumber consistently.
 - Always pass CancellationToken explicitly to async methods - never rely on default = default. Repository overrides should only exist when the derived logic actually differs from the base (e.g., adding Includes). Don't override just to repeat the same logic.
 - All entities must have explicit EF Configuration files. Do not rely on ApplyConfigurationsFromAssembly to implicitly discover unconfigured entities.
+- Use `AuditStamp.Create("SYSTEM")` only in development and seeding contexts. Production entity creation should not hardcode "SYSTEM" as the audit name since the DbContext interceptor overwrites it with the authenticated user anyway.
 
 ## Branch Naming Conventions
 - Always bump version numbers when creating new branches. Use release-based branch naming with incremented version numbers (e.g., "0.1.2/feature-name") — never reuse the same version number across branches.

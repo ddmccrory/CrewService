@@ -22,8 +22,7 @@ public sealed class PayrollImportRecord : Entity
             SourceFile = sourceFile,
             EmployeeCtrlNbr = employeeCtrlNbr,
             PaidAmount = paidAmount,
-            ImportedAtUtc = DateTime.UtcNow,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ImportedAtUtc = DateTime.UtcNow
         };
     }
 
@@ -31,12 +30,10 @@ public sealed class PayrollImportRecord : Entity
     {
         PayrollRecordCtrlNbr = payrollRecordCtrlNbr;
         MatchStatus = "Matched";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void MarkError(string reason)
     {
         MatchStatus = $"Error: {reason}";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

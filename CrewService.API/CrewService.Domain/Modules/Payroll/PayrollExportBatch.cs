@@ -23,8 +23,7 @@ public sealed class PayrollExportBatch : Entity
             ExportFormat = exportFormat,
             GeneratedAtUtc = DateTime.UtcNow,
             RecordCount = recordCount,
-            FilePath = filePath,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            FilePath = filePath
         };
         batch.Raise(new PayrollExportGeneratedDomainEvent(batch));
         return batch;
