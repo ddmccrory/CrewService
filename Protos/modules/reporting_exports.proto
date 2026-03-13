@@ -1,0 +1,82 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package reporting_exports;
+
+service ReportingExportsSrvc {
+  rpc ExportPayroll(ExportPayrollRequest) returns (PayrollExportBatchResponse) {
+    option (google.api.http) = { post: "/v1/reporting/payroll-export" body: "*" };
+  }
+  rpc GetExportBatches(GetExportBatchesRequest) returns (GetExportBatchesResponse) {
+    option (google.api.http) = { get: "/v1/reporting/payroll-export/{payroll_run_ctrl_nbr}" };
+  }
+  rpc ImportPayroll(ImportPayrollRequest) returns (ImportPayrollResponse) {
+    option (google.api.http) = { post: "/v1/reporting/payroll-import" body: "*" };
+  }
+  rpc GenerateDailyReport(GenerateDailyReportRequest) returns (DailyReportResponse) {
+    option (google.api.http) = { post: "/v1/reporting/daily-report" body: "*" };
+  }
+}
+
+message ExportPayrollRequest {
+  int64 payroll_run_ctrl_nbr = 1;
+  string format_code = 2;
+}
+
+message PayrollExportBatchResponse {
+  int64 ctrl_nbr = 1;
+  int64 payroll_run_ctrl_nbr = 2;
+  string export_format = 3;
+  string generated_at_utc = 4;
+  int32 record_count = 5;
+  string file_path = 6;
+}
+
+message GetExportBatchesRequest {
+  int64 payroll_run_ctrl_nbr = 1;
+}
+
+message GetExportBatchesResponse {
+  repeated PayrollExportBatchResponse batches = 1;
+  int32 total_count = 2;
+}
+
+message ImportPayrollRequest {
+  string source_file = 1;
+  string pay_period = 2;
+  repeated ImportPayrollRow rows = 3;
+}
+
+message ImportPayrollRow {
+  int64 employee_ctrl_nbr = 1;
+  double paid_amount = 2;
+}
+
+message ImportPayrollResponse {
+  int32 total_records = 1;
+  int32 matched_records = 2;
+  int32 unmatched_records = 3;
+}
+
+message GenerateDailyReportRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 work_instance_ctrl_nbr = 2;
+  string report_date = 3;
+}
+
+message DailyReportResponse {
+  string report_date = 1;
+  int64 work_area_group_ctrl_nbr = 2;
+  repeated ShiftReportSectionMsg shifts = 3;
+  string generated_at_utc = 4;
+  string report_text = 5;
+}
+
+message ShiftReportSectionMsg {
+  string shift_code = 1;
+  string shift_start_utc = 2;
+  string shift_end_utc = 3;
+  int32 total_slots = 4;
+  int32 filled_slots = 5;
+  int32 open_slots = 6;
+}
