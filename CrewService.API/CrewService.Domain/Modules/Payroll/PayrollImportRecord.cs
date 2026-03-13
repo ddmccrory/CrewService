@@ -1,4 +1,3 @@
-using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -37,14 +36,7 @@ public sealed class PayrollImportRecord : Entity
 
     public void MarkError(string reason)
     {
-        MatchStatus = "Error";
+        MatchStatus = $"Error: {reason}";
         ModifiedBy = AuditStamp.Create("SYSTEM");
     }
-}
-
-public sealed record PayrollImportCompletedDomainEvent : DomainEvent
-{
-    public PayrollImportCompletedDomainEvent(string sourceFile, int totalRecords, int matchedRecords)
-        : base("PayrollImportRecord", 0,
-            new { SourceFile = sourceFile, TotalRecords = totalRecords, MatchedRecords = matchedRecords }) { }
 }
