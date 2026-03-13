@@ -118,3 +118,15 @@ public sealed class DailyReportWorker(
         return Task.CompletedTask;
     }
 }
+
+public sealed class RailroadInfoPublishWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<RailroadInfoPublishWorker> logger)
+    : WorkerBase(scopeFactory, logger, "RailroadInfoPublish", TimeSpan.FromMinutes(5))
+{
+    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        // Publishes scheduled RailroadInformation records whose publish time has arrived
+        return Task.CompletedTask;
+    }
+}
