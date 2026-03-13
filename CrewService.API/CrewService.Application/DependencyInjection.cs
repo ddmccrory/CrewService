@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IPayrollExportFormatter, UkgExportFormatter>();
         services.AddScoped<PayrollExportService>();
         services.AddScoped<PayrollImportService>();
+        services.AddScoped<DailyReportGenerationService>();
 
         return services;
     }
