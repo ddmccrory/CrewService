@@ -60,3 +60,51 @@ internal class SafetyObservationResolutionConfiguration : IEntityTypeConfigurati
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
+
+internal class SafetyCategoryConfiguration : IEntityTypeConfiguration<SafetyCategory>
+{
+    public void Configure(EntityTypeBuilder<SafetyCategory> builder)
+    {
+        builder.HasKey(c => c.CtrlNbr);
+        builder.Property(c => c.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(c => c.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(c => c.Code).HasMaxLength(50).IsRequired();
+        builder.Property(c => c.DisplayName).HasMaxLength(100).IsRequired();
+
+        builder.OwnsOne(c => c.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(c => c.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(c => c.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class SafetyAreaConfiguration : IEntityTypeConfiguration<SafetyArea>
+{
+    public void Configure(EntityTypeBuilder<SafetyArea> builder)
+    {
+        builder.HasKey(a => a.CtrlNbr);
+        builder.Property(a => a.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.Code).HasMaxLength(50).IsRequired();
+        builder.Property(a => a.DisplayName).HasMaxLength(100).IsRequired();
+
+        builder.OwnsOne(a => a.CreatedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.ModifiedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class SafetySubdivisionConfiguration : IEntityTypeConfiguration<SafetySubdivision>
+{
+    public void Configure(EntityTypeBuilder<SafetySubdivision> builder)
+    {
+        builder.HasKey(s => s.CtrlNbr);
+        builder.Property(s => s.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(s => s.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(s => s.Code).HasMaxLength(50).IsRequired();
+        builder.Property(s => s.DisplayName).HasMaxLength(100).IsRequired();
+
+        builder.OwnsOne(s => s.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
