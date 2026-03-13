@@ -69,7 +69,7 @@ public class SafetyObservationTests
         var obs = SafetyObservation.Create(1, 100, "Track", "Yard", "Issue");
         obs.AddAction(ControlNumber.Create(200), "Temporary fix");
 
-        var resolution = obs.Resolve(ControlNumber.Create(300), "Permanent repair done");
+        var _ = obs.Resolve(ControlNumber.Create(300), "Permanent repair done");
 
         Assert.Equal("Resolved", obs.Status);
     }
