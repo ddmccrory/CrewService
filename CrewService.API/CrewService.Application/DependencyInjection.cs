@@ -5,6 +5,8 @@ using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
 using CrewService.Application.Payroll;
+using CrewService.Application.ReportingExports;
+using CrewService.Application.ReportingExports.Formatters;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
@@ -60,6 +62,11 @@ public static class DependencyInjection
         services.AddScoped<HolidayAutoGenerationService>();
         services.AddScoped<HolidayQualificationService>();
         services.AddScoped<HolidayPayrollGenerationService>();
+
+        // B10 – Reporting & Exports
+        services.AddScoped<IPayrollExportFormatter, AdpExportFormatter>();
+        services.AddScoped<IPayrollExportFormatter, UkgExportFormatter>();
+        services.AddScoped<PayrollExportService>();
 
         return services;
     }

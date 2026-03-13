@@ -19,3 +19,8 @@ public interface IPayrollRecordRepository : IRepository<PayrollRecord>
     Task<List<PayrollRecord>> GetByRunAsync(ControlNumber payrollRunCtrlNbr);
     Task<List<PayrollRecord>> GetByEmployeeAndRunAsync(ControlNumber employeeCtrlNbr, ControlNumber payrollRunCtrlNbr);
 }
+
+public interface IPayrollExportBatchRepository : IRepository<PayrollExportBatch>
+{
+    Task<IReadOnlyList<PayrollExportBatch>> GetByRunAsync(ControlNumber payrollRunCtrlNbr, CancellationToken ct = default);
+}

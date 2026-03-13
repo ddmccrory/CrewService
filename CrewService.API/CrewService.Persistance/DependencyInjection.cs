@@ -205,6 +205,9 @@ public static class DependencyInjection
         services.AddScoped<PayrollEngineInterfaces.IEarningCodeRuleRepository, EarningCodeRuleRepository>();
         services.AddScoped<PayrollEngineInterfaces.IPayRateRepository, PayRateRepository>();
 
+        // Reporting & Exports Repositories (B10)
+        services.AddScoped<IPayrollExportBatchRepository, PayrollExportBatchRepository>();
+
         // Electronic Calling Repositories (B06)
         services.AddScoped<INotificationRequestRepository, NotificationRequestRepository>();
 

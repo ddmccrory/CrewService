@@ -79,3 +79,19 @@ internal class EarningApprovalConfiguration : IEntityTypeConfiguration<EarningAp
         builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
+
+internal class PayrollExportBatchConfiguration : IEntityTypeConfiguration<PayrollExportBatch>
+{
+    public void Configure(EntityTypeBuilder<PayrollExportBatch> builder)
+    {
+        builder.HasKey(b => b.CtrlNbr);
+        builder.Property(b => b.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(b => b.PayrollRunCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(b => b.ExportFormat).HasMaxLength(20).IsRequired();
+        builder.Property(b => b.FilePath).HasMaxLength(500);
+
+        builder.OwnsOne(b => b.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(b => b.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
