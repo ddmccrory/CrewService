@@ -64,7 +64,7 @@ public class ReportingExportsService(
             ReportDate = report.ReportDate.ToString("yyyy-MM-dd"),
             WorkAreaGroupCtrlNbr = report.WorkAreaGroupCtrlNbr.Value,
             GeneratedAtUtc = report.GeneratedAtUtc.ToString("O"),
-            ReportText = dailyReportService.RenderText(report)
+            ReportText = DailyReportGenerationService.RenderText(report)
         };
 
         foreach (var s in report.Shifts)

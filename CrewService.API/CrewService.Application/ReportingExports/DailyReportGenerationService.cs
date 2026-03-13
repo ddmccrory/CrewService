@@ -1,5 +1,4 @@
 using CrewService.Application.DailyOperations;
-using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using System.Text;
 
@@ -20,8 +19,7 @@ public sealed record ShiftReportSection(
     int OpenSlots);
 
 public sealed class DailyReportGenerationService(
-    IShiftInstanceRepository shiftInstanceRepo,
-    IShiftDefinitionRepository shiftDefRepo)
+    IShiftInstanceRepository shiftInstanceRepo)
 {
     public async Task<DailyOperationalReport> GenerateAsync(
         ControlNumber workAreaGroupCtrlNbr,
@@ -53,7 +51,7 @@ public sealed class DailyReportGenerationService(
             DateTime.UtcNow);
     }
 
-    public string RenderText(DailyOperationalReport report)
+    public static string RenderText(DailyOperationalReport report)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Daily Operational Report — {report.ReportDate:yyyy-MM-dd}");
