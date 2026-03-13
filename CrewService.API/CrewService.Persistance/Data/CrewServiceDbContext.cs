@@ -156,6 +156,10 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.AbsenceVacancy.CompensationBalance> CompensationBalances => Set<Domain.Modules.AbsenceVacancy.CompensationBalance>();
     public DbSet<Domain.Modules.AbsenceVacancy.VacancyImpact> VacancyImpacts => Set<Domain.Modules.AbsenceVacancy.VacancyImpact>();
 
+    // Safety Module
+    public DbSet<Domain.Modules.Safety.SafetyObservation> SafetyObservations => Set<Domain.Modules.Safety.SafetyObservation>();
+    public DbSet<Domain.Modules.Safety.SafetyObservationAction> SafetyObservationActions => Set<Domain.Modules.Safety.SafetyObservationAction>();
+
     // RailroadInfo Module
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformation> RailroadInformations => Set<Domain.Modules.RailroadInfo.RailroadInformation>();
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt> RailroadInformationReadReceipts => Set<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt>();
