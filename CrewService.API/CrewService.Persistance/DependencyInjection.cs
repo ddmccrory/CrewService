@@ -224,6 +224,7 @@ public static class DependencyInjection
 
         // Railroad Information Repositories (B11)
         services.AddScoped<IRailroadInformationRepository, RailroadInformationRepository>();
+        services.AddScoped<IRailroadInformationReadReceiptRepository, RailroadInformationReadReceiptRepository>();
 
         // Contact Repositories (Core)
         services.AddScoped<IAddressRepository, AddressRepository>();

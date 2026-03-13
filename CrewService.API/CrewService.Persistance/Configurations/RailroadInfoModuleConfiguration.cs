@@ -22,3 +22,20 @@ internal class RailroadInformationConfiguration : IEntityTypeConfiguration<Railr
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
+
+internal class RailroadInformationReadReceiptConfiguration : IEntityTypeConfiguration<RailroadInformationReadReceipt>
+{
+    public void Configure(EntityTypeBuilder<RailroadInformationReadReceipt> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.InformationCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+
+        builder.HasIndex(r => new { r.InformationCtrlNbr, r.EmployeeCtrlNbr }).IsUnique();
+
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}

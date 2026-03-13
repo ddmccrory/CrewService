@@ -24,3 +24,20 @@ internal sealed class RailroadInformationRepository(CrewServiceDbContext dbConte
             .OrderByDescending(r => r.PublishedAtUtc)
             .ToListAsync(ct);
 }
+
+internal sealed class RailroadInformationReadReceiptRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<RailroadInformationReadReceipt>(dbContext, currentUserService), IRailroadInformationReadReceiptRepository
+{
+    public async Task<IReadOnlyList<RailroadInformationReadReceipt>> GetByInformationAsync(
+        ControlNumber informationCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<RailroadInformationReadReceipt>()
+            .Where(r => r.InformationCtrlNbr == informationCtrlNbr)
+            .OrderBy(r => r.ReadAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<RailroadInformationReadReceipt?> GetByInformationAndEmployeeAsync(
+        ControlNumber informationCtrlNbr, ControlNumber employeeCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<RailroadInformationReadReceipt>()
+            .SingleOrDefaultAsync(r => r.InformationCtrlNbr == informationCtrlNbr
+                                       && r.EmployeeCtrlNbr == employeeCtrlNbr, ct);
+}

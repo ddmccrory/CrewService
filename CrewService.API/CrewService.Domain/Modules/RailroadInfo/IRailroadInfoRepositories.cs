@@ -11,3 +11,12 @@ public interface IRailroadInformationRepository : IRepository<RailroadInformatio
     Task<IReadOnlyList<RailroadInformation>> GetPublishedByWorkAreaAsync(
         ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
 }
+
+public interface IRailroadInformationReadReceiptRepository : IRepository<RailroadInformationReadReceipt>
+{
+    Task<IReadOnlyList<RailroadInformationReadReceipt>> GetByInformationAsync(
+        ControlNumber informationCtrlNbr, CancellationToken ct = default);
+
+    Task<RailroadInformationReadReceipt?> GetByInformationAndEmployeeAsync(
+        ControlNumber informationCtrlNbr, ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+}

@@ -158,6 +158,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 
     // RailroadInfo Module
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformation> RailroadInformations => Set<Domain.Modules.RailroadInfo.RailroadInformation>();
+    public DbSet<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt> RailroadInformationReadReceipts => Set<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
