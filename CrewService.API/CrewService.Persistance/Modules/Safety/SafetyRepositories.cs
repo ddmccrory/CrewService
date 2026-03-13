@@ -31,3 +31,12 @@ internal sealed class SafetyObservationRepository(CrewServiceDbContext dbContext
             .OrderByDescending(o => o.ObservedAtUtc)
             .ToListAsync(ct);
 }
+
+internal sealed class SafetyObservationResolutionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<SafetyObservationResolution>(dbContext, currentUserService), ISafetyObservationResolutionRepository
+{
+    public async Task<SafetyObservationResolution?> GetByObservationAsync(
+        ControlNumber observationCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<SafetyObservationResolution>()
+            .SingleOrDefaultAsync(r => r.ObservationCtrlNbr == observationCtrlNbr, ct);
+}

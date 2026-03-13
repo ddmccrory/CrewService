@@ -42,3 +42,21 @@ internal class SafetyObservationActionConfiguration : IEntityTypeConfiguration<S
         builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
+
+internal class SafetyObservationResolutionConfiguration : IEntityTypeConfiguration<SafetyObservationResolution>
+{
+    public void Configure(EntityTypeBuilder<SafetyObservationResolution> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.ObservationCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.ResolvedByCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.ResolutionDescription).HasMaxLength(2000).IsRequired();
+
+        builder.HasIndex(r => r.ObservationCtrlNbr).IsUnique();
+
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}

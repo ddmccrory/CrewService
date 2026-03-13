@@ -57,6 +57,15 @@ public sealed class SafetyObservation : Entity
 
         return action;
     }
+
+    public SafetyObservationResolution Resolve(ControlNumber resolvedByCtrlNbr, string resolutionDescription)
+    {
+        if (Status == "Resolved")
+            throw new InvalidOperationException("Observation is already resolved.");
+
+        Status = "Resolved";
+        return SafetyObservationResolution.Create(CtrlNbr, resolvedByCtrlNbr, resolutionDescription);
+    }
 }
 
 public sealed class SafetyObservationAction : Entity
