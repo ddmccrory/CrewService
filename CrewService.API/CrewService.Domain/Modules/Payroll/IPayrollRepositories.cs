@@ -19,3 +19,13 @@ public interface IPayrollRecordRepository : IRepository<PayrollRecord>
     Task<List<PayrollRecord>> GetByRunAsync(ControlNumber payrollRunCtrlNbr);
     Task<List<PayrollRecord>> GetByEmployeeAndRunAsync(ControlNumber employeeCtrlNbr, ControlNumber payrollRunCtrlNbr);
 }
+
+public interface IPayrollExportBatchRepository : IRepository<PayrollExportBatch>
+{
+    Task<IReadOnlyList<PayrollExportBatch>> GetByRunAsync(ControlNumber payrollRunCtrlNbr, CancellationToken ct = default);
+}
+
+public interface IPayrollImportRecordRepository : IRepository<PayrollImportRecord>
+{
+    Task<IReadOnlyList<PayrollImportRecord>> GetBySourceFileAsync(string sourceFile, CancellationToken ct = default);
+}

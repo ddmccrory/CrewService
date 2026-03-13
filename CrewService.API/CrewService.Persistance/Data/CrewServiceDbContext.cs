@@ -135,6 +135,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Payroll.TimeEntry> TimeEntries => Set<Domain.Modules.Payroll.TimeEntry>();
     public DbSet<Domain.Modules.Payroll.PayrollRun> PayrollRuns => Set<Domain.Modules.Payroll.PayrollRun>();
     public DbSet<Domain.Modules.Payroll.PayrollRecord> PayrollRecords => Set<Domain.Modules.Payroll.PayrollRecord>();
+    public DbSet<Domain.Modules.Payroll.PayrollExportBatch> PayrollExportBatches => Set<Domain.Modules.Payroll.PayrollExportBatch>();
+    public DbSet<Domain.Modules.Payroll.PayrollImportRecord> PayrollImportRecords => Set<Domain.Modules.Payroll.PayrollImportRecord>();
     public DbSet<Domain.Modules.Payroll.Holiday> Holidays => Set<Domain.Modules.Payroll.Holiday>();
     public DbSet<Domain.Modules.Payroll.HolidayQualificationRule> HolidayQualificationRules => Set<Domain.Modules.Payroll.HolidayQualificationRule>();
     public DbSet<Domain.Modules.Payroll.HolidayPayrollRecord> HolidayPayrollRecords => Set<Domain.Modules.Payroll.HolidayPayrollRecord>();

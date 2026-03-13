@@ -216,6 +216,10 @@ public static class DependencyInjection
         services.AddScoped<IRosterBoardRepository, RosterBoardRepository>();
         services.AddScoped<IDailyEmployeeStatusRepository, DailyEmployeeStatusRepository>();
 
+        // Reporting & Exports Repositories (B10)
+        services.AddScoped<IPayrollExportBatchRepository, PayrollExportBatchRepository>();
+        services.AddScoped<IPayrollImportRecordRepository, PayrollImportRecordRepository>();
+
         // Contact Repositories (Core)
         services.AddScoped<IAddressRepository, AddressRepository>();
         services.AddScoped<IPhoneNumberRepository, PhoneNumberRepository>();

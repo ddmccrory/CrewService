@@ -38,3 +38,23 @@ internal sealed class PayrollRecordRepository(CrewServiceDbContext dbContext, IC
             .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.PayrollRunCtrlNbr == payrollRunCtrlNbr)
             .ToListAsync();
 }
+
+internal sealed class PayrollExportBatchRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<PayrollExportBatch>(dbContext, currentUserService), IPayrollExportBatchRepository
+{
+    public async Task<IReadOnlyList<PayrollExportBatch>> GetByRunAsync(ControlNumber payrollRunCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<PayrollExportBatch>()
+            .Where(b => b.PayrollRunCtrlNbr == payrollRunCtrlNbr)
+            .OrderByDescending(b => b.GeneratedAtUtc)
+            .ToListAsync(ct);
+}
+
+internal sealed class PayrollImportRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<PayrollImportRecord>(dbContext, currentUserService), IPayrollImportRecordRepository
+{
+    public async Task<IReadOnlyList<PayrollImportRecord>> GetBySourceFileAsync(string sourceFile, CancellationToken ct = default) =>
+        await DbContext.Set<PayrollImportRecord>()
+            .Where(r => r.SourceFile == sourceFile)
+            .OrderBy(r => r.ImportedAtUtc)
+            .ToListAsync(ct);
+}
