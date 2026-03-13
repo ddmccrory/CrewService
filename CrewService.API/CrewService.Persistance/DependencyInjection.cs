@@ -189,6 +189,7 @@ public static class DependencyInjection
         services.AddScoped<IOnDutyRecordRepository, OnDutyRecordRepository>();
         services.AddScoped<IOffDutyRecordRepository, OffDutyRecordRepository>();
         services.AddScoped<ICraftOperationsPolicyRepository, CraftOperationsPolicyRepository>();
+        services.AddScoped<IAssignmentTemplateQueryService, AssignmentTemplateQueryService>();
 
         // Mark-Off Repositories (B03)
         services.AddScoped<IAbsenceCodeRepository, AbsenceCodeRepository>();
@@ -196,6 +197,9 @@ public static class DependencyInjection
 
         // Vacancy Assignment Repositories (B04)
         services.AddScoped<IVacancyResolutionRunRepository, VacancyResolutionRunRepository>();
+        services.AddScoped<IOpenSlotProvider, OpenSlotProvider>();
+        services.AddScoped<IBoardCandidateProvider, BoardCandidateProvider>();
+        services.AddScoped<ISkipContextProvider, SkipContextProvider>();
 
         // Payroll Engine Repositories (B05)
         services.AddScoped<PayrollEngineInterfaces.IEarningCodeRuleRepository, EarningCodeRuleRepository>();

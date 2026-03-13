@@ -1,0 +1,79 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package dispatching;
+
+service DispatchingSrvc {
+  rpc GetProjections(GetProjectionsRequest) returns (GetProjectionsResponse) {
+    option (google.api.http) = { get: "/v1/dispatching/projections" };
+  }
+  rpc GetDecisionLogs(GetDecisionLogsRequest) returns (GetDecisionLogsResponse) {
+    option (google.api.http) = { get: "/v1/dispatching/decision-logs/{position_slot_ctrl_nbr}" };
+  }
+  rpc ExecuteCall(ExecuteCallRequest) returns (ExecuteCallResponse) {
+    option (google.api.http) = { post: "/v1/dispatching/call" body: "*" };
+  }
+  rpc RequestOverride(RequestOverrideRequest) returns (OverrideResponse) {
+    option (google.api.http) = { post: "/v1/dispatching/overrides" body: "*" };
+  }
+  rpc ApproveOverride(ApproveOverrideRequest) returns (OverrideResponse) {
+    option (google.api.http) = { post: "/v1/dispatching/overrides/{ctrl_nbr}/approve" body: "*" };
+  }
+}
+
+message GetProjectionsRequest {
+  repeated int64 position_slot_ctrl_nbrs = 1;
+}
+message GetProjectionsResponse {
+  repeated ProjectionResponse projections = 1;
+}
+message ProjectionResponse {
+  int64 ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+  int64 projected_employee_ctrl_nbr = 3;
+  string trace_json = 4;
+  string computed_utc = 5;
+}
+
+message GetDecisionLogsRequest { int64 position_slot_ctrl_nbr = 1; }
+message GetDecisionLogsResponse {
+  repeated DecisionLogResponse logs = 1;
+}
+message DecisionLogResponse {
+  int64 ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+  string as_of_utc = 3;
+  string phase = 4;
+  int64 selected_employee_ctrl_nbr = 5;
+  string selection_source = 6;
+  string decision_json = 7;
+}
+
+message ExecuteCallRequest {
+  int64 position_slot_ctrl_nbr = 1;
+}
+message ExecuteCallResponse {
+  bool filled = 1;
+  int64 assigned_employee_ctrl_nbr = 2;
+  string unfilled_reason = 3;
+}
+
+message RequestOverrideRequest {
+  int64 position_slot_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string override_type = 3;
+  string reason_code = 4;
+  string reason_text = 5;
+}
+message ApproveOverrideRequest {
+  int64 ctrl_nbr = 1;
+  int64 approved_by_ctrl_nbr = 2;
+}
+message OverrideResponse {
+  int64 ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string override_type = 4;
+  string reason_code = 5;
+  string status = 6;
+}

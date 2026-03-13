@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Boards;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -24,7 +25,7 @@ public sealed class RosterBoard : Entity
         ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr,
         string name, bool isActive = true)
     {
-        return new RosterBoard
+        var board = new RosterBoard
         {
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
@@ -32,6 +33,8 @@ public sealed class RosterBoard : Entity
             IsActive = isActive,
             CreatedBy = AuditStamp.Create("SYSTEM")
         };
+        board.Raise(new RosterBoardCreatedDomainEvent(board.CtrlNbr, name));
+        return board;
     }
 
     public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder)
@@ -79,12 +82,14 @@ public sealed class RosterBoardPosition : Entity
         HangoutStatus = "HungOut";
         HangoutAtUtc = DateTime.UtcNow;
         ModifiedBy = AuditStamp.Create("SYSTEM");
+        Raise(new PositionHungOutDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 
     public void MarkOff()
     {
         HangoutStatus = "MarkedOff";
         ModifiedBy = AuditStamp.Create("SYSTEM");
+        Raise(new PositionMarkedOffDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 
     public void RestoreFromHangout()
@@ -92,5 +97,6 @@ public sealed class RosterBoardPosition : Entity
         HangoutStatus = "Active";
         HangoutAtUtc = null;
         ModifiedBy = AuditStamp.Create("SYSTEM");
+        Raise(new PositionRestoredDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 }

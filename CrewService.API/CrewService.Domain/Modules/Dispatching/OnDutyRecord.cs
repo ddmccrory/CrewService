@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.DailyOperations;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -36,7 +37,7 @@ public sealed class OnDutyRecord : Entity
         var isLate = (onDutyTimeUtc - scheduledOnDutyTimeUtc).TotalMinutes > lateCallThresholdMinutes
                      && lateCallThresholdMinutes > 0;
 
-        return new OnDutyRecord
+        var record = new OnDutyRecord
         {
             PositionSlotCtrlNbr = positionSlotCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
@@ -50,6 +51,8 @@ public sealed class OnDutyRecord : Entity
             IsAssigned = isAssigned,
             CreatedBy = AuditStamp.Create("SYSTEM")
         };
+        record.Raise(new OnDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, positionSlotCtrlNbr));
+        return record;
     }
 
     public void SetBooking(ControlNumber bookingCtrlNbr)

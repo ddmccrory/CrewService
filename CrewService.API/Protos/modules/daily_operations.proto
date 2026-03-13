@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+service DailyOperationsSrvc {
+  rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse) {
+    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}" };
+  }
+  rpc PlaceOnDuty (PlaceOnDutyRequest) returns (OnDutyRecordResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/on-duty" body: "*" };
+  }
+  rpc TieUp (TieUpRequest) returns (OffDutyRecordResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/tie-up" body: "*" };
+  }
+  rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/annul" body: "*" };
+  }
+}
+
+message GetCallSheetRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  string target_date = 2;
+}
+
+message GetCallSheetResponse {
+  repeated DailyShiftInstanceResponse shifts = 1;
+}
+
+message DailyShiftInstanceResponse {
+  int64 ctrl_nbr = 1;
+  string shift_code = 2;
+  google.protobuf.Timestamp shift_start = 3;
+  google.protobuf.Timestamp shift_end = 4;
+  string status = 5;
+  repeated DailyPositionSlotResponse position_slots = 6;
+}
+
+message DailyPositionSlotResponse {
+  int64 ctrl_nbr = 1;
+  int64 crew_position_ctrl_nbr = 2;
+  optional int64 incumbent_employee_ctrl_nbr = 3;
+  string status = 4;
+  bool is_annulled = 5;
+  bool is_do_not_fill = 6;
+  bool is_skipped = 7;
+  int32 display_order = 8;
+}
+
+message PlaceOnDutyRequest {
+  int64 position_slot_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  google.protobuf.Timestamp on_duty_time = 3;
+  google.protobuf.Timestamp scheduled_on_duty_time = 4;
+  bool is_assigned = 5;
+}
+
+message OnDutyRecordResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  google.protobuf.Timestamp on_duty_time = 3;
+  bool is_late_call = 4;
+  int32 consecutive_days = 5;
+  string status = 6;
+}
+
+message TieUpRequest {
+  int64 on_duty_record_ctrl_nbr = 1;
+  google.protobuf.Timestamp off_duty_time = 2;
+  string release_reason = 3;
+  int64 craft_ctrl_nbr = 4;
+}
+
+message OffDutyRecordResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  google.protobuf.Timestamp off_duty_time = 3;
+  int32 total_time_on_duty_minutes = 4;
+  string release_reason = 5;
+}
+
+message AnnulPositionRequest {
+  int64 position_slot_ctrl_nbr = 1;
+  string reason = 2;
+}

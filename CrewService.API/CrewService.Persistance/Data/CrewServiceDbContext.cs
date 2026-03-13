@@ -63,6 +63,19 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.WorkManagement.CrewOffDay> CrewOffDays => Set<Domain.Modules.WorkManagement.CrewOffDay>();
     public DbSet<Domain.Modules.WorkManagement.AbolishmentRecord> AbolishmentRecords => Set<Domain.Modules.WorkManagement.AbolishmentRecord>();
 
+    // Crews Module
+    public DbSet<Domain.Modules.Crews.Crew> Crews => Set<Domain.Modules.Crews.Crew>();
+    public DbSet<Domain.Modules.Crews.CrewPosition> CrewPositions => Set<Domain.Modules.Crews.CrewPosition>();
+    public DbSet<Domain.Modules.Crews.CrewIncumbency> CrewIncumbencies => Set<Domain.Modules.Crews.CrewIncumbency>();
+    public DbSet<Domain.Modules.Crews.CrewAttachmentTemplate> CrewAttachmentTemplates => Set<Domain.Modules.Crews.CrewAttachmentTemplate>();
+    public DbSet<Domain.Modules.Crews.CrewAttachmentInstance> CrewAttachmentInstances => Set<Domain.Modules.Crews.CrewAttachmentInstance>();
+    public DbSet<Domain.Modules.Crews.ReliefCoverageRule> ReliefCoverageRules => Set<Domain.Modules.Crews.ReliefCoverageRule>();
+
+    // Bulletins Module
+    public DbSet<Domain.Modules.Bulletins.PositionVacancy> PositionVacancies => Set<Domain.Modules.Bulletins.PositionVacancy>();
+    public DbSet<Domain.Modules.Bulletins.Bulletin> Bulletins => Set<Domain.Modules.Bulletins.Bulletin>();
+    public DbSet<Domain.Modules.Bulletins.BulletinBid> BulletinBids => Set<Domain.Modules.Bulletins.BulletinBid>();
+
     // Dispatching Module
     public DbSet<Domain.Modules.Dispatching.ChangeNotification> ChangeNotifications => Set<Domain.Modules.Dispatching.ChangeNotification>();
     public DbSet<Domain.Modules.Dispatching.OnDutyRecord> OnDutyRecords => Set<Domain.Modules.Dispatching.OnDutyRecord>();
@@ -72,6 +85,10 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Dispatching.OnDutyMaterialRecord> OnDutyMaterialRecords => Set<Domain.Modules.Dispatching.OnDutyMaterialRecord>();
     public DbSet<Domain.Modules.Dispatching.VacancyResolutionRun> VacancyResolutionRuns => Set<Domain.Modules.Dispatching.VacancyResolutionRun>();
     public DbSet<Domain.Modules.Dispatching.DailyEmployeeStatusRecord> DailyEmployeeStatusRecords => Set<Domain.Modules.Dispatching.DailyEmployeeStatusRecord>();
+    public DbSet<Domain.Modules.Dispatching.DispatchProjection> DispatchProjections => Set<Domain.Modules.Dispatching.DispatchProjection>();
+    public DbSet<Domain.Modules.Dispatching.DispatchDecisionLog> DispatchDecisionLogs => Set<Domain.Modules.Dispatching.DispatchDecisionLog>();
+    public DbSet<Domain.Modules.Dispatching.DispatchOverride> DispatchOverrides => Set<Domain.Modules.Dispatching.DispatchOverride>();
+    public DbSet<Domain.Modules.Dispatching.EmployeeBooking> EmployeeBookings => Set<Domain.Modules.Dispatching.EmployeeBooking>();
 
     // FraCompliance Module
     public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
@@ -92,6 +109,12 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 
     // Policies Module
     public DbSet<Domain.Modules.Policies.CraftOperationsPolicy> CraftOperationsPolicies => Set<Domain.Modules.Policies.CraftOperationsPolicy>();
+    public DbSet<Domain.Modules.Policies.CraftDisplacementPolicy> CraftDisplacementPolicies => Set<Domain.Modules.Policies.CraftDisplacementPolicy>();
+    public DbSet<Domain.Modules.Policies.DisplacementCase> DisplacementCases => Set<Domain.Modules.Policies.DisplacementCase>();
+    public DbSet<Domain.Modules.Policies.DisplacementClaim> DisplacementClaims => Set<Domain.Modules.Policies.DisplacementClaim>();
+    public DbSet<Domain.Modules.Policies.BulletinPolicy> BulletinPolicies => Set<Domain.Modules.Policies.BulletinPolicy>();
+    public DbSet<Domain.Modules.Policies.SeniorityMovePolicy> SeniorityMovePolicies => Set<Domain.Modules.Policies.SeniorityMovePolicy>();
+    public DbSet<Domain.Modules.Policies.SeniorityMove> SeniorityMoves => Set<Domain.Modules.Policies.SeniorityMove>();
 
     // Infrastructure Module
     public DbSet<Domain.Modules.Infrastructure.WorkerSchedule> WorkerSchedules => Set<Domain.Modules.Infrastructure.WorkerSchedule>();
@@ -101,11 +124,17 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Boards Module
     public DbSet<Domain.Modules.Boards.RosterBoard> RosterBoards => Set<Domain.Modules.Boards.RosterBoard>();
     public DbSet<Domain.Modules.Boards.RosterBoardPosition> RosterBoardPositions => Set<Domain.Modules.Boards.RosterBoardPosition>();
+    public DbSet<Domain.Modules.Boards.ExtraBoard> ExtraBoards => Set<Domain.Modules.Boards.ExtraBoard>();
+    public DbSet<Domain.Modules.Boards.BoardMember> BoardMembers => Set<Domain.Modules.Boards.BoardMember>();
+    public DbSet<Domain.Modules.Boards.BoardCascadePolicy> BoardCascadePolicies => Set<Domain.Modules.Boards.BoardCascadePolicy>();
 
     // Payroll Module
     public DbSet<Domain.Modules.Payroll.EarningCodeRule> EarningCodeRules => Set<Domain.Modules.Payroll.EarningCodeRule>();
     public DbSet<Domain.Modules.Payroll.PayRate> PayRates => Set<Domain.Modules.Payroll.PayRate>();
     public DbSet<Domain.Modules.Payroll.EarningApproval> EarningApprovals => Set<Domain.Modules.Payroll.EarningApproval>();
+    public DbSet<Domain.Modules.Payroll.TimeEntry> TimeEntries => Set<Domain.Modules.Payroll.TimeEntry>();
+    public DbSet<Domain.Modules.Payroll.PayrollRun> PayrollRuns => Set<Domain.Modules.Payroll.PayrollRun>();
+    public DbSet<Domain.Modules.Payroll.PayrollRecord> PayrollRecords => Set<Domain.Modules.Payroll.PayrollRecord>();
     public DbSet<Domain.Modules.Payroll.Holiday> Holidays => Set<Domain.Modules.Payroll.Holiday>();
     public DbSet<Domain.Modules.Payroll.HolidayQualificationRule> HolidayQualificationRules => Set<Domain.Modules.Payroll.HolidayQualificationRule>();
     public DbSet<Domain.Modules.Payroll.HolidayPayrollRecord> HolidayPayrollRecords => Set<Domain.Modules.Payroll.HolidayPayrollRecord>();
@@ -119,9 +148,11 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // AbsenceVacancy Module
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCode> AbsenceCodes => Set<Domain.Modules.AbsenceVacancy.AbsenceCode>();
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride> AbsenceCodeCraftOverrides => Set<Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride>();
+    public DbSet<Domain.Modules.AbsenceVacancy.AbsenceRequest> AbsenceRequests => Set<Domain.Modules.AbsenceVacancy.AbsenceRequest>();
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceApproval> AbsenceApprovals => Set<Domain.Modules.AbsenceVacancy.AbsenceApproval>();
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceMarkUp> AbsenceMarkUps => Set<Domain.Modules.AbsenceVacancy.AbsenceMarkUp>();
     public DbSet<Domain.Modules.AbsenceVacancy.CompensationBalance> CompensationBalances => Set<Domain.Modules.AbsenceVacancy.CompensationBalance>();
+    public DbSet<Domain.Modules.AbsenceVacancy.VacancyImpact> VacancyImpacts => Set<Domain.Modules.AbsenceVacancy.VacancyImpact>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

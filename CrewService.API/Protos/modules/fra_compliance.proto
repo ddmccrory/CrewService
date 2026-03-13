@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+service FraComplianceSrvc {
+  rpc SearchDutyTours (SearchDutyToursRequest) returns (SearchDutyToursResponse) {
+    option (google.api.http) = { get: "/api/fra/duty-tours" };
+  }
+  rpc GetDutyTour (GetDutyTourRequest) returns (DutyTourResponse) {
+    option (google.api.http) = { get: "/api/fra/duty-tours/{ctrl_nbr}" };
+  }
+  rpc GetEmployeeCertifications (GetEmployeeCertificationsRequest) returns (GetEmployeeCertificationsResponse) {
+    option (google.api.http) = { get: "/api/fra/certifications/{employee_ctrl_nbr}" };
+  }
+}
+
+message SearchDutyToursRequest {
+  optional int64 employee_ctrl_nbr = 1;
+  optional google.protobuf.Timestamp start_date = 2;
+  optional google.protobuf.Timestamp end_date = 3;
+  optional string location_code = 4;
+  optional string regulatory_standard_code = 5;
+  optional bool has_excess_service = 6;
+}
+
+message SearchDutyToursResponse {
+  repeated DutyTourResponse duty_tours = 1;
+}
+
+message GetDutyTourRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message DutyTourResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int64 regulatory_standard_ctrl_nbr = 3;
+  google.protobuf.Timestamp duty_tour_start = 4;
+  optional google.protobuf.Timestamp duty_tour_end = 5;
+  optional int32 total_time_on_duty_minutes = 6;
+  optional int32 excess_minutes = 7;
+  int32 consecutive_days = 8;
+  bool is_quick_tie_up = 9;
+  bool is_certified = 10;
+}
+
+message GetEmployeeCertificationsRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message GetEmployeeCertificationsResponse {
+  repeated CertificationResponse certifications = 1;
+}
+
+message CertificationResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string certification_type = 3;
+  string status = 4;
+  string expiration_date = 5;
+  optional string certification_number = 6;
+}

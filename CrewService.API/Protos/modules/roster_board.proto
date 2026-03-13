@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+service RosterBoardSrvc {
+  rpc GetRosterBoard (GetRosterBoardRequest) returns (RosterBoardResponse) {
+    option (google.api.http) = { get: "/v1/roster-board/{ctrl_nbr}" };
+  }
+  rpc HangoutPosition (HangoutPositionRequest) returns (RosterBoardPositionResponse) {
+    option (google.api.http) = { post: "/v1/roster-board/hangout" body: "*" };
+  }
+  rpc RestorePosition (RestorePositionRequest) returns (RosterBoardPositionResponse) {
+    option (google.api.http) = { post: "/v1/roster-board/restore" body: "*" };
+  }
+}
+
+message GetRosterBoardRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message RosterBoardResponse {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  bool is_active = 3;
+  repeated RosterBoardPositionResponse positions = 4;
+}
+
+message RosterBoardPositionResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int32 position_order = 3;
+  string hangout_status = 4;
+  optional google.protobuf.Timestamp hangout_at = 5;
+}
+
+message HangoutPositionRequest {
+  int64 position_ctrl_nbr = 1;
+}
+
+message RestorePositionRequest {
+  int64 position_ctrl_nbr = 1;
+}
