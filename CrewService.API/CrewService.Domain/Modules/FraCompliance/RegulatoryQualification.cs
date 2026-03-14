@@ -1,5 +1,4 @@
 using CrewService.Domain.Primitives;
-using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.FraCompliance;
 
