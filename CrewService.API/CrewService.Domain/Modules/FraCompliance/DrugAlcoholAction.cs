@@ -29,8 +29,7 @@ public sealed class DrugAlcoholAction : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             ActionType = actionType,
             ActionDate = DateTime.UtcNow,
-            Notes = notes,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Notes = notes
         };
     }
 }

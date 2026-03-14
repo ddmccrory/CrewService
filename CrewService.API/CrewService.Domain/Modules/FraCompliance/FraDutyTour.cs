@@ -46,8 +46,7 @@ public sealed class FraDutyTour : Entity
             RegulatoryStandardCtrlNbr = regulatoryStandardCtrlNbr,
             DutyTourStartUtc = dutyTourStartUtc,
             PriorTimeOffMinutes = priorTimeOffMinutes,
-            ConsecutiveDays = consecutiveDays,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ConsecutiveDays = consecutiveDays
         };
         return tour;
     }
@@ -100,7 +99,6 @@ public sealed class FraDutyTour : Entity
         ExcessMinutes = excessMinutes;
         ExcessServiceReason = excessServiceReason;
         IsQuickTieUp = isQuickTieUp;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void SetEmployeeReportedPriorTimeOff(int minutes)
@@ -117,6 +115,5 @@ public sealed class FraDutyTour : Entity
     public void Certify()
     {
         IsCertified = true;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

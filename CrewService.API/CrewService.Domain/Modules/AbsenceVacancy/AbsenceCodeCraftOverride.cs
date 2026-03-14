@@ -22,8 +22,7 @@ public sealed class AbsenceCodeCraftOverride : Entity
         {
             AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
-            OverrideAutoMarkUpHours = overrideAutoMarkUpHours,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            OverrideAutoMarkUpHours = overrideAutoMarkUpHours
         };
     }
 }

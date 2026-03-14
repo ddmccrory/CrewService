@@ -1,5 +1,4 @@
 using CrewService.Domain.Primitives;
-using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.FraCompliance;
 
@@ -26,8 +25,7 @@ public sealed class RegulatoryQualification : Entity
             Description = description,
             RequiresCertification = requiresCertification,
             RecertificationIntervalMonths = recertificationIntervalMonths,
-            EffectiveDate = effectiveDate,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            EffectiveDate = effectiveDate
         };
     }
 }

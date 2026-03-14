@@ -48,8 +48,7 @@ public sealed class OnDutyRecord : Entity
             PreviousRestHours = previousRestHours,
             ConsecutiveDays = consecutiveDays,
             Status = "OnDuty",
-            IsAssigned = isAssigned,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsAssigned = isAssigned
         };
         record.Raise(new OnDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, positionSlotCtrlNbr));
         return record;
@@ -63,6 +62,5 @@ public sealed class OnDutyRecord : Entity
     public void TieUp()
     {
         Status = "TiedUp";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

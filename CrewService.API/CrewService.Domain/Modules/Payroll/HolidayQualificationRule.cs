@@ -23,8 +23,7 @@ public sealed class HolidayQualificationRule : Entity
             CraftCtrlNbr = craftCtrlNbr,
             RequireWorkDayBefore = requireWorkDayBefore,
             RequireWorkDayAfter = requireWorkDayAfter,
-            ExemptAbsenceCodes = exemptAbsenceCodes,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ExemptAbsenceCodes = exemptAbsenceCodes
         };
     }
 }

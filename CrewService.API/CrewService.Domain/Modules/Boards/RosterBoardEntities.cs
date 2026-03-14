@@ -30,8 +30,7 @@ public sealed class RosterBoard : Entity
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
             Name = name,
-            IsActive = isActive,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsActive = isActive
         };
         board.Raise(new RosterBoardCreatedDomainEvent(board.CtrlNbr, name));
         return board;
@@ -47,7 +46,6 @@ public sealed class RosterBoard : Entity
     public void Deactivate()
     {
         IsActive = false;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }
 
@@ -72,8 +70,7 @@ public sealed class RosterBoardPosition : Entity
         {
             RosterBoardCtrlNbr = rosterBoardCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
-            PositionOrder = positionOrder,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            PositionOrder = positionOrder
         };
     }
 
@@ -81,14 +78,12 @@ public sealed class RosterBoardPosition : Entity
     {
         HangoutStatus = "HungOut";
         HangoutAtUtc = DateTime.UtcNow;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
         Raise(new PositionHungOutDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 
     public void MarkOff()
     {
         HangoutStatus = "MarkedOff";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
         Raise(new PositionMarkedOffDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 
@@ -96,7 +91,6 @@ public sealed class RosterBoardPosition : Entity
     {
         HangoutStatus = "Active";
         HangoutAtUtc = null;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
         Raise(new PositionRestoredDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 }

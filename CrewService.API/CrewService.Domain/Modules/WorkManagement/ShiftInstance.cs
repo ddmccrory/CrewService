@@ -34,8 +34,7 @@ public sealed class ShiftInstance : Entity
             ShiftCode = shiftCode,
             ShiftStartUtc = shiftStartUtc,
             ShiftEndUtc = shiftEndUtc,
-            Status = "Planned",
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Status = "Planned"
         };
     }
 
@@ -54,7 +53,6 @@ public sealed class ShiftInstance : Entity
     public void Activate()
     {
         Status = "Active";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Complete()
@@ -62,12 +60,10 @@ public sealed class ShiftInstance : Entity
         Status = "Completed";
         IsComplete = true;
         CompletedAtUtc = DateTime.UtcNow;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Cancel()
     {
         Status = "Cancelled";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

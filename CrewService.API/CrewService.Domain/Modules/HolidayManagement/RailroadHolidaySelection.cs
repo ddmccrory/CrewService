@@ -18,11 +18,10 @@ public sealed class RailroadHolidaySelection : Entity
         {
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             HolidayCode = holidayCode,
-            IsActive = isActive,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsActive = isActive
         };
     }
 
-    public void Activate() { IsActive = true; ModifiedBy = AuditStamp.Create("SYSTEM"); }
-    public void Deactivate() { IsActive = false; ModifiedBy = AuditStamp.Create("SYSTEM"); }
+    public void Activate() { IsActive = true; }
+    public void Deactivate() { IsActive = false; }
 }

@@ -31,8 +31,7 @@ public sealed class CertificationEligibilityCheck : Entity
             StalenessLimitDays = stalenessLimitDays,
             ExpiresAtDate = evaluationDate.AddDays(stalenessLimitDays),
             Result = result,
-            EvaluatorName = evaluatorName,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            EvaluatorName = evaluatorName
         };
     }
 

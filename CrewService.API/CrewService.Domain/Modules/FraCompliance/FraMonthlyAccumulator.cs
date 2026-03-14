@@ -24,8 +24,7 @@ public sealed class FraMonthlyAccumulator : Entity
         return new FraMonthlyAccumulator
         {
             EmployeeCtrlNbr = employeeCtrlNbr,
-            YearMonth = yearMonth,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            YearMonth = yearMonth
         };
     }
 
@@ -39,7 +38,6 @@ public sealed class FraMonthlyAccumulator : Entity
         DeadheadToReleaseMinutes += deadheadToReleaseMinutes;
         OtherServiceMinutes += otherServiceMinutes;
         DeadheadAfter12hMinutes += deadheadAfter12hMinutes;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public int TotalMinutes => CoveredServiceMinutes + DeadheadToReleaseMinutes + OtherServiceMinutes;

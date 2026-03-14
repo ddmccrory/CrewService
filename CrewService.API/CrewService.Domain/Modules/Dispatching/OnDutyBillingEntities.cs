@@ -25,8 +25,7 @@ public sealed class OnDutyBillingRecord : Entity
             BillingCode = billingCode,
             Amount = amount,
             Hours = hours,
-            Description = description,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Description = description
         };
     }
 }
@@ -49,8 +48,7 @@ public sealed class OnDutyLocomotiveRecord : Entity
             OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr,
             LocomotiveNumber = locomotiveNumber,
             LocomotiveTypeCode = locomotiveTypeCode,
-            Hours = hours,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Hours = hours
         };
     }
 }
@@ -75,8 +73,7 @@ public sealed class OnDutyMaterialRecord : Entity
             MaterialCode = materialCode,
             CategoryCode = categoryCode,
             Quantity = quantity,
-            UnitCost = unitCost,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            UnitCost = unitCost
         };
     }
 }

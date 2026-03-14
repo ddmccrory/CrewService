@@ -31,8 +31,7 @@ public sealed class FraExcessServiceReport : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             ViolationType = violationType,
             DetectedAtUtc = DateTime.UtcNow,
-            ExplanationText = explanationText,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ExplanationText = explanationText
         };
     }
 
@@ -40,6 +39,5 @@ public sealed class FraExcessServiceReport : Entity
     {
         ReportedToFra = true;
         ReportedAtUtc = DateTime.UtcNow;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

@@ -38,8 +38,7 @@ public sealed class NotificationRequest : Entity
             TemplateType = templateType,
             SentAtUtc = now,
             ExpiresAtUtc = now.AddMinutes(pollingTimeoutMinutes),
-            ExternalId = externalId,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ExternalId = externalId
         };
     }
 
@@ -48,20 +47,17 @@ public sealed class NotificationRequest : Entity
         var response = NotificationResponse.Create(CtrlNbr, responseType, deviceType);
         _responses.Add(response);
         Status = responseType == "Accept" ? "Accepted" : "Rejected";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
         return response;
     }
 
     public void MarkExpired()
     {
         Status = "Expired";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void MarkFailed()
     {
         Status = "Failed";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public bool IsExpired() => DateTime.UtcNow >= ExpiresAtUtc && Status == "Sent";
@@ -84,8 +80,7 @@ public sealed class NotificationResponse : Entity
             NotificationRequestCtrlNbr = notificationRequestCtrlNbr,
             ResponseType = responseType,
             ReceivedAtUtc = DateTime.UtcNow,
-            DeviceType = deviceType,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            DeviceType = deviceType
         };
     }
 }

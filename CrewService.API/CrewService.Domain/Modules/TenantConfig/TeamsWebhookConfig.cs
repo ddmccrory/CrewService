@@ -29,7 +29,6 @@ public sealed class TeamsWebhookConfig : Entity
         Channel = channel;
         WebhookUrl = webhookUrl;
         IsEnabled = isEnabled;
-        CreatedBy = AuditStamp.Create("SYSTEM");
     }
 
     public static TeamsWebhookConfig Create(

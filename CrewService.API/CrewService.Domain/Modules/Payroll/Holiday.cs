@@ -20,8 +20,7 @@ public sealed class Holiday : Entity
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             Name = name,
             ObservedDate = observedDate,
-            IsActive = isActive,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsActive = isActive
         };
     }
 }

@@ -27,8 +27,7 @@ public sealed class VoluntaryReferral : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             ReferralDate = DateTime.UtcNow,
             FollowUpTestsRequired = 6,
-            Status = "Referred",
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Status = "Referred"
         };
     }
 
@@ -36,13 +35,11 @@ public sealed class VoluntaryReferral : Entity
     {
         SapEvaluationDate = date;
         Status = "InTreatment";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void CompleteTreatment(DateTime date)
     {
         TreatmentCompletedDate = date;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void RecordReturnToDutyTest(DateTime date, string result)
@@ -55,13 +52,10 @@ public sealed class VoluntaryReferral : Entity
             Status = "FollowUp";
             FollowUpEndDate = date.AddMonths(60);
         }
-
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Complete()
     {
         Status = "Completed";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

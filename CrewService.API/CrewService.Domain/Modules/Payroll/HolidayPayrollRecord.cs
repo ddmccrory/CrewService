@@ -28,8 +28,7 @@ public sealed class HolidayPayrollRecord : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             IsQualified = isQualified,
             DisqualificationReason = disqualificationReason,
-            PayrollRecordCtrlNbr = payrollRecordCtrlNbr,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            PayrollRecordCtrlNbr = payrollRecordCtrlNbr
         };
     }
 }

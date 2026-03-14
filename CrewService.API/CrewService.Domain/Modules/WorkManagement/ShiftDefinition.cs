@@ -35,8 +35,7 @@ public sealed class ShiftDefinition : Entity
             DefaultStartTime = defaultStartTime,
             DefaultEndTime = defaultEndTime,
             DisplayOrder = displayOrder,
-            IsActive = isActive,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsActive = isActive
         };
     }
 
@@ -46,8 +45,7 @@ public sealed class ShiftDefinition : Entity
         TimeOnly? defaultStartTime = null,
         TimeOnly? defaultEndTime = null,
         int? displayOrder = null,
-        bool? isActive = null,
-        string? updatedBy = null)
+        bool? isActive = null)
     {
         if (shiftCode is not null) ShiftCode = shiftCode;
         if (displayName is not null) DisplayName = displayName;
@@ -55,6 +53,5 @@ public sealed class ShiftDefinition : Entity
         if (defaultEndTime.HasValue) DefaultEndTime = defaultEndTime.Value;
         if (displayOrder.HasValue) DisplayOrder = displayOrder.Value;
         if (isActive.HasValue) IsActive = isActive.Value;
-        ModifiedBy = AuditStamp.Create(updatedBy ?? "SYSTEM");
     }
 }
