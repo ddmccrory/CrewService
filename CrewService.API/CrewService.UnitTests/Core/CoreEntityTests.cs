@@ -1,6 +1,7 @@
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Employment;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using Xunit;
@@ -102,5 +103,67 @@ public class SeniorityTests
         Assert.Equal(3, seniority.Rank);
         Assert.True(seniority.CanTrain);
         Assert.True(seniority.LastActiveRoster);
+    }
+}
+
+public class CraftTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var craft = Craft.Create(1, "Engineer", "Engineers", 1,
+            true, false, 8, 8, 10, 24, 30, true, true, true, 0);
+
+        Assert.Equal("Engineer", craft.CraftName);
+        Assert.Equal("Engineers", craft.CraftPluralName);
+        Assert.Equal(1, craft.CraftNumber);
+        Assert.True(craft.AutoMarkUp);
+        Assert.True(craft.HoursofService);
+        Assert.True(craft.DomainEvents.Count > 0);
+    }
+}
+
+public class RosterTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var roster = Roster.Create(1, 10, "Main Roster", "Main Rosters", 1,
+            false, true, false);
+
+        Assert.Equal("Main Roster", roster.RosterName);
+        Assert.Equal(1, roster.RosterNumber);
+        Assert.True(roster.ExtraBoard);
+        Assert.False(roster.Training);
+        Assert.True(roster.DomainEvents.Count > 0);
+    }
+}
+
+public class EmployeePriorServiceCreditTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var credit = EmployeePriorServiceCredit.Create(100, 5, 3, 15);
+
+        Assert.Equal(100, credit.EmployeeCtrlNbr.Value);
+        Assert.Equal(5, credit.ServiceYears);
+        Assert.Equal(3, credit.ServiceMonths);
+        Assert.Equal(15, credit.ServiceDays);
+    }
+}
+
+public class EmploymentStatusHistoryTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var changeDate = DateTime.UtcNow;
+        var history = EmploymentStatusHistory.Create(100, 200, changeDate);
+
+        Assert.Equal(100, history.EmployeeCtrlNbr.Value);
+        Assert.Equal(200, history.EmploymentStatusCtrlNbr.Value);
+        Assert.Equal(changeDate, history.StatusChangeDate);
+        Assert.True(history.DomainEvents.Count > 0);
     }
 }

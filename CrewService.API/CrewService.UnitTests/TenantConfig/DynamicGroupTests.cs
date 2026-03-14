@@ -65,3 +65,32 @@ public class GroupTypeTests
         Assert.True(gt.IsWorkArea);
     }
 }
+
+public class TeamsWebhookConfigTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var config = TeamsWebhookConfig.Create(
+            ControlNumber.Create(1), ControlNumber.Create(10),
+            Domain.Interfaces.NotificationChannel.ElectronicCall,
+            "https://webhook.example.com", true);
+
+        Assert.Equal("https://webhook.example.com", config.WebhookUrl);
+        Assert.True(config.IsEnabled);
+    }
+
+    [Fact]
+    public void Update_ChangesWebhookAndEnabled()
+    {
+        var config = TeamsWebhookConfig.Create(
+            ControlNumber.Create(1), null,
+            Domain.Interfaces.NotificationChannel.ElectronicCall,
+            "https://old.example.com", true);
+
+        config.Update("https://new.example.com", false, "admin");
+
+        Assert.Equal("https://new.example.com", config.WebhookUrl);
+        Assert.False(config.IsEnabled);
+    }
+}

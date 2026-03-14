@@ -110,3 +110,65 @@ public class AbsenceRequestTests
         Assert.True(markUp.IsAutoMarkUp);
     }
 }
+
+public class AbsenceCodeCraftOverrideTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var ov = AbsenceCodeCraftOverride.Create(
+            ControlNumber.Create(1), ControlNumber.Create(10), 12m);
+
+        Assert.Equal(1, ov.AbsenceCodeCtrlNbr.Value);
+        Assert.Equal(10, ov.CraftCtrlNbr.Value);
+        Assert.Equal(12m, ov.OverrideAutoMarkUpHours);
+    }
+}
+
+public class CompensationBalanceTests
+{
+    [Fact]
+    public void Create_SetsInitialBalance()
+    {
+        var balance = CompensationBalance.Create(
+            ControlNumber.Create(100), "VACATION", 80m);
+
+        Assert.Equal("VACATION", balance.CompensationType);
+        Assert.Equal(80m, balance.BalanceHours);
+    }
+
+    [Fact]
+    public void Debit_SufficientBalance_ReturnsTrue()
+    {
+        var balance = CompensationBalance.Create(
+            ControlNumber.Create(100), "VACATION", 80m);
+
+        var result = balance.Debit(8m);
+
+        Assert.True(result);
+        Assert.Equal(72m, balance.BalanceHours);
+    }
+
+    [Fact]
+    public void Debit_InsufficientBalance_ReturnsFalse()
+    {
+        var balance = CompensationBalance.Create(
+            ControlNumber.Create(100), "VACATION", 4m);
+
+        var result = balance.Debit(8m);
+
+        Assert.False(result);
+        Assert.Equal(4m, balance.BalanceHours);
+    }
+
+    [Fact]
+    public void Credit_IncreasesBalance()
+    {
+        var balance = CompensationBalance.Create(
+            ControlNumber.Create(100), "VACATION", 80m);
+
+        balance.Credit(16m);
+
+        Assert.Equal(96m, balance.BalanceHours);
+    }
+}

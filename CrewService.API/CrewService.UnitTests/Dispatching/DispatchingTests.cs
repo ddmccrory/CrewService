@@ -85,3 +85,52 @@ public class OffDutyRecordTests
         Assert.Equal("Completed", record.ReleaseReason);
     }
 }
+
+public class VacancyResolutionRunTests
+{
+    [Fact]
+    public void Start_DefaultsToRunning()
+    {
+        var run = VacancyResolutionRun.Start(ControlNumber.Create(1), ControlNumber.Create(10));
+
+        Assert.Equal("Running", run.Status);
+        Assert.Null(run.CompletedAtUtc);
+    }
+
+    [Fact]
+    public void Complete_SetsSlotsAndCompleted()
+    {
+        var run = VacancyResolutionRun.Start(ControlNumber.Create(1), ControlNumber.Create(10));
+
+        run.Complete(5, 3);
+
+        Assert.Equal("Completed", run.Status);
+        Assert.Equal(5, run.SlotsEvaluated);
+        Assert.Equal(3, run.SlotsFilled);
+        Assert.NotNull(run.CompletedAtUtc);
+    }
+
+    [Fact]
+    public void Fail_SetsFailedStatus()
+    {
+        var run = VacancyResolutionRun.Start(ControlNumber.Create(1), ControlNumber.Create(10));
+
+        run.Fail();
+
+        Assert.Equal("Failed", run.Status);
+    }
+}
+
+public class DailyEmployeeStatusRecordTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var record = DailyEmployeeStatusRecord.Create(
+            ControlNumber.Create(100), ControlNumber.Create(1),
+            DateOnly.FromDateTime(DateTime.Today), "ON_DUTY", "{\"shift\":\"DAY\"}");
+
+        Assert.Equal("ON_DUTY", record.StatusCode);
+        Assert.Equal("{\"shift\":\"DAY\"}", record.SnapshotJson);
+    }
+}

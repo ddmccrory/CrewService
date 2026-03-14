@@ -110,3 +110,103 @@ public class PositionSlotInstanceTests
         return slot;
     }
 }
+
+public class AssignmentTemplateTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var template = AssignmentTemplate.Create(1, "TMPL1", "Morning Template", null);
+
+        Assert.Equal("TMPL1", template.Code);
+        Assert.Equal("Morning Template", template.Name);
+        Assert.True(template.IsActive);
+        Assert.True(template.DomainEvents.Count > 0);
+    }
+
+    [Fact]
+    public void Update_ChangesAllFields()
+    {
+        var template = AssignmentTemplate.Create(1, "TMPL1", "Old", null);
+
+        template.Update("TMPL2", "New", "{}", false);
+
+        Assert.Equal("TMPL2", template.Code);
+        Assert.Equal("New", template.Name);
+        Assert.Equal("{}", template.RecurrenceJson);
+        Assert.False(template.IsActive);
+    }
+}
+
+public class WorkInstanceTests
+{
+    [Fact]
+    public void Create_DefaultsToPlanned()
+    {
+        var start = DateTime.UtcNow;
+        var end = start.AddHours(8);
+        var instance = WorkInstance.Create(null, 1, start, end, null);
+
+        Assert.Equal("Planned", instance.Status);
+        Assert.Null(instance.AssignmentTemplateCtrlNbr);
+        Assert.True(instance.DomainEvents.Count > 0);
+    }
+
+    [Fact]
+    public void UpdateStatus_ChangesStatus()
+    {
+        var instance = WorkInstance.Create(null, 1, DateTime.UtcNow, DateTime.UtcNow.AddHours(8), null);
+
+        instance.UpdateStatus("Active");
+
+        Assert.Equal("Active", instance.Status);
+    }
+}
+
+public class AbolishmentRecordTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var record = AbolishmentRecord.Create(
+            ControlNumber.Create(1), "Position", DateOnly.FromDateTime(DateTime.Today), "Budget cut");
+
+        Assert.Equal("Position", record.AbolishmentType);
+        Assert.Equal("Budget cut", record.Reason);
+        Assert.Null(record.RestoredDate);
+    }
+
+    [Fact]
+    public void IsActive_BeforeRestore_ReturnsTrue()
+    {
+        var record = AbolishmentRecord.Create(
+            ControlNumber.Create(1), "Position", DateOnly.FromDateTime(DateTime.Today), "Budget cut");
+
+        Assert.True(record.IsActive(DateOnly.FromDateTime(DateTime.Today)));
+    }
+
+    [Fact]
+    public void Restore_SetsRestoredDateAndIsActiveFalse()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var record = AbolishmentRecord.Create(
+            ControlNumber.Create(1), "Position", today, "Budget cut");
+
+        record.Restore(today.AddDays(30));
+
+        Assert.Equal(today.AddDays(30), record.RestoredDate);
+        Assert.False(record.IsActive(today.AddDays(31)));
+    }
+}
+
+public class CrewOffDayTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var offDay = CrewOffDay.Create(ControlNumber.Create(1), DayOfWeek.Sunday);
+
+        Assert.Equal(1, offDay.CrewPositionCtrlNbr.Value);
+        Assert.Equal(DayOfWeek.Sunday, offDay.DayOfWeek);
+    }
+}

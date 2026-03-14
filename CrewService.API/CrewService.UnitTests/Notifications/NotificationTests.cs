@@ -63,3 +63,32 @@ public class NotificationRequestTests
         Assert.Equal("Failed", request.Status);
     }
 }
+
+public class NotificationProviderConfigTests
+{
+    [Fact]
+    public void Create_SetsPropertiesWithDefaults()
+    {
+        var config = NotificationProviderConfig.Create(
+            ControlNumber.Create(1), "SMS", "{\"apiKey\":\"x\"}");
+
+        Assert.Equal("SMS", config.ProviderType);
+        Assert.Equal(5, config.PollingIntervalSeconds);
+        Assert.Equal(6, config.PollingTimeoutMinutes);
+        Assert.Equal(15, config.BatchSize);
+        Assert.Equal(60, config.BatchPauseSeconds);
+    }
+
+    [Fact]
+    public void Create_WithCustomValues_OverridesDefaults()
+    {
+        var config = NotificationProviderConfig.Create(
+            ControlNumber.Create(1), "IVR", "{}",
+            pollingIntervalSeconds: 10, pollingTimeoutMinutes: 12,
+            batchSize: 30, batchPauseSeconds: 120);
+
+        Assert.Equal(10, config.PollingIntervalSeconds);
+        Assert.Equal(12, config.PollingTimeoutMinutes);
+        Assert.Equal(30, config.BatchSize);
+    }
+}
