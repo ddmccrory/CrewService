@@ -32,8 +32,7 @@ public sealed class FraTransportationSegment : Entity
             EndLocationCode = endLocationCode,
             EndUtc = endUtc,
             TransportMode = transportMode,
-            IsToAssignment = isToAssignment,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsToAssignment = isToAssignment
         };
     }
 }

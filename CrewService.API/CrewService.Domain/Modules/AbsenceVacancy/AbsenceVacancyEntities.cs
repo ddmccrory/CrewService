@@ -121,8 +121,7 @@ public sealed class AbsenceApproval : Entity
         return new AbsenceApproval
         {
             AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
-            ApprovalOfficerCtrlNbr = approvalOfficerCtrlNbr,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ApprovalOfficerCtrlNbr = approvalOfficerCtrlNbr
         };
     }
 
@@ -158,8 +157,7 @@ public sealed class AbsenceMarkUp : Entity
         {
             AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
             ScheduledMarkUpUtc = scheduledMarkUpUtc,
-            IsAutoMarkUp = isAutoMarkUp,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsAutoMarkUp = isAutoMarkUp
         };
         markUp.Raise(new AbsenceMarkUpScheduledDomainEvent(markUp.CtrlNbr, absenceRequestCtrlNbr, scheduledMarkUpUtc));
         return markUp;
@@ -168,7 +166,6 @@ public sealed class AbsenceMarkUp : Entity
     public void Execute(DateTime actualMarkUpUtc)
     {
         ActualMarkUpUtc = actualMarkUpUtc;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
         Raise(new AbsenceMarkedUpDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr));
     }
 }

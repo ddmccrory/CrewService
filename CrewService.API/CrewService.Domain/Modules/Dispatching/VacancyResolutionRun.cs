@@ -27,8 +27,7 @@ public sealed class VacancyResolutionRun : Entity
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
             StartedAtUtc = DateTime.UtcNow,
-            Status = "Running",
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Status = "Running"
         };
     }
 
@@ -38,13 +37,11 @@ public sealed class VacancyResolutionRun : Entity
         SlotsFilled = slotsFilled;
         CompletedAtUtc = DateTime.UtcNow;
         Status = "Completed";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Fail()
     {
         CompletedAtUtc = DateTime.UtcNow;
         Status = "Failed";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

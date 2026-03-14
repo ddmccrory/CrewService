@@ -26,8 +26,7 @@ public sealed class RegulatoryQualification : Entity
             Description = description,
             RequiresCertification = requiresCertification,
             RecertificationIntervalMonths = recertificationIntervalMonths,
-            EffectiveDate = effectiveDate,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            EffectiveDate = effectiveDate
         };
     }
 }

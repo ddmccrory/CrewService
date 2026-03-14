@@ -41,8 +41,7 @@ public sealed class DrugAlcoholTestRecord : Entity
             DrugResult = drugResult,
             SubstancesDetected = substancesDetected,
             IsViolation = isViolation,
-            FederalAuthority = federalAuthority,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            FederalAuthority = federalAuthority
         };
     }
 

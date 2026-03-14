@@ -22,15 +22,13 @@ public sealed class AbolishmentRecord : Entity
             TargetCtrlNbr = targetCtrlNbr,
             AbolishmentType = abolishmentType,
             EffectiveDate = effectiveDate,
-            Reason = reason,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Reason = reason
         };
     }
 
     public void Restore(DateOnly restoredDate)
     {
         RestoredDate = restoredDate;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public bool IsActive(DateOnly asOf) =>

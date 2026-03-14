@@ -34,8 +34,7 @@ public sealed class PositionSlotInstance : Entity
             CrewPositionCtrlNbr = crewPositionCtrlNbr,
             IncumbentEmployeeCtrlNbr = incumbentEmployeeCtrlNbr,
             DisplayOrder = displayOrder,
-            Status = status,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            Status = status
         };
     }
 
@@ -43,19 +42,16 @@ public sealed class PositionSlotInstance : Entity
     {
         IncumbentEmployeeCtrlNbr = employeeCtrlNbr;
         Status = "Filled";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void MarkOnDuty()
     {
         Status = "OnDuty";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void MarkTiedUp()
     {
         Status = "TiedUp";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Annul(string reason)
@@ -63,20 +59,17 @@ public sealed class PositionSlotInstance : Entity
         IsAnnulled = true;
         AnnulmentReason = reason;
         Status = "Annulled";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void MarkDoNotFill()
     {
         IsDoNotFill = true;
         Status = "DoNotFill";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Skip()
     {
         IsSkipped = true;
         Status = "Skipped";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

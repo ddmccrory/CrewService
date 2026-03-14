@@ -35,8 +35,7 @@ public sealed class CraftOperationsPolicy : Entity
             FixedRestHours = fixedRestHours,
             ConsecutiveDayResetHours = consecutiveDayResetHours,
             DeleteConflictingNextShift = deleteConflictingNextShift,
-            AutoAnnulCreatesOffDuty = autoAnnulCreatesOffDuty,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            AutoAnnulCreatesOffDuty = autoAnnulCreatesOffDuty
         };
     }
 
@@ -46,8 +45,7 @@ public sealed class CraftOperationsPolicy : Entity
         decimal? fixedRestHours = null,
         decimal? consecutiveDayResetHours = null,
         bool? deleteConflictingNextShift = null,
-        bool? autoAnnulCreatesOffDuty = null,
-        string? updatedBy = null)
+        bool? autoAnnulCreatesOffDuty = null)
     {
         if (lateCallThresholdMinutes.HasValue) LateCallThresholdMinutes = lateCallThresholdMinutes.Value;
         if (restCalculationStrategy is not null) RestCalculationStrategy = restCalculationStrategy;
@@ -55,6 +53,5 @@ public sealed class CraftOperationsPolicy : Entity
         if (consecutiveDayResetHours.HasValue) ConsecutiveDayResetHours = consecutiveDayResetHours.Value;
         if (deleteConflictingNextShift.HasValue) DeleteConflictingNextShift = deleteConflictingNextShift.Value;
         if (autoAnnulCreatesOffDuty.HasValue) AutoAnnulCreatesOffDuty = autoAnnulCreatesOffDuty.Value;
-        ModifiedBy = AuditStamp.Create(updatedBy ?? "SYSTEM");
     }
 }

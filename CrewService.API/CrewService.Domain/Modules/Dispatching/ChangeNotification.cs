@@ -29,7 +29,6 @@ public sealed class ChangeNotification : Entity
         Description = description;
         Status = "Pending";
         CreatedAtUtc = DateTime.UtcNow;
-        CreatedBy = AuditStamp.Create("SYSTEM");
     }
 
     public static ChangeNotification Create(

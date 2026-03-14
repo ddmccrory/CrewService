@@ -33,8 +33,7 @@ public sealed class FraOtherServiceSegment : Entity
             StartUtc = startUtc,
             EndLocationCode = endLocationCode,
             EndUtc = endUtc,
-            IsCommingled = isCommingled,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsCommingled = isCommingled
         };
     }
 }

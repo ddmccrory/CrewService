@@ -49,7 +49,6 @@ public sealed class RegulatoryStandard : Entity
         DeadheadAfter12hMonthlyCapMinutes = deadheadAfter12hMonthlyCapMinutes;
         WreckReliefExtraMinutes = wreckReliefExtraMinutes;
         EffectiveDate = effectiveDate;
-        CreatedBy = AuditStamp.Create("SYSTEM");
     }
 
     public static RegulatoryStandard Create(

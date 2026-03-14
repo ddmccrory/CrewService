@@ -34,28 +34,24 @@ public sealed class CertificationRevocationRecord : Entity
             EmployeeCertificationCtrlNbr = employeeCertificationCtrlNbr,
             ViolationType = violationType,
             ViolationDate = violationDate,
-            SuspendedAtUtc = DateTime.UtcNow,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            SuspendedAtUtc = DateTime.UtcNow
         };
     }
 
     public void RecordWrittenNotice()
     {
         WrittenNoticeAtUtc = DateTime.UtcNow;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void ScheduleHearing(DateTime hearingDateUtc)
     {
         HearingScheduledUtc = hearingDateUtc;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void RecordHearing(DateTime heldUtc, ControlNumber presidingOfficerCtrlNbr)
     {
         HearingHeldUtc = heldUtc;
         PresidingOfficerCtrlNbr = presidingOfficerCtrlNbr;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Decide(string decision, int? revocationPeriodMonths)
@@ -68,6 +64,5 @@ public sealed class CertificationRevocationRecord : Entity
             RevocationEndsUtc = DateTime.UtcNow.AddMonths(revocationPeriodMonths.Value);
 
         HearingRecordRetainUntil = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(3));
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

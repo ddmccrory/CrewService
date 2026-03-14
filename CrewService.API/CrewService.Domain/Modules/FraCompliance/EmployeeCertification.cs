@@ -44,8 +44,7 @@ public sealed class EmployeeCertification : Entity
             CertificationDate = certificationDate,
             ExpirationDate = certificationDate.AddMonths(recertificationIntervalMonths),
             Status = "Active",
-            CertificationNumber = certificationNumber,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            CertificationNumber = certificationNumber
         };
     }
 
@@ -54,14 +53,12 @@ public sealed class EmployeeCertification : Entity
         Status = "Suspended";
         SuspendedAtUtc = DateTime.UtcNow;
         SuspensionReason = reason;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Revoke(DateTime revocationPeriodEndUtc)
     {
         Status = "Revoked";
         RevocationPeriodEndUtc = revocationPeriodEndUtc;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Reinstate()
@@ -70,13 +67,11 @@ public sealed class EmployeeCertification : Entity
         SuspendedAtUtc = null;
         SuspensionReason = null;
         RevocationPeriodEndUtc = null;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void Expire()
     {
         Status = "Expired";
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void RecordMonitoringObservation() => LastMonitoringObservationUtc = DateTime.UtcNow;

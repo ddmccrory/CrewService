@@ -21,8 +21,7 @@ public sealed class CompensationBalance : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             CompensationType = compensationType,
             BalanceHours = initialHours,
-            AsOfUtc = DateTime.UtcNow,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            AsOfUtc = DateTime.UtcNow
         };
     }
 
@@ -31,7 +30,6 @@ public sealed class CompensationBalance : Entity
         if (BalanceHours < hours) return false;
         BalanceHours -= hours;
         AsOfUtc = DateTime.UtcNow;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
         Raise(new CompensationBalanceDebitedDomainEvent(CtrlNbr, EmployeeCtrlNbr, hours));
         return true;
     }
@@ -40,6 +38,5 @@ public sealed class CompensationBalance : Entity
     {
         BalanceHours += hours;
         AsOfUtc = DateTime.UtcNow;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

@@ -24,8 +24,7 @@ public sealed class PayRate : Entity
             PositionRoleCtrlNbr = positionRoleCtrlNbr,
             EffectiveDate = effectiveDate,
             HourlyRate = hourlyRate,
-            OvertimeMultiplier = overtimeMultiplier,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            OvertimeMultiplier = overtimeMultiplier
         };
     }
 

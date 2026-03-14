@@ -39,8 +39,7 @@ public sealed class OffDutyRecord : Entity
             RestHoursRequired = restHoursRequired,
             RestedAtUtc = offDutyTimeUtc.AddHours((double)restHoursRequired),
             ConsecutiveDayRestedAtUtc = offDutyTimeUtc.AddHours((double)consecutiveDayResetHours),
-            ReleaseReason = releaseReason,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            ReleaseReason = releaseReason
         };
         record.Raise(new OffDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, onDutyRecordCtrlNbr));
         return record;

@@ -32,8 +32,7 @@ public sealed class AbsenceCode : Entity
             IsSystemOnly = isSystemOnly,
             IsHolidayExempt = isHolidayExempt,
             DefaultAutoMarkUpHours = defaultAutoMarkUpHours,
-            IsActive = isActive,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsActive = isActive
         };
     }
 
@@ -49,6 +48,5 @@ public sealed class AbsenceCode : Entity
         if (isHolidayExempt.HasValue) IsHolidayExempt = isHolidayExempt.Value;
         if (defaultAutoMarkUpHours.HasValue) DefaultAutoMarkUpHours = defaultAutoMarkUpHours;
         if (isActive.HasValue) IsActive = isActive.Value;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

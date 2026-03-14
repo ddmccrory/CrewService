@@ -29,8 +29,7 @@ public sealed class NotificationProviderConfig : Entity
             PollingIntervalSeconds = pollingIntervalSeconds,
             PollingTimeoutMinutes = pollingTimeoutMinutes,
             BatchSize = batchSize,
-            BatchPauseSeconds = batchPauseSeconds,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            BatchPauseSeconds = batchPauseSeconds
         };
     }
 }

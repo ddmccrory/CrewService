@@ -15,8 +15,7 @@ public sealed class CrewOffDay : Entity
         return new CrewOffDay
         {
             CrewPositionCtrlNbr = crewPositionCtrlNbr,
-            DayOfWeek = dayOfWeek,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            DayOfWeek = dayOfWeek
         };
     }
 }

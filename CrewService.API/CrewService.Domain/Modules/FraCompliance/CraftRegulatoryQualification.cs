@@ -24,8 +24,7 @@ public sealed class CraftRegulatoryQualification : Entity
         return new CraftRegulatoryQualification
         {
             CraftCtrlNbr = craftCtrlNbr,
-            RegulatoryQualificationCtrlNbr = regulatoryQualificationCtrlNbr,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            RegulatoryQualificationCtrlNbr = regulatoryQualificationCtrlNbr
         };
     }
 }

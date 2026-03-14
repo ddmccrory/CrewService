@@ -25,8 +25,7 @@ public sealed class WorkerSchedule : Entity
             WorkerType = workerType,
             CronExpression = cronExpression,
             NextFireUtc = nextFireUtc,
-            IsEnabled = isEnabled,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsEnabled = isEnabled
         };
     }
 
@@ -37,7 +36,6 @@ public sealed class WorkerSchedule : Entity
         LastRunUtc = DateTime.UtcNow;
         LastRunStatus = "Success";
         NextFireUtc = nextFire;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 
     public void RecordFailure(DateTime? nextFire = null)
@@ -45,7 +43,6 @@ public sealed class WorkerSchedule : Entity
         LastRunUtc = DateTime.UtcNow;
         LastRunStatus = "Failed";
         NextFireUtc = nextFire;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }
 
@@ -64,8 +61,7 @@ public sealed class WorkerExecutionLog : Entity
         return new WorkerExecutionLog
         {
             WorkerScheduleCtrlNbr = workerScheduleCtrlNbr,
-            StartedAtUtc = DateTime.UtcNow,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            StartedAtUtc = DateTime.UtcNow
         };
     }
 

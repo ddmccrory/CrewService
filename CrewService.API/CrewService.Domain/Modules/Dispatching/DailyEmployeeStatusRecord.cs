@@ -27,8 +27,7 @@ public sealed class DailyEmployeeStatusRecord : Entity
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             RecordDate = recordDate,
             StatusCode = statusCode,
-            SnapshotJson = snapshotJson,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            SnapshotJson = snapshotJson
         };
     }
 }

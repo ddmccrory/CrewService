@@ -132,8 +132,7 @@ public sealed class EarningApproval : Entity
         {
             PayrollRecordCtrlNbr = payrollRecordCtrlNbr,
             ApprovalTier = approvalTier,
-            OfficerCtrlNbr = officerCtrlNbr,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            OfficerCtrlNbr = officerCtrlNbr
         };
     }
 

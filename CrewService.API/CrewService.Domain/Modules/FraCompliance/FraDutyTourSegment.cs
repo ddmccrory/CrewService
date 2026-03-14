@@ -35,8 +35,7 @@ public sealed class FraDutyTourSegment : Entity
             PositionDescription = positionDescription,
             StartLocationCode = startLocationCode,
             StartUtc = startUtc,
-            SegmentOrder = segmentOrder,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            SegmentOrder = segmentOrder
         };
     }
 
@@ -44,6 +43,5 @@ public sealed class FraDutyTourSegment : Entity
     {
         EndLocationCode = endLocationCode;
         EndUtc = endUtc;
-        ModifiedBy = AuditStamp.Create("SYSTEM");
     }
 }

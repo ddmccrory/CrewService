@@ -26,8 +26,7 @@ public sealed class EarningCodeRule : Entity
             ConditionsJson = conditionsJson,
             ResultCode = resultCode,
             RequiresApproval = requiresApproval,
-            IsActive = isActive,
-            CreatedBy = AuditStamp.Create("SYSTEM")
+            IsActive = isActive
         };
     }
 }
