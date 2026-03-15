@@ -1,4 +1,4 @@
-using CrewService.Domain.Models.Seniority;
+﻿using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

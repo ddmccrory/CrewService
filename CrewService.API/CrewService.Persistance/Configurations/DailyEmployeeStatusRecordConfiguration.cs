@@ -1,4 +1,6 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,6 +18,9 @@ internal class DailyEmployeeStatusRecordConfiguration : IEntityTypeConfiguration
         builder.Property(d => d.StatusCode).HasMaxLength(30).IsRequired();
         builder.Property(d => d.SnapshotJson).HasMaxLength(4000);
         builder.HasIndex(d => new { d.EmployeeCtrlNbr, d.RecordDate });
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(d => d.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(d => d.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(d => d.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(d => d.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

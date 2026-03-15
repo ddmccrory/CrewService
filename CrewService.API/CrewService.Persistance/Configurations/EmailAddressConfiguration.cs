@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,8 @@ internal class EmailAddressConfiguration : IEntityTypeConfiguration<EmailAddress
             value => ControlNumber.Create(value));
 
         builder.Property(e => e.Email).HasMaxLength(250).IsRequired();
+
+        builder.HasOne<EmailAddressType>().WithMany().HasForeignKey(e => e.EmailTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(e => e.CreatedBy, audit =>
         {

@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,9 @@ internal class CertificationRevocationRecordConfiguration : IEntityTypeConfigura
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(r => r.ViolationType).HasMaxLength(100).IsRequired();
         builder.Property(r => r.Decision).HasMaxLength(20);
+
+        builder.HasOne<EmployeeCertification>().WithMany().HasForeignKey(r => r.EmployeeCertificationCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.PresidingOfficerCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,9 @@ internal class FraExcessServiceReportConfiguration : IEntityTypeConfiguration<Fr
 
         builder.Property(r => r.ViolationType).HasMaxLength(100).IsRequired();
         builder.Property(r => r.ExplanationText).HasMaxLength(1000);
+
+        builder.HasOne<FraDutyTour>().WithMany().HasForeignKey(r => r.DutyTourCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a =>
         {

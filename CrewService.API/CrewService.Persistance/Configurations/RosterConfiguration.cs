@@ -1,4 +1,4 @@
-using CrewService.Domain.Models.Seniority;
+﻿using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -29,6 +29,8 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
         builder.Property(r => r.Training).IsRequired();
         builder.Property(r => r.ExtraBoard).IsRequired();
         builder.Property(r => r.OvertimeBoard).IsRequired();
+
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, audit =>
         {

@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,8 @@ internal class UserParentAssignmentConfiguration : IEntityTypeConfiguration<User
         builder.HasIndex(a => new { a.UserId, a.ParentCtrlNbr }).IsUnique();
         builder.HasIndex(a => a.UserId);
         builder.HasIndex(a => a.ParentCtrlNbr);
+
+        builder.HasOne<Parent>().WithMany().HasForeignKey(a => a.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(a => a.CreatedBy, audit =>
         {

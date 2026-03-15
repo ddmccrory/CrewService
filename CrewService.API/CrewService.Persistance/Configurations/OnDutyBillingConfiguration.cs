@@ -18,6 +18,8 @@ internal class OnDutyBillingRecordConfiguration : IEntityTypeConfiguration<OnDut
         builder.Property(r => r.Hours).HasPrecision(5, 2);
         builder.Property(r => r.Description).HasMaxLength(200);
 
+        builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(r => r.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -34,6 +36,8 @@ internal class OnDutyLocomotiveRecordConfiguration : IEntityTypeConfiguration<On
         builder.Property(r => r.LocomotiveNumber).HasMaxLength(20).IsRequired();
         builder.Property(r => r.LocomotiveTypeCode).HasMaxLength(20).IsRequired();
         builder.Property(r => r.Hours).HasPrecision(5, 2);
+
+        builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(r => r.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -52,6 +56,8 @@ internal class OnDutyMaterialRecordConfiguration : IEntityTypeConfiguration<OnDu
         builder.Property(r => r.CategoryCode).HasMaxLength(50).IsRequired();
         builder.Property(r => r.Quantity).HasPrecision(10, 2);
         builder.Property(r => r.UnitCost).HasPrecision(10, 2);
+
+        builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(r => r.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

@@ -1,4 +1,4 @@
-using CrewService.Domain.Models.ContactTypes;
+﻿using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

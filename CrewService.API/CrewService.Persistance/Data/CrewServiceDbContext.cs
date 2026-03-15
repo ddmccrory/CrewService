@@ -170,6 +170,10 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
 
+        // ControlNumber is a value object handled via per-property conversions;
+        // prevent EF from discovering it as a complex/entity type.
+        modelBuilder.Ignore<ControlNumber>();
+
         // Encrypt sensitive PII fields at rest
         var encryptedConverter = new EncryptedStringConverter(fieldEncryptor);
         modelBuilder.Entity<Employee>()

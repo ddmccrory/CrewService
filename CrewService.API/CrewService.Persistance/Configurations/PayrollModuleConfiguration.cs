@@ -1,3 +1,5 @@
+using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +21,9 @@ internal class TimeEntryConfiguration : IEntityTypeConfiguration<TimeEntry>
         builder.Property(t => t.Hours).HasPrecision(5, 2);
         builder.Property(t => t.ReasonCode).HasMaxLength(30);
         builder.Property(t => t.Notes).HasMaxLength(500);
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(t => t.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<TimeEntry>().WithMany().HasForeignKey(t => t.OriginalEntryCtrlNbr).OnDelete(DeleteBehavior.SetNull);
 
         builder.OwnsOne(t => t.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(t => t.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -58,6 +63,10 @@ internal class PayrollRecordConfiguration : IEntityTypeConfiguration<PayrollReco
         builder.Property(r => r.PolicyRef).HasMaxLength(50);
         builder.Property(r => r.ResolvedEarningCode).HasMaxLength(30);
 
+        builder.HasOne<PayrollRun>().WithMany().HasForeignKey(r => r.PayrollRunCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(r => r.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -74,6 +83,9 @@ internal class EarningApprovalConfiguration : IEntityTypeConfiguration<EarningAp
         builder.Property(a => a.OfficerCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(a => a.Status).HasMaxLength(20).IsRequired();
 
+        builder.HasOne<PayrollRecord>().WithMany().HasForeignKey(a => a.PayrollRecordCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.OfficerCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(a => a.CreatedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -89,6 +101,8 @@ internal class PayrollExportBatchConfiguration : IEntityTypeConfiguration<Payrol
         builder.Property(b => b.PayrollRunCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(b => b.ExportFormat).HasMaxLength(20).IsRequired();
         builder.Property(b => b.FilePath).HasMaxLength(500);
+
+        builder.HasOne<PayrollRun>().WithMany().HasForeignKey(b => b.PayrollRunCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(b => b.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -109,6 +123,9 @@ internal class PayrollImportRecordConfiguration : IEntityTypeConfiguration<Payro
         builder.Property(r => r.SourceFile).HasMaxLength(500).IsRequired();
         builder.Property(r => r.PaidAmount).HasPrecision(12, 2);
         builder.Property(r => r.MatchStatus).HasMaxLength(20).IsRequired();
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PayrollRecord>().WithMany().HasForeignKey(r => r.PayrollRecordCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

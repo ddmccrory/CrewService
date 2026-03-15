@@ -1,4 +1,4 @@
-using CrewService.Domain.Models.Employment;
+﻿using CrewService.Domain.Models.Employment;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

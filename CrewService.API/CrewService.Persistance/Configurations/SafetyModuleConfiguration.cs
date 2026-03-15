@@ -1,4 +1,6 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Safety;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,7 +21,10 @@ internal class SafetyObservationConfiguration : IEntityTypeConfiguration<SafetyO
         builder.Property(o => o.Description).HasMaxLength(2000).IsRequired();
         builder.Property(o => o.Status).HasMaxLength(20).IsRequired();
 
-        builder.HasMany(o => o.Actions).WithOne().HasForeignKey(a => a.ObservationCtrlNbr);
+        builder.HasMany(o => o.Actions).WithOne().HasForeignKey(a => a.ObservationCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(o => o.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(o => o.ObserverEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(o => o.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(o => o.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -37,8 +42,10 @@ internal class SafetyObservationActionConfiguration : IEntityTypeConfiguration<S
         builder.Property(a => a.TakenByCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(a => a.ActionDescription).HasMaxLength(2000).IsRequired();
 
+        builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.TakenByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(a => a.CreatedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(a => a.ModifiedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
@@ -55,6 +62,9 @@ internal class SafetyObservationResolutionConfiguration : IEntityTypeConfigurati
 
         builder.HasIndex(r => r.ObservationCtrlNbr).IsUnique();
 
+        builder.HasOne<SafetyObservation>().WithMany().HasForeignKey(r => r.ObservationCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.ResolvedByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -70,6 +80,8 @@ internal class SafetyCategoryConfiguration : IEntityTypeConfiguration<SafetyCate
         builder.Property(c => c.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(c => c.Code).HasMaxLength(50).IsRequired();
         builder.Property(c => c.DisplayName).HasMaxLength(100).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(c => c.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

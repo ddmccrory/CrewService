@@ -1,3 +1,5 @@
+﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +17,9 @@ internal class ShiftInstanceConfiguration : IEntityTypeConfiguration<ShiftInstan
         builder.Property(s => s.ShiftCode).HasMaxLength(20).IsRequired();
         builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
 
-        builder.HasMany(s => s.PositionSlots).WithOne().HasForeignKey(p => p.ShiftInstanceCtrlNbr);
+        builder.HasMany(s => s.PositionSlots).WithOne().HasForeignKey(p => p.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<WorkInstance>().WithMany().HasForeignKey(s => s.WorkInstanceCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(s => s.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(s => s.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -36,6 +40,9 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(p => p.Status).HasMaxLength(20).IsRequired();
         builder.Property(p => p.AnnulmentReason).HasMaxLength(500);
+
+        builder.HasOne<CrewPosition>().WithMany().HasForeignKey(p => p.CrewPositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.IncumbentEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

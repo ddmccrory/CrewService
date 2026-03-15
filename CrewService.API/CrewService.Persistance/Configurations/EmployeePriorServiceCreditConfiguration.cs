@@ -1,4 +1,4 @@
-using CrewService.Domain.Models.Employees;
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -22,6 +22,8 @@ internal class EmployeePriorServiceCreditConfiguration : IEntityTypeConfiguratio
         builder.Property(e => e.ServiceYears).IsRequired();
         builder.Property(e => e.ServiceMonths).IsRequired();
         builder.Property(e => e.ServiceDays).IsRequired();
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(e => e.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(e => e.CreatedBy, audit =>
         {
