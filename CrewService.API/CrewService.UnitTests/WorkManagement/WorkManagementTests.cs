@@ -210,3 +210,16 @@ public class CrewOffDayTests
         Assert.Equal(DayOfWeek.Sunday, offDay.DayOfWeek);
     }
 }
+
+public class PositionRoleTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var role = PositionRole.Create(1, "ENG", "Engineer");
+
+        Assert.Equal(1, role.CraftCtrlNbr.Value);
+        Assert.Equal("ENG", role.Code);
+        Assert.Equal("Engineer", role.Name);
+    }
+}

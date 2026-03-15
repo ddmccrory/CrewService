@@ -17,3 +17,8 @@ public interface ISafetyObservationResolutionRepository : IRepository<SafetyObse
     Task<SafetyObservationResolution?> GetByObservationAsync(
         ControlNumber observationCtrlNbr, CancellationToken ct = default);
 }
+
+public interface ISafetyCategoryRepository : IRepository<SafetyCategory>
+{
+    Task<IReadOnlyList<SafetyCategory>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+}

@@ -6,7 +6,8 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class SafetyService(
     ISafetyObservationRepository obsRepo,
-    ISafetyObservationResolutionRepository resRepo) : SafetySrvc.SafetySrvcBase
+    ISafetyObservationResolutionRepository resRepo,
+    ISafetyCategoryRepository catRepo) : SafetySrvc.SafetySrvcBase
 {
     public override async Task<SafetyObservationResponse> CreateObservation(CreateObservationRequest request, ServerCallContext context)
     {
@@ -94,4 +95,28 @@ public class SafetyService(
         ResolutionDescription = r.ResolutionDescription,
         ResolvedAtUtc = r.ResolvedAtUtc.ToString("O")
     };
+
+    // Reference Data endpoints
+    public override async Task<GetSafetyCategoriesResponse> GetCategories(GetSafetyRefDataRequest request, ServerCallContext context)
+    {
+        var items = await catRepo.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr), context.CancellationToken);
+        var response = new GetSafetyCategoriesResponse { TotalCount = items.Count };
+        foreach (var c in items) response.Items.Add(new SafetyCategoryResponse
+        {
+            CtrlNbr = c.CtrlNbr.Value, WorkAreaGroupCtrlNbr = c.WorkAreaGroupCtrlNbr.Value,
+            Code = c.Code, DisplayName = c.DisplayName, IsActive = c.IsActive
+        });
+        return response;
+    }
+
+    public override async Task<SafetyCategoryResponse> CreateCategory(CreateSafetyCategoryRequest request, ServerCallContext context)
+    {
+        var cat = SafetyCategory.Create(request.WorkAreaGroupCtrlNbr, request.Code, request.DisplayName);
+        await catRepo.AddAsync(cat, context.CancellationToken);
+        return new SafetyCategoryResponse
+        {
+            CtrlNbr = cat.CtrlNbr.Value, WorkAreaGroupCtrlNbr = cat.WorkAreaGroupCtrlNbr.Value,
+            Code = cat.Code, DisplayName = cat.DisplayName, IsActive = cat.IsActive
+        };
+    }
 }

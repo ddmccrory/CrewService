@@ -136,3 +136,31 @@ public class RosterBoardPositionTests
         Assert.Null(pos.HangoutAtUtc);
     }
 }
+
+public class BoardCascadePolicyTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var policy = BoardCascadePolicy.Create(1, 2, "UP_HIERARCHY", 3, true, 2, "SENIORITY");
+
+        Assert.Equal(1, policy.WorkAreaGroupCtrlNbr.Value);
+        Assert.Equal(2, policy.CraftCtrlNbr.Value);
+        Assert.Equal("UP_HIERARCHY", policy.CascadeMode);
+        Assert.Equal(3, policy.MaxLevels);
+        Assert.True(policy.AuxEnabled);
+        Assert.Equal(2, policy.AuxMaxLevels);
+        Assert.Equal("SENIORITY", policy.SelectionStrategy);
+    }
+
+    [Fact]
+    public void Create_WithNullOptionals_DefaultsCorrectly()
+    {
+        var policy = BoardCascadePolicy.Create(1, 2, "UP_HIERARCHY", null, false, null, null);
+
+        Assert.Null(policy.MaxLevels);
+        Assert.False(policy.AuxEnabled);
+        Assert.Null(policy.AuxMaxLevels);
+        Assert.Null(policy.SelectionStrategy);
+    }
+}

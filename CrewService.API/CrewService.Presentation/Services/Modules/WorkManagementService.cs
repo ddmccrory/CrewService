@@ -7,7 +7,8 @@ namespace CrewService.Presentation.Services.Modules;
 public class WorkManagementService(
     IAssignmentTemplateRepository templateRepository,
     IWorkInstanceRepository workInstanceRepository,
-    IPositionSlotRepository positionSlotRepository) : WorkManagementSrvc.WorkManagementSrvcBase
+    IPositionSlotRepository positionSlotRepository,
+    IPositionRoleRepository positionRoleRepository) : WorkManagementSrvc.WorkManagementSrvcBase
 {
     public override async Task<GetAllTemplatesResponse> GetAllTemplates(GetAllTemplatesRequest request, ServerCallContext context)
     {
@@ -36,6 +37,15 @@ public class WorkManagementService(
     {
         await templateRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
         return new DeleteResponse { Success = true };
+    }
+
+    public override async Task<TemplateResponse> UpdateTemplate(UpdateTemplateRequest request, ServerCallContext context)
+    {
+        var template = await templateRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Template {request.CtrlNbr} not found."));
+        template.Update(request.Code, request.Name, request.RecurrenceJson, request.IsActive);
+        await templateRepository.UpdateAsync(template);
+        return MapTemplate(template);
     }
 
     public override async Task<GetWorkInstancesResponse> GetWorkInstances(GetWorkInstancesRequest request, ServerCallContext context)
@@ -125,5 +135,28 @@ public class WorkManagementService(
         Status = s.Status,
         BoundEmployeeCtrlNbr = s.BoundEmployeeCtrlNbr?.Value ?? 0,
         BindingSource = s.BindingSource ?? string.Empty
+    };
+
+    public override async Task<GetPositionRolesResponse> GetPositionRoles(GetPositionRolesRequest request, ServerCallContext context)
+    {
+        var roles = await positionRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
+        var response = new GetPositionRolesResponse { TotalCount = roles.Count };
+        foreach (var r in roles) response.Roles.Add(MapRole(r));
+        return response;
+    }
+
+    public override async Task<PositionRoleResponse> CreatePositionRole(CreatePositionRoleRequest request, ServerCallContext context)
+    {
+        var role = PositionRole.Create(request.CraftCtrlNbr, request.Code, request.Name);
+        await positionRoleRepository.AddAsync(role);
+        return MapRole(role);
+    }
+
+    private static PositionRoleResponse MapRole(PositionRole r) => new()
+    {
+        CtrlNbr = r.CtrlNbr.Value,
+        CraftCtrlNbr = r.CraftCtrlNbr.Value,
+        Code = r.Code,
+        Name = r.Name
     };
 }

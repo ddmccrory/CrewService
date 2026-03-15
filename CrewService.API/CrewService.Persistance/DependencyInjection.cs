@@ -231,6 +231,7 @@ public static class DependencyInjection
         // Safety Repositories (B12)
         services.AddScoped<ISafetyObservationRepository, SafetyObservationRepository>();
         services.AddScoped<ISafetyObservationResolutionRepository, SafetyObservationResolutionRepository>();
+        services.AddScoped<ISafetyCategoryRepository, SafetyCategoryRepository>();
 
         // Contact Repositories (Core)
         services.AddScoped<IAddressRepository, AddressRepository>();

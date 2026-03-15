@@ -40,3 +40,13 @@ internal sealed class SafetyObservationResolutionRepository(CrewServiceDbContext
         await DbContext.Set<SafetyObservationResolution>()
             .SingleOrDefaultAsync(r => r.ObservationCtrlNbr == observationCtrlNbr, ct);
 }
+
+internal sealed class SafetyCategoryRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<SafetyCategory>(dbContext, currentUserService), ISafetyCategoryRepository
+{
+    public async Task<IReadOnlyList<SafetyCategory>> GetByWorkAreaAsync(
+        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<SafetyCategory>()
+            .Where(c => c.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && c.IsActive)
+            .ToListAsync(ct);
+}
