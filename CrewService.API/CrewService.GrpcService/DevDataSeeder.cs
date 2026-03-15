@@ -17,6 +17,7 @@ using CrewService.Domain.Modules.Safety;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Application.FraCompliance;
 using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -655,5 +656,125 @@ internal static class DevDataSeeder
         }
 
         } // end dispatching guard
+
+        // ?? Section 10: Policies — Displacement, Bulletin, Seniority Move ????
+        var displacementPolicyRepo = sp.GetRequiredService<ICraftDisplacementPolicyRepository>();
+        var bulletinPolicyRepo = sp.GetRequiredService<IBulletinPolicyRepository>();
+        var senMovePolicyRepo = sp.GetRequiredService<ISeniorityMovePolicyRepository>();
+
+        var existingPolicies = await displacementPolicyRepo.GetAllAsync();
+        if (existingPolicies.Count == 0)
+        {
+        var crafts4 = await craftRepo.GetAllAsync();
+        var groups4 = await groupRepo.GetAllAsync();
+        var jaxYard5 = groups4.First(g => g.Name == "Jax Yard");
+        var engCraft4 = crafts4.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == jaxYard5.CtrlNbr);
+        var condCraft4 = crafts4.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == jaxYard5.CtrlNbr);
+
+        await displacementPolicyRepo.AddAsync(CraftDisplacementPolicy.Create(engCraft4.CtrlNbr, 72, "ROSTER_DATE", "EXTRA_BOARD"));
+        await displacementPolicyRepo.AddAsync(CraftDisplacementPolicy.Create(condCraft4.CtrlNbr, 72, "ROSTER_DATE", "EXTRA_BOARD"));
+
+        await bulletinPolicyRepo.AddAsync(BulletinPolicy.Create(engCraft4.CtrlNbr, 120));
+        await bulletinPolicyRepo.AddAsync(BulletinPolicy.Create(condCraft4.CtrlNbr, 120));
+
+        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(engCraft4.CtrlNbr, 90, "ROSTER_DATE"));
+        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(condCraft4.CtrlNbr, 90, "ROSTER_DATE"));
+
+        } // end policies guard
+
+        // ?? Section 11: Payroll — Tiers, Time Entries, Payroll Run ???????????
+        var payrollTierRepo = sp.GetRequiredService<IPayrollTierRepository>();
+        var timeEntryRepo = sp.GetRequiredService<ITimeEntryRepository>();
+        var payrollRunRepo = sp.GetRequiredService<IPayrollRunRepository>();
+
+        var existingTiers = await payrollTierRepo.GetAllAsync();
+        if (existingTiers.Count == 0)
+        {
+        var groups5 = await groupRepo.GetAllAsync();
+        var jaxYard6 = groups5.First(g => g.Name == "Jax Yard");
+        var empList6 = await employeeRepo.GetAllAsync();
+        var today3 = DateTime.UtcNow.Date;
+
+        // Payroll Tiers
+        await payrollTierRepo.AddAsync(PayrollTier.Create(jaxYard6.CtrlNbr, 7, 1, 100));
+        await payrollTierRepo.AddAsync(PayrollTier.Create(jaxYard6.CtrlNbr, 14, 2, 150));
+
+        // Time Entries for first 10 employees
+        for (int i = 0; i < 10 && i < empList6.Count; i++)
+        {
+            await timeEntryRepo.AddAsync(TimeEntry.Create(empList6[i].CtrlNbr, today3, "REGULAR", 8.0m));
+        }
+
+        // Payroll Run — current pay period
+        var payPeriod = $"{today3:yyyy}-W{System.Globalization.ISOWeek.GetWeekOfYear(today3):D2}";
+        await payrollRunRepo.AddAsync(PayrollRun.Create(payPeriod));
+
+        } // end payroll guard
+
+        // ?? Section 12: Safety — Categories, Observations ????????????????????
+        var safetyCatRepo = sp.GetRequiredService<ISafetyCategoryRepository>();
+        var safetyObsRepo = sp.GetRequiredService<ISafetyObservationRepository>();
+
+        var existingCategories = await safetyCatRepo.GetAllAsync();
+        if (existingCategories.Count == 0)
+        {
+        var groups6 = await groupRepo.GetAllAsync();
+        var jaxYard7 = groups6.First(g => g.Name == "Jax Yard");
+        var empList7 = await employeeRepo.GetAllAsync();
+
+        await safetyCatRepo.AddAsync(SafetyCategory.Create(jaxYard7.CtrlNbr, "TRACK", "Track Safety"));
+        await safetyCatRepo.AddAsync(SafetyCategory.Create(jaxYard7.CtrlNbr, "EQUIP", "Equipment Safety"));
+        await safetyCatRepo.AddAsync(SafetyCategory.Create(jaxYard7.CtrlNbr, "HAZMAT", "Hazardous Materials"));
+
+        // Open observation
+        var obs1 = SafetyObservation.Create(jaxYard7.CtrlNbr, empList7[10].CtrlNbr,
+            "TRACK", "Jax Yard", "Broken rail joint near switch 12", "Jacksonville Sub");
+        obs1.AddAction(empList7[0].CtrlNbr, "Flagged area and notified maintenance.");
+        await safetyObsRepo.AddAsync(obs1);
+
+        // Observation with no actions yet
+        var obs2 = SafetyObservation.Create(jaxYard7.CtrlNbr, empList7[42].CtrlNbr,
+            "EQUIP", "Jax Yard", "Locomotive headlight flickering on unit 4521");
+        await safetyObsRepo.AddAsync(obs2);
+
+        } // end safety guard
+
+        // ?? Section 13: Railroad Information ?????????????????????????????????
+        var rrInfoRepo = sp.GetRequiredService<IRailroadInformationRepository>();
+
+        var existingInfo = await rrInfoRepo.GetAllAsync();
+        if (existingInfo.Count == 0)
+        {
+        var groups7 = await groupRepo.GetAllAsync();
+        var jaxYard8 = groups7.First(g => g.Name == "Jax Yard");
+
+        var info1 = RailroadInformation.Create(jaxYard8.CtrlNbr, "GENERAL",
+            "Track Speed Restriction — MP 42.5", "Speed restricted to 25 MPH through MP 42.5 due to maintenance.");
+        info1.Publish();
+        await rrInfoRepo.AddAsync(info1);
+
+        var info2 = RailroadInformation.Create(jaxYard8.CtrlNbr, "SAFETY",
+            "Draft: New PPE Requirements", "All yard employees required to wear high-visibility vests effective next month.");
+        await rrInfoRepo.AddAsync(info2);
+
+        } // end railroad info guard
+
+        // ?? Section 14: FRA Compliance — Duty Tours ??????????????????????????
+        var fraDutyTourRepo = sp.GetRequiredService<IFraDutyTourRepository>();
+        var empList8 = await employeeRepo.GetAllAsync();
+
+        var existingTour = await fraDutyTourRepo.GetActiveTourForEmployeeAsync(empList8[0].CtrlNbr);
+        var searchResult = await fraDutyTourRepo.SearchAsync(new FraRecordSearchCriteria { EmployeeCtrlNbr = empList8[0].CtrlNbr });
+        if (searchResult.Count == 0)
+        {
+        // Completed duty tour for an engineer — create a dummy regulatory standard CtrlNbr
+        var tour = Domain.Modules.FraCompliance.FraDutyTour.Create(
+            empList8[0].CtrlNbr, Domain.ValueObjects.ControlNumber.Create(1),
+            DateTime.UtcNow.AddDays(-1).Date.AddHours(6),
+            priorTimeOffMinutes: 720, consecutiveDays: 3);
+        tour.Close(DateTime.UtcNow.AddDays(-1).Date.AddHours(16),
+            totalTimeOnDutyMinutes: 600, excessMinutes: null, excessServiceReason: null, isQuickTieUp: false);
+        await fraDutyTourRepo.AddAsync(tour);
+        }
     }
 }
