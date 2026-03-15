@@ -7,7 +7,8 @@ namespace CrewService.Presentation.Services.Modules;
 public class DispatchingService(
     IDispatchProjectionRepository projectionRepository,
     IDispatchDecisionLogRepository decisionLogRepository,
-    IDispatchOverrideRepository overrideRepository) : DispatchingSrvc.DispatchingSrvcBase
+    IDispatchOverrideRepository overrideRepository,
+    IEmployeeBookingRepository bookingRepository) : DispatchingSrvc.DispatchingSrvcBase
 {
     public override async Task<GetProjectionsResponse> GetProjections(GetProjectionsRequest request, ServerCallContext context)
     {
@@ -85,5 +86,33 @@ public class DispatchingService(
         OverrideType = o.OverrideType,
         ReasonCode = o.ReasonCode,
         Status = o.Status
+    };
+
+    public override async Task<GetEmployeeBookingsResponse> GetEmployeeBookings(GetEmployeeBookingsRequest request, ServerCallContext context)
+    {
+        var bookings = await bookingRepository.GetByEmployeeAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), DateTime.UtcNow.AddDays(-30), DateTime.UtcNow.AddDays(30));
+        var response = new GetEmployeeBookingsResponse { TotalCount = bookings.Count };
+        foreach (var b in bookings) response.Bookings.Add(MapBooking(b));
+        return response;
+    }
+
+    public override async Task<EmployeeBookingResponse> CreateEmployeeBooking(CreateEmployeeBookingRequest request, ServerCallContext context)
+    {
+        var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
+        var endUtc = DateTime.Parse(request.EndUtc).ToUniversalTime();
+        ControlNumber? slotCtrl = request.PositionSlotCtrlNbr > 0 ? ControlNumber.Create(request.PositionSlotCtrlNbr) : null;
+        var booking = EmployeeBooking.Create(request.EmployeeCtrlNbr, startUtc, endUtc, slotCtrl);
+        await bookingRepository.AddAsync(booking);
+        return MapBooking(booking);
+    }
+
+    private static EmployeeBookingResponse MapBooking(EmployeeBooking b) => new()
+    {
+        CtrlNbr = b.CtrlNbr.Value,
+        EmployeeCtrlNbr = b.EmployeeCtrlNbr.Value,
+        StartUtc = b.StartUtc.ToString("O"),
+        EndUtc = b.EndUtc.ToString("O"),
+        PositionSlotCtrlNbr = b.PositionSlotCtrlNbr?.Value ?? 0
     };
 }
