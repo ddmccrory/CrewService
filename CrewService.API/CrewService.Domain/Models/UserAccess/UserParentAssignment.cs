@@ -22,14 +22,14 @@ public sealed class UserParentAssignment : Entity
         Role = role;
     }
 
-    public static UserParentAssignment Create(string userId, long parentCtrlNbr, string role)
+    public static UserParentAssignment Create(string userId, ControlNumber parentCtrlNbr, string role)
     {
         ArgumentException.ThrowIfNullOrEmpty(userId);
         ArgumentException.ThrowIfNullOrEmpty(role);
 
         var assignment = new UserParentAssignment(
             userId,
-            ControlNumber.Create(parentCtrlNbr),
+            parentCtrlNbr,
             role);
 
         assignment.Raise(new UserParentAssignmentCreatedDomainEvent(assignment.CtrlNbr));

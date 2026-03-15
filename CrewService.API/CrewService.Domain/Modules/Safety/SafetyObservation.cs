@@ -26,14 +26,14 @@ public sealed class SafetyObservation : Entity
     }
 
     public static SafetyObservation Create(
-        long workAreaGroupCtrlNbr, long observerEmployeeCtrlNbr,
+        ControlNumber workAreaGroupCtrlNbr, ControlNumber observerEmployeeCtrlNbr,
         string categoryCode, string areaCode, string description,
         string? subdivisionCode = null)
     {
         var obs = new SafetyObservation
         {
-            WorkAreaGroupCtrlNbr = ControlNumber.Create(workAreaGroupCtrlNbr),
-            ObserverEmployeeCtrlNbr = ControlNumber.Create(observerEmployeeCtrlNbr),
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+            ObserverEmployeeCtrlNbr = observerEmployeeCtrlNbr,
             CategoryCode = categoryCode,
             AreaCode = areaCode,
             SubdivisionCode = subdivisionCode,

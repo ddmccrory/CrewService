@@ -13,12 +13,12 @@ public sealed class Crew : Entity
 
     private Crew() { HomeGroupCtrlNbr = null!; }
 
-    public static Crew Create(string crewType, long homeGroupCtrlNbr, string name, bool isActive = true)
+    public static Crew Create(string crewType, ControlNumber homeGroupCtrlNbr, string name, bool isActive = true)
     {
         var crew = new Crew
         {
             CrewType = crewType,
-            HomeGroupCtrlNbr = ControlNumber.Create(homeGroupCtrlNbr),
+            HomeGroupCtrlNbr = homeGroupCtrlNbr,
             Name = name,
             IsActive = isActive
         };
@@ -42,12 +42,12 @@ public sealed class CrewPosition : Entity
 
     private CrewPosition() { CrewCtrlNbr = null!; PositionRoleCtrlNbr = null!; }
 
-    public static CrewPosition Create(long crewCtrlNbr, long positionRoleCtrlNbr, int displayOrder)
+    public static CrewPosition Create(ControlNumber crewCtrlNbr, ControlNumber positionRoleCtrlNbr, int displayOrder)
     {
         return new CrewPosition
         {
-            CrewCtrlNbr = ControlNumber.Create(crewCtrlNbr),
-            PositionRoleCtrlNbr = ControlNumber.Create(positionRoleCtrlNbr),
+            CrewCtrlNbr = crewCtrlNbr,
+            PositionRoleCtrlNbr = positionRoleCtrlNbr,
             DisplayOrder = displayOrder
         };
     }
@@ -62,12 +62,12 @@ public sealed class CrewIncumbency : Entity
 
     private CrewIncumbency() { CrewPositionCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
-    public static CrewIncumbency Create(long crewPositionCtrlNbr, long employeeCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
+    public static CrewIncumbency Create(ControlNumber crewPositionCtrlNbr, ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
     {
         return new CrewIncumbency
         {
-            CrewPositionCtrlNbr = ControlNumber.Create(crewPositionCtrlNbr),
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            CrewPositionCtrlNbr = crewPositionCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
@@ -83,12 +83,12 @@ public sealed class CrewAttachmentTemplate : Entity
 
     private CrewAttachmentTemplate() { AssignmentTemplateCtrlNbr = null!; CrewCtrlNbr = null!; }
 
-    public static CrewAttachmentTemplate Create(long assignmentTemplateCtrlNbr, long crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
+    public static CrewAttachmentTemplate Create(ControlNumber assignmentTemplateCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
     {
         return new CrewAttachmentTemplate
         {
-            AssignmentTemplateCtrlNbr = ControlNumber.Create(assignmentTemplateCtrlNbr),
-            CrewCtrlNbr = ControlNumber.Create(crewCtrlNbr),
+            AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr,
+            CrewCtrlNbr = crewCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
@@ -104,12 +104,12 @@ public sealed class CrewAttachmentInstance : Entity
 
     private CrewAttachmentInstance() { WorkInstanceCtrlNbr = null!; CrewCtrlNbr = null!; }
 
-    public static CrewAttachmentInstance Create(long workInstanceCtrlNbr, long crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
+    public static CrewAttachmentInstance Create(ControlNumber workInstanceCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
     {
         return new CrewAttachmentInstance
         {
-            WorkInstanceCtrlNbr = ControlNumber.Create(workInstanceCtrlNbr),
-            CrewCtrlNbr = ControlNumber.Create(crewCtrlNbr),
+            WorkInstanceCtrlNbr = workInstanceCtrlNbr,
+            CrewCtrlNbr = crewCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
@@ -126,13 +126,13 @@ public sealed class ReliefCoverageRule : Entity
 
     private ReliefCoverageRule() { ReliefCrewCtrlNbr = null!; AssignmentTemplateCtrlNbr = null!; }
 
-    public static ReliefCoverageRule Create(long reliefCrewCtrlNbr, long assignmentTemplateCtrlNbr,
+    public static ReliefCoverageRule Create(ControlNumber reliefCrewCtrlNbr, ControlNumber assignmentTemplateCtrlNbr,
         int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
     {
         return new ReliefCoverageRule
         {
-            ReliefCrewCtrlNbr = ControlNumber.Create(reliefCrewCtrlNbr),
-            AssignmentTemplateCtrlNbr = ControlNumber.Create(assignmentTemplateCtrlNbr),
+            ReliefCrewCtrlNbr = reliefCrewCtrlNbr,
+            AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr,
             DaysOfWeekMask = daysOfWeekMask,
             StartUtc = startUtc,
             EndUtc = endUtc
@@ -155,6 +155,6 @@ public sealed record CrewUpdatedDomainEvent : DomainEvent
 
 public sealed record CrewPositionVacatedDomainEvent : DomainEvent
 {
-    public CrewPositionVacatedDomainEvent(CrewPosition p, long? previousIncumbentCtrlNbr, string vacancyReasonCode)
+    public CrewPositionVacatedDomainEvent(CrewPosition p, ControlNumber? previousIncumbentCtrlNbr, string vacancyReasonCode)
         : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
 }

@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents;
+using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.TenantConfig;
 
@@ -34,6 +35,6 @@ public sealed record RailroadPlacedInGroupDomainEvent : DomainEvent
 
 public sealed record RailroadRemovedFromGroupDomainEvent : DomainEvent
 {
-    public RailroadRemovedFromGroupDomainEvent(long placementCtrlNbr, long railroadCtrlNbr, long groupCtrlNbr)
-        : base(nameof(RailroadGroupPlacement), placementCtrlNbr, new { RailroadCtrlNbr = railroadCtrlNbr, GroupCtrlNbr = groupCtrlNbr }) { }
+    public RailroadRemovedFromGroupDomainEvent(ControlNumber placementCtrlNbr, ControlNumber railroadCtrlNbr, ControlNumber groupCtrlNbr)
+        : base(nameof(RailroadGroupPlacement), placementCtrlNbr.Value, new { RailroadCtrlNbr = railroadCtrlNbr.Value, GroupCtrlNbr = groupCtrlNbr.Value }) { }
 }

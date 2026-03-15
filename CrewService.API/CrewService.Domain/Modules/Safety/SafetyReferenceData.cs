@@ -12,11 +12,11 @@ public sealed class SafetyCategory : Entity
 
     private SafetyCategory() { WorkAreaGroupCtrlNbr = null!; }
 
-    public static SafetyCategory Create(long workAreaGroupCtrlNbr, string code, string displayName)
+    public static SafetyCategory Create(ControlNumber workAreaGroupCtrlNbr, string code, string displayName)
     {
         return new SafetyCategory
         {
-            WorkAreaGroupCtrlNbr = ControlNumber.Create(workAreaGroupCtrlNbr),
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             Code = code,
             DisplayName = displayName
         };
@@ -35,11 +35,11 @@ public sealed class SafetyArea : Entity
 
     private SafetyArea() { WorkAreaGroupCtrlNbr = null!; }
 
-    public static SafetyArea Create(long workAreaGroupCtrlNbr, string code, string displayName)
+    public static SafetyArea Create(ControlNumber workAreaGroupCtrlNbr, string code, string displayName)
     {
         return new SafetyArea
         {
-            WorkAreaGroupCtrlNbr = ControlNumber.Create(workAreaGroupCtrlNbr),
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             Code = code,
             DisplayName = displayName
         };
@@ -58,11 +58,11 @@ public sealed class SafetySubdivision : Entity
 
     private SafetySubdivision() { WorkAreaGroupCtrlNbr = null!; }
 
-    public static SafetySubdivision Create(long workAreaGroupCtrlNbr, string code, string displayName)
+    public static SafetySubdivision Create(ControlNumber workAreaGroupCtrlNbr, string code, string displayName)
     {
         return new SafetySubdivision
         {
-            WorkAreaGroupCtrlNbr = ControlNumber.Create(workAreaGroupCtrlNbr),
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             Code = code,
             DisplayName = displayName
         };

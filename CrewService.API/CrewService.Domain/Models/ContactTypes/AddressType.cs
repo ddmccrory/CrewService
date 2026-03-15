@@ -29,13 +29,13 @@ public sealed class AddressType : Entity
     }
 
     public static AddressType Create(
-        long clientCtrlNbr,
+        ControlNumber clientCtrlNbr,
         string name,
         int number,
         bool emergencyType)
     {
         var entity = new AddressType(
-            ControlNumber.Create(clientCtrlNbr),
+            clientCtrlNbr,
             name,
             number,
             emergencyType);

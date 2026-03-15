@@ -15,12 +15,12 @@ public sealed class ExtraBoard : Entity
 
     private ExtraBoard() { CraftCtrlNbr = null!; PlacedGroupCtrlNbr = null!; }
 
-    public static ExtraBoard Create(long craftCtrlNbr, long placedGroupCtrlNbr, string boardKind, string name, bool isActive = true, string? auxBoardType = null)
+    public static ExtraBoard Create(ControlNumber craftCtrlNbr, ControlNumber placedGroupCtrlNbr, string boardKind, string name, bool isActive = true, string? auxBoardType = null)
     {
         var board = new ExtraBoard
         {
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
-            PlacedGroupCtrlNbr = ControlNumber.Create(placedGroupCtrlNbr),
+            CraftCtrlNbr = craftCtrlNbr,
+            PlacedGroupCtrlNbr = placedGroupCtrlNbr,
             BoardKind = boardKind,
             Name = name,
             IsActive = isActive,
@@ -50,12 +50,12 @@ public sealed class BoardMember : Entity
 
     private BoardMember() { ExtraBoardCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
-    public static BoardMember Create(long extraBoardCtrlNbr, long employeeCtrlNbr, int orderIndex, DateTime startUtc, DateTime? endUtc = null, string? stateJson = null)
+    public static BoardMember Create(ControlNumber extraBoardCtrlNbr, ControlNumber employeeCtrlNbr, int orderIndex, DateTime startUtc, DateTime? endUtc = null, string? stateJson = null)
     {
         return new BoardMember
         {
-            ExtraBoardCtrlNbr = ControlNumber.Create(extraBoardCtrlNbr),
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            ExtraBoardCtrlNbr = extraBoardCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
             OrderIndex = orderIndex,
             StateJson = stateJson,
             StartUtc = startUtc,
@@ -82,13 +82,13 @@ public sealed class BoardCascadePolicy : Entity
 
     private BoardCascadePolicy() { WorkAreaGroupCtrlNbr = null!; CraftCtrlNbr = null!; }
 
-    public static BoardCascadePolicy Create(long workAreaGroupCtrlNbr, long craftCtrlNbr,
+    public static BoardCascadePolicy Create(ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr,
         string cascadeMode, int? maxLevels, bool auxEnabled, int? auxMaxLevels, string? selectionStrategy)
     {
         return new BoardCascadePolicy
         {
-            WorkAreaGroupCtrlNbr = ControlNumber.Create(workAreaGroupCtrlNbr),
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
             CascadeMode = cascadeMode,
             MaxLevels = maxLevels,
             AuxEnabled = auxEnabled,
@@ -111,6 +111,6 @@ public sealed record ExtraBoardUpdatedDomainEvent : DomainEvent
 
 public sealed record ExtraBoardVacatedDomainEvent : DomainEvent
 {
-    public ExtraBoardVacatedDomainEvent(ExtraBoard b, long? previousMemberCtrlNbr, string vacancyReasonCode)
+    public ExtraBoardVacatedDomainEvent(ExtraBoard b, ControlNumber? previousMemberCtrlNbr, string vacancyReasonCode)
         : base(nameof(ExtraBoard), b.CtrlNbr.Value, new { CraftCtrlNbr = b.CraftCtrlNbr.Value, PreviousMemberCtrlNbr = previousMemberCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
 }

@@ -18,19 +18,19 @@ public sealed class TimeEntry : Entity
 
     private TimeEntry() { EmployeeCtrlNbr = null!; }
 
-    public static TimeEntry Create(long employeeCtrlNbr, DateTime dateUtc, string entryType, decimal hours,
-        string? reasonCode = null, string? notes = null, bool isAdjustment = false, long? originalEntryCtrlNbr = null)
+    public static TimeEntry Create(ControlNumber employeeCtrlNbr, DateTime dateUtc, string entryType, decimal hours,
+        string? reasonCode = null, string? notes = null, bool isAdjustment = false, ControlNumber? originalEntryCtrlNbr = null)
     {
         return new TimeEntry
         {
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            EmployeeCtrlNbr = employeeCtrlNbr,
             DateUtc = dateUtc,
             EntryType = entryType,
             Hours = hours,
             ReasonCode = reasonCode,
             Notes = notes,
             IsAdjustment = isAdjustment,
-            OriginalEntryCtrlNbr = originalEntryCtrlNbr.HasValue ? ControlNumber.Create(originalEntryCtrlNbr.Value) : null
+            OriginalEntryCtrlNbr = originalEntryCtrlNbr
         };
     }
 }
@@ -88,13 +88,13 @@ public sealed class PayrollRecord : Entity
 
     private PayrollRecord() { PayrollRunCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
-    public static PayrollRecord Create(long payrollRunCtrlNbr, long employeeCtrlNbr, string earningsType,
+    public static PayrollRecord Create(ControlNumber payrollRunCtrlNbr, ControlNumber employeeCtrlNbr, string earningsType,
         decimal amount, decimal hours, string? policyRef = null)
     {
         return new PayrollRecord
         {
-            PayrollRunCtrlNbr = ControlNumber.Create(payrollRunCtrlNbr),
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            PayrollRunCtrlNbr = payrollRunCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
             EarningsType = earningsType,
             Amount = amount,
             Hours = hours,

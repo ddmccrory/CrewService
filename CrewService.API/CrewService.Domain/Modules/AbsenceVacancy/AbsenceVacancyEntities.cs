@@ -26,11 +26,11 @@ public sealed class AbsenceRequest : Entity
 
     private AbsenceRequest() { EmployeeCtrlNbr = null!; }
 
-    public static AbsenceRequest Create(long employeeCtrlNbr, DateTime startUtc, DateTime? endUtc, string reasonCode, string? notes = null)
+    public static AbsenceRequest Create(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc, string reasonCode, string? notes = null)
     {
         var request = new AbsenceRequest
         {
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            EmployeeCtrlNbr = employeeCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc,
             ReasonCode = reasonCode,
@@ -41,14 +41,14 @@ public sealed class AbsenceRequest : Entity
     }
 
     public static AbsenceRequest CreateWithCode(
-        long employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
+        ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
         ControlNumber absenceCodeCtrlNbr, string reasonCode,
         ControlNumber? positionSlotCtrlNbr = null,
         bool isSystemGenerated = false, string? notes = null)
     {
         var request = new AbsenceRequest
         {
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            EmployeeCtrlNbr = employeeCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc,
             ReasonCode = reasonCode,
@@ -62,17 +62,17 @@ public sealed class AbsenceRequest : Entity
         return request;
     }
 
-    public void Approve(long approvedByCtrlNbr)
+    public void Approve(ControlNumber approvedByCtrlNbr)
     {
         Status = "APPROVED";
-        ApprovedByCtrlNbr = ControlNumber.Create(approvedByCtrlNbr);
+        ApprovedByCtrlNbr = approvedByCtrlNbr;
         Raise(new AbsenceApprovedDomainEvent(this));
     }
 
-    public void Deny(long deniedByCtrlNbr)
+    public void Deny(ControlNumber deniedByCtrlNbr)
     {
         Status = "DENIED";
-        ApprovedByCtrlNbr = ControlNumber.Create(deniedByCtrlNbr);
+        ApprovedByCtrlNbr = deniedByCtrlNbr;
     }
 
     public void Cancel()
@@ -179,12 +179,12 @@ public sealed class VacancyImpact : Entity
 
     private VacancyImpact() { AbsenceRequestCtrlNbr = null!; PositionSlotCtrlNbr = null!; }
 
-    public static VacancyImpact Create(long absenceRequestCtrlNbr, long positionSlotCtrlNbr, DateTime impactStartUtc, DateTime? impactEndUtc = null)
+    public static VacancyImpact Create(ControlNumber absenceRequestCtrlNbr, ControlNumber positionSlotCtrlNbr, DateTime impactStartUtc, DateTime? impactEndUtc = null)
     {
         var impact = new VacancyImpact
         {
-            AbsenceRequestCtrlNbr = ControlNumber.Create(absenceRequestCtrlNbr),
-            PositionSlotCtrlNbr = ControlNumber.Create(positionSlotCtrlNbr),
+            AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
             ImpactStartUtc = impactStartUtc,
             ImpactEndUtc = impactEndUtc
         };

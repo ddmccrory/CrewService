@@ -34,14 +34,14 @@ public sealed class PhoneNumber : Entity
 
     internal static PhoneNumber Create(
         ControlNumber employeeCtrlNbr,
-        long phoneTypeCtrlNbr,
+        ControlNumber phoneTypeCtrlNbr,
         string number,
         int callingOrder,
         bool dialOne)
     {
         var entity = new PhoneNumber(
             employeeCtrlNbr,
-            ControlNumber.Create(phoneTypeCtrlNbr),
+            phoneTypeCtrlNbr,
             number,
             callingOrder,
             dialOne);

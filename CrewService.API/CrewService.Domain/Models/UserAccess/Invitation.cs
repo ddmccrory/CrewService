@@ -39,7 +39,7 @@ public sealed class Invitation : Entity
 
     public static Invitation Create(
         string email,
-        long parentCtrlNbr,
+        ControlNumber parentCtrlNbr,
         string role,
         string invitedByUserId,
         int expirationDays = 7)
@@ -54,7 +54,7 @@ public sealed class Invitation : Entity
 
         var invitation = new Invitation(
             email.ToLowerInvariant(),
-            ControlNumber.Create(parentCtrlNbr),
+            parentCtrlNbr,
             role,
             invitedByUserId,
             GenerateToken(),

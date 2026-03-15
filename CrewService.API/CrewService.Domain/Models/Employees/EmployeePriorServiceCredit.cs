@@ -29,13 +29,13 @@ public sealed class EmployeePriorServiceCredit : Entity
     }
 
     public static EmployeePriorServiceCredit Create(
-        long employeeCtrlNbr,
+        ControlNumber employeeCtrlNbr,
         int serviceYears,
         int serviceMonths,
         int serviceDays)
     {
         var entity = new EmployeePriorServiceCredit(
-            ControlNumber.Create(employeeCtrlNbr),
+            employeeCtrlNbr,
             serviceYears,
             serviceMonths,
             serviceDays);

@@ -31,14 +31,14 @@ public sealed class GroupAttributeDefinition : Entity
     }
 
     public static GroupAttributeDefinition Create(
-        long groupTypeCtrlNbr,
+        ControlNumber groupTypeCtrlNbr,
         string attributeName,
         string dataType,
         bool isRequired,
         string? defaultValue = null)
     {
         return new GroupAttributeDefinition(
-            ControlNumber.Create(groupTypeCtrlNbr),
+            groupTypeCtrlNbr,
             attributeName,
             dataType,
             isRequired,

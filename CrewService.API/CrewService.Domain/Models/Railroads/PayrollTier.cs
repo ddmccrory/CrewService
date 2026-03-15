@@ -27,10 +27,10 @@ public sealed class PayrollTier : Entity
         RatePercentage = ratePercentage;
     }
 
-    public static PayrollTier Create(long dynamicGroupCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
+    public static PayrollTier Create(ControlNumber dynamicGroupCtrlNbr, int numberOfDays, int typeOfDay, int ratePercentage)
     {
         var entity = new PayrollTier(
-            ControlNumber.Create(dynamicGroupCtrlNbr),
+            dynamicGroupCtrlNbr,
             numberOfDays,
             typeOfDay,
             ratePercentage);

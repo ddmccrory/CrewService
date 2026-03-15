@@ -17,11 +17,11 @@ public sealed class RailroadInformation : Entity
     private RailroadInformation() { WorkAreaGroupCtrlNbr = null!; }
 
     public static RailroadInformation Create(
-        long workAreaGroupCtrlNbr, string informationType, string subject, string body)
+        ControlNumber workAreaGroupCtrlNbr, string informationType, string subject, string body)
     {
         var info = new RailroadInformation
         {
-            WorkAreaGroupCtrlNbr = ControlNumber.Create(workAreaGroupCtrlNbr),
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             InformationType = informationType,
             Subject = subject,
             Body = body

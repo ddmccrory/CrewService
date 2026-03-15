@@ -27,13 +27,13 @@ public sealed class EmploymentStatusHistory : Entity
     }
 
     public static EmploymentStatusHistory Create(
-        long employeeCtrlNbr,
-        long employmentStatusCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber employmentStatusCtrlNbr,
         DateTime statusChangeDate)
     {
         var entity = new EmploymentStatusHistory(
-            ControlNumber.Create(employeeCtrlNbr),
-            ControlNumber.Create(employmentStatusCtrlNbr),
+            employeeCtrlNbr,
+            employmentStatusCtrlNbr,
             statusChangeDate);
         entity.Raise(new EmploymentStatusHistoryCreatedDomainEvent(entity.CtrlNbr));
         return entity;

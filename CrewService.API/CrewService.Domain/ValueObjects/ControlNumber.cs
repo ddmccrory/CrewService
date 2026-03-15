@@ -20,4 +20,6 @@ public sealed record ControlNumber
     {
         return new ControlNumber(value);
     }
+
+    public static implicit operator ControlNumber(long value) => new(value);
 }

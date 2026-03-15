@@ -29,13 +29,13 @@ public sealed class EmailAddressType : Entity
     }
 
     public static EmailAddressType Create(
-        long clientCtrlNbr,
+        ControlNumber clientCtrlNbr,
         string name,
         int number,
         bool emergencyType)
     {
         var entity = new EmailAddressType(
-            ControlNumber.Create(clientCtrlNbr),
+            clientCtrlNbr,
             name,
             number,
             emergencyType);

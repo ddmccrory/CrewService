@@ -14,11 +14,11 @@ public sealed class CraftDisplacementPolicy : Entity
 
     private CraftDisplacementPolicy() { CraftCtrlNbr = null!; }
 
-    public static CraftDisplacementPolicy Create(long craftCtrlNbr, int windowHours, string seniorityBasis, string defaultAction, string? eligibilitySelectorJson = null)
+    public static CraftDisplacementPolicy Create(ControlNumber craftCtrlNbr, int windowHours, string seniorityBasis, string defaultAction, string? eligibilitySelectorJson = null)
     {
         return new CraftDisplacementPolicy
         {
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            CraftCtrlNbr = craftCtrlNbr,
             WindowHours = windowHours,
             SeniorityBasis = seniorityBasis,
             DefaultAction = defaultAction,
@@ -45,12 +45,12 @@ public sealed class DisplacementCase : Entity
 
     private DisplacementCase() { EmployeeCtrlNbr = null!; CraftCtrlNbr = null!; }
 
-    public static DisplacementCase Create(long employeeCtrlNbr, long craftCtrlNbr, DateTime openedUtc, DateTime expiresUtc)
+    public static DisplacementCase Create(ControlNumber employeeCtrlNbr, ControlNumber craftCtrlNbr, DateTime openedUtc, DateTime expiresUtc)
     {
         var dc = new DisplacementCase
         {
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
             OpenedUtc = openedUtc,
             ExpiresUtc = expiresUtc
         };
@@ -81,12 +81,12 @@ public sealed class DisplacementClaim : Entity
 
     private DisplacementClaim() { CaseCtrlNbr = null!; TargetEmployeeCtrlNbr = null!; }
 
-    public static DisplacementClaim Create(long caseCtrlNbr, long targetEmployeeCtrlNbr, DateTime submittedUtc)
+    public static DisplacementClaim Create(ControlNumber caseCtrlNbr, ControlNumber targetEmployeeCtrlNbr, DateTime submittedUtc)
     {
         return new DisplacementClaim
         {
-            CaseCtrlNbr = ControlNumber.Create(caseCtrlNbr),
-            TargetEmployeeCtrlNbr = ControlNumber.Create(targetEmployeeCtrlNbr),
+            CaseCtrlNbr = caseCtrlNbr,
+            TargetEmployeeCtrlNbr = targetEmployeeCtrlNbr,
             SubmittedUtc = submittedUtc
         };
     }
@@ -108,12 +108,12 @@ public sealed class BulletinPolicy : Entity
 
     private BulletinPolicy() { CraftCtrlNbr = null!; }
 
-    public static BulletinPolicy Create(long craftCtrlNbr, int bidWindowHours,
+    public static BulletinPolicy Create(ControlNumber craftCtrlNbr, int bidWindowHours,
         bool forcedAssignmentEnabled = true, string forcedAssignmentBasis = "JUNIOR_FIRST")
     {
         return new BulletinPolicy
         {
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            CraftCtrlNbr = craftCtrlNbr,
             BidWindowHours = bidWindowHours,
             ForcedAssignmentEnabled = forcedAssignmentEnabled,
             ForcedAssignmentBasis = forcedAssignmentBasis
@@ -136,11 +136,11 @@ public sealed class SeniorityMovePolicy : Entity
 
     private SeniorityMovePolicy() { CraftCtrlNbr = null!; }
 
-    public static SeniorityMovePolicy Create(long craftCtrlNbr, int eligibilityDays, string seniorityBasis)
+    public static SeniorityMovePolicy Create(ControlNumber craftCtrlNbr, int eligibilityDays, string seniorityBasis)
     {
         return new SeniorityMovePolicy
         {
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            CraftCtrlNbr = craftCtrlNbr,
             EligibilityDays = eligibilityDays,
             SeniorityBasis = seniorityBasis
         };
@@ -164,17 +164,15 @@ public sealed class SeniorityMove : Entity
 
     private SeniorityMove() { EmployeeCtrlNbr = null!; CraftCtrlNbr = null!; TargetPositionCtrlNbr = null!; }
 
-    public static SeniorityMove Create(long employeeCtrlNbr, long craftCtrlNbr,
-        long targetPositionCtrlNbr, long? displacedEmployeeCtrlNbr, int daysOnCurrentPosition)
+    public static SeniorityMove Create(ControlNumber employeeCtrlNbr, ControlNumber craftCtrlNbr,
+        ControlNumber targetPositionCtrlNbr, ControlNumber? displacedEmployeeCtrlNbr, int daysOnCurrentPosition)
     {
         var move = new SeniorityMove
         {
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
-            TargetPositionCtrlNbr = ControlNumber.Create(targetPositionCtrlNbr),
-            DisplacedEmployeeCtrlNbr = displacedEmployeeCtrlNbr.HasValue
-                ? ControlNumber.Create(displacedEmployeeCtrlNbr.Value)
-                : null,
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
+            TargetPositionCtrlNbr = targetPositionCtrlNbr,
+            DisplacedEmployeeCtrlNbr = displacedEmployeeCtrlNbr,
             ExercisedUtc = DateTime.UtcNow,
             DaysOnCurrentPosition = daysOnCurrentPosition
         };
@@ -199,6 +197,6 @@ public sealed record DisplacementAutoPlacedDomainEvent : DomainEvent
 
 public sealed record SeniorityMoveExercisedDomainEvent : DomainEvent
 {
-    public SeniorityMoveExercisedDomainEvent(long employeeCtrlNbr, long targetPositionCtrlNbr, long craftCtrlNbr)
-        : base("SeniorityMove", employeeCtrlNbr, new { TargetPositionCtrlNbr = targetPositionCtrlNbr, CraftCtrlNbr = craftCtrlNbr }) { }
+    public SeniorityMoveExercisedDomainEvent(ControlNumber employeeCtrlNbr, ControlNumber targetPositionCtrlNbr, ControlNumber craftCtrlNbr)
+        : base("SeniorityMove", employeeCtrlNbr.Value, new { TargetPositionCtrlNbr = targetPositionCtrlNbr.Value, CraftCtrlNbr = craftCtrlNbr.Value }) { }
 }

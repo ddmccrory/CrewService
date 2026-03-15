@@ -40,7 +40,7 @@ public sealed class Address : Entity
 
     internal static Address Create(
         ControlNumber employeeCtrlNbr,
-        long addressTypeCtrlNbr,
+        ControlNumber addressTypeCtrlNbr,
         string address1,
         string city,
         string state,
@@ -49,7 +49,7 @@ public sealed class Address : Entity
     {
         var entity = new Address(
             employeeCtrlNbr,
-            ControlNumber.Create(addressTypeCtrlNbr),
+            addressTypeCtrlNbr,
             address1,
             city,
             state,
