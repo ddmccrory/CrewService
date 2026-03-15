@@ -427,9 +427,7 @@ internal static class DevDataSeeder
         await positionRoleRepo.AddAsync(engineer);
 
         // Position Roles — Clerical craft
-        var crewCaller = PositionRole.Create(clerCraft.CtrlNbr, "CALL", "Crew Caller");
         var crewDispatcher = PositionRole.Create(clerCraft.CtrlNbr, "DISP", "Crew Dispatcher");
-        await positionRoleRepo.AddAsync(crewCaller);
         await positionRoleRepo.AddAsync(crewDispatcher);
 
         // Assignment Templates at Jax Yard
