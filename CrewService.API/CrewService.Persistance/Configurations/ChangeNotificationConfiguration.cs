@@ -1,4 +1,5 @@
-using CrewService.Domain.Modules.Dispatching;
+﻿using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -23,6 +24,8 @@ internal class ChangeNotificationConfiguration : IEntityTypeConfiguration<Change
         builder.Property(c => c.Description).HasMaxLength(500).IsRequired();
         builder.Property(c => c.Status).HasMaxLength(20).IsRequired();
         builder.Property(c => c.CreatedAtUtc).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, audit =>
         {

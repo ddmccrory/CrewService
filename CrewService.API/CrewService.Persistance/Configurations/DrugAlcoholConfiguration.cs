@@ -1,3 +1,4 @@
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,8 @@ internal class DrugAlcoholTestRecordConfiguration : IEntityTypeConfiguration<Dru
         builder.Property(r => r.DrugResult).HasMaxLength(20);
         builder.Property(r => r.SubstancesDetected).HasMaxLength(500);
 
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -33,6 +36,9 @@ internal class DrugAlcoholActionConfiguration : IEntityTypeConfiguration<DrugAlc
         builder.Property(a => a.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(a => a.ActionType).HasMaxLength(50).IsRequired();
         builder.Property(a => a.Notes).HasMaxLength(500);
+
+        builder.HasOne<DrugAlcoholTestRecord>().WithMany().HasForeignKey(a => a.TestRecordCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

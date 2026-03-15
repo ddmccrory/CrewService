@@ -1,4 +1,6 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.RailroadInfo;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,6 +19,8 @@ internal class RailroadInformationConfiguration : IEntityTypeConfiguration<Railr
         builder.Property(r => r.Body).IsRequired();
         builder.Property(r => r.Status).HasMaxLength(20).IsRequired();
 
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(r => r.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -33,6 +37,9 @@ internal class RailroadInformationReadReceiptConfiguration : IEntityTypeConfigur
         builder.Property(r => r.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
 
         builder.HasIndex(r => new { r.InformationCtrlNbr, r.EmployeeCtrlNbr }).IsUnique();
+
+        builder.HasOne<RailroadInformation>().WithMany().HasForeignKey(r => r.InformationCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

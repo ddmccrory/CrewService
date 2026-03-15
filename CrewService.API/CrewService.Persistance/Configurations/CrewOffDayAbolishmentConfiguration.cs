@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,8 @@ internal class CrewOffDayConfiguration : IEntityTypeConfiguration<CrewOffDay>
         builder.HasKey(c => c.CtrlNbr);
         builder.Property(c => c.CtrlNbr).HasConversion(x => x.Value, v => ControlNumber.Create(v));
         builder.Property(c => c.CrewPositionCtrlNbr).HasConversion(x => x.Value, v => ControlNumber.Create(v));
+
+        builder.HasOne<CrewPosition>().WithMany().HasForeignKey(c => c.CrewPositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(c => c.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

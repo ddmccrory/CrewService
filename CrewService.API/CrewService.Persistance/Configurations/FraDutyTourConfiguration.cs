@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -24,30 +25,24 @@ internal class FraDutyTourConfiguration : IEntityTypeConfiguration<FraDutyTour>
 
         builder.HasMany(t => t.Segments)
             .WithOne()
-            .HasForeignKey(s => s.DutyTourCtrlNbr);
+            .HasForeignKey(s => s.DutyTourCtrlNbr)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(t => t.TransportationSegments)
             .WithOne()
-            .HasForeignKey(s => s.DutyTourCtrlNbr);
+            .HasForeignKey(s => s.DutyTourCtrlNbr)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(t => t.OtherServiceSegments)
             .WithOne()
-            .HasForeignKey(s => s.DutyTourCtrlNbr);
+            .HasForeignKey(s => s.DutyTourCtrlNbr)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        builder.OwnsOne(t => t.CreatedBy, a =>
-        {
-            a.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
-        builder.OwnsOne(t => t.ModifiedBy, a =>
-        {
-            a.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
-        builder.OwnsOne(t => t.DeletedBy, a =>
-        {
-            a.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
+        builder.HasOne<Employee>().WithMany().HasForeignKey(t => t.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RegulatoryStandard>().WithMany().HasForeignKey(t => t.RegulatoryStandardCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(t => t.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(t => t.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(t => t.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }

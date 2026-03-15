@@ -1,3 +1,4 @@
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,9 @@ internal class AbsenceCodeCraftOverrideConfiguration : IEntityTypeConfiguration<
         builder.Property(a => a.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(a => a.OverrideAutoMarkUpHours).HasPrecision(6, 2);
         builder.HasIndex(a => new { a.AbsenceCodeCtrlNbr, a.CraftCtrlNbr }).IsUnique();
+
+        builder.HasOne<AbsenceCode>().WithMany().HasForeignKey(a => a.AbsenceCodeCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(a => a.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

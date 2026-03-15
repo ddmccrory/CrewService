@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,9 @@ internal class CraftRegulatoryQualificationConfiguration : IEntityTypeConfigurat
         builder.Property(c => c.CraftCtrlNbr).HasConversion(x => x.Value, v => ControlNumber.Create(v));
         builder.Property(c => c.RegulatoryQualificationCtrlNbr).HasConversion(x => x.Value, v => ControlNumber.Create(v));
         builder.HasIndex(c => new { c.CraftCtrlNbr, c.RegulatoryQualificationCtrlNbr }).IsUnique();
+
+        builder.HasOne<Craft>().WithMany().HasForeignKey(c => c.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(c => c.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(c => c.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

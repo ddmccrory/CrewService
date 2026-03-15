@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,9 @@ internal class EmploymentStatusHistoryConfiguration : IEntityTypeConfiguration<E
             value => ControlNumber.Create(value));
 
         builder.Property(e => e.StatusChangeDate).IsRequired();
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(e => e.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<EmploymentStatus>().WithMany().HasForeignKey(e => e.EmploymentStatusCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(e => e.CreatedBy, audit =>
         {

@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,8 @@ internal class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
         builder.HasIndex(i => i.Email);
         builder.HasIndex(i => i.ParentCtrlNbr);
         builder.HasIndex(i => new { i.Email, i.ParentCtrlNbr, i.Status });
+
+        builder.HasOne<Parent>().WithMany().HasForeignKey(i => i.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(i => i.CreatedBy, audit =>
         {

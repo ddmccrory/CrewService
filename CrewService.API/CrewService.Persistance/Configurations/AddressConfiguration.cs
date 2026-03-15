@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,8 @@ internal class AddressConfiguration : IEntityTypeConfiguration<Address>
         builder.Property(a => a.City).HasMaxLength(250).IsRequired();
         builder.Property(a => a.State).HasMaxLength(2).IsRequired();
         builder.Property(a => a.ZipCode).HasMaxLength(10).IsRequired();
+
+        builder.HasOne<AddressType>().WithMany().HasForeignKey(a => a.AddressTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(a => a.CreatedBy, audit =>
         {

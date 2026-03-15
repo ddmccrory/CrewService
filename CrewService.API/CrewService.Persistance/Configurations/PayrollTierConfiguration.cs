@@ -1,4 +1,5 @@
-using CrewService.Domain.Models.Railroads;
+﻿using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -22,6 +23,8 @@ internal class PayrollTierConfiguration : IEntityTypeConfiguration<PayrollTier>
         builder.Property(t => t.NumberOfDays).IsRequired();
         builder.Property(t => t.TypeOfDay).IsRequired();
         builder.Property(t => t.RatePercentage).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(t => t.DynamicGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(t => t.CreatedBy, audit =>
         {

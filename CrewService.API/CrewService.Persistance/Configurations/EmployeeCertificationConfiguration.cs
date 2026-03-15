@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,10 @@ internal class EmployeeCertificationConfiguration : IEntityTypeConfiguration<Emp
         builder.Property(e => e.CertificationNumber).HasMaxLength(100);
         builder.Property(e => e.SuspensionReason).HasMaxLength(500);
 
-        builder.HasMany(e => e.EligibilityChecks).WithOne().HasForeignKey(c => c.EmployeeCertificationCtrlNbr);
+        builder.HasMany(e => e.EligibilityChecks).WithOne().HasForeignKey(c => c.EmployeeCertificationCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(e => e.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(e => e.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(e => e.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(e => e.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

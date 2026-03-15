@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,8 @@ internal class PhoneNumberConfiguration : IEntityTypeConfiguration<PhoneNumber>
             value => ControlNumber.Create(value));
 
         builder.Property(p => p.Number).HasMaxLength(12).IsRequired();
+
+        builder.HasOne<PhoneNumberType>().WithMany().HasForeignKey(p => p.PhoneTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, audit =>
         {

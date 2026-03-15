@@ -1,4 +1,6 @@
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -15,6 +17,9 @@ internal class DispatchProjectionConfiguration : IEntityTypeConfiguration<Dispat
         builder.Property(p => p.ProjectedEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+
+        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(p => p.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.ProjectedEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -34,6 +39,9 @@ internal class DispatchDecisionLogConfiguration : IEntityTypeConfiguration<Dispa
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(l => l.Phase).HasMaxLength(30).IsRequired();
         builder.Property(l => l.SelectionSource).HasMaxLength(50);
+
+        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(l => l.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(l => l.SelectedEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(l => l.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(l => l.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -57,6 +65,10 @@ internal class DispatchOverrideConfiguration : IEntityTypeConfiguration<Dispatch
         builder.Property(o => o.ReasonText).HasMaxLength(500);
         builder.Property(o => o.Status).HasMaxLength(20).IsRequired();
 
+        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(o => o.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(o => o.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(o => o.ApprovedByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(o => o.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(o => o.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(o => o.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -73,6 +85,9 @@ internal class EmployeeBookingConfiguration : IEntityTypeConfiguration<EmployeeB
         builder.Property(b => b.PositionSlotCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+
+        builder.HasOne<Employee>().WithMany().HasForeignKey(b => b.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(b => b.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(b => b.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

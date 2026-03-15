@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -20,20 +21,10 @@ internal class FraMonthlyAccumulatorConfiguration : IEntityTypeConfiguration<Fra
 
         builder.HasIndex(a => new { a.EmployeeCtrlNbr, a.YearMonth }).IsUnique();
 
-        builder.OwnsOne(a => a.CreatedBy, au =>
-        {
-            au.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
-        builder.OwnsOne(a => a.ModifiedBy, au =>
-        {
-            au.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
-        builder.OwnsOne(a => a.DeletedBy, au =>
-        {
-            au.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
+        builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.DeletedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }

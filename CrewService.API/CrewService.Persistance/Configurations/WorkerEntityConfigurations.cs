@@ -1,4 +1,5 @@
-using CrewService.Domain.Modules.Infrastructure;
+﻿using CrewService.Domain.Modules.Infrastructure;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,6 +17,8 @@ internal class WorkerScheduleConfiguration : IEntityTypeConfiguration<WorkerSche
         builder.Property(w => w.CronExpression).HasMaxLength(100);
         builder.Property(w => w.LastRunStatus).HasMaxLength(20);
 
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(w => w.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
         builder.OwnsOne(w => w.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(w => w.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(w => w.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -31,6 +34,8 @@ internal class WorkerExecutionLogConfiguration : IEntityTypeConfiguration<Worker
         builder.Property(l => l.WorkerScheduleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(l => l.Status).HasMaxLength(20).IsRequired();
         builder.Property(l => l.ErrorMessage).HasMaxLength(2000);
+
+        builder.HasOne<WorkerSchedule>().WithMany().HasForeignKey(l => l.WorkerScheduleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(l => l.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(l => l.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

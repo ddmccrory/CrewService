@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,9 @@ internal class HolidayQualificationRuleConfiguration : IEntityTypeConfiguration<
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(r => r.ExemptAbsenceCodes).HasMaxLength(500);
+
+        builder.HasOne<Holiday>().WithMany().HasForeignKey(r => r.HolidayCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

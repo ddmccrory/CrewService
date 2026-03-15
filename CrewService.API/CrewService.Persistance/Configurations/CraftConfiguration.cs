@@ -1,4 +1,6 @@
-using CrewService.Domain.Models.Seniority;
+﻿using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -36,6 +38,9 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
         builder.Property(c => c.ProcessPayroll).IsRequired();
         builder.Property(c => c.ShowNotifications).IsRequired();
         builder.Property(c => c.VacationAssignmentType).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.DynamicGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RegulatoryStandard>().WithMany().HasForeignKey(c => c.RegulatoryStandardCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, audit =>
         {

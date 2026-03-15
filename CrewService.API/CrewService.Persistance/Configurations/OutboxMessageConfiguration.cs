@@ -1,4 +1,4 @@
-using CrewService.Domain.Outbox;
+﻿using CrewService.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

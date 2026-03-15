@@ -1,3 +1,4 @@
+﻿using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -22,20 +23,10 @@ internal class FraDutyTourSegmentConfiguration : IEntityTypeConfiguration<FraDut
         builder.Property(s => s.StartLocationCode).HasMaxLength(20).IsRequired();
         builder.Property(s => s.EndLocationCode).HasMaxLength(20);
 
-        builder.OwnsOne(s => s.CreatedBy, a =>
-        {
-            a.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
-        builder.OwnsOne(s => s.ModifiedBy, a =>
-        {
-            a.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
-        builder.OwnsOne(s => s.DeletedBy, a =>
-        {
-            a.Property(x => x.AuditName).HasConversion(
-                n => n.Value, v => Name.Create(v)).HasMaxLength(50);
-        });
+        builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(s => s.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(s => s.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
