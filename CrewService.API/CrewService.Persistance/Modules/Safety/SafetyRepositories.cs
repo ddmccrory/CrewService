@@ -50,23 +50,3 @@ internal sealed class SafetyCategoryRepository(CrewServiceDbContext dbContext, I
             .Where(c => c.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && c.IsActive)
             .ToListAsync(ct);
 }
-
-internal sealed class SafetyAreaRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<SafetyArea>(dbContext, currentUserService), ISafetyAreaRepository
-{
-    public async Task<IReadOnlyList<SafetyArea>> GetByWorkAreaAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default) =>
-        await DbContext.Set<SafetyArea>()
-            .Where(a => a.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && a.IsActive)
-            .ToListAsync(ct);
-}
-
-internal sealed class SafetySubdivisionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<SafetySubdivision>(dbContext, currentUserService), ISafetySubdivisionRepository
-{
-    public async Task<IReadOnlyList<SafetySubdivision>> GetByWorkAreaAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default) =>
-        await DbContext.Set<SafetySubdivision>()
-            .Where(s => s.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && s.IsActive)
-            .ToListAsync(ct);
-}

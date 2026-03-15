@@ -114,24 +114,4 @@ public class SafetyReferenceDataTests
 
         Assert.False(cat.IsActive);
     }
-
-    [Fact]
-    public void SafetyArea_Create_SetsProperties()
-    {
-        var area = SafetyArea.Create(1, "YARD", "Rail Yard");
-
-        Assert.Equal("YARD", area.Code);
-        Assert.Equal("Rail Yard", area.DisplayName);
-        Assert.True(area.IsActive);
-    }
-
-    [Fact]
-    public void SafetySubdivision_Create_SetsProperties()
-    {
-        var subdiv = SafetySubdivision.Create(1, "NORTH", "North Division");
-
-        Assert.Equal("NORTH", subdiv.Code);
-        Assert.Equal("North Division", subdiv.DisplayName);
-        Assert.True(subdiv.IsActive);
-    }
 }
