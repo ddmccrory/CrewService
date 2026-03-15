@@ -290,7 +290,7 @@ internal static class DevDataSeeder
         {
             // Create a role-upgrade invitation (auto-accepted)
             var upgradeInvite = Invitation.Create(
-                allEmployees[r].EmailAddresses.FirstOrDefault()?.Email ?? $"emp-{r}@csx.example.com",
+                allEmployees[r].EmailAddresses.Count > 0 ? allEmployees[r].EmailAddresses[0].Email : $"emp-{r}@csx.example.com",
                 csxCorp.CtrlNbr.Value,
                 rolesToUpgrade[r],
                 "SYSTEM");
