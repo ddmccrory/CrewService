@@ -65,3 +65,44 @@ public class CrewIncumbencyTests
         Assert.Equal(end, incumbency.EndUtc);
     }
 }
+
+public class CrewAttachmentTemplateTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var start = DateTime.UtcNow;
+        var attachment = CrewAttachmentTemplate.Create(10, 20, start);
+
+        Assert.Equal(10, attachment.AssignmentTemplateCtrlNbr.Value);
+        Assert.Equal(20, attachment.CrewCtrlNbr.Value);
+        Assert.Equal(start, attachment.StartUtc);
+        Assert.Null(attachment.EndUtc);
+    }
+
+    [Fact]
+    public void Create_WithEndUtc_SetsEndUtc()
+    {
+        var start = DateTime.UtcNow;
+        var end = start.AddDays(7);
+        var attachment = CrewAttachmentTemplate.Create(10, 20, start, end);
+
+        Assert.Equal(end, attachment.EndUtc);
+    }
+}
+
+public class ReliefCoverageRuleTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var start = DateTime.UtcNow;
+        var rule = ReliefCoverageRule.Create(1, 2, 0b1111100, start);
+
+        Assert.Equal(1, rule.ReliefCrewCtrlNbr.Value);
+        Assert.Equal(2, rule.AssignmentTemplateCtrlNbr.Value);
+        Assert.Equal(0b1111100, rule.DaysOfWeekMask);
+        Assert.Equal(start, rule.StartUtc);
+        Assert.Null(rule.EndUtc);
+    }
+}
