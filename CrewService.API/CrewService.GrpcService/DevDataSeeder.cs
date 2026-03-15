@@ -146,6 +146,43 @@ internal static class DevDataSeeder
         await placementRepo.AddAsync(csxtPlacement);
         }
 
+        // Backfill missing groups from prior seed runs (e.g. stale DB with "Main Yard" instead of "PTRA Terminal")
+        var allGroupsBackfill = await groupRepo.GetAllAsync();
+        if (allGroupsBackfill.All(g => g.Name != "PTRA Terminal"))
+        {
+            var groupTypes = await groupTypeRepo.GetAllAsync();
+            var waType = groupTypes.FirstOrDefault(gt => gt.Name == "WorkArea");
+            if (waType is not null)
+            {
+                var ptraTerminal = DynamicGroup.Create(
+                    waType.CtrlNbr.Value,
+                    "PTRA Terminal",
+                    parentGroupCtrlNbr: null,
+                    path: "/ptra-terminal",
+                    isWorkArea: true);
+                await groupRepo.AddAsync(ptraTerminal);
+
+                // Ensure PTRA parent & railroad exist for placement
+                var allParentsBackfill = await parentRepo.GetAllAsync();
+                var ptraParent = allParentsBackfill.FirstOrDefault(p => p.Name.Value == "Port Terminal Railroad Association");
+                if (ptraParent is null)
+                {
+                    ptraParent = Parent.Create("Port Terminal Railroad Association");
+                    await parentRepo.AddAsync(ptraParent);
+                }
+
+                var allRailroadsBackfill = await railroadRepo.GetAllAsync();
+                var ptraRailroad = allRailroadsBackfill.FirstOrDefault(rr => rr.RailroadMark == "PTRA");
+                if (ptraRailroad is null)
+                {
+                    ptraRailroad = Railroad.Create(ptraParent.CtrlNbr.Value, "PTRA", "Port Terminal Railroad Association");
+                    await railroadRepo.AddAsync(ptraRailroad);
+                }
+
+                await placementRepo.AddAsync(RailroadGroupPlacement.Create(ptraRailroad.CtrlNbr.Value, ptraTerminal.CtrlNbr.Value));
+            }
+        }
+
         // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????
         var employeeRepo = sp.GetRequiredService<IEmployeeRepository>();
         var userMgr = sp.GetRequiredService<UserManager<User>>();
@@ -317,7 +354,7 @@ internal static class DevDataSeeder
         // Look up Jax Yard and PTRA Terminal work areas
         var allGroups = await groupRepo.GetAllAsync();
         var jaxYardGroup = allGroups.First(g => g.Name == "Jax Yard");
-        var ptraGroup = allGroups.First(g => g.Name == "PTRA Terminal");
+        var ptraGroup = allGroups.FirstOrDefault(g => g.Name == "PTRA Terminal");
 
         // CSX Crafts at Jax Yard
         var csxEngineer = Craft.Create(jaxYardGroup.CtrlNbr, "Engineer", "Engineers", 1,
@@ -338,7 +375,9 @@ internal static class DevDataSeeder
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0);
         await craftRepo.AddAsync(csxClerical);
 
-        // PTRA Crafts at PTRA Terminal
+        // PTRA Crafts at PTRA Terminal (skip if group missing from a stale DB)
+        if (ptraGroup is not null)
+        {
         var ptraEngineer = Craft.Create(ptraGroup.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
@@ -356,6 +395,7 @@ internal static class DevDataSeeder
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0);
         await craftRepo.AddAsync(ptraClerical);
+        }
 
         // Rosters — one per craft per railroad
         var allRailroads = await railroadRepo.GetAllAsync();
