@@ -167,3 +167,43 @@ public class EmploymentStatusHistoryTests
         Assert.True(history.DomainEvents.Count > 0);
     }
 }
+
+public class SeniorityStateTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var state = SeniorityState.Create("Active Duty", true, false, false);
+
+        Assert.Equal("Active Duty", state.StateDescription);
+        Assert.True(state.Active);
+        Assert.False(state.CutBack);
+        Assert.False(state.Inactive);
+        Assert.True(state.DomainEvents.Count > 0);
+    }
+
+    [Fact]
+    public void Update_ChangesFields_RaisesEvent()
+    {
+        var state = SeniorityState.Create("Active Duty", true, false, false);
+        var eventsBefore = state.DomainEvents.Count;
+
+        state.Update("Cut Back", false, true, false);
+
+        Assert.Equal("Cut Back", state.StateDescription);
+        Assert.False(state.Active);
+        Assert.True(state.CutBack);
+        Assert.True(state.DomainEvents.Count > eventsBefore);
+    }
+
+    [Fact]
+    public void Update_NoChanges_DoesNotRaiseEvent()
+    {
+        var state = SeniorityState.Create("Active Duty", true, false, false);
+        var eventsBefore = state.DomainEvents.Count;
+
+        state.Update("Active Duty", true, false, false);
+
+        Assert.Equal(eventsBefore, state.DomainEvents.Count);
+    }
+}
