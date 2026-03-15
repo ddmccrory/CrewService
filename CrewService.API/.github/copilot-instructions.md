@@ -16,6 +16,11 @@
 - All entities must have explicit EF Configuration files. Do not rely on ApplyConfigurationsFromAssembly to implicitly discover unconfigured entities.
 - Use `AuditStamp.Create("SYSTEM")` only in development and seeding contexts. Production entity creation should not hardcode "SYSTEM" as the audit name since the DbContext interceptor overwrites it with the authenticated user anyway.
 
+## Terminology
+- Trainman and Switchman are interchangeable terms for the same entry-level train crew position.
+- Conductor and Foreman are interchangeable terms for the same promoted train crew position.
+- These are naming conventions that vary by railroad, not distinct roles or qualifications.
+
 ## Branch Naming Conventions
 - Always bump version numbers when creating new branches. Use release-based branch naming with incremented version numbers (e.g., "0.1.2/feature-name") — never reuse the same version number across branches.
 - Prefer release-based branch naming with version numbers (e.g., "0.1.1/feature-name" or "release/0.1.1-feature-name") instead of simple feature branch names.
