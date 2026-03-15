@@ -6,7 +6,10 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class CrewsService(
     ICrewRepository crewRepository,
-    ICrewPositionRepository crewPositionRepository) : CrewsSrvc.CrewsSrvcBase
+    ICrewPositionRepository crewPositionRepository,
+    ICrewIncumbencyRepository incumbencyRepository,
+    ICrewAttachmentTemplateRepository attachmentRepo,
+    IReliefCoverageRuleRepository reliefRepo) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
@@ -83,5 +86,87 @@ public class CrewsService(
         HomeGroupCtrlNbr = c.HomeGroupCtrlNbr.Value,
         Name = c.Name,
         IsActive = c.IsActive
+    };
+
+    // Incumbencies
+    public override async Task<GetCrewIncumbenciesResponse> GetCrewIncumbencies(GetCrewIncumbenciesRequest request, ServerCallContext context)
+    {
+        var items = await incumbencyRepository.GetByCrewPositionAsync(ControlNumber.Create(request.CrewPositionCtrlNbr));
+        var response = new GetCrewIncumbenciesResponse { TotalCount = items.Count };
+        foreach (var i in items) response.Incumbencies.Add(MapIncumbency(i));
+        return response;
+    }
+
+    public override async Task<CrewIncumbencyResponse> CreateCrewIncumbency(CreateCrewIncumbencyRequest request, ServerCallContext context)
+    {
+        var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
+        DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
+        var incumbency = CrewIncumbency.Create(request.CrewPositionCtrlNbr, request.EmployeeCtrlNbr, startUtc, endUtc);
+        await incumbencyRepository.AddAsync(incumbency);
+        return MapIncumbency(incumbency);
+    }
+
+    private static CrewIncumbencyResponse MapIncumbency(CrewIncumbency i) => new()
+    {
+        CtrlNbr = i.CtrlNbr.Value,
+        CrewPositionCtrlNbr = i.CrewPositionCtrlNbr.Value,
+        EmployeeCtrlNbr = i.EmployeeCtrlNbr.Value,
+        StartUtc = i.StartUtc.ToString("O"),
+        EndUtc = i.EndUtc?.ToString("O") ?? string.Empty
+    };
+
+    // Attachment Templates
+    public override async Task<GetCrewAttachmentTemplatesResponse> GetCrewAttachmentTemplates(GetCrewAttachmentTemplatesRequest request, ServerCallContext context)
+    {
+        var items = await attachmentRepo.GetByTemplateAsync(ControlNumber.Create(request.CrewCtrlNbr));
+        var response = new GetCrewAttachmentTemplatesResponse { TotalCount = items.Count };
+        foreach (var t in items) response.Templates.Add(MapAttachmentTemplate(t));
+        return response;
+    }
+
+    public override async Task<CrewAttachmentTemplateResponse> CreateCrewAttachmentTemplate(CreateCrewAttachmentTemplateRequest request, ServerCallContext context)
+    {
+        var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
+        DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
+        var attachment = CrewAttachmentTemplate.Create(request.AssignmentTemplateCtrlNbr, request.CrewCtrlNbr, startUtc, endUtc);
+        await attachmentRepo.AddAsync(attachment);
+        return MapAttachmentTemplate(attachment);
+    }
+
+    private static CrewAttachmentTemplateResponse MapAttachmentTemplate(CrewAttachmentTemplate t) => new()
+    {
+        CtrlNbr = t.CtrlNbr.Value,
+        AssignmentTemplateCtrlNbr = t.AssignmentTemplateCtrlNbr.Value,
+        CrewCtrlNbr = t.CrewCtrlNbr.Value,
+        StartUtc = t.StartUtc.ToString("O"),
+        EndUtc = t.EndUtc?.ToString("O") ?? string.Empty
+    };
+
+    // Relief Coverage Rules
+    public override async Task<GetReliefCoverageRulesResponse> GetReliefCoverageRules(GetReliefCoverageRulesRequest request, ServerCallContext context)
+    {
+        var items = await reliefRepo.GetByReliefCrewAsync(ControlNumber.Create(request.ReliefCrewCtrlNbr));
+        var response = new GetReliefCoverageRulesResponse { TotalCount = items.Count };
+        foreach (var r in items) response.Rules.Add(MapReliefRule(r));
+        return response;
+    }
+
+    public override async Task<ReliefCoverageRuleResponse> CreateReliefCoverageRule(CreateReliefCoverageRuleRequest request, ServerCallContext context)
+    {
+        var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
+        DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
+        var rule = ReliefCoverageRule.Create(request.ReliefCrewCtrlNbr, request.AssignmentTemplateCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
+        await reliefRepo.AddAsync(rule);
+        return MapReliefRule(rule);
+    }
+
+    private static ReliefCoverageRuleResponse MapReliefRule(ReliefCoverageRule r) => new()
+    {
+        CtrlNbr = r.CtrlNbr.Value,
+        ReliefCrewCtrlNbr = r.ReliefCrewCtrlNbr.Value,
+        AssignmentTemplateCtrlNbr = r.AssignmentTemplateCtrlNbr.Value,
+        DaysOfWeekMask = r.DaysOfWeekMask,
+        StartUtc = r.StartUtc.ToString("O"),
+        EndUtc = r.EndUtc?.ToString("O") ?? string.Empty
     };
 }

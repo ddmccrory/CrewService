@@ -6,7 +6,10 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class SafetyService(
     ISafetyObservationRepository obsRepo,
-    ISafetyObservationResolutionRepository resRepo) : SafetySrvc.SafetySrvcBase
+    ISafetyObservationResolutionRepository resRepo,
+    ISafetyCategoryRepository catRepo,
+    ISafetyAreaRepository areaRepo,
+    ISafetySubdivisionRepository subdivRepo) : SafetySrvc.SafetySrvcBase
 {
     public override async Task<SafetyObservationResponse> CreateObservation(CreateObservationRequest request, ServerCallContext context)
     {
@@ -94,4 +97,74 @@ public class SafetyService(
         ResolutionDescription = r.ResolutionDescription,
         ResolvedAtUtc = r.ResolvedAtUtc.ToString("O")
     };
+
+    // Reference Data endpoints
+    public override async Task<GetSafetyCategoriesResponse> GetCategories(GetSafetyRefDataRequest request, ServerCallContext context)
+    {
+        var items = await catRepo.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr), context.CancellationToken);
+        var response = new GetSafetyCategoriesResponse { TotalCount = items.Count };
+        foreach (var c in items) response.Items.Add(new SafetyCategoryResponse
+        {
+            CtrlNbr = c.CtrlNbr.Value, WorkAreaGroupCtrlNbr = c.WorkAreaGroupCtrlNbr.Value,
+            Code = c.Code, DisplayName = c.DisplayName, IsActive = c.IsActive
+        });
+        return response;
+    }
+
+    public override async Task<SafetyCategoryResponse> CreateCategory(CreateSafetyCategoryRequest request, ServerCallContext context)
+    {
+        var cat = SafetyCategory.Create(request.WorkAreaGroupCtrlNbr, request.Code, request.DisplayName);
+        await catRepo.AddAsync(cat, context.CancellationToken);
+        return new SafetyCategoryResponse
+        {
+            CtrlNbr = cat.CtrlNbr.Value, WorkAreaGroupCtrlNbr = cat.WorkAreaGroupCtrlNbr.Value,
+            Code = cat.Code, DisplayName = cat.DisplayName, IsActive = cat.IsActive
+        };
+    }
+
+    public override async Task<GetSafetyAreasResponse> GetAreas(GetSafetyRefDataRequest request, ServerCallContext context)
+    {
+        var items = await areaRepo.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr), context.CancellationToken);
+        var response = new GetSafetyAreasResponse { TotalCount = items.Count };
+        foreach (var a in items) response.Items.Add(new SafetyAreaResponse
+        {
+            CtrlNbr = a.CtrlNbr.Value, WorkAreaGroupCtrlNbr = a.WorkAreaGroupCtrlNbr.Value,
+            Code = a.Code, DisplayName = a.DisplayName, IsActive = a.IsActive
+        });
+        return response;
+    }
+
+    public override async Task<SafetyAreaResponse> CreateArea(CreateSafetyAreaRequest request, ServerCallContext context)
+    {
+        var area = SafetyArea.Create(request.WorkAreaGroupCtrlNbr, request.Code, request.DisplayName);
+        await areaRepo.AddAsync(area, context.CancellationToken);
+        return new SafetyAreaResponse
+        {
+            CtrlNbr = area.CtrlNbr.Value, WorkAreaGroupCtrlNbr = area.WorkAreaGroupCtrlNbr.Value,
+            Code = area.Code, DisplayName = area.DisplayName, IsActive = area.IsActive
+        };
+    }
+
+    public override async Task<GetSafetySubdivisionsResponse> GetSubdivisions(GetSafetyRefDataRequest request, ServerCallContext context)
+    {
+        var items = await subdivRepo.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr), context.CancellationToken);
+        var response = new GetSafetySubdivisionsResponse { TotalCount = items.Count };
+        foreach (var s in items) response.Items.Add(new SafetySubdivisionResponse
+        {
+            CtrlNbr = s.CtrlNbr.Value, WorkAreaGroupCtrlNbr = s.WorkAreaGroupCtrlNbr.Value,
+            Code = s.Code, DisplayName = s.DisplayName, IsActive = s.IsActive
+        });
+        return response;
+    }
+
+    public override async Task<SafetySubdivisionResponse> CreateSubdivision(CreateSafetySubdivisionRequest request, ServerCallContext context)
+    {
+        var subdiv = SafetySubdivision.Create(request.WorkAreaGroupCtrlNbr, request.Code, request.DisplayName);
+        await subdivRepo.AddAsync(subdiv, context.CancellationToken);
+        return new SafetySubdivisionResponse
+        {
+            CtrlNbr = subdiv.CtrlNbr.Value, WorkAreaGroupCtrlNbr = subdiv.WorkAreaGroupCtrlNbr.Value,
+            Code = subdiv.Code, DisplayName = subdiv.DisplayName, IsActive = subdiv.IsActive
+        };
+    }
 }

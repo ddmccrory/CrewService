@@ -19,6 +19,24 @@ service SafetySrvc {
   rpc ResolveObservation(ResolveObservationRequest) returns (SafetyResolutionResponse) {
     option (google.api.http) = { post: "/v1/safety/observations/{observation_ctrl_nbr}/resolve" body: "*" };
   }
+  rpc GetCategories(GetSafetyRefDataRequest) returns (GetSafetyCategoriesResponse) {
+    option (google.api.http) = { get: "/v1/safety/categories/{work_area_group_ctrl_nbr}" };
+  }
+  rpc CreateCategory(CreateSafetyCategoryRequest) returns (SafetyCategoryResponse) {
+    option (google.api.http) = { post: "/v1/safety/categories" body: "*" };
+  }
+  rpc GetAreas(GetSafetyRefDataRequest) returns (GetSafetyAreasResponse) {
+    option (google.api.http) = { get: "/v1/safety/areas/{work_area_group_ctrl_nbr}" };
+  }
+  rpc CreateArea(CreateSafetyAreaRequest) returns (SafetyAreaResponse) {
+    option (google.api.http) = { post: "/v1/safety/areas" body: "*" };
+  }
+  rpc GetSubdivisions(GetSafetyRefDataRequest) returns (GetSafetySubdivisionsResponse) {
+    option (google.api.http) = { get: "/v1/safety/subdivisions/{work_area_group_ctrl_nbr}" };
+  }
+  rpc CreateSubdivision(CreateSafetySubdivisionRequest) returns (SafetySubdivisionResponse) {
+    option (google.api.http) = { post: "/v1/safety/subdivisions" body: "*" };
+  }
 }
 
 message CreateObservationRequest {
@@ -84,3 +102,15 @@ message SafetyResolutionResponse {
   string resolution_description = 4;
   string resolved_at_utc = 5;
 }
+
+
+message GetSafetyRefDataRequest { int64 work_area_group_ctrl_nbr = 1; }
+message GetSafetyCategoriesResponse { repeated SafetyCategoryResponse items = 1; int32 total_count = 2; }
+message CreateSafetyCategoryRequest { int64 work_area_group_ctrl_nbr = 1; string code = 2; string display_name = 3; }
+message SafetyCategoryResponse { int64 ctrl_nbr = 1; int64 work_area_group_ctrl_nbr = 2; string code = 3; string display_name = 4; bool is_active = 5; }
+message GetSafetyAreasResponse { repeated SafetyAreaResponse items = 1; int32 total_count = 2; }
+message CreateSafetyAreaRequest { int64 work_area_group_ctrl_nbr = 1; string code = 2; string display_name = 3; }
+message SafetyAreaResponse { int64 ctrl_nbr = 1; int64 work_area_group_ctrl_nbr = 2; string code = 3; string display_name = 4; bool is_active = 5; }
+message GetSafetySubdivisionsResponse { repeated SafetySubdivisionResponse items = 1; int32 total_count = 2; }
+message CreateSafetySubdivisionRequest { int64 work_area_group_ctrl_nbr = 1; string code = 2; string display_name = 3; }
+message SafetySubdivisionResponse { int64 ctrl_nbr = 1; int64 work_area_group_ctrl_nbr = 2; string code = 3; string display_name = 4; bool is_active = 5; }

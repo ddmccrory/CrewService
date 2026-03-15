@@ -17,3 +17,18 @@ public interface ISafetyObservationResolutionRepository : IRepository<SafetyObse
     Task<SafetyObservationResolution?> GetByObservationAsync(
         ControlNumber observationCtrlNbr, CancellationToken ct = default);
 }
+
+public interface ISafetyCategoryRepository : IRepository<SafetyCategory>
+{
+    Task<IReadOnlyList<SafetyCategory>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+}
+
+public interface ISafetyAreaRepository : IRepository<SafetyArea>
+{
+    Task<IReadOnlyList<SafetyArea>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+}
+
+public interface ISafetySubdivisionRepository : IRepository<SafetySubdivision>
+{
+    Task<IReadOnlyList<SafetySubdivision>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+}
