@@ -26,6 +26,30 @@ service CrewsSrvc {
   rpc CreateCrewPosition(CreateCrewPositionRequest) returns (CrewPositionResponse) {
     option (google.api.http) = { post: "/v1/crews/positions" body: "*" };
   }
+
+  // Incumbencies
+  rpc GetCrewIncumbencies(GetCrewIncumbenciesRequest) returns (GetCrewIncumbenciesResponse) {
+    option (google.api.http) = { get: "/v1/crews/positions/{crew_position_ctrl_nbr}/incumbencies" };
+  }
+  rpc CreateCrewIncumbency(CreateCrewIncumbencyRequest) returns (CrewIncumbencyResponse) {
+    option (google.api.http) = { post: "/v1/crews/incumbencies" body: "*" };
+  }
+
+  // Attachments
+  rpc GetCrewAttachmentTemplates(GetCrewAttachmentTemplatesRequest) returns (GetCrewAttachmentTemplatesResponse) {
+    option (google.api.http) = { get: "/v1/crews/{crew_ctrl_nbr}/attachment-templates" };
+  }
+  rpc CreateCrewAttachmentTemplate(CreateCrewAttachmentTemplateRequest) returns (CrewAttachmentTemplateResponse) {
+    option (google.api.http) = { post: "/v1/crews/attachment-templates" body: "*" };
+  }
+
+  // Relief Coverage
+  rpc GetReliefCoverageRules(GetReliefCoverageRulesRequest) returns (GetReliefCoverageRulesResponse) {
+    option (google.api.http) = { get: "/v1/crews/{relief_crew_ctrl_nbr}/relief-rules" };
+  }
+  rpc CreateReliefCoverageRule(CreateReliefCoverageRuleRequest) returns (ReliefCoverageRuleResponse) {
+    option (google.api.http) = { post: "/v1/crews/relief-rules" body: "*" };
+  }
 }
 
 message GetAllCrewsRequest {
@@ -74,4 +98,64 @@ message CrewPositionResponse {
   int64 crew_ctrl_nbr = 2;
   int64 position_role_ctrl_nbr = 3;
   int32 display_order = 4;
+}
+
+// Incumbency messages
+message GetCrewIncumbenciesRequest { int64 crew_position_ctrl_nbr = 1; }
+message GetCrewIncumbenciesResponse {
+  repeated CrewIncumbencyResponse incumbencies = 1;
+  int32 total_count = 2;
+}
+message CreateCrewIncumbencyRequest {
+  int64 crew_position_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string start_utc = 3;
+  string end_utc = 4;
+}
+message CrewIncumbencyResponse {
+  int64 ctrl_nbr = 1;
+  int64 crew_position_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string start_utc = 4;
+  string end_utc = 5;
+}
+
+// Attachment Template messages
+message GetCrewAttachmentTemplatesRequest { int64 crew_ctrl_nbr = 1; }
+message GetCrewAttachmentTemplatesResponse {
+  repeated CrewAttachmentTemplateResponse templates = 1;
+  int32 total_count = 2;
+}
+message CreateCrewAttachmentTemplateRequest {
+  int64 assignment_template_ctrl_nbr = 1;
+  int64 crew_ctrl_nbr = 2;
+  string start_utc = 3;
+  string end_utc = 4;
+}
+message CrewAttachmentTemplateResponse {
+  int64 ctrl_nbr = 1;
+  int64 assignment_template_ctrl_nbr = 2;
+  int64 crew_ctrl_nbr = 3;
+  string start_utc = 4;
+  string end_utc = 5;
+}
+
+// Relief Coverage messages
+message GetReliefCoverageRulesRequest { int64 relief_crew_ctrl_nbr = 1; }
+message GetReliefCoverageRulesResponse {
+  repeated ReliefCoverageRuleResponse rules = 1;
+  int32 total_count = 2;
+}
+message CreateReliefCoverageRuleRequest {
+  int64 relief_crew_ctrl_nbr = 1;
+  int64 assignment_template_ctrl_nbr = 2;
+  string coverage_kind = 3;
+  int32 priority = 4;
+}
+message ReliefCoverageRuleResponse {
+  int64 ctrl_nbr = 1;
+  int64 relief_crew_ctrl_nbr = 2;
+  int64 assignment_template_ctrl_nbr = 3;
+  string coverage_kind = 4;
+  int32 priority = 5;
 }

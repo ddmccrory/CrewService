@@ -38,6 +38,15 @@ public class BoardsService(
         return new DeleteResponse { Success = true };
     }
 
+    public override async Task<BoardResponse> UpdateBoard(UpdateBoardRequest request, ServerCallContext context)
+    {
+        var board = await boardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Board {request.CtrlNbr} not found."));
+        board.Update(request.Name, request.IsActive, request.AuxBoardType);
+        await boardRepository.UpdateAsync(board);
+        return MapBoard(board);
+    }
+
     public override async Task<GetBoardMembersResponse> GetBoardMembers(GetBoardMembersRequest request, ServerCallContext context)
     {
         var members = await memberRepository.GetByBoardAsync(ControlNumber.Create(request.ExtraBoardCtrlNbr));

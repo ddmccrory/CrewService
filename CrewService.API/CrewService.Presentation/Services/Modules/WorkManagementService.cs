@@ -38,6 +38,15 @@ public class WorkManagementService(
         return new DeleteResponse { Success = true };
     }
 
+    public override async Task<TemplateResponse> UpdateTemplate(UpdateTemplateRequest request, ServerCallContext context)
+    {
+        var template = await templateRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Template {request.CtrlNbr} not found."));
+        template.Update(request.Code, request.Name, request.RecurrenceJson, request.IsActive);
+        await templateRepository.UpdateAsync(template);
+        return MapTemplate(template);
+    }
+
     public override async Task<GetWorkInstancesResponse> GetWorkInstances(GetWorkInstancesRequest request, ServerCallContext context)
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
