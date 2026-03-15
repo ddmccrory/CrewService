@@ -31,16 +31,16 @@ public sealed class DynamicGroup : Entity
     }
 
     public static DynamicGroup Create(
-        long groupTypeCtrlNbr,
+        ControlNumber groupTypeCtrlNbr,
         string name,
-        long? parentGroupCtrlNbr,
+        ControlNumber? parentGroupCtrlNbr,
         string? path,
         bool isWorkArea)
     {
         var group = new DynamicGroup(
-            ControlNumber.Create(groupTypeCtrlNbr),
+            groupTypeCtrlNbr,
             name,
-            parentGroupCtrlNbr.HasValue ? ControlNumber.Create(parentGroupCtrlNbr.Value) : null,
+            parentGroupCtrlNbr,
             path,
             isWorkArea);
         group.Raise(new DynamicGroupCreatedDomainEvent(group));

@@ -23,18 +23,18 @@ public sealed class RailroadGroupPlacement : Entity
     }
 
     public static RailroadGroupPlacement Create(
-        long railroadCtrlNbr,
-        long groupCtrlNbr)
+        ControlNumber railroadCtrlNbr,
+        ControlNumber groupCtrlNbr)
     {
         var placement = new RailroadGroupPlacement(
-            ControlNumber.Create(railroadCtrlNbr),
-            ControlNumber.Create(groupCtrlNbr));
+            railroadCtrlNbr,
+            groupCtrlNbr);
         placement.Raise(new RailroadPlacedInGroupDomainEvent(placement));
         return placement;
     }
 
     public void Remove()
     {
-        Raise(new RailroadRemovedFromGroupDomainEvent(CtrlNbr.Value, RailroadCtrlNbr.Value, GroupCtrlNbr.Value));
+        Raise(new RailroadRemovedFromGroupDomainEvent(CtrlNbr, RailroadCtrlNbr, GroupCtrlNbr));
     }
 }

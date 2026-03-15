@@ -63,7 +63,7 @@ public sealed class Craft : Entity
     }
 
     public static Craft Create(
-        long dynamicGroupCtrlNbr,
+        ControlNumber dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,
         int craftNumber,
@@ -80,7 +80,7 @@ public sealed class Craft : Entity
         int vacationAssignmentType)
     {
         var entity = new Craft(
-            ControlNumber.Create(dynamicGroupCtrlNbr),
+            dynamicGroupCtrlNbr,
             craftName,
             craftPluralName,
             craftNumber,

@@ -24,22 +24,20 @@ internal sealed class InvitationRepository(CrewServiceDbContext dbContext, ICurr
             .ToListAsync();
     }
 
-    public async Task<List<Invitation>> GetByParentCtrlNbrAsync(long parentCtrlNbr)
+    public async Task<List<Invitation>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr)
     {
-        var ctrlNbr = ControlNumber.Create(parentCtrlNbr);
         return await DbContext.Set<Invitation>()
-            .Where(i => i.ParentCtrlNbr == ctrlNbr)
+            .Where(i => i.ParentCtrlNbr == parentCtrlNbr)
             .ToListAsync();
     }
 
-    public async Task<Invitation?> GetPendingByEmailAndParentAsync(string email, long parentCtrlNbr)
+    public async Task<Invitation?> GetPendingByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr)
     {
         var normalized = email.ToLowerInvariant();
-        var ctrlNbr = ControlNumber.Create(parentCtrlNbr);
         return await DbContext.Set<Invitation>()
             .SingleOrDefaultAsync(i =>
                 i.Email == normalized &&
-                i.ParentCtrlNbr == ctrlNbr &&
+                i.ParentCtrlNbr == parentCtrlNbr &&
                 i.Status == InvitationStatus.Pending);
     }
 }

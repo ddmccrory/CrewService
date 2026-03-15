@@ -26,13 +26,13 @@ public sealed class GroupAttributeValue : Entity
     }
 
     public static GroupAttributeValue Create(
-        long groupCtrlNbr,
-        long attributeDefinitionCtrlNbr,
+        ControlNumber groupCtrlNbr,
+        ControlNumber attributeDefinitionCtrlNbr,
         string? value)
     {
         return new GroupAttributeValue(
-            ControlNumber.Create(groupCtrlNbr),
-            ControlNumber.Create(attributeDefinitionCtrlNbr),
+            groupCtrlNbr,
+            attributeDefinitionCtrlNbr,
             value);
     }
 

@@ -39,8 +39,8 @@ public sealed class Seniority : Entity
     }
 
     public static Seniority Create(
-        long rosterCtrlNbr,
-        long employeeCtrlNbr,
+        ControlNumber rosterCtrlNbr,
+        ControlNumber employeeCtrlNbr,
         bool lastActiveRoster,
         DateTime rosterDate,
         int rank,
@@ -48,8 +48,8 @@ public sealed class Seniority : Entity
         bool canTrain)
     {
         var entity = new Seniority(
-            ControlNumber.Create(rosterCtrlNbr),
-            ControlNumber.Create(employeeCtrlNbr),
+            rosterCtrlNbr,
+            employeeCtrlNbr,
             lastActiveRoster,
             rosterDate,
             rank,

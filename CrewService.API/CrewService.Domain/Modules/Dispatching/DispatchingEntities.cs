@@ -14,14 +14,14 @@ public sealed class DispatchProjection : Entity
 
     private DispatchProjection() { PositionSlotCtrlNbr = null!; }
 
-    public static DispatchProjection Create(long positionSlotCtrlNbr, DateTime asOfUtc,
-        long? projectedEmployeeCtrlNbr, string? traceJson)
+    public static DispatchProjection Create(ControlNumber positionSlotCtrlNbr, DateTime asOfUtc,
+        ControlNumber? projectedEmployeeCtrlNbr, string? traceJson)
     {
         return new DispatchProjection
         {
-            PositionSlotCtrlNbr = ControlNumber.Create(positionSlotCtrlNbr),
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
             AsOfUtc = asOfUtc,
-            ProjectedEmployeeCtrlNbr = projectedEmployeeCtrlNbr.HasValue ? ControlNumber.Create(projectedEmployeeCtrlNbr.Value) : null,
+            ProjectedEmployeeCtrlNbr = projectedEmployeeCtrlNbr,
             TraceJson = traceJson,
             ComputedUtc = DateTime.UtcNow
         };
@@ -39,15 +39,15 @@ public sealed class DispatchDecisionLog : Entity
 
     private DispatchDecisionLog() { PositionSlotCtrlNbr = null!; }
 
-    public static DispatchDecisionLog Create(long positionSlotCtrlNbr, DateTime asOfUtc, string phase,
-        long? selectedEmployeeCtrlNbr, string? selectionSource, string? decisionJson)
+    public static DispatchDecisionLog Create(ControlNumber positionSlotCtrlNbr, DateTime asOfUtc, string phase,
+        ControlNumber? selectedEmployeeCtrlNbr, string? selectionSource, string? decisionJson)
     {
         var log = new DispatchDecisionLog
         {
-            PositionSlotCtrlNbr = ControlNumber.Create(positionSlotCtrlNbr),
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
             AsOfUtc = asOfUtc,
             Phase = phase,
-            SelectedEmployeeCtrlNbr = selectedEmployeeCtrlNbr.HasValue ? ControlNumber.Create(selectedEmployeeCtrlNbr.Value) : null,
+            SelectedEmployeeCtrlNbr = selectedEmployeeCtrlNbr,
             SelectionSource = selectionSource,
             DecisionJson = decisionJson
         };
@@ -69,23 +69,23 @@ public sealed class DispatchOverride : Entity
 
     private DispatchOverride() { PositionSlotCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
-    public static DispatchOverride Create(long positionSlotCtrlNbr, long employeeCtrlNbr,
+    public static DispatchOverride Create(ControlNumber positionSlotCtrlNbr, ControlNumber employeeCtrlNbr,
         string overrideType, string reasonCode, string? reasonText)
     {
         return new DispatchOverride
         {
-            PositionSlotCtrlNbr = ControlNumber.Create(positionSlotCtrlNbr),
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
             OverrideType = overrideType,
             ReasonCode = reasonCode,
             ReasonText = reasonText
         };
     }
 
-    public void Approve(long approvedByCtrlNbr)
+    public void Approve(ControlNumber approvedByCtrlNbr)
     {
         Status = "APPROVED";
-        ApprovedByCtrlNbr = ControlNumber.Create(approvedByCtrlNbr);
+        ApprovedByCtrlNbr = approvedByCtrlNbr;
         ApprovedAtUtc = DateTime.UtcNow;
     }
 
@@ -104,14 +104,14 @@ public sealed class EmployeeBooking : Entity
 
     private EmployeeBooking() { EmployeeCtrlNbr = null!; }
 
-    public static EmployeeBooking Create(long employeeCtrlNbr, DateTime startUtc, DateTime endUtc, long? positionSlotCtrlNbr = null)
+    public static EmployeeBooking Create(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, ControlNumber? positionSlotCtrlNbr = null)
     {
         return new EmployeeBooking
         {
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            EmployeeCtrlNbr = employeeCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc,
-            PositionSlotCtrlNbr = positionSlotCtrlNbr.HasValue ? ControlNumber.Create(positionSlotCtrlNbr.Value) : null
+            PositionSlotCtrlNbr = positionSlotCtrlNbr
         };
     }
 }

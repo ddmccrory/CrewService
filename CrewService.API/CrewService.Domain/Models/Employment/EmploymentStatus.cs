@@ -32,14 +32,14 @@ public sealed class EmploymentStatus : Entity
     }
 
     public static EmploymentStatus Create(
-        long clientCtrlNbr,
+        ControlNumber clientCtrlNbr,
         string statusCode,
         string statusName,
         int statusNumber,
         string employmentCode)
     {
         var entity = new EmploymentStatus(
-            ControlNumber.Create(clientCtrlNbr),
+            clientCtrlNbr,
             statusCode,
             statusName,
             statusNumber,

@@ -23,9 +23,9 @@ public sealed class AssignmentTemplate : Entity
         IsActive = isActive;
     }
 
-    public static AssignmentTemplate Create(long workAreaGroupCtrlNbr, string code, string name, string? recurrenceJson, bool isActive = true)
+    public static AssignmentTemplate Create(ControlNumber workAreaGroupCtrlNbr, string code, string name, string? recurrenceJson, bool isActive = true)
     {
-        var template = new AssignmentTemplate(ControlNumber.Create(workAreaGroupCtrlNbr), code, name, recurrenceJson, isActive);
+        var template = new AssignmentTemplate(workAreaGroupCtrlNbr, code, name, recurrenceJson, isActive);
         template.Raise(new AssignmentTemplateCreatedDomainEvent(template));
         return template;
     }
@@ -62,12 +62,12 @@ public sealed class WorkInstance : Entity
         Status = status;
     }
 
-    public static WorkInstance Create(long? assignmentTemplateCtrlNbr, long workAreaGroupCtrlNbr,
+    public static WorkInstance Create(ControlNumber? assignmentTemplateCtrlNbr, ControlNumber workAreaGroupCtrlNbr,
         DateTime startUtc, DateTime endUtc, DateTime? callTimeUtc, string status = "Planned")
     {
         var instance = new WorkInstance(
-            assignmentTemplateCtrlNbr.HasValue ? ControlNumber.Create(assignmentTemplateCtrlNbr.Value) : null,
-            ControlNumber.Create(workAreaGroupCtrlNbr),
+            assignmentTemplateCtrlNbr,
+            workAreaGroupCtrlNbr,
             startUtc, endUtc, callTimeUtc, status);
         instance.Raise(new WorkInstanceCreatedDomainEvent(instance));
         return instance;
@@ -88,11 +88,11 @@ public sealed class PositionRole : Entity
 
     private PositionRole() { CraftCtrlNbr = null!; }
 
-    public static PositionRole Create(long craftCtrlNbr, string code, string name)
+    public static PositionRole Create(ControlNumber craftCtrlNbr, string code, string name)
     {
         return new PositionRole
         {
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            CraftCtrlNbr = craftCtrlNbr,
             Code = code,
             Name = name
         };
@@ -109,19 +109,19 @@ public sealed class PositionSlot : Entity
 
     private PositionSlot() { WorkInstanceCtrlNbr = null!; PositionRoleCtrlNbr = null!; }
 
-    public static PositionSlot Create(long workInstanceCtrlNbr, long positionRoleCtrlNbr)
+    public static PositionSlot Create(ControlNumber workInstanceCtrlNbr, ControlNumber positionRoleCtrlNbr)
     {
         return new PositionSlot
         {
-            WorkInstanceCtrlNbr = ControlNumber.Create(workInstanceCtrlNbr),
-            PositionRoleCtrlNbr = ControlNumber.Create(positionRoleCtrlNbr),
+            WorkInstanceCtrlNbr = workInstanceCtrlNbr,
+            PositionRoleCtrlNbr = positionRoleCtrlNbr,
             Status = "Created"
         };
     }
 
-    public void Bind(long employeeCtrlNbr, string source)
+    public void Bind(ControlNumber employeeCtrlNbr, string source)
     {
-        BoundEmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr);
+        BoundEmployeeCtrlNbr = employeeCtrlNbr;
         BindingSource = source;
         Status = "Filled";
         Raise(new PositionSlotBoundDomainEvent(this));
@@ -146,15 +146,15 @@ public sealed class SlotRequirement : Entity
 
     private SlotRequirement() { PositionSlotCtrlNbr = null!; }
 
-    public static SlotRequirement Create(long positionSlotCtrlNbr, int priority,
-        long? positionRoleCtrlNbr = null, long? qualificationTypeCtrlNbr = null, string? notes = null)
+    public static SlotRequirement Create(ControlNumber positionSlotCtrlNbr, int priority,
+        ControlNumber? positionRoleCtrlNbr = null, ControlNumber? qualificationTypeCtrlNbr = null, string? notes = null)
     {
         return new SlotRequirement
         {
-            PositionSlotCtrlNbr = ControlNumber.Create(positionSlotCtrlNbr),
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
             Priority = priority,
-            PositionRoleCtrlNbr = positionRoleCtrlNbr.HasValue ? ControlNumber.Create(positionRoleCtrlNbr.Value) : null,
-            QualificationTypeCtrlNbr = qualificationTypeCtrlNbr.HasValue ? ControlNumber.Create(qualificationTypeCtrlNbr.Value) : null,
+            PositionRoleCtrlNbr = positionRoleCtrlNbr,
+            QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
             Notes = notes
         };
     }

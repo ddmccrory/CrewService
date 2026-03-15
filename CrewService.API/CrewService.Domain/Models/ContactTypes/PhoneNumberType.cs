@@ -29,13 +29,13 @@ public sealed class PhoneNumberType : Entity
     }
 
     public static PhoneNumberType Create(
-        long clientCtrlNbr,
+        ControlNumber clientCtrlNbr,
         string name,
         int number,
         bool emergencyType)
     {
         var entity = new PhoneNumberType(
-            ControlNumber.Create(clientCtrlNbr),
+            clientCtrlNbr,
             name,
             number,
             emergencyType);

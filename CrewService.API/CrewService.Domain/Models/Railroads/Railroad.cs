@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.DomainEvents.Railroads;
+using CrewService.Domain.DomainEvents.Railroads;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -19,23 +19,23 @@ public sealed class Railroad : Entity
         Name = name;
     }
 
-    public static Railroad Create(long parentCtrlNbr, string rrMark, string name)
+    public static Railroad Create(ControlNumber parentCtrlNbr, string rrMark, string name)
     {
-        var railroad = new Railroad(ControlNumber.Create(parentCtrlNbr), rrMark, Name.Create(name));
+        var railroad = new Railroad(parentCtrlNbr, rrMark, Name.Create(name));
 
         railroad.Raise(new RailroadCreatedDomainEvent(railroad.CtrlNbr));
 
         return railroad;
     }
 
-    public Railroad Update(long clntCtrlNbr, string rrMark, string name)
+    public Railroad Update(ControlNumber? clntCtrlNbr, string rrMark, string name)
     {
         bool raise = false;
         var changes = new List<object>();
 
-        if (clntCtrlNbr > 0)
+        if (clntCtrlNbr is not null)
         {
-            ParentCtrlNbr = ControlNumber.Create(clntCtrlNbr);
+            ParentCtrlNbr = clntCtrlNbr;
             raise = true;
             changes.Add(new { Field = "ParentCtrlNbr", Value = clntCtrlNbr });
         }

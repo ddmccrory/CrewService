@@ -42,8 +42,8 @@ public sealed class Roster : Entity
     }
 
     public static Roster Create(
-        long craftCtrlNbr,
-        long railroadPayrollDepartmentCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        ControlNumber railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
         int rosterNumber,
@@ -52,8 +52,8 @@ public sealed class Roster : Entity
         bool overtimeBoard)
     {
         var entity = new Roster(
-            ControlNumber.Create(craftCtrlNbr),
-            ControlNumber.Create(railroadPayrollDepartmentCtrlNbr),
+            craftCtrlNbr,
+            railroadPayrollDepartmentCtrlNbr,
             rosterName,
             rosterPluralName,
             rosterNumber,

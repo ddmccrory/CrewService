@@ -28,12 +28,12 @@ public sealed class EmailAddress : Entity
 
     internal static EmailAddress Create(
         ControlNumber employeeCtrlNbr,
-        long emailTypeCtrlNbr,
+        ControlNumber emailTypeCtrlNbr,
         string email)
     {
         var entity = new EmailAddress(
             employeeCtrlNbr,
-            ControlNumber.Create(emailTypeCtrlNbr),
+            emailTypeCtrlNbr,
             email);
         entity.Raise(new EmailAddressCreatedDomainEvent(entity.CtrlNbr));
         return entity;

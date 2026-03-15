@@ -17,18 +17,16 @@ public sealed class PositionVacancy : Entity
 
     private PositionVacancy() { TargetCtrlNbr = null!; CraftCtrlNbr = null!; }
 
-    public static PositionVacancy Create(string targetType, long targetCtrlNbr, long craftCtrlNbr,
-        string vacancyReasonCode, long? previousIncumbentCtrlNbr = null)
+    public static PositionVacancy Create(string targetType, ControlNumber targetCtrlNbr, ControlNumber craftCtrlNbr,
+        string vacancyReasonCode, ControlNumber? previousIncumbentCtrlNbr = null)
     {
         var vacancy = new PositionVacancy
         {
             TargetType = targetType,
-            TargetCtrlNbr = ControlNumber.Create(targetCtrlNbr),
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            TargetCtrlNbr = targetCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
             VacancyReasonCode = vacancyReasonCode,
-            PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr.HasValue
-                ? ControlNumber.Create(previousIncumbentCtrlNbr.Value)
-                : null,
+            PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr,
             OpenedUtc = DateTime.UtcNow
         };
         vacancy.Raise(new PositionVacancyCreatedDomainEvent(vacancy));
@@ -67,13 +65,13 @@ public sealed class Bulletin : Entity
 
     private Bulletin() { PositionVacancyCtrlNbr = null!; CraftCtrlNbr = null!; }
 
-    public static Bulletin Create(long positionVacancyCtrlNbr, long craftCtrlNbr,
+    public static Bulletin Create(ControlNumber positionVacancyCtrlNbr, ControlNumber craftCtrlNbr,
         DateTime bidWindowOpensUtc, DateTime bidWindowClosesUtc)
     {
         var bulletin = new Bulletin
         {
-            PositionVacancyCtrlNbr = ControlNumber.Create(positionVacancyCtrlNbr),
-            CraftCtrlNbr = ControlNumber.Create(craftCtrlNbr),
+            PositionVacancyCtrlNbr = positionVacancyCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
             BidWindowOpensUtc = bidWindowOpensUtc,
             BidWindowClosesUtc = bidWindowClosesUtc
         };
@@ -86,17 +84,17 @@ public sealed class Bulletin : Entity
         Status = "Closed";
     }
 
-    public void Award(long employeeCtrlNbr)
+    public void Award(ControlNumber employeeCtrlNbr)
     {
-        AwardedEmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr);
+        AwardedEmployeeCtrlNbr = employeeCtrlNbr;
         AwardType = "BID";
         Status = "Awarded";
         Raise(new PositionAwardedDomainEvent(this));
     }
 
-    public void ForceAssign(long employeeCtrlNbr)
+    public void ForceAssign(ControlNumber employeeCtrlNbr)
     {
-        AwardedEmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr);
+        AwardedEmployeeCtrlNbr = employeeCtrlNbr;
         AwardType = "FORCED";
         Status = "Forced";
         Raise(new PositionAwardedDomainEvent(this));
@@ -124,12 +122,12 @@ public sealed class BulletinBid : Entity
 
     private BulletinBid() { BulletinCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
-    public static BulletinBid Create(long bulletinCtrlNbr, long employeeCtrlNbr, int priority, int seniorityRank)
+    public static BulletinBid Create(ControlNumber bulletinCtrlNbr, ControlNumber employeeCtrlNbr, int priority, int seniorityRank)
     {
         return new BulletinBid
         {
-            BulletinCtrlNbr = ControlNumber.Create(bulletinCtrlNbr),
-            EmployeeCtrlNbr = ControlNumber.Create(employeeCtrlNbr),
+            BulletinCtrlNbr = bulletinCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
             Priority = priority,
             SubmittedUtc = DateTime.UtcNow,
             SeniorityRank = seniorityRank

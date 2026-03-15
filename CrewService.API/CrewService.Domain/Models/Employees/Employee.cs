@@ -66,7 +66,7 @@ public sealed class Employee : Entity
     }
 
     public static Employee Create(
-        long clientCtrlNbr,
+        ControlNumber clientCtrlNbr,
         string userId,
         string employeeNumber,
         string ssn,
@@ -74,10 +74,10 @@ public sealed class Employee : Entity
         Race race,
         DateTime birthDate,
         DateTime employmentDate,
-        long employmentStatusCtrlNbr)
+        ControlNumber employmentStatusCtrlNbr)
     {
         var employee = new Employee(
-            ControlNumber.Create(clientCtrlNbr),
+            clientCtrlNbr,
             userId,
             employeeNumber,
             ssn,
@@ -85,7 +85,7 @@ public sealed class Employee : Entity
             race,
             birthDate,
             employmentDate,
-            ControlNumber.Create(employmentStatusCtrlNbr));
+            employmentStatusCtrlNbr);
 
         employee.Raise(new EmployeeCreatedDomainEvent(employee.CtrlNbr));
 
@@ -167,7 +167,7 @@ public sealed class Employee : Entity
         return this;
     }
 
-    public Address AddAddress(string address1, string city, string state, string zipCode, long addressTypeCtrlNbr, string? address2 = null)
+    public Address AddAddress(string address1, string city, string state, string zipCode, ControlNumber addressTypeCtrlNbr, string? address2 = null)
     {
         var address = Address.Create(CtrlNbr, addressTypeCtrlNbr, address1, city, state, zipCode, address2);
         _addresses.Add(address);
@@ -175,7 +175,7 @@ public sealed class Employee : Entity
         return address;
     }
 
-    public PhoneNumber AddPhoneNumber(string number, int callingOrder, bool dialOne, long phoneTypeCtrlNbr)
+    public PhoneNumber AddPhoneNumber(string number, int callingOrder, bool dialOne, ControlNumber phoneTypeCtrlNbr)
     {
         var phone = PhoneNumber.Create(CtrlNbr, phoneTypeCtrlNbr, number, callingOrder, dialOne);
         _phoneNumbers.Add(phone);
@@ -183,7 +183,7 @@ public sealed class Employee : Entity
         return phone;
     }
 
-    public EmailAddress AddEmailAddress(string email, long emailTypeCtrlNbr)
+    public EmailAddress AddEmailAddress(string email, ControlNumber emailTypeCtrlNbr)
     {
         var emailAddress = EmailAddress.Create(CtrlNbr, emailTypeCtrlNbr, email);
         _emailAddresses.Add(emailAddress);

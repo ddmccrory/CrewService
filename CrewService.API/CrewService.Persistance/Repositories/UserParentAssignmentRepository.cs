@@ -17,18 +17,16 @@ internal sealed class UserParentAssignmentRepository(CrewServiceDbContext dbCont
             .ToListAsync();
     }
 
-    public async Task<List<UserParentAssignment>> GetByParentCtrlNbrAsync(long parentCtrlNbr)
+    public async Task<List<UserParentAssignment>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr)
     {
-        var ctrlNbr = ControlNumber.Create(parentCtrlNbr);
         return await DbContext.Set<UserParentAssignment>()
-            .Where(a => a.ParentCtrlNbr == ctrlNbr)
+            .Where(a => a.ParentCtrlNbr == parentCtrlNbr)
             .ToListAsync();
     }
 
-    public async Task<UserParentAssignment?> GetByUserAndParentAsync(string userId, long parentCtrlNbr)
+    public async Task<UserParentAssignment?> GetByUserAndParentAsync(string userId, ControlNumber parentCtrlNbr)
     {
-        var ctrlNbr = ControlNumber.Create(parentCtrlNbr);
         return await DbContext.Set<UserParentAssignment>()
-            .SingleOrDefaultAsync(a => a.UserId == userId && a.ParentCtrlNbr == ctrlNbr);
+            .SingleOrDefaultAsync(a => a.UserId == userId && a.ParentCtrlNbr == parentCtrlNbr);
     }
 }
