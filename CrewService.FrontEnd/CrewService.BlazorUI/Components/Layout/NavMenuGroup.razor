@@ -1,0 +1,18 @@
+<details class="nav-group" name="main-nav-accordion" open="@IsInitiallyExpanded">
+    <summary class="nav-group-toggle">
+        <span class="bi @Icon" aria-hidden="true"></span>
+        @Title
+        <span class="nav-group-chevron bi bi-chevron-down" aria-hidden="true"></span>
+    </summary>
+    <div class="nav-group-items">
+        @ChildContent
+    </div>
+</details>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public bool IsInitiallyExpanded { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+}

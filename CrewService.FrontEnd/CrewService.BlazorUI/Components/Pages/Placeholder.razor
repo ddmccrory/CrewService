@@ -1,0 +1,53 @@
+@page "/daily/call-board"
+@page "/daily/assignments"
+@page "/daily/mark-offs"
+@page "/daily/duty-status"
+@page "/daily/vacancy-resolution"
+@page "/staffing/crews"
+@page "/staffing/extra-boards"
+@page "/staffing/bulletins"
+@page "/staffing/roster-boards"
+@page "/employees"
+@page "/employees/seniority"
+@page "/employees/crafts"
+@page "/employees/prior-service"
+@page "/admin/invitations"
+@page "/payroll"
+@page "/payroll/rates"
+@page "/payroll/earning-codes"
+@page "/payroll/holidays"
+@page "/payroll/export"
+@page "/compliance/fra"
+@page "/compliance/safety"
+@page "/compliance/absence-codes"
+@page "/compliance/policies"
+@page "/info/railroad"
+@page "/info/reports"
+@page "/admin/users"
+@page "/admin/notifications"
+@page "/admin/jobs"
+
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+@inject NavigationManager NavigationManager
+
+<PageTitle>@pageName — Crew Service</PageTitle>
+
+<h3>@pageName</h3>
+<p class="text-muted">This page is under construction and will be available in a future release.</p>
+
+@code {
+    private string pageName = "Placeholder";
+
+    protected override void OnParametersSet()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        pageName = relative
+            .Split('?', '#')[0]
+            .Split('/')
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Select(s => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(s.Replace("-", " ")))
+            .LastOrDefault() ?? "Placeholder";
+    }
+}
