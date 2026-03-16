@@ -5,58 +5,288 @@
 <div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">CrewService.BlazorUI</a>
+        <a class="navbar-brand" href=""></a>
     </div>
 </div>        
 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-        <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
-            </NavLink>
-        </div>
-
-        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin,CraftManager,CrewManager,Dispatcher,PayrollClerk">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="parents">
-                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Parents
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView Roles="SystemAdmin,ParentAdmin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="config/group-types">
-                        <span class="bi bi-diagram-3-nav-menu" aria-hidden="true"></span> Group Types
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
+<div class="nav-scrollable" onclick="if(event.target.closest('a')){document.querySelector('.navbar-toggler').click()}">
+    <nav class="nav flex-column">
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Logout">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Daily Operations ── *@
+        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager,Dispatcher">
+            <Authorized>
+                <NavMenuGroup Title="Daily Operations" Icon="bi-calendar-check" IsInitiallyExpanded="@IsCurrentPath("daily")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="daily/call-board">
+                            <span class="bi bi-clipboard2-data" aria-hidden="true"></span> Call Board
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="daily/assignments">
+                            <span class="bi bi-person-workspace" aria-hidden="true"></span> Assignments
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="daily/mark-offs">
+                            <span class="bi bi-calendar-x" aria-hidden="true"></span> Mark-Offs
+                        </NavLink>
+                    </div>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,Dispatcher">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="daily/duty-status">
+                                    <span class="bi bi-clock-history" aria-hidden="true"></span> On-Duty / Off-Duty
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,Dispatcher">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="daily/vacancy-resolution">
+                                    <span class="bi bi-arrow-repeat" aria-hidden="true"></span> Vacancy Resolution
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Crew Staffing ── *@
+        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager">
+            <Authorized>
+                <NavMenuGroup Title="Crew Staffing" Icon="bi-people-fill" IsInitiallyExpanded="@IsCurrentPath("staffing")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="staffing/crews">
+                            <span class="bi bi-people" aria-hidden="true"></span> Crews
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="staffing/extra-boards">
+                            <span class="bi bi-list-ol" aria-hidden="true"></span> Extra Boards
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="staffing/bulletins">
+                            <span class="bi bi-megaphone" aria-hidden="true"></span> Bulletins &amp; Bids
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="staffing/roster-boards">
+                            <span class="bi bi-kanban" aria-hidden="true"></span> Roster Boards
+                        </NavLink>
+                    </div>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Employee Management ── *@
+        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin,CraftManager">
+            <Authorized>
+                <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="employees">
+                            <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
+                        </NavLink>
+                    </div>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/seniority">
+                                    <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/crafts">
+                                    <span class="bi bi-tools" aria-hidden="true"></span> Crafts
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/prior-service">
+                                    <span class="bi bi-hourglass-split" aria-hidden="true"></span> Prior Service Credits
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/invitations">
+                                    <span class="bi bi-envelope-plus" aria-hidden="true"></span> Invitations
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Payroll ── *@
+        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,PayrollClerk">
+            <Authorized>
+                <NavMenuGroup Title="Payroll" Icon="bi-currency-dollar" IsInitiallyExpanded="@IsCurrentPath("payroll")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="payroll">
+                            <span class="bi bi-speedometer2" aria-hidden="true"></span> Payroll Dashboard
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="payroll/rates">
+                            <span class="bi bi-cash-stack" aria-hidden="true"></span> Pay Rates
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="payroll/earning-codes">
+                            <span class="bi bi-tags" aria-hidden="true"></span> Earning Codes
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="payroll/holidays">
+                            <span class="bi bi-calendar-event" aria-hidden="true"></span> Holidays
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="payroll/export">
+                            <span class="bi bi-box-arrow-up" aria-hidden="true"></span> Export / Import
+                        </NavLink>
+                    </div>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Compliance ── *@
+        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+            <Authorized>
+                <NavMenuGroup Title="Compliance" Icon="bi-shield-check" IsInitiallyExpanded="@IsCurrentPath("compliance")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="compliance/fra">
+                            <span class="bi bi-file-earmark-ruled" aria-hidden="true"></span> FRA Compliance
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="compliance/safety">
+                            <span class="bi bi-cone-striped" aria-hidden="true"></span> Safety Observations
+                        </NavLink>
+                    </div>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="compliance/absence-codes">
+                                    <span class="bi bi-calendar-minus" aria-hidden="true"></span> Absence Codes
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="compliance/policies">
+                                    <span class="bi bi-journal-text" aria-hidden="true"></span> Policies
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Information ── *@
+        <AuthorizeView>
+            <Authorized>
+                <NavMenuGroup Title="Information" Icon="bi-info-circle" IsInitiallyExpanded="@IsCurrentPath("info")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="info/railroad">
+                            <span class="bi bi-building" aria-hidden="true"></span> Railroad Info
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="info/reports">
+                            <span class="bi bi-file-bar-graph" aria-hidden="true"></span> Reports
+                        </NavLink>
+                    </div>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Administration ── *@
+        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin">
+            <Authorized>
+                <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin", "parents", "config/group-types")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="parents">
+                            <span class="bi bi-diagram-3" aria-hidden="true"></span> Parents
+                        </NavLink>
+                    </div>
+                    <AuthorizeView Roles="SystemAdmin,ParentAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="config/group-types">
+                                    <span class="bi bi-collection" aria-hidden="true"></span> Group Types
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/users">
+                            <span class="bi bi-person-gear" aria-hidden="true"></span> User Assignments
+                        </NavLink>
+                    </div>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/notifications">
+                                    <span class="bi bi-bell" aria-hidden="true"></span> Notification Config
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/jobs">
+                                    <span class="bi bi-cpu" aria-hidden="true"></span> Background Jobs
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Auth (Logout / Login) ── *@
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <form action="Account/Logout" method="post" @formname="logout-form">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
                         <button type="submit" class="nav-link">
                             <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
                         </button>
-                    </NavLink>
+                    </form>
                 </div>
             </Authorized>
             <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
-                    </NavLink>
-                </div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Login">
                         <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
@@ -70,6 +300,19 @@
 
 @code {
     private string? currentUrl;
+
+    private bool IsCurrentPath(params string[] prefixes)
+    {
+        if (string.IsNullOrWhiteSpace(currentUrl))
+        {
+            return false;
+        }
+
+        return prefixes.Any(prefix =>
+            currentUrl.Equals(prefix, StringComparison.OrdinalIgnoreCase)
+            || currentUrl.StartsWith($"{prefix}/", StringComparison.OrdinalIgnoreCase)
+            || currentUrl.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
 
     protected override void OnInitialized()
     {
