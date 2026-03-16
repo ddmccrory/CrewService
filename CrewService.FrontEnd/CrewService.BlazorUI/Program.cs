@@ -40,6 +40,7 @@ builder.Services.AddScoped<AuthenticationStateProvider, PersistingServerAuthenti
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<AppThemeService>();
+builder.Services.AddScoped<AppContextService>();
 
 var app = builder.Build();
 
@@ -63,6 +64,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
+
+app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()

@@ -1,0 +1,123 @@
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Services
+
+@inject ParentsClient ParentsClient
+@inject AppContextService AppContext
+
+<div class="context-switcher d-flex align-items-center gap-2">
+    <select class="form-select form-select-sm" @onchange="OnParentChanged" value="@selectedParentCtrlNbrString" disabled="@(parentOptions.Count <= 1)">
+        <option value="">Parent</option>
+        @foreach (var parent in parentOptions)
+        {
+            <option value="@parent.CtrlNbr">@parent.Name</option>
+        }
+    </select>
+
+    <select class="form-select form-select-sm" @onchange="OnRailroadChanged" value="@selectedRailroadCtrlNbrString" disabled="@(!selectedParentCtrlNbr.HasValue || railroadOptions.Count <= 1)">
+        <option value="">Railroad</option>
+        @foreach (var railroad in railroadOptions)
+        {
+            <option value="@railroad.CtrlNbr">@railroad.DisplayName</option>
+        }
+    </select>
+</div>
+
+@code {
+    private readonly List<ParentOption> parentOptions = [];
+    private readonly List<RailroadOption> railroadOptions = [];
+
+    private long? selectedParentCtrlNbr;
+    private long? selectedRailroadCtrlNbr;
+
+    private string selectedParentCtrlNbrString => selectedParentCtrlNbr?.ToString() ?? string.Empty;
+    private string selectedRailroadCtrlNbrString => selectedRailroadCtrlNbr?.ToString() ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await ParentsClient.GetAllAsync();
+        parentOptions.Clear();
+        parentOptions.AddRange(response.Parent
+            .Select(p => new ParentOption(
+                p.CtrlNbr,
+                p.Name,
+                p.Railroads
+                    .Select(r => new RailroadOption(r.CtrlNbr, r.Name, string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}"))
+                    .OrderBy(r => r.DisplayName)
+                    .ToList()))
+            .OrderBy(p => p.Name));
+
+        if (parentOptions.Count == 1)
+        {
+            var onlyParent = parentOptions[0];
+            selectedParentCtrlNbr = onlyParent.CtrlNbr;
+            railroadOptions.Clear();
+            railroadOptions.AddRange(onlyParent.Railroads);
+            AppContext.SetParent(onlyParent.CtrlNbr, onlyParent.Name);
+
+            if (railroadOptions.Count == 1)
+            {
+                var onlyRailroad = railroadOptions[0];
+                selectedRailroadCtrlNbr = onlyRailroad.CtrlNbr;
+                AppContext.SetRailroad(onlyRailroad.CtrlNbr, onlyRailroad.Name);
+            }
+        }
+    }
+
+    private Task OnParentChanged(ChangeEventArgs e)
+    {
+        if (!long.TryParse(e.Value?.ToString(), out var parentCtrlNbr))
+        {
+            selectedParentCtrlNbr = null;
+            selectedRailroadCtrlNbr = null;
+            railroadOptions.Clear();
+            AppContext.Clear();
+            return Task.CompletedTask;
+        }
+
+        var selectedParent = parentOptions.FirstOrDefault(p => p.CtrlNbr == parentCtrlNbr);
+        if (selectedParent is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        selectedParentCtrlNbr = selectedParent.CtrlNbr;
+        selectedRailroadCtrlNbr = null;
+
+        railroadOptions.Clear();
+        railroadOptions.AddRange(selectedParent.Railroads);
+
+        AppContext.SetParent(selectedParent.CtrlNbr, selectedParent.Name);
+
+        if (railroadOptions.Count == 1)
+        {
+            var onlyRailroad = railroadOptions[0];
+            selectedRailroadCtrlNbr = onlyRailroad.CtrlNbr;
+            AppContext.SetRailroad(onlyRailroad.CtrlNbr, onlyRailroad.Name);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnRailroadChanged(ChangeEventArgs e)
+    {
+        if (!long.TryParse(e.Value?.ToString(), out var railroadCtrlNbr))
+        {
+            selectedRailroadCtrlNbr = null;
+            return Task.CompletedTask;
+        }
+
+        var selectedRailroad = railroadOptions.FirstOrDefault(r => r.CtrlNbr == railroadCtrlNbr);
+        if (selectedRailroad is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        selectedRailroadCtrlNbr = selectedRailroad.CtrlNbr;
+        AppContext.SetRailroad(selectedRailroad.CtrlNbr, selectedRailroad.Name);
+
+        return Task.CompletedTask;
+    }
+
+    private sealed record ParentOption(long CtrlNbr, string Name, List<RailroadOption> Railroads);
+    private sealed record RailroadOption(long CtrlNbr, string Name, string DisplayName);
+}
