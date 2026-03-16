@@ -183,6 +183,100 @@ internal static class DevDataSeeder
             }
         }
 
+        // Backfill core CSX baseline entities for stale DBs where initial seed was partially applied.
+        var groupTypesBackfill = await groupTypeRepo.GetAllAsync();
+        var regionTypeBackfill = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "Region");
+        if (regionTypeBackfill is null)
+        {
+            regionTypeBackfill = GroupType.Create("Region", "Geographic region", isWorkArea: false);
+            await groupTypeRepo.AddAsync(regionTypeBackfill);
+        }
+
+        var subdivTypeBackfill = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "Subdivision");
+        if (subdivTypeBackfill is null)
+        {
+            subdivTypeBackfill = GroupType.Create("Subdivision", "Track subdivision", isWorkArea: false);
+            await groupTypeRepo.AddAsync(subdivTypeBackfill);
+        }
+
+        var workAreaTypeBackfill = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "WorkArea");
+        if (workAreaTypeBackfill is null)
+        {
+            workAreaTypeBackfill = GroupType.Create("WorkArea", "Operational work area", isWorkArea: true);
+            await groupTypeRepo.AddAsync(workAreaTypeBackfill);
+        }
+
+        var allParentsCore = await parentRepo.GetAllAsync();
+        var csxParentCore = allParentsCore.FirstOrDefault(p => p.Name.Value == "CSX Corporation");
+        if (csxParentCore is null)
+        {
+            csxParentCore = Parent.Create("CSX Corporation");
+            await parentRepo.AddAsync(csxParentCore);
+        }
+
+        var allRailroadsCore = await railroadRepo.GetAllAsync();
+        var csxRailroadCore = allRailroadsCore.FirstOrDefault(rr => rr.RailroadMark == "CSX");
+        if (csxRailroadCore is null)
+        {
+            csxRailroadCore = Railroad.Create(csxParentCore.CtrlNbr.Value, "CSX", "CSX Transportation");
+            await railroadRepo.AddAsync(csxRailroadCore);
+        }
+
+        var csxtRailroadCore = allRailroadsCore.FirstOrDefault(rr => rr.RailroadMark == "CSXT");
+        if (csxtRailroadCore is null)
+        {
+            csxtRailroadCore = Railroad.Create(csxParentCore.CtrlNbr.Value, "CSXT", "CSX Intermodal");
+            await railroadRepo.AddAsync(csxtRailroadCore);
+        }
+
+        var allGroupsCore = await groupRepo.GetAllAsync();
+        var southeastCore = allGroupsCore.FirstOrDefault(g => g.Name == "Southeast Region");
+        if (southeastCore is null)
+        {
+            southeastCore = DynamicGroup.Create(
+                regionTypeBackfill.CtrlNbr.Value,
+                "Southeast Region",
+                parentGroupCtrlNbr: null,
+                path: "/southeast",
+                isWorkArea: false);
+            await groupRepo.AddAsync(southeastCore);
+        }
+
+        var jaxSubCore = allGroupsCore.FirstOrDefault(g => g.Name == "Jacksonville Sub");
+        if (jaxSubCore is null)
+        {
+            jaxSubCore = DynamicGroup.Create(
+                subdivTypeBackfill.CtrlNbr.Value,
+                "Jacksonville Sub",
+                parentGroupCtrlNbr: southeastCore.CtrlNbr.Value,
+                path: "/southeast/jax",
+                isWorkArea: false);
+            await groupRepo.AddAsync(jaxSubCore);
+        }
+
+        var jaxYardCore = allGroupsCore.FirstOrDefault(g => g.Name == "Jax Yard");
+        if (jaxYardCore is null)
+        {
+            jaxYardCore = DynamicGroup.Create(
+                workAreaTypeBackfill.CtrlNbr.Value,
+                "Jax Yard",
+                parentGroupCtrlNbr: jaxSubCore.CtrlNbr.Value,
+                path: "/southeast/jax/yard",
+                isWorkArea: true);
+            await groupRepo.AddAsync(jaxYardCore);
+        }
+
+        var placementsCore = await placementRepo.GetAllAsync();
+        if (placementsCore.All(p => p.RailroadCtrlNbr != csxRailroadCore.CtrlNbr || p.GroupCtrlNbr != southeastCore.CtrlNbr))
+        {
+            await placementRepo.AddAsync(RailroadGroupPlacement.Create(csxRailroadCore.CtrlNbr, southeastCore.CtrlNbr));
+        }
+
+        if (placementsCore.All(p => p.RailroadCtrlNbr != csxtRailroadCore.CtrlNbr || p.GroupCtrlNbr != jaxYardCore.CtrlNbr))
+        {
+            await placementRepo.AddAsync(RailroadGroupPlacement.Create(csxtRailroadCore.CtrlNbr, jaxYardCore.CtrlNbr));
+        }
+
         // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????
         var employeeRepo = sp.GetRequiredService<IEmployeeRepository>();
         var userMgr = sp.GetRequiredService<UserManager<User>>();
@@ -198,9 +292,8 @@ internal static class DevDataSeeder
         var phoneNumberTypeRepo = sp.GetRequiredService<IPhoneNumberTypeRepository>();
         var emailAddressTypeRepo = sp.GetRequiredService<IEmailAddressTypeRepository>();
 
-        // Look up the CSX Corporation parent (created above or in a prior run)
-        var parents = await parentRepo.GetAllAsync();
-        var csxParent = parents.First(p => p.Name.Value == "CSX Corporation");
+        // Reuse ensured baseline parent.
+        var csxParent = csxParentCore;
 
         // Reference data
         var activeStatus = EmploymentStatus.Create(csxParent.CtrlNbr.Value, "A", "Active", 1, "FT");
@@ -317,8 +410,7 @@ internal static class DevDataSeeder
         }
 
         // ?? Upgrade specific employee assignments via invitation flow ????
-        var allParents = await parentRepo.GetAllAsync();
-        var csxCorp = allParents.First(p => p.Name.Value == "CSX Corporation");
+        var csxCorp = csxParentCore;
         var allEmployees = await employeeRepo.GetAllAsync();
 
         // Upgrade first 6 employees to distinct roles (they already have ReadOnly from above)
@@ -353,7 +445,7 @@ internal static class DevDataSeeder
         {
         // Look up Jax Yard and PTRA Terminal work areas
         var allGroups = await groupRepo.GetAllAsync();
-        var jaxYardGroup = allGroups.First(g => g.Name == "Jax Yard");
+        var jaxYardGroup = jaxYardCore;
         var ptraGroup = allGroups.FirstOrDefault(g => g.Name == "PTRA Terminal");
 
         // CSX Crafts at Jax Yard
