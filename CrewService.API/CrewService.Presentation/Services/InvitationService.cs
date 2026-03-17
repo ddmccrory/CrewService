@@ -1,11 +1,13 @@
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.UserAccess;
+using CrewService.Application.Modules.UserAccess;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.ValueObjects;
 using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 
@@ -16,7 +18,9 @@ public class InvitationService(
     ICurrentUserService currentUserService,
     IUserParentAssignmentRepository assignmentRepository,
     IParentRepository parentRepository,
-    UserManager<User> userManager)
+    UserManager<User> userManager,
+    IInvitationEmailService emailService,
+    IConfiguration configuration)
     : InvitationSrvc.InvitationSrvcBase
 {
     private readonly IInvitationRepository _invitationRepository = invitationRepository;
@@ -24,6 +28,8 @@ public class InvitationService(
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
     private readonly IParentRepository _parentRepository = parentRepository;
     private readonly UserManager<User> _userManager = userManager;
+    private readonly IInvitationEmailService _emailService = emailService;
+    private readonly string _baseUrl = configuration["AppSettings:BaseUrl"] ?? "https://localhost:7132";
 
     public override async Task<InvitationResponse> CreateInvitation(CreateInvitationRequest request, ServerCallContext context)
     {
@@ -61,6 +67,14 @@ public class InvitationService(
             expirationDays);
 
         await _invitationRepository.AddAsync(invitation);
+
+        // Send invitation email
+        var parent = await _parentRepository.GetByCtrlNbrAsync(invitation.ParentCtrlNbr);
+        var parentName = parent?.Name.Value ?? $"Parent {invitation.ParentCtrlNbr.Value}";
+        var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(invitation.Token)}";
+
+        await _emailService.SendInvitationAsync(
+            invitation.Email, invitation.Role, parentName, acceptUrl, invitation.ExpiresAt);
 
         return MapToResponse(invitation);
     }
@@ -153,6 +167,14 @@ public class InvitationService(
             _currentUserService.GetUserId().ToString());
 
         await _invitationRepository.AddAsync(newInvitation);
+
+        // Send reminder email
+        var parent = await _parentRepository.GetByCtrlNbrAsync(newInvitation.ParentCtrlNbr);
+        var parentName = parent?.Name.Value ?? $"Parent {newInvitation.ParentCtrlNbr.Value}";
+        var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(newInvitation.Token)}";
+
+        await _emailService.SendReminderAsync(
+            newInvitation.Email, newInvitation.Role, parentName, acceptUrl, newInvitation.ExpiresAt);
 
         return MapToResponse(newInvitation);
     }
