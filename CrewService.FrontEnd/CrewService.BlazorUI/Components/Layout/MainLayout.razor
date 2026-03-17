@@ -2,7 +2,7 @@
 
 <div class="page">
     <div class="sidebar">
-        <NavMenu @rendermode="InteractiveServer" />
+        <NavMenu @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     </div>
 
     <main>
@@ -12,7 +12,7 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="topbar-auth d-flex align-items-center ms-auto gap-2">
-                            <CrewService.BlazorUI.Components.Layout.ContextSwitcher @rendermode="InteractiveServer" />
+                            <CrewService.BlazorUI.Components.Layout.ContextSwitcher @rendermode="new InteractiveServerRenderMode(prerender: false)" />
                             <div class="nav-item px-1">
                                 <NavLink class="nav-link p-0" href="Account/Manage">
                                     <div class="btn btn-outline-light" aria-hidden="true">@context.User.Identity?.Name</div>
