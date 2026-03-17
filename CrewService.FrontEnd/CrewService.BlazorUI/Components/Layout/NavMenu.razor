@@ -280,7 +280,7 @@
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post" @formname="logout-form">
+                    <form action="Account/Logout" method="post" data-enhance="false">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
                         <button type="submit" class="nav-link">

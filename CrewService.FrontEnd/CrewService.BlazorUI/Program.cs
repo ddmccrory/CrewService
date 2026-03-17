@@ -2,6 +2,7 @@ using CrewService.BlazorUI.Clients;
 using CrewService.BlazorUI.Components;
 using CrewService.BlazorUI.Components.Account;
 using CrewService.BlazorUI.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 
@@ -66,6 +67,16 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+
+app.MapPost("/Account/Logout", async (HttpContext context) =>
+{
+    var themeService = context.RequestServices.GetRequiredService<AppThemeService>();
+    themeService.ResetThemeValues();
+
+    await context.SignOutAsync();
+
+    return Results.Redirect("/Account/Login");
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()

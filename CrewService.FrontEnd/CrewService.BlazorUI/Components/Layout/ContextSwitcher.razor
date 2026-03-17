@@ -6,7 +6,7 @@
 
 <div class="context-switcher d-flex align-items-center gap-2">
     <select class="form-select form-select-sm" @onchange="OnParentChanged" value="@selectedParentCtrlNbrString" disabled="@(parentOptions.Count <= 1)">
-        <option value="">Parent</option>
+        <option value="">Select a Parent</option>
         @foreach (var parent in parentOptions)
         {
             <option value="@parent.CtrlNbr">@parent.Name</option>
@@ -14,7 +14,7 @@
     </select>
 
     <select class="form-select form-select-sm" @onchange="OnRailroadChanged" value="@selectedRailroadCtrlNbrString" disabled="@(!selectedParentCtrlNbr.HasValue || railroadOptions.Count <= 1)">
-        <option value="">Railroad</option>
+        <option value="">Select a Railroad</option>
         @foreach (var railroad in railroadOptions)
         {
             <option value="@railroad.CtrlNbr">@railroad.DisplayName</option>
@@ -103,6 +103,7 @@
         if (!long.TryParse(e.Value?.ToString(), out var railroadCtrlNbr))
         {
             selectedRailroadCtrlNbr = null;
+            AppContext.ClearRailroad();
             return Task.CompletedTask;
         }
 

@@ -34,6 +34,13 @@ public class AppContextService
         OnContextChanged?.Invoke();
     }
 
+    public void ClearRailroad()
+    {
+        SelectedRailroadCtrlNbr = null;
+        SelectedRailroadName = null;
+        OnContextChanged?.Invoke();
+    }
+
     public void Clear()
     {
         SelectedParentCtrlNbr = null;
