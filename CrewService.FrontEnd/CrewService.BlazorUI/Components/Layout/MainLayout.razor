@@ -2,19 +2,22 @@
 
 <div class="page">
     <div class="sidebar">
-        <NavMenu />
+        <NavMenu @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     </div>
 
     <main>
-        <nav class="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
+        <nav class="navbar navbar-expand-lg bg-primary">
             <div class="container-fluid">
-                <h4 class="text-body">Crew Service Management</h4>
+                <h4 class="text-body mb-0">Crew Service Management</h4>
                 <AuthorizeView>
                     <Authorized>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="Account/Manage">
-                                <div class="btn btn-outline-secondary" aria-hidden="true"> @context.User.Identity?.Name</div>
-                            </NavLink>
+                        <div class="topbar-auth d-flex align-items-center ms-auto gap-2">
+                            <CrewService.BlazorUI.Components.Layout.ContextSwitcher @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                            <div class="nav-item px-1">
+                                <NavLink class="nav-link p-0" href="Account/Manage">
+                                    <div class="btn btn-outline-light" aria-hidden="true">@context.User.Identity?.Name</div>
+                                </NavLink>
+                            </div>
                         </div>
                     </Authorized>
                 </AuthorizeView>

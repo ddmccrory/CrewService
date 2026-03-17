@@ -1,0 +1,212 @@
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Services
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+
+@inject ParentsClient ParentsClient
+@inject AppContextService AppContext
+@inject ProtectedSessionStorage SessionStorage
+
+<div class="context-switcher d-flex align-items-center gap-2">
+    <select class="form-select form-select-sm" @onchange="OnParentChanged" value="@selectedParentCtrlNbrString" disabled="@(parentOptions.Count <= 1)">
+        <option value="">Select a Parent</option>
+        @foreach (var parent in parentOptions)
+        {
+            <option value="@parent.CtrlNbr">@parent.Name</option>
+        }
+    </select>
+
+    <select class="form-select form-select-sm" @onchange="OnRailroadChanged" value="@selectedRailroadCtrlNbrString" disabled="@(!selectedParentCtrlNbr.HasValue || railroadOptions.Count <= 1)">
+        <option value="">Select a Railroad</option>
+        @foreach (var railroad in railroadOptions)
+        {
+            <option value="@railroad.CtrlNbr">@railroad.DisplayName</option>
+        }
+    </select>
+</div>
+
+@code {
+    private const string StorageKeyParent = "ctx_parent";
+    private const string StorageKeyRailroad = "ctx_railroad";
+
+    private readonly List<ParentOption> parentOptions = [];
+    private readonly List<RailroadOption> railroadOptions = [];
+
+    private long? selectedParentCtrlNbr;
+    private long? selectedRailroadCtrlNbr;
+
+    private bool _dataLoaded;
+    private bool _restored;
+
+    private string selectedParentCtrlNbrString => selectedParentCtrlNbr?.ToString() ?? string.Empty;
+    private string selectedRailroadCtrlNbrString => selectedRailroadCtrlNbr?.ToString() ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await ParentsClient.GetAllAsync();
+        parentOptions.Clear();
+        parentOptions.AddRange(response.Parent
+            .Select(p => new ParentOption(
+                p.CtrlNbr,
+                p.Name,
+                p.Railroads
+                    .Select(r => new RailroadOption(r.CtrlNbr, r.Name, string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}"))
+                    .OrderBy(r => r.DisplayName)
+                    .ToList()))
+            .OrderBy(p => p.Name));
+        _dataLoaded = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_restored || !_dataLoaded) return;
+        _restored = true;
+
+        var restoredFromSession = await TryRestoreFromSessionAsync();
+
+        if (!restoredFromSession)
+        {
+            AutoSelectSingleOptions();
+        }
+
+        if (selectedParentCtrlNbr.HasValue)
+        {
+            await PersistToSessionAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task<bool> TryRestoreFromSessionAsync()
+    {
+        try
+        {
+            var parentResult = await SessionStorage.GetAsync<StoredContext>(StorageKeyParent);
+            if (!parentResult.Success || parentResult.Value is null) return false;
+
+            var storedParent = parentResult.Value;
+            var parent = parentOptions.FirstOrDefault(p => p.CtrlNbr == storedParent.CtrlNbr);
+            if (parent is null) return false;
+
+            selectedParentCtrlNbr = parent.CtrlNbr;
+            railroadOptions.Clear();
+            railroadOptions.AddRange(parent.Railroads);
+            AppContext.SetParent(parent.CtrlNbr, parent.Name);
+
+            var railroadResult = await SessionStorage.GetAsync<StoredContext>(StorageKeyRailroad);
+            if (railroadResult.Success && railroadResult.Value is not null)
+            {
+                var storedRailroad = railroadResult.Value;
+                var railroad = railroadOptions.FirstOrDefault(r => r.CtrlNbr == storedRailroad.CtrlNbr);
+                if (railroad is not null)
+                {
+                    selectedRailroadCtrlNbr = railroad.CtrlNbr;
+                    AppContext.SetRailroad(railroad.CtrlNbr, railroad.Name);
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void AutoSelectSingleOptions()
+    {
+        if (parentOptions.Count == 1)
+        {
+            var onlyParent = parentOptions[0];
+            selectedParentCtrlNbr = onlyParent.CtrlNbr;
+            railroadOptions.Clear();
+            railroadOptions.AddRange(onlyParent.Railroads);
+            AppContext.SetParent(onlyParent.CtrlNbr, onlyParent.Name);
+
+            if (railroadOptions.Count == 1)
+            {
+                var onlyRailroad = railroadOptions[0];
+                selectedRailroadCtrlNbr = onlyRailroad.CtrlNbr;
+                AppContext.SetRailroad(onlyRailroad.CtrlNbr, onlyRailroad.Name);
+            }
+        }
+    }
+
+    private async Task PersistToSessionAsync()
+    {
+        if (selectedParentCtrlNbr.HasValue)
+        {
+            var parentName = parentOptions.FirstOrDefault(p => p.CtrlNbr == selectedParentCtrlNbr)?.Name ?? string.Empty;
+            await SessionStorage.SetAsync(StorageKeyParent, new StoredContext(selectedParentCtrlNbr.Value, parentName));
+        }
+        else
+        {
+            await SessionStorage.DeleteAsync(StorageKeyParent);
+        }
+
+        if (selectedRailroadCtrlNbr.HasValue)
+        {
+            var railroadName = railroadOptions.FirstOrDefault(r => r.CtrlNbr == selectedRailroadCtrlNbr)?.Name ?? string.Empty;
+            await SessionStorage.SetAsync(StorageKeyRailroad, new StoredContext(selectedRailroadCtrlNbr.Value, railroadName));
+        }
+        else
+        {
+            await SessionStorage.DeleteAsync(StorageKeyRailroad);
+        }
+    }
+
+    private async Task OnParentChanged(ChangeEventArgs e)
+    {
+        if (!long.TryParse(e.Value?.ToString(), out var parentCtrlNbr))
+        {
+            selectedParentCtrlNbr = null;
+            selectedRailroadCtrlNbr = null;
+            railroadOptions.Clear();
+            AppContext.Clear();
+            await PersistToSessionAsync();
+            return;
+        }
+
+        var selectedParent = parentOptions.FirstOrDefault(p => p.CtrlNbr == parentCtrlNbr);
+        if (selectedParent is null) return;
+
+        selectedParentCtrlNbr = selectedParent.CtrlNbr;
+        selectedRailroadCtrlNbr = null;
+
+        railroadOptions.Clear();
+        railroadOptions.AddRange(selectedParent.Railroads);
+
+        AppContext.SetParent(selectedParent.CtrlNbr, selectedParent.Name);
+
+        if (railroadOptions.Count == 1)
+        {
+            var onlyRailroad = railroadOptions[0];
+            selectedRailroadCtrlNbr = onlyRailroad.CtrlNbr;
+            AppContext.SetRailroad(onlyRailroad.CtrlNbr, onlyRailroad.Name);
+        }
+
+        await PersistToSessionAsync();
+    }
+
+    private async Task OnRailroadChanged(ChangeEventArgs e)
+    {
+        if (!long.TryParse(e.Value?.ToString(), out var railroadCtrlNbr))
+        {
+            selectedRailroadCtrlNbr = null;
+            AppContext.ClearRailroad();
+            await PersistToSessionAsync();
+            return;
+        }
+
+        var selectedRailroad = railroadOptions.FirstOrDefault(r => r.CtrlNbr == railroadCtrlNbr);
+        if (selectedRailroad is null) return;
+
+        selectedRailroadCtrlNbr = selectedRailroad.CtrlNbr;
+        AppContext.SetRailroad(selectedRailroad.CtrlNbr, selectedRailroad.Name);
+
+        await PersistToSessionAsync();
+    }
+
+    private sealed record ParentOption(long CtrlNbr, string Name, List<RailroadOption> Railroads);
+    private sealed record RailroadOption(long CtrlNbr, string Name, string DisplayName);
+    private sealed record StoredContext(long CtrlNbr, string Name);
+}

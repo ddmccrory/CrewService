@@ -1,6 +1,7 @@
 ﻿@implements IDisposable
 
 @inject NavigationManager NavigationManager
+@inject CrewService.BlazorUI.Services.AppContextService AppContext
 
 <div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
@@ -23,6 +24,8 @@
             </Authorized>
         </AuthorizeView>
 
+        @if (AppContext.IsFullySelected)
+        {
         @* ── Daily Operations ── *@
         <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager,Dispatcher">
             <Authorized>
@@ -63,7 +66,6 @@
                 </NavMenuGroup>
             </Authorized>
         </AuthorizeView>
-
         @* ── Crew Staffing ── *@
         <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager">
             <Authorized>
@@ -272,12 +274,13 @@
                 </NavMenuGroup>
             </Authorized>
         </AuthorizeView>
+        }
 
         @* ── Auth (Logout / Login) ── *@
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post" @formname="logout-form">
+                    <form action="Account/Logout" method="post" data-enhance="false">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
                         <button type="submit" class="nav-link">
@@ -318,6 +321,7 @@
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
+        AppContext.OnContextChanged += OnContextChanged;
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -326,9 +330,15 @@
         StateHasChanged();
     }
 
+    private void OnContextChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        AppContext.OnContextChanged -= OnContextChanged;
     }
 }
 
