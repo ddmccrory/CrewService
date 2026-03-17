@@ -4,8 +4,6 @@ namespace CrewService.BlazorUI.Models.Account;
 
 internal sealed class RegisterInputModel
 {
-    [Required]
-    [Display(Name = "Invitation Token")]
     public string InvitationToken { get; set; } = "";
 
     [Required]

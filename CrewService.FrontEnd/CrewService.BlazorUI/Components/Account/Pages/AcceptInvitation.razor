@@ -1,0 +1,172 @@
+@page "/Account/AcceptInvitation"
+@attribute [ExcludeFromInteractiveRouting]
+
+@using CrewService.BlazorUI.Models.Account
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Components.Account.Shared
+
+@inject ILogger<AcceptInvitation> Logger
+@inject IdentityRedirectManager RedirectManager
+@inject AuthClient AuthService
+@inject InvitationTokenClient InvitationTokenClient
+
+<PageTitle>Accept Invitation</PageTitle>
+
+<h1>Accept Invitation</h1>
+
+@if (isLoading)
+{
+    <p><em>Validating invitation&hellip;</em></p>
+}
+else if (!string.IsNullOrEmpty(statusError))
+{
+    <div class="alert alert-danger" role="alert">
+        @statusError
+    </div>
+}
+else if (userAlreadyExists)
+{
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">Role Assigned</h4>
+        <p>You already have an account (<strong>@invitationEmail</strong>). The <strong>@invitationRole</strong> role for <strong>@invitationParentName</strong> has been applied to your account.</p>
+        <hr />
+        <p class="mb-0">You can now <a href="/Account/Login">sign in</a> to access your new role.</p>
+    </div>
+}
+else if (tokenValid)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Invitation Details</h5>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Email</dt>
+                        <dd class="col-sm-8">@invitationEmail</dd>
+                        <dt class="col-sm-4">Role</dt>
+                        <dd class="col-sm-8">@invitationRole</dd>
+                        <dt class="col-sm-4">Parent</dt>
+                        <dd class="col-sm-8">@invitationParentName</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <StatusMessage Message="@errorMessage" />
+            <EditForm Model="Input!" method="post" OnValidSubmit="RegisterUser" FormName="accept-invitation">
+                <DataAnnotationsValidator />
+                <h5>Create your password</h5>
+                <hr />
+                <ValidationSummary class="text-danger" role="alert" />
+                <div class="form-floating mb-3">
+                    <InputText id="password" type="password" @bind-Value="Input!.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                    <label for="password">Password</label>
+                    <ValidationMessage For="() => Input!.Password" class="text-danger" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText id="confirm-password" type="password" @bind-Value="Input!.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                    <label for="confirm-password">Confirm Password</label>
+                    <ValidationMessage For="() => Input!.ConfirmPassword" class="text-danger" />
+                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary">Create Account</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private string? errorMessage;
+    private string? statusError;
+    private bool isLoading = true;
+    private bool tokenValid;
+    private bool userAlreadyExists;
+    private string? invitationEmail;
+    private string? invitationRole;
+    private string? invitationParentName;
+
+    [SupplyParameterFromForm]
+    private RegisterInputModel? Input { get; set; }
+
+    [SupplyParameterFromQuery(Name = "token")]
+    private string? Token { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            statusError = "No invitation token was provided. Please use the link from your invitation email.";
+            isLoading = false;
+            return;
+        }
+
+        Input.InvitationToken = Token;
+
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            try
+            {
+                var result = await InvitationTokenClient.ValidateTokenAsync(Token);
+
+                invitationEmail = result.Email;
+                invitationRole = result.Role;
+                invitationParentName = result.ParentName;
+
+                if (!result.IsValid)
+                {
+                    statusError = result.Status switch
+                    {
+                        "Expired" => "This invitation has expired. Please contact your administrator for a new invitation.",
+                        "Revoked" => "This invitation has been revoked. Please contact your administrator.",
+                        "Accepted" => "This invitation has already been accepted.",
+                        _ => $"This invitation is no longer valid (status: {result.Status})."
+                    };
+                    isLoading = false;
+                    return;
+                }
+
+                if (result.UserAlreadyExists)
+                {
+                    userAlreadyExists = true;
+                    isLoading = false;
+                    return;
+                }
+
+                tokenValid = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to validate invitation token");
+                statusError = "Unable to validate the invitation token. Please try again later.";
+            }
+        }
+        else
+        {
+            // POST — we still need the display values but skip re-validation
+            tokenValid = true;
+        }
+
+        isLoading = false;
+    }
+
+    public async Task RegisterUser()
+    {
+        var result = await AuthService.RegisterUserAsync(Input!);
+
+        if (!result.Success)
+        {
+            errorMessage = $"Error: {string.Join(", ", result.Message)}";
+            return;
+        }
+
+        Logger.LogInformation("User created a new account via invitation.");
+        RedirectManager.RedirectTo("/Account/Login");
+    }
+}
