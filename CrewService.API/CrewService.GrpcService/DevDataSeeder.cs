@@ -461,7 +461,7 @@ internal static class DevDataSeeder
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1);
         await craftRepo.AddAsync(csxConductor);
 
-        var csxClerical = Craft.Create(jaxYardGroup.CtrlNbr, "Clerical", "Clericals", 3,
+        var csxClerical = Craft.Create(jaxYardGroup.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0);
@@ -482,7 +482,7 @@ internal static class DevDataSeeder
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1);
         await craftRepo.AddAsync(ptraConductor);
 
-        var ptraClerical = Craft.Create(ptraGroup.CtrlNbr, "Clerical", "Clericals", 3,
+        var ptraClerical = Craft.Create(ptraGroup.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0);
