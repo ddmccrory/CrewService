@@ -1,6 +1,7 @@
 using CrewService.BlazorUI.Clients;
 using CrewService.BlazorUI.Components;
 using CrewService.BlazorUI.Components.Account;
+using CrewService.BlazorUI.Middleware;
 using CrewService.BlazorUI.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -65,6 +66,8 @@ app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<AppContextCookieMiddleware>();
 
 app.UseAntiforgery();
 
