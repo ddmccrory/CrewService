@@ -1,4 +1,5 @@
 @page "/admin/invitations"
+@attribute [ExcludeFromInteractiveRouting]
 
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
@@ -26,18 +27,24 @@ else
 {
     <p class="text-muted mb-3">Managing invitations for <strong>@AppContext.SelectedParentName</strong></p>
 
-    <div class="mb-3">
-        <button class="btn btn-primary" @onclick="ShowCreateForm">
-            <span class="bi bi-plus-circle"></span> Create Invitation
-        </button>
-    </div>
+    @if (!showCreateForm)
+    {
+        <div class="mb-3">
+            <form method="post" @formname="showCreate" @onsubmit="ShowCreateForm">
+                <AntiforgeryToken />
+                <button type="submit" class="btn btn-primary">
+                    <span class="bi bi-plus-circle"></span> Create Invitation
+                </button>
+            </form>
+        </div>
+    }
 
     @if (showCreateForm)
     {
         <div class="card mb-3">
             <div class="card-body">
                 <h5 class="card-title">Create Invitation</h5>
-                <EditForm Model="createModel" OnValidSubmit="CreateInvitation" FormName="createInvitation">
+                <EditForm Model="createModel" method="post" OnValidSubmit="CreateInvitation" FormName="createInvitation">
                     <DataAnnotationsValidator />
                     <div class="row g-3 align-items-end">
                         <div class="col-md-4">
@@ -62,28 +69,25 @@ else
                         </div>
                         <div class="col-md-3">
                             <button type="submit" class="btn btn-success me-2">Send Invitation</button>
-                            <button type="button" class="btn btn-secondary" @onclick="CancelCreate">Cancel</button>
                         </div>
                     </div>
                 </EditForm>
+                <form method="post" @formname="cancelCreate" @onsubmit="CancelCreate" class="mt-2">
+                    <AntiforgeryToken />
+                    <button type="submit" class="btn btn-secondary">Cancel</button>
+                </form>
             </div>
         </div>
     }
 
     @if (successMessage is not null)
     {
-        <div class="alert alert-success alert-dismissible" role="alert">
-            @successMessage
-            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-        </div>
+        <div class="alert alert-success" role="alert">@successMessage</div>
     }
 
     @if (errorMessage is not null)
     {
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            @errorMessage
-            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
-        </div>
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
     }
 
     @if (invitations is null)
@@ -131,12 +135,20 @@ else
                         <td>
                             @if (inv.Status == "Pending")
                             {
-                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ResendInvitation(inv.CtrlNbr)">
-                                    <span class="bi bi-arrow-repeat"></span> Resend
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeInvitation(inv.CtrlNbr)">
-                                    <span class="bi bi-x-circle"></span> Revoke
-                                </button>
+                                <form method="post" @formname="@($"resend-{inv.CtrlNbr}")" @onsubmit="ResendInvitation" style="display:inline" data-confirm="Resend this invitation?">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="ActionCtrlNbr" value="@inv.CtrlNbr" />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary me-1">
+                                        <span class="bi bi-arrow-repeat"></span> Resend
+                                    </button>
+                                </form>
+                                <form method="post" @formname="@($"revoke-{inv.CtrlNbr}")" @onsubmit="RevokeInvitation" style="display:inline" data-confirm="Revoke this invitation?">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="ActionCtrlNbr" value="@inv.CtrlNbr" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <span class="bi bi-x-circle"></span> Revoke
+                                    </button>
+                                </form>
                             }
                         </td>
                     </tr>
@@ -151,8 +163,13 @@ else
     private string? errorMessage;
     private string? successMessage;
     private bool showCreateForm;
-    private CreateInvitationModel createModel = new();
     private List<string> availableRoles = [];
+
+    [SupplyParameterFromForm]
+    private CreateInvitationModel createModel { get; set; } = new();
+
+    [SupplyParameterFromForm(Name = "ActionCtrlNbr")]
+    private long? ActionCtrlNbr { get; set; }
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -178,7 +195,6 @@ else
         }
         else
         {
-            // RailroadAdmin: non-admin roles only
             availableRoles = ["CraftManager", "CrewManager", "Dispatcher", "PayrollClerk", "ReadOnly"];
         }
     }
@@ -199,11 +215,7 @@ else
 
     private void ShowCreateForm() => showCreateForm = true;
 
-    private void CancelCreate()
-    {
-        showCreateForm = false;
-        createModel = new();
-    }
+    private void CancelCreate() => showCreateForm = false;
 
     private async Task CreateInvitation()
     {
@@ -226,17 +238,20 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Failed to create invitation: {ex.Message}";
+            showCreateForm = true;
         }
     }
 
-    private async Task ResendInvitation(long ctrlNbr)
+    private async Task ResendInvitation()
     {
+        if (ActionCtrlNbr is null) return;
+
         try
         {
             errorMessage = null;
             successMessage = null;
 
-            await InvitationsClient.ResendAsync(ctrlNbr);
+            await InvitationsClient.ResendAsync(ActionCtrlNbr.Value);
             successMessage = "Invitation resent.";
             await LoadInvitations();
         }
@@ -246,14 +261,16 @@ else
         }
     }
 
-    private async Task RevokeInvitation(long ctrlNbr)
+    private async Task RevokeInvitation()
     {
+        if (ActionCtrlNbr is null) return;
+
         try
         {
             errorMessage = null;
             successMessage = null;
 
-            await InvitationsClient.RevokeAsync(ctrlNbr);
+            await InvitationsClient.RevokeAsync(ActionCtrlNbr.Value);
             successMessage = "Invitation revoked.";
             await LoadInvitations();
         }
