@@ -1,13 +1,3 @@
-// Context-switcher cookie helpers (called from Blazor via IJSRuntime)
-window.contextCookies = {
-    set: function (name, value) {
-        document.cookie = name + "=" + encodeURIComponent(value) + ";path=/;samesite=strict";
-    },
-    remove: function (name) {
-        document.cookie = name + "=;path=/;samesite=strict;expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    }
-};
-
 document.addEventListener("submit", function (e) {
     var form = e.target;
 

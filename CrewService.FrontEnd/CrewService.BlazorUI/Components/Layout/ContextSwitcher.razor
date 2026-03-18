@@ -5,7 +5,6 @@
 @inject ParentsClient ParentsClient
 @inject AppContextService AppContext
 @inject ProtectedSessionStorage SessionStorage
-@inject IJSRuntime JS
 
 <div class="context-switcher d-flex align-items-center gap-2">
     <select class="form-select form-select-sm" @onchange="OnParentChanged" value="@selectedParentCtrlNbrString" disabled="@(parentOptions.Count <= 1)">
@@ -28,11 +27,6 @@
 @code {
     private const string StorageKeyParent = "ctx_parent";
     private const string StorageKeyRailroad = "ctx_railroad";
-
-    public const string CookieParentCtrlNbr = "ctx_parent_ctrlnbr";
-    public const string CookieParentName = "ctx_parent_name";
-    public const string CookieRailroadCtrlNbr = "ctx_railroad_ctrlnbr";
-    public const string CookieRailroadName = "ctx_railroad_name";
 
     private readonly List<ParentOption> parentOptions = [];
     private readonly List<RailroadOption> railroadOptions = [];
@@ -143,28 +137,20 @@
         {
             var parentName = parentOptions.FirstOrDefault(p => p.CtrlNbr == selectedParentCtrlNbr)?.Name ?? string.Empty;
             await SessionStorage.SetAsync(StorageKeyParent, new StoredContext(selectedParentCtrlNbr.Value, parentName));
-            await JS.InvokeVoidAsync("contextCookies.set", CookieParentCtrlNbr, selectedParentCtrlNbr.Value.ToString());
-            await JS.InvokeVoidAsync("contextCookies.set", CookieParentName, parentName);
         }
         else
         {
             await SessionStorage.DeleteAsync(StorageKeyParent);
-            await JS.InvokeVoidAsync("contextCookies.remove", CookieParentCtrlNbr);
-            await JS.InvokeVoidAsync("contextCookies.remove", CookieParentName);
         }
 
         if (selectedRailroadCtrlNbr.HasValue)
         {
             var railroadName = railroadOptions.FirstOrDefault(r => r.CtrlNbr == selectedRailroadCtrlNbr)?.Name ?? string.Empty;
             await SessionStorage.SetAsync(StorageKeyRailroad, new StoredContext(selectedRailroadCtrlNbr.Value, railroadName));
-            await JS.InvokeVoidAsync("contextCookies.set", CookieRailroadCtrlNbr, selectedRailroadCtrlNbr.Value.ToString());
-            await JS.InvokeVoidAsync("contextCookies.set", CookieRailroadName, railroadName);
         }
         else
         {
             await SessionStorage.DeleteAsync(StorageKeyRailroad);
-            await JS.InvokeVoidAsync("contextCookies.remove", CookieRailroadCtrlNbr);
-            await JS.InvokeVoidAsync("contextCookies.remove", CookieRailroadName);
         }
     }
 
