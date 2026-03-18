@@ -1,10 +1,13 @@
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using System.Security.Claims
 
 @inject ParentsClient ParentsClient
 @inject AppContextService AppContext
 @inject ProtectedSessionStorage SessionStorage
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="context-switcher d-flex align-items-center gap-2">
     <select class="form-select form-select-sm" @onchange="OnParentChanged" value="@selectedParentCtrlNbrString" disabled="@(parentOptions.Count <= 1)">
@@ -43,8 +46,7 @@
     protected override async Task OnInitializedAsync()
     {
         var response = await ParentsClient.GetAllAsync();
-        parentOptions.Clear();
-        parentOptions.AddRange(response.Parent
+        var allParents = response.Parent
             .Select(p => new ParentOption(
                 p.CtrlNbr,
                 p.Name,
@@ -52,7 +54,28 @@
                     .Select(r => new RailroadOption(r.CtrlNbr, r.Name, string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}"))
                     .OrderBy(r => r.DisplayName)
                     .ToList()))
-            .OrderBy(p => p.Name));
+            .OrderBy(p => p.Name)
+            .ToList();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (!user.IsInRole("SystemAdmin"))
+        {
+            var userParentCtrlNbrs = user.Claims
+                .Where(c => c.Type == "parent_role")
+                .Select(c => c.Value.Split(':'))
+                .Where(parts => parts.Length == 2 && long.TryParse(parts[0], out _))
+                .Select(parts => long.Parse(parts[0]))
+                .Distinct()
+                .ToHashSet();
+
+            if (userParentCtrlNbrs.Count > 0)
+                allParents = allParents.Where(p => userParentCtrlNbrs.Contains(p.CtrlNbr)).ToList();
+        }
+
+        parentOptions.Clear();
+        parentOptions.AddRange(allParents);
         _dataLoaded = true;
     }
 

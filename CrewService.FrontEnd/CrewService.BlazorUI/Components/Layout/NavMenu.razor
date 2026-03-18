@@ -26,6 +26,8 @@
 
         @if (AppContext.IsFullySelected)
         {
+        @* ══ Railroad-scoped sections (require parent + railroad) ══ *@
+
         @* ── Daily Operations ── *@
         <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager,Dispatcher">
             <Authorized>
@@ -90,55 +92,6 @@
                             <span class="bi bi-kanban" aria-hidden="true"></span> Roster Boards
                         </NavLink>
                     </div>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
-
-        @* ── Employee Management ── *@
-        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin,CraftManager">
-            <Authorized>
-                <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="employees">
-                            <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
-                        </NavLink>
-                    </div>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
-                        <Authorized Context="itemAuth">
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/seniority">
-                                    <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
-                                </NavLink>
-                            </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
-                        <Authorized Context="itemAuth">
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/crafts">
-                                    <span class="bi bi-tools" aria-hidden="true"></span> Crafts
-                                </NavLink>
-                            </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
-                        <Authorized Context="itemAuth">
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/prior-service">
-                                    <span class="bi bi-hourglass-split" aria-hidden="true"></span> Prior Service Credits
-                                </NavLink>
-                            </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin">
-                        <Authorized Context="itemAuth">
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="admin/invitations">
-                                    <span class="bi bi-envelope-plus" aria-hidden="true"></span> Invitations
-                                </NavLink>
-                            </div>
-                        </Authorized>
-                    </AuthorizeView>
                 </NavMenuGroup>
             </Authorized>
         </AuthorizeView>
@@ -211,6 +164,60 @@
                 </NavMenuGroup>
             </Authorized>
         </AuthorizeView>
+        } @* end railroad-scoped *@
+
+        @if (AppContext.HasParent)
+        {
+        @* ══ Parent-scoped sections (require parent only) ══ *@
+
+        @* ── Employee Management ── *@
+        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin,CraftManager">
+            <Authorized>
+                <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="employees">
+                            <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
+                        </NavLink>
+                    </div>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/seniority">
+                                    <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/crafts">
+                                    <span class="bi bi-tools" aria-hidden="true"></span> Crafts
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/prior-service">
+                                    <span class="bi bi-hourglass-split" aria-hidden="true"></span> Prior Service Credits
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/invitations">
+                                    <span class="bi bi-envelope-plus" aria-hidden="true"></span> Invitations
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </NavMenuGroup>
+            </Authorized>
+        </AuthorizeView>
 
         @* ── Information ── *@
         <AuthorizeView>
@@ -274,7 +281,7 @@
                 </NavMenuGroup>
             </Authorized>
         </AuthorizeView>
-        }
+        } @* end parent-scoped *@
 
         @* ── Auth (Logout / Login) ── *@
         <AuthorizeView>

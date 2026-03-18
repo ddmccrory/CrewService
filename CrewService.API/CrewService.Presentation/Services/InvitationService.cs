@@ -226,7 +226,7 @@ public class InvitationService(
         var user = httpContext.User;
 
         // SystemAdmin has full access
-        if (user.Claims.Any(c => c.Type == "role" && c.Value == Roles.SystemAdmin))
+        if (user.IsInRole(Roles.SystemAdmin))
             return Task.FromResult<string?>(Roles.SystemAdmin);
 
         // Check parent_role claims: "{parentCtrlNbr}:{role}"
@@ -278,7 +278,7 @@ public class InvitationService(
     private static void EnsureSystemAdmin(ServerCallContext context)
     {
         var user = context.GetHttpContext().User;
-        if (!user.Claims.Any(c => c.Type == "role" && c.Value == Roles.SystemAdmin))
+        if (!user.IsInRole(Roles.SystemAdmin))
             throw new RpcException(new Status(StatusCode.PermissionDenied,
                 "Only SystemAdmin can query invitations by email across all parents."));
     }

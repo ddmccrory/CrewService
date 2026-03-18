@@ -9,6 +9,8 @@
 
 @attribute [Authorize(Roles = "SystemAdmin,ParentAdmin,RailroadAdmin")]
 
+@implements IDisposable
+
 @inject InvitationsClient InvitationsClient
 @inject AppContextService AppContext
 
@@ -160,10 +162,27 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        AppContext.OnContextChanged += OnContextChanged;
+
         await DetermineAvailableRoles();
 
         if (AppContext.HasParent)
             await LoadInvitations();
+    }
+
+    private async void OnContextChanged()
+    {
+        if (AppContext.HasParent)
+            await LoadInvitations();
+        else
+            invitations = null;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AppContext.OnContextChanged -= OnContextChanged;
     }
 
     private async Task DetermineAvailableRoles()
