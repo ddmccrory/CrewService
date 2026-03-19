@@ -301,30 +301,9 @@ else
     private async Task DetermineAvailableRoles()
     {
         var authState = await AuthStateTask;
-        var user = authState.User;
-
-        var isSystemAdmin = user.IsInRole(Roles.SystemAdmin);
-        var isParentAdmin = user.IsInRole(Roles.ParentAdmin)
-                         || user.Claims.Any(c => c.Type == CustomClaimTypes.ParentRole
-                             && c.Value.Split(':') is { Length: >= 2 } parts
-                             && parts[1] == Roles.ParentAdmin);
-
-        if (isSystemAdmin || isParentAdmin)
-        {
-            availableRoles = [.. Roles.AdminAssignableRoles];
-        }
-        else
-        {
-            availableRoles = [.. Roles.OperationalRoles];
-
-            // Extract the railroad CtrlNbrs this user is assigned to
-            userRailroadCtrlNbrs = user.Claims
-                .Where(c => c.Type == CustomClaimTypes.ParentRole)
-                .Select(c => c.Value.Split(':'))
-                .Where(parts => parts.Length >= 3 && long.TryParse(parts[2], out _))
-                .Select(parts => long.Parse(parts[2]))
-                .ToHashSet();
-        }
+        var (roles, railroads) = InvitationRoleResolver.Resolve(authState.User);
+        availableRoles = [.. roles];
+        userRailroadCtrlNbrs = railroads;
     }
 
     private async Task LoadInvitations()

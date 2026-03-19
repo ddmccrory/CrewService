@@ -47,8 +47,8 @@ public class InvitationService(
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
-        else if (!Roles.AllPerParentRoles.Contains(request.Role))
-            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
+        else if (!Roles.AllInvitableRoles.Contains(request.Role))
+            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllInvitableRoles)}"]);
 
         if (Roles.RolesRequiringRailroad.Contains(request.Role) && request.RailroadCtrlNbr <= 0)
             errors.Add("RailroadCtrlNbr", ["Required for the selected role"]);
@@ -317,8 +317,12 @@ public class InvitationService(
     {
         EnsureCanView(callerRole);
 
-        // SystemAdmin and ParentAdmin can create any per-parent role
-        if (callerRole is Roles.SystemAdmin or Roles.ParentAdmin)
+        // SystemAdmin can create any role, including other SystemAdmins
+        if (callerRole == Roles.SystemAdmin)
+            return;
+
+        // ParentAdmin can create any per-parent role (not SystemAdmin)
+        if (callerRole == Roles.ParentAdmin && targetRole != Roles.SystemAdmin)
             return;
 
         // RailroadAdmin can only create non-admin roles
