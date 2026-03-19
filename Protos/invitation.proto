@@ -57,6 +57,7 @@ message CreateInvitationRequest {
 	int64 parent_ctrl_nbr = 2;
 	string role = 3;
 	int32 expiration_days = 4;
+	int64 railroad_ctrl_nbr = 5;
 }
 
 message GetInvitationRequest {
@@ -88,6 +89,9 @@ message InvitationResponse {
 	string token = 6;
 	int64 expires_at = 7;
 	int64 accepted_at = 8;
+	int64 railroad_ctrl_nbr = 9;
+	int64 revoked_at = 10;
+	int64 superseded_at = 11;
 }
 
 message GetInvitationsResponse {
@@ -105,4 +109,5 @@ message ValidateInvitationTokenReply {
 	string parent_name = 4;
 	string status = 5;
 	bool user_already_exists = 6;
+	string railroad_name = 7;
 }

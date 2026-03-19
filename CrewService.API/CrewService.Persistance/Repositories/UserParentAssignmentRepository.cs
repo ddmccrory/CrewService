@@ -24,9 +24,10 @@ internal sealed class UserParentAssignmentRepository(CrewServiceDbContext dbCont
             .ToListAsync();
     }
 
-    public async Task<UserParentAssignment?> GetByUserAndParentAsync(string userId, ControlNumber parentCtrlNbr)
+    public async Task<List<UserParentAssignment>> GetByUserAndParentAsync(string userId, ControlNumber parentCtrlNbr)
     {
         return await DbContext.Set<UserParentAssignment>()
-            .SingleOrDefaultAsync(a => a.UserId == userId && a.ParentCtrlNbr == parentCtrlNbr);
+            .Where(a => a.UserId == userId && a.ParentCtrlNbr == parentCtrlNbr)
+            .ToListAsync();
     }
 }

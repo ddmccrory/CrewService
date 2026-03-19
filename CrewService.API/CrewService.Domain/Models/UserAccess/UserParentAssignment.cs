@@ -9,20 +9,22 @@ public sealed class UserParentAssignment : Entity
     public string UserId { get; private set; } = string.Empty;
     public ControlNumber ParentCtrlNbr { get; private set; }
     public string Role { get; private set; } = string.Empty;
+    public ControlNumber? RailroadCtrlNbr { get; private set; }
 
     private UserParentAssignment()
     {
         ParentCtrlNbr = null!;
     }
 
-    private UserParentAssignment(string userId, ControlNumber parentCtrlNbr, string role)
+    private UserParentAssignment(string userId, ControlNumber parentCtrlNbr, string role, ControlNumber? railroadCtrlNbr = null)
     {
         UserId = userId;
         ParentCtrlNbr = parentCtrlNbr;
         Role = role;
+        RailroadCtrlNbr = railroadCtrlNbr;
     }
 
-    public static UserParentAssignment Create(string userId, ControlNumber parentCtrlNbr, string role)
+    public static UserParentAssignment Create(string userId, ControlNumber parentCtrlNbr, string role, ControlNumber? railroadCtrlNbr = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(userId);
         ArgumentException.ThrowIfNullOrEmpty(role);
@@ -30,21 +32,26 @@ public sealed class UserParentAssignment : Entity
         var assignment = new UserParentAssignment(
             userId,
             parentCtrlNbr,
-            role);
+            role,
+            railroadCtrlNbr);
 
         assignment.Raise(new UserParentAssignmentCreatedDomainEvent(assignment.CtrlNbr));
 
         return assignment;
     }
 
-    public UserParentAssignment UpdateRole(string role)
+    public UserParentAssignment UpdateRole(string role, ControlNumber? railroadCtrlNbr = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(role);
 
-        if (!string.Equals(Role, role, StringComparison.Ordinal))
+        bool changed = !string.Equals(Role, role, StringComparison.Ordinal)
+                     || RailroadCtrlNbr != railroadCtrlNbr;
+
+        if (changed)
         {
             Role = role;
-            Raise(new UserParentAssignmentUpdatedDomainEvent(CtrlNbr, payload: new { Changes = new { role } }));
+            RailroadCtrlNbr = railroadCtrlNbr;
+            Raise(new UserParentAssignmentUpdatedDomainEvent(CtrlNbr, payload: new { Changes = new { role, railroadCtrlNbr } }));
         }
 
         return this;

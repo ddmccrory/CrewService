@@ -1,4 +1,4 @@
-﻿using CrewService.Application.Modules.UserAccess;
+using CrewService.Application.Modules.UserAccess;
 using CrewService.Infrastructure.Email;
 using CrewService.Domain.Interfaces;
 using CrewService.Infrastructure.Notifications;

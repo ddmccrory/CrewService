@@ -44,7 +44,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Create_Raises_CreatedDomainEvent()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.ReadOnly, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Employee, "admin-001");
 
         Assert.Single(invitation.DomainEvents);
         Assert.IsType<InvitationCreatedDomainEvent>(invitation.DomainEvents[0]);
@@ -56,7 +56,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Create_Normalizes_Email_To_Lowercase()
     {
-        var invitation = Invitation.Create("Admin@Example.COM", 250101120000001, Roles.ReadOnly, "admin-001");
+        var invitation = Invitation.Create("Admin@Example.COM", 250101120000001, Roles.Employee, "admin-001");
 
         Assert.Equal("admin@example.com", invitation.Email);
     }
@@ -65,12 +65,12 @@ public sealed class InvitationTests : IDisposable
     /// Verifies Create throws for null/empty email, role, invitedByUserId.
     /// </summary>
     [Theory]
-    [InlineData(null, "ReadOnly", "admin")]
-    [InlineData("", "ReadOnly", "admin")]
+    [InlineData(null, Roles.Employee, "admin")]
+    [InlineData("", Roles.Employee, "admin")]
     [InlineData("test@example.com", null, "admin")]
     [InlineData("test@example.com", "", "admin")]
-    [InlineData("test@example.com", "ReadOnly", null)]
-    [InlineData("test@example.com", "ReadOnly", "")]
+    [InlineData("test@example.com", Roles.Employee, null)]
+    [InlineData("test@example.com", Roles.Employee, "")]
     public void Create_With_Invalid_Arguments_Throws(string? email, string? role, string? invitedBy)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
@@ -152,7 +152,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void IsValid_Returns_True_For_Pending_NonExpired()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.ReadOnly, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Employee, "admin-001");
 
         Assert.True(invitation.IsValid);
     }
@@ -163,7 +163,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void IsValid_Returns_False_For_Accepted()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.ReadOnly, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Employee, "admin-001");
         invitation.Accept();
 
         Assert.False(invitation.IsValid);
@@ -210,9 +210,9 @@ public sealed class InvitationTests : IDisposable
 
         var i1 = Invitation.Create("multi@example.com", parent1.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
         await repo.AddAsync(i1);
-        var i2 = Invitation.Create("multi@example.com", parent2.CtrlNbr.Value, Roles.ReadOnly, "admin-001");
+        var i2 = Invitation.Create("multi@example.com", parent2.CtrlNbr.Value, Roles.Employee, "admin-001");
         await repo.AddAsync(i2);
-        var i3 = Invitation.Create("other@example.com", parent1.CtrlNbr.Value, Roles.ReadOnly, "admin-001");
+        var i3 = Invitation.Create("other@example.com", parent1.CtrlNbr.Value, Roles.Employee, "admin-001");
         await repo.AddAsync(i3);
 
         var results = await repo.GetByEmailAsync("multi@example.com");
@@ -264,7 +264,7 @@ public sealed class InvitationTests : IDisposable
         var parent = Parent.Create("Delete Parent");
         await parentRepo.AddAsync(parent);
 
-        var invitation = Invitation.Create("delete@example.com", parent.CtrlNbr.Value, Roles.ReadOnly, "admin-001");
+        var invitation = Invitation.Create("delete@example.com", parent.CtrlNbr.Value, Roles.Employee, "admin-001");
         await repo.AddAsync(invitation);
 
         await repo.DeleteAsync(invitation.CtrlNbr);
@@ -279,8 +279,8 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Generated_Tokens_Are_Unique()
     {
-        var inv1 = Invitation.Create("a@example.com", 250101120000001, Roles.ReadOnly, "admin-001");
-        var inv2 = Invitation.Create("b@example.com", 250101120000001, Roles.ReadOnly, "admin-001");
+        var inv1 = Invitation.Create("a@example.com", 250101120000001, Roles.Employee, "admin-001");
+        var inv2 = Invitation.Create("b@example.com", 250101120000001, Roles.Employee, "admin-001");
 
         Assert.NotEqual(inv1.Token, inv2.Token);
     }
@@ -304,7 +304,7 @@ public sealed class InvitationTests : IDisposable
     public void Create_With_Invalid_ExpirationDays_Throws(int days)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            Invitation.Create("test@example.com", 250101120000001, Roles.ReadOnly, "admin-001", days));
+            Invitation.Create("test@example.com", 250101120000001, Roles.Employee, "admin-001", days));
     }
 
     /// <summary>
@@ -343,7 +343,7 @@ public sealed class InvitationTests : IDisposable
         var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
         invitation.MarkExpired();
 
-        // Now it's Expired — Accept should throw because status is not Pending
+        // Now it's Expired ï¿½ Accept should throw because status is not Pending
         Assert.Throws<InvalidOperationException>(() => invitation.Accept());
         Assert.Equal(InvitationStatus.Expired, invitation.Status);
     }

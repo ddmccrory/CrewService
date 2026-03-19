@@ -1,7 +1,9 @@
+using CrewService.Domain.Constants;
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Application.Modules.UserAccess;
+using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.ValueObjects;
@@ -18,6 +20,7 @@ public class InvitationService(
     ICurrentUserService currentUserService,
     IUserParentAssignmentRepository assignmentRepository,
     IParentRepository parentRepository,
+    IRailroadRepository railroadRepository,
     UserManager<User> userManager,
     IInvitationEmailService emailService,
     IConfiguration configuration)
@@ -27,6 +30,7 @@ public class InvitationService(
     private readonly ICurrentUserService _currentUserService = currentUserService;
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
     private readonly IParentRepository _parentRepository = parentRepository;
+    private readonly IRailroadRepository _railroadRepository = railroadRepository;
     private readonly UserManager<User> _userManager = userManager;
     private readonly IInvitationEmailService _emailService = emailService;
     private readonly string _baseUrl = configuration["AppSettings:BaseUrl"] ?? "https://localhost:7132";
@@ -46,6 +50,9 @@ public class InvitationService(
         else if (!Roles.AllPerParentRoles.Contains(request.Role))
             errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
 
+        if (Roles.RolesRequiringRailroad.Contains(request.Role) && request.RailroadCtrlNbr <= 0)
+            errors.Add("RailroadCtrlNbr", ["Required for the selected role"]);
+
         if (errors.Count > 0)
             throw new ValidationException(errors);
 
@@ -53,18 +60,40 @@ public class InvitationService(
         var callerRole = await GetCallerRoleForParentAsync(context, request.ParentCtrlNbr);
         EnsureCanCreateRole(callerRole, request.Role);
 
+        // RailroadAdmin can only invite for their assigned railroad(s)
+        if (callerRole == Roles.RailroadAdmin && request.RailroadCtrlNbr > 0)
+        {
+            var callerRailroads = GetCallerRailroadsForParent(context, request.ParentCtrlNbr);
+            if (!callerRailroads.Contains(request.RailroadCtrlNbr))
+                throw new RpcException(new Status(StatusCode.PermissionDenied,
+                    "You can only create invitations for your assigned railroad."));
+        }
+
+        // Validate railroad belongs to the parent when required
+        if (request.RailroadCtrlNbr > 0)
+        {
+            var railroads = await _railroadRepository.GetByParentCtrlNbrAsync(request.ParentCtrlNbr);
+            if (!railroads.Any(rr => rr.CtrlNbr.Value == request.RailroadCtrlNbr))
+                throw new ValidationException("RailroadCtrlNbr", "Railroad does not belong to the selected parent");
+        }
+
         var existing = await _invitationRepository.GetPendingByEmailAndParentAsync(request.Email, request.ParentCtrlNbr);
         if (existing is not null)
             throw new ConflictException(nameof(Invitation), $"A pending invitation already exists for {request.Email} at parent {request.ParentCtrlNbr}.");
 
         var expirationDays = request.ExpirationDays > 0 ? request.ExpirationDays : 7;
 
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0
+            ? ControlNumber.Create(request.RailroadCtrlNbr)
+            : null;
+
         var invitation = Invitation.Create(
             request.Email,
             request.ParentCtrlNbr,
             request.Role,
             _currentUserService.GetUserId().ToString(),
-            expirationDays);
+            expirationDays,
+            railroadCtrlNbr);
 
         await _invitationRepository.AddAsync(invitation);
 
@@ -164,7 +193,8 @@ public class InvitationService(
             existing.Email,
             existing.ParentCtrlNbr.Value,
             existing.Role,
-            _currentUserService.GetUserId().ToString());
+            _currentUserService.GetUserId().ToString(),
+            railroadCtrlNbr: existing.RailroadCtrlNbr);
 
         await _invitationRepository.AddAsync(newInvitation);
 
@@ -203,6 +233,13 @@ public class InvitationService(
 
         var existingUser = await _userManager.FindByEmailAsync(invitation.Email);
 
+        var railroadName = string.Empty;
+        if (invitation.RailroadCtrlNbr is not null)
+        {
+            var railroads = await _railroadRepository.GetByParentCtrlNbrAsync(invitation.ParentCtrlNbr);
+            railroadName = railroads.FirstOrDefault(rr => rr.CtrlNbr == invitation.RailroadCtrlNbr)?.Name.Value ?? string.Empty;
+        }
+
         return new ValidateInvitationTokenReply
         {
             IsValid = invitation.IsValid,
@@ -210,7 +247,8 @@ public class InvitationService(
             Role = invitation.Role,
             ParentName = parentName,
             Status = invitation.Status.ToString(),
-            UserAlreadyExists = existingUser is not null
+            UserAlreadyExists = existingUser is not null,
+            RailroadName = railroadName
         };
     }
 
@@ -229,11 +267,11 @@ public class InvitationService(
         if (user.IsInRole(Roles.SystemAdmin))
             return Task.FromResult<string?>(Roles.SystemAdmin);
 
-        // Check parent_role claims: "{parentCtrlNbr}:{role}"
+        // Check parent_role claims: "{parentCtrlNbr}:{role}" or "{parentCtrlNbr}:{role}:{railroadCtrlNbr}"
         var parentRoles = user.Claims
-            .Where(c => c.Type == "parent_role")
+            .Where(c => c.Type == CustomClaimTypes.ParentRole)
             .Select(c => c.Value.Split(':'))
-            .Where(parts => parts.Length == 2 && long.TryParse(parts[0], out var p) && p == parentCtrlNbr)
+            .Where(parts => parts.Length >= 2 && long.TryParse(parts[0], out var p) && p == parentCtrlNbr)
             .Select(parts => parts[1])
             .ToList();
 
@@ -246,11 +284,27 @@ public class InvitationService(
         return Task.FromResult<string?>(parentRoles[0]);
     }
 
+    /// <summary>
+    /// Returns the railroad CtrlNbrs the caller is assigned to for the given parent.
+    /// </summary>
+    private static HashSet<long> GetCallerRailroadsForParent(ServerCallContext context, long parentCtrlNbr)
+    {
+        var user = context.GetHttpContext().User;
+        return user.Claims
+            .Where(c => c.Type == CustomClaimTypes.ParentRole)
+            .Select(c => c.Value.Split(':'))
+            .Where(parts => parts.Length >= 3
+                && long.TryParse(parts[0], out var p) && p == parentCtrlNbr
+                && long.TryParse(parts[2], out _))
+            .Select(parts => long.Parse(parts[2]))
+            .ToHashSet();
+    }
+
     private static readonly HashSet<string> _adminRoles =
         [Roles.SystemAdmin, Roles.ParentAdmin, Roles.RailroadAdmin];
 
     private static readonly HashSet<string> _nonAdminRoles =
-        [Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk, Roles.ReadOnly];
+        [Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk, Roles.Employee];
 
     private static void EnsureCanView(string? callerRole)
     {
@@ -302,6 +356,15 @@ public class InvitationService(
 
         if (invitation.AcceptedAt.HasValue)
             response.AcceptedAt = invitation.AcceptedAt.Value.Ticks;
+
+        if (invitation.RevokedAt.HasValue)
+            response.RevokedAt = invitation.RevokedAt.Value.Ticks;
+
+        if (invitation.SupersededAt.HasValue)
+            response.SupersededAt = invitation.SupersededAt.Value.Ticks;
+
+        if (invitation.RailroadCtrlNbr is not null)
+            response.RailroadCtrlNbr = invitation.RailroadCtrlNbr.Value;
 
         return response;
     }

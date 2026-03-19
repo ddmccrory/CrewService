@@ -47,6 +47,11 @@ else if (tokenValid)
                         <dd class="col-sm-8">@invitationRole</dd>
                         <dt class="col-sm-4">Parent</dt>
                         <dd class="col-sm-8">@invitationParentName</dd>
+                        @if (!string.IsNullOrEmpty(invitationRailroadName))
+                        {
+                            <dt class="col-sm-4">Railroad</dt>
+                            <dd class="col-sm-8">@invitationRailroadName</dd>
+                        }
                     </dl>
                 </div>
             </div>
@@ -86,6 +91,7 @@ else if (tokenValid)
     private string? invitationEmail;
     private string? invitationRole;
     private string? invitationParentName;
+    private string? invitationRailroadName;
 
     [SupplyParameterFromForm]
     private RegisterInputModel? Input { get; set; }
@@ -118,6 +124,7 @@ else if (tokenValid)
                 invitationEmail = result.Email;
                 invitationRole = result.Role;
                 invitationParentName = result.ParentName;
+                invitationRailroadName = string.IsNullOrEmpty(result.RailroadName) ? null : result.RailroadName;
 
                 if (!result.IsValid)
                 {
@@ -134,7 +141,21 @@ else if (tokenValid)
 
                 if (result.UserAlreadyExists)
                 {
-                    userAlreadyExists = true;
+                    // Existing user: call RegisterUser to accept the invitation and update the assignment
+                    var acceptResult = await AuthService.RegisterUserAsync(new Models.Account.RegisterInputModel
+                    {
+                        InvitationToken = Token!
+                    });
+
+                    if (acceptResult.Success)
+                    {
+                        userAlreadyExists = true;
+                    }
+                    else
+                    {
+                        statusError = string.Join(", ", acceptResult.Message);
+                    }
+
                     isLoading = false;
                     return;
                 }

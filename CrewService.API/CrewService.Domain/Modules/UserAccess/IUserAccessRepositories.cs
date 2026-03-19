@@ -8,7 +8,7 @@ public interface IUserParentAssignmentRepository : IRepository<UserParentAssignm
 {
     Task<List<UserParentAssignment>> GetByUserIdAsync(string userId);
     Task<List<UserParentAssignment>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
-    Task<UserParentAssignment?> GetByUserAndParentAsync(string userId, ControlNumber parentCtrlNbr);
+    Task<List<UserParentAssignment>> GetByUserAndParentAsync(string userId, ControlNumber parentCtrlNbr);
 }
 
 public interface IInvitationRepository : IRepository<Invitation>
@@ -17,4 +17,5 @@ public interface IInvitationRepository : IRepository<Invitation>
     Task<List<Invitation>> GetByEmailAsync(string email);
     Task<List<Invitation>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
     Task<Invitation?> GetPendingByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr);
+    Task<List<Invitation>> GetAcceptedByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr);
 }

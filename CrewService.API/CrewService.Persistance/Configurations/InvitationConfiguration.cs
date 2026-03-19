@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,12 @@ internal class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
         builder.HasIndex(i => new { i.Email, i.ParentCtrlNbr, i.Status });
 
         builder.HasOne<Parent>().WithMany().HasForeignKey(i => i.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(i => i.RailroadCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value.HasValue ? ControlNumber.Create(value.Value) : null);
+
+        builder.HasOne<Railroad>().WithMany().HasForeignKey(i => i.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
         builder.OwnsOne(i => i.CreatedBy, audit =>
         {

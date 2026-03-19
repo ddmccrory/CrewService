@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260318190325_AddRailroadToInvitation")]
+    partial class AddRailroadToInvitation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -716,9 +719,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<long?>("RailroadCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -727,9 +727,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("SupersededAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Token")
@@ -767,9 +764,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -784,11 +778,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ParentCtrlNbr");
 
-                    b.HasIndex("RailroadCtrlNbr");
-
                     b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "ParentCtrlNbr", "RailroadCtrlNbr")
+                    b.HasIndex("UserId", "ParentCtrlNbr")
                         .IsUnique();
 
                     b.ToTable("UserParentAssignments");
@@ -6084,11 +6076,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasForeignKey("ParentCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Models.Railroads.Railroad", null)
-                        .WithMany()
-                        .HasForeignKey("RailroadCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {

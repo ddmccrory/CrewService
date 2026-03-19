@@ -5,5 +5,6 @@ public enum InvitationStatus
     Pending,
     Accepted,
     Expired,
-    Revoked
+    Revoked,
+    Superseded
 }

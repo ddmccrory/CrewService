@@ -1,4 +1,6 @@
-﻿@implements IDisposable
+﻿@using CrewService.BlazorUI.Models.Auth
+
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
@@ -29,7 +31,7 @@
         @* ══ Railroad-scoped sections (require parent + railroad) ══ *@
 
         @* ── Daily Operations ── *@
-        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager,Dispatcher">
+        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CrewManager},{Roles.Dispatcher}")">
             <Authorized>
                 <NavMenuGroup Title="Daily Operations" Icon="bi-calendar-check" IsInitiallyExpanded="@IsCurrentPath("daily")">
                     <div class="nav-item">
@@ -47,7 +49,7 @@
                             <span class="bi bi-calendar-x" aria-hidden="true"></span> Mark-Offs
                         </NavLink>
                     </div>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,Dispatcher">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.Dispatcher}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="daily/duty-status">
@@ -56,7 +58,7 @@
                             </div>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,Dispatcher">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.Dispatcher}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="daily/vacancy-resolution">
@@ -69,7 +71,7 @@
             </Authorized>
         </AuthorizeView>
         @* ── Crew Staffing ── *@
-        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CrewManager">
+        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CrewManager}")">
             <Authorized>
                 <NavMenuGroup Title="Crew Staffing" Icon="bi-people-fill" IsInitiallyExpanded="@IsCurrentPath("staffing")">
                     <div class="nav-item">
@@ -97,7 +99,7 @@
         </AuthorizeView>
 
         @* ── Payroll ── *@
-        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,PayrollClerk">
+        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.PayrollClerk}")">
             <Authorized>
                 <NavMenuGroup Title="Payroll" Icon="bi-currency-dollar" IsInitiallyExpanded="@IsCurrentPath("payroll")">
                     <div class="nav-item">
@@ -130,7 +132,7 @@
         </AuthorizeView>
 
         @* ── Compliance ── *@
-        <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
             <Authorized>
                 <NavMenuGroup Title="Compliance" Icon="bi-shield-check" IsInitiallyExpanded="@IsCurrentPath("compliance")">
                     <div class="nav-item">
@@ -143,7 +145,7 @@
                             <span class="bi bi-cone-striped" aria-hidden="true"></span> Safety Observations
                         </NavLink>
                     </div>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="compliance/absence-codes">
@@ -152,7 +154,7 @@
                             </div>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="compliance/policies">
@@ -171,7 +173,7 @@
         @* ══ Parent-scoped sections (require parent only) ══ *@
 
         @* ── Employee Management ── *@
-        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin,CraftManager">
+        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
             <Authorized>
                 <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
                     <div class="nav-item">
@@ -179,7 +181,7 @@
                             <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
                         </NavLink>
                     </div>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/seniority">
@@ -188,7 +190,7 @@
                             </div>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin,CraftManager">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/crafts">
@@ -197,7 +199,7 @@
                             </div>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/prior-service">
@@ -206,7 +208,7 @@
                             </div>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/invitations">
@@ -238,15 +240,15 @@
         </AuthorizeView>
 
         @* ── Administration ── *@
-        <AuthorizeView Roles="SystemAdmin,ParentAdmin,RailroadAdmin">
+        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
             <Authorized>
-                <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin", "parents", "config/group-types")">
+                <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "parents", "config/group-types")">
                     <div class="nav-item">
                         <NavLink class="nav-link" href="parents">
                             <span class="bi bi-diagram-3" aria-hidden="true"></span> Parents
                         </NavLink>
                     </div>
-                    <AuthorizeView Roles="SystemAdmin,ParentAdmin">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="config/group-types">
@@ -260,7 +262,7 @@
                             <span class="bi bi-person-gear" aria-hidden="true"></span> User Assignments
                         </NavLink>
                     </div>
-                    <AuthorizeView Roles="SystemAdmin,RailroadAdmin">
+                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/notifications">
@@ -269,7 +271,7 @@
                             </div>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="SystemAdmin">
+                    <AuthorizeView Roles="@(Roles.SystemAdmin)">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/jobs">

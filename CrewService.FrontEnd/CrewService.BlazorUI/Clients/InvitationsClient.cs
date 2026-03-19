@@ -6,7 +6,7 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class InvitationsClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<InvitationsClient> logger)
     : BaseGrpcClient<InvitationSrvc.InvitationSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new InvitationSrvc.InvitationSrvcClient(callInvoker), logger)
 {
-    public async Task<InvitationResponse> CreateAsync(string email, long parentCtrlNbr, string role, int expirationDays = 7)
+    public async Task<InvitationResponse> CreateAsync(string email, long parentCtrlNbr, string role, int expirationDays = 7, long railroadCtrlNbr = 0)
     {
         try
         {
@@ -15,7 +15,8 @@ public sealed class InvitationsClient(GrpcChannelProvider channelProvider, IHttp
                 Email = email,
                 ParentCtrlNbr = parentCtrlNbr,
                 Role = role,
-                ExpirationDays = expirationDays
+                ExpirationDays = expirationDays,
+                RailroadCtrlNbr = railroadCtrlNbr
             });
         }
         catch (Exception ex)

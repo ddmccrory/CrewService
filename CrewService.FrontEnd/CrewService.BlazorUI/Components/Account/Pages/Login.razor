@@ -2,6 +2,7 @@
 @attribute [ExcludeFromInteractiveRouting]
 
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models.Auth
 @using CrewService.BlazorUI.Services
 @using CrewService.BlazorUI.Models.Account
 @using Microsoft.AspNetCore.Authentication
@@ -79,7 +80,8 @@
                 new Claim(ClaimTypes.NameIdentifier, Input!.Email),
                 new Claim(ClaimTypes.Name, registeredUser.FullName),
                 new Claim(ClaimTypes.Email, Input!.Email),
-                new Claim("AccessToken", registeredUser.Token)
+                new Claim("AccessToken", registeredUser.Token),
+                new Claim(CustomClaimTypes.LoginId, Guid.NewGuid().ToString("N"))
             };
 
             // Extract role claims from the JWT token
@@ -110,27 +112,27 @@
                     }
                 }
 
-                if (doc.RootElement.TryGetProperty("parent_role", out var parentRoleElement))
+                if (doc.RootElement.TryGetProperty(CustomClaimTypes.ParentRole, out var parentRoleElement))
                 {
                     if (parentRoleElement.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var pr in parentRoleElement.EnumerateArray())
                         {
-                            claims.Add(new Claim("parent_role", pr.GetString()!));
+                            claims.Add(new Claim(CustomClaimTypes.ParentRole, pr.GetString()!));
                         }
                     }
                     else
                     {
-                        claims.Add(new Claim("parent_role", parentRoleElement.GetString()!));
+                        claims.Add(new Claim(CustomClaimTypes.ParentRole, parentRoleElement.GetString()!));
                     }
                 }
 
-                if (doc.RootElement.TryGetProperty("employee_number", out var empElement) && empElement.ValueKind == JsonValueKind.String)
+                if (doc.RootElement.TryGetProperty(CustomClaimTypes.EmployeeNumber, out var empElement) && empElement.ValueKind == JsonValueKind.String)
                 {
                     var empNumber = empElement.GetString();
                     if (!string.IsNullOrWhiteSpace(empNumber))
                     {
-                        claims.Add(new Claim("employee_number", empNumber));
+                        claims.Add(new Claim(CustomClaimTypes.EmployeeNumber, empNumber));
                     }
                 }
             }

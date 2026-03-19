@@ -30,8 +30,8 @@ public static class Roles
     /// <summary>Time entry and payroll processing.</summary>
     public const string PayrollClerk = "PayrollClerk";
 
-    /// <summary>View-only access across all operational modules.</summary>
-    public const string ReadOnly = "ReadOnly";
+    /// <summary>Standard employee access across all operational modules.</summary>
+    public const string Employee = "Employee";
 
     /// <summary>All per-parent role names for validation.</summary>
     public static readonly IReadOnlyList<string> AllPerParentRoles =
@@ -42,6 +42,16 @@ public static class Roles
         CrewManager,
         Dispatcher,
         PayrollClerk,
-        ReadOnly
+        Employee
     ];
+
+    public static readonly IReadOnlySet<string> RolesRequiringRailroad = new HashSet<string>
+    {
+        RailroadAdmin,
+        CraftManager,
+        CrewManager,
+        Dispatcher,
+        PayrollClerk,
+        Employee
+    };
 }

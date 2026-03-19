@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Authentication.Cookies
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Components.Account
+@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
 
 @inject AccountClient AccountClient
@@ -170,7 +171,7 @@
 
         var user = HttpContext.User;
         username = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        isAdmin = user.IsInRole("SystemAdmin") || user.IsInRole("ParentAdmin") || user.IsInRole("RailroadAdmin");
+        isAdmin = user.IsInRole(Roles.SystemAdmin) || user.IsInRole(Roles.ParentAdmin) || user.IsInRole(Roles.RailroadAdmin);
 
         try
         {
@@ -183,7 +184,7 @@
         {
         }
 
-        employeeNumber = user.FindFirst("employee_number")?.Value;
+        employeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
         if (!string.IsNullOrWhiteSpace(employeeNumber))
         {
             try

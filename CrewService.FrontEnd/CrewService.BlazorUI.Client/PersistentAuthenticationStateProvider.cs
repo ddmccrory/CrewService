@@ -38,7 +38,7 @@ namespace CrewService.BlazorUI.Client
 
             if (!string.IsNullOrWhiteSpace(userInfo.EmployeeNumber))
             {
-                claims.Add(new Claim("employee_number", userInfo.EmployeeNumber));
+                claims.Add(new Claim(CustomClaimTypes.EmployeeNumber, userInfo.EmployeeNumber));
             }
 
             authenticationStateTask = Task.FromResult(

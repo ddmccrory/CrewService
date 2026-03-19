@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -23,11 +24,17 @@ internal class UserParentAssignmentConfiguration : IEntityTypeConfiguration<User
         builder.Property(a => a.UserId).HasMaxLength(128).IsRequired();
         builder.Property(a => a.Role).HasMaxLength(50).IsRequired();
 
-        builder.HasIndex(a => new { a.UserId, a.ParentCtrlNbr }).IsUnique();
+        builder.HasIndex(a => new { a.UserId, a.ParentCtrlNbr, a.RailroadCtrlNbr }).IsUnique();
         builder.HasIndex(a => a.UserId);
         builder.HasIndex(a => a.ParentCtrlNbr);
 
         builder.HasOne<Parent>().WithMany().HasForeignKey(a => a.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(a => a.RailroadCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value.HasValue ? ControlNumber.Create(value.Value) : null);
+
+        builder.HasOne<Railroad>().WithMany().HasForeignKey(a => a.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
         builder.OwnsOne(a => a.CreatedBy, audit =>
         {

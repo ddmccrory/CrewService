@@ -56,6 +56,7 @@ message GetAssignmentResponse {
 	string userId = 2;
 	int64 parentCtrlNbr = 3;
 	string role = 4;
+	int64 railroadCtrlNbr = 5;
 }
 
 message GetAssignmentsByUserRequest {
@@ -78,6 +79,7 @@ message CreateAssignmentRequest {
 	string userId = 1;
 	int64 parentCtrlNbr = 2;
 	string role = 3;
+	int64 railroadCtrlNbr = 4;
 }
 
 message CreateAssignmentResponse {
@@ -85,11 +87,13 @@ message CreateAssignmentResponse {
 	string userId = 2;
 	int64 parentCtrlNbr = 3;
 	string role = 4;
+	int64 railroadCtrlNbr = 5;
 }
 
 message UpdateAssignmentRoleRequest {
 	int64 ctrlNbr = 1;
 	string role = 2;
+	int64 railroadCtrlNbr = 3;
 }
 
 message UpdateAssignmentRoleResponse {
@@ -97,6 +101,7 @@ message UpdateAssignmentRoleResponse {
 	string userId = 2;
 	int64 parentCtrlNbr = 3;
 	string role = 4;
+	int64 railroadCtrlNbr = 5;
 }
 
 message DeleteAssignmentRequest {
@@ -108,4 +113,5 @@ message DeleteAssignmentResponse {
 	string userId = 2;
 	int64 parentCtrlNbr = 3;
 	string role = 4;
+	int64 railroadCtrlNbr = 5;
 }

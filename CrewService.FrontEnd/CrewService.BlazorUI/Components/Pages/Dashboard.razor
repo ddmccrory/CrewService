@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models.Auth
 
 @attribute [Authorize]
 
@@ -34,22 +35,32 @@
     {
         var user = HttpContext.User;
         var parentRoleClaims = user.Claims
-            .Where(c => c.Type == "parent_role")
+            .Where(c => c.Type == CustomClaimTypes.ParentRole)
             .Select(c => c.Value.Split(':'))
-            .Where(parts => parts.Length == 2)
+            .Where(parts => parts.Length >= 2)
             .ToList();
 
         if (parentRoleClaims.Count == 0) return;
 
         var parents = await ParentsClient.GetAllAsync();
         var nameMap = parents.Parent.ToDictionary(p => p.CtrlNbr, p => p.Name);
+        var railroadNameMap = parents.Parent
+            .SelectMany(p => p.Railroads)
+            .DistinctBy(r => r.CtrlNbr)
+            .ToDictionary(r => r.CtrlNbr, r => string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}");
 
         parentRoleDisplay = parentRoleClaims
             .Select(parts =>
             {
                 var ctrlNbr = long.TryParse(parts[0], out var id) ? id : 0;
                 var name = nameMap.TryGetValue(ctrlNbr, out var n) ? n : parts[0];
-                return $"{name}:{parts[1]}";
+                var display = $"{name}:{parts[1]}";
+                if (parts.Length >= 3 && long.TryParse(parts[2], out var rrId))
+                {
+                    var rrName = railroadNameMap.TryGetValue(rrId, out var rn) ? rn : rrId.ToString();
+                    display += $" ({rrName})";
+                }
+                return display;
             })
             .ToList();
     }

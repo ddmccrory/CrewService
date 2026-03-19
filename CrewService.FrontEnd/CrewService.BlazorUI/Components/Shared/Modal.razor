@@ -1,0 +1,44 @@
+@if (Visible)
+{
+    <div class="dialog-overlay" @onclick="OnClose">
+        <div class="dialog-panel @SizeClass" @onclick:stopPropagation>
+            <div class="dialog-header">
+                <h5 class="mb-0">
+                    @if (Icon is not null)
+                    {
+                        <span class="@Icon me-2"></span>
+                    }
+                    @Title
+                </h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="OnClose"></button>
+            </div>
+            <div class="dialog-body">
+                @BodyContent
+            </div>
+            @if (Footer is not null)
+            {
+                <div class="dialog-footer">
+                    @Footer
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public RenderFragment? BodyContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string Size { get; set; } = "";
+
+    private string SizeClass => Size switch
+    {
+        "sm" => "dialog-sm",
+        "lg" => "dialog-lg",
+        "xl" => "dialog-xl",
+        _ => ""
+    };
+}
