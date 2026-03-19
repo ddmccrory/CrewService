@@ -30,6 +30,13 @@ public static class Roles
         Employee
     ];
 
+    /// <summary>Roles a SystemAdmin can assign, including SystemAdmin itself.</summary>
+    public static readonly IReadOnlyList<string> SystemAdminAssignableRoles =
+    [
+        SystemAdmin,
+        .. AdminAssignableRoles
+    ];
+
     /// <summary>Operational roles assignable by non-parent-admin users.</summary>
     public static readonly IReadOnlyList<string> OperationalRoles =
     [

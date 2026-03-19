@@ -45,6 +45,19 @@ public static class Roles
         Employee
     ];
 
+    /// <summary>All roles that can be assigned via invitation (global + per-parent).</summary>
+    public static readonly IReadOnlySet<string> AllInvitableRoles = new HashSet<string>
+    {
+        SystemAdmin,
+        ParentAdmin,
+        RailroadAdmin,
+        CraftManager,
+        CrewManager,
+        Dispatcher,
+        PayrollClerk,
+        Employee
+    };
+
     public static readonly IReadOnlySet<string> RolesRequiringRailroad = new HashSet<string>
     {
         RailroadAdmin,

@@ -47,8 +47,8 @@ public class InvitationService(
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
-        else if (!Roles.AllPerParentRoles.Contains(request.Role))
-            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
+        else if (!Roles.AllInvitableRoles.Contains(request.Role))
+            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllInvitableRoles)}"]);
 
         if (Roles.RolesRequiringRailroad.Contains(request.Role) && request.RailroadCtrlNbr <= 0)
             errors.Add("RailroadCtrlNbr", ["Required for the selected role"]);
@@ -129,6 +129,14 @@ public class InvitationService(
         EnsureCanView(callerRole);
 
         var invitations = await _invitationRepository.GetByParentCtrlNbrAsync(request.ParentCtrlNbr);
+
+        // SystemAdmin invitations are global — show them regardless of parent context
+        if (callerRole == Roles.SystemAdmin)
+        {
+            var sysAdminInvitations = await _invitationRepository.GetByRoleAsync(Roles.SystemAdmin);
+            var existingCtrlNbrs = invitations.Select(i => i.CtrlNbr).ToHashSet();
+            invitations.AddRange(sysAdminInvitations.Where(i => !existingCtrlNbrs.Contains(i.CtrlNbr)));
+        }
 
         var response = new GetInvitationsResponse();
         foreach (var invitation in invitations)
@@ -317,8 +325,12 @@ public class InvitationService(
     {
         EnsureCanView(callerRole);
 
-        // SystemAdmin and ParentAdmin can create any per-parent role
-        if (callerRole is Roles.SystemAdmin or Roles.ParentAdmin)
+        // SystemAdmin can create any role, including other SystemAdmins
+        if (callerRole == Roles.SystemAdmin)
+            return;
+
+        // ParentAdmin can create any per-parent role (not SystemAdmin)
+        if (callerRole == Roles.ParentAdmin && targetRole != Roles.SystemAdmin)
             return;
 
         // RailroadAdmin can only create non-admin roles
