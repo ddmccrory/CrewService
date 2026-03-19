@@ -1,4 +1,6 @@
-﻿using CrewService.Domain.Interfaces;
+using CrewService.Application.Modules.UserAccess;
+using CrewService.Infrastructure.Email;
+using CrewService.Domain.Interfaces;
 using CrewService.Infrastructure.Notifications;
 using CrewService.Infrastructure.Outbox;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +29,11 @@ public static class DependencyInjection
         // Register operational notifier (Teams webhook)
         services.AddHttpClient();
         services.AddScoped<IOperationalNotifier, TeamsWebhookNotifier>();
+
+        // Email service
+        services.Configure<SmtpSettings>(
+            configuration.GetSection(SmtpSettings.SectionName));
+        services.AddTransient<IInvitationEmailService, SmtpInvitationEmailService>();
 
         return services;
     }

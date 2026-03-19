@@ -100,7 +100,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
         var assignment = await _assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Assignment with control number {request.CtrlNbr} was not found."));
 
-        assignment.UpdateRole(request.Role);
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        assignment.UpdateRole(request.Role, railroadCtrlNbr);
 
         await _assignmentRepository.UpdateAsync(assignment);
 
@@ -109,7 +110,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
             CtrlNbr = assignment.CtrlNbr.Value,
             UserId = assignment.UserId,
             ParentCtrlNbr = assignment.ParentCtrlNbr.Value,
-            Role = assignment.Role
+            Role = assignment.Role,
+            RailroadCtrlNbr = assignment.RailroadCtrlNbr?.Value ?? 0
         };
     }
 
@@ -129,7 +131,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
             CtrlNbr = assignment.CtrlNbr.Value,
             UserId = assignment.UserId,
             ParentCtrlNbr = assignment.ParentCtrlNbr.Value,
-            Role = assignment.Role
+            Role = assignment.Role,
+            RailroadCtrlNbr = assignment.RailroadCtrlNbr?.Value ?? 0
         };
     }
 
@@ -140,7 +143,8 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
             CtrlNbr = assignment.CtrlNbr.Value,
             UserId = assignment.UserId,
             ParentCtrlNbr = assignment.ParentCtrlNbr.Value,
-            Role = assignment.Role
+            Role = assignment.Role,
+            RailroadCtrlNbr = assignment.RailroadCtrlNbr?.Value ?? 0
         };
     }
 }

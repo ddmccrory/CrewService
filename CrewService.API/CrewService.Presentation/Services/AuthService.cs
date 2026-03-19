@@ -1,4 +1,6 @@
-﻿using CrewService.Domain.Models.UserAccess;
+using CrewService.Domain.Constants;
+using CrewService.Domain.Models.UserAccess;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
@@ -16,12 +18,14 @@ public sealed class AuthService(
     IConfiguration configuration,
     UserManager<User> userManager,
     IUserParentAssignmentRepository assignmentRepository,
-    IInvitationRepository invitationRepository) : AuthSrvc.AuthSrvcBase
+    IInvitationRepository invitationRepository,
+    ICurrentUserService currentUserService) : AuthSrvc.AuthSrvcBase
 {
     private readonly UserManager<User> _userManager = userManager;
     private readonly IConfiguration _configuration = configuration;
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
     private readonly IInvitationRepository _invitationRepository = invitationRepository;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public override async Task<RegisterResponse> RegisterUser(RegisterRequest request, ServerCallContext context)
     {
@@ -42,6 +46,9 @@ public sealed class AuthService(
             response.Message.Add("Invalid invitation token.");
             return response;
         }
+
+        // Set audit context for this unauthenticated endpoint
+        _currentUserService.SetAuditOverride(invitation.Email);
 
         if (!invitation.IsValid)
         {
@@ -92,12 +99,78 @@ public sealed class AuthService(
         invitation.Accept();
         await _invitationRepository.UpdateAsync(invitation);
 
-        // Create the UserParentAssignment from the invitation
-        var assignment = UserParentAssignment.Create(
-            existingUser.Id,
-            invitation.ParentCtrlNbr.Value,
-            invitation.Role);
-        await _assignmentRepository.AddAsync(assignment);
+        // Create or update the UserParentAssignment from the invitation
+        var existingAssignments = await _assignmentRepository.GetByUserAndParentAsync(existingUser.Id, invitation.ParentCtrlNbr);
+        var isParentScoped = !Roles.RolesRequiringRailroad.Contains(invitation.Role);
+
+        if (existingAssignments.Count > 0)
+        {
+            var hasRailroadScoped = existingAssignments.Any(a => Roles.RolesRequiringRailroad.Contains(a.Role));
+            var hasParentScoped = existingAssignments.Any(a => !Roles.RolesRequiringRailroad.Contains(a.Role));
+
+            if (isParentScoped && hasRailroadScoped)
+            {
+                // Upgrading from railroad-scoped to parent-scoped: replace all railroad assignments
+                foreach (var old in existingAssignments)
+                    await _assignmentRepository.DeleteAsync(old.CtrlNbr);
+
+                var newAssignment = UserParentAssignment.Create(
+                    existingUser.Id,
+                    invitation.ParentCtrlNbr.Value,
+                    invitation.Role);
+                await _assignmentRepository.AddAsync(newAssignment);
+            }
+            else if (!isParentScoped && hasParentScoped)
+            {
+                // Downgrading from parent-scoped to railroad-scoped: replace parent assignment
+                foreach (var old in existingAssignments)
+                    await _assignmentRepository.DeleteAsync(old.CtrlNbr);
+
+                var newAssignment = UserParentAssignment.Create(
+                    existingUser.Id,
+                    invitation.ParentCtrlNbr.Value,
+                    invitation.Role,
+                    invitation.RailroadCtrlNbr);
+                await _assignmentRepository.AddAsync(newAssignment);
+            }
+            else
+            {
+                // Same scope type: update matching assignment or add new railroad
+                var matchingAssignment = existingAssignments.FirstOrDefault(a => a.RailroadCtrlNbr == invitation.RailroadCtrlNbr);
+                if (matchingAssignment is not null)
+                {
+                    matchingAssignment.UpdateRole(invitation.Role, invitation.RailroadCtrlNbr);
+                    await _assignmentRepository.UpdateAsync(matchingAssignment);
+                }
+                else
+                {
+                    var newAssignment = UserParentAssignment.Create(
+                        existingUser.Id,
+                        invitation.ParentCtrlNbr.Value,
+                        invitation.Role,
+                        invitation.RailroadCtrlNbr);
+                    await _assignmentRepository.AddAsync(newAssignment);
+                }
+            }
+
+            // Mark all prior accepted invitations for this parent as superseded
+            var oldInvitations = await _invitationRepository.GetAcceptedByEmailAndParentAsync(invitation.Email, invitation.ParentCtrlNbr);
+            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
+            {
+                oldInv.MarkSuperseded();
+                await _invitationRepository.UpdateAsync(oldInv);
+            }
+        }
+        else
+        {
+            // No existing assignments - create new
+            var assignment = UserParentAssignment.Create(
+                existingUser.Id,
+                invitation.ParentCtrlNbr.Value,
+                invitation.Role,
+                invitation.RailroadCtrlNbr);
+            await _assignmentRepository.AddAsync(assignment);
+        }
 
         response.Success = true;
         response.Message.Add("User has successfully registered.");
@@ -216,7 +289,7 @@ public sealed class AuthService(
 
         if (!string.IsNullOrWhiteSpace(user.EmployeeNumber))
         {
-            claims.Add(new Claim("employee_number", user.EmployeeNumber));
+            claims.Add(new Claim(CustomClaimTypes.EmployeeNumber, user.EmployeeNumber));
         }
 
         // Global role: SystemAdmin bypasses parent scoping
@@ -238,13 +311,16 @@ public sealed class AuthService(
 
                 foreach (var assignment in assignments)
                 {
-                    claims.Add(new Claim("parent_role", $"{assignment.ParentCtrlNbr.Value}:{assignment.Role}"));
+                    var claimValue = assignment.RailroadCtrlNbr is not null
+                        ? $"{assignment.ParentCtrlNbr.Value}:{assignment.Role}:{assignment.RailroadCtrlNbr.Value}"
+                        : $"{assignment.ParentCtrlNbr.Value}:{assignment.Role}";
+                    claims.Add(new Claim(CustomClaimTypes.ParentRole, claimValue));
                 }
             }
             else
             {
                 // No assignments — default to ReadOnly (will be blocked by policies requiring parent context)
-                claims.Add(new Claim("role", Roles.ReadOnly));
+                claims.Add(new Claim("role", Roles.Employee));
             }
         }
 

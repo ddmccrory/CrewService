@@ -31,7 +31,7 @@ namespace CrewService.GrpcService;
 ///   2. Employees with Addresses, Phone Numbers, Email Addresses (via auto-accept invitations)
 ///   3. SystemAdmin bootstrap user and per-parent role assignments (via auto-accept invitations)
 /// Idempotent: each section checks for existing data before seeding.
-/// Dev only — uses auto-accept invitation flow to mirror production logic.
+/// Dev only ï¿½ uses auto-accept invitation flow to mirror production logic.
 /// </summary>
 internal static class DevDataSeeder
 {
@@ -54,9 +54,10 @@ internal static class DevDataSeeder
         var railroadRepo = sp.GetRequiredService<IRailroadRepository>();
         var placementRepo = sp.GetRequiredService<IRailroadGroupPlacementRepository>();
 
-        // Idempotent guard – if group types already exist, skip seeding
+        // Idempotent guard â€” only seed when DevDataSeeder-specific group types are absent
+        // (migration-seeded types like Location, Zone, etc. do not count)
         var existing = await groupTypeRepo.GetAllAsync();
-        if (existing.Count == 0)
+        if (!existing.Any(gt => gt.Name is "Region" or "Subdivision" or "WorkArea"))
         {
 
         // ?? Group Types ??????????????????????????????????????????????
@@ -68,13 +69,21 @@ internal static class DevDataSeeder
         await groupTypeRepo.AddAsync(subdivType);
         await groupTypeRepo.AddAsync(workAreaType);
 
+        // Module reference group types (previously in SeedReferenceGroupTypes migration)
+        await groupTypeRepo.AddAsync(GroupType.Create("Location", "Operational locations used by FRA segments and billing", isWorkArea: false));
+        await groupTypeRepo.AddAsync(GroupType.Create("Zone", "Geographic zones for billing and reporting", isWorkArea: false));
+        await groupTypeRepo.AddAsync(GroupType.Create("AFE", "Authorization for Expenditure codes", isWorkArea: false));
+        await groupTypeRepo.AddAsync(GroupType.Create("WorkCode", "Work/job classification codes", isWorkArea: false));
+        await groupTypeRepo.AddAsync(GroupType.Create("Material", "Material and supply codes", isWorkArea: false));
+        await groupTypeRepo.AddAsync(GroupType.Create("LocomotiveType", "Locomotive type classification codes", isWorkArea: false));
+
         // ?? Scenario 1: Simple (no placements) ??????????????????????
         var simpleCorp = Parent.Create("Simple Corp");
         await parentRepo.AddAsync(simpleCorp);
 
         var simpleRR = Railroad.Create(simpleCorp.CtrlNbr.Value, "SMPL", "Simple Railroad");
         await railroadRepo.AddAsync(simpleRR);
-        // No placement rows – backward-compatible scenario
+        // No placement rows ï¿½ backward-compatible scenario
 
         // ?? Scenario 2: PTRA (Legacy Railroad) ?????????????????????????
         var ptraCorp = Parent.Create("Port Terminal Railroad Association");
@@ -206,7 +215,38 @@ internal static class DevDataSeeder
             await groupTypeRepo.AddAsync(workAreaTypeBackfill);
         }
 
+        // Backfill module reference group types (moved from SeedReferenceGroupTypes migration)
+        foreach (var (name, desc) in new[]
+        {
+            ("Location", "Operational locations used by FRA segments and billing"),
+            ("Zone", "Geographic zones for billing and reporting"),
+            ("AFE", "Authorization for Expenditure codes"),
+            ("WorkCode", "Work/job classification codes"),
+            ("Material", "Material and supply codes"),
+            ("LocomotiveType", "Locomotive type classification codes")
+        })
+        {
+            if (!groupTypesBackfill.Any(gt => gt.Name == name))
+                await groupTypeRepo.AddAsync(GroupType.Create(name, desc, isWorkArea: false));
+        }
+
+        // Ensure all parents exist (independent of group backfills)
         var allParentsCore = await parentRepo.GetAllAsync();
+
+        var simpleCorpCore = allParentsCore.FirstOrDefault(p => p.Name.Value == "Simple Corp");
+        if (simpleCorpCore is null)
+        {
+            simpleCorpCore = Parent.Create("Simple Corp");
+            await parentRepo.AddAsync(simpleCorpCore);
+        }
+
+        var ptraParentCore = allParentsCore.FirstOrDefault(p => p.Name.Value == "Port Terminal Railroad Association");
+        if (ptraParentCore is null)
+        {
+            ptraParentCore = Parent.Create("Port Terminal Railroad Association");
+            await parentRepo.AddAsync(ptraParentCore);
+        }
+
         var csxParentCore = allParentsCore.FirstOrDefault(p => p.Name.Value == "CSX Corporation");
         if (csxParentCore is null)
         {
@@ -215,6 +255,21 @@ internal static class DevDataSeeder
         }
 
         var allRailroadsCore = await railroadRepo.GetAllAsync();
+
+        var simpleRailroadCore = allRailroadsCore.FirstOrDefault(rr => rr.RailroadMark == "SMPL");
+        if (simpleRailroadCore is null)
+        {
+            simpleRailroadCore = Railroad.Create(simpleCorpCore.CtrlNbr.Value, "SMPL", "Simple Railroad");
+            await railroadRepo.AddAsync(simpleRailroadCore);
+        }
+
+        var ptraRailroadCore = allRailroadsCore.FirstOrDefault(rr => rr.RailroadMark == "PTRA");
+        if (ptraRailroadCore is null)
+        {
+            ptraRailroadCore = Railroad.Create(ptraParentCore.CtrlNbr.Value, "PTRA", "Port Terminal Railroad Association");
+            await railroadRepo.AddAsync(ptraRailroadCore);
+        }
+
         var csxRailroadCore = allRailroadsCore.FirstOrDefault(rr => rr.RailroadMark == "CSX");
         if (csxRailroadCore is null)
         {
@@ -337,8 +392,9 @@ internal static class DevDataSeeder
             var invitation = Invitation.Create(
                 email,
                 csxParent.CtrlNbr.Value,
-                Roles.ReadOnly,
-                "SYSTEM");
+                Roles.Employee,
+                "SYSTEM",
+                railroadCtrlNbr: csxRailroadCore.CtrlNbr);
             invitation.Accept();
             await invitationRepo.AddAsync(invitation);
 
@@ -355,7 +411,7 @@ internal static class DevDataSeeder
             };
             await userMgr.CreateAsync(user, "Seed@123");
 
-            var assignment = UserParentAssignment.Create(user.Id, csxParent.CtrlNbr.Value, invitation.Role);
+            var assignment = UserParentAssignment.Create(user.Id, csxParent.CtrlNbr.Value, invitation.Role, csxRailroadCore.CtrlNbr);
             await assignmentRepo.AddAsync(assignment);
 
             var employee = Employee.Create(
@@ -413,29 +469,67 @@ internal static class DevDataSeeder
         var csxCorp = csxParentCore;
         var allEmployees = await employeeRepo.GetAllAsync();
 
-        // Upgrade first 6 employees to distinct roles (they already have ReadOnly from above)
+        // Idempotent guard -- skip if the first employee was already upgraded to a non-Employee role
+        var firstEmpAssignments = allEmployees.Count > 0
+            ? await assignmentRepo.GetByUserAndParentAsync(allEmployees[0].UserId, csxCorp.CtrlNbr.Value)
+            : [];
+        var alreadyUpgraded = firstEmpAssignments.Any(a => a.Role != Roles.Employee);
+
+        if (!alreadyUpgraded)
+        {
+
+        // Upgrade first 6 employees to distinct roles (they already have Employee from above)
         string[] rolesToUpgrade = [Roles.ParentAdmin, Roles.RailroadAdmin, Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk];
         for (int r = 0; r < rolesToUpgrade.Length && r < allEmployees.Count; r++)
         {
             // Create a role-upgrade invitation (auto-accepted)
+            var rrCtrlNbr = Roles.RolesRequiringRailroad.Contains(rolesToUpgrade[r]) ? csxRailroadCore.CtrlNbr : null;
             var upgradeInvite = Invitation.Create(
                 allEmployees[r].EmailAddresses.Count > 0 ? allEmployees[r].EmailAddresses[0].Email : $"emp-{r}@csx.example.com",
                 csxCorp.CtrlNbr.Value,
                 rolesToUpgrade[r],
-                "SYSTEM");
+                "SYSTEM",
+                railroadCtrlNbr: rrCtrlNbr);
             upgradeInvite.Accept();
             await invitationRepo.AddAsync(upgradeInvite);
 
-            // Update existing assignment role
-            var existingAssignment = await assignmentRepo.GetByUserAndParentAsync(allEmployees[r].UserId, csxCorp.CtrlNbr.Value);
-            if (existingAssignment is not null)
+            // Update or replace existing assignment and supersede original invitations
+            var existingAssignments = await assignmentRepo.GetByUserAndParentAsync(allEmployees[r].UserId, csxCorp.CtrlNbr.Value);
+            var isParentScoped = !Roles.RolesRequiringRailroad.Contains(rolesToUpgrade[r]);
+            var upgradeEmail = allEmployees[r].EmailAddresses.Count > 0 ? allEmployees[r].EmailAddresses[0].Email : $"emp-{r}@csx.example.com";
+
+            if (isParentScoped)
             {
-                existingAssignment.UpdateRole(rolesToUpgrade[r]);
-                await assignmentRepo.UpdateAsync(existingAssignment);
+                // Parent-scoped upgrade: remove all railroad-scoped assignments, create parent-scoped
+                foreach (var old in existingAssignments)
+                    await assignmentRepo.DeleteAsync(old.CtrlNbr);
+
+                var newAssignment = UserParentAssignment.Create(allEmployees[r].UserId, csxCorp.CtrlNbr.Value, rolesToUpgrade[r]);
+                await assignmentRepo.AddAsync(newAssignment);
+            }
+            else
+            {
+                // Railroad-scoped upgrade: update matching assignment
+                var matchingAssignment = existingAssignments.FirstOrDefault(a => a.RailroadCtrlNbr == rrCtrlNbr);
+                if (matchingAssignment is not null)
+                {
+                    matchingAssignment.UpdateRole(rolesToUpgrade[r], rrCtrlNbr);
+                    await assignmentRepo.UpdateAsync(matchingAssignment);
+                }
+            }
+
+            // Mark all prior accepted invitations for this parent as superseded
+            var oldInvitations = await invitationRepo.GetAcceptedByEmailAndParentAsync(upgradeEmail, csxCorp.CtrlNbr);
+            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != upgradeInvite.CtrlNbr))
+            {
+                oldInv.MarkSuperseded();
+                await invitationRepo.UpdateAsync(oldInv);
             }
         }
 
-        // ?? Section 4: Seniority — Crafts, Rosters, Rankings ?????????????
+        } // end upgrade guard
+
+        // ?? Section 4: Seniority ï¿½ Crafts, Rosters, Rankings ?????????????
         var craftRepo = sp.GetRequiredService<ICraftRepository>();
         var rosterRepo = sp.GetRequiredService<IRosterRepository>();
         var seniorityRepo = sp.GetRequiredService<ISeniorityRepository>();
@@ -489,7 +583,7 @@ internal static class DevDataSeeder
         await craftRepo.AddAsync(ptraClerical);
         }
 
-        // Rosters — one per craft per railroad
+        // Rosters ï¿½ one per craft per railroad
         var allRailroads = await railroadRepo.GetAllAsync();
         var csxRailroad = allRailroads.First(rr => rr.RailroadMark == "CSX");
 
@@ -505,7 +599,7 @@ internal static class DevDataSeeder
             training: false, extraBoard: false, overtimeBoard: false);
         await rosterRepo.AddAsync(csxClericalRoster);
 
-        // Seniority entries — split 100 employees: 40 Engineer, 50 Conductor, 10 Clerical
+        // Seniority entries ï¿½ split 100 employees: 40 Engineer, 50 Conductor, 10 Clerical
         var empList = await employeeRepo.GetAllAsync();
         var rosterDate = new DateTime(2015, 1, 1);
 
@@ -528,7 +622,7 @@ internal static class DevDataSeeder
 
         } // end seniority guard
 
-        // ?? Section 5: Work Management — Roles, Templates, Instances, Slots ??
+        // ?? Section 5: Work Management ï¿½ Roles, Templates, Instances, Slots ??
         var positionRoleRepo = sp.GetRequiredService<IPositionRoleRepository>();
         var templateRepo = sp.GetRequiredService<IAssignmentTemplateRepository>();
         var workInstanceRepo = sp.GetRequiredService<IWorkInstanceRepository>();
@@ -544,7 +638,7 @@ internal static class DevDataSeeder
         var condCraft = crafts.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == jaxYardGroup.CtrlNbr);
         var clerCraft = crafts.First(c => c.CraftName == "Clerical" && c.DynamicGroupCtrlNbr == jaxYardGroup.CtrlNbr);
 
-        // Position Roles — Conductor craft
+        // Position Roles ï¿½ Conductor craft
         var studentTrainman = PositionRole.Create(condCraft.CtrlNbr, "STRN", "Student Trainman");
         var trainman = PositionRole.Create(condCraft.CtrlNbr, "TRMN", "Trainman");
         var conductor = PositionRole.Create(condCraft.CtrlNbr, "COND", "Conductor");
@@ -552,13 +646,13 @@ internal static class DevDataSeeder
         await positionRoleRepo.AddAsync(trainman);
         await positionRoleRepo.AddAsync(conductor);
 
-        // Position Roles — Engineer craft
+        // Position Roles ï¿½ Engineer craft
         var studentEngineer = PositionRole.Create(engCraft.CtrlNbr, "SENG", "Student Engineer");
         var engineer = PositionRole.Create(engCraft.CtrlNbr, "ENGR", "Engineer");
         await positionRoleRepo.AddAsync(studentEngineer);
         await positionRoleRepo.AddAsync(engineer);
 
-        // Position Roles — Clerical craft
+        // Position Roles ï¿½ Clerical craft
         var crewDispatcher = PositionRole.Create(clerCraft.CtrlNbr, "DISP", "Crew Dispatcher");
         await positionRoleRepo.AddAsync(crewDispatcher);
 
@@ -570,7 +664,7 @@ internal static class DevDataSeeder
         await templateRepo.AddAsync(job202);
         await templateRepo.AddAsync(job303);
 
-        // Work Instances — 2 per template (today + tomorrow)
+        // Work Instances ï¿½ 2 per template (today + tomorrow)
         var today = DateTime.UtcNow.Date;
         var tomorrow = today.AddDays(1);
 
@@ -587,7 +681,7 @@ internal static class DevDataSeeder
         await workInstanceRepo.AddAsync(wi303Today);
         await workInstanceRepo.AddAsync(wi303Tomorrow);
 
-        // Position Slots — each work instance gets a Conductor + Engineer slot
+        // Position Slots ï¿½ each work instance gets a Conductor + Engineer slot
         var slots = new List<PositionSlot>();
         foreach (var wi in new[] { wi101Today, wi101Tomorrow, wi202Today, wi202Tomorrow, wi303Today, wi303Tomorrow })
         {
@@ -601,10 +695,10 @@ internal static class DevDataSeeder
 
         // Bind a few today slots to employees
         var empList = await employeeRepo.GetAllAsync();
-        slots[0].Bind(empList[40].CtrlNbr, "DISPATCH");  // Job 101 today — Conductor
-        slots[1].Bind(empList[0].CtrlNbr, "DISPATCH");    // Job 101 today — Engineer
-        slots[4].Bind(empList[41].CtrlNbr, "DISPATCH");   // Job 202 today — Conductor
-        slots[5].Bind(empList[1].CtrlNbr, "DISPATCH");    // Job 202 today — Engineer
+        slots[0].Bind(empList[40].CtrlNbr, "DISPATCH");  // Job 101 today ï¿½ Conductor
+        slots[1].Bind(empList[0].CtrlNbr, "DISPATCH");    // Job 101 today ï¿½ Engineer
+        slots[4].Bind(empList[41].CtrlNbr, "DISPATCH");   // Job 202 today ï¿½ Conductor
+        slots[5].Bind(empList[1].CtrlNbr, "DISPATCH");    // Job 202 today ï¿½ Engineer
         await positionSlotRepo.UpdateAsync(slots[0]);
         await positionSlotRepo.UpdateAsync(slots[1]);
         await positionSlotRepo.UpdateAsync(slots[4]);
@@ -612,7 +706,7 @@ internal static class DevDataSeeder
 
         } // end work management guard
 
-        // ?? Section 6: Crews — Crews, Positions, Incumbencies, Attachments ???
+        // ?? Section 6: Crews ï¿½ Crews, Positions, Incumbencies, Attachments ???
         var crewRepo = sp.GetRequiredService<ICrewRepository>();
         var crewPositionRepo = sp.GetRequiredService<ICrewPositionRepository>();
         var incumbencyRepo = sp.GetRequiredService<ICrewIncumbencyRepository>();
@@ -639,7 +733,7 @@ internal static class DevDataSeeder
         await crewRepo.AddAsync(crewB);
         await crewRepo.AddAsync(extraCrew);
 
-        // Crew Positions — 2 per crew (Conductor + Engineer)
+        // Crew Positions ï¿½ 2 per crew (Conductor + Engineer)
         var crewAPos1 = CrewPosition.Create(crewA.CtrlNbr, condRole.CtrlNbr, 1);
         var crewAPos2 = CrewPosition.Create(crewA.CtrlNbr, engRole.CtrlNbr, 2);
         var crewBPos1 = CrewPosition.Create(crewB.CtrlNbr, condRole.CtrlNbr, 1);
@@ -653,7 +747,7 @@ internal static class DevDataSeeder
         await crewPositionRepo.AddAsync(extraPos1);
         await crewPositionRepo.AddAsync(extraPos2);
 
-        // Incumbencies — assign employees to crew positions
+        // Incumbencies ï¿½ assign employees to crew positions
         var now = DateTime.UtcNow;
         await incumbencyRepo.AddAsync(CrewIncumbency.Create(crewAPos1.CtrlNbr, empList2[40].CtrlNbr, now));
         await incumbencyRepo.AddAsync(CrewIncumbency.Create(crewAPos2.CtrlNbr, empList2[0].CtrlNbr, now));
@@ -662,15 +756,15 @@ internal static class DevDataSeeder
         await incumbencyRepo.AddAsync(CrewIncumbency.Create(extraPos1.CtrlNbr, empList2[42].CtrlNbr, now));
         await incumbencyRepo.AddAsync(CrewIncumbency.Create(extraPos2.CtrlNbr, empList2[2].CtrlNbr, now));
 
-        // Attachment — link Crew A to Job 101 template
+        // Attachment ï¿½ link Crew A to Job 101 template
         await attachmentTemplateRepo.AddAsync(CrewAttachmentTemplate.Create(job101Tmpl.CtrlNbr, crewA.CtrlNbr, now));
 
-        // Relief rule — extra crew covers Job 101 on weekdays (Mon–Fri = 0b0111110)
+        // Relief rule ï¿½ extra crew covers Job 101 on weekdays (Monï¿½Fri = 0b0111110)
         await reliefRuleRepo.AddAsync(ReliefCoverageRule.Create(extraCrew.CtrlNbr, job101Tmpl.CtrlNbr, 0b0111110, now));
 
         } // end crews guard
 
-        // ?? Section 7: Boards — Extra Boards, Members, Cascade Policies ??????
+        // ?? Section 7: Boards ï¿½ Extra Boards, Members, Cascade Policies ??????
         var boardRepo = sp.GetRequiredService<IExtraBoardRepository>();
         var boardMemberRepo = sp.GetRequiredService<IBoardMemberRepository>();
         var cascadeRepo = sp.GetRequiredService<IBoardCascadePolicyRepository>();
@@ -691,7 +785,7 @@ internal static class DevDataSeeder
         await boardRepo.AddAsync(engBoard);
         await boardRepo.AddAsync(condBoard);
 
-        // Board Members — 5 engineers, 5 conductors
+        // Board Members ï¿½ 5 engineers, 5 conductors
         for (int i = 0; i < 5; i++)
         {
             await boardMemberRepo.AddAsync(BoardMember.Create(engBoard.CtrlNbr, empList3[3 + i].CtrlNbr, i + 1, now2));
@@ -757,7 +851,7 @@ internal static class DevDataSeeder
 
         } // end bulletins guard
 
-        // ?? Section 9: Dispatching — Projections, Bookings ???????????????????
+        // ?? Section 9: Dispatching ï¿½ Projections, Bookings ???????????????????
         var projectionRepo = sp.GetRequiredService<IDispatchProjectionRepository>();
         var bookingRepo = sp.GetRequiredService<IEmployeeBookingRepository>();
 
@@ -787,7 +881,7 @@ internal static class DevDataSeeder
 
         } // end dispatching guard
 
-        // ?? Section 10: Policies — Displacement, Bulletin, Seniority Move ????
+        // ?? Section 10: Policies ï¿½ Displacement, Bulletin, Seniority Move ????
         var displacementPolicyRepo = sp.GetRequiredService<ICraftDisplacementPolicyRepository>();
         var bulletinPolicyRepo = sp.GetRequiredService<IBulletinPolicyRepository>();
         var senMovePolicyRepo = sp.GetRequiredService<ISeniorityMovePolicyRepository>();
@@ -812,7 +906,7 @@ internal static class DevDataSeeder
 
         } // end policies guard
 
-        // ?? Section 11: Payroll — Tiers, Time Entries, Payroll Run ???????????
+        // ?? Section 11: Payroll ï¿½ Tiers, Time Entries, Payroll Run ???????????
         var payrollTierRepo = sp.GetRequiredService<IPayrollTierRepository>();
         var timeEntryRepo = sp.GetRequiredService<ITimeEntryRepository>();
         var payrollRunRepo = sp.GetRequiredService<IPayrollRunRepository>();
@@ -835,13 +929,13 @@ internal static class DevDataSeeder
             await timeEntryRepo.AddAsync(TimeEntry.Create(empList6[i].CtrlNbr, today3, "REGULAR", 8.0m));
         }
 
-        // Payroll Run — current pay period
+        // Payroll Run ï¿½ current pay period
         var payPeriod = $"{today3:yyyy}-W{System.Globalization.ISOWeek.GetWeekOfYear(today3):D2}";
         await payrollRunRepo.AddAsync(PayrollRun.Create(payPeriod));
 
         } // end payroll guard
 
-        // ?? Section 12: Safety — Categories, Observations ????????????????????
+        // ?? Section 12: Safety ï¿½ Categories, Observations ????????????????????
         var safetyCatRepo = sp.GetRequiredService<ISafetyCategoryRepository>();
         var safetyObsRepo = sp.GetRequiredService<ISafetyObservationRepository>();
 
@@ -879,7 +973,7 @@ internal static class DevDataSeeder
         var jaxYard8 = groups7.First(g => g.Name == "Jax Yard");
 
         var info1 = RailroadInformation.Create(jaxYard8.CtrlNbr, "GENERAL",
-            "Track Speed Restriction — MP 42.5", "Speed restricted to 25 MPH through MP 42.5 due to maintenance.");
+            "Track Speed Restriction ï¿½ MP 42.5", "Speed restricted to 25 MPH through MP 42.5 due to maintenance.");
         info1.Publish();
         await rrInfoRepo.AddAsync(info1);
 
@@ -889,7 +983,7 @@ internal static class DevDataSeeder
 
         } // end railroad info guard
 
-        // ?? Section 14: FRA Compliance — Duty Tours ??????????????????????????
+        // ?? Section 14: FRA Compliance ï¿½ Duty Tours ??????????????????????????
         var fraDutyTourRepo = sp.GetRequiredService<IFraDutyTourRepository>();
         var empList8 = await employeeRepo.GetAllAsync();
 
@@ -897,7 +991,7 @@ internal static class DevDataSeeder
         var searchResult = await fraDutyTourRepo.SearchAsync(new FraRecordSearchCriteria { EmployeeCtrlNbr = empList8[0].CtrlNbr });
         if (searchResult.Count == 0)
         {
-        // Completed duty tour for an engineer — create a dummy regulatory standard CtrlNbr
+        // Completed duty tour for an engineer ï¿½ create a dummy regulatory standard CtrlNbr
         var tour = Domain.Modules.FraCompliance.FraDutyTour.Create(
             empList8[0].CtrlNbr, Domain.ValueObjects.ControlNumber.Create(1),
             DateTime.UtcNow.AddDays(-1).Date.AddHours(6),

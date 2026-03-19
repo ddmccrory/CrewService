@@ -1,6 +1,7 @@
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.DomainEvents.UserAccess;
 using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Repositories;
@@ -29,7 +30,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Test Parent");
         await parentRepo.AddAsync(parent);
 
-        var assignment = UserParentAssignment.Create("user-001", parent.CtrlNbr.Value, "Admin");
+        var assignment = UserParentAssignment.Create("user-001", parent.CtrlNbr.Value, Roles.ParentAdmin);
         await repo.AddAsync(assignment);
 
         // Act
@@ -39,7 +40,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         Assert.NotNull(found);
         Assert.Equal("user-001", found.UserId);
         Assert.Equal(parent.CtrlNbr, found.ParentCtrlNbr);
-        Assert.Equal("Admin", found.Role);
+        Assert.Equal(Roles.ParentAdmin, found.Role);
     }
 
     /// <summary>
@@ -48,7 +49,7 @@ public sealed class UserParentAssignmentTests : IDisposable
     [Fact]
     public void Create_Raises_CreatedDomainEvent()
     {
-        var assignment = UserParentAssignment.Create("user-001", 250101120000001, "Dispatcher");
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.Dispatcher);
 
         Assert.Single(assignment.DomainEvents);
         Assert.IsType<CrewService.Domain.DomainEvents.UserAccess.UserParentAssignmentCreatedDomainEvent>(assignment.DomainEvents[0]);
@@ -71,14 +72,14 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent2 = Parent.Create("Parent B");
         await parentRepo.AddAsync(parent2);
 
-        var a1 = UserParentAssignment.Create("user-multi", parent1.CtrlNbr.Value, "Admin");
+        var a1 = UserParentAssignment.Create("user-multi", parent1.CtrlNbr.Value, Roles.ParentAdmin);
         await repo.AddAsync(a1);
 
-        var a2 = UserParentAssignment.Create("user-multi", parent2.CtrlNbr.Value, "ReadOnly");
+        var a2 = UserParentAssignment.Create("user-multi", parent2.CtrlNbr.Value, Roles.Employee);
         await repo.AddAsync(a2);
 
-        // A different user's assignment — should not be returned
-        var a3 = UserParentAssignment.Create("user-other", parent1.CtrlNbr.Value, "Manager");
+        // A different user's assignment â€” should not be returned
+        var a3 = UserParentAssignment.Create("user-other", parent1.CtrlNbr.Value, Roles.CrewManager);
         await repo.AddAsync(a3);
 
         // Act
@@ -103,10 +104,10 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Shared Parent");
         await parentRepo.AddAsync(parent);
 
-        var a1 = UserParentAssignment.Create("user-x", parent.CtrlNbr.Value, "Admin");
+        var a1 = UserParentAssignment.Create("user-x", parent.CtrlNbr.Value, Roles.ParentAdmin);
         await repo.AddAsync(a1);
 
-        var a2 = UserParentAssignment.Create("user-y", parent.CtrlNbr.Value, "Dispatcher");
+        var a2 = UserParentAssignment.Create("user-y", parent.CtrlNbr.Value, Roles.Dispatcher);
         await repo.AddAsync(a2);
 
         // Act
@@ -132,7 +133,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Exact Match Parent");
         await parentRepo.AddAsync(parent);
 
-        var assignment = UserParentAssignment.Create("user-exact", parent.CtrlNbr.Value, "Manager");
+        var assignment = UserParentAssignment.Create("user-exact", parent.CtrlNbr.Value, Roles.CrewManager);
         await repo.AddAsync(assignment);
 
         // Act
@@ -140,16 +141,16 @@ public sealed class UserParentAssignmentTests : IDisposable
         var notFound = await repo.GetByUserAndParentAsync("user-nonexistent", parent.CtrlNbr.Value);
 
         // Assert
-        Assert.NotNull(found);
-        Assert.Equal(assignment.CtrlNbr, found.CtrlNbr);
-        Assert.Null(notFound);
+        Assert.Single(found);
+        Assert.Equal(assignment.CtrlNbr, found[0].CtrlNbr);
+        Assert.Empty(notFound);
     }
 
     /// <summary>
-    /// Verifies that inserting a duplicate (UserId, ParentCtrlNbr) violates the unique index.
+    /// Verifies that inserting a duplicate (UserId, ParentCtrlNbr, RailroadCtrlNbr) violates the unique index.
     /// </summary>
     [Fact]
-    public async Task Duplicate_UserId_ParentCtrlNbr_Throws()
+    public async Task Duplicate_UserId_ParentCtrlNbr_RailroadCtrlNbr_Throws()
     {
         // Arrange
         using var ctx = _factory.CreateContext();
@@ -159,12 +160,17 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Dup Parent");
         await parentRepo.AddAsync(parent);
 
-        var a1 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, "Admin");
+        var railroadRepo = new RailroadRepository(ctx, _factory.CurrentUserService);
+        var railroad = Railroad.Create(parent.CtrlNbr, "Test RR", "TSTRR");
+        await railroadRepo.AddAsync(railroad);
+
+        var a1 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, Roles.RailroadAdmin, railroad.CtrlNbr);
         await repo.AddAsync(a1);
 
-        var a2 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, "ReadOnly");
+        // Same user, same parent, same railroad = unique index violation
+        var a2 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, Roles.Employee, railroad.CtrlNbr);
 
-        // Act & Assert — unique index violation
+        // Act & Assert ï¿½ unique index violation
         await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddAsync(a2));
     }
 
@@ -182,11 +188,11 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Role Change Parent");
         await parentRepo.AddAsync(parent);
 
-        var assignment = UserParentAssignment.Create("user-role", parent.CtrlNbr.Value, "ReadOnly");
+        var assignment = UserParentAssignment.Create("user-role", parent.CtrlNbr.Value, Roles.Employee);
         await repo.AddAsync(assignment);
 
         // Act
-        assignment.UpdateRole("Admin");
+        assignment.UpdateRole(Roles.ParentAdmin);
         await repo.UpdateAsync(assignment);
 
         // Re-fetch
@@ -194,7 +200,7 @@ public sealed class UserParentAssignmentTests : IDisposable
 
         // Assert
         Assert.NotNull(updated);
-        Assert.Equal("Admin", updated.Role);
+        Assert.Equal(Roles.ParentAdmin, updated.Role);
         // Created event + Updated event
         Assert.Equal(2, assignment.DomainEvents.Count);
         Assert.IsType<CrewService.Domain.DomainEvents.UserAccess.UserParentAssignmentUpdatedDomainEvent>(assignment.DomainEvents[1]);
@@ -206,10 +212,10 @@ public sealed class UserParentAssignmentTests : IDisposable
     [Fact]
     public void UpdateRole_Same_Value_Does_Not_Raise_Event()
     {
-        var assignment = UserParentAssignment.Create("user-noop", 250101120000001, "Admin");
+        var assignment = UserParentAssignment.Create("user-noop", 250101120000001, Roles.ParentAdmin);
         var initialCount = assignment.DomainEvents.Count;
 
-        assignment.UpdateRole("Admin");
+        assignment.UpdateRole(Roles.ParentAdmin);
 
         Assert.Equal(initialCount, assignment.DomainEvents.Count);
     }
@@ -228,15 +234,15 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Delete Parent");
         await parentRepo.AddAsync(parent);
 
-        var assignment = UserParentAssignment.Create("user-del", parent.CtrlNbr.Value, "Dispatcher");
+        var assignment = UserParentAssignment.Create("user-del", parent.CtrlNbr.Value, Roles.Dispatcher);
         await repo.AddAsync(assignment);
 
-        // Act — soft-delete via repository
+        // Act ï¿½ soft-delete via repository
         await repo.DeleteAsync(assignment.CtrlNbr);
 
         var remaining = await repo.GetByUserIdAsync("user-del");
 
-        // Assert — soft-deleted row should be excluded by global query filter
+        // Assert ï¿½ soft-deleted row should be excluded by global query filter
         Assert.Empty(remaining);
     }
 
@@ -257,23 +263,23 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parentB = Parent.Create("Corp B");
         await parentRepo.AddAsync(parentB);
 
-        var a1 = UserParentAssignment.Create("user-roles", parentA.CtrlNbr.Value, "Admin");
+        var a1 = UserParentAssignment.Create("user-roles", parentA.CtrlNbr.Value, Roles.ParentAdmin);
         await repo.AddAsync(a1);
 
-        var a2 = UserParentAssignment.Create("user-roles", parentB.CtrlNbr.Value, "ReadOnly");
+        var a2 = UserParentAssignment.Create("user-roles", parentB.CtrlNbr.Value, Roles.Employee);
         await repo.AddAsync(a2);
 
         // Act
         var forUser = await repo.GetByUserIdAsync("user-roles");
-        var adminAssignment = await repo.GetByUserAndParentAsync("user-roles", parentA.CtrlNbr.Value);
-        var readOnlyAssignment = await repo.GetByUserAndParentAsync("user-roles", parentB.CtrlNbr.Value);
+        var adminAssignments = await repo.GetByUserAndParentAsync("user-roles", parentA.CtrlNbr.Value);
+        var readOnlyAssignments = await repo.GetByUserAndParentAsync("user-roles", parentB.CtrlNbr.Value);
 
         // Assert
         Assert.Equal(2, forUser.Count);
-        Assert.NotNull(adminAssignment);
-        Assert.Equal("Admin", adminAssignment.Role);
-        Assert.NotNull(readOnlyAssignment);
-        Assert.Equal("ReadOnly", readOnlyAssignment.Role);
+        Assert.Single(adminAssignments);
+        Assert.Equal(Roles.ParentAdmin, adminAssignments[0].Role);
+        Assert.Single(readOnlyAssignments);
+        Assert.Equal(Roles.Employee, readOnlyAssignments[0].Role);
     }
 
     /// <summary>
@@ -308,7 +314,7 @@ public sealed class UserParentAssignmentTests : IDisposable
     [InlineData("")]
     public void UpdateRole_With_Invalid_Role_Throws(string? role)
     {
-        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.ReadOnly);
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.Employee);
 
         Assert.ThrowsAny<ArgumentException>(() => assignment.UpdateRole(role!));
     }
@@ -341,7 +347,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         Assert.Contains(Roles.CrewManager, Roles.AllPerParentRoles);
         Assert.Contains(Roles.Dispatcher, Roles.AllPerParentRoles);
         Assert.Contains(Roles.PayrollClerk, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.ReadOnly, Roles.AllPerParentRoles);
+        Assert.Contains(Roles.Employee, Roles.AllPerParentRoles);
         Assert.DoesNotContain(Roles.SystemAdmin, Roles.AllPerParentRoles);
         Assert.Equal(7, Roles.AllPerParentRoles.Count);
     }

@@ -1,0 +1,450 @@
+@page "/admin/invitations"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models.Auth
+@using CrewService.BlazorUI.Services
+@using CrewService.Presentation
+
+@attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
+
+@implements IDisposable
+
+@inject InvitationsClient InvitationsClient
+@inject RailroadsClient RailroadsClient
+@inject AppContextService AppContext
+
+<PageTitle>Invitations</PageTitle>
+
+<h1>Invitations</h1>
+
+@if (!AppContext.HasParent)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent in the context switcher to manage invitations.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing invitations for <strong>@AppContext.SelectedParentName</strong></p>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button class="btn btn-primary" @onclick="() => showCreateForm = true">
+            <span class="bi bi-plus-circle"></span> Create Invitation
+        </button>
+        <div class="d-flex align-items-center gap-2" style="max-width: 350px;">
+            <span class="bi bi-search text-muted"></span>
+            <input type="text" class="form-control form-control-sm" placeholder="Search by email, role, or railroad..."
+                   @bind="searchText" @bind:event="oninput" />
+            @if (!string.IsNullOrEmpty(searchText))
+            {
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => searchText = string.Empty">
+                    <span class="bi bi-x"></span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <Modal Visible="showCreateForm" Title="Create Invitation" Icon="bi bi-envelope-plus"
+           OnClose="() => showCreateForm = false">
+        <BodyContent>
+            <EditForm Model="createModel" OnValidSubmit="CreateInvitation" id="create-invitation-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Email Address</label>
+                    <InputText @bind-Value="createModel.Email" class="form-control" placeholder="jane@railroad.com" />
+                    <ValidationMessage For="() => createModel.Email" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Role</label>
+                    <InputSelect @bind-Value="createModel.Role" class="form-select" @bind-Value:after="OnRoleChanged">
+                        <option value="">-- Select Role --</option>
+                        @foreach (var role in availableRoles)
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => createModel.Role" class="text-danger" />
+                </div>
+                @if (showRailroadDropdown)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Railroad</label>
+                        <InputSelect @bind-Value="createModel.RailroadCtrlNbr" class="form-select">
+                            <option value="0">-- Select Railroad --</option>
+                            @foreach (var rr in parentRailroads)
+                            {
+                                <option value="@rr.CtrlNbr">@rr.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Expires In (days)</label>
+                    <InputNumber @bind-Value="createModel.ExpirationDays" class="form-control" />
+                    <div class="form-text">1–90 days from today</div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showCreateForm = false">Cancel</button>
+            <button type="submit" form="create-invitation-form" class="btn btn-primary">
+                <span class="bi bi-send me-1"></span> Send Invitation
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (invitations is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <ul class="nav nav-tabs mb-3">
+            @foreach (var tab in statusTabs)
+            {
+                var count = GetCountForTab(tab);
+                <li class="nav-item">
+                    <button class="nav-link @(activeTab == tab ? "active" : "")" @onclick="() => activeTab = tab">
+                        @tab
+                        <span class="badge rounded-pill @GetTabBadgeClass(tab) ms-1">@count</span>
+                    </button>
+                </li>
+            }
+        </ul>
+
+        @if (FilteredInvitations.Count == 0)
+        {
+            <p class="text-muted">
+                @if (!string.IsNullOrEmpty(searchText))
+                {
+                    <text>No results matching "<strong>@searchText</strong>" in @activeTab invitations.</text>
+                }
+                else
+                {
+                    <text>No @activeTab.ToLower() invitations found.</text>
+                }
+            </p>
+        }
+        else
+        {
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Railroad</th>
+                        <th>Created</th>
+                        @if (activeTab is "Pending" or "Expired")
+                        {
+                            <th>Expires</th>
+                        }
+                        else
+                        {
+                            <th>@activeTab</th>
+                        }
+                        @if (activeTab == "Pending")
+                        {
+                            <th style="width: 180px;"></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var inv in FilteredInvitations)
+                    {
+                        <tr>
+                            <td>@inv.Email</td>
+                            <td>@inv.Role</td>
+                            <td>@(inv.RailroadCtrlNbr > 0 ? GetRailroadName(inv.RailroadCtrlNbr) : "—")</td>
+                            <td>@(new DateTime(inv.ExpiresAt, DateTimeKind.Utc).AddDays(-7).ToString("MMM d, yyyy"))</td>
+                            <td>@FormatStatusDate(inv)</td>
+                            @if (activeTab == "Pending")
+                            {
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ResendInvitation(inv.CtrlNbr)">
+                                        <span class="bi bi-arrow-repeat"></span> Resend
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeInvitation(inv.CtrlNbr)">
+                                        <span class="bi bi-x-circle"></span> Revoke
+                                    </button>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+}
+
+@code {
+    private IReadOnlyList<InvitationResponse>? invitations;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool showCreateForm;
+    private CreateInvitationModel createModel = new();
+    private List<string> availableRoles = [];
+    private List<GetRailroadResponse> parentRailroads = [];
+    private bool showRailroadDropdown;
+    private HashSet<long> userRailroadCtrlNbrs = [];
+    private string activeTab = "Pending";
+    private string searchText = string.Empty;
+
+    private static readonly string[] statusTabs = ["Pending", "Accepted", "Expired", "Revoked", "Superseded"];
+
+    private IReadOnlyList<InvitationResponse> FilteredInvitations
+    {
+        get
+        {
+            if (invitations is null) return [];
+
+            var filtered = invitations.Where(i => i.Status == activeTab);
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var term = searchText.Trim();
+                filtered = filtered.Where(i =>
+                    i.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || i.Role.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (i.RailroadCtrlNbr > 0 && GetRailroadName(i.RailroadCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            return [.. filtered];
+        }
+    }
+
+    private int GetCountForTab(string tab)
+    {
+        if (invitations is null) return 0;
+        return invitations.Count(i => i.Status == tab);
+    }
+
+    private static string GetTabBadgeClass(string tab) => tab switch
+    {
+        "Pending" => "bg-warning text-dark",
+        "Accepted" => "bg-success",
+        "Expired" => "bg-secondary",
+        "Revoked" => "bg-danger",
+        "Superseded" => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private string FormatStatusDate(InvitationResponse inv)
+    {
+        var ticks = activeTab switch
+        {
+            "Pending" or "Expired" => inv.ExpiresAt,
+            "Accepted" => inv.AcceptedAt,
+            "Revoked" => inv.RevokedAt,
+            "Superseded" => inv.SupersededAt,
+            _ => 0
+        };
+        return ticks > 0 ? new DateTime(ticks, DateTimeKind.Utc).ToString("MMM d, yyyy") : "—";
+    }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppContext.OnContextChanged += OnContextChanged;
+
+        await DetermineAvailableRoles();
+
+        if (AppContext.HasParent)
+        {
+            await LoadParentRailroads();
+            await LoadInvitations();
+        }
+    }
+
+    private async void OnContextChanged()
+    {
+        if (AppContext.HasParent)
+        {
+            await LoadParentRailroads();
+            await LoadInvitations();
+        }
+        else
+        {
+            invitations = null;
+            parentRailroads = [];
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AppContext.OnContextChanged -= OnContextChanged;
+    }
+
+    private async Task DetermineAvailableRoles()
+    {
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        var isSystemAdmin = user.IsInRole(Roles.SystemAdmin);
+        var isParentAdmin = user.IsInRole(Roles.ParentAdmin)
+                         || user.Claims.Any(c => c.Type == CustomClaimTypes.ParentRole
+                             && c.Value.Split(':') is { Length: >= 2 } parts
+                             && parts[1] == Roles.ParentAdmin);
+
+        if (isSystemAdmin || isParentAdmin)
+        {
+            availableRoles = [.. Roles.AdminAssignableRoles];
+        }
+        else
+        {
+            availableRoles = [.. Roles.OperationalRoles];
+
+            // Extract the railroad CtrlNbrs this user is assigned to
+            userRailroadCtrlNbrs = user.Claims
+                .Where(c => c.Type == CustomClaimTypes.ParentRole)
+                .Select(c => c.Value.Split(':'))
+                .Where(parts => parts.Length >= 3 && long.TryParse(parts[2], out _))
+                .Select(parts => long.Parse(parts[2]))
+                .ToHashSet();
+        }
+    }
+
+    private async Task LoadInvitations()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await InvitationsClient.GetByParentAsync(AppContext.SelectedParentCtrlNbr!.Value);
+            invitations = response.Invitations;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load invitations: {ex.Message}";
+        }
+    }
+
+    private async Task LoadParentRailroads()
+    {
+        try
+        {
+            var response = await RailroadsClient.GetByParentAsync(AppContext.SelectedParentCtrlNbr!.Value);
+            parentRailroads = userRailroadCtrlNbrs.Count > 0
+                ? [.. response.Railroad.Where(rr => userRailroadCtrlNbrs.Contains(rr.CtrlNbr))]
+                : [.. response.Railroad];
+        }
+        catch
+        {
+            parentRailroads = [];
+        }
+    }
+
+    private void OnRoleChanged()
+    {
+        showRailroadDropdown = !string.IsNullOrEmpty(createModel.Role)
+            && Roles.RolesRequiringRailroad.Contains(createModel.Role);
+
+        if (!showRailroadDropdown)
+            createModel.RailroadCtrlNbr = 0;
+        else if (parentRailroads.Count == 1)
+            createModel.RailroadCtrlNbr = parentRailroads[0].CtrlNbr;
+    }
+
+    private string GetRailroadName(long ctrlNbr)
+    {
+        return parentRailroads.FirstOrDefault(rr => rr.CtrlNbr == ctrlNbr)?.Name ?? ctrlNbr.ToString();
+    }
+
+    private async Task CreateInvitation()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await InvitationsClient.CreateAsync(
+                createModel.Email,
+                AppContext.SelectedParentCtrlNbr!.Value,
+                createModel.Role,
+                createModel.ExpirationDays,
+                createModel.RailroadCtrlNbr);
+
+            successMessage = $"Invitation sent to {createModel.Email}.";
+            showCreateForm = false;
+            showRailroadDropdown = false;
+            createModel = new();
+            await LoadInvitations();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to create invitation: {ex.Message}";
+            showCreateForm = true;
+        }
+    }
+
+    private async Task ResendInvitation(long ctrlNbr)
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await InvitationsClient.ResendAsync(ctrlNbr);
+            successMessage = "Invitation resent.";
+            await LoadInvitations();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to resend invitation: {ex.Message}";
+        }
+    }
+
+    private async Task RevokeInvitation(long ctrlNbr)
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await InvitationsClient.RevokeAsync(ctrlNbr);
+            successMessage = "Invitation revoked.";
+            await LoadInvitations();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to revoke invitation: {ex.Message}";
+        }
+    }
+
+    private sealed class CreateInvitationModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Role { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Range(1, 90)]
+        public int ExpirationDays { get; set; } = 7;
+
+        public long RailroadCtrlNbr { get; set; }
+    }
+}

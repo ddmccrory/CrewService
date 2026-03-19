@@ -13,6 +13,9 @@ public sealed class Invitation : Entity
     public string Token { get; private set; } = string.Empty;
     public DateTime ExpiresAt { get; private set; }
     public DateTime? AcceptedAt { get; private set; }
+    public DateTime? RevokedAt { get; private set; }
+    public DateTime? SupersededAt { get; private set; }
+    public ControlNumber? RailroadCtrlNbr { get; private set; }
     public InvitationStatus Status { get; private set; }
 
     private Invitation()
@@ -26,7 +29,8 @@ public sealed class Invitation : Entity
         string role,
         string invitedByUserId,
         string token,
-        DateTime expiresAt)
+        DateTime expiresAt,
+        ControlNumber? railroadCtrlNbr = null)
     {
         Email = email;
         ParentCtrlNbr = parentCtrlNbr;
@@ -34,6 +38,7 @@ public sealed class Invitation : Entity
         InvitedByUserId = invitedByUserId;
         Token = token;
         ExpiresAt = expiresAt;
+        RailroadCtrlNbr = railroadCtrlNbr;
         Status = InvitationStatus.Pending;
     }
 
@@ -42,7 +47,8 @@ public sealed class Invitation : Entity
         ControlNumber parentCtrlNbr,
         string role,
         string invitedByUserId,
-        int expirationDays = 7)
+        int expirationDays = 7,
+        ControlNumber? railroadCtrlNbr = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(role);
@@ -58,7 +64,8 @@ public sealed class Invitation : Entity
             role,
             invitedByUserId,
             GenerateToken(),
-            DateTime.UtcNow.AddDays(expirationDays));
+            DateTime.UtcNow.AddDays(expirationDays),
+            railroadCtrlNbr);
 
         invitation.Raise(new InvitationCreatedDomainEvent(invitation.CtrlNbr));
 
@@ -96,7 +103,17 @@ public sealed class Invitation : Entity
             throw new InvalidOperationException($"Cannot revoke invitation with status '{Status}'.");
 
         Status = InvitationStatus.Revoked;
+        RevokedAt = DateTime.UtcNow;
         Raise(new InvitationRevokedDomainEvent(CtrlNbr));
+    }
+
+    public void MarkSuperseded()
+    {
+        if (Status != InvitationStatus.Accepted)
+            throw new InvalidOperationException($"Cannot supersede invitation with status '{Status}'.");
+
+        Status = InvitationStatus.Superseded;
+        SupersededAt = DateTime.UtcNow;
     }
 
     public bool IsValid => Status == InvitationStatus.Pending && DateTime.UtcNow <= ExpiresAt;

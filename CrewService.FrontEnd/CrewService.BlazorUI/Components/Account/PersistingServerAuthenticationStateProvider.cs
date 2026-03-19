@@ -1,4 +1,5 @@
 using CrewService.BlazorUI.Client;
+using CrewService.BlazorUI.Models.Auth;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
@@ -48,7 +49,7 @@ internal sealed class PersistingServerAuthenticationStateProvider : Authenticati
             if (userId != null && email != null)
             {
                 var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
-                var employeeNumber = principal.FindFirst("employee_number")?.Value;
+                var employeeNumber = principal.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
 
                 _persistentComponentState.PersistAsJson(nameof(UserInfo), new UserInfo
                 {

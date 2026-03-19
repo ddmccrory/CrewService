@@ -19,6 +19,8 @@ builder.Services.AddScoped<AddressTypeClient>();
 builder.Services.AddScoped<AuthClient>();
 builder.Services.AddScoped<EmailAddressTypeClient>();
 builder.Services.AddScoped<EmployeeClient>();
+builder.Services.AddScoped<InvitationsClient>();
+builder.Services.AddScoped<InvitationTokenClient>();
 builder.Services.AddScoped<ParentsClient>();
 builder.Services.AddScoped<PhoneNumberTypeClient>();
 builder.Services.AddScoped<RailroadsClient>();

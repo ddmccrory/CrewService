@@ -40,4 +40,15 @@ internal sealed class InvitationRepository(CrewServiceDbContext dbContext, ICurr
                 i.ParentCtrlNbr == parentCtrlNbr &&
                 i.Status == InvitationStatus.Pending);
     }
+
+    public async Task<List<Invitation>> GetAcceptedByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr)
+    {
+        var normalized = email.ToLowerInvariant();
+        return await DbContext.Set<Invitation>()
+            .Where(i =>
+                i.Email == normalized &&
+                i.ParentCtrlNbr == parentCtrlNbr &&
+                i.Status == InvitationStatus.Accepted)
+            .ToListAsync();
+    }
 }

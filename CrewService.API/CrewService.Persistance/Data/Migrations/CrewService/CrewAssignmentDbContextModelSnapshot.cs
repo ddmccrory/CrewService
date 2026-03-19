@@ -44,7 +44,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("AddressTypes", (string)null);
+                    b.ToTable("AddressTypes");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.ContactTypes.EmailAddressType", b =>
@@ -74,7 +74,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("EmailAddressTypes", (string)null);
+                    b.ToTable("EmailAddressTypes");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.ContactTypes.PhoneNumberType", b =>
@@ -104,7 +104,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("PhoneNumberTypes", (string)null);
+                    b.ToTable("PhoneNumberTypes");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.Address", b =>
@@ -154,7 +154,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.EmailAddress", b =>
@@ -185,7 +185,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("EmailAddresses", (string)null);
+                    b.ToTable("EmailAddresses");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.Employee", b =>
@@ -271,7 +271,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("SocialSecurityNumber")
                         .IsUnique();
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.EmployeePriorServiceCredit", b =>
@@ -301,7 +301,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("EmployeePriorServiceCredits", (string)null);
+                    b.ToTable("EmployeePriorServiceCredits");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.PhoneNumber", b =>
@@ -338,7 +338,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PhoneTypeCtrlNbr");
 
-                    b.ToTable("PhoneNumbers", (string)null);
+                    b.ToTable("PhoneNumbers");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employment.EmploymentStatus", b =>
@@ -375,7 +375,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("EmploymentStatuses", (string)null);
+                    b.ToTable("EmploymentStatuses");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Employment.EmploymentStatusHistory", b =>
@@ -404,7 +404,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmploymentStatusCtrlNbr");
 
-                    b.ToTable("EmploymentStatusHistory", (string)null);
+                    b.ToTable("EmploymentStatusHistory");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Parents.Parent", b =>
@@ -428,7 +428,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Parents", (string)null);
+                    b.ToTable("Parents");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Railroads.PayrollTier", b =>
@@ -458,7 +458,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("DynamicGroupCtrlNbr");
 
-                    b.ToTable("PayrollTiers", (string)null);
+                    b.ToTable("PayrollTiers");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Railroads.Railroad", b =>
@@ -491,7 +491,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ParentCtrlNbr");
 
-                    b.ToTable("Railroads", (string)null);
+                    b.ToTable("Railroads");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Craft", b =>
@@ -563,7 +563,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("RegulatoryStandardCtrlNbr");
 
-                    b.ToTable("Crafts", (string)null);
+                    b.ToTable("Crafts");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Roster", b =>
@@ -609,7 +609,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CraftCtrlNbr");
 
-                    b.ToTable("Rosters", (string)null);
+                    b.ToTable("Rosters");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Seniority", b =>
@@ -650,7 +650,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("RosterCtrlNbr");
 
-                    b.ToTable("Seniority", (string)null);
+                    b.ToTable("Seniority");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.SeniorityState", b =>
@@ -680,7 +680,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("SeniorityStates", (string)null);
+                    b.ToTable("SeniorityStates");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.UserAccess.Invitation", b =>
@@ -713,6 +713,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -721,6 +727,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("SupersededAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Token")
@@ -734,12 +743,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ParentCtrlNbr");
 
+                    b.HasIndex("RailroadCtrlNbr");
+
                     b.HasIndex("Token")
                         .IsUnique();
 
                     b.HasIndex("Email", "ParentCtrlNbr", "Status");
 
-                    b.ToTable("Invitations", (string)null);
+                    b.ToTable("Invitations");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.UserAccess.UserParentAssignment", b =>
@@ -756,6 +767,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -770,12 +784,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ParentCtrlNbr");
 
+                    b.HasIndex("RailroadCtrlNbr");
+
                     b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "ParentCtrlNbr")
+                    b.HasIndex("UserId", "ParentCtrlNbr", "RailroadCtrlNbr")
                         .IsUnique();
 
-                    b.ToTable("UserParentAssignments", (string)null);
+                    b.ToTable("UserParentAssignments");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceApproval", b =>
@@ -813,7 +829,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ApprovalOfficerCtrlNbr");
 
-                    b.ToTable("AbsenceApprovals", (string)null);
+                    b.ToTable("AbsenceApprovals");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCode", b =>
@@ -864,7 +880,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("AbsenceCodes", (string)null);
+                    b.ToTable("AbsenceCodes");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride", b =>
@@ -895,7 +911,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("AbsenceCodeCtrlNbr", "CraftCtrlNbr")
                         .IsUnique();
 
-                    b.ToTable("AbsenceCodeCraftOverrides", (string)null);
+                    b.ToTable("AbsenceCodeCraftOverrides");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceMarkUp", b =>
@@ -925,7 +941,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("AbsenceRequestCtrlNbr");
 
-                    b.ToTable("AbsenceMarkUps", (string)null);
+                    b.ToTable("AbsenceMarkUps");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", b =>
@@ -987,7 +1003,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionSlotCtrlNbr");
 
-                    b.ToTable("AbsenceRequests", (string)null);
+                    b.ToTable("AbsenceRequests");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.CompensationBalance", b =>
@@ -1021,7 +1037,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("EmployeeCtrlNbr", "CompensationType")
                         .IsUnique();
 
-                    b.ToTable("CompensationBalances", (string)null);
+                    b.ToTable("CompensationBalances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.VacancyImpact", b =>
@@ -1053,7 +1069,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionSlotCtrlNbr");
 
-                    b.ToTable("VacancyImpacts", (string)null);
+                    b.ToTable("VacancyImpacts");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.BoardCascadePolicy", b =>
@@ -1097,7 +1113,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("BoardCascadePolicies", (string)null);
+                    b.ToTable("BoardCascadePolicies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.BoardMember", b =>
@@ -1136,7 +1152,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ExtraBoardCtrlNbr");
 
-                    b.ToTable("BoardMembers", (string)null);
+                    b.ToTable("BoardMembers");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.ExtraBoard", b =>
@@ -1179,7 +1195,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PlacedGroupCtrlNbr");
 
-                    b.ToTable("ExtraBoards", (string)null);
+                    b.ToTable("ExtraBoards");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.RosterBoard", b =>
@@ -1213,7 +1229,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("RosterBoards", (string)null);
+                    b.ToTable("RosterBoards");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.RosterBoardPosition", b =>
@@ -1250,7 +1266,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("RosterBoardCtrlNbr");
 
-                    b.ToTable("RosterBoardPositions", (string)null);
+                    b.ToTable("RosterBoardPositions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.Bulletin", b =>
@@ -1296,7 +1312,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionVacancyCtrlNbr");
 
-                    b.ToTable("Bulletins", (string)null);
+                    b.ToTable("Bulletins");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.BulletinBid", b =>
@@ -1336,7 +1352,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("BulletinBids", (string)null);
+                    b.ToTable("BulletinBids");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.PositionVacancy", b =>
@@ -1386,7 +1402,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PreviousIncumbentCtrlNbr");
 
-                    b.ToTable("PositionVacancies", (string)null);
+                    b.ToTable("PositionVacancies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.Crew", b =>
@@ -1420,7 +1436,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("HomeGroupCtrlNbr");
 
-                    b.ToTable("Crews", (string)null);
+                    b.ToTable("Crews");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAttachmentInstance", b =>
@@ -1452,7 +1468,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkInstanceCtrlNbr");
 
-                    b.ToTable("CrewAttachmentInstances", (string)null);
+                    b.ToTable("CrewAttachmentInstances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAttachmentTemplate", b =>
@@ -1484,7 +1500,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CrewCtrlNbr");
 
-                    b.ToTable("CrewAttachmentTemplates", (string)null);
+                    b.ToTable("CrewAttachmentTemplates");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewIncumbency", b =>
@@ -1516,7 +1532,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("CrewIncumbencies", (string)null);
+                    b.ToTable("CrewIncumbencies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewPosition", b =>
@@ -1545,7 +1561,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionRoleCtrlNbr");
 
-                    b.ToTable("CrewPositions", (string)null);
+                    b.ToTable("CrewPositions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.ReliefCoverageRule", b =>
@@ -1580,7 +1596,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ReliefCrewCtrlNbr");
 
-                    b.ToTable("ReliefCoverageRules", (string)null);
+                    b.ToTable("ReliefCoverageRules");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.ChangeNotification", b =>
@@ -1622,7 +1638,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("ChangeNotifications", (string)null);
+                    b.ToTable("ChangeNotifications");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DailyEmployeeStatusRecord", b =>
@@ -1660,7 +1676,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr", "RecordDate");
 
-                    b.ToTable("DailyEmployeeStatusRecords", (string)null);
+                    b.ToTable("DailyEmployeeStatusRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchDecisionLog", b =>
@@ -1701,7 +1717,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("SelectedEmployeeCtrlNbr");
 
-                    b.ToTable("DispatchDecisionLogs", (string)null);
+                    b.ToTable("DispatchDecisionLogs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchOverride", b =>
@@ -1754,7 +1770,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionSlotCtrlNbr");
 
-                    b.ToTable("DispatchOverrides", (string)null);
+                    b.ToTable("DispatchOverrides");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchProjection", b =>
@@ -1790,7 +1806,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ProjectedEmployeeCtrlNbr");
 
-                    b.ToTable("DispatchProjections", (string)null);
+                    b.ToTable("DispatchProjections");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.EmployeeBooking", b =>
@@ -1822,7 +1838,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionSlotCtrlNbr");
 
-                    b.ToTable("EmployeeBookings", (string)null);
+                    b.ToTable("EmployeeBookings");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OffDutyRecord", b =>
@@ -1869,7 +1885,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("OnDutyRecordCtrlNbr");
 
-                    b.ToTable("OffDutyRecords", (string)null);
+                    b.ToTable("OffDutyRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyBillingRecord", b =>
@@ -1912,7 +1928,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("OnDutyRecordCtrlNbr");
 
-                    b.ToTable("OnDutyBillingRecords", (string)null);
+                    b.ToTable("OnDutyBillingRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyLocomotiveRecord", b =>
@@ -1947,7 +1963,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("OnDutyRecordCtrlNbr");
 
-                    b.ToTable("OnDutyLocomotiveRecords", (string)null);
+                    b.ToTable("OnDutyLocomotiveRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyMaterialRecord", b =>
@@ -1986,7 +2002,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("OnDutyRecordCtrlNbr");
 
-                    b.ToTable("OnDutyMaterialRecords", (string)null);
+                    b.ToTable("OnDutyMaterialRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyRecord", b =>
@@ -2044,7 +2060,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionSlotCtrlNbr");
 
-                    b.ToTable("OnDutyRecords", (string)null);
+                    b.ToTable("OnDutyRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.VacancyResolutionRun", b =>
@@ -2087,7 +2103,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("VacancyResolutionRuns", (string)null);
+                    b.ToTable("VacancyResolutionRuns");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CertificationEligibilityCheck", b =>
@@ -2131,7 +2147,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCertificationCtrlNbr");
 
-                    b.ToTable("CertificationEligibilityChecks", (string)null);
+                    b.ToTable("CertificationEligibilityChecks");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CertificationRevocationRecord", b =>
@@ -2193,7 +2209,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PresidingOfficerCtrlNbr");
 
-                    b.ToTable("CertificationRevocationRecords", (string)null);
+                    b.ToTable("CertificationRevocationRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CraftRegulatoryQualification", b =>
@@ -2220,7 +2236,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("CraftCtrlNbr", "RegulatoryQualificationCtrlNbr")
                         .IsUnique();
 
-                    b.ToTable("CraftRegulatoryQualifications", (string)null);
+                    b.ToTable("CraftRegulatoryQualifications");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholAction", b =>
@@ -2258,7 +2274,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("TestRecordCtrlNbr");
 
-                    b.ToTable("DrugAlcoholActions", (string)null);
+                    b.ToTable("DrugAlcoholActions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholTestRecord", b =>
@@ -2305,7 +2321,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("DrugAlcoholTestRecords", (string)null);
+                    b.ToTable("DrugAlcoholTestRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.EmployeeCertification", b =>
@@ -2367,7 +2383,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("RegulatoryQualificationCtrlNbr");
 
-                    b.ToTable("EmployeeCertifications", (string)null);
+                    b.ToTable("EmployeeCertifications");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraDutyTour", b =>
@@ -2427,7 +2443,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("RegulatoryStandardCtrlNbr");
 
-                    b.ToTable("FraDutyTours", (string)null);
+                    b.ToTable("FraDutyTours");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraDutyTourSegment", b =>
@@ -2476,7 +2492,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("OnDutyRecordCtrlNbr");
 
-                    b.ToTable("FraDutyTourSegments", (string)null);
+                    b.ToTable("FraDutyTourSegments");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraExcessServiceReport", b =>
@@ -2520,7 +2536,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("FraExcessServiceReports", (string)null);
+                    b.ToTable("FraExcessServiceReports");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraMonthlyAccumulator", b =>
@@ -2559,7 +2575,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("EmployeeCtrlNbr", "YearMonth")
                         .IsUnique();
 
-                    b.ToTable("FraMonthlyAccumulators", (string)null);
+                    b.ToTable("FraMonthlyAccumulators");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraOtherServiceSegment", b =>
@@ -2604,7 +2620,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("DutyTourCtrlNbr");
 
-                    b.ToTable("FraOtherServiceSegments", (string)null);
+                    b.ToTable("FraOtherServiceSegments");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraTransportationSegment", b =>
@@ -2649,7 +2665,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("DutyTourCtrlNbr");
 
-                    b.ToTable("FraTransportationSegments", (string)null);
+                    b.ToTable("FraTransportationSegments");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.RegulatoryQualification", b =>
@@ -2692,7 +2708,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("RegulatoryQualifications", (string)null);
+                    b.ToTable("RegulatoryQualifications");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.RegulatoryStandard", b =>
@@ -2754,7 +2770,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("RegulatoryStandards", (string)null);
+                    b.ToTable("RegulatoryStandards");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.VoluntaryReferral", b =>
@@ -2802,7 +2818,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("VoluntaryReferrals", (string)null);
+                    b.ToTable("VoluntaryReferrals");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.HolidayManagement.RailroadHolidaySelection", b =>
@@ -2832,7 +2848,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("WorkAreaGroupCtrlNbr", "HolidayCode")
                         .IsUnique();
 
-                    b.ToTable("RailroadHolidaySelections", (string)null);
+                    b.ToTable("RailroadHolidaySelections");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Infrastructure.ProcessingLock", b =>
@@ -2854,7 +2870,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("LockKey");
 
-                    b.ToTable("ProcessingLocks", (string)null);
+                    b.ToTable("ProcessingLocks");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Infrastructure.WorkerExecutionLog", b =>
@@ -2890,7 +2906,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkerScheduleCtrlNbr");
 
-                    b.ToTable("WorkerExecutionLogs", (string)null);
+                    b.ToTable("WorkerExecutionLogs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Infrastructure.WorkerSchedule", b =>
@@ -2933,7 +2949,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("WorkerSchedules", (string)null);
+                    b.ToTable("WorkerSchedules");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationProviderConfig", b =>
@@ -2976,7 +2992,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("NotificationProviderConfigs", (string)null);
+                    b.ToTable("NotificationProviderConfigs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationRequest", b =>
@@ -3022,7 +3038,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionSlotCtrlNbr");
 
-                    b.ToTable("NotificationRequests", (string)null);
+                    b.ToTable("NotificationRequests");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationResponse", b =>
@@ -3055,7 +3071,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("NotificationRequestCtrlNbr");
 
-                    b.ToTable("NotificationResponses", (string)null);
+                    b.ToTable("NotificationResponses");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningApproval", b =>
@@ -3092,7 +3108,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PayrollRecordCtrlNbr");
 
-                    b.ToTable("EarningApprovals", (string)null);
+                    b.ToTable("EarningApprovals");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningCodeRule", b =>
@@ -3132,7 +3148,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("EarningCodeRules", (string)null);
+                    b.ToTable("EarningCodeRules");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.Holiday", b =>
@@ -3164,7 +3180,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("Holidays", (string)null);
+                    b.ToTable("Holidays");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayPayrollRecord", b =>
@@ -3202,7 +3218,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PayrollRecordCtrlNbr");
 
-                    b.ToTable("HolidayPayrollRecords", (string)null);
+                    b.ToTable("HolidayPayrollRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayQualificationRule", b =>
@@ -3238,7 +3254,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("HolidayCtrlNbr");
 
-                    b.ToTable("HolidayQualificationRules", (string)null);
+                    b.ToTable("HolidayQualificationRules");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayRate", b =>
@@ -3275,7 +3291,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PositionRoleCtrlNbr");
 
-                    b.ToTable("PayRates", (string)null);
+                    b.ToTable("PayRates");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollExportBatch", b =>
@@ -3311,7 +3327,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PayrollRunCtrlNbr");
 
-                    b.ToTable("PayrollExportBatches", (string)null);
+                    b.ToTable("PayrollExportBatches");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollImportRecord", b =>
@@ -3354,7 +3370,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PayrollRecordCtrlNbr");
 
-                    b.ToTable("PayrollImportRecords", (string)null);
+                    b.ToTable("PayrollImportRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollRecord", b =>
@@ -3409,7 +3425,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PayrollRunCtrlNbr");
 
-                    b.ToTable("PayrollRecords", (string)null);
+                    b.ToTable("PayrollRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollRun", b =>
@@ -3446,7 +3462,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("PayPeriod");
 
-                    b.ToTable("PayrollRuns", (string)null);
+                    b.ToTable("PayrollRuns");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.TimeEntry", b =>
@@ -3495,7 +3511,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("OriginalEntryCtrlNbr");
 
-                    b.ToTable("TimeEntries", (string)null);
+                    b.ToTable("TimeEntries");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.BulletinPolicy", b =>
@@ -3527,7 +3543,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CraftCtrlNbr");
 
-                    b.ToTable("BulletinPolicies", (string)null);
+                    b.ToTable("BulletinPolicies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.CraftDisplacementPolicy", b =>
@@ -3565,7 +3581,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CraftCtrlNbr");
 
-                    b.ToTable("CraftDisplacementPolicies", (string)null);
+                    b.ToTable("CraftDisplacementPolicies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.CraftOperationsPolicy", b =>
@@ -3609,7 +3625,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("CraftCtrlNbr")
                         .IsUnique();
 
-                    b.ToTable("CraftOperationsPolicies", (string)null);
+                    b.ToTable("CraftOperationsPolicies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.DisplacementCase", b =>
@@ -3646,7 +3662,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("DisplacementCases", (string)null);
+                    b.ToTable("DisplacementCases");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.DisplacementClaim", b =>
@@ -3686,7 +3702,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("TargetEmployeeCtrlNbr");
 
-                    b.ToTable("DisplacementClaims", (string)null);
+                    b.ToTable("DisplacementClaims");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.SeniorityMove", b =>
@@ -3726,7 +3742,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("EmployeeCtrlNbr");
 
-                    b.ToTable("SeniorityMoves", (string)null);
+                    b.ToTable("SeniorityMoves");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.SeniorityMovePolicy", b =>
@@ -3755,7 +3771,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CraftCtrlNbr");
 
-                    b.ToTable("SeniorityMovePolicies", (string)null);
+                    b.ToTable("SeniorityMovePolicies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.RailroadInfo.RailroadInformation", b =>
@@ -3801,7 +3817,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("RailroadInformations", (string)null);
+                    b.ToTable("RailroadInformations");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.RailroadInfo.RailroadInformationReadReceipt", b =>
@@ -3831,7 +3847,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("InformationCtrlNbr", "EmployeeCtrlNbr")
                         .IsUnique();
 
-                    b.ToTable("RailroadInformationReadReceipts", (string)null);
+                    b.ToTable("RailroadInformationReadReceipts");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyCategory", b =>
@@ -3865,7 +3881,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("SafetyCategories", (string)null);
+                    b.ToTable("SafetyCategories");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservation", b =>
@@ -3918,7 +3934,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("SafetyObservations", (string)null);
+                    b.ToTable("SafetyObservations");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservationAction", b =>
@@ -3952,7 +3968,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("TakenByCtrlNbr");
 
-                    b.ToTable("SafetyObservationActions", (string)null);
+                    b.ToTable("SafetyObservationActions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservationResolution", b =>
@@ -3987,7 +4003,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ResolvedByCtrlNbr");
 
-                    b.ToTable("SafetyObservationResolutions", (string)null);
+                    b.ToTable("SafetyObservationResolutions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.DynamicGroup", b =>
@@ -4025,7 +4041,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ParentGroupCtrlNbr", "Name");
 
-                    b.ToTable("DynamicGroups", (string)null);
+                    b.ToTable("DynamicGroups");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.GroupAttributeDefinition", b =>
@@ -4063,7 +4079,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("GroupTypeCtrlNbr");
 
-                    b.ToTable("GroupAttributeDefinitions", (string)null);
+                    b.ToTable("GroupAttributeDefinitions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.GroupAttributeValue", b =>
@@ -4093,7 +4109,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("GroupCtrlNbr");
 
-                    b.ToTable("GroupAttributeValues", (string)null);
+                    b.ToTable("GroupAttributeValues");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.GroupType", b =>
@@ -4128,7 +4144,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("GroupTypes", (string)null);
+                    b.ToTable("GroupTypes");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.RailroadGroupPlacement", b =>
@@ -4157,7 +4173,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasIndex("RailroadCtrlNbr", "GroupCtrlNbr")
                         .IsUnique();
 
-                    b.ToTable("RailroadGroupPlacements", (string)null);
+                    b.ToTable("RailroadGroupPlacements");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.TeamsWebhookConfig", b =>
@@ -4196,7 +4212,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("TeamsWebhookConfigs", (string)null);
+                    b.ToTable("TeamsWebhookConfigs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AbolishmentRecord", b =>
@@ -4231,7 +4247,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("AbolishmentRecords", (string)null);
+                    b.ToTable("AbolishmentRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentTemplate", b =>
@@ -4269,7 +4285,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("AssignmentTemplates", (string)null);
+                    b.ToTable("AssignmentTemplates");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CrewOffDay", b =>
@@ -4293,7 +4309,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CrewPositionCtrlNbr");
 
-                    b.ToTable("CrewOffDays", (string)null);
+                    b.ToTable("CrewOffDays");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionRole", b =>
@@ -4324,7 +4340,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("CraftCtrlNbr");
 
-                    b.ToTable("PositionRoles", (string)null);
+                    b.ToTable("PositionRoles");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionSlot", b =>
@@ -4364,7 +4380,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkInstanceCtrlNbr");
 
-                    b.ToTable("PositionSlots", (string)null);
+                    b.ToTable("PositionSlots");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionSlotInstance", b =>
@@ -4416,7 +4432,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("ShiftInstanceCtrlNbr");
 
-                    b.ToTable("PositionSlotInstances", (string)null);
+                    b.ToTable("PositionSlotInstances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftDefinition", b =>
@@ -4459,7 +4475,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("ShiftDefinitions", (string)null);
+                    b.ToTable("ShiftDefinitions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftInstance", b =>
@@ -4502,7 +4518,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkInstanceCtrlNbr");
 
-                    b.ToTable("ShiftInstances", (string)null);
+                    b.ToTable("ShiftInstances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.SlotRequirement", b =>
@@ -4540,7 +4556,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("QualificationTypeCtrlNbr");
 
-                    b.ToTable("SlotRequirements", (string)null);
+                    b.ToTable("SlotRequirements");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.WorkInstance", b =>
@@ -4580,7 +4596,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
-                    b.ToTable("WorkInstances", (string)null);
+                    b.ToTable("WorkInstances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Outbox.OutboxMessage", b =>
@@ -4670,7 +4686,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AddressTypeCtrlNbr");
 
-                            b1.ToTable("AddressTypes", (string)null);
+                            b1.ToTable("AddressTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("AddressTypeCtrlNbr");
@@ -4691,7 +4707,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AddressTypeCtrlNbr");
 
-                            b1.ToTable("AddressTypes", (string)null);
+                            b1.ToTable("AddressTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("AddressTypeCtrlNbr");
@@ -4712,7 +4728,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AddressTypeCtrlNbr");
 
-                            b1.ToTable("AddressTypes", (string)null);
+                            b1.ToTable("AddressTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("AddressTypeCtrlNbr");
@@ -4742,7 +4758,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmailAddressTypeCtrlNbr");
 
-                            b1.ToTable("EmailAddressTypes", (string)null);
+                            b1.ToTable("EmailAddressTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmailAddressTypeCtrlNbr");
@@ -4763,7 +4779,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmailAddressTypeCtrlNbr");
 
-                            b1.ToTable("EmailAddressTypes", (string)null);
+                            b1.ToTable("EmailAddressTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmailAddressTypeCtrlNbr");
@@ -4784,7 +4800,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmailAddressTypeCtrlNbr");
 
-                            b1.ToTable("EmailAddressTypes", (string)null);
+                            b1.ToTable("EmailAddressTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmailAddressTypeCtrlNbr");
@@ -4814,7 +4830,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PhoneNumberTypeCtrlNbr");
 
-                            b1.ToTable("PhoneNumberTypes", (string)null);
+                            b1.ToTable("PhoneNumberTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("PhoneNumberTypeCtrlNbr");
@@ -4835,7 +4851,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PhoneNumberTypeCtrlNbr");
 
-                            b1.ToTable("PhoneNumberTypes", (string)null);
+                            b1.ToTable("PhoneNumberTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("PhoneNumberTypeCtrlNbr");
@@ -4856,7 +4872,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PhoneNumberTypeCtrlNbr");
 
-                            b1.ToTable("PhoneNumberTypes", (string)null);
+                            b1.ToTable("PhoneNumberTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("PhoneNumberTypeCtrlNbr");
@@ -4898,7 +4914,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AddressCtrlNbr");
 
-                            b1.ToTable("Addresses", (string)null);
+                            b1.ToTable("Addresses");
 
                             b1.WithOwner()
                                 .HasForeignKey("AddressCtrlNbr");
@@ -4919,7 +4935,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AddressCtrlNbr");
 
-                            b1.ToTable("Addresses", (string)null);
+                            b1.ToTable("Addresses");
 
                             b1.WithOwner()
                                 .HasForeignKey("AddressCtrlNbr");
@@ -4940,7 +4956,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AddressCtrlNbr");
 
-                            b1.ToTable("Addresses", (string)null);
+                            b1.ToTable("Addresses");
 
                             b1.WithOwner()
                                 .HasForeignKey("AddressCtrlNbr");
@@ -4982,7 +4998,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmailAddressCtrlNbr");
 
-                            b1.ToTable("EmailAddresses", (string)null);
+                            b1.ToTable("EmailAddresses");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmailAddressCtrlNbr");
@@ -5003,7 +5019,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmailAddressCtrlNbr");
 
-                            b1.ToTable("EmailAddresses", (string)null);
+                            b1.ToTable("EmailAddresses");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmailAddressCtrlNbr");
@@ -5024,7 +5040,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmailAddressCtrlNbr");
 
-                            b1.ToTable("EmailAddresses", (string)null);
+                            b1.ToTable("EmailAddresses");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmailAddressCtrlNbr");
@@ -5060,7 +5076,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeCtrlNbr");
 
-                            b1.ToTable("Employees", (string)null);
+                            b1.ToTable("Employees");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCtrlNbr");
@@ -5081,7 +5097,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeCtrlNbr");
 
-                            b1.ToTable("Employees", (string)null);
+                            b1.ToTable("Employees");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCtrlNbr");
@@ -5102,7 +5118,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeCtrlNbr");
 
-                            b1.ToTable("Employees", (string)null);
+                            b1.ToTable("Employees");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCtrlNbr");
@@ -5138,7 +5154,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeePriorServiceCreditCtrlNbr");
 
-                            b1.ToTable("EmployeePriorServiceCredits", (string)null);
+                            b1.ToTable("EmployeePriorServiceCredits");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeePriorServiceCreditCtrlNbr");
@@ -5159,7 +5175,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeePriorServiceCreditCtrlNbr");
 
-                            b1.ToTable("EmployeePriorServiceCredits", (string)null);
+                            b1.ToTable("EmployeePriorServiceCredits");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeePriorServiceCreditCtrlNbr");
@@ -5180,7 +5196,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeePriorServiceCreditCtrlNbr");
 
-                            b1.ToTable("EmployeePriorServiceCredits", (string)null);
+                            b1.ToTable("EmployeePriorServiceCredits");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeePriorServiceCreditCtrlNbr");
@@ -5222,7 +5238,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PhoneNumberCtrlNbr");
 
-                            b1.ToTable("PhoneNumbers", (string)null);
+                            b1.ToTable("PhoneNumbers");
 
                             b1.WithOwner()
                                 .HasForeignKey("PhoneNumberCtrlNbr");
@@ -5243,7 +5259,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PhoneNumberCtrlNbr");
 
-                            b1.ToTable("PhoneNumbers", (string)null);
+                            b1.ToTable("PhoneNumbers");
 
                             b1.WithOwner()
                                 .HasForeignKey("PhoneNumberCtrlNbr");
@@ -5264,7 +5280,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PhoneNumberCtrlNbr");
 
-                            b1.ToTable("PhoneNumbers", (string)null);
+                            b1.ToTable("PhoneNumbers");
 
                             b1.WithOwner()
                                 .HasForeignKey("PhoneNumberCtrlNbr");
@@ -5294,7 +5310,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmploymentStatusCtrlNbr");
 
-                            b1.ToTable("EmploymentStatuses", (string)null);
+                            b1.ToTable("EmploymentStatuses");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmploymentStatusCtrlNbr");
@@ -5315,7 +5331,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmploymentStatusCtrlNbr");
 
-                            b1.ToTable("EmploymentStatuses", (string)null);
+                            b1.ToTable("EmploymentStatuses");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmploymentStatusCtrlNbr");
@@ -5336,7 +5352,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmploymentStatusCtrlNbr");
 
-                            b1.ToTable("EmploymentStatuses", (string)null);
+                            b1.ToTable("EmploymentStatuses");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmploymentStatusCtrlNbr");
@@ -5378,7 +5394,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmploymentStatusHistoryCtrlNbr");
 
-                            b1.ToTable("EmploymentStatusHistory", (string)null);
+                            b1.ToTable("EmploymentStatusHistory");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmploymentStatusHistoryCtrlNbr");
@@ -5399,7 +5415,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmploymentStatusHistoryCtrlNbr");
 
-                            b1.ToTable("EmploymentStatusHistory", (string)null);
+                            b1.ToTable("EmploymentStatusHistory");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmploymentStatusHistoryCtrlNbr");
@@ -5420,7 +5436,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmploymentStatusHistoryCtrlNbr");
 
-                            b1.ToTable("EmploymentStatusHistory", (string)null);
+                            b1.ToTable("EmploymentStatusHistory");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmploymentStatusHistoryCtrlNbr");
@@ -5450,7 +5466,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ParentCtrlNbr");
 
-                            b1.ToTable("Parents", (string)null);
+                            b1.ToTable("Parents");
 
                             b1.WithOwner()
                                 .HasForeignKey("ParentCtrlNbr");
@@ -5471,7 +5487,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ParentCtrlNbr");
 
-                            b1.ToTable("Parents", (string)null);
+                            b1.ToTable("Parents");
 
                             b1.WithOwner()
                                 .HasForeignKey("ParentCtrlNbr");
@@ -5492,7 +5508,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ParentCtrlNbr");
 
-                            b1.ToTable("Parents", (string)null);
+                            b1.ToTable("Parents");
 
                             b1.WithOwner()
                                 .HasForeignKey("ParentCtrlNbr");
@@ -5528,7 +5544,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollTierCtrlNbr");
 
-                            b1.ToTable("PayrollTiers", (string)null);
+                            b1.ToTable("PayrollTiers");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollTierCtrlNbr");
@@ -5549,7 +5565,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollTierCtrlNbr");
 
-                            b1.ToTable("PayrollTiers", (string)null);
+                            b1.ToTable("PayrollTiers");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollTierCtrlNbr");
@@ -5570,7 +5586,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollTierCtrlNbr");
 
-                            b1.ToTable("PayrollTiers", (string)null);
+                            b1.ToTable("PayrollTiers");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollTierCtrlNbr");
@@ -5606,7 +5622,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadCtrlNbr");
 
-                            b1.ToTable("Railroads", (string)null);
+                            b1.ToTable("Railroads");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadCtrlNbr");
@@ -5627,7 +5643,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadCtrlNbr");
 
-                            b1.ToTable("Railroads", (string)null);
+                            b1.ToTable("Railroads");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadCtrlNbr");
@@ -5648,7 +5664,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadCtrlNbr");
 
-                            b1.ToTable("Railroads", (string)null);
+                            b1.ToTable("Railroads");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadCtrlNbr");
@@ -5689,7 +5705,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftCtrlNbr");
 
-                            b1.ToTable("Crafts", (string)null);
+                            b1.ToTable("Crafts");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftCtrlNbr");
@@ -5710,7 +5726,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftCtrlNbr");
 
-                            b1.ToTable("Crafts", (string)null);
+                            b1.ToTable("Crafts");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftCtrlNbr");
@@ -5731,7 +5747,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftCtrlNbr");
 
-                            b1.ToTable("Crafts", (string)null);
+                            b1.ToTable("Crafts");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftCtrlNbr");
@@ -5767,7 +5783,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterCtrlNbr");
 
-                            b1.ToTable("Rosters", (string)null);
+                            b1.ToTable("Rosters");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterCtrlNbr");
@@ -5788,7 +5804,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterCtrlNbr");
 
-                            b1.ToTable("Rosters", (string)null);
+                            b1.ToTable("Rosters");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterCtrlNbr");
@@ -5809,7 +5825,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterCtrlNbr");
 
-                            b1.ToTable("Rosters", (string)null);
+                            b1.ToTable("Rosters");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterCtrlNbr");
@@ -5851,7 +5867,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityCtrlNbr");
 
-                            b1.ToTable("Seniority", (string)null);
+                            b1.ToTable("Seniority");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityCtrlNbr");
@@ -5872,7 +5888,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityCtrlNbr");
 
-                            b1.ToTable("Seniority", (string)null);
+                            b1.ToTable("Seniority");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityCtrlNbr");
@@ -5893,7 +5909,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityCtrlNbr");
 
-                            b1.ToTable("Seniority", (string)null);
+                            b1.ToTable("Seniority");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityCtrlNbr");
@@ -5923,7 +5939,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityStateCtrlNbr");
 
-                            b1.ToTable("SeniorityStates", (string)null);
+                            b1.ToTable("SeniorityStates");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityStateCtrlNbr");
@@ -5944,7 +5960,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityStateCtrlNbr");
 
-                            b1.ToTable("SeniorityStates", (string)null);
+                            b1.ToTable("SeniorityStates");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityStateCtrlNbr");
@@ -5965,7 +5981,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityStateCtrlNbr");
 
-                            b1.ToTable("SeniorityStates", (string)null);
+                            b1.ToTable("SeniorityStates");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityStateCtrlNbr");
@@ -5986,6 +6002,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("CrewService.Domain.Models.Railroads.Railroad", null)
+                        .WithMany()
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("InvitationCtrlNbr")
@@ -6001,7 +6022,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("InvitationCtrlNbr");
 
-                            b1.ToTable("Invitations", (string)null);
+                            b1.ToTable("Invitations");
 
                             b1.WithOwner()
                                 .HasForeignKey("InvitationCtrlNbr");
@@ -6022,7 +6043,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("InvitationCtrlNbr");
 
-                            b1.ToTable("Invitations", (string)null);
+                            b1.ToTable("Invitations");
 
                             b1.WithOwner()
                                 .HasForeignKey("InvitationCtrlNbr");
@@ -6043,7 +6064,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("InvitationCtrlNbr");
 
-                            b1.ToTable("Invitations", (string)null);
+                            b1.ToTable("Invitations");
 
                             b1.WithOwner()
                                 .HasForeignKey("InvitationCtrlNbr");
@@ -6064,6 +6085,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("CrewService.Domain.Models.Railroads.Railroad", null)
+                        .WithMany()
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("UserParentAssignmentCtrlNbr")
@@ -6079,7 +6105,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("UserParentAssignmentCtrlNbr");
 
-                            b1.ToTable("UserParentAssignments", (string)null);
+                            b1.ToTable("UserParentAssignments");
 
                             b1.WithOwner()
                                 .HasForeignKey("UserParentAssignmentCtrlNbr");
@@ -6100,7 +6126,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("UserParentAssignmentCtrlNbr");
 
-                            b1.ToTable("UserParentAssignments", (string)null);
+                            b1.ToTable("UserParentAssignments");
 
                             b1.WithOwner()
                                 .HasForeignKey("UserParentAssignmentCtrlNbr");
@@ -6121,7 +6147,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("UserParentAssignmentCtrlNbr");
 
-                            b1.ToTable("UserParentAssignments", (string)null);
+                            b1.ToTable("UserParentAssignments");
 
                             b1.WithOwner()
                                 .HasForeignKey("UserParentAssignmentCtrlNbr");
@@ -6163,7 +6189,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceApprovalCtrlNbr");
 
-                            b1.ToTable("AbsenceApprovals", (string)null);
+                            b1.ToTable("AbsenceApprovals");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceApprovalCtrlNbr");
@@ -6184,7 +6210,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceApprovalCtrlNbr");
 
-                            b1.ToTable("AbsenceApprovals", (string)null);
+                            b1.ToTable("AbsenceApprovals");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceApprovalCtrlNbr");
@@ -6205,7 +6231,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceApprovalCtrlNbr");
 
-                            b1.ToTable("AbsenceApprovals", (string)null);
+                            b1.ToTable("AbsenceApprovals");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceApprovalCtrlNbr");
@@ -6235,7 +6261,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceCodeCtrlNbr");
 
-                            b1.ToTable("AbsenceCodes", (string)null);
+                            b1.ToTable("AbsenceCodes");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceCodeCtrlNbr");
@@ -6256,7 +6282,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceCodeCtrlNbr");
 
-                            b1.ToTable("AbsenceCodes", (string)null);
+                            b1.ToTable("AbsenceCodes");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceCodeCtrlNbr");
@@ -6277,7 +6303,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceCodeCtrlNbr");
 
-                            b1.ToTable("AbsenceCodes", (string)null);
+                            b1.ToTable("AbsenceCodes");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceCodeCtrlNbr");
@@ -6319,7 +6345,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceCodeCraftOverrideCtrlNbr");
 
-                            b1.ToTable("AbsenceCodeCraftOverrides", (string)null);
+                            b1.ToTable("AbsenceCodeCraftOverrides");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceCodeCraftOverrideCtrlNbr");
@@ -6340,7 +6366,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceCodeCraftOverrideCtrlNbr");
 
-                            b1.ToTable("AbsenceCodeCraftOverrides", (string)null);
+                            b1.ToTable("AbsenceCodeCraftOverrides");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceCodeCraftOverrideCtrlNbr");
@@ -6361,7 +6387,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceCodeCraftOverrideCtrlNbr");
 
-                            b1.ToTable("AbsenceCodeCraftOverrides", (string)null);
+                            b1.ToTable("AbsenceCodeCraftOverrides");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceCodeCraftOverrideCtrlNbr");
@@ -6397,7 +6423,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceMarkUpCtrlNbr");
 
-                            b1.ToTable("AbsenceMarkUps", (string)null);
+                            b1.ToTable("AbsenceMarkUps");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceMarkUpCtrlNbr");
@@ -6418,7 +6444,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceMarkUpCtrlNbr");
 
-                            b1.ToTable("AbsenceMarkUps", (string)null);
+                            b1.ToTable("AbsenceMarkUps");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceMarkUpCtrlNbr");
@@ -6439,7 +6465,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceMarkUpCtrlNbr");
 
-                            b1.ToTable("AbsenceMarkUps", (string)null);
+                            b1.ToTable("AbsenceMarkUps");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceMarkUpCtrlNbr");
@@ -6490,7 +6516,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceRequestCtrlNbr");
 
-                            b1.ToTable("AbsenceRequests", (string)null);
+                            b1.ToTable("AbsenceRequests");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceRequestCtrlNbr");
@@ -6511,7 +6537,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceRequestCtrlNbr");
 
-                            b1.ToTable("AbsenceRequests", (string)null);
+                            b1.ToTable("AbsenceRequests");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceRequestCtrlNbr");
@@ -6532,7 +6558,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbsenceRequestCtrlNbr");
 
-                            b1.ToTable("AbsenceRequests", (string)null);
+                            b1.ToTable("AbsenceRequests");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbsenceRequestCtrlNbr");
@@ -6568,7 +6594,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CompensationBalanceCtrlNbr");
 
-                            b1.ToTable("CompensationBalances", (string)null);
+                            b1.ToTable("CompensationBalances");
 
                             b1.WithOwner()
                                 .HasForeignKey("CompensationBalanceCtrlNbr");
@@ -6589,7 +6615,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CompensationBalanceCtrlNbr");
 
-                            b1.ToTable("CompensationBalances", (string)null);
+                            b1.ToTable("CompensationBalances");
 
                             b1.WithOwner()
                                 .HasForeignKey("CompensationBalanceCtrlNbr");
@@ -6610,7 +6636,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CompensationBalanceCtrlNbr");
 
-                            b1.ToTable("CompensationBalances", (string)null);
+                            b1.ToTable("CompensationBalances");
 
                             b1.WithOwner()
                                 .HasForeignKey("CompensationBalanceCtrlNbr");
@@ -6652,7 +6678,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VacancyImpactCtrlNbr");
 
-                            b1.ToTable("VacancyImpacts", (string)null);
+                            b1.ToTable("VacancyImpacts");
 
                             b1.WithOwner()
                                 .HasForeignKey("VacancyImpactCtrlNbr");
@@ -6673,7 +6699,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VacancyImpactCtrlNbr");
 
-                            b1.ToTable("VacancyImpacts", (string)null);
+                            b1.ToTable("VacancyImpacts");
 
                             b1.WithOwner()
                                 .HasForeignKey("VacancyImpactCtrlNbr");
@@ -6694,7 +6720,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VacancyImpactCtrlNbr");
 
-                            b1.ToTable("VacancyImpacts", (string)null);
+                            b1.ToTable("VacancyImpacts");
 
                             b1.WithOwner()
                                 .HasForeignKey("VacancyImpactCtrlNbr");
@@ -6736,7 +6762,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BoardCascadePolicyCtrlNbr");
 
-                            b1.ToTable("BoardCascadePolicies", (string)null);
+                            b1.ToTable("BoardCascadePolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("BoardCascadePolicyCtrlNbr");
@@ -6757,7 +6783,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BoardCascadePolicyCtrlNbr");
 
-                            b1.ToTable("BoardCascadePolicies", (string)null);
+                            b1.ToTable("BoardCascadePolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("BoardCascadePolicyCtrlNbr");
@@ -6778,7 +6804,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BoardCascadePolicyCtrlNbr");
 
-                            b1.ToTable("BoardCascadePolicies", (string)null);
+                            b1.ToTable("BoardCascadePolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("BoardCascadePolicyCtrlNbr");
@@ -6820,7 +6846,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BoardMemberCtrlNbr");
 
-                            b1.ToTable("BoardMembers", (string)null);
+                            b1.ToTable("BoardMembers");
 
                             b1.WithOwner()
                                 .HasForeignKey("BoardMemberCtrlNbr");
@@ -6841,7 +6867,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BoardMemberCtrlNbr");
 
-                            b1.ToTable("BoardMembers", (string)null);
+                            b1.ToTable("BoardMembers");
 
                             b1.WithOwner()
                                 .HasForeignKey("BoardMemberCtrlNbr");
@@ -6862,7 +6888,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BoardMemberCtrlNbr");
 
-                            b1.ToTable("BoardMembers", (string)null);
+                            b1.ToTable("BoardMembers");
 
                             b1.WithOwner()
                                 .HasForeignKey("BoardMemberCtrlNbr");
@@ -6904,7 +6930,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ExtraBoardCtrlNbr");
 
-                            b1.ToTable("ExtraBoards", (string)null);
+                            b1.ToTable("ExtraBoards");
 
                             b1.WithOwner()
                                 .HasForeignKey("ExtraBoardCtrlNbr");
@@ -6925,7 +6951,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ExtraBoardCtrlNbr");
 
-                            b1.ToTable("ExtraBoards", (string)null);
+                            b1.ToTable("ExtraBoards");
 
                             b1.WithOwner()
                                 .HasForeignKey("ExtraBoardCtrlNbr");
@@ -6946,7 +6972,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ExtraBoardCtrlNbr");
 
-                            b1.ToTable("ExtraBoards", (string)null);
+                            b1.ToTable("ExtraBoards");
 
                             b1.WithOwner()
                                 .HasForeignKey("ExtraBoardCtrlNbr");
@@ -6988,7 +7014,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterBoardCtrlNbr");
 
-                            b1.ToTable("RosterBoards", (string)null);
+                            b1.ToTable("RosterBoards");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterBoardCtrlNbr");
@@ -7009,7 +7035,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterBoardCtrlNbr");
 
-                            b1.ToTable("RosterBoards", (string)null);
+                            b1.ToTable("RosterBoards");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterBoardCtrlNbr");
@@ -7030,7 +7056,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterBoardCtrlNbr");
 
-                            b1.ToTable("RosterBoards", (string)null);
+                            b1.ToTable("RosterBoards");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterBoardCtrlNbr");
@@ -7072,7 +7098,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterBoardPositionCtrlNbr");
 
-                            b1.ToTable("RosterBoardPositions", (string)null);
+                            b1.ToTable("RosterBoardPositions");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterBoardPositionCtrlNbr");
@@ -7093,7 +7119,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterBoardPositionCtrlNbr");
 
-                            b1.ToTable("RosterBoardPositions", (string)null);
+                            b1.ToTable("RosterBoardPositions");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterBoardPositionCtrlNbr");
@@ -7114,7 +7140,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RosterBoardPositionCtrlNbr");
 
-                            b1.ToTable("RosterBoardPositions", (string)null);
+                            b1.ToTable("RosterBoardPositions");
 
                             b1.WithOwner()
                                 .HasForeignKey("RosterBoardPositionCtrlNbr");
@@ -7161,7 +7187,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinCtrlNbr");
 
-                            b1.ToTable("Bulletins", (string)null);
+                            b1.ToTable("Bulletins");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinCtrlNbr");
@@ -7182,7 +7208,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinCtrlNbr");
 
-                            b1.ToTable("Bulletins", (string)null);
+                            b1.ToTable("Bulletins");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinCtrlNbr");
@@ -7203,7 +7229,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinCtrlNbr");
 
-                            b1.ToTable("Bulletins", (string)null);
+                            b1.ToTable("Bulletins");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinCtrlNbr");
@@ -7245,7 +7271,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinBidCtrlNbr");
 
-                            b1.ToTable("BulletinBids", (string)null);
+                            b1.ToTable("BulletinBids");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinBidCtrlNbr");
@@ -7266,7 +7292,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinBidCtrlNbr");
 
-                            b1.ToTable("BulletinBids", (string)null);
+                            b1.ToTable("BulletinBids");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinBidCtrlNbr");
@@ -7287,7 +7313,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinBidCtrlNbr");
 
-                            b1.ToTable("BulletinBids", (string)null);
+                            b1.ToTable("BulletinBids");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinBidCtrlNbr");
@@ -7328,7 +7354,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionVacancyCtrlNbr");
 
-                            b1.ToTable("PositionVacancies", (string)null);
+                            b1.ToTable("PositionVacancies");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionVacancyCtrlNbr");
@@ -7349,7 +7375,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionVacancyCtrlNbr");
 
-                            b1.ToTable("PositionVacancies", (string)null);
+                            b1.ToTable("PositionVacancies");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionVacancyCtrlNbr");
@@ -7370,7 +7396,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionVacancyCtrlNbr");
 
-                            b1.ToTable("PositionVacancies", (string)null);
+                            b1.ToTable("PositionVacancies");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionVacancyCtrlNbr");
@@ -7406,7 +7432,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewCtrlNbr");
 
-                            b1.ToTable("Crews", (string)null);
+                            b1.ToTable("Crews");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewCtrlNbr");
@@ -7427,7 +7453,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewCtrlNbr");
 
-                            b1.ToTable("Crews", (string)null);
+                            b1.ToTable("Crews");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewCtrlNbr");
@@ -7448,7 +7474,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewCtrlNbr");
 
-                            b1.ToTable("Crews", (string)null);
+                            b1.ToTable("Crews");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewCtrlNbr");
@@ -7490,7 +7516,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewAttachmentInstanceCtrlNbr");
 
-                            b1.ToTable("CrewAttachmentInstances", (string)null);
+                            b1.ToTable("CrewAttachmentInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentInstanceCtrlNbr");
@@ -7511,7 +7537,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewAttachmentInstanceCtrlNbr");
 
-                            b1.ToTable("CrewAttachmentInstances", (string)null);
+                            b1.ToTable("CrewAttachmentInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentInstanceCtrlNbr");
@@ -7532,7 +7558,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewAttachmentInstanceCtrlNbr");
 
-                            b1.ToTable("CrewAttachmentInstances", (string)null);
+                            b1.ToTable("CrewAttachmentInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentInstanceCtrlNbr");
@@ -7574,7 +7600,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewAttachmentTemplateCtrlNbr");
 
-                            b1.ToTable("CrewAttachmentTemplates", (string)null);
+                            b1.ToTable("CrewAttachmentTemplates");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentTemplateCtrlNbr");
@@ -7595,7 +7621,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewAttachmentTemplateCtrlNbr");
 
-                            b1.ToTable("CrewAttachmentTemplates", (string)null);
+                            b1.ToTable("CrewAttachmentTemplates");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentTemplateCtrlNbr");
@@ -7616,7 +7642,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewAttachmentTemplateCtrlNbr");
 
-                            b1.ToTable("CrewAttachmentTemplates", (string)null);
+                            b1.ToTable("CrewAttachmentTemplates");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentTemplateCtrlNbr");
@@ -7658,7 +7684,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewIncumbencyCtrlNbr");
 
-                            b1.ToTable("CrewIncumbencies", (string)null);
+                            b1.ToTable("CrewIncumbencies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewIncumbencyCtrlNbr");
@@ -7679,7 +7705,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewIncumbencyCtrlNbr");
 
-                            b1.ToTable("CrewIncumbencies", (string)null);
+                            b1.ToTable("CrewIncumbencies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewIncumbencyCtrlNbr");
@@ -7700,7 +7726,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewIncumbencyCtrlNbr");
 
-                            b1.ToTable("CrewIncumbencies", (string)null);
+                            b1.ToTable("CrewIncumbencies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewIncumbencyCtrlNbr");
@@ -7742,7 +7768,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewPositionCtrlNbr");
 
-                            b1.ToTable("CrewPositions", (string)null);
+                            b1.ToTable("CrewPositions");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewPositionCtrlNbr");
@@ -7763,7 +7789,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewPositionCtrlNbr");
 
-                            b1.ToTable("CrewPositions", (string)null);
+                            b1.ToTable("CrewPositions");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewPositionCtrlNbr");
@@ -7784,7 +7810,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewPositionCtrlNbr");
 
-                            b1.ToTable("CrewPositions", (string)null);
+                            b1.ToTable("CrewPositions");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewPositionCtrlNbr");
@@ -7826,7 +7852,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ReliefCoverageRuleCtrlNbr");
 
-                            b1.ToTable("ReliefCoverageRules", (string)null);
+                            b1.ToTable("ReliefCoverageRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("ReliefCoverageRuleCtrlNbr");
@@ -7847,7 +7873,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ReliefCoverageRuleCtrlNbr");
 
-                            b1.ToTable("ReliefCoverageRules", (string)null);
+                            b1.ToTable("ReliefCoverageRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("ReliefCoverageRuleCtrlNbr");
@@ -7868,7 +7894,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ReliefCoverageRuleCtrlNbr");
 
-                            b1.ToTable("ReliefCoverageRules", (string)null);
+                            b1.ToTable("ReliefCoverageRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("ReliefCoverageRuleCtrlNbr");
@@ -7904,7 +7930,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ChangeNotificationCtrlNbr");
 
-                            b1.ToTable("ChangeNotifications", (string)null);
+                            b1.ToTable("ChangeNotifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("ChangeNotificationCtrlNbr");
@@ -7925,7 +7951,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ChangeNotificationCtrlNbr");
 
-                            b1.ToTable("ChangeNotifications", (string)null);
+                            b1.ToTable("ChangeNotifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("ChangeNotificationCtrlNbr");
@@ -7946,7 +7972,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ChangeNotificationCtrlNbr");
 
-                            b1.ToTable("ChangeNotifications", (string)null);
+                            b1.ToTable("ChangeNotifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("ChangeNotificationCtrlNbr");
@@ -7988,7 +8014,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DailyEmployeeStatusRecordCtrlNbr");
 
-                            b1.ToTable("DailyEmployeeStatusRecords", (string)null);
+                            b1.ToTable("DailyEmployeeStatusRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("DailyEmployeeStatusRecordCtrlNbr");
@@ -8009,7 +8035,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DailyEmployeeStatusRecordCtrlNbr");
 
-                            b1.ToTable("DailyEmployeeStatusRecords", (string)null);
+                            b1.ToTable("DailyEmployeeStatusRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("DailyEmployeeStatusRecordCtrlNbr");
@@ -8030,7 +8056,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DailyEmployeeStatusRecordCtrlNbr");
 
-                            b1.ToTable("DailyEmployeeStatusRecords", (string)null);
+                            b1.ToTable("DailyEmployeeStatusRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("DailyEmployeeStatusRecordCtrlNbr");
@@ -8071,7 +8097,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchDecisionLogCtrlNbr");
 
-                            b1.ToTable("DispatchDecisionLogs", (string)null);
+                            b1.ToTable("DispatchDecisionLogs");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchDecisionLogCtrlNbr");
@@ -8092,7 +8118,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchDecisionLogCtrlNbr");
 
-                            b1.ToTable("DispatchDecisionLogs", (string)null);
+                            b1.ToTable("DispatchDecisionLogs");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchDecisionLogCtrlNbr");
@@ -8113,7 +8139,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchDecisionLogCtrlNbr");
 
-                            b1.ToTable("DispatchDecisionLogs", (string)null);
+                            b1.ToTable("DispatchDecisionLogs");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchDecisionLogCtrlNbr");
@@ -8160,7 +8186,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchOverrideCtrlNbr");
 
-                            b1.ToTable("DispatchOverrides", (string)null);
+                            b1.ToTable("DispatchOverrides");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchOverrideCtrlNbr");
@@ -8181,7 +8207,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchOverrideCtrlNbr");
 
-                            b1.ToTable("DispatchOverrides", (string)null);
+                            b1.ToTable("DispatchOverrides");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchOverrideCtrlNbr");
@@ -8202,7 +8228,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchOverrideCtrlNbr");
 
-                            b1.ToTable("DispatchOverrides", (string)null);
+                            b1.ToTable("DispatchOverrides");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchOverrideCtrlNbr");
@@ -8243,7 +8269,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchProjectionCtrlNbr");
 
-                            b1.ToTable("DispatchProjections", (string)null);
+                            b1.ToTable("DispatchProjections");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchProjectionCtrlNbr");
@@ -8264,7 +8290,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchProjectionCtrlNbr");
 
-                            b1.ToTable("DispatchProjections", (string)null);
+                            b1.ToTable("DispatchProjections");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchProjectionCtrlNbr");
@@ -8285,7 +8311,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DispatchProjectionCtrlNbr");
 
-                            b1.ToTable("DispatchProjections", (string)null);
+                            b1.ToTable("DispatchProjections");
 
                             b1.WithOwner()
                                 .HasForeignKey("DispatchProjectionCtrlNbr");
@@ -8326,7 +8352,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeBookingCtrlNbr");
 
-                            b1.ToTable("EmployeeBookings", (string)null);
+                            b1.ToTable("EmployeeBookings");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeBookingCtrlNbr");
@@ -8347,7 +8373,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeBookingCtrlNbr");
 
-                            b1.ToTable("EmployeeBookings", (string)null);
+                            b1.ToTable("EmployeeBookings");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeBookingCtrlNbr");
@@ -8368,7 +8394,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeBookingCtrlNbr");
 
-                            b1.ToTable("EmployeeBookings", (string)null);
+                            b1.ToTable("EmployeeBookings");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeBookingCtrlNbr");
@@ -8410,7 +8436,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OffDutyRecordCtrlNbr");
 
-                            b1.ToTable("OffDutyRecords", (string)null);
+                            b1.ToTable("OffDutyRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OffDutyRecordCtrlNbr");
@@ -8431,7 +8457,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OffDutyRecordCtrlNbr");
 
-                            b1.ToTable("OffDutyRecords", (string)null);
+                            b1.ToTable("OffDutyRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OffDutyRecordCtrlNbr");
@@ -8452,7 +8478,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OffDutyRecordCtrlNbr");
 
-                            b1.ToTable("OffDutyRecords", (string)null);
+                            b1.ToTable("OffDutyRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OffDutyRecordCtrlNbr");
@@ -8488,7 +8514,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyBillingRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyBillingRecords", (string)null);
+                            b1.ToTable("OnDutyBillingRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyBillingRecordCtrlNbr");
@@ -8509,7 +8535,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyBillingRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyBillingRecords", (string)null);
+                            b1.ToTable("OnDutyBillingRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyBillingRecordCtrlNbr");
@@ -8530,7 +8556,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyBillingRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyBillingRecords", (string)null);
+                            b1.ToTable("OnDutyBillingRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyBillingRecordCtrlNbr");
@@ -8566,7 +8592,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyLocomotiveRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyLocomotiveRecords", (string)null);
+                            b1.ToTable("OnDutyLocomotiveRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyLocomotiveRecordCtrlNbr");
@@ -8587,7 +8613,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyLocomotiveRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyLocomotiveRecords", (string)null);
+                            b1.ToTable("OnDutyLocomotiveRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyLocomotiveRecordCtrlNbr");
@@ -8608,7 +8634,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyLocomotiveRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyLocomotiveRecords", (string)null);
+                            b1.ToTable("OnDutyLocomotiveRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyLocomotiveRecordCtrlNbr");
@@ -8644,7 +8670,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyMaterialRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyMaterialRecords", (string)null);
+                            b1.ToTable("OnDutyMaterialRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyMaterialRecordCtrlNbr");
@@ -8665,7 +8691,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyMaterialRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyMaterialRecords", (string)null);
+                            b1.ToTable("OnDutyMaterialRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyMaterialRecordCtrlNbr");
@@ -8686,7 +8712,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyMaterialRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyMaterialRecords", (string)null);
+                            b1.ToTable("OnDutyMaterialRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyMaterialRecordCtrlNbr");
@@ -8733,7 +8759,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyRecords", (string)null);
+                            b1.ToTable("OnDutyRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyRecordCtrlNbr");
@@ -8754,7 +8780,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyRecords", (string)null);
+                            b1.ToTable("OnDutyRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyRecordCtrlNbr");
@@ -8775,7 +8801,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("OnDutyRecordCtrlNbr");
 
-                            b1.ToTable("OnDutyRecords", (string)null);
+                            b1.ToTable("OnDutyRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("OnDutyRecordCtrlNbr");
@@ -8817,7 +8843,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VacancyResolutionRunCtrlNbr");
 
-                            b1.ToTable("VacancyResolutionRuns", (string)null);
+                            b1.ToTable("VacancyResolutionRuns");
 
                             b1.WithOwner()
                                 .HasForeignKey("VacancyResolutionRunCtrlNbr");
@@ -8838,7 +8864,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VacancyResolutionRunCtrlNbr");
 
-                            b1.ToTable("VacancyResolutionRuns", (string)null);
+                            b1.ToTable("VacancyResolutionRuns");
 
                             b1.WithOwner()
                                 .HasForeignKey("VacancyResolutionRunCtrlNbr");
@@ -8859,7 +8885,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VacancyResolutionRunCtrlNbr");
 
-                            b1.ToTable("VacancyResolutionRuns", (string)null);
+                            b1.ToTable("VacancyResolutionRuns");
 
                             b1.WithOwner()
                                 .HasForeignKey("VacancyResolutionRunCtrlNbr");
@@ -8895,7 +8921,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CertificationEligibilityCheckCtrlNbr");
 
-                            b1.ToTable("CertificationEligibilityChecks", (string)null);
+                            b1.ToTable("CertificationEligibilityChecks");
 
                             b1.WithOwner()
                                 .HasForeignKey("CertificationEligibilityCheckCtrlNbr");
@@ -8916,7 +8942,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CertificationEligibilityCheckCtrlNbr");
 
-                            b1.ToTable("CertificationEligibilityChecks", (string)null);
+                            b1.ToTable("CertificationEligibilityChecks");
 
                             b1.WithOwner()
                                 .HasForeignKey("CertificationEligibilityCheckCtrlNbr");
@@ -8937,7 +8963,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CertificationEligibilityCheckCtrlNbr");
 
-                            b1.ToTable("CertificationEligibilityChecks", (string)null);
+                            b1.ToTable("CertificationEligibilityChecks");
 
                             b1.WithOwner()
                                 .HasForeignKey("CertificationEligibilityCheckCtrlNbr");
@@ -8978,7 +9004,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CertificationRevocationRecordCtrlNbr");
 
-                            b1.ToTable("CertificationRevocationRecords", (string)null);
+                            b1.ToTable("CertificationRevocationRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("CertificationRevocationRecordCtrlNbr");
@@ -8999,7 +9025,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CertificationRevocationRecordCtrlNbr");
 
-                            b1.ToTable("CertificationRevocationRecords", (string)null);
+                            b1.ToTable("CertificationRevocationRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("CertificationRevocationRecordCtrlNbr");
@@ -9020,7 +9046,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CertificationRevocationRecordCtrlNbr");
 
-                            b1.ToTable("CertificationRevocationRecords", (string)null);
+                            b1.ToTable("CertificationRevocationRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("CertificationRevocationRecordCtrlNbr");
@@ -9062,7 +9088,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftRegulatoryQualificationCtrlNbr");
 
-                            b1.ToTable("CraftRegulatoryQualifications", (string)null);
+                            b1.ToTable("CraftRegulatoryQualifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftRegulatoryQualificationCtrlNbr");
@@ -9083,7 +9109,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftRegulatoryQualificationCtrlNbr");
 
-                            b1.ToTable("CraftRegulatoryQualifications", (string)null);
+                            b1.ToTable("CraftRegulatoryQualifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftRegulatoryQualificationCtrlNbr");
@@ -9104,7 +9130,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftRegulatoryQualificationCtrlNbr");
 
-                            b1.ToTable("CraftRegulatoryQualifications", (string)null);
+                            b1.ToTable("CraftRegulatoryQualifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftRegulatoryQualificationCtrlNbr");
@@ -9146,7 +9172,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DrugAlcoholActionCtrlNbr");
 
-                            b1.ToTable("DrugAlcoholActions", (string)null);
+                            b1.ToTable("DrugAlcoholActions");
 
                             b1.WithOwner()
                                 .HasForeignKey("DrugAlcoholActionCtrlNbr");
@@ -9167,7 +9193,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DrugAlcoholActionCtrlNbr");
 
-                            b1.ToTable("DrugAlcoholActions", (string)null);
+                            b1.ToTable("DrugAlcoholActions");
 
                             b1.WithOwner()
                                 .HasForeignKey("DrugAlcoholActionCtrlNbr");
@@ -9188,7 +9214,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DrugAlcoholActionCtrlNbr");
 
-                            b1.ToTable("DrugAlcoholActions", (string)null);
+                            b1.ToTable("DrugAlcoholActions");
 
                             b1.WithOwner()
                                 .HasForeignKey("DrugAlcoholActionCtrlNbr");
@@ -9224,7 +9250,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DrugAlcoholTestRecordCtrlNbr");
 
-                            b1.ToTable("DrugAlcoholTestRecords", (string)null);
+                            b1.ToTable("DrugAlcoholTestRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("DrugAlcoholTestRecordCtrlNbr");
@@ -9245,7 +9271,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DrugAlcoholTestRecordCtrlNbr");
 
-                            b1.ToTable("DrugAlcoholTestRecords", (string)null);
+                            b1.ToTable("DrugAlcoholTestRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("DrugAlcoholTestRecordCtrlNbr");
@@ -9266,7 +9292,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DrugAlcoholTestRecordCtrlNbr");
 
-                            b1.ToTable("DrugAlcoholTestRecords", (string)null);
+                            b1.ToTable("DrugAlcoholTestRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("DrugAlcoholTestRecordCtrlNbr");
@@ -9308,7 +9334,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeCertificationCtrlNbr");
 
-                            b1.ToTable("EmployeeCertifications", (string)null);
+                            b1.ToTable("EmployeeCertifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCertificationCtrlNbr");
@@ -9329,7 +9355,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeCertificationCtrlNbr");
 
-                            b1.ToTable("EmployeeCertifications", (string)null);
+                            b1.ToTable("EmployeeCertifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCertificationCtrlNbr");
@@ -9350,7 +9376,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EmployeeCertificationCtrlNbr");
 
-                            b1.ToTable("EmployeeCertifications", (string)null);
+                            b1.ToTable("EmployeeCertifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCertificationCtrlNbr");
@@ -9392,7 +9418,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraDutyTourCtrlNbr");
 
-                            b1.ToTable("FraDutyTours", (string)null);
+                            b1.ToTable("FraDutyTours");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraDutyTourCtrlNbr");
@@ -9413,7 +9439,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraDutyTourCtrlNbr");
 
-                            b1.ToTable("FraDutyTours", (string)null);
+                            b1.ToTable("FraDutyTours");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraDutyTourCtrlNbr");
@@ -9434,7 +9460,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraDutyTourCtrlNbr");
 
-                            b1.ToTable("FraDutyTours", (string)null);
+                            b1.ToTable("FraDutyTours");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraDutyTourCtrlNbr");
@@ -9476,7 +9502,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraDutyTourSegmentCtrlNbr");
 
-                            b1.ToTable("FraDutyTourSegments", (string)null);
+                            b1.ToTable("FraDutyTourSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraDutyTourSegmentCtrlNbr");
@@ -9497,7 +9523,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraDutyTourSegmentCtrlNbr");
 
-                            b1.ToTable("FraDutyTourSegments", (string)null);
+                            b1.ToTable("FraDutyTourSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraDutyTourSegmentCtrlNbr");
@@ -9518,7 +9544,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraDutyTourSegmentCtrlNbr");
 
-                            b1.ToTable("FraDutyTourSegments", (string)null);
+                            b1.ToTable("FraDutyTourSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraDutyTourSegmentCtrlNbr");
@@ -9560,7 +9586,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraExcessServiceReportCtrlNbr");
 
-                            b1.ToTable("FraExcessServiceReports", (string)null);
+                            b1.ToTable("FraExcessServiceReports");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraExcessServiceReportCtrlNbr");
@@ -9581,7 +9607,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraExcessServiceReportCtrlNbr");
 
-                            b1.ToTable("FraExcessServiceReports", (string)null);
+                            b1.ToTable("FraExcessServiceReports");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraExcessServiceReportCtrlNbr");
@@ -9602,7 +9628,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraExcessServiceReportCtrlNbr");
 
-                            b1.ToTable("FraExcessServiceReports", (string)null);
+                            b1.ToTable("FraExcessServiceReports");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraExcessServiceReportCtrlNbr");
@@ -9638,7 +9664,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraMonthlyAccumulatorCtrlNbr");
 
-                            b1.ToTable("FraMonthlyAccumulators", (string)null);
+                            b1.ToTable("FraMonthlyAccumulators");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraMonthlyAccumulatorCtrlNbr");
@@ -9659,7 +9685,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraMonthlyAccumulatorCtrlNbr");
 
-                            b1.ToTable("FraMonthlyAccumulators", (string)null);
+                            b1.ToTable("FraMonthlyAccumulators");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraMonthlyAccumulatorCtrlNbr");
@@ -9680,7 +9706,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraMonthlyAccumulatorCtrlNbr");
 
-                            b1.ToTable("FraMonthlyAccumulators", (string)null);
+                            b1.ToTable("FraMonthlyAccumulators");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraMonthlyAccumulatorCtrlNbr");
@@ -9716,7 +9742,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraOtherServiceSegmentCtrlNbr");
 
-                            b1.ToTable("FraOtherServiceSegments", (string)null);
+                            b1.ToTable("FraOtherServiceSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraOtherServiceSegmentCtrlNbr");
@@ -9737,7 +9763,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraOtherServiceSegmentCtrlNbr");
 
-                            b1.ToTable("FraOtherServiceSegments", (string)null);
+                            b1.ToTable("FraOtherServiceSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraOtherServiceSegmentCtrlNbr");
@@ -9758,7 +9784,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraOtherServiceSegmentCtrlNbr");
 
-                            b1.ToTable("FraOtherServiceSegments", (string)null);
+                            b1.ToTable("FraOtherServiceSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraOtherServiceSegmentCtrlNbr");
@@ -9794,7 +9820,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraTransportationSegmentCtrlNbr");
 
-                            b1.ToTable("FraTransportationSegments", (string)null);
+                            b1.ToTable("FraTransportationSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraTransportationSegmentCtrlNbr");
@@ -9815,7 +9841,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraTransportationSegmentCtrlNbr");
 
-                            b1.ToTable("FraTransportationSegments", (string)null);
+                            b1.ToTable("FraTransportationSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraTransportationSegmentCtrlNbr");
@@ -9836,7 +9862,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("FraTransportationSegmentCtrlNbr");
 
-                            b1.ToTable("FraTransportationSegments", (string)null);
+                            b1.ToTable("FraTransportationSegments");
 
                             b1.WithOwner()
                                 .HasForeignKey("FraTransportationSegmentCtrlNbr");
@@ -9866,7 +9892,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RegulatoryQualificationCtrlNbr");
 
-                            b1.ToTable("RegulatoryQualifications", (string)null);
+                            b1.ToTable("RegulatoryQualifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryQualificationCtrlNbr");
@@ -9887,7 +9913,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RegulatoryQualificationCtrlNbr");
 
-                            b1.ToTable("RegulatoryQualifications", (string)null);
+                            b1.ToTable("RegulatoryQualifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryQualificationCtrlNbr");
@@ -9908,7 +9934,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RegulatoryQualificationCtrlNbr");
 
-                            b1.ToTable("RegulatoryQualifications", (string)null);
+                            b1.ToTable("RegulatoryQualifications");
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryQualificationCtrlNbr");
@@ -9938,7 +9964,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RegulatoryStandardCtrlNbr");
 
-                            b1.ToTable("RegulatoryStandards", (string)null);
+                            b1.ToTable("RegulatoryStandards");
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryStandardCtrlNbr");
@@ -9959,7 +9985,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RegulatoryStandardCtrlNbr");
 
-                            b1.ToTable("RegulatoryStandards", (string)null);
+                            b1.ToTable("RegulatoryStandards");
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryStandardCtrlNbr");
@@ -9980,7 +10006,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RegulatoryStandardCtrlNbr");
 
-                            b1.ToTable("RegulatoryStandards", (string)null);
+                            b1.ToTable("RegulatoryStandards");
 
                             b1.WithOwner()
                                 .HasForeignKey("RegulatoryStandardCtrlNbr");
@@ -10016,7 +10042,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VoluntaryReferralCtrlNbr");
 
-                            b1.ToTable("VoluntaryReferrals", (string)null);
+                            b1.ToTable("VoluntaryReferrals");
 
                             b1.WithOwner()
                                 .HasForeignKey("VoluntaryReferralCtrlNbr");
@@ -10037,7 +10063,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VoluntaryReferralCtrlNbr");
 
-                            b1.ToTable("VoluntaryReferrals", (string)null);
+                            b1.ToTable("VoluntaryReferrals");
 
                             b1.WithOwner()
                                 .HasForeignKey("VoluntaryReferralCtrlNbr");
@@ -10058,7 +10084,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("VoluntaryReferralCtrlNbr");
 
-                            b1.ToTable("VoluntaryReferrals", (string)null);
+                            b1.ToTable("VoluntaryReferrals");
 
                             b1.WithOwner()
                                 .HasForeignKey("VoluntaryReferralCtrlNbr");
@@ -10094,7 +10120,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadHolidaySelectionCtrlNbr");
 
-                            b1.ToTable("RailroadHolidaySelections", (string)null);
+                            b1.ToTable("RailroadHolidaySelections");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadHolidaySelectionCtrlNbr");
@@ -10115,7 +10141,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadHolidaySelectionCtrlNbr");
 
-                            b1.ToTable("RailroadHolidaySelections", (string)null);
+                            b1.ToTable("RailroadHolidaySelections");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadHolidaySelectionCtrlNbr");
@@ -10136,7 +10162,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadHolidaySelectionCtrlNbr");
 
-                            b1.ToTable("RailroadHolidaySelections", (string)null);
+                            b1.ToTable("RailroadHolidaySelections");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadHolidaySelectionCtrlNbr");
@@ -10172,7 +10198,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkerExecutionLogCtrlNbr");
 
-                            b1.ToTable("WorkerExecutionLogs", (string)null);
+                            b1.ToTable("WorkerExecutionLogs");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkerExecutionLogCtrlNbr");
@@ -10193,7 +10219,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkerExecutionLogCtrlNbr");
 
-                            b1.ToTable("WorkerExecutionLogs", (string)null);
+                            b1.ToTable("WorkerExecutionLogs");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkerExecutionLogCtrlNbr");
@@ -10214,7 +10240,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkerExecutionLogCtrlNbr");
 
-                            b1.ToTable("WorkerExecutionLogs", (string)null);
+                            b1.ToTable("WorkerExecutionLogs");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkerExecutionLogCtrlNbr");
@@ -10250,7 +10276,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkerScheduleCtrlNbr");
 
-                            b1.ToTable("WorkerSchedules", (string)null);
+                            b1.ToTable("WorkerSchedules");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkerScheduleCtrlNbr");
@@ -10271,7 +10297,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkerScheduleCtrlNbr");
 
-                            b1.ToTable("WorkerSchedules", (string)null);
+                            b1.ToTable("WorkerSchedules");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkerScheduleCtrlNbr");
@@ -10292,7 +10318,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkerScheduleCtrlNbr");
 
-                            b1.ToTable("WorkerSchedules", (string)null);
+                            b1.ToTable("WorkerSchedules");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkerScheduleCtrlNbr");
@@ -10328,7 +10354,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationProviderConfigCtrlNbr");
 
-                            b1.ToTable("NotificationProviderConfigs", (string)null);
+                            b1.ToTable("NotificationProviderConfigs");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationProviderConfigCtrlNbr");
@@ -10349,7 +10375,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationProviderConfigCtrlNbr");
 
-                            b1.ToTable("NotificationProviderConfigs", (string)null);
+                            b1.ToTable("NotificationProviderConfigs");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationProviderConfigCtrlNbr");
@@ -10370,7 +10396,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationProviderConfigCtrlNbr");
 
-                            b1.ToTable("NotificationProviderConfigs", (string)null);
+                            b1.ToTable("NotificationProviderConfigs");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationProviderConfigCtrlNbr");
@@ -10412,7 +10438,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationRequestCtrlNbr");
 
-                            b1.ToTable("NotificationRequests", (string)null);
+                            b1.ToTable("NotificationRequests");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationRequestCtrlNbr");
@@ -10433,7 +10459,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationRequestCtrlNbr");
 
-                            b1.ToTable("NotificationRequests", (string)null);
+                            b1.ToTable("NotificationRequests");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationRequestCtrlNbr");
@@ -10454,7 +10480,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationRequestCtrlNbr");
 
-                            b1.ToTable("NotificationRequests", (string)null);
+                            b1.ToTable("NotificationRequests");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationRequestCtrlNbr");
@@ -10490,7 +10516,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationResponseCtrlNbr");
 
-                            b1.ToTable("NotificationResponses", (string)null);
+                            b1.ToTable("NotificationResponses");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationResponseCtrlNbr");
@@ -10511,7 +10537,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationResponseCtrlNbr");
 
-                            b1.ToTable("NotificationResponses", (string)null);
+                            b1.ToTable("NotificationResponses");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationResponseCtrlNbr");
@@ -10532,7 +10558,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("NotificationResponseCtrlNbr");
 
-                            b1.ToTable("NotificationResponses", (string)null);
+                            b1.ToTable("NotificationResponses");
 
                             b1.WithOwner()
                                 .HasForeignKey("NotificationResponseCtrlNbr");
@@ -10574,7 +10600,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EarningApprovalCtrlNbr");
 
-                            b1.ToTable("EarningApprovals", (string)null);
+                            b1.ToTable("EarningApprovals");
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningApprovalCtrlNbr");
@@ -10595,7 +10621,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EarningApprovalCtrlNbr");
 
-                            b1.ToTable("EarningApprovals", (string)null);
+                            b1.ToTable("EarningApprovals");
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningApprovalCtrlNbr");
@@ -10616,7 +10642,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EarningApprovalCtrlNbr");
 
-                            b1.ToTable("EarningApprovals", (string)null);
+                            b1.ToTable("EarningApprovals");
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningApprovalCtrlNbr");
@@ -10652,7 +10678,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EarningCodeRuleCtrlNbr");
 
-                            b1.ToTable("EarningCodeRules", (string)null);
+                            b1.ToTable("EarningCodeRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningCodeRuleCtrlNbr");
@@ -10673,7 +10699,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EarningCodeRuleCtrlNbr");
 
-                            b1.ToTable("EarningCodeRules", (string)null);
+                            b1.ToTable("EarningCodeRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningCodeRuleCtrlNbr");
@@ -10694,7 +10720,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("EarningCodeRuleCtrlNbr");
 
-                            b1.ToTable("EarningCodeRules", (string)null);
+                            b1.ToTable("EarningCodeRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("EarningCodeRuleCtrlNbr");
@@ -10730,7 +10756,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayCtrlNbr");
 
-                            b1.ToTable("Holidays", (string)null);
+                            b1.ToTable("Holidays");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayCtrlNbr");
@@ -10751,7 +10777,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayCtrlNbr");
 
-                            b1.ToTable("Holidays", (string)null);
+                            b1.ToTable("Holidays");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayCtrlNbr");
@@ -10772,7 +10798,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayCtrlNbr");
 
-                            b1.ToTable("Holidays", (string)null);
+                            b1.ToTable("Holidays");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayCtrlNbr");
@@ -10819,7 +10845,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayPayrollRecordCtrlNbr");
 
-                            b1.ToTable("HolidayPayrollRecords", (string)null);
+                            b1.ToTable("HolidayPayrollRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayPayrollRecordCtrlNbr");
@@ -10840,7 +10866,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayPayrollRecordCtrlNbr");
 
-                            b1.ToTable("HolidayPayrollRecords", (string)null);
+                            b1.ToTable("HolidayPayrollRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayPayrollRecordCtrlNbr");
@@ -10861,7 +10887,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayPayrollRecordCtrlNbr");
 
-                            b1.ToTable("HolidayPayrollRecords", (string)null);
+                            b1.ToTable("HolidayPayrollRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayPayrollRecordCtrlNbr");
@@ -10902,7 +10928,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayQualificationRuleCtrlNbr");
 
-                            b1.ToTable("HolidayQualificationRules", (string)null);
+                            b1.ToTable("HolidayQualificationRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayQualificationRuleCtrlNbr");
@@ -10923,7 +10949,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayQualificationRuleCtrlNbr");
 
-                            b1.ToTable("HolidayQualificationRules", (string)null);
+                            b1.ToTable("HolidayQualificationRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayQualificationRuleCtrlNbr");
@@ -10944,7 +10970,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("HolidayQualificationRuleCtrlNbr");
 
-                            b1.ToTable("HolidayQualificationRules", (string)null);
+                            b1.ToTable("HolidayQualificationRules");
 
                             b1.WithOwner()
                                 .HasForeignKey("HolidayQualificationRuleCtrlNbr");
@@ -10985,7 +11011,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayRateCtrlNbr");
 
-                            b1.ToTable("PayRates", (string)null);
+                            b1.ToTable("PayRates");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayRateCtrlNbr");
@@ -11006,7 +11032,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayRateCtrlNbr");
 
-                            b1.ToTable("PayRates", (string)null);
+                            b1.ToTable("PayRates");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayRateCtrlNbr");
@@ -11027,7 +11053,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayRateCtrlNbr");
 
-                            b1.ToTable("PayRates", (string)null);
+                            b1.ToTable("PayRates");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayRateCtrlNbr");
@@ -11063,7 +11089,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollExportBatchCtrlNbr");
 
-                            b1.ToTable("PayrollExportBatches", (string)null);
+                            b1.ToTable("PayrollExportBatches");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollExportBatchCtrlNbr");
@@ -11084,7 +11110,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollExportBatchCtrlNbr");
 
-                            b1.ToTable("PayrollExportBatches", (string)null);
+                            b1.ToTable("PayrollExportBatches");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollExportBatchCtrlNbr");
@@ -11105,7 +11131,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollExportBatchCtrlNbr");
 
-                            b1.ToTable("PayrollExportBatches", (string)null);
+                            b1.ToTable("PayrollExportBatches");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollExportBatchCtrlNbr");
@@ -11146,7 +11172,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollImportRecordCtrlNbr");
 
-                            b1.ToTable("PayrollImportRecords", (string)null);
+                            b1.ToTable("PayrollImportRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollImportRecordCtrlNbr");
@@ -11167,7 +11193,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollImportRecordCtrlNbr");
 
-                            b1.ToTable("PayrollImportRecords", (string)null);
+                            b1.ToTable("PayrollImportRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollImportRecordCtrlNbr");
@@ -11188,7 +11214,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollImportRecordCtrlNbr");
 
-                            b1.ToTable("PayrollImportRecords", (string)null);
+                            b1.ToTable("PayrollImportRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollImportRecordCtrlNbr");
@@ -11235,7 +11261,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollRecordCtrlNbr");
 
-                            b1.ToTable("PayrollRecords", (string)null);
+                            b1.ToTable("PayrollRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRecordCtrlNbr");
@@ -11256,7 +11282,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollRecordCtrlNbr");
 
-                            b1.ToTable("PayrollRecords", (string)null);
+                            b1.ToTable("PayrollRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRecordCtrlNbr");
@@ -11277,7 +11303,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollRecordCtrlNbr");
 
-                            b1.ToTable("PayrollRecords", (string)null);
+                            b1.ToTable("PayrollRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRecordCtrlNbr");
@@ -11307,7 +11333,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollRunCtrlNbr");
 
-                            b1.ToTable("PayrollRuns", (string)null);
+                            b1.ToTable("PayrollRuns");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRunCtrlNbr");
@@ -11328,7 +11354,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollRunCtrlNbr");
 
-                            b1.ToTable("PayrollRuns", (string)null);
+                            b1.ToTable("PayrollRuns");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRunCtrlNbr");
@@ -11349,7 +11375,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PayrollRunCtrlNbr");
 
-                            b1.ToTable("PayrollRuns", (string)null);
+                            b1.ToTable("PayrollRuns");
 
                             b1.WithOwner()
                                 .HasForeignKey("PayrollRunCtrlNbr");
@@ -11390,7 +11416,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("TimeEntryCtrlNbr");
 
-                            b1.ToTable("TimeEntries", (string)null);
+                            b1.ToTable("TimeEntries");
 
                             b1.WithOwner()
                                 .HasForeignKey("TimeEntryCtrlNbr");
@@ -11411,7 +11437,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("TimeEntryCtrlNbr");
 
-                            b1.ToTable("TimeEntries", (string)null);
+                            b1.ToTable("TimeEntries");
 
                             b1.WithOwner()
                                 .HasForeignKey("TimeEntryCtrlNbr");
@@ -11432,7 +11458,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("TimeEntryCtrlNbr");
 
-                            b1.ToTable("TimeEntries", (string)null);
+                            b1.ToTable("TimeEntries");
 
                             b1.WithOwner()
                                 .HasForeignKey("TimeEntryCtrlNbr");
@@ -11468,7 +11494,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinPolicyCtrlNbr");
 
-                            b1.ToTable("BulletinPolicies", (string)null);
+                            b1.ToTable("BulletinPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinPolicyCtrlNbr");
@@ -11489,7 +11515,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinPolicyCtrlNbr");
 
-                            b1.ToTable("BulletinPolicies", (string)null);
+                            b1.ToTable("BulletinPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinPolicyCtrlNbr");
@@ -11510,7 +11536,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("BulletinPolicyCtrlNbr");
 
-                            b1.ToTable("BulletinPolicies", (string)null);
+                            b1.ToTable("BulletinPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinPolicyCtrlNbr");
@@ -11546,7 +11572,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftDisplacementPolicyCtrlNbr");
 
-                            b1.ToTable("CraftDisplacementPolicies", (string)null);
+                            b1.ToTable("CraftDisplacementPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftDisplacementPolicyCtrlNbr");
@@ -11567,7 +11593,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftDisplacementPolicyCtrlNbr");
 
-                            b1.ToTable("CraftDisplacementPolicies", (string)null);
+                            b1.ToTable("CraftDisplacementPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftDisplacementPolicyCtrlNbr");
@@ -11588,7 +11614,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftDisplacementPolicyCtrlNbr");
 
-                            b1.ToTable("CraftDisplacementPolicies", (string)null);
+                            b1.ToTable("CraftDisplacementPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftDisplacementPolicyCtrlNbr");
@@ -11624,7 +11650,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftOperationsPolicyCtrlNbr");
 
-                            b1.ToTable("CraftOperationsPolicies", (string)null);
+                            b1.ToTable("CraftOperationsPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftOperationsPolicyCtrlNbr");
@@ -11645,7 +11671,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftOperationsPolicyCtrlNbr");
 
-                            b1.ToTable("CraftOperationsPolicies", (string)null);
+                            b1.ToTable("CraftOperationsPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftOperationsPolicyCtrlNbr");
@@ -11666,7 +11692,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CraftOperationsPolicyCtrlNbr");
 
-                            b1.ToTable("CraftOperationsPolicies", (string)null);
+                            b1.ToTable("CraftOperationsPolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("CraftOperationsPolicyCtrlNbr");
@@ -11708,7 +11734,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DisplacementCaseCtrlNbr");
 
-                            b1.ToTable("DisplacementCases", (string)null);
+                            b1.ToTable("DisplacementCases");
 
                             b1.WithOwner()
                                 .HasForeignKey("DisplacementCaseCtrlNbr");
@@ -11729,7 +11755,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DisplacementCaseCtrlNbr");
 
-                            b1.ToTable("DisplacementCases", (string)null);
+                            b1.ToTable("DisplacementCases");
 
                             b1.WithOwner()
                                 .HasForeignKey("DisplacementCaseCtrlNbr");
@@ -11750,7 +11776,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DisplacementCaseCtrlNbr");
 
-                            b1.ToTable("DisplacementCases", (string)null);
+                            b1.ToTable("DisplacementCases");
 
                             b1.WithOwner()
                                 .HasForeignKey("DisplacementCaseCtrlNbr");
@@ -11792,7 +11818,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DisplacementClaimCtrlNbr");
 
-                            b1.ToTable("DisplacementClaims", (string)null);
+                            b1.ToTable("DisplacementClaims");
 
                             b1.WithOwner()
                                 .HasForeignKey("DisplacementClaimCtrlNbr");
@@ -11813,7 +11839,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DisplacementClaimCtrlNbr");
 
-                            b1.ToTable("DisplacementClaims", (string)null);
+                            b1.ToTable("DisplacementClaims");
 
                             b1.WithOwner()
                                 .HasForeignKey("DisplacementClaimCtrlNbr");
@@ -11834,7 +11860,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DisplacementClaimCtrlNbr");
 
-                            b1.ToTable("DisplacementClaims", (string)null);
+                            b1.ToTable("DisplacementClaims");
 
                             b1.WithOwner()
                                 .HasForeignKey("DisplacementClaimCtrlNbr");
@@ -11881,7 +11907,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityMoveCtrlNbr");
 
-                            b1.ToTable("SeniorityMoves", (string)null);
+                            b1.ToTable("SeniorityMoves");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityMoveCtrlNbr");
@@ -11902,7 +11928,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityMoveCtrlNbr");
 
-                            b1.ToTable("SeniorityMoves", (string)null);
+                            b1.ToTable("SeniorityMoves");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityMoveCtrlNbr");
@@ -11923,7 +11949,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityMoveCtrlNbr");
 
-                            b1.ToTable("SeniorityMoves", (string)null);
+                            b1.ToTable("SeniorityMoves");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityMoveCtrlNbr");
@@ -11959,7 +11985,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityMovePolicyCtrlNbr");
 
-                            b1.ToTable("SeniorityMovePolicies", (string)null);
+                            b1.ToTable("SeniorityMovePolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityMovePolicyCtrlNbr");
@@ -11980,7 +12006,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityMovePolicyCtrlNbr");
 
-                            b1.ToTable("SeniorityMovePolicies", (string)null);
+                            b1.ToTable("SeniorityMovePolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityMovePolicyCtrlNbr");
@@ -12001,7 +12027,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SeniorityMovePolicyCtrlNbr");
 
-                            b1.ToTable("SeniorityMovePolicies", (string)null);
+                            b1.ToTable("SeniorityMovePolicies");
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityMovePolicyCtrlNbr");
@@ -12037,7 +12063,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadInformationCtrlNbr");
 
-                            b1.ToTable("RailroadInformations", (string)null);
+                            b1.ToTable("RailroadInformations");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadInformationCtrlNbr");
@@ -12058,7 +12084,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadInformationCtrlNbr");
 
-                            b1.ToTable("RailroadInformations", (string)null);
+                            b1.ToTable("RailroadInformations");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadInformationCtrlNbr");
@@ -12079,7 +12105,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadInformationCtrlNbr");
 
-                            b1.ToTable("RailroadInformations", (string)null);
+                            b1.ToTable("RailroadInformations");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadInformationCtrlNbr");
@@ -12121,7 +12147,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadInformationReadReceiptCtrlNbr");
 
-                            b1.ToTable("RailroadInformationReadReceipts", (string)null);
+                            b1.ToTable("RailroadInformationReadReceipts");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadInformationReadReceiptCtrlNbr");
@@ -12142,7 +12168,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadInformationReadReceiptCtrlNbr");
 
-                            b1.ToTable("RailroadInformationReadReceipts", (string)null);
+                            b1.ToTable("RailroadInformationReadReceipts");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadInformationReadReceiptCtrlNbr");
@@ -12163,7 +12189,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadInformationReadReceiptCtrlNbr");
 
-                            b1.ToTable("RailroadInformationReadReceipts", (string)null);
+                            b1.ToTable("RailroadInformationReadReceipts");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadInformationReadReceiptCtrlNbr");
@@ -12199,7 +12225,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyCategoryCtrlNbr");
 
-                            b1.ToTable("SafetyCategories", (string)null);
+                            b1.ToTable("SafetyCategories");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyCategoryCtrlNbr");
@@ -12220,7 +12246,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyCategoryCtrlNbr");
 
-                            b1.ToTable("SafetyCategories", (string)null);
+                            b1.ToTable("SafetyCategories");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyCategoryCtrlNbr");
@@ -12241,7 +12267,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyCategoryCtrlNbr");
 
-                            b1.ToTable("SafetyCategories", (string)null);
+                            b1.ToTable("SafetyCategories");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyCategoryCtrlNbr");
@@ -12283,7 +12309,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationCtrlNbr");
 
-                            b1.ToTable("SafetyObservations", (string)null);
+                            b1.ToTable("SafetyObservations");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationCtrlNbr");
@@ -12304,7 +12330,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationCtrlNbr");
 
-                            b1.ToTable("SafetyObservations", (string)null);
+                            b1.ToTable("SafetyObservations");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationCtrlNbr");
@@ -12325,7 +12351,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationCtrlNbr");
 
-                            b1.ToTable("SafetyObservations", (string)null);
+                            b1.ToTable("SafetyObservations");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationCtrlNbr");
@@ -12367,7 +12393,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationActionCtrlNbr");
 
-                            b1.ToTable("SafetyObservationActions", (string)null);
+                            b1.ToTable("SafetyObservationActions");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationActionCtrlNbr");
@@ -12388,7 +12414,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationActionCtrlNbr");
 
-                            b1.ToTable("SafetyObservationActions", (string)null);
+                            b1.ToTable("SafetyObservationActions");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationActionCtrlNbr");
@@ -12409,7 +12435,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationActionCtrlNbr");
 
-                            b1.ToTable("SafetyObservationActions", (string)null);
+                            b1.ToTable("SafetyObservationActions");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationActionCtrlNbr");
@@ -12451,7 +12477,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationResolutionCtrlNbr");
 
-                            b1.ToTable("SafetyObservationResolutions", (string)null);
+                            b1.ToTable("SafetyObservationResolutions");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationResolutionCtrlNbr");
@@ -12472,7 +12498,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationResolutionCtrlNbr");
 
-                            b1.ToTable("SafetyObservationResolutions", (string)null);
+                            b1.ToTable("SafetyObservationResolutions");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationResolutionCtrlNbr");
@@ -12493,7 +12519,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SafetyObservationResolutionCtrlNbr");
 
-                            b1.ToTable("SafetyObservationResolutions", (string)null);
+                            b1.ToTable("SafetyObservationResolutions");
 
                             b1.WithOwner()
                                 .HasForeignKey("SafetyObservationResolutionCtrlNbr");
@@ -12534,7 +12560,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DynamicGroupCtrlNbr");
 
-                            b1.ToTable("DynamicGroups", (string)null);
+                            b1.ToTable("DynamicGroups");
 
                             b1.WithOwner()
                                 .HasForeignKey("DynamicGroupCtrlNbr");
@@ -12555,7 +12581,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DynamicGroupCtrlNbr");
 
-                            b1.ToTable("DynamicGroups", (string)null);
+                            b1.ToTable("DynamicGroups");
 
                             b1.WithOwner()
                                 .HasForeignKey("DynamicGroupCtrlNbr");
@@ -12576,7 +12602,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("DynamicGroupCtrlNbr");
 
-                            b1.ToTable("DynamicGroups", (string)null);
+                            b1.ToTable("DynamicGroups");
 
                             b1.WithOwner()
                                 .HasForeignKey("DynamicGroupCtrlNbr");
@@ -12612,7 +12638,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupAttributeDefinitionCtrlNbr");
 
-                            b1.ToTable("GroupAttributeDefinitions", (string)null);
+                            b1.ToTable("GroupAttributeDefinitions");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupAttributeDefinitionCtrlNbr");
@@ -12633,7 +12659,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupAttributeDefinitionCtrlNbr");
 
-                            b1.ToTable("GroupAttributeDefinitions", (string)null);
+                            b1.ToTable("GroupAttributeDefinitions");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupAttributeDefinitionCtrlNbr");
@@ -12654,7 +12680,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupAttributeDefinitionCtrlNbr");
 
-                            b1.ToTable("GroupAttributeDefinitions", (string)null);
+                            b1.ToTable("GroupAttributeDefinitions");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupAttributeDefinitionCtrlNbr");
@@ -12696,7 +12722,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupAttributeValueCtrlNbr");
 
-                            b1.ToTable("GroupAttributeValues", (string)null);
+                            b1.ToTable("GroupAttributeValues");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupAttributeValueCtrlNbr");
@@ -12717,7 +12743,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupAttributeValueCtrlNbr");
 
-                            b1.ToTable("GroupAttributeValues", (string)null);
+                            b1.ToTable("GroupAttributeValues");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupAttributeValueCtrlNbr");
@@ -12738,7 +12764,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupAttributeValueCtrlNbr");
 
-                            b1.ToTable("GroupAttributeValues", (string)null);
+                            b1.ToTable("GroupAttributeValues");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupAttributeValueCtrlNbr");
@@ -12768,7 +12794,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupTypeCtrlNbr");
 
-                            b1.ToTable("GroupTypes", (string)null);
+                            b1.ToTable("GroupTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupTypeCtrlNbr");
@@ -12789,7 +12815,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupTypeCtrlNbr");
 
-                            b1.ToTable("GroupTypes", (string)null);
+                            b1.ToTable("GroupTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupTypeCtrlNbr");
@@ -12810,7 +12836,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("GroupTypeCtrlNbr");
 
-                            b1.ToTable("GroupTypes", (string)null);
+                            b1.ToTable("GroupTypes");
 
                             b1.WithOwner()
                                 .HasForeignKey("GroupTypeCtrlNbr");
@@ -12852,7 +12878,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadGroupPlacementCtrlNbr");
 
-                            b1.ToTable("RailroadGroupPlacements", (string)null);
+                            b1.ToTable("RailroadGroupPlacements");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadGroupPlacementCtrlNbr");
@@ -12873,7 +12899,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadGroupPlacementCtrlNbr");
 
-                            b1.ToTable("RailroadGroupPlacements", (string)null);
+                            b1.ToTable("RailroadGroupPlacements");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadGroupPlacementCtrlNbr");
@@ -12894,7 +12920,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("RailroadGroupPlacementCtrlNbr");
 
-                            b1.ToTable("RailroadGroupPlacements", (string)null);
+                            b1.ToTable("RailroadGroupPlacements");
 
                             b1.WithOwner()
                                 .HasForeignKey("RailroadGroupPlacementCtrlNbr");
@@ -12935,7 +12961,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("TeamsWebhookConfigCtrlNbr");
 
-                            b1.ToTable("TeamsWebhookConfigs", (string)null);
+                            b1.ToTable("TeamsWebhookConfigs");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeamsWebhookConfigCtrlNbr");
@@ -12956,7 +12982,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("TeamsWebhookConfigCtrlNbr");
 
-                            b1.ToTable("TeamsWebhookConfigs", (string)null);
+                            b1.ToTable("TeamsWebhookConfigs");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeamsWebhookConfigCtrlNbr");
@@ -12977,7 +13003,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("TeamsWebhookConfigCtrlNbr");
 
-                            b1.ToTable("TeamsWebhookConfigs", (string)null);
+                            b1.ToTable("TeamsWebhookConfigs");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeamsWebhookConfigCtrlNbr");
@@ -13007,7 +13033,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbolishmentRecordCtrlNbr");
 
-                            b1.ToTable("AbolishmentRecords", (string)null);
+                            b1.ToTable("AbolishmentRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbolishmentRecordCtrlNbr");
@@ -13028,7 +13054,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbolishmentRecordCtrlNbr");
 
-                            b1.ToTable("AbolishmentRecords", (string)null);
+                            b1.ToTable("AbolishmentRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbolishmentRecordCtrlNbr");
@@ -13049,7 +13075,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AbolishmentRecordCtrlNbr");
 
-                            b1.ToTable("AbolishmentRecords", (string)null);
+                            b1.ToTable("AbolishmentRecords");
 
                             b1.WithOwner()
                                 .HasForeignKey("AbolishmentRecordCtrlNbr");
@@ -13085,7 +13111,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AssignmentTemplateCtrlNbr");
 
-                            b1.ToTable("AssignmentTemplates", (string)null);
+                            b1.ToTable("AssignmentTemplates");
 
                             b1.WithOwner()
                                 .HasForeignKey("AssignmentTemplateCtrlNbr");
@@ -13106,7 +13132,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AssignmentTemplateCtrlNbr");
 
-                            b1.ToTable("AssignmentTemplates", (string)null);
+                            b1.ToTable("AssignmentTemplates");
 
                             b1.WithOwner()
                                 .HasForeignKey("AssignmentTemplateCtrlNbr");
@@ -13127,7 +13153,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("AssignmentTemplateCtrlNbr");
 
-                            b1.ToTable("AssignmentTemplates", (string)null);
+                            b1.ToTable("AssignmentTemplates");
 
                             b1.WithOwner()
                                 .HasForeignKey("AssignmentTemplateCtrlNbr");
@@ -13163,7 +13189,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewOffDayCtrlNbr");
 
-                            b1.ToTable("CrewOffDays", (string)null);
+                            b1.ToTable("CrewOffDays");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewOffDayCtrlNbr");
@@ -13184,7 +13210,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewOffDayCtrlNbr");
 
-                            b1.ToTable("CrewOffDays", (string)null);
+                            b1.ToTable("CrewOffDays");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewOffDayCtrlNbr");
@@ -13205,7 +13231,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("CrewOffDayCtrlNbr");
 
-                            b1.ToTable("CrewOffDays", (string)null);
+                            b1.ToTable("CrewOffDays");
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewOffDayCtrlNbr");
@@ -13241,7 +13267,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionRoleCtrlNbr");
 
-                            b1.ToTable("PositionRoles", (string)null);
+                            b1.ToTable("PositionRoles");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionRoleCtrlNbr");
@@ -13262,7 +13288,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionRoleCtrlNbr");
 
-                            b1.ToTable("PositionRoles", (string)null);
+                            b1.ToTable("PositionRoles");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionRoleCtrlNbr");
@@ -13283,7 +13309,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionRoleCtrlNbr");
 
-                            b1.ToTable("PositionRoles", (string)null);
+                            b1.ToTable("PositionRoles");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionRoleCtrlNbr");
@@ -13330,7 +13356,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionSlotCtrlNbr");
 
-                            b1.ToTable("PositionSlots", (string)null);
+                            b1.ToTable("PositionSlots");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionSlotCtrlNbr");
@@ -13351,7 +13377,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionSlotCtrlNbr");
 
-                            b1.ToTable("PositionSlots", (string)null);
+                            b1.ToTable("PositionSlots");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionSlotCtrlNbr");
@@ -13372,7 +13398,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionSlotCtrlNbr");
 
-                            b1.ToTable("PositionSlots", (string)null);
+                            b1.ToTable("PositionSlots");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionSlotCtrlNbr");
@@ -13419,7 +13445,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionSlotInstanceCtrlNbr");
 
-                            b1.ToTable("PositionSlotInstances", (string)null);
+                            b1.ToTable("PositionSlotInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionSlotInstanceCtrlNbr");
@@ -13440,7 +13466,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionSlotInstanceCtrlNbr");
 
-                            b1.ToTable("PositionSlotInstances", (string)null);
+                            b1.ToTable("PositionSlotInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionSlotInstanceCtrlNbr");
@@ -13461,7 +13487,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("PositionSlotInstanceCtrlNbr");
 
-                            b1.ToTable("PositionSlotInstances", (string)null);
+                            b1.ToTable("PositionSlotInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionSlotInstanceCtrlNbr");
@@ -13497,7 +13523,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ShiftDefinitionCtrlNbr");
 
-                            b1.ToTable("ShiftDefinitions", (string)null);
+                            b1.ToTable("ShiftDefinitions");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShiftDefinitionCtrlNbr");
@@ -13518,7 +13544,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ShiftDefinitionCtrlNbr");
 
-                            b1.ToTable("ShiftDefinitions", (string)null);
+                            b1.ToTable("ShiftDefinitions");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShiftDefinitionCtrlNbr");
@@ -13539,7 +13565,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ShiftDefinitionCtrlNbr");
 
-                            b1.ToTable("ShiftDefinitions", (string)null);
+                            b1.ToTable("ShiftDefinitions");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShiftDefinitionCtrlNbr");
@@ -13575,7 +13601,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ShiftInstanceCtrlNbr");
 
-                            b1.ToTable("ShiftInstances", (string)null);
+                            b1.ToTable("ShiftInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShiftInstanceCtrlNbr");
@@ -13596,7 +13622,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ShiftInstanceCtrlNbr");
 
-                            b1.ToTable("ShiftInstances", (string)null);
+                            b1.ToTable("ShiftInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShiftInstanceCtrlNbr");
@@ -13617,7 +13643,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("ShiftInstanceCtrlNbr");
 
-                            b1.ToTable("ShiftInstances", (string)null);
+                            b1.ToTable("ShiftInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShiftInstanceCtrlNbr");
@@ -13663,7 +13689,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SlotRequirementCtrlNbr");
 
-                            b1.ToTable("SlotRequirements", (string)null);
+                            b1.ToTable("SlotRequirements");
 
                             b1.WithOwner()
                                 .HasForeignKey("SlotRequirementCtrlNbr");
@@ -13684,7 +13710,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SlotRequirementCtrlNbr");
 
-                            b1.ToTable("SlotRequirements", (string)null);
+                            b1.ToTable("SlotRequirements");
 
                             b1.WithOwner()
                                 .HasForeignKey("SlotRequirementCtrlNbr");
@@ -13705,7 +13731,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("SlotRequirementCtrlNbr");
 
-                            b1.ToTable("SlotRequirements", (string)null);
+                            b1.ToTable("SlotRequirements");
 
                             b1.WithOwner()
                                 .HasForeignKey("SlotRequirementCtrlNbr");
@@ -13746,7 +13772,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkInstanceCtrlNbr");
 
-                            b1.ToTable("WorkInstances", (string)null);
+                            b1.ToTable("WorkInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkInstanceCtrlNbr");
@@ -13767,7 +13793,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkInstanceCtrlNbr");
 
-                            b1.ToTable("WorkInstances", (string)null);
+                            b1.ToTable("WorkInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkInstanceCtrlNbr");
@@ -13788,7 +13814,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                             b1.HasKey("WorkInstanceCtrlNbr");
 
-                            b1.ToTable("WorkInstances", (string)null);
+                            b1.ToTable("WorkInstances");
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkInstanceCtrlNbr");

@@ -2,13 +2,13 @@
 
 <div class="page">
     <div class="sidebar">
-        <NavMenu @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+        <NavMenu @rendermode="InteractiveServer" />
     </div>
 
     <main>
-        <nav class="navbar navbar-expand-lg bg-primary">
+        <nav class="navbar navbar-expand-lg bg-primary sticky-top">
             <div class="container-fluid">
-                <h4 class="text-body mb-0">Crew Service Management</h4>
+                <h4 class="text-light mb-0">Crew Service Management</h4>
                 <AuthorizeView>
                     <Authorized>
                         <div class="topbar-auth d-flex align-items-center ms-auto gap-2">

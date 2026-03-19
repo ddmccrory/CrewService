@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Authentication.Cookies
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Components.Account
+@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
 
 @inject AccountClient AccountClient
@@ -170,7 +171,7 @@
 
         var user = HttpContext.User;
         username = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        isAdmin = user.IsInRole("SystemAdmin") || user.IsInRole("ParentAdmin") || user.IsInRole("RailroadAdmin");
+        isAdmin = user.IsInRole(Roles.SystemAdmin) || user.IsInRole(Roles.ParentAdmin) || user.IsInRole(Roles.RailroadAdmin);
 
         try
         {
@@ -183,7 +184,7 @@
         {
         }
 
-        employeeNumber = user.FindFirst("employee_number")?.Value;
+        employeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
         if (!string.IsNullOrWhiteSpace(employeeNumber))
         {
             try
@@ -267,10 +268,10 @@
                 DriversLicenseNumber = Input.DriversLicenseNumber ?? string.Empty,
                 IssuingState = Input.IssuingState ?? string.Empty,
                 MaritalStatus = Input.MaritalStatus ?? string.Empty,
-                AllowFmlaMarkOff = Input.AllowFmlaMarkOff,
+                AllowFmlaMarkOff = isAdmin ? Input.AllowFmlaMarkOff : employee.AllowFmlaMarkOff,
                 CallForOvertime = Input.CallForOvertime,
-                ProcessPayroll = Input.ProcessPayroll,
-                TieUpOffProperty = Input.TieUpOffProperty
+                ProcessPayroll = isAdmin ? Input.ProcessPayroll : employee.ProcessPayroll,
+                TieUpOffProperty = isAdmin ? Input.TieUpOffProperty : employee.TieUpOffProperty
             });
 
             if (!employeeResponse.Success)
