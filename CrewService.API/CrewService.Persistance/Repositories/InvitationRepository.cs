@@ -51,4 +51,11 @@ internal sealed class InvitationRepository(CrewServiceDbContext dbContext, ICurr
                 i.Status == InvitationStatus.Accepted)
             .ToListAsync();
     }
+
+    public async Task<List<Invitation>> GetByRoleAsync(string role)
+    {
+        return await DbContext.Set<Invitation>()
+            .Where(i => i.Role == role)
+            .ToListAsync();
+    }
 }

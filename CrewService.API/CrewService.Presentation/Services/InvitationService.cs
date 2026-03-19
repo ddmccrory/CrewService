@@ -130,6 +130,14 @@ public class InvitationService(
 
         var invitations = await _invitationRepository.GetByParentCtrlNbrAsync(request.ParentCtrlNbr);
 
+        // SystemAdmin invitations are global — show them regardless of parent context
+        if (callerRole == Roles.SystemAdmin)
+        {
+            var sysAdminInvitations = await _invitationRepository.GetByRoleAsync(Roles.SystemAdmin);
+            var existingCtrlNbrs = invitations.Select(i => i.CtrlNbr).ToHashSet();
+            invitations.AddRange(sysAdminInvitations.Where(i => !existingCtrlNbrs.Contains(i.CtrlNbr)));
+        }
+
         var response = new GetInvitationsResponse();
         foreach (var invitation in invitations)
             response.Invitations.Add(MapToResponse(invitation, includeToken: false));
