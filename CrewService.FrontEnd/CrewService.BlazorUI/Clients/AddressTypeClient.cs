@@ -1,9 +1,10 @@
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 
 namespace CrewService.BlazorUI.Clients;
 
-internal sealed class AddressTypeClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<AddressTypeClient> logger)
-    : BaseGrpcClient<AddressTypeSrvc.AddressTypeSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new AddressTypeSrvc.AddressTypeSrvcClient(callInvoker), logger)
+internal sealed class AddressTypeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<AddressTypeClient> logger)
+    : BaseGrpcClient<AddressTypeSrvc.AddressTypeSrvcClient>(channelProvider, tokenProvider, callInvoker => new AddressTypeSrvc.AddressTypeSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllAddressTypeResponse> GetAllAsync(long clientCtrlNbr)
     {

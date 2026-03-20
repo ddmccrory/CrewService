@@ -1,10 +1,11 @@
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class InvitationsClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<InvitationsClient> logger)
-    : BaseGrpcClient<InvitationSrvc.InvitationSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new InvitationSrvc.InvitationSrvcClient(callInvoker), logger)
+public sealed class InvitationsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<InvitationsClient> logger)
+    : BaseGrpcClient<InvitationSrvc.InvitationSrvcClient>(channelProvider, tokenProvider, callInvoker => new InvitationSrvc.InvitationSrvcClient(callInvoker), logger)
 {
     public async Task<InvitationResponse> CreateAsync(string email, long parentCtrlNbr, string role, int expirationDays = 7, long railroadCtrlNbr = 0)
     {

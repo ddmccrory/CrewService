@@ -1,9 +1,10 @@
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 
 namespace CrewService.BlazorUI.Clients;
 
-internal sealed class PhoneNumberTypeClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<PhoneNumberTypeClient> logger)
-    : BaseGrpcClient<PhoneNumberTypeSrvc.PhoneNumberTypeSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new PhoneNumberTypeSrvc.PhoneNumberTypeSrvcClient(callInvoker), logger)
+internal sealed class PhoneNumberTypeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<PhoneNumberTypeClient> logger)
+    : BaseGrpcClient<PhoneNumberTypeSrvc.PhoneNumberTypeSrvcClient>(channelProvider, tokenProvider, callInvoker => new PhoneNumberTypeSrvc.PhoneNumberTypeSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllPhoneNumberTypeResponse> GetAllAsync(long clientCtrlNbr)
     {
