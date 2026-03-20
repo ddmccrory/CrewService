@@ -1,4 +1,5 @@
 ﻿using CrewService.Domain.Exceptions;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Modules.Employees;
@@ -7,9 +8,10 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class ParentService(IParentRepository parentRepository) : ParentSrvc.ParentSrvcBase
+public class ParentService(IParentRepository parentRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
 {
     private readonly IParentRepository _parentRepository = parentRepository;
+    private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
 
     public override async Task<GetAllParentsResponse> GetAllParentsAsync(GetAllParentsRequest request, ServerCallContext context)
     {
@@ -71,7 +73,9 @@ public class ParentService(IParentRepository parentRepository) : ParentSrvc.Pare
 
         var parent = Parent.Create(request.Name);
 
-        _parentRepository.Add(parent);
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.Parents.Add(parent);
+        await uow.CommitAsync();
 
         return new CreateParentResponse
         {
@@ -82,20 +86,21 @@ public class ParentService(IParentRepository parentRepository) : ParentSrvc.Pare
 
     public override async Task<UpdateParentResponse> UpdateParentAsync(UpdateParentRequest request, ServerCallContext context)
     {
-        var errors = new Dictionary<string, string[]>();
-
         if (request.CtrlNbr <= 0)
-            errors.Add("CtrlNbr", ["Must be greater than 0"]);
+            throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
         if (string.IsNullOrEmpty(request.Name))
-            errors.Add("Name", ["Required"]);
+            throw new ValidationException("Name", "Required");
 
-        var parent = await _parentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var parent = await uow.Parents.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Parent, with control number {request.CtrlNbr}, was not found."));
 
         parent.Update(request.Name);
 
-        _parentRepository.Update(parent);
+        uow.Parents.Update(parent);
+        await uow.CommitAsync();
 
         return new UpdateParentResponse
         {
@@ -109,10 +114,13 @@ public class ParentService(IParentRepository parentRepository) : ParentSrvc.Pare
         if (request.CtrlNbr <= 0)
             throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
-        var parent = await _parentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
+        await using var uow = await _uowFactory.CreateAsync();
+
+        var parent = await uow.Parents.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr)) ??
             throw new RpcException(new Status(StatusCode.NotFound, $"Parent, with control number {request.CtrlNbr}, was not found."));
 
-        _parentRepository.Remove(parent);
+        uow.Parents.Remove(parent);
+        await uow.CommitAsync();
 
         return new DeleteParentResponse
         {

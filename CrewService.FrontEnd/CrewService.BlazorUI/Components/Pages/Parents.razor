@@ -1,5 +1,7 @@
 @page "/parents"
+@rendermode InteractiveServer
 
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
@@ -7,40 +9,65 @@
 @attribute [Authorize]
 
 @inject ParentsClient ParentsClient
-@inject NavigationManager NavigationManager
 
 <PageTitle>Parents</PageTitle>
 
 <h1>Parents</h1>
 
-<div class="mb-3">
-    <button class="btn btn-primary" @onclick="ShowCreateForm">
-        <span class="bi bi-plus-circle"></span> New Parent
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-primary" @onclick="OpenCreateModal">
+        <span class="bi bi-plus-circle"></span> Create Parent
     </button>
 </div>
 
-@if (showCreateForm)
+<Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Parent" : "Create Parent")"
+       Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+       OnClose="CloseSaveModal">
+    <BodyContent>
+        <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-parent-form">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Name</label>
+                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Parent Name" />
+                <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+            </div>
+        </EditForm>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+        <button type="submit" form="save-parent-form" class="btn btn-primary">
+            <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+        </button>
+    </Footer>
+</Modal>
+
+<Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+       OnClose="() => showDeleteModal = false" Size="sm">
+    <BodyContent>
+        <p>Are you sure you want to delete <strong>@deleteParentName</strong>?</p>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+            <span class="bi bi-trash me-1"></span> Delete
+        </button>
+    </Footer>
+</Modal>
+
+@if (successMessage is not null)
 {
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5 class="card-title">Create Parent</h5>
-            <EditForm Model="createModel" OnValidSubmit="CreateParent" FormName="createParent">
-                <DataAnnotationsValidator />
-                <div class="form-floating mb-3">
-                    <InputText @bind-Value="createModel.Name" class="form-control" placeholder="Parent Name" />
-                    <label>Name</label>
-                    <ValidationMessage For="() => createModel.Name" class="text-danger" />
-                </div>
-                <button type="submit" class="btn btn-success me-2">Create</button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelCreate">Cancel</button>
-            </EditForm>
-        </div>
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
     </div>
 }
 
 @if (errorMessage is not null)
 {
-    <div class="alert alert-danger" role="alert">@errorMessage</div>
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
 }
 
 @if (parents is null)
@@ -58,7 +85,7 @@ else
             <tr>
                 <th>Name</th>
                 <th>Railroads</th>
-                <th style="width: 120px;"></th>
+                <th style="width: 180px;"></th>
             </tr>
         </thead>
         <tbody>
@@ -66,11 +93,18 @@ else
             {
                 <tr>
                     <td>
-                        <a href="/parents/@parent.CtrlNbr">@parent.Name</a>
+                        <a href="/parents/@parent.CtrlNbr" class="text-decoration-none">@parent.Name</a>
                     </td>
                     <td>@parent.Railroads.Count</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteParent(parent.CtrlNbr)">Delete</button>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(parent)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(parent)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
                     </td>
                 </tr>
             }
@@ -80,12 +114,16 @@ else
 
 @code {
     private IReadOnlyList<GetParentResponse>? parents;
+    private string? successMessage;
     private string? errorMessage;
-    private bool showCreateForm;
-    private CreateParentModel createModel = new();
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private ParentInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteParentName = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -96,57 +134,93 @@ else
     {
         try
         {
-            errorMessage = null;
             var response = await ParentsClient.GetAllAsync();
             parents = response.Parent;
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = $"Failed to load parents: {ex.Message}";
+            parents = [];
         }
     }
 
-    private void ShowCreateForm() => showCreateForm = true;
-    private void CancelCreate()
+    private void OpenCreateModal()
     {
-        showCreateForm = false;
-        createModel = new();
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
     }
 
-    private async Task CreateParent()
+    private void OpenEditModal(GetParentResponse parent)
+    {
+        editCtrlNbr = parent.CtrlNbr;
+        saveModel = new() { Name = parent.Name };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(GetParentResponse parent)
+    {
+        deleteCtrlNbr = parent.CtrlNbr;
+        deleteParentName = parent.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
     {
         try
         {
             errorMessage = null;
-            await ParentsClient.CreateAsync(createModel.Name);
-            showCreateForm = false;
-            createModel = new();
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await ParentsClient.UpdateAsync(editCtrlNbr, saveModel.Name ?? string.Empty);
+                successMessage = "Parent updated.";
+            }
+            else
+            {
+                await ParentsClient.CreateAsync(saveModel.Name ?? string.Empty);
+                successMessage = "Parent created.";
+            }
+
+            CloseSaveModal();
             await LoadParents();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to create parent: {ex.Message}";
+            errorMessage = $"Failed to save parent: {ex.Message}";
         }
     }
 
-    private async Task DeleteParent(long ctrlNbr)
+    private async Task ConfirmDelete()
     {
         try
         {
             errorMessage = null;
-            await ParentsClient.DeleteAsync(ctrlNbr);
+            successMessage = null;
+
+            await ParentsClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Parent deleted.";
+            showDeleteModal = false;
             await LoadParents();
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to delete parent: {ex.Message}";
+            showDeleteModal = false;
         }
     }
 
-    private sealed class CreateParentModel
+    private sealed class ParentInputModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
     }
 }
