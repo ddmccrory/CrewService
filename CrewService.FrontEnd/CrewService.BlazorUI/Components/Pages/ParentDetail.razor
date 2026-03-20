@@ -46,7 +46,7 @@ else
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label class="form-label fw-semibold">RR Mark</label>
-                    <InputText @bind-Value="saveModel.RrMark" class="form-control" placeholder="RR Mark" />
+                    <InputText @bind-Value="saveModel.RrMark" class="form-control" placeholder="RR Mark" style="text-transform: uppercase" />
                     <ValidationMessage For="() => saveModel.RrMark" class="text-danger" />
                 </div>
                 <div class="mb-3">
@@ -238,9 +238,15 @@ else
 
     private sealed class RailroadInputModel
     {
+        private string? _rrMark;
+
         [Required(ErrorMessage = "RR Mark is required.")]
         [StringLength(10, MinimumLength = 1)]
-        public string? RrMark { get; set; }
+        public string? RrMark
+        {
+            get => _rrMark;
+            set => _rrMark = value?.ToUpperInvariant();
+        }
 
         [Required(ErrorMessage = "Name is required.")]
         [StringLength(100, MinimumLength = 1)]
