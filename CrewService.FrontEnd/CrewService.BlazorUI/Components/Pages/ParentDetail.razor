@@ -38,27 +38,28 @@ else
         </button>
     </div>
 
-    <Modal Visible="showAddModal" Title="Add Railroad" Icon="bi bi-plus-circle"
-           OnClose="CloseAddModal">
+    <Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Railroad" : "Add Railroad")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
         <BodyContent>
-            <EditForm Model="addModel" OnValidSubmit="OnAddRailroad" id="add-railroad-form">
+            <EditForm Model="saveModel" OnValidSubmit="OnSaveRailroad" id="save-railroad-form">
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label class="form-label fw-semibold">RR Mark</label>
-                    <InputText @bind-Value="addModel.RrMark" class="form-control" placeholder="RR Mark" />
-                    <ValidationMessage For="() => addModel.RrMark" class="text-danger" />
+                    <InputText @bind-Value="saveModel.RrMark" class="form-control" placeholder="RR Mark" />
+                    <ValidationMessage For="() => saveModel.RrMark" class="text-danger" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Name</label>
-                    <InputText @bind-Value="addModel.Name" class="form-control" placeholder="Railroad Name" />
-                    <ValidationMessage For="() => addModel.Name" class="text-danger" />
+                    <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Railroad Name" />
+                    <ValidationMessage For="() => saveModel.Name" class="text-danger" />
                 </div>
             </EditForm>
         </BodyContent>
         <Footer>
-            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddModal">Cancel</button>
-            <button type="submit" form="add-railroad-form" class="btn btn-primary">
-                <span class="bi bi-plus-circle me-1"></span> Add Railroad
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-railroad-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Add")
             </button>
         </Footer>
     </Modal>
@@ -103,7 +104,7 @@ else
                 <tr>
                     <th>RR Mark</th>
                     <th>Name</th>
-                    <th style="width: 120px;"></th>
+                    <th style="width: 180px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -113,9 +114,14 @@ else
                         <td><strong>@rr.RrMark</strong></td>
                         <td>@rr.Name</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeleteModal(rr)">
-                                <span class="bi bi-trash"></span> Delete
-                            </button>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(rr)">
+                                    <span class="bi bi-pencil"></span> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(rr)">
+                                    <span class="bi bi-trash"></span> Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -132,8 +138,9 @@ else
     private string? successMessage;
     private string? errorMessage;
 
-    private bool showAddModal;
-    private RailroadInputModel addModel = new();
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private RailroadInputModel saveModel = new();
 
     private bool showDeleteModal;
     private long deleteCtrlNbr;
@@ -157,14 +164,23 @@ else
 
     private void OpenAddModal()
     {
-        addModel = new();
-        showAddModal = true;
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
     }
 
-    private void CloseAddModal()
+    private void OpenEditModal(GetRailroadResponse rr)
     {
-        showAddModal = false;
-        addModel = new();
+        editCtrlNbr = rr.CtrlNbr;
+        saveModel = new() { RrMark = rr.RrMark, Name = rr.Name };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
     }
 
     private void OpenDeleteModal(GetRailroadResponse rr)
@@ -174,21 +190,30 @@ else
         showDeleteModal = true;
     }
 
-    private async Task OnAddRailroad()
+    private async Task OnSaveRailroad()
     {
         try
         {
             errorMessage = null;
             successMessage = null;
 
-            await RailroadsClient.CreateAsync(CtrlNbr, addModel.RrMark ?? string.Empty, addModel.Name ?? string.Empty);
-            successMessage = "Railroad added.";
-            CloseAddModal();
+            if (editCtrlNbr > 0)
+            {
+                await RailroadsClient.UpdateAsync(editCtrlNbr, CtrlNbr, saveModel.RrMark ?? string.Empty, saveModel.Name ?? string.Empty);
+                successMessage = "Railroad updated.";
+            }
+            else
+            {
+                await RailroadsClient.CreateAsync(CtrlNbr, saveModel.RrMark ?? string.Empty, saveModel.Name ?? string.Empty);
+                successMessage = "Railroad added.";
+            }
+
+            CloseSaveModal();
             await LoadParent();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to add railroad: {ex.Message}";
+            errorMessage = $"Failed to save railroad: {ex.Message}";
         }
     }
 
