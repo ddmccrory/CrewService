@@ -1,10 +1,11 @@
-﻿using CrewService.Presentation;
+﻿using CrewService.BlazorUI.Services;
+using CrewService.Presentation;
 using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class ParentsClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<ParentsClient> logger)
-: BaseGrpcClient<ParentSrvc.ParentSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new ParentSrvc.ParentSrvcClient(callInvoker), logger)
+public sealed class ParentsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<ParentsClient> logger)
+: BaseGrpcClient<ParentSrvc.ParentSrvcClient>(channelProvider, tokenProvider, callInvoker => new ParentSrvc.ParentSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllParentsResponse> GetAllAsync()
     {

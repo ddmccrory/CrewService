@@ -1,3 +1,4 @@
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 
 namespace CrewService.BlazorUI.Clients;
@@ -6,8 +7,8 @@ namespace CrewService.BlazorUI.Clients;
 /// Unauthenticated gRPC client for invitation token validation.
 /// Used by the AcceptInvitation page before the user has logged in.
 /// </summary>
-internal sealed class InvitationTokenClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<InvitationTokenClient> logger)
-    : BaseGrpcClient<InvitationSrvc.InvitationSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new InvitationSrvc.InvitationSrvcClient(callInvoker), logger, addAuthHeader: false)
+internal sealed class InvitationTokenClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<InvitationTokenClient> logger)
+    : BaseGrpcClient<InvitationSrvc.InvitationSrvcClient>(channelProvider, tokenProvider, callInvoker => new InvitationSrvc.InvitationSrvcClient(callInvoker), logger, addAuthHeader: false)
 {
     public async Task<ValidateInvitationTokenReply> ValidateTokenAsync(string token)
     {

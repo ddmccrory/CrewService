@@ -14,6 +14,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 builder.Services.AddSingleton<GrpcChannelProvider>();
+builder.Services.AddScoped<CircuitTokenProvider>();
 builder.Services.AddScoped<AccountClient>();
 builder.Services.AddScoped<AddressTypeClient>();
 builder.Services.AddScoped<AuthClient>();

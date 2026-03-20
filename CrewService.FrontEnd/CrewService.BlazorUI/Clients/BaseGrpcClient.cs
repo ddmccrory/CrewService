@@ -1,4 +1,5 @@
 ﻿using CrewService.BlazorUI.Interceptors;
+using CrewService.BlazorUI.Services;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
 
@@ -9,31 +10,13 @@ public abstract class BaseGrpcClient<TClient>
     protected readonly TClient _client;
     protected readonly ILogger _logger;
 
-    protected BaseGrpcClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, Func<CallInvoker, TClient> clientFactory, ILogger logger, bool addAuthHeader = true)
+    protected BaseGrpcClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, Func<CallInvoker, TClient> clientFactory, ILogger logger, bool addAuthHeader = true)
     {
         var channel = channelProvider.Channel;
 
-        CallInvoker callInvoker;
-
-        if (addAuthHeader)
-        {
-            var token = httpContextAccessor.HttpContext?.User.FindFirst("AccessToken")?.Value;
-
-            if (!string.IsNullOrEmpty(token))
-            {
-                callInvoker = channel.Intercept(new AuthInterceptor(token));
-            }
-            else
-            {
-                // Allow construction to succeed — unauthenticated users will be
-                // redirected by [Authorize] before any gRPC call is made.
-                callInvoker = channel.CreateCallInvoker();
-            }
-        }
-        else
-        {
-            callInvoker = channel.CreateCallInvoker();
-        }
+        CallInvoker callInvoker = addAuthHeader
+            ? channel.Intercept(new PerCallAuthInterceptor(tokenProvider))
+            : channel.CreateCallInvoker();
 
         _client = clientFactory(callInvoker);
         _logger = logger;

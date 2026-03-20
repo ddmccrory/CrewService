@@ -1,10 +1,11 @@
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class RailroadsClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<RailroadsClient> logger)
-: BaseGrpcClient<RailroadSrvc.RailroadSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new RailroadSrvc.RailroadSrvcClient(callInvoker), logger)
+public sealed class RailroadsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<RailroadsClient> logger)
+: BaseGrpcClient<RailroadSrvc.RailroadSrvcClient>(channelProvider, tokenProvider, callInvoker => new RailroadSrvc.RailroadSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllRailroadsResponse> GetAllAsync()
     {

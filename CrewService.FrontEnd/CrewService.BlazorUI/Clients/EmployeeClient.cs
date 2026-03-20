@@ -1,10 +1,11 @@
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class EmployeeClient(GrpcChannelProvider channelProvider, IHttpContextAccessor httpContextAccessor, ILogger<EmployeeClient> logger)
-: BaseGrpcClient<EmployeeSrvc.EmployeeSrvcClient>(channelProvider, httpContextAccessor, callInvoker => new EmployeeSrvc.EmployeeSrvcClient(callInvoker), logger)
+public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<EmployeeClient> logger)
+: BaseGrpcClient<EmployeeSrvc.EmployeeSrvcClient>(channelProvider, tokenProvider, callInvoker => new EmployeeSrvc.EmployeeSrvcClient(callInvoker), logger)
 {
     #region Employee
 
