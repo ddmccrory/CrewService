@@ -1,5 +1,7 @@
 @page "/parents/{CtrlNbr:long}"
+@rendermode InteractiveServer
 
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
@@ -8,14 +10,8 @@
 
 @inject ParentsClient ParentsClient
 @inject RailroadsClient RailroadsClient
-@inject NavigationManager NavigationManager
 
 <PageTitle>Parent Detail</PageTitle>
-
-@if (errorMessage is not null)
-{
-    <div class="alert alert-danger" role="alert">@errorMessage</div>
-}
 
 @if (parent is null)
 {
@@ -30,63 +26,69 @@ else
         </ol>
     </nav>
 
-    @if (!isEditing)
-    {
-        <h1>@parent.Name</h1>
-        <button class="btn btn-sm btn-outline-primary me-2" @onclick="StartEdit">Edit</button>
-        <button class="btn btn-sm btn-outline-danger" @onclick="Delete">Delete</button>
-    }
-    else
-    {
-        <EditForm Model="editModel" OnValidSubmit="SaveEdit" FormName="editParent">
-            <DataAnnotationsValidator />
-            <div class="form-floating mb-3" style="max-width: 400px;">
-                <InputText @bind-Value="editModel.Name" class="form-control" placeholder="Name" />
-                <label>Name</label>
-                <ValidationMessage For="() => editModel.Name" class="text-danger" />
-            </div>
-            <button type="submit" class="btn btn-success me-2">Save</button>
-            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
-        </EditForm>
-    }
+    <h1>@parent.Name</h1>
 
     <hr />
 
     <h3>Railroads</h3>
 
-    <div class="mb-3">
-        <button class="btn btn-sm btn-primary" @onclick="ShowAddRailroad">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button class="btn btn-primary" @onclick="OpenAddModal">
             <span class="bi bi-plus-circle"></span> Add Railroad
         </button>
     </div>
 
-    @if (showAddRailroadForm)
+    <Modal Visible="showAddModal" Title="Add Railroad" Icon="bi bi-plus-circle"
+           OnClose="CloseAddModal">
+        <BodyContent>
+            <EditForm Model="addModel" OnValidSubmit="OnAddRailroad" id="add-railroad-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">RR Mark</label>
+                    <InputText @bind-Value="addModel.RrMark" class="form-control" placeholder="RR Mark" />
+                    <ValidationMessage For="() => addModel.RrMark" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <InputText @bind-Value="addModel.Name" class="form-control" placeholder="Railroad Name" />
+                    <ValidationMessage For="() => addModel.Name" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddModal">Cancel</button>
+            <button type="submit" form="add-railroad-form" class="btn btn-primary">
+                <span class="bi bi-plus-circle me-1"></span> Add Railroad
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteRailroadName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (successMessage is not null)
     {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Add Railroad</h5>
-                <EditForm Model="addRailroadModel" OnValidSubmit="AddRailroad" FormName="addRailroad">
-                    <DataAnnotationsValidator />
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="addRailroadModel.RrMark" class="form-control" placeholder="RR Mark" />
-                                <label>RR Mark</label>
-                                <ValidationMessage For="() => addRailroadModel.RrMark" class="text-danger" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="addRailroadModel.Name" class="form-control" placeholder="Name" />
-                                <label>Name</label>
-                                <ValidationMessage For="() => addRailroadModel.Name" class="text-danger" />
-                            </div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-success me-2">Add</button>
-                    <button type="button" class="btn btn-secondary" @onclick="CancelAddRailroad">Cancel</button>
-                </EditForm>
-            </div>
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
         </div>
     }
 
@@ -111,7 +113,9 @@ else
                         <td><strong>@rr.RrMark</strong></td>
                         <td>@rr.Name</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRailroad(rr.CtrlNbr)">Delete</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeleteModal(rr)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
                         </td>
                     </tr>
                 }
@@ -124,15 +128,16 @@ else
     [Parameter]
     public long CtrlNbr { get; set; }
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     private GetParentResponse? parent;
+    private string? successMessage;
     private string? errorMessage;
-    private bool isEditing;
-    private EditParentModel editModel = new();
-    private bool showAddRailroadForm;
-    private AddRailroadModel addRailroadModel = new();
+
+    private bool showAddModal;
+    private RailroadInputModel addModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteRailroadName = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -143,66 +148,42 @@ else
     {
         try
         {
-            errorMessage = null;
             parent = await ParentsClient.GetByCtrlNbrAsync(CtrlNbr);
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = $"Failed to load parent: {ex.Message}";
         }
     }
 
-    private void StartEdit()
+    private void OpenAddModal()
     {
-        editModel = new() { Name = parent!.Name };
-        isEditing = true;
+        addModel = new();
+        showAddModal = true;
     }
 
-    private void CancelEdit() => isEditing = false;
-
-    private async Task SaveEdit()
+    private void CloseAddModal()
     {
-        try
-        {
-            errorMessage = null;
-            await ParentsClient.UpdateAsync(CtrlNbr, editModel.Name);
-            isEditing = false;
-            await LoadParent();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to update parent: {ex.Message}";
-        }
+        showAddModal = false;
+        addModel = new();
     }
 
-    private async Task Delete()
+    private void OpenDeleteModal(GetRailroadResponse rr)
     {
-        try
-        {
-            await ParentsClient.DeleteAsync(CtrlNbr);
-            NavigationManager.NavigateTo("/parents");
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to delete parent: {ex.Message}";
-        }
+        deleteCtrlNbr = rr.CtrlNbr;
+        deleteRailroadName = $"{rr.RrMark} — {rr.Name}";
+        showDeleteModal = true;
     }
 
-    private void ShowAddRailroad() => showAddRailroadForm = true;
-    private void CancelAddRailroad()
-    {
-        showAddRailroadForm = false;
-        addRailroadModel = new();
-    }
-
-    private async Task AddRailroad()
+    private async Task OnAddRailroad()
     {
         try
         {
             errorMessage = null;
-            await RailroadsClient.CreateAsync(CtrlNbr, addRailroadModel.RrMark, addRailroadModel.Name);
-            showAddRailroadForm = false;
-            addRailroadModel = new();
+            successMessage = null;
+
+            await RailroadsClient.CreateAsync(CtrlNbr, addModel.RrMark ?? string.Empty, addModel.Name ?? string.Empty);
+            successMessage = "Railroad added.";
+            CloseAddModal();
             await LoadParent();
         }
         catch (Exception ex)
@@ -211,35 +192,33 @@ else
         }
     }
 
-    private async Task DeleteRailroad(long rrCtrlNbr)
+    private async Task ConfirmDelete()
     {
         try
         {
             errorMessage = null;
-            await RailroadsClient.DeleteAsync(rrCtrlNbr);
+            successMessage = null;
+
+            await RailroadsClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Railroad deleted.";
+            showDeleteModal = false;
             await LoadParent();
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to delete railroad: {ex.Message}";
+            showDeleteModal = false;
         }
     }
 
-    private sealed class EditParentModel
+    private sealed class RailroadInputModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
-    }
+        [Required(ErrorMessage = "RR Mark is required.")]
+        [StringLength(10, MinimumLength = 1)]
+        public string? RrMark { get; set; }
 
-    private sealed class AddRailroadModel
-    {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(10, MinimumLength = 1)]
-        public string RrMark { get; set; } = "";
-
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
     }
 }
