@@ -27,9 +27,9 @@ public sealed class AuthService(
     private readonly IInvitationRepository _invitationRepository = invitationRepository;
     private readonly ICurrentUserService _currentUserService = currentUserService;
 
-    public override async Task<RegisterResponse> RegisterUser(RegisterRequest request, ServerCallContext context)
+    public override async Task<AcceptInvitationResponse> AcceptInvitation(AcceptInvitationRequest request, ServerCallContext context)
     {
-        RegisterResponse response = new();
+        AcceptInvitationResponse response = new();
 
         if (string.IsNullOrEmpty(request.InvitationToken))
         {
@@ -98,6 +98,25 @@ public sealed class AuthService(
         // Accept the invitation
         invitation.Accept();
         await _invitationRepository.UpdateAsync(invitation);
+
+        // Global SystemAdmin invitation (no parent) — set PrimaryRoleId
+        if (invitation.ParentCtrlNbr is null)
+        {
+            existingUser.PrimaryRoleId = Roles.SystemAdmin;
+            await _userManager.UpdateAsync(existingUser);
+
+            // Supersede prior SystemAdmin invitations for this email
+            var oldInvitations = await _invitationRepository.GetAcceptedByEmailAndParentAsync(invitation.Email, null);
+            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
+            {
+                oldInv.MarkSuperseded();
+                await _invitationRepository.UpdateAsync(oldInv);
+            }
+
+            response.Success = true;
+            response.Message.Add("Invitation accepted successfully.");
+            return response;
+        }
 
         // Create or update the UserParentAssignment from the invitation
         var existingAssignments = await _assignmentRepository.GetByUserAndParentAsync(existingUser.Id, invitation.ParentCtrlNbr);
@@ -173,7 +192,7 @@ public sealed class AuthService(
         }
 
         response.Success = true;
-        response.Message.Add("User has successfully registered.");
+        response.Message.Add("Invitation accepted successfully.");
         return response;
     }
 

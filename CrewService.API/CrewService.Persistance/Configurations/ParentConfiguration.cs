@@ -11,12 +11,6 @@ internal class ParentConfiguration : IEntityTypeConfiguration<Parent>
     {
         builder.HasKey(c => c.CtrlNbr);
 
-        builder.HasMany(c => c.Railroads)
-               .WithOne()
-               .HasForeignKey(rr => rr.ParentCtrlNbr)
-               .IsRequired()
-               .OnDelete(DeleteBehavior.Cascade);
-
         builder.Property(c => c.CtrlNbr).HasConversion(
             parentCtrlNbr => parentCtrlNbr.Value,
             value => ControlNumber.Create(value));

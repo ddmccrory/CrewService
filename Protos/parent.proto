@@ -3,7 +3,6 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/api/annotations.proto";
-import "railroad.proto";
 
 package parent;
 
@@ -48,7 +47,7 @@ message GetParentRequest {
 message GetParentResponse {
 	int64 ctrlNbr = 1;
 	string name = 2;
-	repeated railroad.GetRailroadResponse railroads = 3;
+	repeated ParentRailroadInfo railroads = 3;
 }
 
 message GetAllParentsRequest {}
@@ -83,4 +82,10 @@ message DeleteParentRequest {
 message DeleteParentResponse {
 	int64 ctrlNbr = 1;
 	string name = 2;
+}
+
+message ParentRailroadInfo {
+	int64 ctrlNbr = 1;
+	string rr_mark = 2;
+	string name = 3;
 }

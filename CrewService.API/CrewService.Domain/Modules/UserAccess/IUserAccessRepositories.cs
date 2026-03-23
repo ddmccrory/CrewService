@@ -16,7 +16,7 @@ public interface IInvitationRepository : IRepository<Invitation>
     Task<Invitation?> GetByTokenAsync(string token);
     Task<List<Invitation>> GetByEmailAsync(string email);
     Task<List<Invitation>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
-    Task<Invitation?> GetPendingByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr);
-    Task<List<Invitation>> GetAcceptedByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr);
+    Task<Invitation?> GetPendingByEmailAndParentAsync(string email, ControlNumber? parentCtrlNbr);
+    Task<List<Invitation>> GetAcceptedByEmailAndParentAsync(string email, ControlNumber? parentCtrlNbr);
     Task<List<Invitation>> GetByRoleAsync(string role);
 }

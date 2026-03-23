@@ -20,6 +20,7 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
             value => ControlNumber.Create(value)).IsRequired();
 
         builder.Property(g => g.Name).HasMaxLength(200).IsRequired();
+        builder.Property(g => g.Code).HasMaxLength(50);
 
         builder.Property(g => g.ParentGroupCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,

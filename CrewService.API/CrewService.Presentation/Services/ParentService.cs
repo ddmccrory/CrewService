@@ -3,14 +3,16 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class ParentService(IParentRepository parentRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
+public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
 {
     private readonly IParentRepository _parentRepository = parentRepository;
+    private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
     private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
 
     public override async Task<GetAllParentsResponse> GetAllParentsAsync(GetAllParentsRequest request, ServerCallContext context)
@@ -26,13 +28,15 @@ public class ParentService(IParentRepository parentRepository, IOrchestrationUni
                 Name = parent.Name.Value
             };
 
-            foreach (var railroad in parent.Railroads)
+            var railroadGroups = await _dynamicGroupRepository.GetByGroupTypeNameAsync("Railroad", parent.CtrlNbr.Value);
+
+            foreach (var rr in railroadGroups)
             {
-                parentResponse.Railroads.Add(new GetRailroadResponse
+                parentResponse.Railroads.Add(new ParentRailroadInfo
                 {
-                    CtrlNbr = railroad.CtrlNbr.Value,
-                    RrMark = railroad.RailroadMark,
-                    Name = railroad.Name.Value
+                    CtrlNbr = rr.CtrlNbr.Value,
+                    RrMark = rr.Code ?? string.Empty,
+                    Name = rr.Name
                 });
             }
 
@@ -53,13 +57,15 @@ public class ParentService(IParentRepository parentRepository, IOrchestrationUni
             Name = parent.Name.Value
         };
 
-        foreach (var railroad in parent.Railroads)
+        var railroadGroups = await _dynamicGroupRepository.GetByGroupTypeNameAsync("Railroad", parent.CtrlNbr.Value);
+
+        foreach (var rr in railroadGroups)
         {
-            response.Railroads.Add(new GetRailroadResponse
+            response.Railroads.Add(new ParentRailroadInfo
             {
-                CtrlNbr = railroad.CtrlNbr.Value,
-                RrMark = railroad.RailroadMark,
-                Name = railroad.Name.Value
+                CtrlNbr = rr.CtrlNbr.Value,
+                RrMark = rr.Code ?? string.Empty,
+                Name = rr.Name
             });
         }
 
@@ -75,6 +81,7 @@ public class ParentService(IParentRepository parentRepository, IOrchestrationUni
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.Parents.Add(parent);
+
         await uow.CommitAsync();
 
         return new CreateParentResponse

@@ -1,10 +1,11 @@
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.DomainEvents.UserAccess;
 using CrewService.Domain.Models.Parents;
-using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Repositories;
+using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.UnitTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 
@@ -160,9 +161,13 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Dup Parent");
         await parentRepo.AddAsync(parent);
 
-        var railroadRepo = new RailroadRepository(ctx, _factory.CurrentUserService);
-        var railroad = Railroad.Create(parent.CtrlNbr, "Test RR", "TSTRR");
-        await railroadRepo.AddAsync(railroad);
+        var groupTypeRepo = new GroupTypeRepository(ctx, _factory.CurrentUserService);
+        var groupType = GroupType.Create("Railroad", "Test RR GroupType", false);
+        await groupTypeRepo.AddAsync(groupType);
+
+        var groupRepo = new DynamicGroupRepository(ctx, _factory.CurrentUserService);
+        var railroad = DynamicGroup.Create(groupType.CtrlNbr, "Test RR", null, null, false, "TSTRR");
+        await groupRepo.AddAsync(railroad);
 
         var a1 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, Roles.RailroadAdmin, railroad.CtrlNbr);
         await repo.AddAsync(a1);

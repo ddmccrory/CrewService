@@ -14,9 +14,9 @@ service AuthSrvc {
 		};
 	}
 
-	rpc RegisterUser (RegisterRequest) returns (RegisterResponse){
+	rpc AcceptInvitation (AcceptInvitationRequest) returns (AcceptInvitationResponse){
 		option (google.api.http) = {
-			post: "/register"
+			post: "/accept-invitation"
 		};
 	}
 
@@ -43,12 +43,12 @@ message AuthResponse{
 	repeated string message = 8;
 }
 
-message RegisterRequest{
+message AcceptInvitationRequest{
 	string invitation_token = 1;
 	string password = 2;
 }
 
-message RegisterResponse{
+message AcceptInvitationResponse{
 	bool success = 1;
 	repeated string message = 2;
 }

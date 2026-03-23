@@ -14,14 +14,12 @@ internal sealed class ParentRepository(CrewServiceDbContext dbContext, ICurrentU
     public override async Task<List<Parent>> GetAllAsync(CancellationToken ct = default)
     {
         return await DbContext.Set<Parent>()
-            .Include(p => p.Railroads)
             .ToListAsync(ct);
     }
 
     public override async Task<Parent?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         return await DbContext.Set<Parent>()
-            .Include(p => p.Railroads)
             .SingleOrDefaultAsync(p => p.CtrlNbr == ctrlNbr, ct);
     }
 }

@@ -34,7 +34,6 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Parent> Parents => Set<Parent>();
     public DbSet<PhoneNumber> PhoneNumbers => Set<PhoneNumber>();
     public DbSet<PhoneNumberType> PhoneNumberTypes => Set<PhoneNumberType>();
-    public DbSet<Railroad> Railroads => Set<Railroad>();
     public DbSet<PayrollTier> PayrollTiers => Set<PayrollTier>();
     public DbSet<Roster> Rosters => Set<Roster>();
     public DbSet<Seniority> Seniority => Set<Seniority>();
@@ -48,7 +47,6 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<DynamicGroup> DynamicGroups => Set<DynamicGroup>();
     public DbSet<GroupAttributeDefinition> GroupAttributeDefinitions => Set<GroupAttributeDefinition>();
     public DbSet<GroupAttributeValue> GroupAttributeValues => Set<GroupAttributeValue>();
-    public DbSet<RailroadGroupPlacement> RailroadGroupPlacements => Set<RailroadGroupPlacement>();
     public DbSet<TeamsWebhookConfig> TeamsWebhookConfigs => Set<TeamsWebhookConfig>();
 
     // WorkManagement Module

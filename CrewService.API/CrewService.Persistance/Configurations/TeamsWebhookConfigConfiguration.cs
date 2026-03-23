@@ -1,5 +1,4 @@
 ﻿using CrewService.Domain.Interfaces;
-using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -35,7 +34,7 @@ internal class TeamsWebhookConfigConfiguration : IEntityTypeConfiguration<TeamsW
         builder.Property(t => t.WebhookUrl).HasMaxLength(500).IsRequired();
         builder.Property(t => t.IsEnabled).IsRequired();
 
-        builder.HasOne<Railroad>().WithMany().HasForeignKey(t => t.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(t => t.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(t => t.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(t => t.CreatedBy, audit =>

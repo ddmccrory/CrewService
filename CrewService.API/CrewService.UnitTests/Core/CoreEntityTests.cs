@@ -1,5 +1,4 @@
 using CrewService.Domain.Models.Parents;
-using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
@@ -37,30 +36,6 @@ public class ParentTests
         parent.Update(string.Empty);
 
         Assert.Equal("Original", parent.Name.Value);
-    }
-}
-
-public class RailroadTests
-{
-    [Fact]
-    public void Create_SetsProperties()
-    {
-        var rr = Railroad.Create(1, "BNSF", "BNSF Railway");
-
-        Assert.Equal("BNSF", rr.RailroadMark);
-        Assert.Equal("BNSF Railway", rr.Name.Value);
-        Assert.True(rr.DomainEvents.Count > 0);
-    }
-
-    [Fact]
-    public void Update_ChangesSpecifiedFields()
-    {
-        var rr = Railroad.Create(1, "BNSF", "BNSF Railway");
-
-        rr.Update(0, "UP", "Union Pacific");
-
-        Assert.Equal("UP", rr.RailroadMark);
-        Assert.Equal("Union Pacific", rr.Name.Value);
     }
 }
 

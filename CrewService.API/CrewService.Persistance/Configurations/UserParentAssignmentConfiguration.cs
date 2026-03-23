@@ -1,5 +1,5 @@
 using CrewService.Domain.Models.Parents;
-using CrewService.Domain.Models.Railroads;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +34,7 @@ internal class UserParentAssignmentConfiguration : IEntityTypeConfiguration<User
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value.HasValue ? ControlNumber.Create(value.Value) : null);
 
-        builder.HasOne<Railroad>().WithMany().HasForeignKey(a => a.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(a => a.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
         builder.OwnsOne(a => a.CreatedBy, audit =>
         {

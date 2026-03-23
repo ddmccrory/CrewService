@@ -56,6 +56,11 @@ public class ForeignKeyIntegrityTests
             ("EmploymentStatus", "ClientCtrlNbr"),
             // External — RailroadPayrollDepartment entity not in this bounded context
             ("Roster", "RailroadPayrollDepartmentCtrlNbr"),
+            // Scoping — 0 means "universal"; these are scope filters, not FK relationships
+            ("GroupType", "ParentCtrlNbr"),
+            ("GroupType", "RailroadCtrlNbr"),
+            ("GroupType", "ParentGroupTypeCtrlNbr"),
+            ("DynamicGroup", "ParentCtrlNbr"),
         };
 
         var orphans = new List<string>();
@@ -118,7 +123,6 @@ public class ForeignKeyIntegrityTests
     [InlineData("RosterBoardPosition", "RosterBoard", DeleteBehavior.Cascade)]
     [InlineData("SafetyObservationAction", "SafetyObservation", DeleteBehavior.Cascade)]
     [InlineData("EarningApproval", "PayrollRecord", DeleteBehavior.Cascade)]
-    [InlineData("Railroad", "Parent", DeleteBehavior.Cascade)]
     public void AggregateChild_CascadesFromParent(
         string childEntity, string parentEntity, DeleteBehavior expected)
     {
@@ -150,10 +154,6 @@ public class ForeignKeyIntegrityTests
     [InlineData("Employee", "EmploymentStatus", DeleteBehavior.Restrict)]
     [InlineData("DisplacementCase", "Employee", DeleteBehavior.Restrict)]
     [InlineData("DisplacementCase", "Craft", DeleteBehavior.Restrict)]
-    [InlineData("RailroadGroupPlacement", "Railroad", DeleteBehavior.Restrict)]
-    [InlineData("RailroadGroupPlacement", "DynamicGroup", DeleteBehavior.Restrict)]
-    [InlineData("TeamsWebhookConfig", "Railroad", DeleteBehavior.Restrict)]
-    [InlineData("TeamsWebhookConfig", "DynamicGroup", DeleteBehavior.Restrict)]
     [InlineData("Crew", "DynamicGroup", DeleteBehavior.Restrict)]
     [InlineData("Address", "AddressType", DeleteBehavior.Restrict)]
     [InlineData("EmailAddress", "EmailAddressType", DeleteBehavior.Restrict)]
@@ -198,6 +198,8 @@ public class ForeignKeyIntegrityTests
     [InlineData("DispatchDecisionLog", "Employee", "SelectedEmployeeCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("PositionVacancy", "Employee", "PreviousIncumbentCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("Bulletin", "Employee", "AwardedEmployeeCtrlNbr", DeleteBehavior.Restrict)]
+    [InlineData("TeamsWebhookConfig", "DynamicGroup", "RailroadCtrlNbr", DeleteBehavior.Restrict)]
+    [InlineData("TeamsWebhookConfig", "DynamicGroup", "WorkAreaGroupCtrlNbr", DeleteBehavior.Restrict)]
     public void MultiForeignKey_HasCorrectDeleteBehavior(
         string childEntity, string parentEntity, string fkPropertyName, DeleteBehavior expected)
     {
