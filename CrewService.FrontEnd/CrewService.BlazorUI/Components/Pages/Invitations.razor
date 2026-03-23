@@ -2,25 +2,22 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models.Auth
-@using CrewService.BlazorUI.Services
 @using CrewService.Presentation
+
+@inherits AppComponentBase
 
 @attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
 
-@implements IDisposable
-
 @inject InvitationsClient InvitationsClient
-@inject RailroadsClient RailroadsClient
-@inject AppContextService AppContext
+@inject TenantConfigClient ConfigClient
 
 <PageTitle>Invitations</PageTitle>
 
 <h1>Invitations</h1>
 
-@if (!AppContext.HasParent)
+@if (!HasParent && !IsSystemAdmin)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>
@@ -29,7 +26,14 @@
 }
 else
 {
-    <p class="text-muted mb-3">Managing invitations for <strong>@AppContext.SelectedParentName</strong></p>
+    @if (HasParent)
+    {
+        <p class="text-muted mb-3">Managing invitations for <strong>@SelectedParentName</strong></p>
+    }
+    else
+    {
+        <p class="text-muted mb-3">Managing <strong>SystemAdmin</strong> invitations</p>
+    }
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <button class="btn btn-primary" @onclick="() => showCreateForm = true">
@@ -69,7 +73,7 @@ else
                     </InputSelect>
                     <ValidationMessage For="() => createModel.Role" class="text-danger" />
                 </div>
-                @if (showRailroadDropdown)
+                @if (showRailroadDropdown && HasParent)
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Railroad</label>
@@ -198,16 +202,16 @@ else
 
 @code {
     private IReadOnlyList<InvitationResponse>? invitations;
-    private string? errorMessage;
-    private string? successMessage;
     private bool showCreateForm;
     private CreateInvitationModel createModel = new();
     private List<string> availableRoles = [];
-    private List<GetRailroadResponse> parentRailroads = [];
+    private List<GroupResponse> parentRailroads = [];
     private bool showRailroadDropdown;
     private HashSet<long> userRailroadCtrlNbrs = [];
     private string activeTab = "Pending";
     private string searchText = string.Empty;
+    private bool IsSystemAdmin => CurrentUser.User?.IsInRole(Roles.SystemAdmin) ?? false;
+    private bool CanManageInvitations => HasParent || IsSystemAdmin;
 
     private static readonly string[] statusTabs = ["Pending", "Accepted", "Expired", "Revoked", "Superseded"];
 
@@ -261,27 +265,34 @@ else
         return ticks > 0 ? new DateTime(ticks, DateTimeKind.Utc).ToString("MMM d, yyyy") : "—";
     }
 
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
-        AppContext.OnContextChanged += OnContextChanged;
+        await base.OnInitializedAsync();
+        DetermineAvailableRoles();
 
-        await DetermineAvailableRoles();
-
-        if (AppContext.HasParent)
+        if (HasParent)
         {
             await LoadParentRailroads();
             await LoadInvitations();
         }
+        else if (IsSystemAdmin)
+        {
+            await LoadInvitations();
+        }
     }
 
-    private async void OnContextChanged()
+    protected override async Task OnAppContextChangedAsync()
     {
-        if (AppContext.HasParent)
+        DetermineAvailableRoles();
+
+        if (HasParent)
         {
             await LoadParentRailroads();
+            await LoadInvitations();
+        }
+        else if (IsSystemAdmin)
+        {
+            parentRailroads = [];
             await LoadInvitations();
         }
         else
@@ -289,21 +300,21 @@ else
             invitations = null;
             parentRailroads = [];
         }
-
-        await InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+    private void DetermineAvailableRoles()
     {
-        AppContext.OnContextChanged -= OnContextChanged;
-    }
-
-    private async Task DetermineAvailableRoles()
-    {
-        var authState = await AuthStateTask;
-        var (roles, railroads) = InvitationRoleResolver.Resolve(authState.User);
-        availableRoles = [.. roles];
-        userRailroadCtrlNbrs = railroads;
+        if (!HasParent && IsSystemAdmin)
+        {
+            availableRoles = [Roles.SystemAdmin];
+            userRailroadCtrlNbrs = [];
+        }
+        else
+        {
+            var (roles, railroads) = InvitationRoleResolver.Resolve(CurrentUser.User!);
+            availableRoles = [.. roles];
+            userRailroadCtrlNbrs = railroads;
+        }
     }
 
     private async Task LoadInvitations()
@@ -311,7 +322,8 @@ else
         try
         {
             errorMessage = null;
-            var response = await InvitationsClient.GetByParentAsync(AppContext.SelectedParentCtrlNbr!.Value);
+            var parentCtrlNbr = SelectedParentCtrlNbr ?? 0;
+            var response = await InvitationsClient.GetByParentAsync(parentCtrlNbr);
             invitations = response.Invitations;
         }
         catch (Exception ex)
@@ -324,10 +336,10 @@ else
     {
         try
         {
-            var response = await RailroadsClient.GetByParentAsync(AppContext.SelectedParentCtrlNbr!.Value);
+            var response = await ConfigClient.GetGroupsByTypeNameAsync("Railroad", SelectedParentCtrlNbr!.Value);
             parentRailroads = userRailroadCtrlNbrs.Count > 0
-                ? [.. response.Railroad.Where(rr => userRailroadCtrlNbrs.Contains(rr.CtrlNbr))]
-                : [.. response.Railroad];
+                ? [.. response.Groups.Where(rr => userRailroadCtrlNbrs.Contains(rr.CtrlNbr))]
+                : [.. response.Groups];
         }
         catch
         {
@@ -358,9 +370,11 @@ else
             errorMessage = null;
             successMessage = null;
 
+            var parentCtrlNbr = SelectedParentCtrlNbr ?? 0;
+
             await InvitationsClient.CreateAsync(
                 createModel.Email,
-                AppContext.SelectedParentCtrlNbr!.Value,
+                parentCtrlNbr,
                 createModel.Role,
                 createModel.ExpirationDays,
                 createModel.RailroadCtrlNbr);

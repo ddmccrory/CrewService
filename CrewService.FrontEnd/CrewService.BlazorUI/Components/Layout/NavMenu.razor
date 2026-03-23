@@ -26,6 +26,20 @@
             </Authorized>
         </AuthorizeView>
 
+        @* Invitations — always visible for SystemAdmin regardless of parent selection *@
+        <AuthorizeView Roles="@(Roles.SystemAdmin)">
+            <Authorized>
+                @if (!AppContext.HasParent)
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="admin/invitations">
+                            <span class="bi bi-envelope-plus-nav-menu" aria-hidden="true"></span> Invitations
+                        </NavLink>
+                    </div>
+                }
+            </Authorized>
+        </AuthorizeView>
+
         @if (AppContext.IsFullySelected)
         {
         @* ══ Railroad-scoped sections (require parent + railroad) ══ *@

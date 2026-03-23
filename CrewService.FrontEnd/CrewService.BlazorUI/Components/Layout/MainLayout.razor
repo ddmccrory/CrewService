@@ -14,9 +14,7 @@
                         <div class="topbar-auth d-flex align-items-center ms-auto gap-2">
                             <CrewService.BlazorUI.Components.Layout.ContextSwitcher @rendermode="new InteractiveServerRenderMode(prerender: false)" />
                             <div class="nav-item px-1">
-                                <NavLink class="nav-link p-0" href="Account/Manage">
-                                    <div class="btn btn-outline-light" aria-hidden="true">@context.User.Identity?.Name</div>
-                                </NavLink>
+                                <CrewService.BlazorUI.Components.Layout.UserNameButton @rendermode="new InteractiveServerRenderMode(prerender: false)" />
                             </div>
                         </div>
                     </Authorized>

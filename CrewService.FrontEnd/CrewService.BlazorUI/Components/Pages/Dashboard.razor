@@ -1,9 +1,12 @@
 @page "/"
+@rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models.Auth
+
+@inherits AppComponentBase
 
 @attribute [Authorize]
 
@@ -28,12 +31,11 @@
 @code {
     private List<string> parentRoleDisplay = [];
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
-        var user = HttpContext.User;
+        await base.OnInitializedAsync();
+
+        var user = CurrentUser.User!;
         var parentRoleClaims = user.Claims
             .Where(c => c.Type == CustomClaimTypes.ParentRole)
             .Select(c => c.Value.Split(':'))

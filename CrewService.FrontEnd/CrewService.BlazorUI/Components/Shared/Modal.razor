@@ -1,26 +1,29 @@
 @if (Visible)
 {
-    <div class="dialog-overlay" @onclick="OnClose">
-        <div class="dialog-panel @SizeClass" @onclick:stopPropagation>
-            <div class="dialog-header">
-                <h5 class="mb-0">
-                    @if (Icon is not null)
-                    {
-                        <span class="@Icon me-2"></span>
-                    }
-                    @Title
-                </h5>
-                <button type="button" class="btn-close" aria-label="Close" @onclick="OnClose"></button>
-            </div>
-            <div class="dialog-body">
-                @BodyContent
-            </div>
-            @if (Footer is not null)
-            {
-                <div class="dialog-footer">
-                    @Footer
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" @onclick="OnClose">
+        <div class="modal-dialog modal-dialog-centered @SizeClass" @onclick:stopPropagation>
+            <div class="modal-content border-primary">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @if (Icon is not null)
+                        {
+                            <span class="@Icon me-2"></span>
+                        }
+                        @Title
+                    </h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="OnClose"></button>
                 </div>
-            }
+                <div class="modal-body">
+                    @BodyContent
+                </div>
+                @if (Footer is not null)
+                {
+                    <div class="modal-footer">
+                        @Footer
+                    </div>
+                }
+            </div>
         </div>
     </div>
 }
@@ -36,9 +39,9 @@
 
     private string SizeClass => Size switch
     {
-        "sm" => "dialog-sm",
-        "lg" => "dialog-lg",
-        "xl" => "dialog-xl",
+        "sm" => "modal-sm",
+        "lg" => "modal-lg",
+        "xl" => "modal-xl",
         _ => ""
     };
 }

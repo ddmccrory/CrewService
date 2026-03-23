@@ -24,7 +24,6 @@ builder.Services.AddScoped<InvitationsClient>();
 builder.Services.AddScoped<InvitationTokenClient>();
 builder.Services.AddScoped<ParentsClient>();
 builder.Services.AddScoped<PhoneNumberTypeClient>();
-builder.Services.AddScoped<RailroadsClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -45,6 +44,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<AppThemeService>();
 builder.Services.AddScoped<AppContextService>();
+builder.Services.AddScoped<CurrentUserService>();
 
 var app = builder.Build();
 

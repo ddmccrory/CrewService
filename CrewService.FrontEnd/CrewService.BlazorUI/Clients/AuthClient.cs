@@ -10,17 +10,17 @@ internal sealed class AuthClient(GrpcChannelProvider channelProvider, CircuitTok
 {
     #region Methods
 
-    public async Task<RegisterResponse> RegisterUserAsync(RegisterInputModel registerModel)
+    public async Task<AcceptInvitationResponse> AcceptInvitationAsync(AcceptInvitationInputModel model)
     {
         try
         { 
-        RegisterRequest request = new()
+        AcceptInvitationRequest request = new()
         {
-            InvitationToken = registerModel.InvitationToken,
-            Password = registerModel.Password
+            InvitationToken = model.InvitationToken,
+            Password = model.Password
         };
 
-        return await _client.RegisterUserAsync(request);
+        return await _client.AcceptInvitationAsync(request);
         }
         catch (Exception ex)
         {

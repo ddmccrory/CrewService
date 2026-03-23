@@ -38,7 +38,6 @@
     <Protobuf Include="..\..\Protos\payroll_tier.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\phone_number_type.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\prior_service_credit.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
-    <Protobuf Include="..\..\Protos\railroad.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\roster.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\seniority.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\seniority_state.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />

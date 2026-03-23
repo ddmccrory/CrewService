@@ -1,152 +1,175 @@
 @page "/Account/Manage/Addresses"
+@rendermode InteractiveServer
+@inherits AppComponentBase
 
 @using System.ComponentModel.DataAnnotations
-@using System.Security.Claims
 @using CrewService.BlazorUI.Clients
-@using CrewService.BlazorUI.Components.Account
-@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
 
 @inject EmployeeClient EmployeeClient
 @inject AddressTypeClient AddressTypeClient
-@inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Addresses</PageTitle>
 
 <h3>Addresses</h3>
-<StatusMessage />
 
-@if (employee is not null)
-{
-    @if (employee.Addresses.Count > 0)
-    {
-        <table class="table table-sm table-striped">
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Address 1</th>
-                    <th>Address 2</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Zip</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var addr in employee.Addresses)
-                {
-                    <tr>
-                        <td>@(addressTypes.FirstOrDefault(t => t.CtrlNbr == addr.AddressTypeCtrlNbr)?.Name)</td>
-                        <td>@addr.Address1</td>
-                        <td>@addr.Address2</td>
-                        <td>@addr.City</td>
-                        <td>@addr.State</td>
-                        <td>@addr.ZipCode</td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <form method="post" @formname="@($"edit-address-{addr.CtrlNbr}")" @onsubmit="() => OnEditAsync(addr.CtrlNbr)">
-                                    <AntiforgeryToken />
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">Edit</button>
-                                </form>
-                                <ConfirmDeleteButton FormName="@($"delete-address-{addr.CtrlNbr}")"
-                                                     OnClick="() => OnDeleteAsync(addr.CtrlNbr)" />
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted">No addresses on file.</p>
-    }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-primary" @onclick="OpenCreateModal">
+        <span class="bi bi-plus-circle"></span> Add Address
+    </button>
+</div>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">@(Input.EditCtrlNbr > 0 ? "Edit Address" : "Add Address")</h5>
-            <EditForm Model="Input" FormName="save-address" OnValidSubmit="OnSaveAsync" method="post">
-                <DataAnnotationsValidator />
-                <input type="hidden" name="Input.EditCtrlNbr" value="@Input.EditCtrlNbr" />
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <InputSelect @bind-Value="Input.AddressTypeCtrlNbr" class="form-select">
-                                <option value="0">-- Select Type --</option>
-                                @foreach (var t in addressTypes)
-                                {
-                                    <option value="@t.CtrlNbr">@t.Name</option>
-                                }
-                            </InputSelect>
-                            <label>Type</label>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <InputText @bind-Value="Input.Address1" class="form-control" placeholder="Address 1" />
-                            <label>Address 1</label>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <InputText @bind-Value="Input.Address2" class="form-control" placeholder="Address 2" />
-                            <label>Address 2</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputText @bind-Value="Input.City" class="form-control" placeholder="City" />
-                            <label>City</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputText @bind-Value="Input.State" class="form-control" placeholder="State" />
-                            <label>State</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputText @bind-Value="Input.ZipCode" class="form-control" placeholder="Zip Code" />
-                            <label>Zip Code</label>
-                        </div>
-                    </div>
+<Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Address" : "Add Address")"
+       Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+       OnClose="CloseSaveModal" Size="lg">
+    <BodyContent>
+        <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-address-form">
+            <DataAnnotationsValidator />
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Type</label>
+                    <InputSelect @bind-Value="saveModel.AddressTypeCtrlNbr" class="form-select" disabled="@(editCtrlNbr > 0)">
+                        <option value="0">-- Select Type --</option>
+                        @foreach (var t in addressTypes)
+                        {
+                            <option value="@t.CtrlNbr">@t.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => saveModel.AddressTypeCtrlNbr" class="text-danger" />
                 </div>
-                <button type="submit" class="btn btn-primary mt-2">@(Input.EditCtrlNbr > 0 ? "Update Address" : "Add Address")</button>
-                @if (Input.EditCtrlNbr > 0)
-                {
-                    <a href="/Account/Manage/Addresses" class="btn btn-secondary mt-2 ms-2">Cancel</a>
-                }
-            </EditForm>
-        </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Address 1</label>
+                    <InputText @bind-Value="saveModel.Address1" class="form-control" placeholder="Address 1" />
+                    <ValidationMessage For="() => saveModel.Address1" class="text-danger" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Address 2</label>
+                    <InputText @bind-Value="saveModel.Address2" class="form-control" placeholder="Address 2" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">City</label>
+                    <InputText @bind-Value="saveModel.City" class="form-control" placeholder="City" />
+                    <ValidationMessage For="() => saveModel.City" class="text-danger" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">State</label>
+                    <InputText @bind-Value="saveModel.State" class="form-control" placeholder="State" />
+                    <ValidationMessage For="() => saveModel.State" class="text-danger" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Zip Code</label>
+                    <InputText @bind-Value="saveModel.ZipCode" class="form-control" placeholder="Zip Code" />
+                    <ValidationMessage For="() => saveModel.ZipCode" class="text-danger" />
+                </div>
+            </div>
+        </EditForm>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+        <button type="submit" form="save-address-form" class="btn btn-primary">
+            <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Add")
+        </button>
+    </Footer>
+</Modal>
+
+<Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+       OnClose="() => showDeleteModal = false" Size="sm">
+    <BodyContent>
+        <p>Are you sure you want to delete <strong>@deleteAddressLabel</strong>?</p>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+            <span class="bi bi-trash me-1"></span> Delete
+        </button>
+    </Footer>
+</Modal>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
     </div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (employee is null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (employee.Addresses.Count == 0)
+{
+    <p class="text-muted">No addresses on file.</p>
 }
 else
 {
-    <p class="text-muted">Employee information not available.</p>
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Address 1</th>
+                <th>Address 2</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Zip</th>
+                <th style="width: 180px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var addr in employee.Addresses)
+            {
+                <tr>
+                    <td>@(addressTypes.FirstOrDefault(t => t.CtrlNbr == addr.AddressTypeCtrlNbr)?.Name)</td>
+                    <td>@addr.Address1</td>
+                    <td>@addr.Address2</td>
+                    <td>@addr.City</td>
+                    <td>@addr.State</td>
+                    <td>@addr.ZipCode</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(addr)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(addr)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }
 
 @code {
-    private GetEmployeeResponse? employee;
+    private GetEmployeeResponse? employee => CurrentUser.Employee;
     private List<AddressTypeResponse> addressTypes = [];
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private AddressInputModel saveModel = new();
 
-    [SupplyParameterFromForm(FormName = "save-address")]
-    private AddressInputModel Input { get; set; } = default!;
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteAddressLabel = "";
 
     protected override async Task OnInitializedAsync()
     {
-        Input ??= new();
+        await base.OnInitializedAsync();
 
-        var employeeNumber = HttpContext.User.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
-        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        if (CurrentUser.IsEmployee)
         {
             try
             {
-                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
-                var typesResponse = await AddressTypeClient.GetAllAsync(employee.ClientCtrlNbr);
+                var typesResponse = await AddressTypeClient.GetAllAsync(employee!.ClientCtrlNbr);
                 addressTypes = [.. typesResponse.AddressTypeList];
             }
             catch
@@ -155,67 +178,114 @@ else
         }
     }
 
-    private Task OnEditAsync(long ctrlNbr)
-    {
-        if (employee is null) return Task.CompletedTask;
-        var addr = employee.Addresses.FirstOrDefault(a => a.CtrlNbr == ctrlNbr);
-        if (addr is null) return Task.CompletedTask;
+    private async Task ReloadEmployee() => await CurrentUser.ReloadEmployeeAsync();
 
-        Input.EditCtrlNbr = addr.CtrlNbr;
-        Input.AddressTypeCtrlNbr = addr.AddressTypeCtrlNbr;
-        Input.Address1 = addr.Address1;
-        Input.Address2 = addr.Address2;
-        Input.City = addr.City;
-        Input.State = addr.State;
-        Input.ZipCode = addr.ZipCode;
-        return Task.CompletedTask;
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
     }
 
-    private async Task OnSaveAsync()
+    private void OpenEditModal(AddressResponse addr)
+    {
+        editCtrlNbr = addr.CtrlNbr;
+        saveModel = new()
+        {
+            AddressTypeCtrlNbr = addr.AddressTypeCtrlNbr,
+            Address1 = addr.Address1,
+            Address2 = addr.Address2,
+            City = addr.City,
+            State = addr.State,
+            ZipCode = addr.ZipCode
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(AddressResponse addr)
+    {
+        deleteCtrlNbr = addr.CtrlNbr;
+        deleteAddressLabel = $"{addr.Address1}, {addr.City}";
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
     {
         if (employee is null) return;
 
-        if (Input.EditCtrlNbr > 0)
+        try
         {
-            await EmployeeClient.UpdateAddressAsync(new UpdateAddressRequest
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
             {
-                EmployeeCtrlNbr = employee.CtrlNbr,
-                CtrlNbr = Input.EditCtrlNbr,
-                Address1 = Input.Address1 ?? string.Empty,
-                Address2 = Input.Address2 ?? string.Empty,
-                City = Input.City ?? string.Empty,
-                State = Input.State ?? string.Empty,
-                ZipCode = Input.ZipCode ?? string.Empty
-            });
-            RedirectManager.RedirectToCurrentPageWithStatus("Address updated.", HttpContext);
+                await EmployeeClient.UpdateAddressAsync(new UpdateAddressRequest
+                {
+                    EmployeeCtrlNbr = employee.CtrlNbr,
+                    CtrlNbr = editCtrlNbr,
+                    Address1 = saveModel.Address1 ?? string.Empty,
+                    Address2 = saveModel.Address2 ?? string.Empty,
+                    City = saveModel.City ?? string.Empty,
+                    State = saveModel.State ?? string.Empty,
+                    ZipCode = saveModel.ZipCode ?? string.Empty
+                });
+                successMessage = "Address updated.";
+            }
+            else
+            {
+                await EmployeeClient.AddAddressAsync(new AddAddressRequest
+                {
+                    EmployeeCtrlNbr = employee.CtrlNbr,
+                    AddressTypeCtrlNbr = saveModel.AddressTypeCtrlNbr,
+                    Address1 = saveModel.Address1 ?? string.Empty,
+                    Address2 = saveModel.Address2 ?? string.Empty,
+                    City = saveModel.City ?? string.Empty,
+                    State = saveModel.State ?? string.Empty,
+                    ZipCode = saveModel.ZipCode ?? string.Empty
+                });
+                successMessage = "Address added.";
+            }
+
+            CloseSaveModal();
+            await ReloadEmployee();
         }
-        else
+        catch (Exception ex)
         {
-            await EmployeeClient.AddAddressAsync(new AddAddressRequest
-            {
-                EmployeeCtrlNbr = employee.CtrlNbr,
-                AddressTypeCtrlNbr = Input.AddressTypeCtrlNbr,
-                Address1 = Input.Address1 ?? string.Empty,
-                Address2 = Input.Address2 ?? string.Empty,
-                City = Input.City ?? string.Empty,
-                State = Input.State ?? string.Empty,
-                ZipCode = Input.ZipCode ?? string.Empty
-            });
-            RedirectManager.RedirectToCurrentPageWithStatus("Address added.", HttpContext);
+            errorMessage = $"Failed to save address: {ex.Message}";
         }
     }
 
-    private async Task OnDeleteAsync(long ctrlNbr)
+    private async Task ConfirmDelete()
     {
         if (employee is null) return;
-        await EmployeeClient.DeleteAddressAsync(employee.CtrlNbr, ctrlNbr);
-        RedirectManager.RedirectToCurrentPageWithStatus("Address removed.", HttpContext);
+
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await EmployeeClient.DeleteAddressAsync(employee.CtrlNbr, deleteCtrlNbr);
+            successMessage = "Address removed.";
+            showDeleteModal = false;
+            await ReloadEmployee();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete address: {ex.Message}";
+            showDeleteModal = false;
+        }
     }
 
     private sealed class AddressInputModel
     {
-        public long EditCtrlNbr { get; set; }
-
         [Required, Display(Name = "Address 1")]
         public string? Address1 { get; set; }
 

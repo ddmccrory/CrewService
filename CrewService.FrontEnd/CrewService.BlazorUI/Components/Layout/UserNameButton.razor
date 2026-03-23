@@ -1,0 +1,44 @@
+@implements IDisposable
+
+@inject CrewService.BlazorUI.Services.AppContextService AppContext
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+
+<NavLink class="nav-link p-0" href="Account/Manage">
+    <div class="btn btn-outline-light" aria-hidden="true">@displayName</div>
+</NavLink>
+
+@code {
+    private string? displayName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        displayName = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrEmpty(displayName) && string.IsNullOrEmpty(AppContext.DisplayName))
+        {
+            AppContext.DisplayName = displayName;
+        }
+        else if (!string.IsNullOrEmpty(AppContext.DisplayName))
+        {
+            displayName = AppContext.DisplayName;
+        }
+
+        AppContext.OnContextChanged += OnContextChanged;
+    }
+
+    private void OnContextChanged()
+    {
+        if (!string.IsNullOrEmpty(AppContext.DisplayName))
+        {
+            displayName = AppContext.DisplayName;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AppContext.OnContextChanged -= OnContextChanged;
+    }
+}

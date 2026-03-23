@@ -1,20 +1,18 @@
 @page "/config/group-types/{CtrlNbr:long}"
+@rendermode InteractiveServer
 
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
 
+@inherits AppComponentBase
+
 @attribute [Authorize]
 
 @inject TenantConfigClient ConfigClient
-@inject NavigationManager NavigationManager
 
 <PageTitle>Group Type Detail</PageTitle>
-
-@if (errorMessage is not null)
-{
-    <div class="alert alert-danger" role="alert">@errorMessage</div>
-}
 
 @if (groupType is null)
 {
@@ -22,109 +20,102 @@
 }
 else
 {
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/config/group-types">Group Types</a></li>
-            <li class="breadcrumb-item active" aria-current="page">@groupType.Name</li>
-        </ol>
-    </nav>
+    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="NavigateBack">
+        <span class="bi bi-chevron-left me-1"></span> Group Types
+    </button>
 
-    @if (!isEditing)
+    <h1>@groupType.Name</h1>
+    <p class="text-muted">@groupType.Description</p>
+    @if (groupType.IsWorkArea)
     {
-        <h1>@groupType.Name</h1>
-        <p class="text-muted">@groupType.Description</p>
-        @if (groupType.IsWorkArea)
-        {
-            <span class="badge bg-success mb-2">Work Area</span>
-        }
-        <div class="mb-3">
-            <button class="btn btn-sm btn-outline-primary me-2" @onclick="StartEdit">Edit</button>
-            <button class="btn btn-sm btn-outline-danger" @onclick="Delete">Delete</button>
+        <span class="badge bg-success mb-2">Work Area</span>
+    }
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
         </div>
     }
-    else
+
+    @if (errorMessage is not null)
     {
-        <EditForm Model="editModel" OnValidSubmit="SaveEdit" FormName="editGroupType">
-            <DataAnnotationsValidator />
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-floating mb-3">
-                        <InputText @bind-Value="editModel.Name" class="form-control" placeholder="Name" />
-                        <label>Name</label>
-                        <ValidationMessage For="() => editModel.Name" class="text-danger" />
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        <InputText @bind-Value="editModel.Description" class="form-control" placeholder="Description" />
-                        <label>Description</label>
-                    </div>
-                </div>
-                <div class="col-md-2 d-flex align-items-center">
-                    <div class="form-check">
-                        <InputCheckbox @bind-Value="editModel.IsWorkArea" class="form-check-input" id="editIsWorkArea" />
-                        <label class="form-check-label" for="editIsWorkArea">Work Area</label>
-                    </div>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-success me-2">Save</button>
-            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
-        </EditForm>
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
     }
 
     <hr />
 
+    @* ?????????????????????????????????????????????????????????????????? *@
+    @* Groups Section                                                    *@
+    @* ?????????????????????????????????????????????????????????????????? *@
+
     <h3>Groups</h3>
 
-    <div class="mb-3">
-        <button class="btn btn-sm btn-primary" @onclick="ShowAddGroup">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button class="btn btn-primary" @onclick="OpenCreateGroupModal">
             <span class="bi bi-plus-circle"></span> Add Group
         </button>
     </div>
 
-    @if (showAddGroupForm)
-    {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Add Group</h5>
-                <EditForm Model="addGroupModel" OnValidSubmit="AddGroup" FormName="addGroup">
-                    <DataAnnotationsValidator />
-                    <div class="row">
-                        <div class="col-md-5">
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="addGroupModel.Name" class="form-control" placeholder="Group Name" />
-                                <label>Name</label>
-                                <ValidationMessage For="() => addGroupModel.Name" class="text-danger" />
-                            </div>
-                        </div>
-                        <div class="col-md-5">
-                            <div class="form-floating mb-3">
-                                <InputSelect @bind-Value="addGroupModel.ParentGroupCtrlNbr" class="form-select">
-                                    <option value="0">(No parent — top level)</option>
-                                    @if (groups is not null)
-                                    {
-                                        @foreach (var g in groups)
-                                        {
-                                            <option value="@g.CtrlNbr">@g.Name</option>
-                                        }
-                                    }
-                                </InputSelect>
-                                <label>Parent Group</label>
-                            </div>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-center">
-                            <div class="form-check">
-                                <InputCheckbox @bind-Value="addGroupModel.IsWorkArea" class="form-check-input" id="addIsWorkArea" />
-                                <label class="form-check-label" for="addIsWorkArea">Work Area</label>
-                            </div>
-                        </div>
+    @* ?? Create / Edit Group Modal ?? *@
+    <Modal Visible="showGroupSaveModal" Title="@(editGroupCtrlNbr > 0 ? "Edit Group" : "Add Group")"
+           Icon="@(editGroupCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseGroupSaveModal">
+        <BodyContent>
+            <EditForm Model="groupSaveModel" OnValidSubmit="OnSaveGroup" id="save-group-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <InputText @bind-Value="groupSaveModel.Name" class="form-control" placeholder="Group Name" />
+                    <ValidationMessage For="() => groupSaveModel.Name" class="text-danger" />
+                </div>
+                @if (parentTypeGroups is not null && parentTypeGroups.Count > 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Parent Group@(string.IsNullOrEmpty(parentGroupTypeName) ? "" : $" ({parentGroupTypeName})")</label>
+                        <InputSelect @bind-Value="groupSaveModel.ParentGroupCtrlNbr" class="form-select">
+                            <option value="0">(No parent)</option>
+                            @foreach (var g in parentTypeGroups)
+                            {
+                                <option value="@g.CtrlNbr">@g.Name</option>
+                            }
+                        </InputSelect>
                     </div>
-                    <button type="submit" class="btn btn-success me-2">Add</button>
-                    <button type="button" class="btn btn-secondary" @onclick="CancelAddGroup">Cancel</button>
-                </EditForm>
-            </div>
-        </div>
-    }
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Code</label>
+                    <InputText @bind-Value="groupSaveModel.Code" class="form-control" placeholder="Short identifier (e.g. railroad mark)" />
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" />
+                    <label class="form-check-label" for="groupIsWorkArea">Work Area</label>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseGroupSaveModal">Cancel</button>
+            <button type="submit" form="save-group-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editGroupCtrlNbr > 0 ? "Update" : "Add")
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ?? Delete Group Modal ?? *@
+    <Modal Visible="showGroupDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showGroupDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteGroupName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showGroupDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteGroup">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
 
     @if (groups is null)
     {
@@ -140,6 +131,7 @@ else
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Code</th>
                     <th>Parent Group</th>
                     <th>Work Area</th>
                     <th style="width: 180px;"></th>
@@ -150,12 +142,13 @@ else
                 {
                     <tr>
                         <td>
-                            <a href="/config/groups/@g.CtrlNbr">@g.Name</a>
+                            <a href="/config/groups/@g.CtrlNbr" class="text-decoration-none">@g.Name</a>
                         </td>
+                        <td>@(string.IsNullOrEmpty(g.Code) ? "—" : g.Code)</td>
                         <td>
                             @if (g.ParentGroupCtrlNbr > 0)
                             {
-                                var parentName = groups.FirstOrDefault(x => x.CtrlNbr == g.ParentGroupCtrlNbr)?.Name ?? g.ParentGroupCtrlNbr.ToString();
+                                var parentName = allGroupsLookup.GetValueOrDefault(g.ParentGroupCtrlNbr, g.ParentGroupCtrlNbr.ToString());
                                 @parentName
                             }
                             else
@@ -170,7 +163,14 @@ else
                             }
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteGroup(g.CtrlNbr)">Delete</button>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditGroupModal(g)">
+                                    <span class="bi bi-pencil"></span> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteGroupModal(g)">
+                                    <span class="bi bi-trash"></span> Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -180,61 +180,72 @@ else
 
     <hr />
 
+    @* ?????????????????????????????????????????????????????????????????? *@
+    @* Attribute Definitions Section                                      *@
+    @* ?????????????????????????????????????????????????????????????????? *@
+
     <h3>Attribute Definitions</h3>
     <p class="text-muted">Define metadata fields that groups of this type can carry.</p>
 
-    <div class="mb-3">
-        <button class="btn btn-sm btn-primary" @onclick="ShowAddAttribute">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button class="btn btn-primary" @onclick="OpenCreateAttrModal">
             <span class="bi bi-plus-circle"></span> Add Attribute
         </button>
     </div>
 
-    @if (showAddAttributeForm)
-    {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Add Attribute Definition</h5>
-                <EditForm Model="addAttrModel" OnValidSubmit="AddAttribute" FormName="addAttribute">
-                    <DataAnnotationsValidator />
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="addAttrModel.AttributeName" class="form-control" placeholder="Attribute Name" />
-                                <label>Attribute Name</label>
-                                <ValidationMessage For="() => addAttrModel.AttributeName" class="text-danger" />
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-floating mb-3">
-                                <InputSelect @bind-Value="addAttrModel.DataType" class="form-select">
-                                    <option value="string">String</option>
-                                    <option value="int">Integer</option>
-                                    <option value="bool">Boolean</option>
-                                    <option value="decimal">Decimal</option>
-                                    <option value="date">Date</option>
-                                </InputSelect>
-                                <label>Data Type</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="addAttrModel.DefaultValue" class="form-control" placeholder="Default Value" />
-                                <label>Default Value</label>
-                            </div>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-center">
-                            <div class="form-check">
-                                <InputCheckbox @bind-Value="addAttrModel.IsRequired" class="form-check-input" id="attrRequired" />
-                                <label class="form-check-label" for="attrRequired">Required</label>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-success me-2">Add</button>
-                    <button type="button" class="btn btn-secondary" @onclick="CancelAddAttribute">Cancel</button>
-                </EditForm>
-            </div>
-        </div>
-    }
+    @* ?? Create / Edit Attribute Modal ?? *@
+    <Modal Visible="showAttrSaveModal" Title="@(editAttrCtrlNbr > 0 ? "Edit Attribute" : "Add Attribute")"
+           Icon="@(editAttrCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseAttrSaveModal">
+        <BodyContent>
+            <EditForm Model="attrSaveModel" OnValidSubmit="OnSaveAttribute" id="save-attr-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Attribute Name</label>
+                    <InputText @bind-Value="attrSaveModel.AttributeName" class="form-control" placeholder="Attribute Name" />
+                    <ValidationMessage For="() => attrSaveModel.AttributeName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Data Type</label>
+                    <InputSelect @bind-Value="attrSaveModel.DataType" class="form-select">
+                        <option value="string">String</option>
+                        <option value="int">Integer</option>
+                        <option value="bool">Boolean</option>
+                        <option value="decimal">Decimal</option>
+                        <option value="date">Date</option>
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Default Value</label>
+                    <InputText @bind-Value="attrSaveModel.DefaultValue" class="form-control" placeholder="Default Value" />
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="attrSaveModel.IsRequired" class="form-check-input" id="attrRequired" />
+                    <label class="form-check-label" for="attrRequired">Required</label>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAttrSaveModal">Cancel</button>
+            <button type="submit" form="save-attr-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editAttrCtrlNbr > 0 ? "Update" : "Add")
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ?? Delete Attribute Modal ?? *@
+    <Modal Visible="showAttrDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showAttrDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete attribute <strong>@deleteAttrName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showAttrDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAttribute">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
 
     @if (attributeDefinitions is null)
     {
@@ -253,7 +264,7 @@ else
                     <th>Data Type</th>
                     <th>Required</th>
                     <th>Default</th>
-                    <th style="width: 120px;"></th>
+                    <th style="width: 180px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -270,7 +281,14 @@ else
                         </td>
                         <td>@(string.IsNullOrEmpty(ad.DefaultValue) ? "—" : ad.DefaultValue)</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAttribute(ad.CtrlNbr)">Delete</button>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditAttrModal(ad)">
+                                    <span class="bi bi-pencil"></span> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteAttrModal(ad)">
+                                    <span class="bi bi-trash"></span> Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -283,32 +301,52 @@ else
     [Parameter]
     public long CtrlNbr { get; set; }
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     private GroupTypeResponse? groupType;
     private IReadOnlyList<GroupResponse>? groups;
     private IReadOnlyList<AttributeDefinitionResponse>? attributeDefinitions;
-    private string? errorMessage;
-    private bool isEditing;
-    private GroupTypeEditModel editModel = new();
-    private bool showAddGroupForm;
-    private AddGroupModel addGroupModel = new();
-    private bool showAddAttributeForm;
-    private AddAttributeModel addAttrModel = new();
+    private IReadOnlyList<GroupResponse>? parentTypeGroups;
+    private Dictionary<long, string> allGroupsLookup = new();
+    private string parentGroupTypeName = "";
+
+    private void NavigateBack() => NavigationManager.NavigateTo("/config/group-types");
+
+    // ?? Groups CRUD ??
+    private bool showGroupSaveModal;
+    private long editGroupCtrlNbr;
+    private GroupInputModel groupSaveModel = new();
+    private bool showGroupDeleteModal;
+    private long deleteGroupCtrlNbr;
+    private string deleteGroupName = "";
+
+    // ?? Attribute Definitions CRUD ??
+    private bool showAttrSaveModal;
+    private long editAttrCtrlNbr;
+    private AttributeInputModel attrSaveModel = new();
+    private bool showAttrDeleteModal;
+    private long deleteAttrCtrlNbr;
+    private string deleteAttrName = "";
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         await LoadGroupType();
-        await LoadGroups();
+        await LoadGroupsAndParentCandidates();
         await LoadAttributeDefinitions();
     }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadGroupsAndParentCandidates();
+    }
+
+    // ??????????????????????????????????????????????????????????????????
+    // Data loading
+    // ??????????????????????????????????????????????????????????????????
 
     private async Task LoadGroupType()
     {
         try
         {
-            errorMessage = null;
             groupType = await ConfigClient.GetGroupTypeAsync(CtrlNbr);
         }
         catch (Exception ex)
@@ -317,12 +355,49 @@ else
         }
     }
 
-    private async Task LoadGroups()
+    private async Task LoadGroupsAndParentCandidates()
     {
         try
         {
+            var selectedParent = AppContext.SelectedParentCtrlNbr ?? 0;
             var response = await ConfigClient.GetGroupTreeAsync();
-            groups = response.Groups.Where(g => g.GroupTypeCtrlNbr == CtrlNbr).ToList();
+            var scopedGroups = response.Groups
+                .Where(g => selectedParent == 0 || g.ParentCtrlNbr == selectedParent)
+                .ToList();
+
+            // Lookup for resolving parent group names
+            allGroupsLookup = scopedGroups.ToDictionary(g => g.CtrlNbr, g => g.Name);
+
+            // Groups belonging to this type
+            groups = scopedGroups.Where(g => g.GroupTypeCtrlNbr == CtrlNbr).ToList();
+
+            // Parent group candidates for the create/edit dialog
+            parentTypeGroups = null;
+            parentGroupTypeName = "";
+
+            if (groupType is null) return;
+
+            if (groupType.ParentGroupTypeCtrlNbr > 0)
+            {
+                // Type has a defined parent group type — show only groups of that type
+                var parentType = await ConfigClient.GetGroupTypeAsync(groupType.ParentGroupTypeCtrlNbr);
+                parentGroupTypeName = parentType.Name;
+                parentTypeGroups = scopedGroups
+                    .Where(g => g.GroupTypeCtrlNbr == groupType.ParentGroupTypeCtrlNbr)
+                    .ToList();
+            }
+            else
+            {
+                // Universal type (no parent group type) — show all groups of other types as candidates
+                var candidates = scopedGroups
+                    .Where(g => g.GroupTypeCtrlNbr != CtrlNbr)
+                    .ToList();
+                if (candidates.Count > 0)
+                {
+                    parentGroupTypeName = "";
+                    parentTypeGroups = candidates;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -330,105 +405,6 @@ else
         }
     }
 
-    private void StartEdit()
-    {
-        editModel = new()
-        {
-            Name = groupType!.Name,
-            Description = groupType.Description,
-            IsWorkArea = groupType.IsWorkArea
-        };
-        isEditing = true;
-    }
-
-    private void CancelEdit() => isEditing = false;
-
-    private async Task SaveEdit()
-    {
-        try
-        {
-            errorMessage = null;
-            await ConfigClient.UpdateGroupTypeAsync(CtrlNbr, editModel.Name, editModel.Description, editModel.IsWorkArea);
-            isEditing = false;
-            await LoadGroupType();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to update group type: {ex.Message}";
-        }
-    }
-
-    private async Task Delete()
-    {
-        try
-        {
-            await ConfigClient.DeleteGroupTypeAsync(CtrlNbr);
-            NavigationManager.NavigateTo("/config/group-types");
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to delete group type: {ex.Message}";
-        }
-    }
-
-    private void ShowAddGroup() => showAddGroupForm = true;
-    private void CancelAddGroup()
-    {
-        showAddGroupForm = false;
-        addGroupModel = new();
-    }
-
-    private async Task AddGroup()
-    {
-        try
-        {
-            errorMessage = null;
-            await ConfigClient.CreateGroupAsync(CtrlNbr, addGroupModel.Name, addGroupModel.ParentGroupCtrlNbr, addGroupModel.IsWorkArea);
-            showAddGroupForm = false;
-            addGroupModel = new();
-            await LoadGroups();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to create group: {ex.Message}";
-        }
-    }
-
-    private async Task DeleteGroup(long ctrlNbr)
-    {
-        try
-        {
-            errorMessage = null;
-            await ConfigClient.DeleteGroupAsync(ctrlNbr);
-            await LoadGroups();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to delete group: {ex.Message}";
-        }
-    }
-
-    private sealed class GroupTypeEditModel
-    {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
-
-        public string Description { get; set; } = "";
-        public bool IsWorkArea { get; set; }
-    }
-
-    private sealed class AddGroupModel
-    {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
-
-        public long ParentGroupCtrlNbr { get; set; }
-        public bool IsWorkArea { get; set; }
-    }
-
-    // Attribute Definitions
     private async Task LoadAttributeDefinitions()
     {
         try
@@ -442,50 +418,200 @@ else
         }
     }
 
-    private void ShowAddAttribute() => showAddAttributeForm = true;
-    private void CancelAddAttribute()
+    // ??????????????????????????????????????????????????????????????????
+    // Groups CRUD
+    // ??????????????????????????????????????????????????????????????????
+
+    private void OpenCreateGroupModal()
     {
-        showAddAttributeForm = false;
-        addAttrModel = new();
+        editGroupCtrlNbr = 0;
+        groupSaveModel = new();
+        showGroupSaveModal = true;
     }
 
-    private async Task AddAttribute()
+    private void OpenEditGroupModal(GroupResponse g)
+    {
+        editGroupCtrlNbr = g.CtrlNbr;
+        groupSaveModel = new()
+        {
+            Name = g.Name,
+            Code = g.Code,
+            ParentGroupCtrlNbr = g.ParentGroupCtrlNbr,
+            IsWorkArea = g.IsWorkArea
+        };
+        showGroupSaveModal = true;
+    }
+
+    private void CloseGroupSaveModal()
+    {
+        showGroupSaveModal = false;
+        editGroupCtrlNbr = 0;
+        groupSaveModel = new();
+    }
+
+    private void OpenDeleteGroupModal(GroupResponse g)
+    {
+        deleteGroupCtrlNbr = g.CtrlNbr;
+        deleteGroupName = g.Name;
+        showGroupDeleteModal = true;
+    }
+
+    private async Task OnSaveGroup()
     {
         try
         {
             errorMessage = null;
-            await ConfigClient.CreateAttributeDefinitionAsync(
-                CtrlNbr, addAttrModel.AttributeName, addAttrModel.DataType,
-                addAttrModel.IsRequired, addAttrModel.DefaultValue);
-            showAddAttributeForm = false;
-            addAttrModel = new();
+            successMessage = null;
+
+            var resolvedParentCtrlNbr = groupType!.ParentCtrlNbr > 0
+                ? groupType.ParentCtrlNbr
+                : (AppContext.SelectedParentCtrlNbr ?? 0);
+
+            if (editGroupCtrlNbr > 0)
+            {
+                await ConfigClient.UpdateGroupAsync(editGroupCtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, resolvedParentCtrlNbr);
+                successMessage = "Group updated.";
+            }
+            else
+            {
+                await ConfigClient.CreateGroupAsync(CtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, resolvedParentCtrlNbr);
+                successMessage = "Group added.";
+            }
+
+            CloseGroupSaveModal();
+            await LoadGroupsAndParentCandidates();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save group: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDeleteGroup()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await ConfigClient.DeleteGroupAsync(deleteGroupCtrlNbr);
+            successMessage = "Group deleted.";
+            showGroupDeleteModal = false;
+            await LoadGroupsAndParentCandidates();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete group: {ex.Message}";
+            showGroupDeleteModal = false;
+        }
+    }
+
+    // ??????????????????????????????????????????????????????????????????
+    // Attribute Definitions CRUD
+    // ??????????????????????????????????????????????????????????????????
+
+    private void OpenCreateAttrModal()
+    {
+        editAttrCtrlNbr = 0;
+        attrSaveModel = new();
+        showAttrSaveModal = true;
+    }
+
+    private void OpenEditAttrModal(AttributeDefinitionResponse ad)
+    {
+        editAttrCtrlNbr = ad.CtrlNbr;
+        attrSaveModel = new()
+        {
+            AttributeName = ad.AttributeName,
+            DataType = ad.DataType,
+            IsRequired = ad.IsRequired,
+            DefaultValue = ad.DefaultValue
+        };
+        showAttrSaveModal = true;
+    }
+
+    private void CloseAttrSaveModal()
+    {
+        showAttrSaveModal = false;
+        editAttrCtrlNbr = 0;
+        attrSaveModel = new();
+    }
+
+    private void OpenDeleteAttrModal(AttributeDefinitionResponse ad)
+    {
+        deleteAttrCtrlNbr = ad.CtrlNbr;
+        deleteAttrName = ad.AttributeName;
+        showAttrDeleteModal = true;
+    }
+
+    private async Task OnSaveAttribute()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editAttrCtrlNbr > 0)
+            {
+                await ConfigClient.UpdateAttributeDefinitionAsync(editAttrCtrlNbr, attrSaveModel.AttributeName ?? string.Empty, attrSaveModel.DataType, attrSaveModel.IsRequired, attrSaveModel.DefaultValue);
+                successMessage = "Attribute updated.";
+            }
+            else
+            {
+                await ConfigClient.CreateAttributeDefinitionAsync(CtrlNbr, attrSaveModel.AttributeName ?? string.Empty, attrSaveModel.DataType, attrSaveModel.IsRequired, attrSaveModel.DefaultValue);
+                successMessage = "Attribute added.";
+            }
+
+            CloseAttrSaveModal();
             await LoadAttributeDefinitions();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to create attribute: {ex.Message}";
+            errorMessage = $"Failed to save attribute: {ex.Message}";
         }
     }
 
-    private async Task DeleteAttribute(long ctrlNbr)
+    private async Task ConfirmDeleteAttribute()
     {
         try
         {
             errorMessage = null;
-            await ConfigClient.DeleteAttributeDefinitionAsync(ctrlNbr);
+            successMessage = null;
+
+            await ConfigClient.DeleteAttributeDefinitionAsync(deleteAttrCtrlNbr);
+            successMessage = "Attribute deleted.";
+            showAttrDeleteModal = false;
             await LoadAttributeDefinitions();
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to delete attribute: {ex.Message}";
+            showAttrDeleteModal = false;
         }
     }
 
-    private sealed class AddAttributeModel
+    // ??????????????????????????????????????????????????????????????????
+    // Input Models
+    // ??????????????????????????????????????????????????????????????????
+
+    private sealed class GroupInputModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string AttributeName { get; set; } = "";
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+
+        [StringLength(50)]
+        public string? Code { get; set; }
+
+        public long ParentGroupCtrlNbr { get; set; }
+        public bool IsWorkArea { get; set; }
+    }
+
+    private sealed class AttributeInputModel
+    {
+        [Required(ErrorMessage = "Attribute name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? AttributeName { get; set; }
 
         public string DataType { get; set; } = "string";
         public bool IsRequired { get; set; }
