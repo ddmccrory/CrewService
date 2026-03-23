@@ -36,9 +36,6 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
         builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
         builder.Property(g => g.Path).HasMaxLength(500);
 
-        // Scope value stored as plain column — not FK-constrained (0 = universal)
-        builder.Property(g => g.ParentCtrlNbr);
-
         builder.HasOne<GroupType>().WithMany().HasForeignKey(g => g.GroupTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(g => g.ParentGroupCtrlNbr).OnDelete(DeleteBehavior.SetNull);
 

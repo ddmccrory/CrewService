@@ -133,6 +133,7 @@ message GroupTypeResponse {
   int64 parent_ctrl_nbr = 6;
   int64 railroad_ctrl_nbr = 7;
   int64 parent_group_type_ctrl_nbr = 8;
+  bool is_system_type = 9;
 }
 
 // Group messages
@@ -158,7 +159,6 @@ message CreateGroupRequest {
   string path = 4;
   bool is_work_area = 5;
   string code = 6;
-  int64 parent_ctrl_nbr = 7;
 }
 
 message UpdateGroupRequest {
@@ -168,7 +168,6 @@ message UpdateGroupRequest {
   string path = 4;
   bool is_work_area = 5;
   string code = 6;
-  int64 parent_ctrl_nbr = 7;
 }
 
 message DeleteGroupRequest {
@@ -183,7 +182,6 @@ message GroupResponse {
   string path = 5;
   bool is_work_area = 6;
   string code = 7;
-  int64 parent_ctrl_nbr = 8;
 }
 
 message GetGroupsByTypeNameRequest {

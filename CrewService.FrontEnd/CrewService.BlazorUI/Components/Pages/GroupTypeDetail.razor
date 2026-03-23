@@ -359,17 +359,14 @@ else
     {
         try
         {
-            var selectedParent = AppContext.SelectedParentCtrlNbr ?? 0;
             var response = await ConfigClient.GetGroupTreeAsync();
-            var scopedGroups = response.Groups
-                .Where(g => selectedParent == 0 || g.ParentCtrlNbr == selectedParent)
-                .ToList();
+            var allGroups = response.Groups.ToList();
 
             // Lookup for resolving parent group names
-            allGroupsLookup = scopedGroups.ToDictionary(g => g.CtrlNbr, g => g.Name);
+            allGroupsLookup = allGroups.ToDictionary(g => g.CtrlNbr, g => g.Name);
 
             // Groups belonging to this type
-            groups = scopedGroups.Where(g => g.GroupTypeCtrlNbr == CtrlNbr).ToList();
+            groups = allGroups.Where(g => g.GroupTypeCtrlNbr == CtrlNbr).ToList();
 
             // Parent group candidates for the create/edit dialog
             parentTypeGroups = null;
@@ -382,14 +379,14 @@ else
                 // Type has a defined parent group type — show only groups of that type
                 var parentType = await ConfigClient.GetGroupTypeAsync(groupType.ParentGroupTypeCtrlNbr);
                 parentGroupTypeName = parentType.Name;
-                parentTypeGroups = scopedGroups
+                parentTypeGroups = allGroups
                     .Where(g => g.GroupTypeCtrlNbr == groupType.ParentGroupTypeCtrlNbr)
                     .ToList();
             }
             else
             {
-                // Universal type (no parent group type) — show all groups of other types as candidates
-                var candidates = scopedGroups
+                // No parent group type — show all groups of other types as candidates
+                var candidates = allGroups
                     .Where(g => g.GroupTypeCtrlNbr != CtrlNbr)
                     .ToList();
                 if (candidates.Count > 0)
@@ -463,18 +460,14 @@ else
             errorMessage = null;
             successMessage = null;
 
-            var resolvedParentCtrlNbr = groupType!.ParentCtrlNbr > 0
-                ? groupType.ParentCtrlNbr
-                : (AppContext.SelectedParentCtrlNbr ?? 0);
-
             if (editGroupCtrlNbr > 0)
             {
-                await ConfigClient.UpdateGroupAsync(editGroupCtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, resolvedParentCtrlNbr);
+                await ConfigClient.UpdateGroupAsync(editGroupCtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code);
                 successMessage = "Group updated.";
             }
             else
             {
-                await ConfigClient.CreateGroupAsync(CtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, resolvedParentCtrlNbr);
+                await ConfigClient.CreateGroupAsync(CtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code);
                 successMessage = "Group added.";
             }
 

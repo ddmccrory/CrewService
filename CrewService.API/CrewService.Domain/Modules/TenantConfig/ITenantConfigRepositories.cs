@@ -5,8 +5,8 @@ namespace CrewService.Domain.Modules.TenantConfig;
 
 public interface IGroupTypeRepository : IRepository<GroupType>
 {
-    Task<GroupType?> GetByNameAsync(string name);
-    Task<GroupType?> GetByNameIncludingDeletedAsync(string name);
+    Task<GroupType?> GetByNameAsync(string name, long parentCtrlNbr = 0);
+    Task<GroupType?> GetByNameIncludingDeletedAsync(string name, long parentCtrlNbr = 0);
 }
 
 public interface IDynamicGroupRepository : IRepository<DynamicGroup>

@@ -10,17 +10,17 @@ namespace CrewService.Persistance.Modules.TenantConfig;
 internal sealed class GroupTypeRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<GroupType>(dbContext, currentUserService), IGroupTypeRepository
 {
-    public async Task<GroupType?> GetByNameAsync(string name)
+    public async Task<GroupType?> GetByNameAsync(string name, long parentCtrlNbr = 0)
     {
         return await DbContext.Set<GroupType>()
-            .SingleOrDefaultAsync(g => g.Name == name);
+            .SingleOrDefaultAsync(g => g.Name == name && g.ParentCtrlNbr == parentCtrlNbr);
     }
 
-    public async Task<GroupType?> GetByNameIncludingDeletedAsync(string name)
+    public async Task<GroupType?> GetByNameIncludingDeletedAsync(string name, long parentCtrlNbr = 0)
     {
         return await DbContext.Set<GroupType>()
             .IgnoreQueryFilters()
-            .SingleOrDefaultAsync(g => g.Name == name);
+            .SingleOrDefaultAsync(g => g.Name == name && g.ParentCtrlNbr == parentCtrlNbr);
     }
 }
 
@@ -84,17 +84,14 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
     {
         var groupTypeCtrlNbrs = await DbContext.Set<GroupType>()
             .Where(gt => gt.Name == typeName
-                && (parentCtrlNbr == 0 || gt.ParentCtrlNbr == parentCtrlNbr || gt.ParentCtrlNbr == 0))
+                && (parentCtrlNbr == 0 || gt.ParentCtrlNbr == parentCtrlNbr))
             .Select(gt => gt.CtrlNbr)
             .ToListAsync();
 
-        var query = DbContext.Set<DynamicGroup>()
-            .Where(g => groupTypeCtrlNbrs.Contains(g.GroupTypeCtrlNbr));
-
-        if (parentCtrlNbr != 0)
-            query = query.Where(g => g.ParentCtrlNbr == parentCtrlNbr);
-
-        return await query.OrderBy(g => g.Name).ToListAsync();
+        return await DbContext.Set<DynamicGroup>()
+            .Where(g => groupTypeCtrlNbrs.Contains(g.GroupTypeCtrlNbr))
+            .OrderBy(g => g.Name)
+            .ToListAsync();
     }
 }
 

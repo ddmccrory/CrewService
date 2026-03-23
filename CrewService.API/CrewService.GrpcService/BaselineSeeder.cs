@@ -1,3 +1,4 @@
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
@@ -6,6 +7,7 @@ namespace CrewService.GrpcService;
 
 /// <summary>
 /// Seeds baseline data required in all environments (dev, staging, production).
+/// Ensures every Parent has its own Railroad and WorkArea system GroupTypes.
 /// Idempotent — safe to call on every startup.
 /// </summary>
 internal static class BaselineSeeder
@@ -24,19 +26,23 @@ internal static class BaselineSeeder
         };
 
         var groupTypeRepo = sp.GetRequiredService<IGroupTypeRepository>();
+        var parentRepo = sp.GetRequiredService<IParentRepository>();
 
-        // Universal GroupTypes — available to all parents
-        var allTypes = await groupTypeRepo.GetAllAsync();
-        if (!allTypes.Any(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == 0))
-        {
-            await groupTypeRepo.AddAsync(
-                GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false));
-        }
+        // Backfill system GroupTypes for any parent that is missing them
+        var allParents = await parentRepo.GetAllAsync();
+        var allGroupTypes = await groupTypeRepo.GetAllAsync();
 
-        if (!allTypes.Any(gt => gt.Name == "WorkArea" && gt.ParentCtrlNbr == 0))
+        foreach (var parent in allParents)
         {
-            await groupTypeRepo.AddAsync(
-                GroupType.Create("WorkArea", "Operational work area", isWorkArea: true));
+            foreach (var systemTypeName in GroupType.SystemTypeNames)
+            {
+                if (!allGroupTypes.Any(gt => gt.Name == systemTypeName && gt.ParentCtrlNbr == parent.CtrlNbr.Value))
+                {
+                    var isWorkArea = string.Equals(systemTypeName, "WorkArea", StringComparison.OrdinalIgnoreCase);
+                    await groupTypeRepo.AddAsync(
+                        GroupType.Create(systemTypeName, $"{systemTypeName} (auto-created)", isWorkArea: isWorkArea, parentCtrlNbr: parent.CtrlNbr.Value));
+                }
+            }
         }
     }
 }

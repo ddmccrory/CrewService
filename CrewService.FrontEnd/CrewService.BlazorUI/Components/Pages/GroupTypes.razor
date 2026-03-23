@@ -35,20 +35,24 @@
             <DataAnnotationsValidator />
             <div class="mb-3">
                 <label class="form-label fw-semibold">Name</label>
-                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Name" />
+                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Name" disabled="@isEditingSystemType" />
                 <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                @if (isEditingSystemType)
+                {
+                    <div class="form-text text-warning">System types cannot be renamed.</div>
+                }
             </div>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Description</label>
                 <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Description" />
             </div>
             <div class="form-check mb-3">
-                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" />
+                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" disabled="@isEditingSystemType" />
                 <label class="form-check-label" for="isWorkArea">Work Area</label>
             </div>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Parent Group Type</label>
-                <InputSelect @bind-Value="saveModel.ParentGroupTypeCtrlNbr" class="form-select">
+                <InputSelect @bind-Value="saveModel.ParentGroupTypeCtrlNbr" class="form-select" disabled="@isEditingSystemType">
                     <option value="0">(None — root level)</option>
                     @if (groupTypes is not null)
                     {
@@ -149,9 +153,12 @@ else
                             <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(gt)">
                                 <span class="bi bi-pencil"></span> Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
-                                <span class="bi bi-trash"></span> Delete
-                            </button>
+                            @if (!gt.IsSystemType)
+                            {
+                                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
+                                    <span class="bi bi-trash"></span> Delete
+                                </button>
+                            }
                         </div>
                     </td>
                 </tr>
@@ -165,6 +172,7 @@ else
 
     private bool showSaveModal;
     private long editCtrlNbr;
+    private bool isEditingSystemType;
     private GroupTypeInputModel saveModel = new();
 
     private bool showDeleteModal;
@@ -192,16 +200,13 @@ else
             if (SelectedRailroadCtrlNbr is long railroadCtrlNbr)
             {
                 groupTypes = all
-                    .Where(gt => (gt.ParentCtrlNbr == SelectedParentCtrlNbr && gt.RailroadCtrlNbr == railroadCtrlNbr)
-                              || (gt.ParentCtrlNbr == SelectedParentCtrlNbr && gt.RailroadCtrlNbr == 0)
-                              || (gt.ParentCtrlNbr == 0 && gt.RailroadCtrlNbr == 0))
+                    .Where(gt => gt.ParentCtrlNbr == SelectedParentCtrlNbr && (gt.RailroadCtrlNbr == railroadCtrlNbr || gt.RailroadCtrlNbr == 0))
                     .ToList();
             }
             else if (SelectedParentCtrlNbr is long parentCtrlNbr)
             {
                 groupTypes = all
-                    .Where(gt => (gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0)
-                              || (gt.ParentCtrlNbr == 0 && gt.RailroadCtrlNbr == 0))
+                    .Where(gt => gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0)
                     .ToList();
             }
             else
@@ -225,6 +230,7 @@ else
     private void OpenEditModal(GroupTypeResponse gt)
     {
         editCtrlNbr = gt.CtrlNbr;
+        isEditingSystemType = gt.IsSystemType;
         saveModel = new() { Name = gt.Name, Description = gt.Description, IsWorkArea = gt.IsWorkArea, ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr };
         showSaveModal = true;
     }
@@ -233,6 +239,7 @@ else
     {
         showSaveModal = false;
         editCtrlNbr = 0;
+        isEditingSystemType = false;
         saveModel = new();
     }
 

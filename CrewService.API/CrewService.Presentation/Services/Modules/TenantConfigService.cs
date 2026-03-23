@@ -43,7 +43,7 @@ public class TenantConfigService(
 
     public override async Task<GroupTypeResponse> CreateGroupType(CreateGroupTypeRequest request, ServerCallContext context)
     {
-        var existing = await _groupTypeRepository.GetByNameIncludingDeletedAsync(request.Name);
+        var existing = await _groupTypeRepository.GetByNameIncludingDeletedAsync(request.Name, request.ParentCtrlNbr);
 
         if (existing is not null)
         {
@@ -74,6 +74,9 @@ public class TenantConfigService(
         var groupType = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.CtrlNbr} not found."));
 
+        if (groupType.IsSystemType && !string.Equals(groupType.Name, request.Name, StringComparison.OrdinalIgnoreCase))
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"System type '{groupType.Name}' cannot be renamed."));
+
         groupType.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
 
         await using var uow = await _uowFactory.CreateAsync();
@@ -87,6 +90,9 @@ public class TenantConfigService(
     {
         var groupType = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.CtrlNbr} not found."));
+
+        if (groupType.IsSystemType)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"System type '{groupType.Name}' cannot be deleted."));
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.GroupTypes.Remove(groupType);
@@ -150,8 +156,7 @@ public class TenantConfigService(
                 request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
                 request.Path,
                 request.IsWorkArea,
-                string.IsNullOrEmpty(request.Code) ? null : request.Code,
-                request.ParentCtrlNbr);
+                string.IsNullOrEmpty(request.Code) ? null : request.Code);
 
             await using var uow = await _uowFactory.CreateAsync();
             uow.DynamicGroups.Update(existing);
@@ -166,8 +171,7 @@ public class TenantConfigService(
             request.ParentGroupCtrlNbr > 0 ? request.ParentGroupCtrlNbr : null,
             request.Path,
             request.IsWorkArea,
-            string.IsNullOrEmpty(request.Code) ? null : request.Code,
-            request.ParentCtrlNbr);
+            string.IsNullOrEmpty(request.Code) ? null : request.Code);
 
         await using var uow2 = await _uowFactory.CreateAsync();
         uow2.DynamicGroups.Add(group);
@@ -186,8 +190,7 @@ public class TenantConfigService(
             request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
             request.Path,
             request.IsWorkArea,
-            string.IsNullOrEmpty(request.Code) ? null : request.Code,
-            request.ParentCtrlNbr);
+            string.IsNullOrEmpty(request.Code) ? null : request.Code);
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.DynamicGroups.Update(group);
@@ -406,7 +409,8 @@ public class TenantConfigService(
         FlagsJson = gt.FlagsJson ?? string.Empty,
         ParentCtrlNbr = gt.ParentCtrlNbr,
         RailroadCtrlNbr = gt.RailroadCtrlNbr,
-        ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr
+        ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr,
+        IsSystemType = gt.IsSystemType
     };
 
     private static GroupResponse MapGroup(DynamicGroup g) => new()
@@ -417,8 +421,7 @@ public class TenantConfigService(
         Code = g.Code ?? string.Empty,
         ParentGroupCtrlNbr = g.ParentGroupCtrlNbr?.Value ?? 0,
         Path = g.Path ?? string.Empty,
-        IsWorkArea = g.IsWorkArea,
-        ParentCtrlNbr = g.ParentCtrlNbr
+        IsWorkArea = g.IsWorkArea
     };
 
     private static AttributeDefinitionResponse MapAttributeDefinition(GroupAttributeDefinition ad) => new()

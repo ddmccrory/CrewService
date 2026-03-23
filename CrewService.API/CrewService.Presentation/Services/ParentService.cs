@@ -9,10 +9,11 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
+public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IGroupTypeRepository groupTypeRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
 {
     private readonly IParentRepository _parentRepository = parentRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
+    private readonly IGroupTypeRepository _groupTypeRepository = groupTypeRepository;
     private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
 
     public override async Task<GetAllParentsResponse> GetAllParentsAsync(GetAllParentsRequest request, ServerCallContext context)
@@ -81,6 +82,18 @@ public class ParentService(IParentRepository parentRepository, IDynamicGroupRepo
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.Parents.Add(parent);
+
+        // Auto-seed system GroupTypes for the new parent
+        foreach (var systemTypeName in GroupType.SystemTypeNames)
+        {
+            var isWorkArea = string.Equals(systemTypeName, "WorkArea", StringComparison.OrdinalIgnoreCase);
+            var systemType = GroupType.Create(
+                systemTypeName,
+                $"{systemTypeName} (auto-created)",
+                isWorkArea: isWorkArea,
+                parentCtrlNbr: parent.CtrlNbr.Value);
+            uow.GroupTypes.Add(systemType);
+        }
 
         await uow.CommitAsync();
 

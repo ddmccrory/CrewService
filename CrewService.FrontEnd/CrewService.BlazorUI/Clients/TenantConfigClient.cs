@@ -138,7 +138,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GroupResponse> CreateGroupAsync(long groupTypeCtrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false, string? code = null, long parentCtrlNbr = 0)
+    public async Task<GroupResponse> CreateGroupAsync(long groupTypeCtrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false, string? code = null)
     {
         try
         {
@@ -148,8 +148,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
                 Name = name,
                 ParentGroupCtrlNbr = parentGroupCtrlNbr,
                 IsWorkArea = isWorkArea,
-                Code = code ?? string.Empty,
-                ParentCtrlNbr = parentCtrlNbr
+                Code = code ?? string.Empty
             });
         }
         catch (Exception ex)
@@ -159,7 +158,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GroupResponse> UpdateGroupAsync(long ctrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false, string? code = null, long parentCtrlNbr = 0)
+    public async Task<GroupResponse> UpdateGroupAsync(long ctrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false, string? code = null)
     {
         try
         {
@@ -169,8 +168,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
                 Name = name,
                 ParentGroupCtrlNbr = parentGroupCtrlNbr,
                 IsWorkArea = isWorkArea,
-                Code = code ?? string.Empty,
-                ParentCtrlNbr = parentCtrlNbr
+                Code = code ?? string.Empty
             });
         }
         catch (Exception ex)
