@@ -52,7 +52,7 @@
             </div>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Parent Group Type</label>
-                <InputSelect @bind-Value="saveModel.ParentGroupTypeCtrlNbr" class="form-select" disabled="@isEditingSystemType">
+                <InputSelect @bind-Value="saveModel.ParentGroupTypeCtrlNbr" class="form-select">
                     <option value="0">(None — root level)</option>
                     @if (groupTypes is not null)
                     {
