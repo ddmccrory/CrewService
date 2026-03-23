@@ -31,7 +31,7 @@ internal sealed class InvitationRepository(CrewServiceDbContext dbContext, ICurr
             .ToListAsync();
     }
 
-    public async Task<Invitation?> GetPendingByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr)
+    public async Task<Invitation?> GetPendingByEmailAndParentAsync(string email, ControlNumber? parentCtrlNbr)
     {
         var normalized = email.ToLowerInvariant();
         return await DbContext.Set<Invitation>()
@@ -41,7 +41,7 @@ internal sealed class InvitationRepository(CrewServiceDbContext dbContext, ICurr
                 i.Status == InvitationStatus.Pending);
     }
 
-    public async Task<List<Invitation>> GetAcceptedByEmailAndParentAsync(string email, ControlNumber parentCtrlNbr)
+    public async Task<List<Invitation>> GetAcceptedByEmailAndParentAsync(string email, ControlNumber? parentCtrlNbr)
     {
         var normalized = email.ToLowerInvariant();
         return await DbContext.Set<Invitation>()

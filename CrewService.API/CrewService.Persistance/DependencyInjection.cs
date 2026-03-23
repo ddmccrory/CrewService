@@ -101,7 +101,6 @@ public static class DependencyInjection
 
         // Core Repositories
         services.AddScoped<IParentRepository, ParentRepository>();
-        services.AddScoped<IRailroadRepository, RailroadRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<IUserParentAssignmentRepository, UserParentAssignmentRepository>();
         services.AddScoped<IInvitationRepository, InvitationRepository>();
@@ -128,7 +127,6 @@ public static class DependencyInjection
         services.AddScoped<IDynamicGroupRepository, DynamicGroupRepository>();
         services.AddScoped<IGroupAttributeDefinitionRepository, GroupAttributeDefinitionRepository>();
         services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
-        services.AddScoped<IRailroadGroupPlacementRepository, RailroadGroupPlacementRepository>();
 
         // WorkManagement Module Repositories
         services.AddScoped<IAssignmentTemplateRepository, AssignmentTemplateRepository>();

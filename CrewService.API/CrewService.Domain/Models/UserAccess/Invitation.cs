@@ -7,7 +7,7 @@ namespace CrewService.Domain.Models.UserAccess;
 public sealed class Invitation : Entity
 {
     public string Email { get; private set; } = string.Empty;
-    public ControlNumber ParentCtrlNbr { get; private set; }
+    public ControlNumber? ParentCtrlNbr { get; private set; }
     public string Role { get; private set; } = string.Empty;
     public string InvitedByUserId { get; private set; } = string.Empty;
     public string Token { get; private set; } = string.Empty;
@@ -20,12 +20,11 @@ public sealed class Invitation : Entity
 
     private Invitation()
     {
-        ParentCtrlNbr = null!;
     }
 
     private Invitation(
         string email,
-        ControlNumber parentCtrlNbr,
+        ControlNumber? parentCtrlNbr,
         string role,
         string invitedByUserId,
         string token,
@@ -44,7 +43,7 @@ public sealed class Invitation : Entity
 
     public static Invitation Create(
         string email,
-        ControlNumber parentCtrlNbr,
+        ControlNumber? parentCtrlNbr,
         string role,
         string invitedByUserId,
         int expirationDays = 7,

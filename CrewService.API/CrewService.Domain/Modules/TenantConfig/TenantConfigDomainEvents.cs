@@ -26,15 +26,3 @@ public sealed record DynamicGroupUpdatedDomainEvent : DomainEvent
     public DynamicGroupUpdatedDomainEvent(DynamicGroup group)
         : base(nameof(DynamicGroup), group.CtrlNbr.Value, new { group.Name, group.IsWorkArea, ParentGroupCtrlNbr = group.ParentGroupCtrlNbr?.Value }) { }
 }
-
-public sealed record RailroadPlacedInGroupDomainEvent : DomainEvent
-{
-    public RailroadPlacedInGroupDomainEvent(RailroadGroupPlacement placement)
-        : base(nameof(RailroadGroupPlacement), placement.CtrlNbr.Value, new { RailroadCtrlNbr = placement.RailroadCtrlNbr.Value, GroupCtrlNbr = placement.GroupCtrlNbr.Value }) { }
-}
-
-public sealed record RailroadRemovedFromGroupDomainEvent : DomainEvent
-{
-    public RailroadRemovedFromGroupDomainEvent(ControlNumber placementCtrlNbr, ControlNumber railroadCtrlNbr, ControlNumber groupCtrlNbr)
-        : base(nameof(RailroadGroupPlacement), placementCtrlNbr.Value, new { RailroadCtrlNbr = railroadCtrlNbr.Value, GroupCtrlNbr = groupCtrlNbr.Value }) { }
-}

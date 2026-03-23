@@ -39,6 +39,11 @@ service TenantConfigSrvc {
     option (google.api.http) = { delete: "/v1/tenant-config/groups/{ctrl_nbr}" };
   }
 
+  // Query groups by type name (e.g. "Railroad")
+  rpc GetGroupsByTypeName(GetGroupsByTypeNameRequest) returns (GetAllGroupsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/groups/by-type-name" };
+  }
+
   // Tree / WorkArea queries
   rpc GetGroupTree(GetGroupTreeRequest) returns (GetAllGroupsResponse) {
     option (google.api.http) = { get: "/v1/tenant-config/groups/tree" };
@@ -48,20 +53,6 @@ service TenantConfigSrvc {
   }
   rpc GetAncestors(GetAncestorsRequest) returns (GetAllGroupsResponse) {
     option (google.api.http) = { get: "/v1/tenant-config/groups/{ctrl_nbr}/ancestors" };
-  }
-
-  // Railroad Group Placements
-  rpc PlaceRailroadInGroup(PlaceRailroadInGroupRequest) returns (RailroadGroupPlacementResponse) {
-    option (google.api.http) = { post: "/v1/tenant-config/railroad-placements" body: "*" };
-  }
-  rpc RemoveRailroadFromGroup(RemoveRailroadFromGroupRequest) returns (common.DeleteResponse) {
-    option (google.api.http) = { delete: "/v1/tenant-config/railroad-placements/{ctrl_nbr}" };
-  }
-  rpc GetRailroadPlacements(GetRailroadPlacementsRequest) returns (GetRailroadPlacementsResponse) {
-    option (google.api.http) = { get: "/v1/tenant-config/railroad-placements/by-railroad/{railroad_ctrl_nbr}" };
-  }
-  rpc GetRailroadsInGroup(GetRailroadsInGroupRequest) returns (GetRailroadPlacementsResponse) {
-    option (google.api.http) = { get: "/v1/tenant-config/railroad-placements/by-group/{group_ctrl_nbr}" };
   }
 
   // Group Attribute Definitions
@@ -113,6 +104,9 @@ message CreateGroupTypeRequest {
   string description = 2;
   bool is_work_area = 3;
   string flags_json = 4;
+  int64 parent_ctrl_nbr = 5;
+  int64 railroad_ctrl_nbr = 6;
+  int64 parent_group_type_ctrl_nbr = 7;
 }
 
 message UpdateGroupTypeRequest {
@@ -121,6 +115,9 @@ message UpdateGroupTypeRequest {
   string description = 3;
   bool is_work_area = 4;
   string flags_json = 5;
+  int64 parent_ctrl_nbr = 6;
+  int64 railroad_ctrl_nbr = 7;
+  int64 parent_group_type_ctrl_nbr = 8;
 }
 
 message DeleteGroupTypeRequest {
@@ -133,6 +130,9 @@ message GroupTypeResponse {
   string description = 3;
   bool is_work_area = 4;
   string flags_json = 5;
+  int64 parent_ctrl_nbr = 6;
+  int64 railroad_ctrl_nbr = 7;
+  int64 parent_group_type_ctrl_nbr = 8;
 }
 
 // Group messages
@@ -157,6 +157,8 @@ message CreateGroupRequest {
   int64 parent_group_ctrl_nbr = 3;
   string path = 4;
   bool is_work_area = 5;
+  string code = 6;
+  int64 parent_ctrl_nbr = 7;
 }
 
 message UpdateGroupRequest {
@@ -165,6 +167,8 @@ message UpdateGroupRequest {
   int64 parent_group_ctrl_nbr = 3;
   string path = 4;
   bool is_work_area = 5;
+  string code = 6;
+  int64 parent_ctrl_nbr = 7;
 }
 
 message DeleteGroupRequest {
@@ -178,6 +182,13 @@ message GroupResponse {
   int64 parent_group_ctrl_nbr = 4;
   string path = 5;
   bool is_work_area = 6;
+  string code = 7;
+  int64 parent_ctrl_nbr = 8;
+}
+
+message GetGroupsByTypeNameRequest {
+  string type_name = 1;
+  int64 parent_ctrl_nbr = 2;
 }
 
 // Tree / WorkArea queries
@@ -189,35 +200,6 @@ message GetWorkAreasRequest {}
 
 message GetAncestorsRequest {
   int64 ctrl_nbr = 1;
-}
-
-// Railroad Group Placement messages
-message PlaceRailroadInGroupRequest {
-  int64 railroad_ctrl_nbr = 1;
-  int64 group_ctrl_nbr = 2;
-}
-
-message RemoveRailroadFromGroupRequest {
-  int64 ctrl_nbr = 1;
-}
-
-message GetRailroadPlacementsRequest {
-  int64 railroad_ctrl_nbr = 1;
-}
-
-message GetRailroadsInGroupRequest {
-  int64 group_ctrl_nbr = 1;
-  bool include_descendants = 2;
-}
-
-message RailroadGroupPlacementResponse {
-  int64 ctrl_nbr = 1;
-  int64 railroad_ctrl_nbr = 2;
-  int64 group_ctrl_nbr = 3;
-}
-
-message GetRailroadPlacementsResponse {
-  repeated RailroadGroupPlacementResponse placements = 1;
 }
 
 // Attribute Definition messages

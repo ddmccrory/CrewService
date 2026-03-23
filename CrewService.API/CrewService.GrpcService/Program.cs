@@ -76,6 +76,13 @@ if (app.Environment.IsDevelopment())
     });
 
     await app.Services.MigrateDatabasesAsync();
+}
+
+// Baseline data required in all environments (idempotent)
+await BaselineSeeder.SeedAsync(app.Services);
+
+if (app.Environment.IsDevelopment())
+{
     await DevDataSeeder.SeedAsync(app.Services);
 }
 
@@ -99,7 +106,6 @@ app.MapGrpcService<EmploymentStatusHistoryService>().EnableGrpcWeb().RequireAuth
 app.MapGrpcService<ParentService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<PhoneNumberTypeService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<PriorServiceCreditService>().EnableGrpcWeb().RequireAuthorization();
-app.MapGrpcService<RailroadService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<PayrollTierService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RosterService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SeniorityService>().EnableGrpcWeb().RequireAuthorization();

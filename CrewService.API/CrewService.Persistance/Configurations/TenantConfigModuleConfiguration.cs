@@ -1,5 +1,4 @@
-﻿using CrewService.Domain.Models.Railroads;
-using CrewService.Domain.Modules.TenantConfig;
+﻿using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -14,6 +13,9 @@ internal class GroupTypeConfiguration : IEntityTypeConfiguration<GroupType>
         builder.Property(g => g.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
         builder.Property(g => g.Description).HasMaxLength(500);
+
+        // Scope values stored as plain columns — not FK-constrained (0 = universal)
+        builder.Property(g => g.ParentGroupTypeCtrlNbr);
 
         builder.OwnsOne(g => g.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(g => g.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -33,6 +35,9 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
         builder.Property(g => g.Path).HasMaxLength(500);
+
+        // Scope value stored as plain column — not FK-constrained (0 = universal)
+        builder.Property(g => g.ParentCtrlNbr);
 
         builder.HasOne<GroupType>().WithMany().HasForeignKey(g => g.GroupTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(g => g.ParentGroupCtrlNbr).OnDelete(DeleteBehavior.SetNull);
@@ -78,23 +83,5 @@ internal class GroupAttributeValueConfiguration : IEntityTypeConfiguration<Group
         builder.OwnsOne(v => v.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(v => v.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(v => v.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-    }
-}
-
-internal class RailroadGroupPlacementConfiguration : IEntityTypeConfiguration<RailroadGroupPlacement>
-{
-    public void Configure(EntityTypeBuilder<RailroadGroupPlacement> builder)
-    {
-        builder.HasKey(p => p.CtrlNbr);
-        builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.GroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-
-        builder.HasOne<Railroad>().WithMany().HasForeignKey(p => p.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.GroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-
-        builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }

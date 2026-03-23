@@ -3,9 +3,11 @@ using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -31,10 +33,9 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private bool _disposed;
 
     // ──────────────────────────────────────────────────────────────────
-    // Lazy-initialized repositories: Core Employee / Railroad
+    // Lazy-initialized repositories: Core Employee
     // ──────────────────────────────────────────────────────────────────
     private IEmployeeRepository? _employees;
-    private IRailroadRepository? _railroads;
     private IParentRepository? _parents;
 
     // ──────────────────────────────────────────────────────────────────
@@ -59,14 +60,21 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private ISeniorityRepository? _seniority;
     private ISeniorityStateRepository? _seniorityStates;
 
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: TenantConfig
+    // ──────────────────────────────────────────────────────────────────
+    private IGroupTypeRepository? _groupTypes;
+    private IDynamicGroupRepository? _dynamicGroups;
+    private IGroupAttributeDefinitionRepository? _attributeDefinitions;
+    private IGroupAttributeValueRepository? _attributeValues;
+
     public string CorrelationId { get; }
     public string OrchestrationId { get; }
 
     // ──────────────────────────────────────────────────────────────────
-    // Repository Properties: Core Employee / Railroad
+    // Repository Properties: Core Employee
     // ──────────────────────────────────────────────────────────────────
     public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_crewContext, _currentUserService);
-    public IRailroadRepository Railroads => _railroads ??= new RailroadRepository(_crewContext, _currentUserService);
     public IParentRepository Parents => _parents ??= new ParentRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
@@ -90,6 +98,14 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IRosterRepository Rosters => _rosters ??= new RosterRepository(_crewContext, _currentUserService);
     public ISeniorityRepository Seniority => _seniority ??= new SeniorityRepository(_crewContext, _currentUserService);
     public ISeniorityStateRepository SeniorityStates => _seniorityStates ??= new SeniorityStateRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: TenantConfig
+    // ──────────────────────────────────────────────────────────────────
+    public IGroupTypeRepository GroupTypes => _groupTypes ??= new GroupTypeRepository(_crewContext, _currentUserService);
+    public IDynamicGroupRepository DynamicGroups => _dynamicGroups ??= new DynamicGroupRepository(_crewContext, _currentUserService);
+    public IGroupAttributeDefinitionRepository AttributeDefinitions => _attributeDefinitions ??= new GroupAttributeDefinitionRepository(_crewContext, _currentUserService);
+    public IGroupAttributeValueRepository AttributeValues => _attributeValues ??= new GroupAttributeValueRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
         DbConnection connection,

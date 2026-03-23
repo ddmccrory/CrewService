@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323155238_RemoveRailroadEntity")]
+    partial class RemoveRailroadEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -677,7 +680,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("ParentCtrlNbr")
+                    b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<long?>("RailroadCtrlNbr")
@@ -3999,9 +4002,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<long?>("ParentGroupCtrlNbr")
                         .HasColumnType("INTEGER");
 
@@ -4114,9 +4114,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasColumnType("TEXT");
 
                     b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ParentGroupTypeCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("RailroadCtrlNbr")
@@ -5875,7 +5872,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
                         .WithMany()
                         .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
                         .WithMany()

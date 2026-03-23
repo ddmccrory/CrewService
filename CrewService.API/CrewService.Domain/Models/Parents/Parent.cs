@@ -1,18 +1,12 @@
 ﻿using CrewService.Domain.DomainEvents.Parents;
-using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
-using System.Collections.ObjectModel;
 
 namespace CrewService.Domain.Models.Parents;
 
 public sealed class Parent : Entity
 {
-    private readonly Collection<Railroad> _railroads = [];
-
     public Name Name { get; private set; }
-
-    public IReadOnlyList<Railroad> Railroads => [.. _railroads];
 
     private Parent(Name name)
     {

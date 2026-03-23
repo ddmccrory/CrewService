@@ -15,6 +15,13 @@ internal sealed class GroupTypeRepository(CrewServiceDbContext dbContext, ICurre
         return await DbContext.Set<GroupType>()
             .SingleOrDefaultAsync(g => g.Name == name);
     }
+
+    public async Task<GroupType?> GetByNameIncludingDeletedAsync(string name)
+    {
+        return await DbContext.Set<GroupType>()
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(g => g.Name == name);
+    }
 }
 
 internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -26,6 +33,13 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             .Where(g => g.ParentGroupCtrlNbr == parentGroupCtrlNbr)
             .OrderBy(g => g.Name)
             .ToListAsync();
+    }
+
+    public async Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name)
+    {
+        return await DbContext.Set<DynamicGroup>()
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(g => g.GroupTypeCtrlNbr == groupTypeCtrlNbr && g.Name == name);
     }
 
     public async Task<List<DynamicGroup>> GetWorkAreasAsync()
@@ -65,6 +79,23 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             .OrderBy(g => g.Path)
             .ToListAsync();
     }
+
+    public async Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, long parentCtrlNbr = 0)
+    {
+        var groupTypeCtrlNbrs = await DbContext.Set<GroupType>()
+            .Where(gt => gt.Name == typeName
+                && (parentCtrlNbr == 0 || gt.ParentCtrlNbr == parentCtrlNbr || gt.ParentCtrlNbr == 0))
+            .Select(gt => gt.CtrlNbr)
+            .ToListAsync();
+
+        var query = DbContext.Set<DynamicGroup>()
+            .Where(g => groupTypeCtrlNbrs.Contains(g.GroupTypeCtrlNbr));
+
+        if (parentCtrlNbr != 0)
+            query = query.Where(g => g.ParentCtrlNbr == parentCtrlNbr);
+
+        return await query.OrderBy(g => g.Name).ToListAsync();
+    }
 }
 
 internal sealed class GroupAttributeDefinitionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -77,6 +108,13 @@ internal sealed class GroupAttributeDefinitionRepository(CrewServiceDbContext db
             .OrderBy(a => a.AttributeName)
             .ToListAsync();
     }
+
+    public async Task<GroupAttributeDefinition?> GetByGroupTypeAndAttributeNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string attributeName)
+    {
+        return await DbContext.Set<GroupAttributeDefinition>()
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(a => a.GroupTypeCtrlNbr == groupTypeCtrlNbr && a.AttributeName == attributeName);
+    }
 }
 
 internal sealed class GroupAttributeValueRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -87,41 +125,5 @@ internal sealed class GroupAttributeValueRepository(CrewServiceDbContext dbConte
         return await DbContext.Set<GroupAttributeValue>()
             .Where(v => v.GroupCtrlNbr == groupCtrlNbr)
             .ToListAsync();
-    }
-}
-
-internal sealed class RailroadGroupPlacementRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<RailroadGroupPlacement>(dbContext, currentUserService), IRailroadGroupPlacementRepository
-{
-    public async Task<List<RailroadGroupPlacement>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr)
-    {
-        return await DbContext.Set<RailroadGroupPlacement>()
-            .Where(p => p.RailroadCtrlNbr == railroadCtrlNbr)
-            .ToListAsync();
-    }
-
-    public async Task<List<RailroadGroupPlacement>> GetByGroupCtrlNbrAsync(ControlNumber groupCtrlNbr)
-    {
-        return await DbContext.Set<RailroadGroupPlacement>()
-            .Where(p => p.GroupCtrlNbr == groupCtrlNbr)
-            .ToListAsync();
-    }
-
-    public async Task<List<RailroadGroupPlacement>> GetByGroupSubtreeAsync(string pathPrefix)
-    {
-        var groupCtrlNbrs = await DbContext.Set<DynamicGroup>()
-            .Where(g => g.Path != null && g.Path.StartsWith(pathPrefix))
-            .Select(g => g.CtrlNbr)
-            .ToListAsync();
-
-        return await DbContext.Set<RailroadGroupPlacement>()
-            .Where(p => groupCtrlNbrs.Contains(p.GroupCtrlNbr))
-            .ToListAsync();
-    }
-
-    public async Task<RailroadGroupPlacement?> GetByRailroadAndGroupAsync(ControlNumber railroadCtrlNbr, ControlNumber groupCtrlNbr)
-    {
-        return await DbContext.Set<RailroadGroupPlacement>()
-            .SingleOrDefaultAsync(p => p.RailroadCtrlNbr == railroadCtrlNbr && p.GroupCtrlNbr == groupCtrlNbr);
     }
 }

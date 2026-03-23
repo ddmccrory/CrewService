@@ -1,4 +1,4 @@
-using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -8,17 +8,15 @@ namespace CrewService.Presentation.Services.Modules;
 public class TenantConfigService(
     IGroupTypeRepository groupTypeRepository,
     IDynamicGroupRepository dynamicGroupRepository,
-    IRailroadGroupPlacementRepository railroadGroupPlacementRepository,
-    IRailroadRepository railroadRepository,
     IGroupAttributeDefinitionRepository attributeDefinitionRepository,
-    IGroupAttributeValueRepository attributeValueRepository) : TenantConfigSrvc.TenantConfigSrvcBase
+    IGroupAttributeValueRepository attributeValueRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory) : TenantConfigSrvc.TenantConfigSrvcBase
 {
     private readonly IGroupTypeRepository _groupTypeRepository = groupTypeRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
-    private readonly IRailroadGroupPlacementRepository _railroadGroupPlacementRepository = railroadGroupPlacementRepository;
-    private readonly IRailroadRepository _railroadRepository = railroadRepository;
     private readonly IGroupAttributeDefinitionRepository _attributeDefinitionRepository = attributeDefinitionRepository;
     private readonly IGroupAttributeValueRepository _attributeValueRepository = attributeValueRepository;
+    private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
 
     // GroupTypes
     public override async Task<GetAllGroupTypesResponse> GetAllGroupTypes(GetAllGroupTypesRequest request, ServerCallContext context)
@@ -45,8 +43,29 @@ public class TenantConfigService(
 
     public override async Task<GroupTypeResponse> CreateGroupType(CreateGroupTypeRequest request, ServerCallContext context)
     {
-        var groupType = GroupType.Create(request.Name, request.Description, request.IsWorkArea, request.FlagsJson);
-        await _groupTypeRepository.AddAsync(groupType);
+        var existing = await _groupTypeRepository.GetByNameIncludingDeletedAsync(request.Name);
+
+        if (existing is not null)
+        {
+            if (!existing.IsDeleted)
+                throw new RpcException(new Status(StatusCode.AlreadyExists, $"GroupType '{request.Name}' already exists."));
+
+            existing.Restore();
+            existing.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
+
+            await using var uow = await _uowFactory.CreateAsync();
+            uow.GroupTypes.Update(existing);
+            await uow.CommitAsync();
+
+            return MapGroupType(existing);
+        }
+
+        var groupType = GroupType.Create(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
+
+        await using var uow2 = await _uowFactory.CreateAsync();
+        uow2.GroupTypes.Add(groupType);
+        await uow2.CommitAsync();
+
         return MapGroupType(groupType);
     }
 
@@ -55,18 +74,40 @@ public class TenantConfigService(
         var groupType = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.CtrlNbr} not found."));
 
-        groupType.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson);
-        await _groupTypeRepository.UpdateAsync(groupType);
+        groupType.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
+
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.GroupTypes.Update(groupType);
+        await uow.CommitAsync();
+
         return MapGroupType(groupType);
     }
 
     public override async Task<DeleteResponse> DeleteGroupType(DeleteGroupTypeRequest request, ServerCallContext context)
     {
-        await _groupTypeRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var groupType = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.CtrlNbr} not found."));
+
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.GroupTypes.Remove(groupType);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
     // Groups
+    public override async Task<GetAllGroupsResponse> GetGroupsByTypeName(GetGroupsByTypeNameRequest request, ServerCallContext context)
+    {
+        var response = new GetAllGroupsResponse();
+        var groups = await _dynamicGroupRepository.GetByGroupTypeNameAsync(request.TypeName, request.ParentCtrlNbr);
+
+        foreach (var g in groups)
+            response.Groups.Add(MapGroup(g));
+
+        response.TotalCount = groups.Count;
+        return response;
+    }
+
     public override async Task<GetAllGroupsResponse> GetAllGroups(GetAllGroupsRequest request, ServerCallContext context)
     {
         var response = new GetAllGroupsResponse();
@@ -95,14 +136,43 @@ public class TenantConfigService(
 
     public override async Task<GroupResponse> CreateGroup(CreateGroupRequest request, ServerCallContext context)
     {
+        var existing = await _dynamicGroupRepository.GetByGroupTypeAndNameIncludingDeletedAsync(
+            ControlNumber.Create(request.GroupTypeCtrlNbr), request.Name);
+
+        if (existing is not null)
+        {
+            if (!existing.IsDeleted)
+                throw new RpcException(new Status(StatusCode.AlreadyExists, $"Group '{request.Name}' already exists."));
+
+            existing.Restore();
+            existing.Update(
+                request.Name,
+                request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
+                request.Path,
+                request.IsWorkArea,
+                string.IsNullOrEmpty(request.Code) ? null : request.Code,
+                request.ParentCtrlNbr);
+
+            await using var uow = await _uowFactory.CreateAsync();
+            uow.DynamicGroups.Update(existing);
+            await uow.CommitAsync();
+
+            return MapGroup(existing);
+        }
+
         var group = DynamicGroup.Create(
             request.GroupTypeCtrlNbr,
             request.Name,
             request.ParentGroupCtrlNbr > 0 ? request.ParentGroupCtrlNbr : null,
             request.Path,
-            request.IsWorkArea);
+            request.IsWorkArea,
+            string.IsNullOrEmpty(request.Code) ? null : request.Code,
+            request.ParentCtrlNbr);
 
-        await _dynamicGroupRepository.AddAsync(group);
+        await using var uow2 = await _uowFactory.CreateAsync();
+        uow2.DynamicGroups.Add(group);
+        await uow2.CommitAsync();
+
         return MapGroup(group);
     }
 
@@ -115,15 +185,26 @@ public class TenantConfigService(
             request.Name,
             request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
             request.Path,
-            request.IsWorkArea);
+            request.IsWorkArea,
+            string.IsNullOrEmpty(request.Code) ? null : request.Code,
+            request.ParentCtrlNbr);
 
-        await _dynamicGroupRepository.UpdateAsync(group);
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.DynamicGroups.Update(group);
+        await uow.CommitAsync();
+
         return MapGroup(group);
     }
 
     public override async Task<DeleteResponse> DeleteGroup(DeleteGroupRequest request, ServerCallContext context)
     {
-        await _dynamicGroupRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var group = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.CtrlNbr} not found."));
+
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.DynamicGroups.Remove(group);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
@@ -165,75 +246,6 @@ public class TenantConfigService(
         return response;
     }
 
-    // Railroad Group Placements
-    public override async Task<RailroadGroupPlacementResponse> PlaceRailroadInGroup(PlaceRailroadInGroupRequest request, ServerCallContext context)
-    {
-        _ = await _railroadRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.RailroadCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Railroad {request.RailroadCtrlNbr} not found."));
-
-        _ = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.GroupCtrlNbr} not found."));
-
-        var existing = await _railroadGroupPlacementRepository.GetByRailroadAndGroupAsync(
-            ControlNumber.Create(request.RailroadCtrlNbr),
-            ControlNumber.Create(request.GroupCtrlNbr));
-
-        if (existing is not null)
-            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Railroad {request.RailroadCtrlNbr} is already placed in group {request.GroupCtrlNbr}."));
-
-        var placement = RailroadGroupPlacement.Create(request.RailroadCtrlNbr, request.GroupCtrlNbr);
-        await _railroadGroupPlacementRepository.AddAsync(placement);
-        return MapPlacement(placement);
-    }
-
-    public override async Task<DeleteResponse> RemoveRailroadFromGroup(RemoveRailroadFromGroupRequest request, ServerCallContext context)
-    {
-        var placement = await _railroadGroupPlacementRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Placement {request.CtrlNbr} not found."));
-
-        placement.Remove();
-        await _railroadGroupPlacementRepository.UpdateAsync(placement);
-        return new DeleteResponse { Success = true };
-    }
-
-    public override async Task<GetRailroadPlacementsResponse> GetRailroadPlacements(GetRailroadPlacementsRequest request, ServerCallContext context)
-    {
-        var placements = await _railroadGroupPlacementRepository.GetByRailroadCtrlNbrAsync(
-            ControlNumber.Create(request.RailroadCtrlNbr));
-
-        var response = new GetRailroadPlacementsResponse();
-        foreach (var p in placements)
-            response.Placements.Add(MapPlacement(p));
-
-        return response;
-    }
-
-    public override async Task<GetRailroadPlacementsResponse> GetRailroadsInGroup(GetRailroadsInGroupRequest request, ServerCallContext context)
-    {
-        List<RailroadGroupPlacement> placements;
-
-        if (request.IncludeDescendants)
-        {
-            var group = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr))
-                ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.GroupCtrlNbr} not found."));
-
-            placements = group.Path is not null
-                ? await _railroadGroupPlacementRepository.GetByGroupSubtreeAsync(group.Path)
-                : await _railroadGroupPlacementRepository.GetByGroupCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr));
-        }
-        else
-        {
-            placements = await _railroadGroupPlacementRepository.GetByGroupCtrlNbrAsync(
-                ControlNumber.Create(request.GroupCtrlNbr));
-        }
-
-        var response = new GetRailroadPlacementsResponse();
-        foreach (var p in placements)
-            response.Placements.Add(MapPlacement(p));
-
-        return response;
-    }
-
     // Attribute Definitions
     public override async Task<GetAttributeDefinitionsResponse> GetAttributeDefinitions(GetAttributeDefinitionsRequest request, ServerCallContext context)
     {
@@ -260,6 +272,28 @@ public class TenantConfigService(
         _ = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupTypeCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.GroupTypeCtrlNbr} not found."));
 
+        var existing = await _attributeDefinitionRepository.GetByGroupTypeAndAttributeNameIncludingDeletedAsync(
+            ControlNumber.Create(request.GroupTypeCtrlNbr), request.AttributeName);
+
+        if (existing is not null)
+        {
+            if (!existing.IsDeleted)
+                throw new RpcException(new Status(StatusCode.AlreadyExists, $"Attribute '{request.AttributeName}' already exists."));
+
+            existing.Restore();
+            existing.Update(
+                request.AttributeName,
+                request.DataType,
+                request.IsRequired,
+                string.IsNullOrEmpty(request.DefaultValue) ? null : request.DefaultValue);
+
+            await using var uow = await _uowFactory.CreateAsync();
+            uow.AttributeDefinitions.Update(existing);
+            await uow.CommitAsync();
+
+            return MapAttributeDefinition(existing);
+        }
+
         var definition = GroupAttributeDefinition.Create(
             request.GroupTypeCtrlNbr,
             request.AttributeName,
@@ -267,7 +301,10 @@ public class TenantConfigService(
             request.IsRequired,
             string.IsNullOrEmpty(request.DefaultValue) ? null : request.DefaultValue);
 
-        await _attributeDefinitionRepository.AddAsync(definition);
+        await using var uow2 = await _uowFactory.CreateAsync();
+        uow2.AttributeDefinitions.Add(definition);
+        await uow2.CommitAsync();
+
         return MapAttributeDefinition(definition);
     }
 
@@ -282,13 +319,22 @@ public class TenantConfigService(
             request.IsRequired,
             string.IsNullOrEmpty(request.DefaultValue) ? null : request.DefaultValue);
 
-        await _attributeDefinitionRepository.UpdateAsync(definition);
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.AttributeDefinitions.Update(definition);
+        await uow.CommitAsync();
+
         return MapAttributeDefinition(definition);
     }
 
     public override async Task<DeleteResponse> DeleteAttributeDefinition(DeleteAttributeDefinitionRequest request, ServerCallContext context)
     {
-        await _attributeDefinitionRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var definition = await _attributeDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"AttributeDefinition {request.CtrlNbr} not found."));
+
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.AttributeDefinitions.Remove(definition);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
@@ -319,7 +365,11 @@ public class TenantConfigService(
         if (existing is not null)
         {
             existing.Update(string.IsNullOrEmpty(request.Value) ? null : request.Value);
-            await _attributeValueRepository.UpdateAsync(existing);
+
+            await using var uow = await _uowFactory.CreateAsync();
+            uow.AttributeValues.Update(existing);
+            await uow.CommitAsync();
+
             return MapAttributeValue(existing);
         }
 
@@ -328,13 +378,22 @@ public class TenantConfigService(
             request.AttributeDefinitionCtrlNbr,
             string.IsNullOrEmpty(request.Value) ? null : request.Value);
 
-        await _attributeValueRepository.AddAsync(value);
+        await using var uow2 = await _uowFactory.CreateAsync();
+        uow2.AttributeValues.Add(value);
+        await uow2.CommitAsync();
+
         return MapAttributeValue(value);
     }
 
     public override async Task<DeleteResponse> DeleteAttributeValue(DeleteAttributeValueRequest request, ServerCallContext context)
     {
-        await _attributeValueRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var attributeValue = await _attributeValueRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"AttributeValue {request.CtrlNbr} not found."));
+
+        await using var uow = await _uowFactory.CreateAsync();
+        uow.AttributeValues.Remove(attributeValue);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
@@ -344,7 +403,10 @@ public class TenantConfigService(
         Name = gt.Name,
         Description = gt.Description ?? string.Empty,
         IsWorkArea = gt.IsWorkArea,
-        FlagsJson = gt.FlagsJson ?? string.Empty
+        FlagsJson = gt.FlagsJson ?? string.Empty,
+        ParentCtrlNbr = gt.ParentCtrlNbr,
+        RailroadCtrlNbr = gt.RailroadCtrlNbr,
+        ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr
     };
 
     private static GroupResponse MapGroup(DynamicGroup g) => new()
@@ -352,16 +414,11 @@ public class TenantConfigService(
         CtrlNbr = g.CtrlNbr.Value,
         GroupTypeCtrlNbr = g.GroupTypeCtrlNbr.Value,
         Name = g.Name,
+        Code = g.Code ?? string.Empty,
         ParentGroupCtrlNbr = g.ParentGroupCtrlNbr?.Value ?? 0,
         Path = g.Path ?? string.Empty,
-        IsWorkArea = g.IsWorkArea
-    };
-
-    private static RailroadGroupPlacementResponse MapPlacement(RailroadGroupPlacement p) => new()
-    {
-        CtrlNbr = p.CtrlNbr.Value,
-        RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
-        GroupCtrlNbr = p.GroupCtrlNbr.Value
+        IsWorkArea = g.IsWorkArea,
+        ParentCtrlNbr = g.ParentCtrlNbr
     };
 
     private static AttributeDefinitionResponse MapAttributeDefinition(GroupAttributeDefinition ad) => new()

@@ -1,5 +1,6 @@
 ﻿using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.TenantConfig;
 
 namespace CrewService.Domain.Interfaces;
 
@@ -21,10 +22,9 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     string OrchestrationId { get; }
 
     // ──────────────────────────────────────────────────────────────────
-    // Core Employee / Railroad Orchestration
+    // Core Employee Orchestration
     // ──────────────────────────────────────────────────────────────────
     IEmployeeRepository Employees { get; }
-    IRailroadRepository Railroads { get; }
     IParentRepository Parents { get; }
 
     // ──────────────────────────────────────────────────────────────────
@@ -48,6 +48,14 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IRosterRepository Rosters { get; }
     ISeniorityRepository Seniority { get; }
     ISeniorityStateRepository SeniorityStates { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // TenantConfig
+    // ──────────────────────────────────────────────────────────────────
+    IGroupTypeRepository GroupTypes { get; }
+    IDynamicGroupRepository DynamicGroups { get; }
+    IGroupAttributeDefinitionRepository AttributeDefinitions { get; }
+    IGroupAttributeValueRepository AttributeValues { get; }
 
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,
