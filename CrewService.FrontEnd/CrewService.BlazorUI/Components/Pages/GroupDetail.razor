@@ -1,14 +1,15 @@
 @page "/config/groups/{CtrlNbr:long}"
+@rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
 
+@inherits AppComponentBase
+
 @attribute [Authorize]
 
 @inject TenantConfigClient ConfigClient
-@inject RailroadsClient RailroadsClient
-@inject NavigationManager NavigationManager
 
 <PageTitle>Group Detail</PageTitle>
 
@@ -23,126 +24,71 @@
 }
 else
 {
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/config/group-types">Group Types</a></li>
-            <li class="breadcrumb-item"><a href="/config/group-types/@group.GroupTypeCtrlNbr">@groupTypeName</a></li>
-            <li class="breadcrumb-item active" aria-current="page">@group.Name</li>
-        </ol>
-    </nav>
+    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="NavigateBack">
+        <span class="bi bi-chevron-left me-1"></span> @groupTypeName
+    </button>
 
-    @if (!isEditing)
+    <h1>@group.Name</h1>
+    @if (group.IsWorkArea)
     {
-        <h1>@group.Name</h1>
-        @if (group.IsWorkArea)
-        {
-            <span class="badge bg-success mb-2">Work Area</span>
-        }
-        <div class="mb-3">
-            <button class="btn btn-sm btn-outline-primary me-2" @onclick="StartEdit">Edit</button>
-            <button class="btn btn-sm btn-outline-danger" @onclick="Delete">Delete</button>
-        </div>
-    }
-    else
-    {
-        <EditForm Model="editModel" OnValidSubmit="SaveEdit" FormName="editGroup">
-            <DataAnnotationsValidator />
-            <div class="row">
-                <div class="col-md-5">
-                    <div class="form-floating mb-3">
-                        <InputText @bind-Value="editModel.Name" class="form-control" placeholder="Name" />
-                        <label>Name</label>
-                        <ValidationMessage For="() => editModel.Name" class="text-danger" />
-                    </div>
-                </div>
-                <div class="col-md-2 d-flex align-items-center">
-                    <div class="form-check">
-                        <InputCheckbox @bind-Value="editModel.IsWorkArea" class="form-check-input" id="editWA" />
-                        <label class="form-check-label" for="editWA">Work Area</label>
-                    </div>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-success me-2">Save</button>
-            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
-        </EditForm>
+        <span class="badge bg-success mb-2">Work Area</span>
     }
 
     <hr />
 
-    <h3>Railroad Placements</h3>
+    <h3>Hierarchy Map</h3>
 
-    <div class="mb-3">
-        <button class="btn btn-sm btn-primary" @onclick="ShowPlaceForm">
-            <span class="bi bi-plus-circle"></span> Place Railroad
-        </button>
-    </div>
-
-    @if (showPlaceForm)
+    @if (ancestors is not null || childGroups is not null)
     {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Place Railroad in Group</h5>
-                @if (availableRailroads is null)
+        <div class="card mb-4">
+            <div class="card-body font-monospace small">
+                @if (ancestors is not null)
                 {
-                    <p><em>Loading railroads...</em></p>
-                }
-                else
-                {
-                    <EditForm Model="placeModel" OnValidSubmit="PlaceRailroad" FormName="placeRailroad">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-floating mb-3">
-                                    <InputSelect @bind-Value="placeModel.RailroadCtrlNbr" class="form-select">
-                                        <option value="0">-- Select Railroad --</option>
-                                        @foreach (var rr in availableRailroads)
-                                        {
-                                            <option value="@rr.CtrlNbr">@rr.RrMark � @rr.Name</option>
-                                        }
-                                    </InputSelect>
-                                    <label>Railroad</label>
-                                </div>
-                            </div>
+                    @for (int i = ancestors.Count - 1; i >= 0; i--)
+                    {
+                        var ancestor = ancestors[i];
+                        var indent = new string(' ', (ancestors.Count - 1 - i) * 4);
+                        <div>
+                            @indent<span class="text-muted">└─</span>
+                            <a href="/config/groups/@ancestor.CtrlNbr" class="text-decoration-none">@ancestor.Name</a>
+                            <span class="text-muted ms-1">(@GetGroupTypeName(ancestor.GroupTypeCtrlNbr))</span>
                         </div>
-                        <button type="submit" class="btn btn-success me-2" disabled="@(placeModel.RailroadCtrlNbr == 0)">Place</button>
-                        <button type="button" class="btn btn-secondary" @onclick="CancelPlace">Cancel</button>
-                    </EditForm>
+                    }
+                }
+                @{
+                    var currentIndent = new string(' ', (ancestors?.Count ?? 0) * 4);
+                }
+                <div>
+                    @currentIndent<span class="text-muted">└─</span>
+                    <strong class="text-primary">@group.Name</strong>
+                    <span class="text-muted ms-1">(@groupTypeName)</span>
+                    @if (group.IsWorkArea)
+                    {
+                        <span class="badge bg-success ms-1">Work Area</span>
+                    }
+                </div>
+                @if (childGroups is not null)
+                {
+                    var childIndent = new string(' ', ((ancestors?.Count ?? 0) + 1) * 4);
+                    @foreach (var child in childGroups)
+                    {
+                        <div>
+                            @childIndent<span class="text-muted">└─</span>
+                            <a href="/config/groups/@child.CtrlNbr" class="text-decoration-none">@child.Name</a>
+                            <span class="text-muted ms-1">(@GetGroupTypeName(child.GroupTypeCtrlNbr))</span>
+                            @if (child.IsWorkArea)
+                            {
+                                <span class="badge bg-success ms-1">Work Area</span>
+                            }
+                        </div>
+                    }
                 }
             </div>
         </div>
     }
-
-    @if (placements is null)
-    {
-        <p><em>Loading placements...</em></p>
-    }
-    else if (placements.Count == 0)
-    {
-        <p class="text-muted">No railroads placed in this group yet.</p>
-    }
     else
     {
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th>RR Mark</th>
-                    <th>Name</th>
-                    <th style="width: 120px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var p in placements)
-                {
-                    var rr = allRailroads?.FirstOrDefault(r => r.CtrlNbr == p.RailroadCtrlNbr);
-                    <tr>
-                        <td><strong>@(rr?.RrMark ?? p.RailroadCtrlNbr.ToString())</strong></td>
-                        <td>@(rr?.Name ?? "Unknown")</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemovePlacement(p.CtrlNbr)">Remove</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <p class="text-muted">No hierarchy information available.</p>
     }
 
     <hr />
@@ -236,29 +182,23 @@ else
     [Parameter]
     public long CtrlNbr { get; set; }
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     private GroupResponse? group;
     private string groupTypeName = "";
-    private IReadOnlyList<RailroadGroupPlacementResponse>? placements;
+
+    private void NavigateBack() => NavigationManager.NavigateTo($"/config/group-types/{group?.GroupTypeCtrlNbr}");
     private IReadOnlyList<GroupResponse>? childGroups;
-    private IReadOnlyList<GetRailroadResponse>? allRailroads;
-    private IReadOnlyList<GetRailroadResponse>? availableRailroads;
+    private IReadOnlyList<GroupResponse>? ancestors;
+    private Dictionary<long, string> groupTypeNames = new();
     private IReadOnlyList<AttributeDefinitionResponse>? attributeDefinitions;
     private IReadOnlyList<AttributeValueResponse>? attributeValues;
     private Dictionary<long, string> editableValues = new();
-    private string? errorMessage;
-    private bool isEditing;
-    private EditGroupModel editModel = new();
-    private bool showPlaceForm;
-    private PlaceRailroadModel placeModel = new();
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         await LoadGroup();
-        await LoadPlacements();
-        await LoadRailroads();
+        await LoadGroupTypeNames();
+        await LoadAncestors();
         await LoadChildGroups();
         await LoadAttributes();
     }
@@ -278,33 +218,6 @@ else
         }
     }
 
-    private async Task LoadPlacements()
-    {
-        try
-        {
-            var response = await ConfigClient.GetRailroadsInGroupAsync(CtrlNbr);
-            placements = response.Placements;
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load placements: {ex.Message}";
-        }
-    }
-
-    private async Task LoadRailroads()
-    {
-        try
-        {
-            var response = await RailroadsClient.GetAllAsync();
-            allRailroads = response.Railroad;
-            UpdateAvailableRailroads();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load railroads: {ex.Message}";
-        }
-    }
-
     private async Task LoadChildGroups()
     {
         try
@@ -318,115 +231,35 @@ else
         }
     }
 
-    private void UpdateAvailableRailroads()
-    {
-        if (allRailroads is null || placements is null)
-        {
-            availableRailroads = allRailroads;
-            return;
-        }
-
-        var placedIds = placements.Select(p => p.RailroadCtrlNbr).ToHashSet();
-        availableRailroads = allRailroads.Where(r => !placedIds.Contains(r.CtrlNbr)).ToList();
-    }
-
-    private void StartEdit()
-    {
-        editModel = new()
-        {
-            Name = group!.Name,
-            IsWorkArea = group.IsWorkArea
-        };
-        isEditing = true;
-    }
-
-    private void CancelEdit() => isEditing = false;
-
-    private async Task SaveEdit()
+    private async Task LoadAncestors()
     {
         try
         {
-            errorMessage = null;
-            await ConfigClient.UpdateGroupAsync(CtrlNbr, editModel.Name, group!.ParentGroupCtrlNbr, editModel.IsWorkArea);
-            isEditing = false;
-            await LoadGroup();
+            var response = await ConfigClient.GetAncestorsAsync(CtrlNbr);
+            ancestors = response.Groups;
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = $"Failed to update group: {ex.Message}";
+            ancestors = [];
         }
     }
 
-    private async Task Delete()
+    private async Task LoadGroupTypeNames()
     {
         try
         {
-            var groupTypeId = group!.GroupTypeCtrlNbr;
-            await ConfigClient.DeleteGroupAsync(CtrlNbr);
-            NavigationManager.NavigateTo($"/config/group-types/{groupTypeId}");
+            var response = await ConfigClient.GetAllGroupTypesAsync();
+            groupTypeNames = response.GroupTypes.ToDictionary(gt => gt.CtrlNbr, gt => gt.Name);
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = $"Failed to delete group: {ex.Message}";
+            groupTypeNames = new();
         }
     }
 
-    private async Task ShowPlaceForm()
+    private string GetGroupTypeName(long groupTypeCtrlNbr)
     {
-        await LoadRailroads();
-        showPlaceForm = true;
-    }
-
-    private void CancelPlace()
-    {
-        showPlaceForm = false;
-        placeModel = new();
-    }
-
-    private async Task PlaceRailroad()
-    {
-        try
-        {
-            errorMessage = null;
-            await ConfigClient.PlaceRailroadAsync(placeModel.RailroadCtrlNbr, CtrlNbr);
-            showPlaceForm = false;
-            placeModel = new();
-            await LoadPlacements();
-            UpdateAvailableRailroads();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to place railroad: {ex.Message}";
-        }
-    }
-
-    private async Task RemovePlacement(long placementCtrlNbr)
-    {
-        try
-        {
-            errorMessage = null;
-            await ConfigClient.RemoveRailroadFromGroupAsync(placementCtrlNbr);
-            await LoadPlacements();
-            UpdateAvailableRailroads();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to remove placement: {ex.Message}";
-        }
-    }
-
-    private sealed class EditGroupModel
-    {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
-
-        public bool IsWorkArea { get; set; }
-    }
-
-    private sealed class PlaceRailroadModel
-    {
-        public long RailroadCtrlNbr { get; set; }
+        return groupTypeNames.TryGetValue(groupTypeCtrlNbr, out var name) ? name : "";
     }
 
     // Attribute Values

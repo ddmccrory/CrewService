@@ -35,7 +35,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GroupTypeResponse> CreateGroupTypeAsync(string name, string description, bool isWorkArea, string? flagsJson = null)
+    public async Task<GroupTypeResponse> CreateGroupTypeAsync(string name, string description, bool isWorkArea, string? flagsJson = null, long parentCtrlNbr = 0, long railroadCtrlNbr = 0, long parentGroupTypeCtrlNbr = 0)
     {
         try
         {
@@ -44,7 +44,10 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
                 Name = name,
                 Description = description,
                 IsWorkArea = isWorkArea,
-                FlagsJson = flagsJson ?? ""
+                FlagsJson = flagsJson ?? "",
+                ParentCtrlNbr = parentCtrlNbr,
+                RailroadCtrlNbr = railroadCtrlNbr,
+                ParentGroupTypeCtrlNbr = parentGroupTypeCtrlNbr
             });
         }
         catch (Exception ex)
@@ -54,7 +57,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GroupTypeResponse> UpdateGroupTypeAsync(long ctrlNbr, string name, string description, bool isWorkArea, string? flagsJson = null)
+    public async Task<GroupTypeResponse> UpdateGroupTypeAsync(long ctrlNbr, string name, string description, bool isWorkArea, string? flagsJson = null, long parentCtrlNbr = 0, long railroadCtrlNbr = 0, long parentGroupTypeCtrlNbr = 0)
     {
         try
         {
@@ -64,7 +67,10 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
                 Name = name,
                 Description = description,
                 IsWorkArea = isWorkArea,
-                FlagsJson = flagsJson ?? ""
+                FlagsJson = flagsJson ?? "",
+                ParentCtrlNbr = parentCtrlNbr,
+                RailroadCtrlNbr = railroadCtrlNbr,
+                ParentGroupTypeCtrlNbr = parentGroupTypeCtrlNbr
             });
         }
         catch (Exception ex)
@@ -88,6 +94,23 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
     }
 
     // ?? DynamicGroups ????????????????????????????????????????????????
+
+    public async Task<GetAllGroupsResponse> GetGroupsByTypeNameAsync(string typeName, long parentCtrlNbr = 0)
+    {
+        try
+        {
+            return await _client.GetGroupsByTypeNameAsync(new GetGroupsByTypeNameRequest
+            {
+                TypeName = typeName,
+                ParentCtrlNbr = parentCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 
     public async Task<GetAllGroupsResponse> GetAllGroupsAsync(long parentGroupCtrlNbr = 0)
     {
@@ -115,7 +138,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GroupResponse> CreateGroupAsync(long groupTypeCtrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false)
+    public async Task<GroupResponse> CreateGroupAsync(long groupTypeCtrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false, string? code = null, long parentCtrlNbr = 0)
     {
         try
         {
@@ -124,7 +147,9 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
                 GroupTypeCtrlNbr = groupTypeCtrlNbr,
                 Name = name,
                 ParentGroupCtrlNbr = parentGroupCtrlNbr,
-                IsWorkArea = isWorkArea
+                IsWorkArea = isWorkArea,
+                Code = code ?? string.Empty,
+                ParentCtrlNbr = parentCtrlNbr
             });
         }
         catch (Exception ex)
@@ -134,7 +159,7 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GroupResponse> UpdateGroupAsync(long ctrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false)
+    public async Task<GroupResponse> UpdateGroupAsync(long ctrlNbr, string name, long parentGroupCtrlNbr = 0, bool isWorkArea = false, string? code = null, long parentCtrlNbr = 0)
     {
         try
         {
@@ -143,7 +168,9 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
                 CtrlNbr = ctrlNbr,
                 Name = name,
                 ParentGroupCtrlNbr = parentGroupCtrlNbr,
-                IsWorkArea = isWorkArea
+                IsWorkArea = isWorkArea,
+                Code = code ?? string.Empty,
+                ParentCtrlNbr = parentCtrlNbr
             });
         }
         catch (Exception ex)
@@ -192,60 +219,11 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    // ?? Railroad Placements ??????????????????????????????????????????
-
-    public async Task<RailroadGroupPlacementResponse> PlaceRailroadAsync(long railroadCtrlNbr, long groupCtrlNbr)
+    public async Task<GetAllGroupsResponse> GetAncestorsAsync(long ctrlNbr)
     {
         try
         {
-            return await _client.PlaceRailroadInGroupAsync(new PlaceRailroadInGroupRequest
-            {
-                RailroadCtrlNbr = railroadCtrlNbr,
-                GroupCtrlNbr = groupCtrlNbr
-            });
-        }
-        catch (Exception ex)
-        {
-            LogException(ex);
-            throw;
-        }
-    }
-
-    public async Task RemoveRailroadFromGroupAsync(long placementCtrlNbr)
-    {
-        try
-        {
-            await _client.RemoveRailroadFromGroupAsync(new RemoveRailroadFromGroupRequest { CtrlNbr = placementCtrlNbr });
-        }
-        catch (Exception ex)
-        {
-            LogException(ex);
-            throw;
-        }
-    }
-
-    public async Task<GetRailroadPlacementsResponse> GetRailroadPlacementsAsync(long railroadCtrlNbr)
-    {
-        try
-        {
-            return await _client.GetRailroadPlacementsAsync(new GetRailroadPlacementsRequest { RailroadCtrlNbr = railroadCtrlNbr });
-        }
-        catch (Exception ex)
-        {
-            LogException(ex);
-            throw;
-        }
-    }
-
-    public async Task<GetRailroadPlacementsResponse> GetRailroadsInGroupAsync(long groupCtrlNbr, bool includeDescendants = false)
-    {
-        try
-        {
-            return await _client.GetRailroadsInGroupAsync(new GetRailroadsInGroupRequest
-            {
-                GroupCtrlNbr = groupCtrlNbr,
-                IncludeDescendants = includeDescendants
-            });
+            return await _client.GetAncestorsAsync(new GetAncestorsRequest { CtrlNbr = ctrlNbr });
         }
         catch (Exception ex)
         {

@@ -6,12 +6,19 @@ public class AppContextService
     public string? SelectedParentName { get; private set; }
     public long? SelectedRailroadCtrlNbr { get; private set; }
     public string? SelectedRailroadName { get; private set; }
+    public string? DisplayName { get; set; }
 
     public bool HasParent => SelectedParentCtrlNbr.HasValue;
     public bool HasRailroad => SelectedRailroadCtrlNbr.HasValue;
     public bool IsFullySelected => HasParent && HasRailroad;
 
     public event Action? OnContextChanged;
+
+    public void SetDisplayName(string name)
+    {
+        DisplayName = name;
+        OnContextChanged?.Invoke();
+    }
 
     public void SetParent(long ctrlNbr, string name)
     {

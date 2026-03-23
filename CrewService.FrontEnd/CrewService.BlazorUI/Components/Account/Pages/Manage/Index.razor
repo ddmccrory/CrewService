@@ -1,24 +1,37 @@
 @page "/Account/Manage"
+@rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Authentication.Cookies
 @using CrewService.BlazorUI.Clients
-@using CrewService.BlazorUI.Components.Account
-@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
+
+@inherits AppComponentBase
 
 @inject AccountClient AccountClient
 @inject EmployeeClient EmployeeClient
-@inject IdentityRedirectManager RedirectManager
+@inject CrewService.BlazorUI.Services.AppContextService AppContext
 
 <PageTitle>Profile</PageTitle>
 
 <h3>Profile</h3>
-<StatusMessage />
 
-@if (isEmployee && employee is not null)
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (CurrentUser.IsEmployee && employee is not null)
 {
     <div class="row">
         <div class="col-xl-6">
@@ -30,14 +43,14 @@
                 <label class="form-label">Social Security Number</label>
                 <div class="input-group">
                     <input type="text" value="@ssnDisplay" class="form-control" disabled />
-                    <form method="post" @formname="show-ssn" @onsubmit="OnShowSsn" style="@(showFullSsn ? "display:none" : "")">
-                        <AntiforgeryToken />
-                        <button type="submit" class="btn btn-outline-secondary">Show</button>
-                    </form>
-                    <form method="post" @formname="hide-ssn" @onsubmit="OnHideSsn" style="@(showFullSsn ? "" : "display:none")">
-                        <AntiforgeryToken />
-                        <button type="submit" class="btn btn-outline-secondary">Hide</button>
-                    </form>
+                    @if (!showFullSsn)
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="OnShowSsn">Show</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="OnHideSsn">Hide</button>
+                    }
                 </div>
             </div>
             <div class="form-floating mb-3">
@@ -53,13 +66,13 @@
     <hr />
 }
 
-<EditForm Model="Input" FormName="profile" OnValidSubmit="OnSaveAsync" method="post">
+<EditForm Model="Input" OnValidSubmit="OnSaveAsync">
     <DataAnnotationsValidator />
     <ValidationSummary class="text-danger" role="alert" />
     <div class="row">
         <div class="col-xl-6">
             <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Username" disabled />
+                <input type="text" value="@CurrentUser.Username" id="username" class="form-control" placeholder="Username" disabled />
                 <label for="username" class="form-label">Username</label>
             </div>
             <div class="form-floating mb-3">
@@ -78,7 +91,7 @@
                 <ValidationMessage For="() => Input.LastName" class="text-danger" />
             </div>
 
-            @if (isEmployee && employee is not null)
+            @if (CurrentUser.IsEmployee && employee is not null)
             {
                 <div class="form-floating mb-3">
                     <InputText @bind-Value="Input.DriversLicenseNumber" class="form-control" placeholder="Driver's License" />
@@ -128,7 +141,7 @@
                     <InputCheckbox @bind-Value="Input.CallForOvertime" class="form-check-input" />
                     <label class="form-check-label">Call for Overtime</label>
                 </div>
-                @if (isAdmin)
+                @if (CurrentUser.IsAdmin)
                 {
                 <div class="form-check mb-3">
                     <InputCheckbox @bind-Value="Input.AllowFmlaMarkOff" class="form-check-input" />
@@ -151,70 +164,41 @@
 </EditForm>
 
 @code {
-    private string? username;
-    private bool isEmployee;
-    private bool isAdmin;
-    private string? employeeNumber;
-    private GetEmployeeResponse? employee;
+    private GetEmployeeResponse? employee => CurrentUser.Employee;
     private bool showFullSsn;
     private string ssnDisplay = string.Empty;
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "profile")]
-    private InputModel Input { get; set; } = default!;
+    private InputModel Input { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
-        Input ??= new();
-
-        var user = HttpContext.User;
-        username = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        isAdmin = user.IsInRole(Roles.SystemAdmin) || user.IsInRole(Roles.ParentAdmin) || user.IsInRole(Roles.RailroadAdmin);
+        await base.OnInitializedAsync();
 
         try
         {
-            var profile = await AccountClient.GetProfileAsync(username ?? string.Empty);
-            Input.FirstName ??= profile.FirstName;
-            Input.MiddleName ??= profile.MiddleName;
-            Input.LastName ??= profile.LastName;
+            var profile = await AccountClient.GetProfileAsync(CurrentUser.Username ?? string.Empty);
+            Input.FirstName = profile.FirstName;
+            Input.MiddleName = profile.MiddleName;
+            Input.LastName = profile.LastName;
         }
         catch
         {
         }
 
-        employeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
-        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        if (CurrentUser.IsEmployee && employee is not null)
         {
-            try
-            {
-                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
-                isEmployee = true;
+            var ssn = employee.SocialSecurityNumber;
+            ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
 
-                var ssn = employee.SocialSecurityNumber;
-                ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
-
-                var isFormPost = HttpMethods.IsPost(HttpContext.Request.Method)
-                    && HttpContext.Request.Form.ContainsKey("_handler")
-                    && HttpContext.Request.Form["_handler"] == "profile";
-                if (!isFormPost)
-                {
-                    Input.Gender = employee.Gender;
-                    Input.Race = employee.Race;
-                    Input.DriversLicenseNumber = employee.DriversLicenseNumber;
-                    Input.IssuingState = employee.IssuingState;
-                    Input.MaritalStatus = employee.MaritalStatus;
-                    Input.AllowFmlaMarkOff = employee.AllowFmlaMarkOff;
-                    Input.CallForOvertime = employee.CallForOvertime;
-                    Input.ProcessPayroll = employee.ProcessPayroll;
-                    Input.TieUpOffProperty = employee.TieUpOffProperty;
-                }
-            }
-            catch
-            {
-                isEmployee = false;
-            }
+            Input.Gender = employee.Gender;
+            Input.Race = employee.Race;
+            Input.DriversLicenseNumber = employee.DriversLicenseNumber;
+            Input.IssuingState = employee.IssuingState;
+            Input.MaritalStatus = employee.MaritalStatus;
+            Input.AllowFmlaMarkOff = employee.AllowFmlaMarkOff;
+            Input.CallForOvertime = employee.CallForOvertime;
+            Input.ProcessPayroll = employee.ProcessPayroll;
+            Input.TieUpOffProperty = employee.TieUpOffProperty;
         }
     }
 
@@ -227,38 +211,31 @@
 
     private void OnHideSsn()
     {
-        // Default state from OnInitializedAsync is already masked.
-        // This handler exists only for the form mapping.
+        if (employee is null) return;
+        showFullSsn = false;
+        var ssn = employee.SocialSecurityNumber;
+        ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
     }
 
     private async Task OnSaveAsync()
     {
+        successMessage = null;
+        errorMessage = null;
+
         var messages = new List<string>();
 
         var profileResponse = await AccountClient.SaveProfileAsync(
-            username ?? string.Empty,
+            CurrentUser.Username ?? string.Empty,
             Input.FirstName ?? string.Empty,
             Input.MiddleName ?? string.Empty,
             Input.LastName ?? string.Empty);
 
-        if (profileResponse.Success)
-        {
-            var identity = (ClaimsIdentity)HttpContext.User.Identity!;
-            var existing = identity.FindFirst(ClaimTypes.Name);
-            if (existing is not null)
-                identity.RemoveClaim(existing);
-            identity.AddClaim(new Claim(ClaimTypes.Name, profileResponse.FullName));
-
-            await HttpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                HttpContext.User);
-        }
-        else
+        if (!profileResponse.Success)
         {
             messages.Add("Profile: " + string.Join("; ", profileResponse.Message));
         }
 
-        if (isEmployee && employee is not null)
+        if (CurrentUser.IsEmployee && employee is not null)
         {
             var employeeResponse = await EmployeeClient.UpdateAsync(new UpdateEmployeeRequest
             {
@@ -268,10 +245,10 @@
                 DriversLicenseNumber = Input.DriversLicenseNumber ?? string.Empty,
                 IssuingState = Input.IssuingState ?? string.Empty,
                 MaritalStatus = Input.MaritalStatus ?? string.Empty,
-                AllowFmlaMarkOff = isAdmin ? Input.AllowFmlaMarkOff : employee.AllowFmlaMarkOff,
+                AllowFmlaMarkOff = CurrentUser.IsAdmin ? Input.AllowFmlaMarkOff : employee.AllowFmlaMarkOff,
                 CallForOvertime = Input.CallForOvertime,
-                ProcessPayroll = isAdmin ? Input.ProcessPayroll : employee.ProcessPayroll,
-                TieUpOffProperty = isAdmin ? Input.TieUpOffProperty : employee.TieUpOffProperty
+                ProcessPayroll = CurrentUser.IsAdmin ? Input.ProcessPayroll : employee.ProcessPayroll,
+                TieUpOffProperty = CurrentUser.IsAdmin ? Input.TieUpOffProperty : employee.TieUpOffProperty
             });
 
             if (!employeeResponse.Success)
@@ -280,10 +257,19 @@
             }
         }
 
-        var statusMessage = messages.Count > 0
-            ? "Error: " + string.Join(" | ", messages)
-            : "Your profile has been updated.";
-        RedirectManager.RedirectToCurrentPageWithStatus(statusMessage, HttpContext);
+        if (messages.Count > 0)
+        {
+            errorMessage = string.Join(" | ", messages);
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(profileResponse.FullName))
+            {
+                AppContext.SetDisplayName(profileResponse.FullName);
+            }
+
+            successMessage = "Your profile has been updated.";
+        }
     }
 
     private sealed class InputModel

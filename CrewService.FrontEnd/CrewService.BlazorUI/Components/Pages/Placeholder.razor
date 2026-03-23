@@ -27,22 +27,21 @@
 @page "/admin/jobs"
 
 @using Microsoft.AspNetCore.Authorization
-@using CrewService.BlazorUI.Services
 @attribute [Authorize]
 
-@inject NavigationManager NavigationManager
-@inject AppContextService AppContext
+@rendermode InteractiveServer
+@inherits AppComponentBase
 
 <PageTitle>@pageName — Crew Service</PageTitle>
 
 <h3>@pageName</h3>
 
-@if (AppContext.IsFullySelected)
+@if (IsContextFullySelected)
 {
     <p class="text-muted">
-        <span class="bi bi-diagram-3 me-1" aria-hidden="true"></span>@AppContext.SelectedParentName
+        <span class="bi bi-diagram-3 me-1" aria-hidden="true"></span>@SelectedParentName
         <span class="mx-1">→</span>
-        <span class="bi bi-train-front me-1" aria-hidden="true"></span>@AppContext.SelectedRailroadName
+        <span class="bi bi-train-front me-1" aria-hidden="true"></span>@SelectedRailroadName
     </p>
     <p class="text-muted">This page is under construction and will be available in a future release.</p>
 }

@@ -61,7 +61,7 @@ else if (tokenValid)
     <div class="row">
         <div class="col-md-4">
             <StatusMessage Message="@errorMessage" />
-            <EditForm Model="Input!" method="post" OnValidSubmit="RegisterUser" FormName="accept-invitation">
+            <EditForm Model="Input!" method="post" OnValidSubmit="HandleAcceptInvitation" FormName="accept-invitation">
                 <DataAnnotationsValidator />
                 <h5>Create your password</h5>
                 <hr />
@@ -94,7 +94,7 @@ else if (tokenValid)
     private string? invitationRailroadName;
 
     [SupplyParameterFromForm]
-    private RegisterInputModel? Input { get; set; }
+    private AcceptInvitationInputModel? Input { get; set; }
 
     [SupplyParameterFromQuery(Name = "token")]
     private string? Token { get; set; }
@@ -141,8 +141,8 @@ else if (tokenValid)
 
                 if (result.UserAlreadyExists)
                 {
-                    // Existing user: call RegisterUser to accept the invitation and update the assignment
-                    var acceptResult = await AuthService.RegisterUserAsync(new Models.Account.RegisterInputModel
+                    // Existing user: accept the invitation and update the assignment
+                    var acceptResult = await AuthService.AcceptInvitationAsync(new Models.Account.AcceptInvitationInputModel
                     {
                         InvitationToken = Token!
                     });
@@ -177,9 +177,9 @@ else if (tokenValid)
         isLoading = false;
     }
 
-    public async Task RegisterUser()
+    public async Task HandleAcceptInvitation()
     {
-        var result = await AuthService.RegisterUserAsync(Input!);
+        var result = await AuthService.AcceptInvitationAsync(Input!);
 
         if (!result.Success)
         {
@@ -187,7 +187,7 @@ else if (tokenValid)
             return;
         }
 
-        Logger.LogInformation("User created a new account via invitation.");
+        Logger.LogInformation("User accepted invitation and created account.");
         RedirectManager.RedirectTo("/Account/Login");
     }
 }

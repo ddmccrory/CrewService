@@ -1,120 +1,148 @@
 @page "/Account/Manage/EmailAddresses"
+@rendermode InteractiveServer
+@inherits AppComponentBase
 
 @using System.ComponentModel.DataAnnotations
-@using System.Security.Claims
 @using CrewService.BlazorUI.Clients
-@using CrewService.BlazorUI.Components.Account
-@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
 
 @inject EmployeeClient EmployeeClient
 @inject EmailAddressTypeClient EmailAddressTypeClient
-@inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Email Addresses</PageTitle>
 
 <h3>Email Addresses</h3>
-<StatusMessage />
 
-@if (employee is not null)
-{
-    @if (employee.EmailAddresses.Count > 0)
-    {
-        <table class="table table-sm table-striped">
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Email</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var email in employee.EmailAddresses)
-                {
-                    <tr>
-                        <td>@(emailTypes.FirstOrDefault(t => t.CtrlNbr == email.EmailTypeCtrlNbr)?.Name)</td>
-                        <td>@email.Email</td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <form method="post" @formname="@($"edit-email-{email.CtrlNbr}")" @onsubmit="() => OnEditAsync(email.CtrlNbr)">
-                                    <AntiforgeryToken />
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">Edit</button>
-                                </form>
-                                <ConfirmDeleteButton FormName="@($"delete-email-{email.CtrlNbr}")"
-                                                     OnClick="() => OnDeleteAsync(email.CtrlNbr)" />
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted">No email addresses on file.</p>
-    }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-primary" @onclick="OpenCreateModal">
+        <span class="bi bi-plus-circle"></span> Add Email Address
+    </button>
+</div>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">@(Input.EditCtrlNbr > 0 ? "Edit Email Address" : "Add Email Address")</h5>
-            <EditForm Model="Input" FormName="save-email" OnValidSubmit="OnSaveAsync" method="post">
-                <DataAnnotationsValidator />
-                <input type="hidden" name="Input.EditCtrlNbr" value="@Input.EditCtrlNbr" />
-                <div class="row g-2">
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <InputSelect @bind-Value="Input.EmailTypeCtrlNbr" class="form-select">
-                                <option value="0">-- Select Type --</option>
-                                @foreach (var t in emailTypes)
-                                {
-                                    <option value="@t.CtrlNbr">@t.Name</option>
-                                }
-                            </InputSelect>
-                            <label>Type</label>
-                        </div>
-                    </div>
-                    <div class="col-md-8">
-                        <div class="form-floating">
-                            <InputText @bind-Value="Input.Email" class="form-control" placeholder="Email Address" />
-                            <label>Email Address</label>
-                        </div>
-                    </div>
+<Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Email Address" : "Add Email Address")"
+       Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+       OnClose="CloseSaveModal">
+    <BodyContent>
+        <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-email-form">
+            <DataAnnotationsValidator />
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Type</label>
+                    <InputSelect @bind-Value="saveModel.EmailTypeCtrlNbr" class="form-select" disabled="@(editCtrlNbr > 0)">
+                        <option value="0">-- Select Type --</option>
+                        @foreach (var t in emailTypes)
+                        {
+                            <option value="@t.CtrlNbr">@t.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => saveModel.EmailTypeCtrlNbr" class="text-danger" />
                 </div>
-                <button type="submit" class="btn btn-primary mt-2">@(Input.EditCtrlNbr > 0 ? "Update Email" : "Add Email")</button>
-                @if (Input.EditCtrlNbr > 0)
-                {
-                    <a href="/Account/Manage/EmailAddresses" class="btn btn-secondary mt-2 ms-2">Cancel</a>
-                }
-            </EditForm>
-        </div>
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Email Address</label>
+                    <InputText @bind-Value="saveModel.Email" class="form-control" placeholder="Email Address" />
+                    <ValidationMessage For="() => saveModel.Email" class="text-danger" />
+                </div>
+            </div>
+        </EditForm>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+        <button type="submit" form="save-email-form" class="btn btn-primary">
+            <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Add")
+        </button>
+    </Footer>
+</Modal>
+
+<Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+       OnClose="() => showDeleteModal = false" Size="sm">
+    <BodyContent>
+        <p>Are you sure you want to delete <strong>@deleteEmailLabel</strong>?</p>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+            <span class="bi bi-trash me-1"></span> Delete
+        </button>
+    </Footer>
+</Modal>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
     </div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (employee is null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (employee.EmailAddresses.Count == 0)
+{
+    <p class="text-muted">No email addresses on file.</p>
 }
 else
 {
-    <p class="text-muted">Employee information not available.</p>
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Email</th>
+                <th style="width: 180px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var email in employee.EmailAddresses)
+            {
+                <tr>
+                    <td>@(emailTypes.FirstOrDefault(t => t.CtrlNbr == email.EmailTypeCtrlNbr)?.Name)</td>
+                    <td>@email.Email</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(email)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(email)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }
 
 @code {
-    private GetEmployeeResponse? employee;
+    private GetEmployeeResponse? employee => CurrentUser.Employee;
     private List<EmailAddressTypeResponse> emailTypes = [];
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private EmailInputModel saveModel = new();
 
-    [SupplyParameterFromForm(FormName = "save-email")]
-    private EmailInputModel Input { get; set; } = default!;
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteEmailLabel = "";
 
     protected override async Task OnInitializedAsync()
     {
-        Input ??= new();
+        await base.OnInitializedAsync();
 
-        var employeeNumber = HttpContext.User.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
-        if (!string.IsNullOrWhiteSpace(employeeNumber))
+        if (CurrentUser.IsEmployee)
         {
             try
             {
-                employee = await EmployeeClient.GetByNumberAsync(employeeNumber);
-                var typesResponse = await EmailAddressTypeClient.GetAllAsync(employee.ClientCtrlNbr);
+                var typesResponse = await EmailAddressTypeClient.GetAllAsync(employee!.ClientCtrlNbr);
                 emailTypes = [.. typesResponse.EmaiAddressTypeList];
             }
             catch
@@ -123,55 +151,102 @@ else
         }
     }
 
-    private Task OnEditAsync(long ctrlNbr)
-    {
-        if (employee is null) return Task.CompletedTask;
-        var email = employee.EmailAddresses.FirstOrDefault(e => e.CtrlNbr == ctrlNbr);
-        if (email is null) return Task.CompletedTask;
+    private async Task ReloadEmployee() => await CurrentUser.ReloadEmployeeAsync();
 
-        Input.EditCtrlNbr = email.CtrlNbr;
-        Input.EmailTypeCtrlNbr = email.EmailTypeCtrlNbr;
-        Input.Email = email.Email;
-        return Task.CompletedTask;
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
     }
 
-    private async Task OnSaveAsync()
+    private void OpenEditModal(EmailAddressResponse email)
+    {
+        editCtrlNbr = email.CtrlNbr;
+        saveModel = new()
+        {
+            EmailTypeCtrlNbr = email.EmailTypeCtrlNbr,
+            Email = email.Email
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(EmailAddressResponse email)
+    {
+        deleteCtrlNbr = email.CtrlNbr;
+        deleteEmailLabel = email.Email;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
     {
         if (employee is null) return;
 
-        if (Input.EditCtrlNbr > 0)
+        try
         {
-            await EmployeeClient.UpdateEmailAddressAsync(new UpdateEmailAddressRequest
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
             {
-                EmployeeCtrlNbr = employee.CtrlNbr,
-                CtrlNbr = Input.EditCtrlNbr,
-                Email = Input.Email ?? string.Empty
-            });
-            RedirectManager.RedirectToCurrentPageWithStatus("Email address updated.", HttpContext);
+                await EmployeeClient.UpdateEmailAddressAsync(new UpdateEmailAddressRequest
+                {
+                    EmployeeCtrlNbr = employee.CtrlNbr,
+                    CtrlNbr = editCtrlNbr,
+                    Email = saveModel.Email ?? string.Empty
+                });
+                successMessage = "Email address updated.";
+            }
+            else
+            {
+                await EmployeeClient.AddEmailAddressAsync(new AddEmailAddressRequest
+                {
+                    EmployeeCtrlNbr = employee.CtrlNbr,
+                    EmailTypeCtrlNbr = saveModel.EmailTypeCtrlNbr,
+                    Email = saveModel.Email ?? string.Empty
+                });
+                successMessage = "Email address added.";
+            }
+
+            CloseSaveModal();
+            await ReloadEmployee();
         }
-        else
+        catch (Exception ex)
         {
-            await EmployeeClient.AddEmailAddressAsync(new AddEmailAddressRequest
-            {
-                EmployeeCtrlNbr = employee.CtrlNbr,
-                EmailTypeCtrlNbr = Input.EmailTypeCtrlNbr,
-                Email = Input.Email ?? string.Empty
-            });
-            RedirectManager.RedirectToCurrentPageWithStatus("Email address added.", HttpContext);
+            errorMessage = $"Failed to save email address: {ex.Message}";
         }
     }
 
-    private async Task OnDeleteAsync(long ctrlNbr)
+    private async Task ConfirmDelete()
     {
         if (employee is null) return;
-        await EmployeeClient.DeleteEmailAddressAsync(employee.CtrlNbr, ctrlNbr);
-        RedirectManager.RedirectToCurrentPageWithStatus("Email address removed.", HttpContext);
+
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await EmployeeClient.DeleteEmailAddressAsync(employee.CtrlNbr, deleteCtrlNbr);
+            successMessage = "Email address removed.";
+            showDeleteModal = false;
+            await ReloadEmployee();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete email address: {ex.Message}";
+            showDeleteModal = false;
+        }
     }
 
     private sealed class EmailInputModel
     {
-        public long EditCtrlNbr { get; set; }
-
         [Required, EmailAddress, Display(Name = "Email Address")]
         public string? Email { get; set; }
 

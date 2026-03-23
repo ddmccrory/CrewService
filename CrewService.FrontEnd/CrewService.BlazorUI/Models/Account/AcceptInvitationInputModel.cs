@@ -1,8 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace CrewService.BlazorUI.Models.Account;
 
-internal sealed class RegisterInputModel
+internal sealed class AcceptInvitationInputModel
 {
     public string InvitationToken { get; set; } = "";
 

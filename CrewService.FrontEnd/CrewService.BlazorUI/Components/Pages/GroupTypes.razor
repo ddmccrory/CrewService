@@ -1,8 +1,12 @@
 @page "/config/group-types"
+@rendermode InteractiveServer
 
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
+
+@inherits AppComponentBase
 
 @attribute [Authorize]
 
@@ -13,50 +17,86 @@
 <h1>Group Types</h1>
 <p class="text-muted">Define the organizational taxonomy (e.g., Region, Division, Yard).</p>
 
-<div class="mb-3">
-    <button class="btn btn-primary" @onclick="ShowCreateForm">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-primary" @onclick="OpenCreateModal" disabled="@(!SelectedParentCtrlNbr.HasValue)">
         <span class="bi bi-plus-circle"></span> New Group Type
     </button>
+    @if (!SelectedParentCtrlNbr.HasValue)
+    {
+        <span class="text-muted small">Select a parent to add group types.</span>
+    }
 </div>
 
-@if (showCreateForm)
+<Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Group Type" : "Create Group Type")"
+       Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+       OnClose="CloseSaveModal">
+    <BodyContent>
+        <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-grouptype-form">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Name</label>
+                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Name" />
+                <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Description</label>
+                <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Description" />
+            </div>
+            <div class="form-check mb-3">
+                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" />
+                <label class="form-check-label" for="isWorkArea">Work Area</label>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Parent Group Type</label>
+                <InputSelect @bind-Value="saveModel.ParentGroupTypeCtrlNbr" class="form-select">
+                    <option value="0">(None — root level)</option>
+                    @if (groupTypes is not null)
+                    {
+                        @foreach (var gt in groupTypes.Where(x => x.CtrlNbr != editCtrlNbr))
+                        {
+                            <option value="@gt.CtrlNbr">@gt.Name</option>
+                        }
+                    }
+                </InputSelect>
+                <div class="form-text">Groups of this type can be children of groups belonging to the parent type.</div>
+            </div>
+        </EditForm>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+        <button type="submit" form="save-grouptype-form" class="btn btn-primary">
+            <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+        </button>
+    </Footer>
+</Modal>
+
+<Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+       OnClose="() => showDeleteModal = false" Size="sm">
+    <BodyContent>
+        <p>Are you sure you want to delete <strong>@deleteGroupTypeName</strong>?</p>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+            <span class="bi bi-trash me-1"></span> Delete
+        </button>
+    </Footer>
+</Modal>
+
+@if (successMessage is not null)
 {
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5 class="card-title">Create Group Type</h5>
-            <EditForm Model="formModel" OnValidSubmit="CreateGroupType" FormName="createGroupType">
-                <DataAnnotationsValidator />
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-floating mb-3">
-                            <InputText @bind-Value="formModel.Name" class="form-control" placeholder="Name" />
-                            <label>Name</label>
-                            <ValidationMessage For="() => formModel.Name" class="text-danger" />
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating mb-3">
-                            <InputText @bind-Value="formModel.Description" class="form-control" placeholder="Description" />
-                            <label>Description</label>
-                        </div>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-center">
-                        <div class="form-check">
-                            <InputCheckbox @bind-Value="formModel.IsWorkArea" class="form-check-input" id="isWorkArea" />
-                            <label class="form-check-label" for="isWorkArea">Work Area</label>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-success me-2">Create</button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
-            </EditForm>
-        </div>
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
     </div>
 }
 
 @if (errorMessage is not null)
 {
-    <div class="alert alert-danger" role="alert">@errorMessage</div>
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
 }
 
 @if (groupTypes is null)
@@ -73,8 +113,9 @@ else
         <thead>
             <tr>
                 <th>Name</th>
-                <th>Description</th>
-                <th>Work Area</th>
+                    <th>Description</th>
+                    <th>Parent Group Type</th>
+                    <th>Work Area</th>
                 <th style="width: 180px;"></th>
             </tr>
         </thead>
@@ -83,9 +124,20 @@ else
             {
                 <tr>
                     <td>
-                        <a href="/config/group-types/@gt.CtrlNbr">@gt.Name</a>
+                        <a href="/config/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
                     </td>
                     <td>@gt.Description</td>
+                    <td>
+                        @if (gt.ParentGroupTypeCtrlNbr > 0)
+                        {
+                            var parentGtName = groupTypes?.FirstOrDefault(x => x.CtrlNbr == gt.ParentGroupTypeCtrlNbr)?.Name ?? gt.ParentGroupTypeCtrlNbr.ToString();
+                            @parentGtName
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
                     <td>
                         @if (gt.IsWorkArea)
                         {
@@ -93,7 +145,14 @@ else
                         }
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteGroupType(gt.CtrlNbr)">Delete</button>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(gt)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
                     </td>
                 </tr>
             }
@@ -103,14 +162,22 @@ else
 
 @code {
     private IReadOnlyList<GroupTypeResponse>? groupTypes;
-    private string? errorMessage;
-    private bool showCreateForm;
-    private GroupTypeFormModel formModel = new();
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private GroupTypeInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteGroupTypeName = "";
 
     protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await LoadGroupTypes();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
     {
         await LoadGroupTypes();
     }
@@ -119,60 +186,120 @@ else
     {
         try
         {
-            errorMessage = null;
             var response = await ConfigClient.GetAllGroupTypesAsync();
-            groupTypes = response.GroupTypes;
+            var all = response.GroupTypes;
+
+            if (SelectedRailroadCtrlNbr is long railroadCtrlNbr)
+            {
+                groupTypes = all
+                    .Where(gt => (gt.ParentCtrlNbr == SelectedParentCtrlNbr && gt.RailroadCtrlNbr == railroadCtrlNbr)
+                              || (gt.ParentCtrlNbr == SelectedParentCtrlNbr && gt.RailroadCtrlNbr == 0)
+                              || (gt.ParentCtrlNbr == 0 && gt.RailroadCtrlNbr == 0))
+                    .ToList();
+            }
+            else if (SelectedParentCtrlNbr is long parentCtrlNbr)
+            {
+                groupTypes = all
+                    .Where(gt => (gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0)
+                              || (gt.ParentCtrlNbr == 0 && gt.RailroadCtrlNbr == 0))
+                    .ToList();
+            }
+            else
+            {
+                groupTypes = all;
+            }
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = $"Failed to load group types: {ex.Message}";
+            groupTypes = [];
         }
     }
 
-    private void ShowCreateForm() => showCreateForm = true;
-    private void CancelForm()
+    private void OpenCreateModal()
     {
-        showCreateForm = false;
-        formModel = new();
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
     }
 
-    private async Task CreateGroupType()
+    private void OpenEditModal(GroupTypeResponse gt)
+    {
+        editCtrlNbr = gt.CtrlNbr;
+        saveModel = new() { Name = gt.Name, Description = gt.Description, IsWorkArea = gt.IsWorkArea, ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(GroupTypeResponse gt)
+    {
+        deleteCtrlNbr = gt.CtrlNbr;
+        deleteGroupTypeName = gt.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
     {
         try
         {
             errorMessage = null;
-            await ConfigClient.CreateGroupTypeAsync(formModel.Name, formModel.Description, formModel.IsWorkArea);
-            showCreateForm = false;
-            formModel = new();
+            successMessage = null;
+
+            var parentScope = SelectedParentCtrlNbr ?? 0;
+            var railroadScope = SelectedRailroadCtrlNbr ?? 0;
+
+            if (editCtrlNbr > 0)
+            {
+                await ConfigClient.UpdateGroupTypeAsync(editCtrlNbr, saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.IsWorkArea, parentCtrlNbr: parentScope, railroadCtrlNbr: railroadScope, parentGroupTypeCtrlNbr: saveModel.ParentGroupTypeCtrlNbr);
+                successMessage = "Group type updated.";
+            }
+            else
+            {
+                await ConfigClient.CreateGroupTypeAsync(saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.IsWorkArea, parentCtrlNbr: parentScope, railroadCtrlNbr: railroadScope, parentGroupTypeCtrlNbr: saveModel.ParentGroupTypeCtrlNbr);
+                successMessage = "Group type created.";
+            }
+
+            CloseSaveModal();
             await LoadGroupTypes();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to create group type: {ex.Message}";
+            errorMessage = $"Failed to save group type: {ex.Message}";
         }
     }
 
-    private async Task DeleteGroupType(long ctrlNbr)
+    private async Task ConfirmDelete()
     {
         try
         {
             errorMessage = null;
-            await ConfigClient.DeleteGroupTypeAsync(ctrlNbr);
+            successMessage = null;
+
+            await ConfigClient.DeleteGroupTypeAsync(deleteCtrlNbr);
+            successMessage = "Group type deleted.";
+            showDeleteModal = false;
             await LoadGroupTypes();
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to delete group type: {ex.Message}";
+            showDeleteModal = false;
         }
     }
 
-    private sealed class GroupTypeFormModel
+    private sealed class GroupTypeInputModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = "";
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
 
-        public string Description { get; set; } = "";
+        public string? Description { get; set; }
         public bool IsWorkArea { get; set; }
+        public long ParentGroupTypeCtrlNbr { get; set; }
     }
 }

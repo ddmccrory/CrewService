@@ -17,3 +17,4 @@
 - All admin roles (SystemAdmin, ParentAdmin, RailroadAdmin) should have the same access to features like Administration, Invitations, and admin-only profile fields. The only restriction is they cannot assign roles above their own level in the hierarchy.
 - Use buttons (sized evenly) over links on list pages.
 - Create dialogs should use the Modal component pattern from the Invitations page (Modal with BodyContent/Footer render fragments, form id linking for submit). This pattern should be followed throughout the entire project. User strongly prefers modal dialogs over inline forms for CRUD operations on management pages.
+- Edit and Delete buttons belong on lister/table pages (in row action columns), NOT on detail page headers. Detail pages are read-only views; editing and deleting an item is done from the list page that contains it.

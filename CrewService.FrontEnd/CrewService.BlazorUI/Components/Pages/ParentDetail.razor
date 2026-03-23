@@ -6,10 +6,12 @@
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
 
+@inherits AppComponentBase
+
 @attribute [Authorize]
 
 @inject ParentsClient ParentsClient
-@inject RailroadsClient RailroadsClient
+@inject TenantConfigClient ConfigClient
 
 <PageTitle>Parent Detail</PageTitle>
 
@@ -19,12 +21,9 @@
 }
 else
 {
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/parents">Parents</a></li>
-            <li class="breadcrumb-item active" aria-current="page">@parent.Name</li>
-        </ol>
-    </nav>
+    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="NavigateBack">
+        <span class="bi bi-chevron-left me-1"></span> Parents
+    </button>
 
     <h1>@parent.Name</h1>
 
@@ -93,7 +92,7 @@ else
         </div>
     }
 
-    @if (parent.Railroads.Count == 0)
+    @if (railroads is null || railroads.Count == 0)
     {
         <p class="text-muted">No railroads for this parent.</p>
     }
@@ -108,10 +107,10 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var rr in parent.Railroads)
+                @foreach (var rr in railroads)
                 {
                     <tr>
-                        <td><strong>@rr.RrMark</strong></td>
+                        <td><strong>@rr.Code</strong></td>
                         <td>@rr.Name</td>
                         <td>
                             <div class="d-flex gap-1">
@@ -135,8 +134,10 @@ else
     public long CtrlNbr { get; set; }
 
     private GetParentResponse? parent;
-    private string? successMessage;
-    private string? errorMessage;
+    private IReadOnlyList<GroupResponse>? railroads;
+    private long railroadGroupTypeCtrlNbr;
+
+    private void NavigateBack() => NavigationManager.NavigateTo("/parents");
 
     private bool showSaveModal;
     private long editCtrlNbr;
@@ -148,7 +149,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         await LoadParent();
+        await LoadRailroads();
     }
 
     private async Task LoadParent()
@@ -162,6 +165,31 @@ else
         }
     }
 
+    private async Task LoadRailroads()
+    {
+        try
+        {
+            var response = await ConfigClient.GetGroupsByTypeNameAsync("Railroad", CtrlNbr);
+            railroads = response.Groups;
+
+            // Resolve the Railroad GroupType CtrlNbr for creating new railroads
+            if (railroads.Count > 0)
+            {
+                railroadGroupTypeCtrlNbr = railroads[0].GroupTypeCtrlNbr;
+            }
+            else
+            {
+                var allTypes = await ConfigClient.GetAllGroupTypesAsync();
+                var rrType = allTypes.GroupTypes.FirstOrDefault(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == CtrlNbr);
+                railroadGroupTypeCtrlNbr = rrType?.CtrlNbr ?? 0;
+            }
+        }
+        catch
+        {
+            railroads = [];
+        }
+    }
+
     private void OpenAddModal()
     {
         editCtrlNbr = 0;
@@ -169,10 +197,10 @@ else
         showSaveModal = true;
     }
 
-    private void OpenEditModal(GetRailroadResponse rr)
+    private void OpenEditModal(GroupResponse rr)
     {
         editCtrlNbr = rr.CtrlNbr;
-        saveModel = new() { RrMark = rr.RrMark, Name = rr.Name };
+        saveModel = new() { RrMark = rr.Code, Name = rr.Name };
         showSaveModal = true;
     }
 
@@ -183,10 +211,10 @@ else
         saveModel = new();
     }
 
-    private void OpenDeleteModal(GetRailroadResponse rr)
+    private void OpenDeleteModal(GroupResponse rr)
     {
         deleteCtrlNbr = rr.CtrlNbr;
-        deleteRailroadName = $"{rr.RrMark} — {rr.Name}";
+        deleteRailroadName = $"{rr.Code} — {rr.Name}";
         showDeleteModal = true;
     }
 
@@ -199,17 +227,18 @@ else
 
             if (editCtrlNbr > 0)
             {
-                await RailroadsClient.UpdateAsync(editCtrlNbr, CtrlNbr, saveModel.RrMark ?? string.Empty, saveModel.Name ?? string.Empty);
+                await ConfigClient.UpdateGroupAsync(editCtrlNbr, saveModel.Name ?? string.Empty, code: saveModel.RrMark ?? string.Empty);
                 successMessage = "Railroad updated.";
             }
             else
             {
-                await RailroadsClient.CreateAsync(CtrlNbr, saveModel.RrMark ?? string.Empty, saveModel.Name ?? string.Empty);
+                await ConfigClient.CreateGroupAsync(railroadGroupTypeCtrlNbr, saveModel.Name ?? string.Empty, code: saveModel.RrMark ?? string.Empty);
                 successMessage = "Railroad added.";
             }
 
             CloseSaveModal();
             await LoadParent();
+            await LoadRailroads();
         }
         catch (Exception ex)
         {
@@ -224,10 +253,11 @@ else
             errorMessage = null;
             successMessage = null;
 
-            await RailroadsClient.DeleteAsync(deleteCtrlNbr);
+            await ConfigClient.DeleteGroupAsync(deleteCtrlNbr);
             successMessage = "Railroad deleted.";
             showDeleteModal = false;
             await LoadParent();
+            await LoadRailroads();
         }
         catch (Exception ex)
         {

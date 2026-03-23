@@ -6,6 +6,8 @@
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
 
+@inherits AppComponentBase
+
 @attribute [Authorize]
 
 @inject ParentsClient ParentsClient
@@ -114,8 +116,6 @@ else
 
 @code {
     private IReadOnlyList<GetParentResponse>? parents;
-    private string? successMessage;
-    private string? errorMessage;
 
     private bool showSaveModal;
     private long editCtrlNbr;
@@ -127,6 +127,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         await LoadParents();
     }
 
