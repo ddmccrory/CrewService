@@ -34,6 +34,14 @@ else
 
     <hr />
 
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @if (activeTab == "overview")
+    {
+    @* ?????????????????????????????????????????????????????????????????? *@
+    @* Hierarchy Map                                                      *@
+    @* ?????????????????????????????????????????????????????????????????? *@
+
     <h3>Hierarchy Map</h3>
 
     @if (ancestors is not null || childGroups is not null)
@@ -122,9 +130,10 @@ else
     {
         <p class="text-muted">No child groups.</p>
     }
+    } @* end overview tab *@
 
-    <hr />
-
+    @if (activeTab == "attributes")
+    {
     <h3>Attributes</h3>
 
     @if (attributeDefinitions is not null && attributeDefinitions.Count > 0)
@@ -174,6 +183,7 @@ else
     {
         <p class="text-muted">No attribute definitions for this group type. <a href="/config/group-types/@group.GroupTypeCtrlNbr">Define attributes on the group type.</a></p>
     }
+    } @* end attributes tab *@
 }
 
 @code {
@@ -182,6 +192,13 @@ else
 
     private GroupResponse? group;
     private string groupTypeName = "";
+
+    private string activeTab = "overview";
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("overview", "Overview", "bi bi-diagram-3"),
+        new("attributes", "Attributes", "bi bi-tags")
+    ];
 
     private void NavigateBack() => NavigationManager.NavigateTo($"/config/group-types/{group?.GroupTypeCtrlNbr}");
     private IReadOnlyList<GroupResponse>? childGroups;

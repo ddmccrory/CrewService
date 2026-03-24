@@ -1,0 +1,34 @@
+<ul class="nav nav-tabs mb-3">
+    @foreach (var tab in Tabs)
+    {
+        <li class="nav-item">
+            <button type="button" class="nav-link @(tab.Id == ActiveTab ? "active" : "")"
+                    @onclick="() => SetActiveTab(tab.Id)">
+                @if (!string.IsNullOrEmpty(tab.Icon))
+                {
+                    <span class="@tab.Icon me-1"></span>
+                }
+                @tab.Label
+            </button>
+        </li>
+    }
+</ul>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TabItem> Tabs { get; set; } = [];
+
+    [Parameter]
+    public string ActiveTab { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> ActiveTabChanged { get; set; }
+
+    private async Task SetActiveTab(string tabId)
+    {
+        ActiveTab = tabId;
+        await ActiveTabChanged.InvokeAsync(tabId);
+    }
+
+    public sealed record TabItem(string Id, string Label, string? Icon = null);
+}
