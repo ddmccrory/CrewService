@@ -35,24 +35,7 @@ else
         <p class="text-muted mb-3">Managing <strong>SystemAdmin</strong> invitations</p>
     }
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <button class="btn btn-primary" @onclick="() => showCreateForm = true">
-            <span class="bi bi-plus-circle"></span> Create Invitation
-        </button>
-        <div class="d-flex align-items-center gap-2" style="max-width: 350px;">
-            <span class="bi bi-search text-muted"></span>
-            <input type="text" class="form-control form-control-sm" placeholder="Search by email, role, or railroad..."
-                   @bind="searchText" @bind:event="oninput" />
-            @if (!string.IsNullOrEmpty(searchText))
-            {
-                <button class="btn btn-sm btn-outline-secondary" @onclick="() => searchText = string.Empty">
-                    <span class="bi bi-x"></span>
-                </button>
-            }
-        </div>
-    </div>
-
-    <Modal Visible="showCreateForm" Title="Create Invitation" Icon="bi bi-envelope-plus"
+    <Modal Visible="showCreateForm"
            OnClose="() => showCreateForm = false">
         <BodyContent>
             <EditForm Model="createModel" OnValidSubmit="CreateInvitation" id="create-invitation-form">
@@ -136,67 +119,35 @@ else
             }
         </ul>
 
-        @if (FilteredInvitations.Count == 0)
-        {
-            <p class="text-muted">
-                @if (!string.IsNullOrEmpty(searchText))
+        <DataTable TItem="InvitationResponse" Items="TabFilteredInvitations" Columns="InvitationColumns"
+                   SearchFilter="@((i, term) => i.Email.Contains(term, StringComparison.OrdinalIgnoreCase) || i.Role.Contains(term, StringComparison.OrdinalIgnoreCase) || (i.RailroadCtrlNbr > 0 && GetRailroadName(i.RailroadCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase)))"
+                   SearchPlaceholder="Search by email, role, or railroad..."
+                   EmptyMessage="@($"No {activeTab.ToLower()} invitations found.")"
+                   DefaultSortColumn="Email">
+            <ToolbarContent>
+                <button class="btn btn-primary" @onclick="() => showCreateForm = true">
+                    <span class="bi bi-plus-circle"></span> Create Invitation
+                </button>
+            </ToolbarContent>
+            <RowContent Context="inv">
+                <td>@inv.Email</td>
+                <td>@inv.Role</td>
+                <td>@(inv.RailroadCtrlNbr > 0 ? GetRailroadName(inv.RailroadCtrlNbr) : "—")</td>
+                <td>@(new DateTime(inv.ExpiresAt, DateTimeKind.Utc).AddDays(-7).ToString("MMM d, yyyy"))</td>
+                <td>@FormatStatusDate(inv)</td>
+                @if (activeTab == "Pending")
                 {
-                    <text>No results matching "<strong>@searchText</strong>" in @activeTab invitations.</text>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ResendInvitation(inv.CtrlNbr)">
+                            <span class="bi bi-arrow-repeat"></span> Resend
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeInvitation(inv.CtrlNbr)">
+                            <span class="bi bi-x-circle"></span> Revoke
+                        </button>
+                    </td>
                 }
-                else
-                {
-                    <text>No @activeTab.ToLower() invitations found.</text>
-                }
-            </p>
-        }
-        else
-        {
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Railroad</th>
-                        <th>Created</th>
-                        @if (activeTab is "Pending" or "Expired")
-                        {
-                            <th>Expires</th>
-                        }
-                        else
-                        {
-                            <th>@activeTab</th>
-                        }
-                        @if (activeTab == "Pending")
-                        {
-                            <th style="width: 180px;"></th>
-                        }
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var inv in FilteredInvitations)
-                    {
-                        <tr>
-                            <td>@inv.Email</td>
-                            <td>@inv.Role</td>
-                            <td>@(inv.RailroadCtrlNbr > 0 ? GetRailroadName(inv.RailroadCtrlNbr) : "—")</td>
-                            <td>@(new DateTime(inv.ExpiresAt, DateTimeKind.Utc).AddDays(-7).ToString("MMM d, yyyy"))</td>
-                            <td>@FormatStatusDate(inv)</td>
-                            @if (activeTab == "Pending")
-                            {
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ResendInvitation(inv.CtrlNbr)">
-                                        <span class="bi bi-arrow-repeat"></span> Resend
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeInvitation(inv.CtrlNbr)">
-                                        <span class="bi bi-x-circle"></span> Revoke
-                                    </button>
-                                </td>
-                            }
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
+            </RowContent>
+        </DataTable>
     }
 }
 
@@ -209,32 +160,43 @@ else
     private bool showRailroadDropdown;
     private HashSet<long> userRailroadCtrlNbrs = [];
     private string activeTab = "Pending";
-    private string searchText = string.Empty;
     private bool IsSystemAdmin => CurrentUser.User?.IsInRole(Roles.SystemAdmin) ?? false;
     private bool CanManageInvitations => HasParent || IsSystemAdmin;
 
     private static readonly string[] statusTabs = ["Pending", "Accepted", "Expired", "Revoked", "Superseded"];
 
-    private IReadOnlyList<InvitationResponse> FilteredInvitations
+    private IReadOnlyList<InvitationResponse> TabFilteredInvitations =>
+        invitations?.Where(i => i.Status == activeTab).ToList() ?? [];
+
+    private IReadOnlyList<DataTableColumn<InvitationResponse>> InvitationColumns
     {
         get
         {
-            if (invitations is null) return [];
-
-            var filtered = invitations.Where(i => i.Status == activeTab);
-
-            if (!string.IsNullOrWhiteSpace(searchText))
+            var statusDateTitle = activeTab is "Pending" or "Expired" ? "Expires" : activeTab;
+            var cols = new List<DataTableColumn<InvitationResponse>>
             {
-                var term = searchText.Trim();
-                filtered = filtered.Where(i =>
-                    i.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
-                    || i.Role.Contains(term, StringComparison.OrdinalIgnoreCase)
-                    || (i.RailroadCtrlNbr > 0 && GetRailroadName(i.RailroadCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase)));
-            }
+                new("Email", i => i.Email),
+                new("Role", i => i.Role),
+                new("Railroad", i => GetRailroadName(i.RailroadCtrlNbr)),
+                new("Created", i => (object)i.ExpiresAt, sortKey: "Created"),
+                new(statusDateTitle, i => (object)GetStatusTicks(i), sortKey: "StatusDate"),
+            };
 
-            return [.. filtered];
+            if (activeTab == "Pending")
+                cols.Add(DataTableColumn<InvitationResponse>.Actions());
+
+            return cols;
         }
     }
+
+    private long GetStatusTicks(InvitationResponse inv) => activeTab switch
+    {
+        "Pending" or "Expired" => inv.ExpiresAt,
+        "Accepted" => inv.AcceptedAt,
+        "Revoked" => inv.RevokedAt,
+        "Superseded" => inv.SupersededAt,
+        _ => 0
+    };
 
     private int GetCountForTab(string tab)
     {

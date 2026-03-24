@@ -44,5 +44,9 @@ internal static class BaselineSeeder
                 }
             }
         }
+
+        // Backfill materialized paths for any DynamicGroup missing them
+        var dynamicGroupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        await dynamicGroupRepo.BackfillPathsAsync();
     }
 }

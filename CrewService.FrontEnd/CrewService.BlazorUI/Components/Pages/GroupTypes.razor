@@ -18,13 +18,13 @@
 <h1>Group Types</h1>
 <p class="text-muted">Define the organizational taxonomy (e.g., Region, Division, Yard).</p>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex align-items-center mb-3">
     <button class="btn btn-primary" @onclick="OpenCreateModal" disabled="@(!SelectedParentCtrlNbr.HasValue)">
         <span class="bi bi-plus-circle"></span> New Group Type
     </button>
     @if (!SelectedParentCtrlNbr.HasValue)
     {
-        <span class="text-muted small">Select a parent to add group types.</span>
+        <span class="text-muted small ms-2">Select a parent to add group types.</span>
     }
 </div>
 
@@ -118,75 +118,80 @@ else
 
     @if (activeTab == "types")
     {
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>Name</th>
-                    <th>Description</th>
-                    <th>Parent Group Type</th>
-                    <th>Work Area</th>
-                <th style="width: 180px;"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var gt in groupTypes)
-            {
-                <tr>
-                    <td>
-                        <a href="/config/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
-                    </td>
-                    <td>@gt.Description</td>
-                    <td>
-                        @if (gt.ParentGroupTypeCtrlNbr > 0)
+        <DataTable TItem="GroupTypeResponse" Items="groupTypes" Columns="GroupTypeColumns"
+                   SearchFilter="@((gt, term) => gt.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || (!string.IsNullOrEmpty(gt.Description) && gt.Description.Contains(term, StringComparison.OrdinalIgnoreCase)))"
+                   SearchPlaceholder="Search by name or description..."
+                   EmptyMessage="No group types match the current filter."
+                   DefaultSortColumn="Name">
+            <RowContent Context="gt">
+                <td>
+                    <a href="/config/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
+                </td>
+                <td>@gt.Description</td>
+                <td>
+                    @if (gt.ParentGroupTypeCtrlNbr > 0)
+                    {
+                        var parentGtName = groupTypes?.FirstOrDefault(x => x.CtrlNbr == gt.ParentGroupTypeCtrlNbr)?.Name ?? gt.ParentGroupTypeCtrlNbr.ToString();
+                        @parentGtName
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td>
+                    @if (gt.IsWorkArea)
+                    {
+                        <span class="badge bg-success">Yes</span>
+                    }
+                </td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(gt)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        @if (!gt.IsSystemType)
                         {
-                            var parentGtName = groupTypes?.FirstOrDefault(x => x.CtrlNbr == gt.ParentGroupTypeCtrlNbr)?.Name ?? gt.ParentGroupTypeCtrlNbr.ToString();
-                            @parentGtName
-                        }
-                        else
-                        {
-                            <span class="text-muted">—</span>
-                        }
-                    </td>
-                    <td>
-                        @if (gt.IsWorkArea)
-                        {
-                            <span class="badge bg-success">Yes</span>
-                        }
-                    </td>
-                    <td>
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(gt)">
-                                <span class="bi bi-pencil"></span> Edit
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
+                                <span class="bi bi-trash"></span> Delete
                             </button>
-                            @if (!gt.IsSystemType)
-                            {
-                                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
-                                    <span class="bi bi-trash"></span> Delete
-                                </button>
-                            }
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-    } @* end types tab *@
+                        }
+                    </div>
+                </td>
+            </RowContent>
+        </DataTable>
+    }
 
     @if (activeTab == "hierarchy")
     {
-    <div class="card">
-        <div class="card-header fw-semibold">
-            <span class="bi bi-diagram-3 me-1"></span> Group Type Hierarchy
+        <div class="card">
+            <div class="card-header fw-semibold">
+                <span class="bi bi-diagram-3 me-1"></span> Group Type Hierarchy
+            </div>
+            <div class="card-body">
+                <TreeView Nodes="BuildTypeHierarchy()" />
+            </div>
         </div>
-        <div class="card-body">
-            <TreeView Nodes="BuildTypeHierarchy()" />
-        </div>
-    </div>
-    } @* end hierarchy tab *@
+    }
 }
 
 @code {
     private IReadOnlyList<GroupTypeResponse>? groupTypes;
+
+    private IReadOnlyList<DataTableColumn<GroupTypeResponse>> GroupTypeColumns =>
+    [
+        new("Name", gt => gt.Name),
+        new("Description", gt => gt.Description ?? ""),
+        new("Parent Group Type", gt => GetParentTypeName(gt.ParentGroupTypeCtrlNbr), sortKey: "ParentType"),
+        new("Work Area", gt => (object)gt.IsWorkArea, sortKey: "WorkArea"),
+        DataTableColumn<GroupTypeResponse>.Actions()
+    ];
+
+    private string GetParentTypeName(long parentGroupTypeCtrlNbr)
+    {
+        if (parentGroupTypeCtrlNbr == 0) return "";
+        return groupTypes?.FirstOrDefault(x => x.CtrlNbr == parentGroupTypeCtrlNbr)?.Name ?? parentGroupTypeCtrlNbr.ToString();
+    }
 
     private string activeTab = "types";
     private static readonly IReadOnlyList<TabPanel.TabItem> tabs =

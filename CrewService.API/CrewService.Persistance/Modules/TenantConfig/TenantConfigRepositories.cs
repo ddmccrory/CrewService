@@ -93,6 +93,34 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             .OrderBy(g => g.Name)
             .ToListAsync();
     }
+    public async Task BackfillPathsAsync()
+    {
+        var allGroups = await DbContext.Set<DynamicGroup>().ToListAsync();
+        var needsFix = allGroups.Any(g => g.Path is null);
+        if (!needsFix) return;
+
+        // BFS from root groups (no parent) outward
+        var lookup = allGroups.ToLookup(g => g.ParentGroupCtrlNbr);
+
+        var queue = new Queue<(DynamicGroup Group, string? ParentPath)>();
+        foreach (var root in lookup[null])
+        {
+            queue.Enqueue((root, null));
+        }
+
+        while (queue.Count > 0)
+        {
+            var (current, parentPath) = queue.Dequeue();
+            current.BuildPath(parentPath);
+
+            foreach (var child in lookup[current.CtrlNbr])
+            {
+                queue.Enqueue((child, current.Path));
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+    }
 }
 
 internal sealed class GroupAttributeDefinitionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

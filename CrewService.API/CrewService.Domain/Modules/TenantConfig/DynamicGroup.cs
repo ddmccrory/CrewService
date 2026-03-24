@@ -61,4 +61,16 @@ public sealed class DynamicGroup : Entity
         IsWorkArea = isWorkArea;
         Raise(new DynamicGroupUpdatedDomainEvent(this));
     }
+
+    /// <summary>
+    /// Computes and sets the materialized <see cref="Path"/> based on the parent group's path.
+    /// For root groups (no parent), the path is <c>"/{CtrlNbr}"</c>.
+    /// For child groups, the path is <c>"{parentPath}/{CtrlNbr}"</c>.
+    /// </summary>
+    public void BuildPath(string? parentPath)
+    {
+        Path = parentPath is not null
+            ? $"{parentPath}/{CtrlNbr.Value}"
+            : $"/{CtrlNbr.Value}";
+    }
 }

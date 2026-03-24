@@ -152,6 +152,16 @@ else
         await LoadRailroads();
     }
 
+    protected override Task OnAppContextChangedAsync()
+    {
+        if (SelectedParentCtrlNbr is long selected && selected != CtrlNbr)
+        {
+            NavigationManager.NavigateTo("/parents");
+        }
+
+        return Task.CompletedTask;
+    }
+
     private async Task LoadParent()
     {
         try

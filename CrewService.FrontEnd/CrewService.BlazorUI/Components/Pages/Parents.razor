@@ -8,7 +8,7 @@
 
 @inherits AppComponentBase
 
-@attribute [Authorize]
+@attribute [Authorize(Roles = "SystemAdmin")]
 
 @inject ParentsClient ParentsClient
 
@@ -16,13 +16,7 @@
 
 <h1>Parents</h1>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <button class="btn btn-primary" @onclick="OpenCreateModal">
-        <span class="bi bi-plus-circle"></span> Create Parent
-    </button>
-</div>
-
-<Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Parent" : "Create Parent")"
+<Modal Visible="showSaveModal"
        Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
        OnClose="CloseSaveModal">
     <BodyContent>
@@ -72,50 +66,43 @@
     </div>
 }
 
-@if (parents is null)
-{
-    <p><em>Loading...</em></p>
-}
-else if (parents.Count == 0)
-{
-    <p>No parents found.</p>
-}
-else
-{
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Railroads</th>
-                <th style="width: 180px;"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var parent in parents)
-            {
-                <tr>
-                    <td>
-                        <a href="/parents/@parent.CtrlNbr" class="text-decoration-none">@parent.Name</a>
-                    </td>
-                    <td>@parent.Railroads.Count</td>
-                    <td>
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(parent)">
-                                <span class="bi bi-pencil"></span> Edit
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(parent)">
-                                <span class="bi bi-trash"></span> Delete
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+<DataTable TItem="GetParentResponse" Items="parents" Columns="parentColumns"
+           SearchFilter="@((p, term) => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))"
+           SearchPlaceholder="Search by name..."
+           EmptyMessage="No parents found."
+           DefaultSortColumn="Name">
+    <ToolbarContent>
+        <button class="btn btn-primary" @onclick="OpenCreateModal">
+            <span class="bi bi-plus-circle"></span> Create Parent
+        </button>
+    </ToolbarContent>
+    <RowContent Context="parent">
+        <td>
+            <a href="/parents/@parent.CtrlNbr" class="text-decoration-none">@parent.Name</a>
+        </td>
+        <td>@parent.Railroads.Count</td>
+        <td>
+            <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(parent)">
+                    <span class="bi bi-pencil"></span> Edit
+                </button>
+                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(parent)">
+                    <span class="bi bi-trash"></span> Delete
+                </button>
+            </div>
+        </td>
+    </RowContent>
+</DataTable>
 
 @code {
     private IReadOnlyList<GetParentResponse>? parents;
+
+    private static readonly IReadOnlyList<DataTableColumn<GetParentResponse>> parentColumns =
+    [
+        new("Name", p => p.Name),
+        new("Railroads", p => (object)p.Railroads.Count),
+        DataTableColumn<GetParentResponse>.Actions()
+    ];
 
     private bool showSaveModal;
     private long editCtrlNbr;

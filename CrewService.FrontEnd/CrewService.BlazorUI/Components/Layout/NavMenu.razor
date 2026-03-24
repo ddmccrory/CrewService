@@ -262,11 +262,15 @@
         <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
             <Authorized>
                 <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "parents", "config/group-types")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="parents">
-                            <span class="bi bi-diagram-3" aria-hidden="true"></span> Parents
-                        </NavLink>
-                    </div>
+                    <AuthorizeView Roles="@(Roles.SystemAdmin)">
+                        <Authorized Context="itemAuth">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="parents">
+                                    <span class="bi bi-diagram-3" aria-hidden="true"></span> Parents
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
                     <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin}")">
                         <Authorized Context="itemAuth">
                             <div class="nav-item">

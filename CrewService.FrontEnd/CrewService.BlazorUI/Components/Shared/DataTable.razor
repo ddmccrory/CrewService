@@ -1,0 +1,142 @@
+@typeparam TItem
+
+@if (ToolbarContent is not null || SearchFilter is not null)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        @if (ToolbarContent is not null)
+        {
+            @ToolbarContent
+        }
+        @if (SearchFilter is not null)
+        {
+            <div class="d-flex align-items-center gap-2 ms-auto" style="max-width: 350px;">
+                <span class="bi bi-search text-muted"></span>
+                <input type="text" class="form-control form-control-sm" placeholder="@SearchPlaceholder"
+                       @bind="searchText" @bind:event="oninput" />
+                @if (!string.IsNullOrEmpty(searchText))
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearSearch">
+                        <span class="bi bi-x"></span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@if (Items is null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (Items.Count == 0)
+{
+    <p>@EmptyMessage</p>
+}
+else
+{
+    @if (ProcessedItems.Count == 0)
+    {
+        <p class="text-muted">No results matching "<strong>@searchText</strong>".</p>
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    @foreach (var col in Columns)
+                    {
+                        @if (col.IsSortable)
+                        {
+                            <SortableHeader Column="@col.SortKey" CurrentSort="@sortColumn" Ascending="@sortAscending" OnSort="SetSort">@col.Title</SortableHeader>
+                        }
+                        else
+                        {
+                            <th style="@(col.Width is not null ? $"width: {col.Width};" : "")">@col.Title</th>
+                        }
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in ProcessedItems)
+                {
+                    <tr>
+                        @RowContent(item)
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<TItem>? Items { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<DataTableColumn<TItem>> Columns { get; set; } = [];
+    [Parameter, EditorRequired] public RenderFragment<TItem> RowContent { get; set; } = default!;
+    [Parameter] public RenderFragment? ToolbarContent { get; set; }
+    [Parameter] public Func<TItem, string, bool>? SearchFilter { get; set; }
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search...";
+    [Parameter] public string EmptyMessage { get; set; } = "No items found.";
+    [Parameter] public string? DefaultSortColumn { get; set; }
+    [Parameter] public bool DefaultSortAscending { get; set; } = true;
+
+    private string searchText = string.Empty;
+    private string sortColumn = "";
+    private bool sortAscending = true;
+    private bool initialized;
+
+    protected override void OnParametersSet()
+    {
+        if (!initialized)
+        {
+            sortColumn = DefaultSortColumn ?? "";
+            sortAscending = DefaultSortAscending;
+            initialized = true;
+        }
+    }
+
+    private IReadOnlyList<TItem> ProcessedItems
+    {
+        get
+        {
+            if (Items is null || Items.Count == 0) return [];
+
+            IEnumerable<TItem> result = Items;
+
+            if (SearchFilter is not null && !string.IsNullOrWhiteSpace(searchText))
+            {
+                var term = searchText.Trim();
+                result = result.Where(item => SearchFilter(item, term));
+            }
+
+            var col = Columns.FirstOrDefault(c => c.SortKey == sortColumn);
+            if (col?.SortValue is { } sortFunc)
+            {
+                result = sortAscending
+                    ? result.OrderBy(sortFunc, SortComparer)
+                    : result.OrderByDescending(sortFunc, SortComparer);
+            }
+
+            return [.. result];
+        }
+    }
+
+    private void SetSort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private void ClearSearch() => searchText = string.Empty;
+
+    private static readonly IComparer<object?> SortComparer = Comparer<object?>.Create((a, b) =>
+    {
+        if (a is string sa && b is string sb)
+            return string.Compare(sa, sb, StringComparison.OrdinalIgnoreCase);
+        return Comparer<object?>.Default.Compare(a, b);
+    });
+}
