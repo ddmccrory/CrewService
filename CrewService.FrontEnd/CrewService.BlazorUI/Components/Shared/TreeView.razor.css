@@ -1,0 +1,42 @@
+.tree-view {
+    font-size: 0.9rem;
+}
+
+.tree-node {
+    position: relative;
+}
+
+.tree-node-content {
+    display: flex;
+    align-items: center;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.25rem;
+    gap: 0.4rem;
+}
+
+    .tree-node-content:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+.tree-node-highlighted > span:not(.badge):not(.text-muted),
+.tree-node-highlighted > a {
+    font-weight: 600;
+    color: var(--bs-primary) !important;
+}
+
+.tree-node-icon {
+    font-size: 0.45rem;
+    color: var(--bs-secondary);
+    flex-shrink: 0;
+}
+
+.tree-node-highlighted .tree-node-icon {
+    color: var(--bs-primary);
+}
+
+/* Indentation and vertical connector lines */
+.tree-children {
+    margin-left: 1.25rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
