@@ -3,6 +3,7 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
 @using CrewService.Presentation
 
 @inherits AppComponentBase
@@ -24,9 +25,7 @@
 }
 else
 {
-    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="NavigateBack">
-        <span class="bi bi-chevron-left me-1"></span> @groupTypeName
-    </button>
+    <BackNavButton Text="@groupTypeName" OnClick="NavigateBack" />
 
     <h1>@group.Name</h1>
     @if (group.IsWorkArea)
@@ -36,60 +35,21 @@ else
 
     <hr />
 
-    <h3>Hierarchy Map</h3>
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
 
-    @if (ancestors is not null || childGroups is not null)
+    @if (activeTab == "overview")
     {
-        <div class="card mb-4">
-            <div class="card-body font-monospace small">
-                @if (ancestors is not null)
-                {
-                    @for (int i = ancestors.Count - 1; i >= 0; i--)
-                    {
-                        var ancestor = ancestors[i];
-                        var indent = new string(' ', (ancestors.Count - 1 - i) * 4);
-                        <div>
-                            @indent<span class="text-muted">└─</span>
-                            <a href="/config/groups/@ancestor.CtrlNbr" class="text-decoration-none">@ancestor.Name</a>
-                            <span class="text-muted ms-1">(@GetGroupTypeName(ancestor.GroupTypeCtrlNbr))</span>
-                        </div>
-                    }
-                }
-                @{
-                    var currentIndent = new string(' ', (ancestors?.Count ?? 0) * 4);
-                }
-                <div>
-                    @currentIndent<span class="text-muted">└─</span>
-                    <strong class="text-primary">@group.Name</strong>
-                    <span class="text-muted ms-1">(@groupTypeName)</span>
-                    @if (group.IsWorkArea)
-                    {
-                        <span class="badge bg-success ms-1">Work Area</span>
-                    }
-                </div>
-                @if (childGroups is not null)
-                {
-                    var childIndent = new string(' ', ((ancestors?.Count ?? 0) + 1) * 4);
-                    @foreach (var child in childGroups)
-                    {
-                        <div>
-                            @childIndent<span class="text-muted">└─</span>
-                            <a href="/config/groups/@child.CtrlNbr" class="text-decoration-none">@child.Name</a>
-                            <span class="text-muted ms-1">(@GetGroupTypeName(child.GroupTypeCtrlNbr))</span>
-                            @if (child.IsWorkArea)
-                            {
-                                <span class="badge bg-success ms-1">Work Area</span>
-                            }
-                        </div>
-                    }
-                }
-            </div>
+    @* ?????????????????????????????????????????????????????????????????? *@
+    @* Hierarchy Map                                                      *@
+    @* ?????????????????????????????????????????????????????????????????? *@
+
+    <h3>Hierarchy</h3>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <TreeView Nodes="BuildGroupHierarchy()" />
         </div>
-    }
-    else
-    {
-        <p class="text-muted">No hierarchy information available.</p>
-    }
+    </div>
 
     <hr />
 
@@ -124,9 +84,10 @@ else
     {
         <p class="text-muted">No child groups.</p>
     }
+    } @* end overview tab *@
 
-    <hr />
-
+    @if (activeTab == "attributes")
+    {
     <h3>Attributes</h3>
 
     @if (attributeDefinitions is not null && attributeDefinitions.Count > 0)
@@ -176,6 +137,7 @@ else
     {
         <p class="text-muted">No attribute definitions for this group type. <a href="/config/group-types/@group.GroupTypeCtrlNbr">Define attributes on the group type.</a></p>
     }
+    } @* end attributes tab *@
 }
 
 @code {
@@ -184,6 +146,13 @@ else
 
     private GroupResponse? group;
     private string groupTypeName = "";
+
+    private string activeTab = "overview";
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("overview", "Overview", "bi bi-diagram-3"),
+        new("attributes", "Attributes", "bi bi-tags")
+    ];
 
     private void NavigateBack() => NavigationManager.NavigateTo($"/config/group-types/{group?.GroupTypeCtrlNbr}");
     private IReadOnlyList<GroupResponse>? childGroups;
@@ -260,6 +229,46 @@ else
     private string GetGroupTypeName(long groupTypeCtrlNbr)
     {
         return groupTypeNames.TryGetValue(groupTypeCtrlNbr, out var name) ? name : "";
+    }
+
+    private List<TreeNode> BuildGroupHierarchy()
+    {
+        if (group is null) return [];
+
+        // Build the current node
+        var currentNode = new TreeNode
+        {
+            Label = group.Name,
+            Subtitle = $"({groupTypeName})",
+            IsHighlighted = true,
+            Badge = group.IsWorkArea ? "Work Area" : null,
+            BadgeClass = "bg-success",
+            Children = (childGroups ?? []).Select(child => new TreeNode
+            {
+                Label = child.Name,
+                Href = $"/config/groups/{child.CtrlNbr}",
+                Subtitle = $"({GetGroupTypeName(child.GroupTypeCtrlNbr)})",
+                Badge = child.IsWorkArea ? "Work Area" : null,
+                BadgeClass = "bg-success"
+            }).ToList()
+        };
+
+        // Wrap ancestors around the current node (innermost → outermost)
+        if (ancestors is not null)
+        {
+            foreach (var ancestor in ancestors)
+            {
+                currentNode = new TreeNode
+                {
+                    Label = ancestor.Name,
+                    Href = $"/config/groups/{ancestor.CtrlNbr}",
+                    Subtitle = $"({GetGroupTypeName(ancestor.GroupTypeCtrlNbr)})",
+                    Children = [currentNode]
+                };
+            }
+        }
+
+        return [currentNode];
     }
 
     // Attribute Values

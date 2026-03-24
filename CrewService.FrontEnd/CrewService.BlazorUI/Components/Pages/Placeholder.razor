@@ -31,6 +31,7 @@
 
 @rendermode InteractiveServer
 @inherits AppComponentBase
+@implements IDisposable
 
 <PageTitle>@pageName — Crew Service</PageTitle>
 
@@ -56,7 +57,19 @@ else
 @code {
     private string pageName = "Placeholder";
 
-    protected override void OnParametersSet()
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+        UpdatePageName();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdatePageName();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdatePageName()
     {
         var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         pageName = relative
@@ -65,5 +78,10 @@ else
             .Where(s => !string.IsNullOrEmpty(s))
             .Select(s => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(s.Replace("-", " ")))
             .LastOrDefault() ?? "Placeholder";
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }

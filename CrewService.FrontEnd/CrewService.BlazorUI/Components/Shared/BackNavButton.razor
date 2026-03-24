@@ -1,0 +1,12 @@
+@* Consistent back-navigation button used on detail pages *@
+<button class="btn btn-outline-primary btn-sm mb-2" @onclick="OnClick">
+    <span class="bi bi-chevron-left me-1"></span> @Text
+</button>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public EventCallback OnClick { get; set; }
+}

@@ -68,22 +68,33 @@ internal static class DevDataSeeder
         var holdingCorp = Parent.Create("CSX Corporation");
         await parentRepo.AddAsync(holdingCorp);
 
-        // Universal GroupTypes seeded by BaselineSeeder — look them up
-        var universalTypes = await groupTypeRepo.GetAllAsync();
-        var railroadType = universalTypes.Single(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == 0);
-        var workAreaType = universalTypes.Single(gt => gt.Name == "WorkArea" && gt.ParentCtrlNbr == 0);
+        // Per-parent system GroupTypes (BaselineSeeder also backfills, but seed explicitly here)
+        var simpleRailroadType = GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: simpleCorp.CtrlNbr.Value);
+        var simpleWorkAreaType = GroupType.Create("WorkArea", "Operational work area", isWorkArea: true, parentCtrlNbr: simpleCorp.CtrlNbr.Value);
+        await groupTypeRepo.AddAsync(simpleRailroadType);
+        await groupTypeRepo.AddAsync(simpleWorkAreaType);
+
+        var ptraRailroadType = GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: ptraCorp.CtrlNbr.Value);
+        var ptraWorkAreaType = GroupType.Create("WorkArea", "Operational work area", isWorkArea: true, parentCtrlNbr: ptraCorp.CtrlNbr.Value);
+        await groupTypeRepo.AddAsync(ptraRailroadType);
+        await groupTypeRepo.AddAsync(ptraWorkAreaType);
+
+        var csxRailroadType = GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+        var csxWorkAreaType = GroupType.Create("WorkArea", "Operational work area", isWorkArea: true, parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+        await groupTypeRepo.AddAsync(csxRailroadType);
+        await groupTypeRepo.AddAsync(csxWorkAreaType);
 
         // Railroads (as DynamicGroups)
-        var simpleRR = DynamicGroup.Create(railroadType.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL", parentCtrlNbr: simpleCorp.CtrlNbr.Value);
+        var simpleRR = DynamicGroup.Create(simpleRailroadType.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL");
         await groupRepo.AddAsync(simpleRR);
 
-        var ptraRR = DynamicGroup.Create(railroadType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "PTRA", parentCtrlNbr: ptraCorp.CtrlNbr.Value);
+        var ptraRR = DynamicGroup.Create(ptraRailroadType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "PTRA");
         await groupRepo.AddAsync(ptraRR);
 
-        var csxRR = DynamicGroup.Create(railroadType.CtrlNbr.Value, "CSX Transportation", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSX", parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+        var csxRR = DynamicGroup.Create(csxRailroadType.CtrlNbr.Value, "CSX Transportation", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSX");
         await groupRepo.AddAsync(csxRR);
 
-        var csxtRR = DynamicGroup.Create(railroadType.CtrlNbr.Value, "CSX Intermodal", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSXT", parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+        var csxtRR = DynamicGroup.Create(csxRailroadType.CtrlNbr.Value, "CSX Intermodal", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSXT");
         await groupRepo.AddAsync(csxtRR);
 
         // ?? Group Types (CSX Corporation) ?????????????????????????????
@@ -106,12 +117,11 @@ internal static class DevDataSeeder
 
         // ?? Scenario 2: PTRA (Legacy Railroad) ??????????????????????
         var ptraYard = DynamicGroup.Create(
-            workAreaType.CtrlNbr.Value,
+            ptraWorkAreaType.CtrlNbr.Value,
             "PTRA Terminal",
             parentGroupCtrlNbr: null,
             path: "/ptra-terminal",
-            isWorkArea: true,
-            parentCtrlNbr: ptraCorp.CtrlNbr.Value);
+            isWorkArea: true);
         await groupRepo.AddAsync(ptraYard);
 
         // ?? Scenario 3: Holding Company (CSX) ????????????????????????
@@ -121,8 +131,7 @@ internal static class DevDataSeeder
             "Southeast Region",
             parentGroupCtrlNbr: null,
             path: "/southeast",
-            isWorkArea: false,
-            parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+            isWorkArea: false);
         await groupRepo.AddAsync(southeast);
 
         var jaxSub = DynamicGroup.Create(
@@ -130,17 +139,15 @@ internal static class DevDataSeeder
             "Jacksonville Sub",
             parentGroupCtrlNbr: southeast.CtrlNbr.Value,
             path: "/southeast/jax",
-            isWorkArea: false,
-            parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+            isWorkArea: false);
         await groupRepo.AddAsync(jaxSub);
 
         var jaxYard = DynamicGroup.Create(
-            workAreaType.CtrlNbr.Value,
+            csxWorkAreaType.CtrlNbr.Value,
             "Jax Yard",
             parentGroupCtrlNbr: jaxSub.CtrlNbr.Value,
             path: "/southeast/jax/yard",
-            isWorkArea: true,
-            parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+            isWorkArea: true);
         await groupRepo.AddAsync(jaxYard);
 
         var midwest = DynamicGroup.Create(
@@ -148,8 +155,7 @@ internal static class DevDataSeeder
             "Midwest Region",
             parentGroupCtrlNbr: null,
             path: "/midwest",
-            isWorkArea: false,
-            parentCtrlNbr: holdingCorp.CtrlNbr.Value);
+            isWorkArea: false);
         await groupRepo.AddAsync(midwest);
         }
 
@@ -180,6 +186,7 @@ internal static class DevDataSeeder
         }
 
         // Backfill group types scoped to CSX Corporation
+        // (BaselineSeeder ensures system types exist per-parent)
         var groupTypesBackfill = await groupTypeRepo.GetAllAsync();
         var csxParentCtrlNbr = csxParentCore.CtrlNbr.Value;
 
@@ -197,8 +204,9 @@ internal static class DevDataSeeder
             await groupTypeRepo.AddAsync(subdivTypeBackfill);
         }
 
-        // Universal WorkArea GroupType ensured by BaselineSeeder
-        var workAreaTypeBackfill = groupTypesBackfill.Single(gt => gt.Name == "WorkArea" && gt.ParentCtrlNbr == 0);
+        // Per-parent WorkArea type for backfill groups
+        var csxWorkAreaTypeBackfill = groupTypesBackfill.First(gt => gt.Name == "WorkArea" && gt.ParentCtrlNbr == csxParentCtrlNbr);
+        var ptraWorkAreaTypeBackfill = groupTypesBackfill.First(gt => gt.Name == "WorkArea" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
 
         // Backfill module reference group types (CSX Corporation)
         foreach (var (name, desc) in new[]
@@ -220,12 +228,11 @@ internal static class DevDataSeeder
         if (allGroupsBackfill.All(g => g.Name != "PTRA Terminal"))
         {
             var ptraTerminal = DynamicGroup.Create(
-                workAreaTypeBackfill.CtrlNbr.Value,
+                ptraWorkAreaTypeBackfill.CtrlNbr.Value,
                 "PTRA Terminal",
                 parentGroupCtrlNbr: null,
                 path: "/ptra-terminal",
-                isWorkArea: true,
-                parentCtrlNbr: ptraParentCore.CtrlNbr.Value);
+                isWorkArea: true);
             await groupRepo.AddAsync(ptraTerminal);
         }
 
@@ -239,8 +246,7 @@ internal static class DevDataSeeder
                 "Southeast Region",
                 parentGroupCtrlNbr: null,
                 path: "/southeast",
-                isWorkArea: false,
-                parentCtrlNbr: csxParentCtrlNbr);
+                isWorkArea: false);
             await groupRepo.AddAsync(southeastCore);
         }
 
@@ -252,8 +258,7 @@ internal static class DevDataSeeder
                 "Jacksonville Sub",
                 parentGroupCtrlNbr: southeastCore.CtrlNbr.Value,
                 path: "/southeast/jax",
-                isWorkArea: false,
-                parentCtrlNbr: csxParentCtrlNbr);
+                isWorkArea: false);
             await groupRepo.AddAsync(jaxSubCore);
         }
 
@@ -261,35 +266,37 @@ internal static class DevDataSeeder
         if (jaxYardCore is null)
         {
             jaxYardCore = DynamicGroup.Create(
-                workAreaTypeBackfill.CtrlNbr.Value,
+                csxWorkAreaTypeBackfill.CtrlNbr.Value,
                 "Jax Yard",
                 parentGroupCtrlNbr: jaxSubCore.CtrlNbr.Value,
                 path: "/southeast/jax/yard",
-                isWorkArea: true,
-                parentCtrlNbr: csxParentCtrlNbr);
+                isWorkArea: true);
             await groupRepo.AddAsync(jaxYardCore);
         }
 
-        // Railroad GroupType ensured by BaselineSeeder — look it up for backfill groups
-        var railroadTypeBackfill = (await groupTypeRepo.GetAllAsync()).Single(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == 0);
+        // Per-parent Railroad types for backfill groups
+        var allTypesForRR = await groupTypeRepo.GetAllAsync();
+        var simpleRailroadBackfill = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == simpleCorpCore.CtrlNbr.Value);
+        var ptraRailroadBackfill = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
+        var csxRailroadBackfill = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == csxParentCtrlNbr);
 
         // Backfill Railroad DynamicGroups
         var allGroupsForRR = await groupRepo.GetAllAsync();
 
         if (allGroupsForRR.All(g => g.Code != "SMPL"))
-            await groupRepo.AddAsync(DynamicGroup.Create(railroadTypeBackfill.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL", parentCtrlNbr: simpleCorpCore.CtrlNbr.Value));
+            await groupRepo.AddAsync(DynamicGroup.Create(simpleRailroadBackfill.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL"));
 
         if (allGroupsForRR.All(g => g.Code != "PTRA"))
-            await groupRepo.AddAsync(DynamicGroup.Create(railroadTypeBackfill.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "PTRA", parentCtrlNbr: ptraParentCore.CtrlNbr.Value));
+            await groupRepo.AddAsync(DynamicGroup.Create(ptraRailroadBackfill.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "PTRA"));
 
         if (allGroupsForRR.All(g => g.Code != "CSX"))
-            await groupRepo.AddAsync(DynamicGroup.Create(railroadTypeBackfill.CtrlNbr.Value, "CSX Transportation", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSX", parentCtrlNbr: csxParentCtrlNbr));
+            await groupRepo.AddAsync(DynamicGroup.Create(csxRailroadBackfill.CtrlNbr.Value, "CSX Transportation", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSX"));
 
         if (allGroupsForRR.All(g => g.Code != "CSXT"))
-            await groupRepo.AddAsync(DynamicGroup.Create(railroadTypeBackfill.CtrlNbr.Value, "CSX Intermodal", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSXT", parentCtrlNbr: csxParentCtrlNbr));
+            await groupRepo.AddAsync(DynamicGroup.Create(csxRailroadBackfill.CtrlNbr.Value, "CSX Intermodal", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSXT"));
 
         // Resolve CSX railroad CtrlNbr for employee seeding
-        var csxRailroadsAll = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+        var csxRailroadsAll = await groupRepo.GetByGroupTypeNameAsync("Railroad", csxParentCtrlNbr);
         var csxRailroadCore = csxRailroadsAll.First(g => g.Code == "CSX");
 
         // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????

@@ -4,6 +4,13 @@ namespace CrewService.Domain.Modules.TenantConfig;
 
 public sealed class GroupType : Entity
 {
+    /// <summary>Names reserved for baseline-seeded system types that cannot be renamed or deleted.</summary>
+    public static readonly IReadOnlySet<string> SystemTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Railroad",
+        "WorkArea"
+    };
+
     public string Name { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public bool IsWorkArea { get; private set; }
@@ -11,6 +18,9 @@ public sealed class GroupType : Entity
     public long ParentCtrlNbr { get; private set; }
     public long RailroadCtrlNbr { get; private set; }
     public long ParentGroupTypeCtrlNbr { get; private set; }
+
+    /// <summary>True when this type is a system type (Railroad or WorkArea) that cannot be renamed or deleted.</summary>
+    public bool IsSystemType => SystemTypeNames.Contains(Name);
 
     private GroupType() { }
 

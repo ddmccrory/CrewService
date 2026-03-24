@@ -60,7 +60,6 @@ public class ForeignKeyIntegrityTests
             ("GroupType", "ParentCtrlNbr"),
             ("GroupType", "RailroadCtrlNbr"),
             ("GroupType", "ParentGroupTypeCtrlNbr"),
-            ("DynamicGroup", "ParentCtrlNbr"),
         };
 
         var orphans = new List<string>();

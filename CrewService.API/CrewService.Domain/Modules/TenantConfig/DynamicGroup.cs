@@ -11,7 +11,6 @@ public sealed class DynamicGroup : Entity
     public ControlNumber? ParentGroupCtrlNbr { get; private set; }
     public string? Path { get; private set; }
     public bool IsWorkArea { get; private set; }
-    public long ParentCtrlNbr { get; private set; }
 
     private DynamicGroup()
     {
@@ -24,8 +23,7 @@ public sealed class DynamicGroup : Entity
         string? code,
         ControlNumber? parentGroupCtrlNbr,
         string? path,
-        bool isWorkArea,
-        long parentCtrlNbr)
+        bool isWorkArea)
     {
         GroupTypeCtrlNbr = groupTypeCtrlNbr;
         Name = name;
@@ -33,7 +31,6 @@ public sealed class DynamicGroup : Entity
         ParentGroupCtrlNbr = parentGroupCtrlNbr;
         Path = path;
         IsWorkArea = isWorkArea;
-        ParentCtrlNbr = parentCtrlNbr;
     }
 
     public static DynamicGroup Create(
@@ -42,8 +39,7 @@ public sealed class DynamicGroup : Entity
         ControlNumber? parentGroupCtrlNbr,
         string? path,
         bool isWorkArea,
-        string? code = null,
-        long parentCtrlNbr = 0)
+        string? code = null)
     {
         var group = new DynamicGroup(
             groupTypeCtrlNbr,
@@ -51,20 +47,18 @@ public sealed class DynamicGroup : Entity
             code,
             parentGroupCtrlNbr,
             path,
-            isWorkArea,
-            parentCtrlNbr);
+            isWorkArea);
         group.Raise(new DynamicGroupCreatedDomainEvent(group));
         return group;
     }
 
-    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null, long parentCtrlNbr = 0)
+    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null)
     {
         Name = name;
         Code = code;
         ParentGroupCtrlNbr = parentGroupCtrlNbr;
         Path = path;
         IsWorkArea = isWorkArea;
-        ParentCtrlNbr = parentCtrlNbr;
         Raise(new DynamicGroupUpdatedDomainEvent(this));
     }
 }

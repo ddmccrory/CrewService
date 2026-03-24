@@ -1,0 +1,47 @@
+@using CrewService.BlazorUI.Models
+
+<div class="tree-view">
+    @foreach (var node in Nodes)
+    {
+        RenderNode(node);
+    }
+</div>
+
+@{ void RenderNode(TreeNode node)
+{
+    <div class="tree-node">
+        <div class="tree-node-content @(node.IsHighlighted ? "tree-node-highlighted" : "")">
+            <span class="tree-node-icon bi bi-diamond-fill"></span>
+            @if (!string.IsNullOrEmpty(node.Href))
+            {
+                <a href="@node.Href" class="text-decoration-none">@node.Label</a>
+            }
+            else
+            {
+                <span>@node.Label</span>
+            }
+            @if (!string.IsNullOrEmpty(node.Subtitle))
+            {
+                <span class="text-muted ms-1 small">@node.Subtitle</span>
+            }
+            @if (!string.IsNullOrEmpty(node.Badge))
+            {
+                <span class="badge @(node.BadgeClass ?? "bg-secondary") ms-1">@node.Badge</span>
+            }
+        </div>
+        @if (node.Children.Count > 0)
+        {
+            <div class="tree-children">
+                @foreach (var child in node.Children)
+                {
+                    RenderNode(child);
+                }
+            </div>
+        }
+    </div>
+} }
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TreeNode> Nodes { get; set; } = [];
+}

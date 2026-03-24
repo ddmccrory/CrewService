@@ -4,6 +4,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
 @using CrewService.Presentation
 
 @inherits AppComponentBase
@@ -35,15 +36,19 @@
             <DataAnnotationsValidator />
             <div class="mb-3">
                 <label class="form-label fw-semibold">Name</label>
-                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Name" />
+                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Name" disabled="@isEditingSystemType" />
                 <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                @if (isEditingSystemType)
+                {
+                    <div class="form-text text-warning">System types cannot be renamed.</div>
+                }
             </div>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Description</label>
                 <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Description" />
             </div>
             <div class="form-check mb-3">
-                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" />
+                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" disabled="@isEditingSystemType" />
                 <label class="form-check-label" for="isWorkArea">Work Area</label>
             </div>
             <div class="mb-3">
@@ -109,6 +114,10 @@ else if (groupTypes.Count == 0)
 }
 else
 {
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @if (activeTab == "types")
+    {
     <table class="table table-striped table-hover">
         <thead>
             <tr>
@@ -149,22 +158,46 @@ else
                             <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(gt)">
                                 <span class="bi bi-pencil"></span> Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
-                                <span class="bi bi-trash"></span> Delete
-                            </button>
+                            @if (!gt.IsSystemType)
+                            {
+                                <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
+                                    <span class="bi bi-trash"></span> Delete
+                                </button>
+                            }
                         </div>
                     </td>
                 </tr>
             }
         </tbody>
     </table>
+    } @* end types tab *@
+
+    @if (activeTab == "hierarchy")
+    {
+    <div class="card">
+        <div class="card-header fw-semibold">
+            <span class="bi bi-diagram-3 me-1"></span> Group Type Hierarchy
+        </div>
+        <div class="card-body">
+            <TreeView Nodes="BuildTypeHierarchy()" />
+        </div>
+    </div>
+    } @* end hierarchy tab *@
 }
 
 @code {
     private IReadOnlyList<GroupTypeResponse>? groupTypes;
 
+    private string activeTab = "types";
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("types", "Group Types", "bi bi-collection"),
+        new("hierarchy", "Hierarchy", "bi bi-diagram-3")
+    ];
+
     private bool showSaveModal;
     private long editCtrlNbr;
+    private bool isEditingSystemType;
     private GroupTypeInputModel saveModel = new();
 
     private bool showDeleteModal;
@@ -192,16 +225,13 @@ else
             if (SelectedRailroadCtrlNbr is long railroadCtrlNbr)
             {
                 groupTypes = all
-                    .Where(gt => (gt.ParentCtrlNbr == SelectedParentCtrlNbr && gt.RailroadCtrlNbr == railroadCtrlNbr)
-                              || (gt.ParentCtrlNbr == SelectedParentCtrlNbr && gt.RailroadCtrlNbr == 0)
-                              || (gt.ParentCtrlNbr == 0 && gt.RailroadCtrlNbr == 0))
+                    .Where(gt => gt.ParentCtrlNbr == SelectedParentCtrlNbr && (gt.RailroadCtrlNbr == railroadCtrlNbr || gt.RailroadCtrlNbr == 0))
                     .ToList();
             }
             else if (SelectedParentCtrlNbr is long parentCtrlNbr)
             {
                 groupTypes = all
-                    .Where(gt => (gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0)
-                              || (gt.ParentCtrlNbr == 0 && gt.RailroadCtrlNbr == 0))
+                    .Where(gt => gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0)
                     .ToList();
             }
             else
@@ -215,6 +245,32 @@ else
         }
     }
 
+    private List<TreeNode> BuildTypeHierarchy()
+    {
+        if (groupTypes is null || groupTypes.Count == 0) return [];
+
+        var lookup = groupTypes.ToDictionary(gt => gt.CtrlNbr);
+
+        TreeNode ToNode(GroupTypeResponse gt) => new()
+        {
+            Label = gt.Name,
+            Href = $"/config/group-types/{gt.CtrlNbr}",
+            Subtitle = gt.Description,
+            Badge = gt.IsWorkArea ? "Work Area" : null,
+            BadgeClass = "bg-success",
+            Children = groupTypes
+                .Where(child => child.ParentGroupTypeCtrlNbr == gt.CtrlNbr)
+                .Select(ToNode)
+                .ToList()
+        };
+
+        // Root types are those with no parent or whose parent isn't in the current list
+        return groupTypes
+            .Where(gt => gt.ParentGroupTypeCtrlNbr == 0 || !lookup.ContainsKey(gt.ParentGroupTypeCtrlNbr))
+            .Select(ToNode)
+            .ToList();
+    }
+
     private void OpenCreateModal()
     {
         editCtrlNbr = 0;
@@ -225,6 +281,7 @@ else
     private void OpenEditModal(GroupTypeResponse gt)
     {
         editCtrlNbr = gt.CtrlNbr;
+        isEditingSystemType = gt.IsSystemType;
         saveModel = new() { Name = gt.Name, Description = gt.Description, IsWorkArea = gt.IsWorkArea, ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr };
         showSaveModal = true;
     }
@@ -233,6 +290,7 @@ else
     {
         showSaveModal = false;
         editCtrlNbr = 0;
+        isEditingSystemType = false;
         saveModel = new();
     }
 
