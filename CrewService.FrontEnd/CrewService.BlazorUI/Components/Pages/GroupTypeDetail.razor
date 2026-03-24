@@ -4,6 +4,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models.Entities
 @using CrewService.Presentation
 
 @inherits AppComponentBase
@@ -96,35 +97,35 @@ else
                     <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" />
                     <label class="form-check-label" for="groupIsWorkArea">Work Area</label>
                 </div>
-                @if (attributeDefinitions is not null && attributeDefinitions.Count > 0)
+                @if (groupSaveModel.Attributes.Count > 0)
                 {
                     <hr />
                     <h6 class="fw-semibold">Attributes</h6>
-                    @foreach (var ad in attributeDefinitions)
+                    @foreach (var attr in groupSaveModel.Attributes)
                     {
                         <div class="mb-3">
                             <label class="form-label fw-semibold">
-                                @ad.AttributeName
-                                @if (ad.IsRequired)
+                                @attr.AttributeName
+                                @if (attr.IsRequired)
                                 {
                                     <span class="text-danger">*</span>
                                 }
                             </label>
-                            @if (ad.DataType == "bool")
+                            @if (attr.DataType == "bool")
                             {
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input"
-                                           checked="@(groupSaveModel.AttributeValues.GetValueOrDefault(ad.CtrlNbr) == "true")"
-                                           @onchange="@(e => SetBoolAttributeValue(ad.CtrlNbr, e.Value is true))" />
+                                           checked="@(attr.Value == "true")"
+                                           @onchange="@(e => attr.Value = e.Value is true ? "true" : "false")" />
                                 </div>
                             }
                             else
                             {
-                                <input type="@(ad.DataType switch { "int" or "decimal" => "number", "date" => "date", _ => "text" })"
+                                <input type="@(attr.DataType switch { "int" or "decimal" => "number", "date" => "date", _ => "text" })"
                                        class="form-control"
-                                       value="@groupSaveModel.AttributeValues.GetValueOrDefault(ad.CtrlNbr)"
-                                       @onchange="e => groupSaveModel.AttributeValues[ad.CtrlNbr] = e.Value?.ToString() ?? string.Empty"
-                                       placeholder="@(string.IsNullOrEmpty(ad.DefaultValue) ? ad.AttributeName : $"Default: {ad.DefaultValue}")" />
+                                       value="@attr.Value"
+                                       @onchange="@(e => attr.Value = e.Value?.ToString() ?? string.Empty)"
+                                       placeholder="@(string.IsNullOrEmpty(attr.DefaultValue) ? attr.AttributeName : $"Default: {attr.DefaultValue}")" />
                             }
                         </div>
                     }
@@ -464,11 +465,18 @@ else
         editGroupCtrlNbr = 0;
         groupSaveModel = new();
 
-        // Pre-populate attribute values with defaults
+        // Build attribute entries from definitions with default values
         if (attributeDefinitions is not null)
         {
-            foreach (var ad in attributeDefinitions)
-                groupSaveModel.AttributeValues[ad.CtrlNbr] = ad.DefaultValue ?? string.Empty;
+            groupSaveModel.Attributes = attributeDefinitions.Select(ad => new GroupAttributeEntry
+            {
+                AttributeDefinitionCtrlNbr = ad.CtrlNbr,
+                AttributeName = ad.AttributeName,
+                DataType = ad.DataType,
+                IsRequired = ad.IsRequired,
+                DefaultValue = ad.DefaultValue ?? string.Empty,
+                Value = ad.DefaultValue ?? string.Empty
+            }).ToList();
         }
 
         // Auto-assign parent group when the hierarchy defines a parent type
@@ -501,17 +509,26 @@ else
             IsWorkArea = g.IsWorkArea
         };
 
-        // Load existing attribute values
+        // Build attribute entries from definitions, populated with existing values
         if (attributeDefinitions is not null && attributeDefinitions.Count > 0)
         {
+            Dictionary<long, string> existingValues = new();
             try
             {
                 var valuesResponse = await ConfigClient.GetAttributeValuesAsync(g.CtrlNbr);
-                var valuesDict = valuesResponse.AttributeValues.ToDictionary(v => v.AttributeDefinitionCtrlNbr, v => v.Value);
-                foreach (var ad in attributeDefinitions)
-                    groupSaveModel.AttributeValues[ad.CtrlNbr] = valuesDict.GetValueOrDefault(ad.CtrlNbr, ad.DefaultValue ?? string.Empty);
+                existingValues = valuesResponse.AttributeValues.ToDictionary(v => v.AttributeDefinitionCtrlNbr, v => v.Value);
             }
-            catch { /* attribute values will use defaults */ }
+            catch { /* fall back to defaults */ }
+
+            groupSaveModel.Attributes = attributeDefinitions.Select(ad => new GroupAttributeEntry
+            {
+                AttributeDefinitionCtrlNbr = ad.CtrlNbr,
+                AttributeName = ad.AttributeName,
+                DataType = ad.DataType,
+                IsRequired = ad.IsRequired,
+                DefaultValue = ad.DefaultValue ?? string.Empty,
+                Value = existingValues.GetValueOrDefault(ad.CtrlNbr, ad.DefaultValue ?? string.Empty)
+            }).ToList();
         }
 
         parentGroupLocked = hasDefinedParentType;
@@ -524,11 +541,6 @@ else
         editGroupCtrlNbr = 0;
         parentGroupLocked = false;
         groupSaveModel = new();
-    }
-
-    private void SetBoolAttributeValue(long attrDefCtrlNbr, bool isChecked)
-    {
-        groupSaveModel.AttributeValues[attrDefCtrlNbr] = isChecked ? "true" : "false";
     }
 
     private void OpenDeleteGroupModal(GroupResponse g)
@@ -561,10 +573,10 @@ else
             }
 
             // Save attribute values
-            foreach (var (attrDefCtrlNbr, value) in groupSaveModel.AttributeValues)
+            foreach (var attr in groupSaveModel.Attributes)
             {
-                if (!string.IsNullOrEmpty(value))
-                    await ConfigClient.SetAttributeValueAsync(savedGroupCtrlNbr, attrDefCtrlNbr, value);
+                if (!string.IsNullOrEmpty(attr.Value))
+                    await ConfigClient.SetAttributeValueAsync(savedGroupCtrlNbr, attr.AttributeDefinitionCtrlNbr, attr.Value);
             }
 
             CloseGroupSaveModal();
@@ -694,7 +706,7 @@ else
 
         public long ParentGroupCtrlNbr { get; set; }
         public bool IsWorkArea { get; set; }
-        public Dictionary<long, string> AttributeValues { get; set; } = new();
+        public List<GroupAttributeEntry> Attributes { get; set; } = new();
     }
 
     private sealed class AttributeInputModel
