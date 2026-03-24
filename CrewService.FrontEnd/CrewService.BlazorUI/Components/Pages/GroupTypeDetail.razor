@@ -94,8 +94,8 @@ else
                     <InputText @bind-Value="groupSaveModel.Code" class="form-control" placeholder="Short identifier (e.g. railroad mark)" />
                 </div>
                 <div class="form-check mb-3">
-                    <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" />
-                    <label class="form-check-label" for="groupIsWorkArea">Work Area</label>
+                    <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" disabled />
+                    <label class="form-check-label text-muted" for="groupIsWorkArea">Work Area (inherited from group type)</label>
                 </div>
                 @if (groupSaveModel.Attributes.Count > 0)
                 {
@@ -463,7 +463,7 @@ else
     private void OpenCreateGroupModal()
     {
         editGroupCtrlNbr = 0;
-        groupSaveModel = new();
+        groupSaveModel = new() { IsWorkArea = groupType?.IsWorkArea ?? false };
 
         // Build attribute entries from definitions with default values
         if (attributeDefinitions is not null)
@@ -506,7 +506,7 @@ else
             Name = g.Name,
             Code = g.Code,
             ParentGroupCtrlNbr = g.ParentGroupCtrlNbr,
-            IsWorkArea = g.IsWorkArea
+            IsWorkArea = groupType?.IsWorkArea ?? false
         };
 
         // Build attribute entries from definitions, populated with existing values
