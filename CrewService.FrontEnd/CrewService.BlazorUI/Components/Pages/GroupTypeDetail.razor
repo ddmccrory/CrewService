@@ -69,6 +69,10 @@ else
             <EditForm Model="groupSaveModel" OnValidSubmit="OnSaveGroup" id="save-group-form">
                 <DataAnnotationsValidator />
                 <div class="mb-3">
+                    <label class="form-label fw-semibold">Code</label>
+                    <InputText @bind-Value="groupSaveModel.Code" class="form-control" placeholder="Short identifier (e.g. railroad mark)" />
+                </div>
+                <div class="mb-3">
                     <label class="form-label fw-semibold">Name</label>
                     <InputText @bind-Value="groupSaveModel.Name" class="form-control" placeholder="Group Name" />
                     <ValidationMessage For="() => groupSaveModel.Name" class="text-danger" />
@@ -89,10 +93,6 @@ else
                         </InputSelect>
                     </div>
                 }
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Code</label>
-                    <InputText @bind-Value="groupSaveModel.Code" class="form-control" placeholder="Short identifier (e.g. railroad mark)" />
-                </div>
                 <div class="form-check mb-3">
                     <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" disabled />
                     <label class="form-check-label text-muted" for="groupIsWorkArea">Work Area (inherited from group type)</label>
