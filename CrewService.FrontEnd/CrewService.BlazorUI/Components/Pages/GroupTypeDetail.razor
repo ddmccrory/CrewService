@@ -383,7 +383,24 @@ else
 
     protected override async Task OnAppContextChangedAsync()
     {
+        if (groupType is not null && !IsGroupTypeInScope(groupType))
+        {
+            NavigationManager.NavigateTo("/config/group-types");
+            return;
+        }
+
         await LoadGroupsAndParentCandidates();
+    }
+
+    private bool IsGroupTypeInScope(GroupTypeResponse gt)
+    {
+        if (SelectedRailroadCtrlNbr is long railroadCtrlNbr)
+            return gt.ParentCtrlNbr == SelectedParentCtrlNbr && (gt.RailroadCtrlNbr == railroadCtrlNbr || gt.RailroadCtrlNbr == 0);
+
+        if (SelectedParentCtrlNbr is long parentCtrlNbr)
+            return gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0;
+
+        return true;
     }
 
     // ??????????????????????????????????????????????????????????????????

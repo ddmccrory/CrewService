@@ -4,6 +4,7 @@
 - First general instruction
 - Second general instruction
 - Do not pause for confirmation; continue uninterrupted batched updates to SystemSpec until completion. However, DO ask for confirmation before reverting changes.
+- Prefer proper fixes over workarounds/hacks. When the correct solution is known, implement it rather than building interim solutions.
 
 ## Code Style
 - Use specific formatting rules

@@ -17,6 +17,7 @@ public interface IDynamicGroupRepository : IRepository<DynamicGroup>
     Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr);
     Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null);
     Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, long parentCtrlNbr = 0);
+    Task BackfillPathsAsync();
 }
 
 public interface IGroupAttributeDefinitionRepository : IRepository<GroupAttributeDefinition>

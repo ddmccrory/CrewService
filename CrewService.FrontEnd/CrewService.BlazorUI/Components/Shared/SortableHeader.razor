@@ -1,0 +1,22 @@
+<th style="cursor: pointer; user-select: none;" @onclick="HandleClick"
+    class="@(Column == CurrentSort ? "table-active" : "")">
+    @ChildContent
+    @if (Column == CurrentSort)
+    {
+        <span class="bi @(Ascending ? "bi-sort-up" : "bi-sort-down") ms-1 text-primary"></span>
+    }
+    else
+    {
+        <span class="bi bi-arrow-down-up ms-1 text-muted opacity-25"></span>
+    }
+</th>
+
+@code {
+    [Parameter, EditorRequired] public string Column { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string CurrentSort { get; set; } = "";
+    [Parameter] public bool Ascending { get; set; } = true;
+    [Parameter] public EventCallback<string> OnSort { get; set; }
+
+    private async Task HandleClick() => await OnSort.InvokeAsync(Column);
+}

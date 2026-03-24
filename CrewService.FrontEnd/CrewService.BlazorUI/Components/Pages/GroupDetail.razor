@@ -40,22 +40,10 @@ else
     @if (activeTab == "overview")
     {
     @* ?????????????????????????????????????????????????????????????????? *@
-    @* Hierarchy Map                                                      *@
+    @* Child Groups                                                        *@
     @* ?????????????????????????????????????????????????????????????????? *@
 
-    <h3>Hierarchy</h3>
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <TreeView Nodes="BuildGroupHierarchy()" />
-        </div>
-    </div>
-
-    <hr />
-
-    <h3>Child Groups</h3>
-
-    @if (childGroups is not null && childGroups.Count > 0)
+    @if (DirectChildren.Count > 0)
     {
         <table class="table table-striped table-hover">
             <thead>
@@ -65,7 +53,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var child in childGroups)
+                @foreach (var child in DirectChildren)
                 {
                     <tr>
                         <td><a href="/config/groups/@child.CtrlNbr">@child.Name</a></td>
@@ -86,58 +74,18 @@ else
     }
     } @* end overview tab *@
 
-    @if (activeTab == "attributes")
+    @if (activeTab == "hierarchy")
     {
-    <h3>Attributes</h3>
+    @* ?????????????????????????????????????????????????????????????????? *@
+    @* Hierarchy Map                                                       *@
+    @* ?????????????????????????????????????????????????????????????????? *@
 
-    @if (attributeDefinitions is not null && attributeDefinitions.Count > 0)
-    {
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th>Attribute</th>
-                    <th>Type</th>
-                    <th>Required</th>
-                    <th>Value</th>
-                    <th style="width: 120px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var ad in attributeDefinitions)
-                {
-                    var existingValue = attributeValues?.FirstOrDefault(v => v.AttributeDefinitionCtrlNbr == ad.CtrlNbr);
-                    var currentValue = GetEditableValue(ad.CtrlNbr);
-                    <tr>
-                        <td>@ad.AttributeName</td>
-                        <td><code>@ad.DataType</code></td>
-                        <td>
-                            @if (ad.IsRequired)
-                            {
-                                <span class="badge bg-warning">Required</span>
-                            }
-                        </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm"
-                                   value="@currentValue"
-                                   @onchange="(e) => OnAttributeValueChanged(ad.CtrlNbr, e.Value?.ToString())" />
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" @onclick="() => SaveAttributeValue(ad.CtrlNbr)">Save</button>
-                            @if (existingValue is not null)
-                            {
-                                <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => DeleteAttributeValue(existingValue.CtrlNbr)">Clear</button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted">No attribute definitions for this group type. <a href="/config/group-types/@group.GroupTypeCtrlNbr">Define attributes on the group type.</a></p>
-    }
-    } @* end attributes tab *@
+    <div class="card">
+        <div class="card-body">
+            <TreeView Nodes="BuildGroupHierarchy()" />
+        </div>
+    </div>
+    } @* end hierarchy tab *@
 }
 
 @code {
@@ -145,22 +93,23 @@ else
     public long CtrlNbr { get; set; }
 
     private GroupResponse? group;
+    private GroupTypeResponse? groupType;
     private string groupTypeName = "";
 
     private string activeTab = "overview";
     private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
     [
-        new("overview", "Overview", "bi bi-diagram-3"),
-        new("attributes", "Attributes", "bi bi-tags")
+        new("overview", "Overview", "bi bi-collection"),
+        new("hierarchy", "Hierarchy", "bi bi-diagram-3")
     ];
 
     private void NavigateBack() => NavigationManager.NavigateTo($"/config/group-types/{group?.GroupTypeCtrlNbr}");
-    private IReadOnlyList<GroupResponse>? childGroups;
+    private IReadOnlyList<GroupResponse>? descendants;
     private IReadOnlyList<GroupResponse>? ancestors;
     private Dictionary<long, string> groupTypeNames = new();
-    private IReadOnlyList<AttributeDefinitionResponse>? attributeDefinitions;
-    private IReadOnlyList<AttributeValueResponse>? attributeValues;
-    private Dictionary<long, string> editableValues = new();
+
+    private IReadOnlyList<GroupResponse> DirectChildren =>
+        descendants?.Where(d => d.ParentGroupCtrlNbr == CtrlNbr).ToList() ?? [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,8 +117,32 @@ else
         await LoadGroup();
         await LoadGroupTypeNames();
         await LoadAncestors();
-        await LoadChildGroups();
-        await LoadAttributes();
+        await LoadDescendants();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (groupType is not null && !IsGroupTypeInScope(groupType))
+        {
+            NavigationManager.NavigateTo("/config/group-types");
+            return;
+        }
+
+        await LoadGroup();
+        await LoadGroupTypeNames();
+        await LoadAncestors();
+        await LoadDescendants();
+    }
+
+    private bool IsGroupTypeInScope(GroupTypeResponse gt)
+    {
+        if (SelectedRailroadCtrlNbr is long railroadCtrlNbr)
+            return gt.ParentCtrlNbr == SelectedParentCtrlNbr && (gt.RailroadCtrlNbr == railroadCtrlNbr || gt.RailroadCtrlNbr == 0);
+
+        if (SelectedParentCtrlNbr is long parentCtrlNbr)
+            return gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0;
+
+        return true;
     }
 
     private async Task LoadGroup()
@@ -178,8 +151,8 @@ else
         {
             errorMessage = null;
             group = await ConfigClient.GetGroupAsync(CtrlNbr);
-            var gt = await ConfigClient.GetGroupTypeAsync(group.GroupTypeCtrlNbr);
-            groupTypeName = gt.Name;
+            groupType = await ConfigClient.GetGroupTypeAsync(group.GroupTypeCtrlNbr);
+            groupTypeName = groupType.Name;
         }
         catch (Exception ex)
         {
@@ -187,16 +160,16 @@ else
         }
     }
 
-    private async Task LoadChildGroups()
+    private async Task LoadDescendants()
     {
         try
         {
-            var response = await ConfigClient.GetAllGroupsAsync(CtrlNbr);
-            childGroups = response.Groups;
+            var response = await ConfigClient.GetGroupTreeAsync(CtrlNbr);
+            descendants = response.Groups;
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load child groups: {ex.Message}";
+            errorMessage = $"Failed to load group tree: {ex.Message}";
         }
     }
 
@@ -235,23 +208,10 @@ else
     {
         if (group is null) return [];
 
-        // Build the current node
-        var currentNode = new TreeNode
-        {
-            Label = group.Name,
-            Subtitle = $"({groupTypeName})",
-            IsHighlighted = true,
-            Badge = group.IsWorkArea ? "Work Area" : null,
-            BadgeClass = "bg-success",
-            Children = (childGroups ?? []).Select(child => new TreeNode
-            {
-                Label = child.Name,
-                Href = $"/config/groups/{child.CtrlNbr}",
-                Subtitle = $"({GetGroupTypeName(child.GroupTypeCtrlNbr)})",
-                Badge = child.IsWorkArea ? "Work Area" : null,
-                BadgeClass = "bg-success"
-            }).ToList()
-        };
+        var allDescendants = descendants ?? [];
+
+        // Build a recursive subtree rooted at the current group
+        var currentNode = BuildSubtree(group.CtrlNbr, allDescendants);
 
         // Wrap ancestors around the current node (innermost → outermost)
         if (ancestors is not null)
@@ -271,67 +231,26 @@ else
         return [currentNode];
     }
 
-    // Attribute Values
-    private async Task LoadAttributes()
+    private TreeNode BuildSubtree(long nodeCtrlNbr, IReadOnlyList<GroupResponse> allDescendants)
     {
-        try
-        {
-            if (group is null) return;
-            var defsResponse = await ConfigClient.GetAttributeDefinitionsAsync(group.GroupTypeCtrlNbr);
-            attributeDefinitions = defsResponse.AttributeDefinitions;
+        var node = nodeCtrlNbr == CtrlNbr
+            ? group!
+            : allDescendants.First(d => d.CtrlNbr == nodeCtrlNbr);
 
-            var valsResponse = await ConfigClient.GetAttributeValuesAsync(CtrlNbr);
-            attributeValues = valsResponse.AttributeValues;
+        var children = allDescendants
+            .Where(d => d.ParentGroupCtrlNbr == nodeCtrlNbr && d.CtrlNbr != nodeCtrlNbr)
+            .Select(child => BuildSubtree(child.CtrlNbr, allDescendants))
+            .ToList();
 
-            editableValues.Clear();
-            foreach (var ad in attributeDefinitions)
-            {
-                var existing = attributeValues.FirstOrDefault(v => v.AttributeDefinitionCtrlNbr == ad.CtrlNbr);
-                editableValues[ad.CtrlNbr] = existing?.Value ?? ad.DefaultValue ?? "";
-            }
-        }
-        catch (Exception ex)
+        return new TreeNode
         {
-            errorMessage = $"Failed to load attributes: {ex.Message}";
-        }
-    }
-
-    private string GetEditableValue(long attrDefCtrlNbr)
-    {
-        return editableValues.TryGetValue(attrDefCtrlNbr, out var val) ? val : "";
-    }
-
-    private void OnAttributeValueChanged(long attrDefCtrlNbr, string? value)
-    {
-        editableValues[attrDefCtrlNbr] = value ?? "";
-    }
-
-    private async Task SaveAttributeValue(long attrDefCtrlNbr)
-    {
-        try
-        {
-            errorMessage = null;
-            var value = GetEditableValue(attrDefCtrlNbr);
-            await ConfigClient.SetAttributeValueAsync(CtrlNbr, attrDefCtrlNbr, value);
-            await LoadAttributes();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to save attribute value: {ex.Message}";
-        }
-    }
-
-    private async Task DeleteAttributeValue(long valueCtrlNbr)
-    {
-        try
-        {
-            errorMessage = null;
-            await ConfigClient.DeleteAttributeValueAsync(valueCtrlNbr);
-            await LoadAttributes();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to clear attribute value: {ex.Message}";
-        }
+            Label = node.Name,
+            Subtitle = $"({GetGroupTypeName(node.GroupTypeCtrlNbr)})",
+            IsHighlighted = node.CtrlNbr == CtrlNbr,
+            Href = node.CtrlNbr == CtrlNbr ? null : $"/config/groups/{node.CtrlNbr}",
+            Badge = node.IsWorkArea ? "Work Area" : null,
+            BadgeClass = "bg-success",
+            Children = children
+        };
     }
 }

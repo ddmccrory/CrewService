@@ -31,7 +31,6 @@
 
 @rendermode InteractiveServer
 @inherits AppComponentBase
-@implements IDisposable
 
 <PageTitle>@pageName — Crew Service</PageTitle>
 
@@ -80,8 +79,9 @@ else
             .LastOrDefault() ?? "Placeholder";
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        base.Dispose();
     }
 }

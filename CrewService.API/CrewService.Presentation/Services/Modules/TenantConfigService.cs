@@ -142,6 +142,14 @@ public class TenantConfigService(
 
     public override async Task<GroupResponse> CreateGroup(CreateGroupRequest request, ServerCallContext context)
     {
+        // Resolve parent's path for materialized path computation
+        string? parentPath = null;
+        if (request.ParentGroupCtrlNbr > 0)
+        {
+            var parentGroup = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.ParentGroupCtrlNbr));
+            parentPath = parentGroup?.Path;
+        }
+
         var existing = await _dynamicGroupRepository.GetByGroupTypeAndNameIncludingDeletedAsync(
             ControlNumber.Create(request.GroupTypeCtrlNbr), request.Name);
 
@@ -154,9 +162,10 @@ public class TenantConfigService(
             existing.Update(
                 request.Name,
                 request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
-                request.Path,
+                null,
                 request.IsWorkArea,
                 string.IsNullOrEmpty(request.Code) ? null : request.Code);
+            existing.BuildPath(parentPath);
 
             await using var uow = await _uowFactory.CreateAsync();
             uow.DynamicGroups.Update(existing);
@@ -169,9 +178,10 @@ public class TenantConfigService(
             request.GroupTypeCtrlNbr,
             request.Name,
             request.ParentGroupCtrlNbr > 0 ? request.ParentGroupCtrlNbr : null,
-            request.Path,
+            null,
             request.IsWorkArea,
             string.IsNullOrEmpty(request.Code) ? null : request.Code);
+        group.BuildPath(parentPath);
 
         await using var uow2 = await _uowFactory.CreateAsync();
         uow2.DynamicGroups.Add(group);
@@ -185,15 +195,36 @@ public class TenantConfigService(
         var group = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.CtrlNbr} not found."));
 
+        var oldParentCtrlNbr = group.ParentGroupCtrlNbr;
+
+        // Resolve new parent's path
+        string? parentPath = null;
+        if (request.ParentGroupCtrlNbr > 0)
+        {
+            var parentGroup = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.ParentGroupCtrlNbr));
+            parentPath = parentGroup?.Path;
+        }
+
         group.Update(
             request.Name,
             request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
-            request.Path,
+            null,
             request.IsWorkArea,
             string.IsNullOrEmpty(request.Code) ? null : request.Code);
+        group.BuildPath(parentPath);
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.DynamicGroups.Update(group);
+
+        // If parent changed, cascade path updates to all descendants
+        var newParentCtrlNbr = request.ParentGroupCtrlNbr > 0
+            ? ControlNumber.Create(request.ParentGroupCtrlNbr)
+            : (ControlNumber?)null;
+        if (oldParentCtrlNbr != newParentCtrlNbr)
+        {
+            await RebuildDescendantPaths(group, uow);
+        }
+
         await uow.CommitAsync();
 
         return MapGroup(group);
@@ -398,6 +429,28 @@ public class TenantConfigService(
         await uow.CommitAsync();
 
         return new DeleteResponse { Success = true };
+    }
+
+    /// <summary>
+    /// BFS cascade: recomputes materialized paths for all descendants of the given group.
+    /// </summary>
+    private async Task RebuildDescendantPaths(DynamicGroup parent, IOrchestrationUnitOfWork uow)
+    {
+        var queue = new Queue<DynamicGroup>();
+        queue.Enqueue(parent);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            var children = await _dynamicGroupRepository.GetByParentCtrlNbrAsync(current.CtrlNbr);
+
+            foreach (var child in children)
+            {
+                child.BuildPath(current.Path);
+                uow.DynamicGroups.Update(child);
+                queue.Enqueue(child);
+            }
+        }
     }
 
     private static GroupTypeResponse MapGroupType(GroupType gt) => new()
