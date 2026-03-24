@@ -76,8 +76,11 @@ else
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Parent Group@(string.IsNullOrEmpty(parentGroupTypeName) ? "" : $" ({parentGroupTypeName})")</label>
-                        <InputSelect @bind-Value="groupSaveModel.ParentGroupCtrlNbr" class="form-select">
-                            <option value="0">(No parent)</option>
+                        <InputSelect @bind-Value="groupSaveModel.ParentGroupCtrlNbr" class="form-select" disabled="@parentGroupLocked">
+                            @if (!hasDefinedParentType)
+                            {
+                                <option value="0">(No parent)</option>
+                            }
                             @foreach (var g in parentTypeGroups)
                             {
                                 <option value="@g.CtrlNbr">@g.Name</option>
@@ -307,6 +310,8 @@ else
     private IReadOnlyList<GroupResponse>? parentTypeGroups;
     private Dictionary<long, string> allGroupsLookup = new();
     private string parentGroupTypeName = "";
+    private bool hasDefinedParentType;
+    private bool parentGroupLocked;
 
     private void NavigateBack() => NavigationManager.NavigateTo("/config/group-types");
 
@@ -371,11 +376,13 @@ else
             // Parent group candidates for the create/edit dialog
             parentTypeGroups = null;
             parentGroupTypeName = "";
+            hasDefinedParentType = false;
 
             if (groupType is null) return;
 
             if (groupType.ParentGroupTypeCtrlNbr > 0)
             {
+                hasDefinedParentType = true;
                 // Type has a defined parent group type — show only groups of that type
                 var parentType = await ConfigClient.GetGroupTypeAsync(groupType.ParentGroupTypeCtrlNbr);
                 parentGroupTypeName = parentType.Name;
@@ -423,6 +430,23 @@ else
     {
         editGroupCtrlNbr = 0;
         groupSaveModel = new();
+
+        // Auto-assign parent group when the hierarchy defines a parent type
+        if (hasDefinedParentType && parentTypeGroups is { Count: 1 })
+        {
+            groupSaveModel.ParentGroupCtrlNbr = parentTypeGroups[0].CtrlNbr;
+            parentGroupLocked = true;
+        }
+        else if (hasDefinedParentType && parentTypeGroups is { Count: > 1 })
+        {
+            groupSaveModel.ParentGroupCtrlNbr = parentTypeGroups[0].CtrlNbr;
+            parentGroupLocked = false;
+        }
+        else
+        {
+            parentGroupLocked = false;
+        }
+
         showGroupSaveModal = true;
     }
 
@@ -436,6 +460,7 @@ else
             ParentGroupCtrlNbr = g.ParentGroupCtrlNbr,
             IsWorkArea = g.IsWorkArea
         };
+        parentGroupLocked = hasDefinedParentType;
         showGroupSaveModal = true;
     }
 
@@ -443,6 +468,7 @@ else
     {
         showGroupSaveModal = false;
         editGroupCtrlNbr = 0;
+        parentGroupLocked = false;
         groupSaveModel = new();
     }
 
