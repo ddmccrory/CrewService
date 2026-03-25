@@ -60,6 +60,8 @@ public class ForeignKeyIntegrityTests
             ("GroupType", "ParentCtrlNbr"),
             ("GroupType", "RailroadCtrlNbr"),
             ("GroupType", "ParentGroupTypeCtrlNbr"),
+            // Permission.ParentCtrlNbr is a scope filter for per-parent overrides, not a FK
+            ("Permission", "ParentCtrlNbr"),
         };
 
         var orphans = new List<string>();
