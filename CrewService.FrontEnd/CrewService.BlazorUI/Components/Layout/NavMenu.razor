@@ -386,9 +386,6 @@
 </div>
 
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
-
     private string? currentUrl;
 
     private bool IsCurrentPath(params string[] prefixes)
@@ -409,18 +406,7 @@
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
         AppContext.OnContextChanged += OnContextChanged;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        if (!RendererInfo.IsInteractive) return;
-
-        var authState = await AuthStateTask;
-        if (authState.User.Identity?.IsAuthenticated == true)
-        {
-            await Permissions.InitializeAsync(authState.User);
-            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
-        }
+        Permissions.OnPermissionsLoaded += OnPermissionsLoaded;
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -431,17 +417,19 @@
 
     private void OnContextChanged()
     {
-        InvokeAsync(async () =>
-        {
-            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
-            StateHasChanged();
-        });
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnPermissionsLoaded()
+    {
+        InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
         AppContext.OnContextChanged -= OnContextChanged;
+        Permissions.OnPermissionsLoaded -= OnPermissionsLoaded;
     }
 }
 

@@ -19,8 +19,12 @@ public sealed class UserPermissionService(
     private Dictionary<long, string> _featureCtrlNbrToKey = [];
     private readonly Dictionary<string, int> _permissions = []; // featureKey → accessLevel
     private List<long> _userRoleCtrlNbrs = [];
-    private bool _initialized;
+    private Task? _initTask;
+    private Task _loadTask = Task.CompletedTask;
     private long? _loadedParentCtrlNbr = long.MinValue; // sentinel so first load always runs
+
+    /// <summary>Raised after permissions finish loading so the NavMenu can re-render.</summary>
+    public event Action? OnPermissionsLoaded;
 
     /// <summary>The active craft CtrlNbr resolved from the employee's last active roster, or 0 if none.</summary>
     public long ActiveCraftCtrlNbr { get; private set; }
@@ -36,12 +40,13 @@ public sealed class UserPermissionService(
     /// <summary>
     /// Loads the role and feature catalogs from the API, resolves the user's
     /// active craft, and determines which roles the current user holds.
-    /// Idempotent within a circuit.
+    /// Idempotent within a circuit — concurrent callers share the same in-flight task.
     /// </summary>
-    public async Task InitializeAsync(ClaimsPrincipal user)
-    {
-        if (_initialized) return;
+    public Task InitializeAsync(ClaimsPrincipal user)
+        => _initTask ??= InitializeCoreAsync(user);
 
+    private async Task InitializeCoreAsync(ClaimsPrincipal user)
+    {
         try
         {
             var rolesTask = authClient.GetAllRolesAsync();
@@ -60,11 +65,10 @@ public sealed class UserPermissionService(
 
             // Resolve the employee's active craft from their last active roster
             await ResolveActiveCraftAsync();
-
-            _initialized = true;
         }
         catch (Exception ex)
         {
+            _initTask = null; // allow retry on next call
             logger.LogError(ex, "Failed to load role/feature catalogs");
         }
     }
@@ -72,16 +76,20 @@ public sealed class UserPermissionService(
     /// <summary>
     /// Loads (or reloads) the effective permissions for the current user's roles
     /// within the given parent and active craft context.
-    /// Skips redundant calls for the same parent.
+    /// Concurrent callers for the same parent share the same in-flight task.
     /// </summary>
-    public async Task LoadPermissionsAsync(long? parentCtrlNbr)
+    public Task LoadPermissionsAsync(long? parentCtrlNbr)
     {
-        if (parentCtrlNbr == _loadedParentCtrlNbr) return;
+        if (parentCtrlNbr == _loadedParentCtrlNbr) return _loadTask;
+        _loadedParentCtrlNbr = parentCtrlNbr;
+        return _loadTask = LoadPermissionsCoreAsync(parentCtrlNbr);
+    }
+
+    private async Task LoadPermissionsCoreAsync(long? parentCtrlNbr)
+    {
         _permissions.Clear();
 
         if (_userRoleCtrlNbrs.Count == 0) return;
-
-        _loadedParentCtrlNbr = parentCtrlNbr;
 
         try
         {
@@ -107,6 +115,7 @@ public sealed class UserPermissionService(
             }
 
             IsLoaded = true;
+            OnPermissionsLoaded?.Invoke();
         }
         catch (Exception ex)
         {

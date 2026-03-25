@@ -161,7 +161,10 @@ else if (roles is not null && features is not null)
         try
         {
             var response = await CraftClient.GetAllCraftsAsync();
-            crafts = response.Crafts;
+            crafts = response.Crafts
+                .DistinctBy(c => c.CraftName)
+                .OrderBy(c => c.CraftName)
+                .ToList();
         }
         catch (Exception ex)
         {
