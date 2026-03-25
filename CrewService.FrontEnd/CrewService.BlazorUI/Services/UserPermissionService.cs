@@ -9,16 +9,15 @@ namespace CrewService.BlazorUI.Services;
 /// checks that the NavMenu, AppComponentBase, and individual pages use to
 /// replace hardcoded <c>AuthorizeView Roles</c> checks.
 /// </summary>
-public sealed class UserPermissionService
+public sealed class UserPermissionService(
+    AuthorizationClient authClient,
+    SeniorityClient seniorityClient,
+    CurrentUserService currentUser,
+    ILogger<UserPermissionService> logger)
 {
-    private readonly AuthorizationClient _authClient;
-    private readonly SeniorityClient _seniorityClient;
-    private readonly CurrentUserService _currentUser;
-    private readonly ILogger<UserPermissionService> _logger;
-
-    private Dictionary<string, long> _roleNameToCtrlNbr = new();
-    private Dictionary<long, string> _featureCtrlNbrToKey = new();
-    private Dictionary<string, int> _permissions = new(); // featureKey → accessLevel
+    private Dictionary<string, long> _roleNameToCtrlNbr = [];
+    private Dictionary<long, string> _featureCtrlNbrToKey = [];
+    private readonly Dictionary<string, int> _permissions = []; // featureKey → accessLevel
     private List<long> _userRoleCtrlNbrs = [];
     private bool _initialized;
     private long? _loadedParentCtrlNbr = long.MinValue; // sentinel so first load always runs
@@ -28,14 +27,6 @@ public sealed class UserPermissionService
 
     /// <summary>The display name of the active craft, or <c>null</c> if none.</summary>
     public string? ActiveCraftName { get; private set; }
-
-    public UserPermissionService(AuthorizationClient authClient, SeniorityClient seniorityClient, CurrentUserService currentUser, ILogger<UserPermissionService> logger)
-    {
-        _authClient = authClient;
-        _seniorityClient = seniorityClient;
-        _currentUser = currentUser;
-        _logger = logger;
-    }
 
     /// <summary><c>true</c> once roles, features, and at least one permission set have been loaded.</summary>
     public bool IsLoaded { get; private set; }
@@ -54,8 +45,8 @@ public sealed class UserPermissionService
 
         try
         {
-            var rolesTask = _authClient.GetAllRolesAsync();
-            var featuresTask = _authClient.GetAllFeaturesAsync();
+            var rolesTask = authClient.GetAllRolesAsync();
+            var featuresTask = authClient.GetAllFeaturesAsync();
             await Task.WhenAll(rolesTask, featuresTask);
 
             _roleNameToCtrlNbr = rolesTask.Result.Roles
@@ -64,17 +55,16 @@ public sealed class UserPermissionService
             _featureCtrlNbrToKey = featuresTask.Result.Features
                 .ToDictionary(f => f.CtrlNbr, f => f.Key);
 
-            _userRoleCtrlNbrs = _roleNameToCtrlNbr
+            _userRoleCtrlNbrs = [.. _roleNameToCtrlNbr
                 .Where(kvp => user.IsInRole(kvp.Key))
-                .Select(kvp => kvp.Value)
-                .ToList();
+                .Select(kvp => kvp.Value)];
 
             // Resolve the employee's active craft from their last active roster
             await ResolveActiveCraftAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load role/feature catalogs");
+            logger.LogError(ex, "Failed to load role/feature catalogs");
         }
     }
 
@@ -95,7 +85,7 @@ public sealed class UserPermissionService
         {
             foreach (var roleCtrlNbr in _userRoleCtrlNbrs)
             {
-                var response = await _authClient.GetEffectivePermissionsAsync(
+                var response = await authClient.GetEffectivePermissionsAsync(
                     roleCtrlNbr, parentCtrlNbr ?? 0, ActiveCraftCtrlNbr);
 
                 foreach (var perm in response.Permissions)
@@ -115,7 +105,7 @@ public sealed class UserPermissionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load effective permissions for parent {ParentCtrlNbr}", parentCtrlNbr);
+            logger.LogError(ex, "Failed to load effective permissions for parent {ParentCtrlNbr}", parentCtrlNbr);
         }
     }
 
@@ -123,11 +113,11 @@ public sealed class UserPermissionService
 
     private async Task ResolveActiveCraftAsync()
     {
-        if (!_currentUser.IsEmployee || _currentUser.Employee is null) return;
+        if (!currentUser.IsEmployee || currentUser.Employee is null) return;
 
         try
         {
-            var response = await _seniorityClient.GetActiveCraftAsync(_currentUser.Employee.CtrlNbr);
+            var response = await seniorityClient.GetActiveCraftAsync(currentUser.Employee.CtrlNbr);
             if (response.Found)
             {
                 ActiveCraftCtrlNbr = response.CraftCtrlNbr;
@@ -136,7 +126,7 @@ public sealed class UserPermissionService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not resolve active craft for employee {CtrlNbr}", _currentUser.Employee.CtrlNbr);
+            logger.LogWarning(ex, "Could not resolve active craft for employee {CtrlNbr}", currentUser.Employee.CtrlNbr);
         }
     }
 
