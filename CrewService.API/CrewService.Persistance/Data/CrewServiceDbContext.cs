@@ -160,6 +160,11 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Safety.SafetyObservationResolution> SafetyObservationResolutions => Set<Domain.Modules.Safety.SafetyObservationResolution>();
     public DbSet<Domain.Modules.Safety.SafetyCategory> SafetyCategories => Set<Domain.Modules.Safety.SafetyCategory>();
 
+    // Authorization Module
+    public DbSet<Domain.Modules.Authorization.Role> Roles => Set<Domain.Modules.Authorization.Role>();
+    public DbSet<Domain.Modules.Authorization.Feature> Features => Set<Domain.Modules.Authorization.Feature>();
+    public DbSet<Domain.Modules.Authorization.Permission> Permissions => Set<Domain.Modules.Authorization.Permission>();
+
     // RailroadInfo Module
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformation> RailroadInformations => Set<Domain.Modules.RailroadInfo.RailroadInformation>();
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt> RailroadInformationReadReceipts => Set<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt>();

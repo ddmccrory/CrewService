@@ -1,6 +1,7 @@
 ﻿using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Crews;
@@ -25,6 +26,7 @@ using HolidayPayrollInterfaces = CrewService.Application.Payroll;
 using PayrollEngineInterfaces = CrewService.Application.Payroll;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Modules.Authorization;
 using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Modules.WorkManagement;
 using CrewService.Persistance.Modules.Crews;
@@ -121,6 +123,11 @@ public static class DependencyInjection
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
         services.AddScoped<IPayrollTierRepository, PayrollTierRepository>();
+
+        // Authorization Module Repositories
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IFeatureRepository, FeatureRepository>();
+        services.AddScoped<IPermissionRepository, PermissionRepository>();
 
         // TenantConfig Module Repositories
         services.AddScoped<IGroupTypeRepository, GroupTypeRepository>();
