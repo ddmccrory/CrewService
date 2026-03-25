@@ -1,60 +1,23 @@
 namespace CrewService.BlazorUI.Models.Auth;
 
 /// <summary>
-/// Well-known role name constants mirroring the API domain.
-/// Keeps magic strings out of Razor components and client-side logic.
+/// Well-known system-protected role name constants.
+/// Only roles that have hardcoded behavioral logic are defined here.
+/// Operational roles (CraftManager, CrewManager, etc.) are data-driven
+/// and managed through the Roles page.
 /// </summary>
 public static class Roles
 {
-    // Global
+    // System-protected roles
     public const string SystemAdmin = "SystemAdmin";
-
-    // Per-Parent
     public const string ParentAdmin = "ParentAdmin";
     public const string RailroadAdmin = "RailroadAdmin";
-    public const string CraftManager = "CraftManager";
-    public const string CrewManager = "CrewManager";
-    public const string Dispatcher = "Dispatcher";
-    public const string PayrollClerk = "PayrollClerk";
     public const string Employee = "Employee";
 
-    /// <summary>All per-parent role names (admin + operational).</summary>
-    public static readonly IReadOnlyList<string> AdminAssignableRoles =
-    [
-        ParentAdmin,
-        RailroadAdmin,
-        CraftManager,
-        CrewManager,
-        Dispatcher,
-        PayrollClerk,
-        Employee
-    ];
-
-    /// <summary>Roles a SystemAdmin can assign, including SystemAdmin itself.</summary>
-    public static readonly IReadOnlyList<string> SystemAdminAssignableRoles =
-    [
-        SystemAdmin,
-        .. AdminAssignableRoles
-    ];
-
-    /// <summary>Operational roles assignable by non-parent-admin users.</summary>
-    public static readonly IReadOnlyList<string> OperationalRoles =
-    [
-        CraftManager,
-        CrewManager,
-        Dispatcher,
-        PayrollClerk,
-        Employee
-    ];
-
-    /// <summary>Roles that require a railroad selection.</summary>
-    public static readonly IReadOnlySet<string> RolesRequiringRailroad = new HashSet<string>
-    {
-        RailroadAdmin,
-        CraftManager,
-        CrewManager,
-        Dispatcher,
-        PayrollClerk,
-        Employee
-    };
+    /// <summary>
+    /// Returns <c>true</c> if the given role requires a railroad selection during invitation.
+    /// Only SystemAdmin and ParentAdmin are parent-scoped; all others require a railroad.
+    /// </summary>
+    public static bool RequiresRailroad(string roleName) =>
+        roleName != SystemAdmin && roleName != ParentAdmin;
 }

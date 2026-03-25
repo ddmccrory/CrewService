@@ -50,7 +50,7 @@ public sealed class UserParentAssignmentTests : IDisposable
     [Fact]
     public void Create_Raises_CreatedDomainEvent()
     {
-        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.Dispatcher);
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, "Dispatcher");
 
         Assert.Single(assignment.DomainEvents);
         Assert.IsType<CrewService.Domain.DomainEvents.UserAccess.UserParentAssignmentCreatedDomainEvent>(assignment.DomainEvents[0]);
@@ -80,7 +80,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         await repo.AddAsync(a2, TestContext.Current.CancellationToken);
 
         // A different user's assignment — should not be returned
-        var a3 = UserParentAssignment.Create("user-other", parent1.CtrlNbr.Value, Roles.CrewManager);
+        var a3 = UserParentAssignment.Create("user-other", parent1.CtrlNbr.Value, "CrewManager");
         await repo.AddAsync(a3, TestContext.Current.CancellationToken);
 
         // Act
@@ -108,7 +108,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         var a1 = UserParentAssignment.Create("user-x", parent.CtrlNbr.Value, Roles.ParentAdmin);
         await repo.AddAsync(a1, TestContext.Current.CancellationToken);
 
-        var a2 = UserParentAssignment.Create("user-y", parent.CtrlNbr.Value, Roles.Dispatcher);
+        var a2 = UserParentAssignment.Create("user-y", parent.CtrlNbr.Value, "Dispatcher");
         await repo.AddAsync(a2, TestContext.Current.CancellationToken);
 
         // Act
@@ -134,7 +134,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Exact Match Parent");
         await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
-        var assignment = UserParentAssignment.Create("user-exact", parent.CtrlNbr.Value, Roles.CrewManager);
+        var assignment = UserParentAssignment.Create("user-exact", parent.CtrlNbr.Value, "CrewManager");
         await repo.AddAsync(assignment, TestContext.Current.CancellationToken);
 
         // Act
@@ -239,7 +239,7 @@ public sealed class UserParentAssignmentTests : IDisposable
         var parent = Parent.Create("Delete Parent");
         await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
-        var assignment = UserParentAssignment.Create("user-del", parent.CtrlNbr.Value, Roles.Dispatcher);
+        var assignment = UserParentAssignment.Create("user-del", parent.CtrlNbr.Value, "Dispatcher");
         await repo.AddAsync(assignment, TestContext.Current.CancellationToken);
 
         // Act � soft-delete via repository
@@ -296,7 +296,7 @@ public sealed class UserParentAssignmentTests : IDisposable
     public void Create_With_Invalid_UserId_Throws(string? userId)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            UserParentAssignment.Create(userId!, 250101120000001, Roles.Dispatcher));
+            UserParentAssignment.Create(userId!, 250101120000001, "Dispatcher"));
     }
 
     /// <summary>
@@ -330,7 +330,7 @@ public sealed class UserParentAssignmentTests : IDisposable
     [Fact]
     public void Delete_Raises_DeletedDomainEvent()
     {
-        var assignment = UserParentAssignment.Create("user-001", 250101120000001, Roles.Dispatcher);
+        var assignment = UserParentAssignment.Create("user-001", 250101120000001, "Dispatcher");
         var initialCount = assignment.DomainEvents.Count;
 
         assignment.Delete();
@@ -340,20 +340,18 @@ public sealed class UserParentAssignmentTests : IDisposable
     }
 
     /// <summary>
-    /// Verifies that Roles.AllPerParentRoles contains all expected per-parent roles
-    /// and does not include SystemAdmin.
+    /// Verifies that Roles.RequiresRailroad returns expected results for known roles.
+    /// SystemAdmin and ParentAdmin are parent-scoped; all others require a railroad.
     /// </summary>
     [Fact]
-    public void Roles_AllPerParentRoles_Contains_Expected_Roles()
+    public void Roles_RequiresRailroad_Returns_Expected_Results()
     {
-        Assert.Contains(Roles.ParentAdmin, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.RailroadAdmin, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.CraftManager, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.CrewManager, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.Dispatcher, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.PayrollClerk, Roles.AllPerParentRoles);
-        Assert.Contains(Roles.Employee, Roles.AllPerParentRoles);
-        Assert.DoesNotContain(Roles.SystemAdmin, Roles.AllPerParentRoles);
-        Assert.Equal(7, Roles.AllPerParentRoles.Count);
+        Assert.False(Roles.RequiresRailroad(Roles.SystemAdmin));
+        Assert.False(Roles.RequiresRailroad(Roles.ParentAdmin));
+        Assert.True(Roles.RequiresRailroad(Roles.RailroadAdmin));
+        Assert.True(Roles.RequiresRailroad(Roles.Employee));
+        Assert.True(Roles.RequiresRailroad("CraftManager"));
+        Assert.True(Roles.RequiresRailroad("Dispatcher"));
+        Assert.True(Roles.RequiresRailroad("CustomRole"));
     }
 }

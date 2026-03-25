@@ -113,9 +113,8 @@ else
     private IReadOnlyList<GroupResponse> DirectChildren =>
         descendants?.Where(d => d.ParentGroupCtrlNbr == CtrlNbr).ToList() ?? [];
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
         await LoadGroup();
         await LoadGroupTypeNames();
         await LoadAncestors();

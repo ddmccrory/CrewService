@@ -51,7 +51,7 @@ else
                         }
                         else
                         {
-                            <th style="@(col.Width is not null ? $"width: {col.Width};" : "")">@col.Title</th>
+                            <th style="@(col.Width is not null ? $"width: {col.Width}; min-width: {col.Width};" : "")">@col.Title</th>
                         }
                     }
                 </tr>

@@ -87,9 +87,23 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     {
         var authState = await AuthStateTask;
         await CurrentUser.InitializeAsync(authState.User);
-        await Permissions.InitializeAsync(authState.User);
-        await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
+
+        // Permission gRPC calls require an interactive circuit; skip during prerender
+        // to avoid failed round-trips that slow every page load.
+        if (RendererInfo.IsInteractive)
+        {
+            await Permissions.InitializeAsync(authState.User);
+            await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
+            await LoadDataAsync();
+        }
     }
+
+    /// <summary>
+    /// Override to load page data after the user and permissions are initialized.
+    /// Only called during interactive render (skipped during prerender to avoid
+    /// unnecessary failed gRPC round-trips).
+    /// </summary>
+    protected virtual Task LoadDataAsync() => Task.CompletedTask;
 
     /// <summary>
     /// Called when the user changes the parent or railroad in the context switcher.

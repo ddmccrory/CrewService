@@ -6,6 +6,7 @@ using CrewService.Application.Modules.UserAccess;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.UserAccess;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.ValueObjects;
 using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
@@ -21,6 +22,7 @@ public class InvitationService(
     IUserParentAssignmentRepository assignmentRepository,
     IParentRepository parentRepository,
     IDynamicGroupRepository dynamicGroupRepository,
+    IRoleRepository roleRepository,
     UserManager<User> userManager,
     IInvitationEmailService emailService,
     IConfiguration configuration)
@@ -31,6 +33,7 @@ public class InvitationService(
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
     private readonly IParentRepository _parentRepository = parentRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
+    private readonly IRoleRepository _roleRepository = roleRepository;
     private readonly UserManager<User> _userManager = userManager;
     private readonly IInvitationEmailService _emailService = emailService;
     private readonly string _baseUrl = configuration["AppSettings:BaseUrl"] ?? "https://localhost:7132";
@@ -49,10 +52,14 @@ public class InvitationService(
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
-        else if (!Roles.AllInvitableRoles.Contains(request.Role))
-            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllInvitableRoles)}"]);
+        else
+        {
+            var role = await _roleRepository.GetByNameAsync(request.Role);
+            if (role is null)
+                errors.Add("Role", [$"Unknown role '{request.Role}'."]);
+        }
 
-        if (Roles.RolesRequiringRailroad.Contains(request.Role) && request.RailroadCtrlNbr <= 0)
+        if (Roles.RequiresRailroad(request.Role) && request.RailroadCtrlNbr <= 0)
             errors.Add("RailroadCtrlNbr", ["Required for the selected role"]);
 
         if (errors.Count > 0)
@@ -359,9 +366,6 @@ public class InvitationService(
     private static readonly HashSet<string> _adminRoles =
         [Roles.SystemAdmin, Roles.ParentAdmin, Roles.RailroadAdmin];
 
-    private static readonly HashSet<string> _nonAdminRoles =
-        [Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk, Roles.Employee];
-
     private static void EnsureCanView(string? callerRole)
     {
         if (callerRole is null || !_adminRoles.Contains(callerRole))
@@ -382,7 +386,7 @@ public class InvitationService(
             return;
 
         // RailroadAdmin can only create non-admin roles
-        if (callerRole == Roles.RailroadAdmin && _nonAdminRoles.Contains(targetRole))
+        if (callerRole == Roles.RailroadAdmin && !_adminRoles.Contains(targetRole))
             return;
 
         throw new RpcException(new Status(StatusCode.PermissionDenied,

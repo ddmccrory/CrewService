@@ -446,11 +446,11 @@ internal static class DevDataSeeder
         {
 
         // Upgrade first 6 employees to distinct roles (they already have Employee from above)
-        string[] rolesToUpgrade = [Roles.ParentAdmin, Roles.RailroadAdmin, Roles.CraftManager, Roles.CrewManager, Roles.Dispatcher, Roles.PayrollClerk];
+        string[] rolesToUpgrade = [Roles.ParentAdmin, Roles.RailroadAdmin, "CraftManager", "CrewManager", "Dispatcher", "PayrollClerk"];
         for (int r = 0; r < rolesToUpgrade.Length && r < allEmployees.Count; r++)
         {
             // Create a role-upgrade invitation (auto-accepted)
-            var rrCtrlNbr = Roles.RolesRequiringRailroad.Contains(rolesToUpgrade[r]) ? csxRailroadCore.CtrlNbr : null;
+            var rrCtrlNbr = Roles.RequiresRailroad(rolesToUpgrade[r]) ? csxRailroadCore.CtrlNbr : null;
             var upgradeInvite = Invitation.Create(
                 allEmployees[r].EmailAddresses.Count > 0 ? allEmployees[r].EmailAddresses[0].Email : $"emp-{r}@csx.example.com",
                 csxCorp.CtrlNbr.Value,
@@ -462,7 +462,7 @@ internal static class DevDataSeeder
 
             // Update or replace existing assignment and supersede original invitations
             var existingAssignments = await assignmentRepo.GetByUserAndParentAsync(allEmployees[r].UserId, csxCorp.CtrlNbr.Value);
-            var isParentScoped = !Roles.RolesRequiringRailroad.Contains(rolesToUpgrade[r]);
+            var isParentScoped = !Roles.RequiresRailroad(rolesToUpgrade[r]);
             var upgradeEmail = allEmployees[r].EmailAddresses.Count > 0 ? allEmployees[r].EmailAddresses[0].Email : $"emp-{r}@csx.example.com";
 
             if (isParentScoped)

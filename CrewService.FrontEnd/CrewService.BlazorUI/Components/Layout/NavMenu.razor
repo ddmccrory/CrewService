@@ -413,6 +413,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!RendererInfo.IsInteractive) return;
+
         var authState = await AuthStateTask;
         if (authState.User.Identity?.IsAuthenticated == true)
         {

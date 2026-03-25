@@ -33,4 +33,7 @@ public sealed class Role : Entity
         Level = level;
         Raise(new RoleUpdatedDomainEvent(this));
     }
+
+    /// <summary>Used by the baseline seeder to correct the IsSystem flag on existing roles.</summary>
+    public void SetProtection(bool isSystem) => IsSystem = isSystem;
 }

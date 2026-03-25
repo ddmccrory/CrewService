@@ -35,7 +35,10 @@
             <div class="mb-3">
                 <label class="form-label fw-semibold">Level</label>
                 <InputNumber @bind-Value="saveModel.Level" class="form-control" />
-                <div class="form-text">Higher values = more authority. System roles range from 20 (Employee) to 100 (SystemAdmin).</div>
+                <div class="form-text">
+                    Controls which roles this role can assign via invitations (at or below its level).
+                    Defaults to 40, the standard operational tier. System roles: Employee (20), RailroadAdmin (60), ParentAdmin (80), SystemAdmin (100).
+                </div>
                 <ValidationMessage For="() => saveModel.Level" class="text-danger" />
             </div>
         </EditForm>
@@ -81,8 +84,7 @@
            SearchFilter="@((r, term) => r.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || r.Description.Contains(term, StringComparison.OrdinalIgnoreCase))"
            SearchPlaceholder="Search roles..."
            EmptyMessage="No roles found."
-           DefaultSortColumn="Level"
-           DefaultSortDescending="true">
+           DefaultSortColumn="Name">
     <ToolbarContent>
         <button class="btn btn-primary" @onclick="OpenCreateModal">
             <span class="bi bi-plus-circle"></span> Create Role
@@ -90,20 +92,17 @@
     </ToolbarContent>
     <RowContent Context="role">
         <td>
-            @role.Name
-            @if (role.IsSystem)
-            {
-                <span class="badge bg-secondary ms-2">System</span>
-            }
+            <div class="d-flex align-items-center gap-2">
+                <span class="flex-grow-1">@role.Name</span>
+                @if (role.IsSystem)
+                {
+                    <span class="badge bg-secondary">System</span>
+                }
+            </div>
         </td>
         <td>@role.Description</td>
-        <td>@role.Level</td>
         <td>
-            @if (role.IsSystem)
-            {
-                <span class="text-muted fst-italic">Protected</span>
-            }
-            else
+            @if (!role.IsSystem)
             {
                 <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(role)">
@@ -127,7 +126,6 @@
     [
         new("Name", r => r.Name),
         new("Description", r => r.Description),
-        new("Level", r => (object)r.Level, width: "100px"),
         DataTableColumn<RoleResponse>.Actions()
     ];
 
@@ -139,9 +137,8 @@
     private long deleteCtrlNbr;
     private string deleteRoleName = "";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
         await LoadRoles();
     }
 

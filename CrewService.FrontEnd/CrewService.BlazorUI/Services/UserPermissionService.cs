@@ -41,7 +41,6 @@ public sealed class UserPermissionService(
     public async Task InitializeAsync(ClaimsPrincipal user)
     {
         if (_initialized) return;
-        _initialized = true;
 
         try
         {
@@ -61,6 +60,8 @@ public sealed class UserPermissionService(
 
             // Resolve the employee's active craft from their last active roster
             await ResolveActiveCraftAsync();
+
+            _initialized = true;
         }
         catch (Exception ex)
         {
@@ -76,18 +77,22 @@ public sealed class UserPermissionService(
     public async Task LoadPermissionsAsync(long? parentCtrlNbr)
     {
         if (parentCtrlNbr == _loadedParentCtrlNbr) return;
-        _loadedParentCtrlNbr = parentCtrlNbr;
         _permissions.Clear();
 
         if (_userRoleCtrlNbrs.Count == 0) return;
 
+        _loadedParentCtrlNbr = parentCtrlNbr;
+
         try
         {
-            foreach (var roleCtrlNbr in _userRoleCtrlNbrs)
-            {
-                var response = await authClient.GetEffectivePermissionsAsync(
-                    roleCtrlNbr, parentCtrlNbr ?? 0, ActiveCraftCtrlNbr);
+            var tasks = _userRoleCtrlNbrs.Select(roleCtrlNbr =>
+                authClient.GetEffectivePermissionsAsync(
+                    roleCtrlNbr, parentCtrlNbr ?? 0, ActiveCraftCtrlNbr));
 
+            var responses = await Task.WhenAll(tasks);
+
+            foreach (var response in responses)
+            {
                 foreach (var perm in response.Permissions)
                 {
                     if (_featureCtrlNbrToKey.TryGetValue(perm.FeatureCtrlNbr, out var featureKey))

@@ -375,9 +375,8 @@ else
     private long deleteAttrCtrlNbr;
     private string deleteAttrName = "";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
         await LoadGroupType();
         await LoadGroupsAndParentCandidates();
         await LoadAttributeDefinitions();

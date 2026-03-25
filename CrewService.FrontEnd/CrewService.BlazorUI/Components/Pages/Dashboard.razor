@@ -31,10 +31,8 @@
 @code {
     private List<string> parentRoleDisplay = [];
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
-
         var user = CurrentUser.User!;
         var parentRoleClaims = user.Claims
             .Where(c => c.Type == CustomClaimTypes.ParentRole)
