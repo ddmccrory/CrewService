@@ -93,6 +93,7 @@ message FeatureResponse {
 // Permission messages
 message GetPermissionMatrixRequest {
   int64 parent_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
 }
 
 message GetPermissionMatrixResponse {
@@ -104,6 +105,7 @@ message GetPermissionMatrixResponse {
 message GetEffectivePermissionsRequest {
   int64 role_ctrl_nbr = 1;
   int64 parent_ctrl_nbr = 2;
+  int64 craft_ctrl_nbr = 3;
 }
 
 message GetEffectivePermissionsResponse {
@@ -115,6 +117,7 @@ message UpdatePermissionRequest {
   int64 feature_ctrl_nbr = 2;
   int32 access_level = 3;
   int64 parent_ctrl_nbr = 4;
+  int64 craft_ctrl_nbr = 5;
 }
 
 message PermissionResponse {
@@ -123,4 +126,5 @@ message PermissionResponse {
   int64 feature_ctrl_nbr = 3;
   int32 access_level = 4;
   int64 parent_ctrl_nbr = 5;
+  int64 craft_ctrl_nbr = 6;
 }

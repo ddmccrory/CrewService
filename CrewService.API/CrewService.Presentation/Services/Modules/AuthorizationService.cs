@@ -107,13 +107,14 @@ public class AuthorizationService(
         foreach (var feature in features.OrderBy(f => f.Category).ThenBy(f => f.DisplayName))
             response.Features.Add(MapFeature(feature));
 
-        // Load permissions: parent-specific if requested, otherwise global defaults
+        // Load permissions: parent/craft-specific if requested, otherwise global defaults
         long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
+        ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
 
         foreach (var role in roles)
         {
             var effective = await _permissionRepository.GetEffectivePermissionsAsync(
-                role.CtrlNbr, parentCtrlNbr);
+                role.CtrlNbr, parentCtrlNbr, craftCtrlNbr);
 
             foreach (var perm in effective)
                 response.Permissions.Add(MapPermission(perm));
@@ -125,8 +126,9 @@ public class AuthorizationService(
     public override async Task<GetEffectivePermissionsResponse> GetEffectivePermissions(GetEffectivePermissionsRequest request, ServerCallContext context)
     {
         long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
+        ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
         var permissions = await _permissionRepository.GetEffectivePermissionsAsync(
-            ControlNumber.Create(request.RoleCtrlNbr), parentCtrlNbr);
+            ControlNumber.Create(request.RoleCtrlNbr), parentCtrlNbr, craftCtrlNbr);
 
         var response = new GetEffectivePermissionsResponse();
         foreach (var perm in permissions)
@@ -137,12 +139,14 @@ public class AuthorizationService(
     public override async Task<PermissionResponse> UpdatePermission(UpdatePermissionRequest request, ServerCallContext context)
     {
         long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
+        ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
         var accessLevel = (AccessLevel)request.AccessLevel;
 
-        var existing = await _permissionRepository.GetByRoleFeatureParentAsync(
+        var existing = await _permissionRepository.GetByRoleFeatureParentCraftAsync(
             ControlNumber.Create(request.RoleCtrlNbr),
             ControlNumber.Create(request.FeatureCtrlNbr),
-            parentCtrlNbr);
+            parentCtrlNbr,
+            craftCtrlNbr);
 
         if (existing is not null)
         {
@@ -155,7 +159,8 @@ public class AuthorizationService(
             ControlNumber.Create(request.RoleCtrlNbr),
             ControlNumber.Create(request.FeatureCtrlNbr),
             accessLevel,
-            parentCtrlNbr);
+            parentCtrlNbr,
+            craftCtrlNbr);
         await _permissionRepository.AddAsync(permission);
         return MapPermission(permission);
     }
@@ -186,6 +191,7 @@ public class AuthorizationService(
         RoleCtrlNbr = permission.RoleCtrlNbr.Value,
         FeatureCtrlNbr = permission.FeatureCtrlNbr.Value,
         AccessLevel = (int)permission.AccessLevel,
-        ParentCtrlNbr = permission.ParentCtrlNbr ?? 0
+        ParentCtrlNbr = permission.ParentCtrlNbr ?? 0,
+        CraftCtrlNbr = permission.CraftCtrlNbr?.Value ?? 0
     };
 }

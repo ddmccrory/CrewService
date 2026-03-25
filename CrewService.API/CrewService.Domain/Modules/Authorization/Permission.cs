@@ -9,20 +9,22 @@ public sealed class Permission : Entity
     public ControlNumber FeatureCtrlNbr { get; private set; } = null!;
     public AccessLevel AccessLevel { get; private set; }
     public long? ParentCtrlNbr { get; private set; }
+    public ControlNumber? CraftCtrlNbr { get; private set; }
 
     private Permission() { }
 
-    private Permission(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, AccessLevel accessLevel, long? parentCtrlNbr)
+    private Permission(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, AccessLevel accessLevel, long? parentCtrlNbr, ControlNumber? craftCtrlNbr)
     {
         RoleCtrlNbr = roleCtrlNbr;
         FeatureCtrlNbr = featureCtrlNbr;
         AccessLevel = accessLevel;
         ParentCtrlNbr = parentCtrlNbr;
+        CraftCtrlNbr = craftCtrlNbr;
     }
 
-    public static Permission Create(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, AccessLevel accessLevel, long? parentCtrlNbr = null)
+    public static Permission Create(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, AccessLevel accessLevel, long? parentCtrlNbr = null, ControlNumber? craftCtrlNbr = null)
     {
-        return new Permission(roleCtrlNbr, featureCtrlNbr, accessLevel, parentCtrlNbr);
+        return new Permission(roleCtrlNbr, featureCtrlNbr, accessLevel, parentCtrlNbr, craftCtrlNbr);
     }
 
     public void UpdateAccessLevel(AccessLevel accessLevel)

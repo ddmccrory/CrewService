@@ -19,12 +19,14 @@ builder.Services.AddScoped<AccountClient>();
 builder.Services.AddScoped<AddressTypeClient>();
 builder.Services.AddScoped<AuthClient>();
 builder.Services.AddScoped<AuthorizationClient>();
+builder.Services.AddScoped<CraftClient>();
 builder.Services.AddScoped<EmailAddressTypeClient>();
 builder.Services.AddScoped<EmployeeClient>();
 builder.Services.AddScoped<InvitationsClient>();
 builder.Services.AddScoped<InvitationTokenClient>();
 builder.Services.AddScoped<ParentsClient>();
 builder.Services.AddScoped<PhoneNumberTypeClient>();
+builder.Services.AddScoped<SeniorityClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -46,6 +48,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<AppThemeService>();
 builder.Services.AddScoped<AppContextService>();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<UserPermissionService>();
 
 var app = builder.Build();
 

@@ -7,9 +7,14 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class SeniorityService(ISeniorityRepository seniorityRepository) : SenioritySrvc.SenioritySrvcBase
+public class SeniorityService(
+    ISeniorityRepository seniorityRepository,
+    IRosterRepository rosterRepository,
+    ICraftRepository craftRepository) : SenioritySrvc.SenioritySrvcBase
 {
     private readonly ISeniorityRepository _seniorityRepository = seniorityRepository;
+    private readonly IRosterRepository _rosterRepository = rosterRepository;
+    private readonly ICraftRepository _craftRepository = craftRepository;
 
     public override async Task<GetAllSeniorityResponse> GetAllAsync(GetAllSeniorityRequest request, ServerCallContext context)
     {
@@ -117,5 +122,30 @@ public class SeniorityService(ISeniorityRepository seniorityRepository) : Senior
             Success = true,
             Messages = { $"Seniority {seniority.CtrlNbr.Value} deleted." }
         });
+    }
+
+    public override async Task<ActiveCraftResponse> GetActiveCraftForEmployee(GetActiveCraftRequest request, ServerCallContext context)
+    {
+        var seniorityRecords = await _seniorityRepository.GetByEmployeeCtrlNbrAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr));
+
+        var activeRecord = seniorityRecords.FirstOrDefault(s => s.LastActiveRoster);
+        if (activeRecord is null)
+            return new ActiveCraftResponse { Found = false };
+
+        var roster = await _rosterRepository.GetByCtrlNbrAsync(activeRecord.RosterCtrlNbr);
+        if (roster is null)
+            return new ActiveCraftResponse { Found = false };
+
+        var craft = await _craftRepository.GetByCtrlNbrAsync(roster.CraftCtrlNbr);
+        if (craft is null)
+            return new ActiveCraftResponse { Found = false };
+
+        return new ActiveCraftResponse
+        {
+            CraftCtrlNbr = craft.CtrlNbr.Value,
+            CraftName = craft.CraftName,
+            Found = true
+        };
     }
 }

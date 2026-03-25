@@ -10,6 +10,7 @@
 
 @attribute [Authorize]
 
+
 @inject ParentsClient ParentsClient
 @inject TenantConfigClient ConfigClient
 
@@ -128,6 +129,8 @@ else
 }
 
 @code {
+    protected override string? FeatureKey => "parents";
+
     [Parameter]
     public long CtrlNbr { get; set; }
 
