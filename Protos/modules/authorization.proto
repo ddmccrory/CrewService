@@ -1,0 +1,126 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "common.proto";
+package authorization;
+
+service AuthorizationSrvc {
+  // Roles
+  rpc GetAllRoles(GetAllRolesRequest) returns (GetAllRolesResponse) {
+    option (google.api.http) = { get: "/v1/authorization/roles" };
+  }
+  rpc GetRole(GetRoleRequest) returns (RoleResponse) {
+    option (google.api.http) = { get: "/v1/authorization/roles/{ctrl_nbr}" };
+  }
+  rpc CreateRole(CreateRoleRequest) returns (RoleResponse) {
+    option (google.api.http) = { post: "/v1/authorization/roles" body: "*" };
+  }
+  rpc UpdateRole(UpdateRoleRequest) returns (RoleResponse) {
+    option (google.api.http) = { put: "/v1/authorization/roles/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteRole(DeleteRoleRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/authorization/roles/{ctrl_nbr}" };
+  }
+
+  // Features
+  rpc GetAllFeatures(GetAllFeaturesRequest) returns (GetAllFeaturesResponse) {
+    option (google.api.http) = { get: "/v1/authorization/features" };
+  }
+
+  // Permissions
+  rpc GetPermissionMatrix(GetPermissionMatrixRequest) returns (GetPermissionMatrixResponse) {
+    option (google.api.http) = { get: "/v1/authorization/permissions/matrix" };
+  }
+  rpc GetEffectivePermissions(GetEffectivePermissionsRequest) returns (GetEffectivePermissionsResponse) {
+    option (google.api.http) = { get: "/v1/authorization/permissions/effective" };
+  }
+  rpc UpdatePermission(UpdatePermissionRequest) returns (PermissionResponse) {
+    option (google.api.http) = { put: "/v1/authorization/permissions" body: "*" };
+  }
+}
+
+// Role messages
+message GetAllRolesRequest {}
+
+message GetAllRolesResponse {
+  repeated RoleResponse roles = 1;
+}
+
+message GetRoleRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  int32 level = 3;
+}
+
+message UpdateRoleRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string description = 3;
+  int32 level = 4;
+}
+
+message DeleteRoleRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message RoleResponse {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string description = 3;
+  bool is_system = 4;
+  int32 level = 5;
+}
+
+// Feature messages
+message GetAllFeaturesRequest {}
+
+message GetAllFeaturesResponse {
+  repeated FeatureResponse features = 1;
+}
+
+message FeatureResponse {
+  int64 ctrl_nbr = 1;
+  string key = 2;
+  string display_name = 3;
+  string category = 4;
+  string route = 5;
+}
+
+// Permission messages
+message GetPermissionMatrixRequest {
+  int64 parent_ctrl_nbr = 1;
+}
+
+message GetPermissionMatrixResponse {
+  repeated PermissionResponse permissions = 1;
+  repeated RoleResponse roles = 2;
+  repeated FeatureResponse features = 3;
+}
+
+message GetEffectivePermissionsRequest {
+  int64 role_ctrl_nbr = 1;
+  int64 parent_ctrl_nbr = 2;
+}
+
+message GetEffectivePermissionsResponse {
+  repeated PermissionResponse permissions = 1;
+}
+
+message UpdatePermissionRequest {
+  int64 role_ctrl_nbr = 1;
+  int64 feature_ctrl_nbr = 2;
+  int32 access_level = 3;
+  int64 parent_ctrl_nbr = 4;
+}
+
+message PermissionResponse {
+  int64 ctrl_nbr = 1;
+  int64 role_ctrl_nbr = 2;
+  int64 feature_ctrl_nbr = 3;
+  int32 access_level = 4;
+  int64 parent_ctrl_nbr = 5;
+}

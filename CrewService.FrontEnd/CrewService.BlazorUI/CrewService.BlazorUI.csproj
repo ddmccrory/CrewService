@@ -42,6 +42,7 @@
     <Protobuf Include="..\..\Protos\seniority.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\seniority_state.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\user_parent_assignment.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+        <Protobuf Include="..\..\Protos\modules\authorization.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\tenant_config.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\work_management.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\crews.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
