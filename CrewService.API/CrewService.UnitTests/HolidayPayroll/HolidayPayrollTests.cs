@@ -33,7 +33,7 @@ public class HolidayQualificationServiceTests
     {
         var service = new HolidayQualificationService(new FakeRuleRepo([]));
         var result = await service.EvaluateAsync(ControlNumber.Create(1),
-            new HolidayQualificationContext(ControlNumber.Create(10), true, true, null, null));
+            new HolidayQualificationContext(ControlNumber.Create(10), true, true, null, null), TestContext.Current.CancellationToken);
         Assert.True(result.IsQualified);
     }
 
@@ -46,7 +46,7 @@ public class HolidayQualificationServiceTests
         };
         var service = new HolidayQualificationService(new FakeRuleRepo(rules));
         var result = await service.EvaluateAsync(ControlNumber.Create(1),
-            new HolidayQualificationContext(ControlNumber.Create(10), true, false, null, null));
+            new HolidayQualificationContext(ControlNumber.Create(10), true, false, null, null), TestContext.Current.CancellationToken);
         Assert.True(result.IsQualified);
     }
 
@@ -59,7 +59,7 @@ public class HolidayQualificationServiceTests
         };
         var service = new HolidayQualificationService(new FakeRuleRepo(rules));
         var result = await service.EvaluateAsync(ControlNumber.Create(1),
-            new HolidayQualificationContext(ControlNumber.Create(10), false, false, "V1", null));
+            new HolidayQualificationContext(ControlNumber.Create(10), false, false, "V1", null), TestContext.Current.CancellationToken);
         Assert.False(result.IsQualified);
         Assert.Equal("Did not work day before", result.DisqualificationReason);
     }
@@ -73,7 +73,7 @@ public class HolidayQualificationServiceTests
         };
         var service = new HolidayQualificationService(new FakeRuleRepo(rules));
         var result = await service.EvaluateAsync(ControlNumber.Create(1),
-            new HolidayQualificationContext(ControlNumber.Create(10), false, false, "V1", null));
+            new HolidayQualificationContext(ControlNumber.Create(10), false, false, "V1", null), TestContext.Current.CancellationToken);
         Assert.True(result.IsQualified);
     }
 
@@ -86,7 +86,7 @@ public class HolidayQualificationServiceTests
         };
         var service = new HolidayQualificationService(new FakeRuleRepo(rules));
         var result = await service.EvaluateAsync(ControlNumber.Create(1),
-            new HolidayQualificationContext(ControlNumber.Create(10), true, false, null, "NR"));
+            new HolidayQualificationContext(ControlNumber.Create(10), true, false, null, "NR"), TestContext.Current.CancellationToken);
         Assert.False(result.IsQualified);
         Assert.Equal("Did not work day after", result.DisqualificationReason);
     }
@@ -265,7 +265,7 @@ public class HolidayAutoGenerationServiceTests
         var service = new HolidayAutoGenerationService(
             new FakeSelectionRepo(selections), new FakeHolidayRepo([]));
 
-        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026);
+        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026, ct: TestContext.Current.CancellationToken);
         Assert.Equal(2, result.Count);
         Assert.Contains(result, h => h.Name == "Christmas Day");
         Assert.Contains(result, h => h.Name == "New Year's Day");
@@ -286,7 +286,7 @@ public class HolidayAutoGenerationServiceTests
         var service = new HolidayAutoGenerationService(
             new FakeSelectionRepo(selections), new FakeHolidayRepo(existing));
 
-        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026);
+        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026, ct: TestContext.Current.CancellationToken);
         Assert.Empty(result);
     }
 
@@ -302,7 +302,7 @@ public class HolidayAutoGenerationServiceTests
         var service = new HolidayAutoGenerationService(
             new FakeSelectionRepo(selections), new FakeHolidayRepo([]));
 
-        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026);
+        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026, ct: TestContext.Current.CancellationToken);
         Assert.Single(result);
         Assert.Equal(new DateOnly(2026, 7, 3), result[0].ObservedDate);
     }
@@ -321,7 +321,7 @@ public class HolidayAutoGenerationServiceTests
             new FakeSelectionRepo(selections), new FakeHolidayRepo([]));
 
         var result = await service.GenerateForYearAsync(
-            ControlNumber.Create(1), 2026, ControlNumber.Create(100));
+            ControlNumber.Create(1), 2026, ControlNumber.Create(100), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.Count);
         Assert.Contains(result, h => h.Name == "Christmas Day");
@@ -343,7 +343,7 @@ public class HolidayAutoGenerationServiceTests
             new FakeSelectionRepo(selections), new FakeHolidayRepo([]));
 
         var result = await service.GenerateForYearAsync(
-            ControlNumber.Create(1), 2026, ControlNumber.Create(100));
+            ControlNumber.Create(1), 2026, ControlNumber.Create(100), TestContext.Current.CancellationToken);
 
         // Child's own selection wins — only Independence Day, not parent's Christmas/New Year
         Assert.Single(result);
@@ -356,7 +356,7 @@ public class HolidayAutoGenerationServiceTests
         var service = new HolidayAutoGenerationService(
             new FakeSelectionRepo([]), new FakeHolidayRepo([]));
 
-        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026);
+        var result = await service.GenerateForYearAsync(ControlNumber.Create(1), 2026, ct: TestContext.Current.CancellationToken);
         Assert.Empty(result);
     }
 }

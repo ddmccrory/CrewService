@@ -65,7 +65,7 @@ public class NotificationProviderTests
     {
         var provider = new AtHocNotificationProvider();
         var result = await provider.SendAsync(
-            ControlNumber.Create(1), "AssignmentCall", new Dictionary<string, string>());
+            ControlNumber.Create(1), "AssignmentCall", new Dictionary<string, string>(), TestContext.Current.CancellationToken);
         Assert.True(result.Success);
         Assert.StartsWith("ATHOC-", result.ExternalId);
     }
@@ -75,7 +75,7 @@ public class NotificationProviderTests
     {
         var provider = new MockNotificationProvider();
         var result = await provider.SendAsync(
-            ControlNumber.Create(1), "AssignmentCall", new Dictionary<string, string>());
+            ControlNumber.Create(1), "AssignmentCall", new Dictionary<string, string>(), TestContext.Current.CancellationToken);
         Assert.True(result.Success);
         Assert.StartsWith("MOCK-", result.ExternalId);
     }
@@ -84,7 +84,7 @@ public class NotificationProviderTests
     public async Task Mock_Poll_ReturnsAccept()
     {
         var provider = new MockNotificationProvider();
-        var result = await provider.PollResponseAsync("MOCK-123");
+        var result = await provider.PollResponseAsync("MOCK-123", TestContext.Current.CancellationToken);
         Assert.True(result.HasResponse);
         Assert.Equal("Accept", result.ResponseType);
     }

@@ -25,7 +25,7 @@ public class EarningCodeResolverTests
 
         var resolver = new EarningCodeResolver(new FakeRuleRepo(rules));
         var result = await resolver.ResolveAsync(ControlNumber.Create(1),
-            new EarningContext(true, false, false, null, null));
+            new EarningContext(true, false, false, null, null), TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal("OT", result!.ResultCode);
@@ -42,7 +42,7 @@ public class EarningCodeResolverTests
 
         var resolver = new EarningCodeResolver(new FakeRuleRepo(rules));
         var result = await resolver.ResolveAsync(ControlNumber.Create(1),
-            new EarningContext(true, true, false, null, null));
+            new EarningContext(true, true, false, null, null), TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal("HO", result!.ResultCode);
@@ -58,7 +58,7 @@ public class EarningCodeResolverTests
 
         var resolver = new EarningCodeResolver(new FakeRuleRepo(rules));
         var result = await resolver.ResolveAsync(ControlNumber.Create(1),
-            new EarningContext(false, false, false, null, null));
+            new EarningContext(false, false, false, null, null), TestContext.Current.CancellationToken);
 
         Assert.Null(result);
     }

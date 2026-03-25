@@ -29,13 +29,13 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Test Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var assignment = UserParentAssignment.Create("user-001", parent.CtrlNbr.Value, Roles.ParentAdmin);
-        await repo.AddAsync(assignment);
+        await repo.AddAsync(assignment, TestContext.Current.CancellationToken);
 
         // Act
-        var found = await repo.GetByCtrlNbrAsync(assignment.CtrlNbr);
+        var found = await repo.GetByCtrlNbrAsync(assignment.CtrlNbr, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(found);
@@ -68,20 +68,20 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent1 = Parent.Create("Parent A");
-        await parentRepo.AddAsync(parent1);
+        await parentRepo.AddAsync(parent1, TestContext.Current.CancellationToken);
 
         var parent2 = Parent.Create("Parent B");
-        await parentRepo.AddAsync(parent2);
+        await parentRepo.AddAsync(parent2, TestContext.Current.CancellationToken);
 
         var a1 = UserParentAssignment.Create("user-multi", parent1.CtrlNbr.Value, Roles.ParentAdmin);
-        await repo.AddAsync(a1);
+        await repo.AddAsync(a1, TestContext.Current.CancellationToken);
 
         var a2 = UserParentAssignment.Create("user-multi", parent2.CtrlNbr.Value, Roles.Employee);
-        await repo.AddAsync(a2);
+        await repo.AddAsync(a2, TestContext.Current.CancellationToken);
 
         // A different user's assignment — should not be returned
         var a3 = UserParentAssignment.Create("user-other", parent1.CtrlNbr.Value, Roles.CrewManager);
-        await repo.AddAsync(a3);
+        await repo.AddAsync(a3, TestContext.Current.CancellationToken);
 
         // Act
         var results = await repo.GetByUserIdAsync("user-multi");
@@ -103,13 +103,13 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Shared Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var a1 = UserParentAssignment.Create("user-x", parent.CtrlNbr.Value, Roles.ParentAdmin);
-        await repo.AddAsync(a1);
+        await repo.AddAsync(a1, TestContext.Current.CancellationToken);
 
         var a2 = UserParentAssignment.Create("user-y", parent.CtrlNbr.Value, Roles.Dispatcher);
-        await repo.AddAsync(a2);
+        await repo.AddAsync(a2, TestContext.Current.CancellationToken);
 
         // Act
         var results = await repo.GetByParentCtrlNbrAsync(parent.CtrlNbr.Value);
@@ -132,10 +132,10 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Exact Match Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var assignment = UserParentAssignment.Create("user-exact", parent.CtrlNbr.Value, Roles.CrewManager);
-        await repo.AddAsync(assignment);
+        await repo.AddAsync(assignment, TestContext.Current.CancellationToken);
 
         // Act
         var found = await repo.GetByUserAndParentAsync("user-exact", parent.CtrlNbr.Value);
@@ -159,24 +159,24 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Dup Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var groupTypeRepo = new GroupTypeRepository(ctx, _factory.CurrentUserService);
         var groupType = GroupType.Create("Railroad", "Test RR GroupType", false);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var groupRepo = new DynamicGroupRepository(ctx, _factory.CurrentUserService);
         var railroad = DynamicGroup.Create(groupType.CtrlNbr, "Test RR", null, null, false, "TSTRR");
-        await groupRepo.AddAsync(railroad);
+        await groupRepo.AddAsync(railroad, TestContext.Current.CancellationToken);
 
         var a1 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, Roles.RailroadAdmin, railroad.CtrlNbr);
-        await repo.AddAsync(a1);
+        await repo.AddAsync(a1, TestContext.Current.CancellationToken);
 
         // Same user, same parent, same railroad = unique index violation
         var a2 = UserParentAssignment.Create("user-dup", parent.CtrlNbr.Value, Roles.Employee, railroad.CtrlNbr);
 
         // Act & Assert � unique index violation
-        await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddAsync(a2));
+        await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddAsync(a2, ct: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -191,17 +191,17 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Role Change Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var assignment = UserParentAssignment.Create("user-role", parent.CtrlNbr.Value, Roles.Employee);
-        await repo.AddAsync(assignment);
+        await repo.AddAsync(assignment, TestContext.Current.CancellationToken);
 
         // Act
         assignment.UpdateRole(Roles.ParentAdmin);
-        await repo.UpdateAsync(assignment);
+        await repo.UpdateAsync(assignment, TestContext.Current.CancellationToken);
 
         // Re-fetch
-        var updated = await repo.GetByCtrlNbrAsync(assignment.CtrlNbr);
+        var updated = await repo.GetByCtrlNbrAsync(assignment.CtrlNbr, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(updated);
@@ -237,13 +237,13 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Delete Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var assignment = UserParentAssignment.Create("user-del", parent.CtrlNbr.Value, Roles.Dispatcher);
-        await repo.AddAsync(assignment);
+        await repo.AddAsync(assignment, TestContext.Current.CancellationToken);
 
         // Act � soft-delete via repository
-        await repo.DeleteAsync(assignment.CtrlNbr);
+        await repo.DeleteAsync(assignment.CtrlNbr, TestContext.Current.CancellationToken);
 
         var remaining = await repo.GetByUserIdAsync("user-del");
 
@@ -263,16 +263,16 @@ public sealed class UserParentAssignmentTests : IDisposable
         var repo = new UserParentAssignmentRepository(ctx, _factory.CurrentUserService);
 
         var parentA = Parent.Create("Corp A");
-        await parentRepo.AddAsync(parentA);
+        await parentRepo.AddAsync(parentA, TestContext.Current.CancellationToken);
 
         var parentB = Parent.Create("Corp B");
-        await parentRepo.AddAsync(parentB);
+        await parentRepo.AddAsync(parentB, TestContext.Current.CancellationToken);
 
         var a1 = UserParentAssignment.Create("user-roles", parentA.CtrlNbr.Value, Roles.ParentAdmin);
-        await repo.AddAsync(a1);
+        await repo.AddAsync(a1, TestContext.Current.CancellationToken);
 
         var a2 = UserParentAssignment.Create("user-roles", parentB.CtrlNbr.Value, Roles.Employee);
-        await repo.AddAsync(a2);
+        await repo.AddAsync(a2, TestContext.Current.CancellationToken);
 
         // Act
         var forUser = await repo.GetByUserIdAsync("user-roles");
