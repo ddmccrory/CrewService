@@ -8,7 +8,7 @@
 
 @inherits AppComponentBase
 
-@attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
+@attribute [Authorize]
 
 @inject InvitationsClient InvitationsClient
 @inject TenantConfigClient ConfigClient
@@ -152,6 +152,8 @@ else
 }
 
 @code {
+    protected override string? FeatureKey => "admin/invitations";
+
     private IReadOnlyList<InvitationResponse>? invitations;
     private bool showCreateForm;
     private CreateInvitationModel createModel = new();

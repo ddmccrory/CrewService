@@ -17,7 +17,7 @@ public interface IFeatureRepository : IRepository<Feature>
 
 public interface IPermissionRepository : IRepository<Permission>
 {
-    Task<Permission?> GetByRoleFeatureParentAsync(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, long? parentCtrlNbr, CancellationToken ct = default);
+    Task<Permission?> GetByRoleFeatureParentCraftAsync(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, long? parentCtrlNbr, ControlNumber? craftCtrlNbr, CancellationToken ct = default);
     Task<List<Permission>> GetByRoleCtrlNbrAsync(ControlNumber roleCtrlNbr, CancellationToken ct = default);
-    Task<List<Permission>> GetEffectivePermissionsAsync(ControlNumber roleCtrlNbr, long? parentCtrlNbr, CancellationToken ct = default);
+    Task<List<Permission>> GetEffectivePermissionsAsync(ControlNumber roleCtrlNbr, long? parentCtrlNbr, ControlNumber? craftCtrlNbr, CancellationToken ct = default);
 }

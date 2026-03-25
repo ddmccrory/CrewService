@@ -8,7 +8,7 @@
 
 @inherits AppComponentBase
 
-@attribute [Authorize(Roles = "SystemAdmin")]
+@attribute [Authorize]
 
 @inject ParentsClient ParentsClient
 
@@ -95,6 +95,8 @@
 </DataTable>
 
 @code {
+    protected override string? FeatureKey => "parents";
+
     private IReadOnlyList<GetParentResponse>? parents;
 
     private static readonly IReadOnlyList<DataTableColumn<GetParentResponse>> parentColumns =

@@ -4,12 +4,11 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
-@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
 
 @inherits AppComponentBase
 
-@attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
+@attribute [Authorize]
 
 @inject AuthorizationClient AuthorizationClient
 
@@ -120,6 +119,8 @@
 </DataTable>
 
 @code {
+    protected override string? FeatureKey => "admin/roles";
+
     private IReadOnlyList<RoleResponse>? roles;
 
     private static readonly IReadOnlyList<DataTableColumn<RoleResponse>> roleColumns =

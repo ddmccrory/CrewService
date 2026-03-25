@@ -20,6 +20,9 @@ service SenioritySrvc {
   rpc DeleteAsync(DeleteSeniorityRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/seniority/{ctrl_nbr}" };
   }
+  rpc GetActiveCraftForEmployee(GetActiveCraftRequest) returns (ActiveCraftResponse) {
+    option (google.api.http) = { get: "/v1/seniority/active-craft/{employee_ctrl_nbr}" };
+  }
 }
 
 message GetAllSeniorityRequest {
@@ -71,4 +74,13 @@ message SeniorityResponse {
   bool can_train = 8;
   bool success = 9;
   repeated string messages = 10;
+}
+message GetActiveCraftRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message ActiveCraftResponse {
+  int64 craft_ctrl_nbr = 1;
+  string craft_name = 2;
+  bool found = 3;
 }

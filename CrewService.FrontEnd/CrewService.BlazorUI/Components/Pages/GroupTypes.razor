@@ -176,6 +176,8 @@ else
 }
 
 @code {
+    protected override string? FeatureKey => "config/group-types";
+
     private IReadOnlyList<GroupTypeResponse>? groupTypes;
 
     private IReadOnlyList<DataTableColumn<GroupTypeResponse>> GroupTypeColumns =>

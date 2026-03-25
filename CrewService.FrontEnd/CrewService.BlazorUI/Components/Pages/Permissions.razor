@@ -3,14 +3,14 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
-@using CrewService.BlazorUI.Models.Auth
 @using CrewService.Presentation
 
 @inherits AppComponentBase
 
-@attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
+@attribute [Authorize]
 
 @inject AuthorizationClient AuthorizationClient
+@inject CraftClient CraftClient
 
 <PageTitle>Permissions</PageTitle>
 
@@ -38,7 +38,7 @@
 }
 else if (roles is not null && features is not null)
 {
-    <div class="mb-3 d-flex align-items-center gap-3">
+    <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
         <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="parentOverride" @bind="useParentOverride" @bind:after="OnOverrideToggled" disabled="@(!HasParent)" />
             <label class="form-check-label" for="parentOverride">
@@ -53,6 +53,21 @@ else if (roles is not null && features is not null)
         {
             <span class="text-warning"><i class="bi bi-exclamation-triangle"></i> Select a parent first</span>
         }
+
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 text-nowrap" for="craftFilter">Craft:</label>
+            <select class="form-select form-select-sm" id="craftFilter" style="min-width: 180px;"
+                    value="@selectedCraftCtrlNbr" @onchange="OnCraftFilterChanged">
+                <option value="0">All (global)</option>
+                @if (crafts is not null)
+                {
+                    @foreach (var craft in crafts)
+                    {
+                        <option value="@craft.CtrlNbr">@craft.CraftName</option>
+                    }
+                }
+            </select>
+        </div>
     </div>
 
     <div class="table-responsive">
@@ -119,15 +134,20 @@ else if (roles is not null && features is not null)
 }
 
 @code {
+    protected override string? FeatureKey => "admin/permissions";
+
     private IReadOnlyList<RoleResponse>? roles;
     private IReadOnlyList<FeatureResponse>? features;
+    private IReadOnlyList<CraftResponse>? crafts;
     private Dictionary<(long roleCtrlNbr, long featureCtrlNbr), int> permissionMap = new();
     private bool loading = true;
     private bool useParentOverride;
+    private long selectedCraftCtrlNbr;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
+        await LoadCrafts();
         await LoadMatrix();
     }
 
@@ -137,13 +157,27 @@ else if (roles is not null && features is not null)
             await LoadMatrix();
     }
 
+    private async Task LoadCrafts()
+    {
+        try
+        {
+            var response = await CraftClient.GetAllCraftsAsync();
+            crafts = response.Crafts;
+        }
+        catch (Exception ex)
+        {
+            crafts = [];
+            errorMessage = $"Failed to load crafts: {ex.Message}";
+        }
+    }
+
     private async Task LoadMatrix()
     {
         try
         {
             loading = true;
             long parentCtrlNbr = useParentOverride && HasParent ? SelectedParentCtrlNbr!.Value : 0;
-            var response = await AuthorizationClient.GetPermissionMatrixAsync(parentCtrlNbr);
+            var response = await AuthorizationClient.GetPermissionMatrixAsync(parentCtrlNbr, selectedCraftCtrlNbr);
 
             roles = response.Roles;
             features = response.Features;
@@ -179,7 +213,7 @@ else if (roles is not null && features is not null)
             successMessage = null;
 
             long parentCtrlNbr = useParentOverride && HasParent ? SelectedParentCtrlNbr!.Value : 0;
-            await AuthorizationClient.UpdatePermissionAsync(roleCtrlNbr, featureCtrlNbr, accessLevel, parentCtrlNbr);
+            await AuthorizationClient.UpdatePermissionAsync(roleCtrlNbr, featureCtrlNbr, accessLevel, parentCtrlNbr, selectedCraftCtrlNbr);
 
             permissionMap[(roleCtrlNbr, featureCtrlNbr)] = accessLevel;
             successMessage = "Permission updated.";
@@ -192,6 +226,12 @@ else if (roles is not null && features is not null)
 
     private async Task OnOverrideToggled()
     {
+        await LoadMatrix();
+    }
+
+    private async Task OnCraftFilterChanged(ChangeEventArgs e)
+    {
+        selectedCraftCtrlNbr = long.TryParse(e.Value?.ToString(), out var v) ? v : 0;
         await LoadMatrix();
     }
 

@@ -1,9 +1,8 @@
-﻿@using CrewService.BlazorUI.Models.Auth
-
-@implements IDisposable
+﻿@implements IDisposable
 
 @inject NavigationManager NavigationManager
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
+@inject CrewService.BlazorUI.Services.UserPermissionService Permissions
 
 <div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
@@ -23,304 +22,347 @@
                         <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
                     </NavLink>
                 </div>
-            </Authorized>
-        </AuthorizeView>
 
-        @* Invitations — always visible for SystemAdmin regardless of parent selection *@
-        <AuthorizeView Roles="@(Roles.SystemAdmin)">
-            <Authorized>
+                @if (Permissions.IsLoaded)
+                {
+                @* Invitations & Parents — visible when no parent selected *@
                 @if (!AppContext.HasParent)
                 {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/invitations">
-                            <span class="bi bi-envelope-plus-nav-menu" aria-hidden="true"></span> Invitations
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="parents">
-                            <span class="bi bi-diagram-3-nav-menu" aria-hidden="true"></span> Parents
-                        </NavLink>
-                    </div>
+                    @if (Permissions.HasAccess("admin/invitations"))
+                    {
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="admin/invitations">
+                                <span class="bi bi-envelope-plus-nav-menu" aria-hidden="true"></span> Invitations
+                            </NavLink>
+                        </div>
+                    }
+                    @if (Permissions.HasAccess("parents"))
+                    {
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="parents">
+                                <span class="bi bi-diagram-3-nav-menu" aria-hidden="true"></span> Parents
+                            </NavLink>
+                        </div>
+                    }
                 }
-            </Authorized>
-        </AuthorizeView>
 
-        @if (AppContext.IsFullySelected)
-        {
-        @* ══ Railroad-scoped sections (require parent + railroad) ══ *@
+                @if (AppContext.IsFullySelected)
+                {
+                @* ══ Railroad-scoped sections (require parent + railroad) ══ *@
 
-        @* ── Daily Operations ── *@
-        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CrewManager},{Roles.Dispatcher}")">
-            <Authorized>
-                <NavMenuGroup Title="Daily Operations" Icon="bi-calendar-check" IsInitiallyExpanded="@IsCurrentPath("daily")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="daily/call-board">
-                            <span class="bi bi-clipboard2-data" aria-hidden="true"></span> Call Board
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="daily/assignments">
-                            <span class="bi bi-person-workspace" aria-hidden="true"></span> Assignments
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="daily/mark-offs">
-                            <span class="bi bi-calendar-x" aria-hidden="true"></span> Mark-Offs
-                        </NavLink>
-                    </div>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.Dispatcher}")">
-                        <Authorized Context="itemAuth">
+                @* ── Daily Operations ── *@
+                @if (Permissions.HasAccessToAny("daily/call-board", "daily/assignments", "daily/mark-offs", "daily/duty-status", "daily/vacancy-resolution"))
+                {
+                    <NavMenuGroup Title="Daily Operations" Icon="bi-calendar-check" IsInitiallyExpanded="@IsCurrentPath("daily")">
+                        @if (Permissions.HasAccess("daily/call-board"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="daily/call-board">
+                                    <span class="bi bi-clipboard2-data" aria-hidden="true"></span> Call Board
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("daily/assignments"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="daily/assignments">
+                                    <span class="bi bi-person-workspace" aria-hidden="true"></span> Assignments
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("daily/mark-offs"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="daily/mark-offs">
+                                    <span class="bi bi-calendar-x" aria-hidden="true"></span> Mark-Offs
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("daily/duty-status"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="daily/duty-status">
                                     <span class="bi bi-clock-history" aria-hidden="true"></span> On-Duty / Off-Duty
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.Dispatcher}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("daily/vacancy-resolution"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="daily/vacancy-resolution">
                                     <span class="bi bi-arrow-repeat" aria-hidden="true"></span> Vacancy Resolution
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
-        @* ── Crew Staffing ── *@
-        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CrewManager}")">
-            <Authorized>
-                <NavMenuGroup Title="Crew Staffing" Icon="bi-people-fill" IsInitiallyExpanded="@IsCurrentPath("staffing")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="staffing/crews">
-                            <span class="bi bi-people" aria-hidden="true"></span> Crews
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="staffing/extra-boards">
-                            <span class="bi bi-list-ol" aria-hidden="true"></span> Extra Boards
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="staffing/bulletins">
-                            <span class="bi bi-megaphone" aria-hidden="true"></span> Bulletins &amp; Bids
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="staffing/roster-boards">
-                            <span class="bi bi-kanban" aria-hidden="true"></span> Roster Boards
-                        </NavLink>
-                    </div>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
+                        }
+                    </NavMenuGroup>
+                }
 
-        @* ── Payroll ── *@
-        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.PayrollClerk}")">
-            <Authorized>
-                <NavMenuGroup Title="Payroll" Icon="bi-currency-dollar" IsInitiallyExpanded="@IsCurrentPath("payroll")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="payroll">
-                            <span class="bi bi-speedometer2" aria-hidden="true"></span> Payroll Dashboard
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="payroll/rates">
-                            <span class="bi bi-cash-stack" aria-hidden="true"></span> Pay Rates
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="payroll/earning-codes">
-                            <span class="bi bi-tags" aria-hidden="true"></span> Earning Codes
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="payroll/holidays">
-                            <span class="bi bi-calendar-event" aria-hidden="true"></span> Holidays
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="payroll/export">
-                            <span class="bi bi-box-arrow-up" aria-hidden="true"></span> Export / Import
-                        </NavLink>
-                    </div>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
+                @* ── Crew Staffing ── *@
+                @if (Permissions.HasAccessToAny("staffing/crews", "staffing/extra-boards", "staffing/bulletins", "staffing/roster-boards"))
+                {
+                    <NavMenuGroup Title="Crew Staffing" Icon="bi-people-fill" IsInitiallyExpanded="@IsCurrentPath("staffing")">
+                        @if (Permissions.HasAccess("staffing/crews"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="staffing/crews">
+                                    <span class="bi bi-people" aria-hidden="true"></span> Crews
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("staffing/extra-boards"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="staffing/extra-boards">
+                                    <span class="bi bi-list-ol" aria-hidden="true"></span> Extra Boards
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("staffing/bulletins"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="staffing/bulletins">
+                                    <span class="bi bi-megaphone" aria-hidden="true"></span> Bulletins &amp; Bids
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("staffing/roster-boards"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="staffing/roster-boards">
+                                    <span class="bi bi-kanban" aria-hidden="true"></span> Roster Boards
+                                </NavLink>
+                            </div>
+                        }
+                    </NavMenuGroup>
+                }
 
-        @* ── Compliance ── *@
-        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
-            <Authorized>
-                <NavMenuGroup Title="Compliance" Icon="bi-shield-check" IsInitiallyExpanded="@IsCurrentPath("compliance")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="compliance/fra">
-                            <span class="bi bi-file-earmark-ruled" aria-hidden="true"></span> FRA Compliance
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="compliance/safety">
-                            <span class="bi bi-cone-striped" aria-hidden="true"></span> Safety Observations
-                        </NavLink>
-                    </div>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
-                        <Authorized Context="itemAuth">
+                @* ── Payroll ── *@
+                @if (Permissions.HasAccessToAny("payroll/dashboard", "payroll/rates", "payroll/earning-codes", "payroll/holidays", "payroll/export"))
+                {
+                    <NavMenuGroup Title="Payroll" Icon="bi-currency-dollar" IsInitiallyExpanded="@IsCurrentPath("payroll")">
+                        @if (Permissions.HasAccess("payroll/dashboard"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="payroll">
+                                    <span class="bi bi-speedometer2" aria-hidden="true"></span> Payroll Dashboard
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("payroll/rates"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="payroll/rates">
+                                    <span class="bi bi-cash-stack" aria-hidden="true"></span> Pay Rates
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("payroll/earning-codes"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="payroll/earning-codes">
+                                    <span class="bi bi-tags" aria-hidden="true"></span> Earning Codes
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("payroll/holidays"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="payroll/holidays">
+                                    <span class="bi bi-calendar-event" aria-hidden="true"></span> Holidays
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("payroll/export"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="payroll/export">
+                                    <span class="bi bi-box-arrow-up" aria-hidden="true"></span> Export / Import
+                                </NavLink>
+                            </div>
+                        }
+                    </NavMenuGroup>
+                }
+
+                @* ── Compliance ── *@
+                @if (Permissions.HasAccessToAny("compliance/fra", "compliance/safety", "compliance/absence-codes", "compliance/policies"))
+                {
+                    <NavMenuGroup Title="Compliance" Icon="bi-shield-check" IsInitiallyExpanded="@IsCurrentPath("compliance")">
+                        @if (Permissions.HasAccess("compliance/fra"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="compliance/fra">
+                                    <span class="bi bi-file-earmark-ruled" aria-hidden="true"></span> FRA Compliance
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("compliance/safety"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="compliance/safety">
+                                    <span class="bi bi-cone-striped" aria-hidden="true"></span> Safety Observations
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("compliance/absence-codes"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="compliance/absence-codes">
                                     <span class="bi bi-calendar-minus" aria-hidden="true"></span> Absence Codes
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("compliance/policies"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="compliance/policies">
                                     <span class="bi bi-journal-text" aria-hidden="true"></span> Policies
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
-        } @* end railroad-scoped *@
+                        }
+                    </NavMenuGroup>
+                }
+                } @* end railroad-scoped *@
 
-        @if (AppContext.HasParent)
-        {
-        @* ══ Parent-scoped sections (require parent only) ══ *@
+                @if (AppContext.HasParent)
+                {
+                @* ══ Parent-scoped sections (require parent only) ══ *@
 
-        @* ── Employee Management ── *@
-        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
-            <Authorized>
-                <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="employees">
-                            <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
-                        </NavLink>
-                    </div>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
-                        <Authorized Context="itemAuth">
+                @* ── Employee Management ── *@
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/crafts", "employees/prior-service", "admin/invitations"))
+                {
+                    <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
+                        @if (Permissions.HasAccess("employees"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees">
+                                    <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("employees/seniority"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/seniority">
                                     <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin},{Roles.CraftManager}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("employees/crafts"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/crafts">
                                     <span class="bi bi-tools" aria-hidden="true"></span> Crafts
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("employees/prior-service"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/prior-service">
                                     <span class="bi bi-hourglass-split" aria-hidden="true"></span> Prior Service Credits
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("admin/invitations"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/invitations">
                                     <span class="bi bi-envelope-plus" aria-hidden="true"></span> Invitations
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
+                        }
+                    </NavMenuGroup>
+                }
 
-        @* ── Information ── *@
-        <AuthorizeView>
-            <Authorized>
-                <NavMenuGroup Title="Information" Icon="bi-info-circle" IsInitiallyExpanded="@IsCurrentPath("info")">
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="info/railroad">
-                            <span class="bi bi-building" aria-hidden="true"></span> Railroad Info
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="info/reports">
-                            <span class="bi bi-file-bar-graph" aria-hidden="true"></span> Reports
-                        </NavLink>
-                    </div>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
+                @* ── Information ── *@
+                @if (Permissions.HasAccessToAny("info/railroad", "info/reports"))
+                {
+                    <NavMenuGroup Title="Information" Icon="bi-info-circle" IsInitiallyExpanded="@IsCurrentPath("info")">
+                        @if (Permissions.HasAccess("info/railroad"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="info/railroad">
+                                    <span class="bi bi-building" aria-hidden="true"></span> Railroad Info
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("info/reports"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="info/reports">
+                                    <span class="bi bi-file-bar-graph" aria-hidden="true"></span> Reports
+                                </NavLink>
+                            </div>
+                        }
+                    </NavMenuGroup>
+                }
 
-        @* ── Administration ── *@
-        <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
-            <Authorized>
-                <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types")">
-                    <AuthorizeView Roles="@(Roles.SystemAdmin)">
-                        <Authorized Context="itemAuth">
+                @* ── Administration ── *@
+                @if (Permissions.HasAccessToAny("parents", "config/group-types", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions"))
+                {
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types")">
+                        @if (Permissions.HasAccess("parents"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="parents">
                                     <span class="bi bi-diagram-3" aria-hidden="true"></span> Parents
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("config/group-types"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="config/group-types">
                                     <span class="bi bi-collection" aria-hidden="true"></span> Group Types
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/users">
-                            <span class="bi bi-person-gear" aria-hidden="true"></span> User Assignments
-                        </NavLink>
-                    </div>
-                    <AuthorizeView Roles="@($"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("admin/users"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/users">
+                                    <span class="bi bi-person-gear" aria-hidden="true"></span> User Assignments
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/notifications"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/notifications">
                                     <span class="bi bi-bell" aria-hidden="true"></span> Notification Config
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <AuthorizeView Roles="@(Roles.SystemAdmin)">
-                        <Authorized Context="itemAuth">
+                        }
+                        @if (Permissions.HasAccess("admin/jobs"))
+                        {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/jobs">
                                     <span class="bi bi-cpu" aria-hidden="true"></span> Background Jobs
                                 </NavLink>
                             </div>
-                        </Authorized>
-                    </AuthorizeView>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/roles">
-                            <span class="bi bi-shield-lock" aria-hidden="true"></span> Roles
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/permissions">
-                            <span class="bi bi-key" aria-hidden="true"></span> Permissions
-                        </NavLink>
-                    </div>
-                </NavMenuGroup>
-            </Authorized>
-        </AuthorizeView>
-        } @* end parent-scoped *@
+                        }
+                        @if (Permissions.HasAccess("admin/roles"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/roles">
+                                    <span class="bi bi-shield-lock" aria-hidden="true"></span> Roles
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/permissions"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/permissions">
+                                    <span class="bi bi-key" aria-hidden="true"></span> Permissions
+                                </NavLink>
+                            </div>
+                        }
+                    </NavMenuGroup>
+                }
+                } @* end parent-scoped *@
+                } @* end Permissions.IsLoaded *@
 
-        @* ── Auth (Logout / Login) ── *@
-        <AuthorizeView>
-            <Authorized>
+                @* ── Logout ── *@
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post" data-enhance="false">
                         <AntiforgeryToken />
@@ -344,6 +386,9 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
     private string? currentUrl;
 
     private bool IsCurrentPath(params string[] prefixes)
@@ -366,6 +411,16 @@
         AppContext.OnContextChanged += OnContextChanged;
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            await Permissions.InitializeAsync(authState.User);
+            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
+        }
+    }
+
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
@@ -374,7 +429,11 @@
 
     private void OnContextChanged()
     {
-        InvokeAsync(StateHasChanged);
+        InvokeAsync(async () =>
+        {
+            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

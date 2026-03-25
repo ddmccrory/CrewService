@@ -54,10 +54,20 @@ else
 }
 
 @code {
+    private string? featureKey;
+    protected override string? FeatureKey => featureKey;
+
     private string pageName = "Placeholder";
+
+    // Routes whose path differs from their feature key
+    private static readonly Dictionary<string, string> RouteToFeatureKey = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["payroll"] = "payroll/dashboard"
+    };
 
     protected override void OnInitialized()
     {
+        base.OnInitialized();
         NavigationManager.LocationChanged += OnLocationChanged;
         UpdatePageName();
     }
@@ -70,9 +80,16 @@ else
 
     private void UpdatePageName()
     {
-        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        pageName = relative
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri)
             .Split('?', '#')[0]
+            .TrimStart('/');
+
+        // Feature key matches the relative URL path, with overrides for mismatches
+        featureKey = string.IsNullOrEmpty(relative) ? null
+            : RouteToFeatureKey.TryGetValue(relative, out var mappedKey) ? mappedKey
+            : relative;
+
+        pageName = relative
             .Split('/')
             .Where(s => !string.IsNullOrEmpty(s))
             .Select(s => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(s.Replace("-", " ")))

@@ -102,13 +102,14 @@ public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, Cir
 
     // ── Permissions ─────────────────────────────────────────────────────
 
-    public async Task<GetPermissionMatrixResponse> GetPermissionMatrixAsync(long parentCtrlNbr = 0)
+    public async Task<GetPermissionMatrixResponse> GetPermissionMatrixAsync(long parentCtrlNbr = 0, long craftCtrlNbr = 0)
     {
         try
         {
             return await _client.GetPermissionMatrixAsync(new GetPermissionMatrixRequest
             {
-                ParentCtrlNbr = parentCtrlNbr
+                ParentCtrlNbr = parentCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
             });
         }
         catch (Exception ex)
@@ -118,14 +119,15 @@ public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, Cir
         }
     }
 
-    public async Task<GetEffectivePermissionsResponse> GetEffectivePermissionsAsync(long roleCtrlNbr, long parentCtrlNbr = 0)
+    public async Task<GetEffectivePermissionsResponse> GetEffectivePermissionsAsync(long roleCtrlNbr, long parentCtrlNbr = 0, long craftCtrlNbr = 0)
     {
         try
         {
             return await _client.GetEffectivePermissionsAsync(new GetEffectivePermissionsRequest
             {
                 RoleCtrlNbr = roleCtrlNbr,
-                ParentCtrlNbr = parentCtrlNbr
+                ParentCtrlNbr = parentCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
             });
         }
         catch (Exception ex)
@@ -135,7 +137,7 @@ public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, Cir
         }
     }
 
-    public async Task<PermissionResponse> UpdatePermissionAsync(long roleCtrlNbr, long featureCtrlNbr, int accessLevel, long parentCtrlNbr = 0)
+    public async Task<PermissionResponse> UpdatePermissionAsync(long roleCtrlNbr, long featureCtrlNbr, int accessLevel, long parentCtrlNbr = 0, long craftCtrlNbr = 0)
     {
         try
         {
@@ -144,7 +146,8 @@ public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, Cir
                 RoleCtrlNbr = roleCtrlNbr,
                 FeatureCtrlNbr = featureCtrlNbr,
                 AccessLevel = accessLevel,
-                ParentCtrlNbr = parentCtrlNbr
+                ParentCtrlNbr = parentCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
             });
         }
         catch (Exception ex)

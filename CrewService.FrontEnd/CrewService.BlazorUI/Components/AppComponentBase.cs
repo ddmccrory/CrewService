@@ -6,10 +6,13 @@ namespace CrewService.BlazorUI.Components;
 
 /// <summary>
 /// Base component that provides <see cref="AppContextService"/> awareness,
-/// <see cref="CurrentUserService"/> initialization, and common page infrastructure.
+/// <see cref="CurrentUserService"/> initialization, permission-based authorization,
+/// and common page infrastructure.
 /// Pages that inherit from this automatically receive the selected parent/railroad
 /// context, re-render when the context switcher changes, and share standard message fields.
 /// Override <see cref="OnAppContextChangedAsync"/> to reload scoped data.
+/// Set <see cref="FeatureKey"/> to enable <see cref="IsFeatureReadOnly"/> and
+/// <see cref="RequireFeatureAccess"/> enforcement.
 /// </summary>
 public abstract class AppComponentBase : ComponentBase, IDisposable
 {
@@ -21,6 +24,9 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
 
     [Inject]
     protected CurrentUserService CurrentUser { get; set; } = default!;
+
+    [Inject]
+    protected UserPermissionService Permissions { get; set; } = default!;
 
     [CascadingParameter]
     protected Task<AuthenticationState> AuthStateTask { get; set; } = default!;
@@ -48,6 +54,23 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     /// <summary><c>true</c> when both a parent and railroad are selected.</summary>
     protected bool IsContextFullySelected => AppContext.IsFullySelected;
 
+    // ── Permission properties ───────────────────────────────────────────
+
+    /// <summary>
+    /// The feature key for this page (e.g. <c>"daily/call-board"</c>).
+    /// Override in derived pages to enable permission enforcement.
+    /// When <c>null</c>, permission checks are skipped.
+    /// </summary>
+    protected virtual string? FeatureKey => null;
+
+    /// <summary>
+    /// <c>true</c> when the user has ReadOnly access (not FullAccess) to this page's feature.
+    /// Use this to hide create/edit/delete controls in the UI.
+    /// Always <c>false</c> when <see cref="FeatureKey"/> is <c>null</c>.
+    /// </summary>
+    protected bool IsFeatureReadOnly =>
+        FeatureKey is not null && Permissions.IsReadOnly(FeatureKey);
+
     // ── Common page state ───────────────────────────────────────────────
 
     protected string? successMessage;
@@ -64,6 +87,8 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     {
         var authState = await AuthStateTask;
         await CurrentUser.InitializeAsync(authState.User);
+        await Permissions.InitializeAsync(authState.User);
+        await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
     }
 
     /// <summary>
@@ -77,9 +102,26 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     {
         InvokeAsync(async () =>
         {
+            await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
             await OnAppContextChangedAsync();
             StateHasChanged();
         });
+    }
+
+    // ── Feature enforcement helpers ─────────────────────────────────────
+
+    /// <summary>
+    /// Checks that the user has at least ReadOnly access to this page's
+    /// <see cref="FeatureKey"/>. If not, navigates to <c>/Account/AccessDenied</c>.
+    /// Call from <see cref="ComponentBase.OnInitializedAsync"/> after <c>base</c>.
+    /// No-op when <see cref="FeatureKey"/> is <c>null</c>.
+    /// </summary>
+    protected void RequireFeatureAccess()
+    {
+        if (FeatureKey is not null && !Permissions.HasAccess(FeatureKey))
+        {
+            NavigationManager.NavigateTo("Account/AccessDenied");
+        }
     }
 
     public virtual void Dispose()

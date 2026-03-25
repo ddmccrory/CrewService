@@ -1,3 +1,4 @@
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,11 @@ internal class PermissionConfiguration : IEntityTypeConfiguration<Permission>
 
         builder.Property(p => p.ParentCtrlNbr);
 
-        builder.HasIndex(p => new { p.RoleCtrlNbr, p.FeatureCtrlNbr, p.ParentCtrlNbr }).IsUnique();
+        builder.Property(p => p.CraftCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+
+        builder.HasIndex(p => new { p.RoleCtrlNbr, p.FeatureCtrlNbr, p.ParentCtrlNbr, p.CraftCtrlNbr }).IsUnique();
 
         builder.HasOne<Role>()
             .WithMany()
@@ -38,6 +43,12 @@ internal class PermissionConfiguration : IEntityTypeConfiguration<Permission>
         builder.HasOne<Feature>()
             .WithMany()
             .HasForeignKey(p => p.FeatureCtrlNbr)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Craft>()
+            .WithMany()
+            .HasForeignKey(p => p.CraftCtrlNbr)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, audit =>
