@@ -18,6 +18,7 @@ builder.Services.AddScoped<CircuitTokenProvider>();
 builder.Services.AddScoped<AccountClient>();
 builder.Services.AddScoped<AddressTypeClient>();
 builder.Services.AddScoped<AuthClient>();
+builder.Services.AddScoped<AuthorizationClient>();
 builder.Services.AddScoped<EmailAddressTypeClient>();
 builder.Services.AddScoped<EmployeeClient>();
 builder.Services.AddScoped<InvitationsClient>();
