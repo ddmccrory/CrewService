@@ -1,0 +1,250 @@
+@page "/admin/roles"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models.Auth
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
+
+@inject AuthorizationClient AuthorizationClient
+
+<PageTitle>Roles</PageTitle>
+
+<h1>Roles</h1>
+
+<Modal Visible="showSaveModal"
+       Title="@(editCtrlNbr > 0 ? "Edit Role" : "Create Role")"
+       Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+       OnClose="CloseSaveModal">
+    <BodyContent>
+        <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-role-form">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Name</label>
+                <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="Role Name" />
+                <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Description</label>
+                <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Description" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Level</label>
+                <InputNumber @bind-Value="saveModel.Level" class="form-control" />
+                <div class="form-text">Higher values = more authority. System roles range from 20 (Employee) to 100 (SystemAdmin).</div>
+                <ValidationMessage For="() => saveModel.Level" class="text-danger" />
+            </div>
+        </EditForm>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+        <button type="submit" form="save-role-form" class="btn btn-primary">
+            <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+        </button>
+    </Footer>
+</Modal>
+
+<Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+       OnClose="() => showDeleteModal = false" Size="sm">
+    <BodyContent>
+        <p>Are you sure you want to delete <strong>@deleteRoleName</strong>?</p>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+            <span class="bi bi-trash me-1"></span> Delete
+        </button>
+    </Footer>
+</Modal>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+<DataTable TItem="RoleResponse" Items="roles" Columns="roleColumns"
+           SearchFilter="@((r, term) => r.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || r.Description.Contains(term, StringComparison.OrdinalIgnoreCase))"
+           SearchPlaceholder="Search roles..."
+           EmptyMessage="No roles found."
+           DefaultSortColumn="Level"
+           DefaultSortDescending="true">
+    <ToolbarContent>
+        <button class="btn btn-primary" @onclick="OpenCreateModal">
+            <span class="bi bi-plus-circle"></span> Create Role
+        </button>
+    </ToolbarContent>
+    <RowContent Context="role">
+        <td>
+            @role.Name
+            @if (role.IsSystem)
+            {
+                <span class="badge bg-secondary ms-2">System</span>
+            }
+        </td>
+        <td>@role.Description</td>
+        <td>@role.Level</td>
+        <td>
+            @if (role.IsSystem)
+            {
+                <span class="text-muted fst-italic">Protected</span>
+            }
+            else
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(role)">
+                        <span class="bi bi-pencil"></span> Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(role)">
+                        <span class="bi bi-trash"></span> Delete
+                    </button>
+                </div>
+            }
+        </td>
+    </RowContent>
+</DataTable>
+
+@code {
+    private IReadOnlyList<RoleResponse>? roles;
+
+    private static readonly IReadOnlyList<DataTableColumn<RoleResponse>> roleColumns =
+    [
+        new("Name", r => r.Name),
+        new("Description", r => r.Description),
+        new("Level", r => (object)r.Level, width: "100px"),
+        DataTableColumn<RoleResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private RoleInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteRoleName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await LoadRoles();
+    }
+
+    private async Task LoadRoles()
+    {
+        try
+        {
+            var response = await AuthorizationClient.GetAllRolesAsync();
+            roles = response.Roles;
+        }
+        catch
+        {
+            roles = [];
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(RoleResponse role)
+    {
+        editCtrlNbr = role.CtrlNbr;
+        saveModel = new()
+        {
+            Name = role.Name,
+            Description = role.Description,
+            Level = role.Level
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(RoleResponse role)
+    {
+        deleteCtrlNbr = role.CtrlNbr;
+        deleteRoleName = role.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await AuthorizationClient.UpdateRoleAsync(editCtrlNbr, saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.Level);
+                successMessage = "Role updated.";
+            }
+            else
+            {
+                await AuthorizationClient.CreateRoleAsync(saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.Level);
+                successMessage = "Role created.";
+            }
+
+            CloseSaveModal();
+            await LoadRoles();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save role: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await AuthorizationClient.DeleteRoleAsync(deleteCtrlNbr);
+            successMessage = "Role deleted.";
+            showDeleteModal = false;
+            await LoadRoles();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete role: {ex.Message}";
+            showDeleteModal = false;
+        }
+    }
+
+    private sealed class RoleInputModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+
+        public string? Description { get; set; }
+
+        [Range(1, 200, ErrorMessage = "Level must be between 1 and 200.")]
+        public int Level { get; set; } = 40;
+    }
+}

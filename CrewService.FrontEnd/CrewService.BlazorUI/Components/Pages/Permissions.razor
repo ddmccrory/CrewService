@@ -1,0 +1,208 @@
+@page "/admin/permissions"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models.Auth
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize(Roles = $"{Roles.SystemAdmin},{Roles.ParentAdmin},{Roles.RailroadAdmin}")]
+
+@inject AuthorizationClient AuthorizationClient
+
+<PageTitle>Permissions</PageTitle>
+
+<h1>Permissions</h1>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (loading)
+{
+    <p><em>Loading permissions matrix...</em></p>
+}
+else if (roles is not null && features is not null)
+{
+    <div class="mb-3 d-flex align-items-center gap-3">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="parentOverride" @bind="useParentOverride" @bind:after="OnOverrideToggled" disabled="@(!HasParent)" />
+            <label class="form-check-label" for="parentOverride">
+                Per-parent override
+                @if (HasParent)
+                {
+                    <span class="text-muted">(@SelectedParentName)</span>
+                }
+            </label>
+        </div>
+        @if (!HasParent && useParentOverride)
+        {
+            <span class="text-warning"><i class="bi bi-exclamation-triangle"></i> Select a parent first</span>
+        }
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm align-middle permission-matrix">
+            <thead class="table-light">
+                <tr>
+                    <th class="sticky-col" style="min-width: 200px;">Feature</th>
+                    @foreach (var role in roles)
+                    {
+                        <th class="text-center text-nowrap" style="min-width: 130px;">
+                            @role.Name
+                            @if (role.IsSystem)
+                            {
+                                <br /><small class="text-muted">L@(role.Level)</small>
+                            }
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    string? lastCategory = null;
+                }
+                @foreach (var feature in features)
+                {
+                    @if (feature.Category != lastCategory)
+                    {
+                        lastCategory = feature.Category;
+                        <tr class="table-secondary">
+                            <td colspan="@(1 + roles.Count)" class="fw-bold">
+                                <i class="bi bi-folder me-1"></i> @feature.Category
+                            </td>
+                        </tr>
+                    }
+                    <tr>
+                        <td class="sticky-col">
+                            @feature.DisplayName
+                            <br /><small class="text-muted">@feature.Route</small>
+                        </td>
+                        @foreach (var role in roles)
+                        {
+                            var currentLevel = GetAccessLevel(role.CtrlNbr, feature.CtrlNbr);
+                            <td class="text-center p-1">
+                                <select class="form-select form-select-sm @AccessLevelClass(currentLevel)"
+                                        value="@currentLevel"
+                                        @onchange="e => OnPermissionChanged(role.CtrlNbr, feature.CtrlNbr, ParseAccessLevel(e))">
+                                    <option value="0">None</option>
+                                    <option value="1">Read Only</option>
+                                    <option value="2">Full Access</option>
+                                </select>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-3">
+        <span class="badge bg-danger me-1">None</span>
+        <span class="badge bg-warning text-dark me-1">Read Only</span>
+        <span class="badge bg-success me-1">Full Access</span>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<RoleResponse>? roles;
+    private IReadOnlyList<FeatureResponse>? features;
+    private Dictionary<(long roleCtrlNbr, long featureCtrlNbr), int> permissionMap = new();
+    private bool loading = true;
+    private bool useParentOverride;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await LoadMatrix();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (useParentOverride)
+            await LoadMatrix();
+    }
+
+    private async Task LoadMatrix()
+    {
+        try
+        {
+            loading = true;
+            long parentCtrlNbr = useParentOverride && HasParent ? SelectedParentCtrlNbr!.Value : 0;
+            var response = await AuthorizationClient.GetPermissionMatrixAsync(parentCtrlNbr);
+
+            roles = response.Roles;
+            features = response.Features;
+
+            permissionMap.Clear();
+            foreach (var perm in response.Permissions)
+            {
+                permissionMap[(perm.RoleCtrlNbr, perm.FeatureCtrlNbr)] = perm.AccessLevel;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load permission matrix: {ex.Message}";
+            roles = [];
+            features = [];
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private int GetAccessLevel(long roleCtrlNbr, long featureCtrlNbr)
+    {
+        return permissionMap.TryGetValue((roleCtrlNbr, featureCtrlNbr), out var level) ? level : 0;
+    }
+
+    private async Task OnPermissionChanged(long roleCtrlNbr, long featureCtrlNbr, int accessLevel)
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            long parentCtrlNbr = useParentOverride && HasParent ? SelectedParentCtrlNbr!.Value : 0;
+            await AuthorizationClient.UpdatePermissionAsync(roleCtrlNbr, featureCtrlNbr, accessLevel, parentCtrlNbr);
+
+            permissionMap[(roleCtrlNbr, featureCtrlNbr)] = accessLevel;
+            successMessage = "Permission updated.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update permission: {ex.Message}";
+        }
+    }
+
+    private async Task OnOverrideToggled()
+    {
+        await LoadMatrix();
+    }
+
+    private static string AccessLevelClass(int level) => level switch
+    {
+        0 => "border-danger text-danger",
+        1 => "border-warning",
+        2 => "border-success text-success",
+        _ => ""
+    };
+
+    private static int ParseAccessLevel(ChangeEventArgs e)
+        => int.TryParse(e.Value?.ToString(), out var v) ? v : 0;
+}
