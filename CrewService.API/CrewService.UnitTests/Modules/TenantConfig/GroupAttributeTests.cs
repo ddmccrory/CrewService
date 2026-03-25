@@ -19,13 +19,13 @@ public sealed class GroupAttributeTests : IDisposable
         var attrDefRepo = new GroupAttributeDefinitionRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Region", "Geographic region", isWorkArea: false);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(
             groupType.CtrlNbr.Value, "Timezone", "string", isRequired: true, defaultValue: "Eastern");
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
-        var retrieved = await attrDefRepo.GetByCtrlNbrAsync(attrDef.CtrlNbr);
+        var retrieved = await attrDefRepo.GetByCtrlNbrAsync(attrDef.CtrlNbr, TestContext.Current.CancellationToken);
 
         Assert.NotNull(retrieved);
         Assert.Equal("Timezone", retrieved.AttributeName);
@@ -43,14 +43,14 @@ public sealed class GroupAttributeTests : IDisposable
         var attrDefRepo = new GroupAttributeDefinitionRepository(ctx, _factory.CurrentUserService);
 
         var regionType = GroupType.Create("Region", "Region", isWorkArea: false);
-        await groupTypeRepo.AddAsync(regionType);
+        await groupTypeRepo.AddAsync(regionType, TestContext.Current.CancellationToken);
 
         var yardType = GroupType.Create("Yard", "Yard", isWorkArea: true);
-        await groupTypeRepo.AddAsync(yardType);
+        await groupTypeRepo.AddAsync(yardType, TestContext.Current.CancellationToken);
 
-        await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(regionType.CtrlNbr.Value, "Timezone", "string", false));
-        await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(regionType.CtrlNbr.Value, "Climate", "string", false));
-        await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(yardType.CtrlNbr.Value, "TrackCount", "int", true));
+        await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(regionType.CtrlNbr.Value, "Timezone", "string", false), TestContext.Current.CancellationToken);
+        await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(regionType.CtrlNbr.Value, "Climate", "string", false), TestContext.Current.CancellationToken);
+        await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(yardType.CtrlNbr.Value, "TrackCount", "int", true), TestContext.Current.CancellationToken);
 
         var regionAttrs = await attrDefRepo.GetByGroupTypeCtrlNbrAsync(regionType.CtrlNbr);
         var yardAttrs = await attrDefRepo.GetByGroupTypeCtrlNbrAsync(yardType.CtrlNbr);
@@ -69,15 +69,15 @@ public sealed class GroupAttributeTests : IDisposable
         var attrDefRepo = new GroupAttributeDefinitionRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Division", "Division", isWorkArea: false);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(groupType.CtrlNbr.Value, "MaxSpeed", "int", false, "60");
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
         attrDef.Update("MaxTrackSpeed", "decimal", true, "65.5");
-        await attrDefRepo.UpdateAsync(attrDef);
+        await attrDefRepo.UpdateAsync(attrDef, TestContext.Current.CancellationToken);
 
-        var updated = await attrDefRepo.GetByCtrlNbrAsync(attrDef.CtrlNbr);
+        var updated = await attrDefRepo.GetByCtrlNbrAsync(attrDef.CtrlNbr, TestContext.Current.CancellationToken);
 
         Assert.NotNull(updated);
         Assert.Equal("MaxTrackSpeed", updated.AttributeName);
@@ -94,12 +94,12 @@ public sealed class GroupAttributeTests : IDisposable
         var attrDefRepo = new GroupAttributeDefinitionRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Yard", "Yard", isWorkArea: true);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(groupType.CtrlNbr.Value, "TrackCount", "int", true, "10");
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
-        await attrDefRepo.DeleteAsync(attrDef.CtrlNbr);
+        await attrDefRepo.DeleteAsync(attrDef.CtrlNbr, TestContext.Current.CancellationToken);
 
         var remaining = await attrDefRepo.GetByGroupTypeCtrlNbrAsync(groupType.CtrlNbr);
         Assert.Empty(remaining);
@@ -115,16 +115,16 @@ public sealed class GroupAttributeTests : IDisposable
         var attrValRepo = new GroupAttributeValueRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Region", "Region", isWorkArea: false);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var group = DynamicGroup.Create(groupType.CtrlNbr.Value, "Southeast", null, "/se", false);
-        await groupRepo.AddAsync(group);
+        await groupRepo.AddAsync(group, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(groupType.CtrlNbr.Value, "Timezone", "string", false, "Eastern");
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
         var value = GroupAttributeValue.Create(group.CtrlNbr.Value, attrDef.CtrlNbr.Value, "Central");
-        await attrValRepo.AddAsync(value);
+        await attrValRepo.AddAsync(value, TestContext.Current.CancellationToken);
 
         var values = await attrValRepo.GetByGroupCtrlNbrAsync(group.CtrlNbr);
 
@@ -144,21 +144,21 @@ public sealed class GroupAttributeTests : IDisposable
         var attrValRepo = new GroupAttributeValueRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Region", "Region", isWorkArea: false);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var group = DynamicGroup.Create(groupType.CtrlNbr.Value, "Northeast", null, "/ne", false);
-        await groupRepo.AddAsync(group);
+        await groupRepo.AddAsync(group, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(groupType.CtrlNbr.Value, "Timezone", "string", false);
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
         // Create initial value
         var value = GroupAttributeValue.Create(group.CtrlNbr.Value, attrDef.CtrlNbr.Value, "Eastern");
-        await attrValRepo.AddAsync(value);
+        await attrValRepo.AddAsync(value, TestContext.Current.CancellationToken);
 
         // Upsert — update existing
         value.Update("Pacific");
-        await attrValRepo.UpdateAsync(value);
+        await attrValRepo.UpdateAsync(value, TestContext.Current.CancellationToken);
 
         var values = await attrValRepo.GetByGroupCtrlNbrAsync(group.CtrlNbr);
 
@@ -176,19 +176,19 @@ public sealed class GroupAttributeTests : IDisposable
         var attrValRepo = new GroupAttributeValueRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Region", "Region", isWorkArea: false);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var groupA = DynamicGroup.Create(groupType.CtrlNbr.Value, "Southeast", null, "/se", false);
-        await groupRepo.AddAsync(groupA);
+        await groupRepo.AddAsync(groupA, TestContext.Current.CancellationToken);
 
         var groupB = DynamicGroup.Create(groupType.CtrlNbr.Value, "Northeast", null, "/ne", false);
-        await groupRepo.AddAsync(groupB);
+        await groupRepo.AddAsync(groupB, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(groupType.CtrlNbr.Value, "Timezone", "string", false);
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
-        await attrValRepo.AddAsync(GroupAttributeValue.Create(groupA.CtrlNbr.Value, attrDef.CtrlNbr.Value, "Eastern"));
-        await attrValRepo.AddAsync(GroupAttributeValue.Create(groupB.CtrlNbr.Value, attrDef.CtrlNbr.Value, "Pacific"));
+        await attrValRepo.AddAsync(GroupAttributeValue.Create(groupA.CtrlNbr.Value, attrDef.CtrlNbr.Value, "Eastern"), TestContext.Current.CancellationToken);
+        await attrValRepo.AddAsync(GroupAttributeValue.Create(groupB.CtrlNbr.Value, attrDef.CtrlNbr.Value, "Pacific"), TestContext.Current.CancellationToken);
 
         var valuesA = await attrValRepo.GetByGroupCtrlNbrAsync(groupA.CtrlNbr);
         var valuesB = await attrValRepo.GetByGroupCtrlNbrAsync(groupB.CtrlNbr);
@@ -209,18 +209,18 @@ public sealed class GroupAttributeTests : IDisposable
         var attrValRepo = new GroupAttributeValueRepository(ctx, _factory.CurrentUserService);
 
         var groupType = GroupType.Create("Yard", "Yard", isWorkArea: true);
-        await groupTypeRepo.AddAsync(groupType);
+        await groupTypeRepo.AddAsync(groupType, TestContext.Current.CancellationToken);
 
         var group = DynamicGroup.Create(groupType.CtrlNbr.Value, "Jax Yard", null, "/jax", true);
-        await groupRepo.AddAsync(group);
+        await groupRepo.AddAsync(group, TestContext.Current.CancellationToken);
 
         var attrDef = GroupAttributeDefinition.Create(groupType.CtrlNbr.Value, "TrackCount", "int", true, "10");
-        await attrDefRepo.AddAsync(attrDef);
+        await attrDefRepo.AddAsync(attrDef, TestContext.Current.CancellationToken);
 
         var value = GroupAttributeValue.Create(group.CtrlNbr.Value, attrDef.CtrlNbr.Value, "12");
-        await attrValRepo.AddAsync(value);
+        await attrValRepo.AddAsync(value, TestContext.Current.CancellationToken);
 
-        await attrValRepo.DeleteAsync(value.CtrlNbr);
+        await attrValRepo.DeleteAsync(value.CtrlNbr, TestContext.Current.CancellationToken);
 
         var remaining = await attrValRepo.GetByGroupCtrlNbrAsync(group.CtrlNbr);
         Assert.Empty(remaining);

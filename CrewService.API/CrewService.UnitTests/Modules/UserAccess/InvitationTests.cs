@@ -23,12 +23,12 @@ public sealed class InvitationTests : IDisposable
         var repo = new InvitationRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Test Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var invitation = Invitation.Create("test@example.com", parent.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
-        await repo.AddAsync(invitation);
+        await repo.AddAsync(invitation, TestContext.Current.CancellationToken);
 
-        var found = await repo.GetByCtrlNbrAsync(invitation.CtrlNbr);
+        var found = await repo.GetByCtrlNbrAsync(invitation.CtrlNbr, TestContext.Current.CancellationToken);
 
         Assert.NotNull(found);
         Assert.Equal("test@example.com", found.Email);
@@ -180,10 +180,10 @@ public sealed class InvitationTests : IDisposable
         var repo = new InvitationRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Token Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var invitation = Invitation.Create("token@example.com", parent.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
-        await repo.AddAsync(invitation);
+        await repo.AddAsync(invitation, TestContext.Current.CancellationToken);
 
         var found = await repo.GetByTokenAsync(invitation.Token);
         var notFound = await repo.GetByTokenAsync("nonexistent-token");
@@ -204,16 +204,16 @@ public sealed class InvitationTests : IDisposable
         var repo = new InvitationRepository(ctx, _factory.CurrentUserService);
 
         var parent1 = Parent.Create("Parent A");
-        await parentRepo.AddAsync(parent1);
+        await parentRepo.AddAsync(parent1, TestContext.Current.CancellationToken);
         var parent2 = Parent.Create("Parent B");
-        await parentRepo.AddAsync(parent2);
+        await parentRepo.AddAsync(parent2, TestContext.Current.CancellationToken);
 
         var i1 = Invitation.Create("multi@example.com", parent1.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
-        await repo.AddAsync(i1);
+        await repo.AddAsync(i1, TestContext.Current.CancellationToken);
         var i2 = Invitation.Create("multi@example.com", parent2.CtrlNbr.Value, Roles.Employee, "admin-001");
-        await repo.AddAsync(i2);
+        await repo.AddAsync(i2, TestContext.Current.CancellationToken);
         var i3 = Invitation.Create("other@example.com", parent1.CtrlNbr.Value, Roles.Employee, "admin-001");
-        await repo.AddAsync(i3);
+        await repo.AddAsync(i3, TestContext.Current.CancellationToken);
 
         var results = await repo.GetByEmailAsync("multi@example.com");
 
@@ -232,17 +232,17 @@ public sealed class InvitationTests : IDisposable
         var repo = new InvitationRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Pending Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var pending = Invitation.Create("pending@example.com", parent.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
-        await repo.AddAsync(pending);
+        await repo.AddAsync(pending, TestContext.Current.CancellationToken);
 
         // Accept it, then create a new pending one
         pending.Accept();
-        await repo.UpdateAsync(pending);
+        await repo.UpdateAsync(pending, TestContext.Current.CancellationToken);
 
         var newPending = Invitation.Create("pending@example.com", parent.CtrlNbr.Value, Roles.CrewManager, "admin-001");
-        await repo.AddAsync(newPending);
+        await repo.AddAsync(newPending, TestContext.Current.CancellationToken);
 
         var found = await repo.GetPendingByEmailAndParentAsync("pending@example.com", parent.CtrlNbr.Value);
 
@@ -262,12 +262,12 @@ public sealed class InvitationTests : IDisposable
         var repo = new InvitationRepository(ctx, _factory.CurrentUserService);
 
         var parent = Parent.Create("Delete Parent");
-        await parentRepo.AddAsync(parent);
+        await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
         var invitation = Invitation.Create("delete@example.com", parent.CtrlNbr.Value, Roles.Employee, "admin-001");
-        await repo.AddAsync(invitation);
+        await repo.AddAsync(invitation, TestContext.Current.CancellationToken);
 
-        await repo.DeleteAsync(invitation.CtrlNbr);
+        await repo.DeleteAsync(invitation.CtrlNbr, TestContext.Current.CancellationToken);
 
         var remaining = await repo.GetByEmailAsync("delete@example.com");
         Assert.Empty(remaining);
