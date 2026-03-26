@@ -47,8 +47,9 @@ internal class PositionRoleConfiguration : IEntityTypeConfiguration<PositionRole
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(p => p.Code).HasMaxLength(50).IsRequired();
+        builder.Property(p => p.Code).HasMaxLength(50);
         builder.Property(p => p.Name).HasMaxLength(100).IsRequired();
+        builder.Property(p => p.AlternateName).HasMaxLength(100);
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

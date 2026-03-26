@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Interfaces;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Authorization;
@@ -142,6 +142,8 @@ public static class DependencyInjection
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
 
+        services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<ITemplatePositionRepository, TemplatePositionRepository>();
         // Crews Module Repositories
         services.AddScoped<ICrewRepository, CrewRepository>();
         services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();

@@ -72,3 +72,26 @@ internal sealed class SlotRequirementRepository(CrewServiceDbContext dbContext, 
             .ToListAsync();
     }
 }
+
+internal sealed class DepartmentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<Department>(dbContext, currentUserService), IDepartmentRepository
+{
+    public async Task<List<Department>> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
+    {
+        return await DbContext.Set<Department>()
+            .Where(d => d.RailroadCtrlNbr == railroadCtrlNbr)
+            .OrderBy(d => d.Name)
+            .ToListAsync();
+    }
+}
+
+internal sealed class TemplatePositionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<TemplatePosition>(dbContext, currentUserService), ITemplatePositionRepository
+{
+    public async Task<List<TemplatePosition>> GetByTemplateAsync(ControlNumber assignmentTemplateCtrlNbr)
+    {
+        return await DbContext.Set<TemplatePosition>()
+            .Where(tp => tp.AssignmentTemplateCtrlNbr == assignmentTemplateCtrlNbr)
+            .ToListAsync();
+    }
+}
