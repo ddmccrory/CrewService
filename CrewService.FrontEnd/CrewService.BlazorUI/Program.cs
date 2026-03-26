@@ -28,6 +28,8 @@ builder.Services.AddScoped<ParentsClient>();
 builder.Services.AddScoped<PhoneNumberTypeClient>();
 builder.Services.AddScoped<SeniorityClient>();
 builder.Services.AddScoped<TenantConfigClient>();
+builder.Services.AddScoped<DepartmentClient>();
+builder.Services.AddScoped<WorkManagementClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 
