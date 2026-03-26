@@ -8,7 +8,8 @@ public class WorkManagementService(
     IAssignmentTemplateRepository templateRepository,
     IWorkInstanceRepository workInstanceRepository,
     IPositionSlotRepository positionSlotRepository,
-    IPositionRoleRepository positionRoleRepository) : WorkManagementSrvc.WorkManagementSrvcBase
+    IPositionRoleRepository positionRoleRepository,
+    ITemplatePositionRepository templatePositionRepository) : WorkManagementSrvc.WorkManagementSrvcBase
 {
     public override async Task<GetAllTemplatesResponse> GetAllTemplates(GetAllTemplatesRequest request, ServerCallContext context)
     {
@@ -147,16 +148,70 @@ public class WorkManagementService(
 
     public override async Task<PositionRoleResponse> CreatePositionRole(CreatePositionRoleRequest request, ServerCallContext context)
     {
-        var role = PositionRole.Create(request.CraftCtrlNbr, request.Code, request.Name);
+        var role = PositionRole.Create(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName);
         await positionRoleRepository.AddAsync(role);
         return MapRole(role);
     }
 
+
+    public override async Task<PositionRoleResponse> UpdatePositionRole(UpdatePositionRoleRequest request, ServerCallContext context)
+    {
+        var role = await positionRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"PositionRole {request.CtrlNbr} not found."));
+        role.Update(request.Code, request.Name, request.AlternateName);
+        await positionRoleRepository.UpdateAsync(role);
+        return MapRole(role);
+    }
+
+    public override async Task<DeleteResponse> DeletePositionRole(DeletePositionRoleRequest request, ServerCallContext context)
+    {
+        await positionRoleRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
+    public override async Task<GetTemplatePositionsResponse> GetTemplatePositions(GetTemplatePositionsRequest request, ServerCallContext context)
+    {
+        var positions = await templatePositionRepository.GetByTemplateAsync(ControlNumber.Create(request.AssignmentTemplateCtrlNbr));
+        var response = new GetTemplatePositionsResponse { TotalCount = positions.Count };
+        foreach (var tp in positions) response.Positions.Add(MapTemplatePosition(tp));
+        return response;
+    }
+
+    public override async Task<TemplatePositionResponse> CreateTemplatePosition(CreateTemplatePositionRequest request, ServerCallContext context)
+    {
+        var tp = TemplatePosition.Create(request.AssignmentTemplateCtrlNbr, request.PositionRoleCtrlNbr, request.Quantity);
+        await templatePositionRepository.AddAsync(tp);
+        return MapTemplatePosition(tp);
+    }
+
+    public override async Task<TemplatePositionResponse> UpdateTemplatePosition(UpdateTemplatePositionRequest request, ServerCallContext context)
+    {
+        var tp = await templatePositionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"TemplatePosition {request.CtrlNbr} not found."));
+        tp.Update(ControlNumber.Create(request.PositionRoleCtrlNbr), request.Quantity);
+        await templatePositionRepository.UpdateAsync(tp);
+        return MapTemplatePosition(tp);
+    }
+
+    public override async Task<DeleteResponse> DeleteTemplatePosition(DeleteTemplatePositionRequest request, ServerCallContext context)
+    {
+        await templatePositionRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
+    private static TemplatePositionResponse MapTemplatePosition(TemplatePosition tp) => new()
+    {
+        CtrlNbr = tp.CtrlNbr.Value,
+        AssignmentTemplateCtrlNbr = tp.AssignmentTemplateCtrlNbr.Value,
+        PositionRoleCtrlNbr = tp.PositionRoleCtrlNbr.Value,
+        Quantity = tp.Quantity
+    };
     private static PositionRoleResponse MapRole(PositionRole r) => new()
     {
         CtrlNbr = r.CtrlNbr.Value,
         CraftCtrlNbr = r.CraftCtrlNbr.Value,
-        Code = r.Code,
-        Name = r.Name
+        Code = r.Code ?? string.Empty,
+        Name = r.Name,
+        AlternateName = r.AlternateName ?? string.Empty
     };
 }
