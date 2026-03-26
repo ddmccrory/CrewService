@@ -126,9 +126,9 @@ public class AuthorizationService(
     public override async Task<GetEffectivePermissionsResponse> GetEffectivePermissions(GetEffectivePermissionsRequest request, ServerCallContext context)
     {
         // Batch mode: use repeated role_ctrl_nbrs if provided, otherwise fall back to single role_ctrl_nbr.
-        var roleCtrlNbrs = request.RoleCtrlNbrs.Count > 0
+        IEnumerable<long> roleCtrlNbrs = request.RoleCtrlNbrs.Count > 0
             ? request.RoleCtrlNbrs
-            : new[] { request.RoleCtrlNbr };
+            : [request.RoleCtrlNbr];
 
         long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
