@@ -1,8 +1,10 @@
-﻿@implements IDisposable
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
 @inject CrewService.BlazorUI.Services.UserPermissionService Permissions
+@inject CrewService.BlazorUI.Services.CircuitBootstrapService CircuitBootstrap
 
 <div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
@@ -300,7 +302,7 @@
                 @* ── Administration ── *@
                 @if (Permissions.HasAccessToAny("parents", "config/group-types", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types", "config/groups")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -409,13 +411,20 @@
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
         AppContext.OnContextChanged += OnContextChanged;
+        Permissions.OnPermissionsLoaded += OnPermissionsLoaded;
     }
 
     protected override async Task OnInitializedAsync()
     {
+        if (!RendererInfo.IsInteractive) return;
+
         var authState = await AuthStateTask;
         if (authState.User.Identity?.IsAuthenticated == true)
         {
+            // Bootstrap seeds all services in a single gRPC call.
+            // The individual calls below are no-ops if bootstrap succeeded;
+            // they run normally as a fallback if bootstrap failed.
+            await CircuitBootstrap.EnsureInitializedAsync(authState.User);
             await Permissions.InitializeAsync(authState.User);
             await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
         }
@@ -429,17 +438,19 @@
 
     private void OnContextChanged()
     {
-        InvokeAsync(async () =>
-        {
-            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
-            StateHasChanged();
-        });
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnPermissionsLoaded()
+    {
+        InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
         AppContext.OnContextChanged -= OnContextChanged;
+        Permissions.OnPermissionsLoaded -= OnPermissionsLoaded;
     }
 }
 

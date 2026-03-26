@@ -1,15 +1,17 @@
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Models.UserAccess;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class UserParentAssignmentService(IUserParentAssignmentRepository assignmentRepository)
+public class UserParentAssignmentService(IUserParentAssignmentRepository assignmentRepository, IRoleRepository roleRepository)
     : UserParentAssignmentSrvc.UserParentAssignmentSrvcBase
 {
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
+    private readonly IRoleRepository _roleRepository = roleRepository;
 
     public override async Task<GetAssignmentResponse> GetAssignmentAsync(GetAssignmentRequest request, ServerCallContext context)
     {
@@ -59,8 +61,10 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
-        else if (!Roles.AllPerParentRoles.Contains(request.Role))
-            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
+        else if (request.Role == Roles.SystemAdmin)
+            errors.Add("Role", ["SystemAdmin cannot be assigned per-parent"]);
+        else if (await _roleRepository.GetByNameAsync(request.Role) is null)
+            errors.Add("Role", [$"Unknown role '{request.Role}'"]);
 
         if (errors.Count > 0)
             throw new ValidationException(errors);
@@ -91,8 +95,10 @@ public class UserParentAssignmentService(IUserParentAssignmentRepository assignm
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
-        else if (!Roles.AllPerParentRoles.Contains(request.Role))
-            errors.Add("Role", [$"Unknown role '{request.Role}'. Valid roles: {string.Join(", ", Roles.AllPerParentRoles)}"]);
+        else if (request.Role == Roles.SystemAdmin)
+            errors.Add("Role", ["SystemAdmin cannot be assigned per-parent"]);
+        else if (await _roleRepository.GetByNameAsync(request.Role) is null)
+            errors.Add("Role", [$"Unknown role '{request.Role}'"]);
 
         if (errors.Count > 0)
             throw new ValidationException(errors);

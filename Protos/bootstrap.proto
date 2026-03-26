@@ -1,0 +1,75 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package bootstrap;
+
+service BootstrapSrvc {
+  // Single call at circuit startup — returns everything the Blazor UI
+  // needs to initialise (context options, employee, craft, catalogs, permissions).
+  rpc GetBootstrapData(BootstrapRequest) returns (BootstrapResponse) {
+    option (google.api.http) = { get: "/v1/bootstrap" };
+  }
+
+  // Returns the parent/railroad options the authenticated user is allowed to see.
+  // Lighter-weight alternative when only context options are needed.
+  rpc GetContextOptions(GetContextOptionsRequest) returns (GetContextOptionsResponse) {
+    option (google.api.http) = { get: "/v1/bootstrap/context-options" };
+  }
+}
+
+message BootstrapRequest {}
+
+message BootstrapResponse {
+  repeated ContextParent parents = 1;
+  BootstrapEmployee employee = 2;
+  BootstrapCraft active_craft = 3;
+  repeated BootstrapRole roles = 4;
+  repeated BootstrapFeature features = 5;
+  repeated int64 user_role_ctrl_nbrs = 6;
+  repeated BootstrapPermission permissions = 7;
+}
+
+message GetContextOptionsRequest {}
+
+message GetContextOptionsResponse {
+  repeated ContextParent parents = 1;
+}
+
+message ContextParent {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  repeated ContextRailroad railroads = 3;
+}
+
+message ContextRailroad {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string rr_mark = 3;
+}
+
+message BootstrapEmployee {
+  int64 ctrl_nbr = 1;
+  string employee_number = 2;
+  bool found = 3;
+}
+
+message BootstrapCraft {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  bool found = 3;
+}
+
+message BootstrapRole {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+}
+
+message BootstrapFeature {
+  int64 ctrl_nbr = 1;
+  string key = 2;
+}
+
+message BootstrapPermission {
+  int64 feature_ctrl_nbr = 1;
+  int32 access_level = 2;
+}

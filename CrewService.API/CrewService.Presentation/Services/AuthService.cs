@@ -120,12 +120,12 @@ public sealed class AuthService(
 
         // Create or update the UserParentAssignment from the invitation
         var existingAssignments = await _assignmentRepository.GetByUserAndParentAsync(existingUser.Id, invitation.ParentCtrlNbr);
-        var isParentScoped = !Roles.RolesRequiringRailroad.Contains(invitation.Role);
+        var isParentScoped = !Roles.RequiresRailroad(invitation.Role);
 
         if (existingAssignments.Count > 0)
         {
-            var hasRailroadScoped = existingAssignments.Any(a => Roles.RolesRequiringRailroad.Contains(a.Role));
-            var hasParentScoped = existingAssignments.Any(a => !Roles.RolesRequiringRailroad.Contains(a.Role));
+            var hasRailroadScoped = existingAssignments.Any(a => Roles.RequiresRailroad(a.Role));
+            var hasParentScoped = existingAssignments.Any(a => !Roles.RequiresRailroad(a.Role));
 
             if (isParentScoped && hasRailroadScoped)
             {

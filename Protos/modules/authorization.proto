@@ -106,6 +106,7 @@ message GetEffectivePermissionsRequest {
   int64 role_ctrl_nbr = 1;
   int64 parent_ctrl_nbr = 2;
   int64 craft_ctrl_nbr = 3;
+  repeated int64 role_ctrl_nbrs = 4;   // batch mode - when non-empty, role_ctrl_nbr is ignored
 }
 
 message GetEffectivePermissionsResponse {

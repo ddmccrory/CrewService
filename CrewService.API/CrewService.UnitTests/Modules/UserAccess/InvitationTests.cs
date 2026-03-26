@@ -25,7 +25,7 @@ public sealed class InvitationTests : IDisposable
         var parent = Parent.Create("Test Parent");
         await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
-        var invitation = Invitation.Create("test@example.com", parent.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", parent.CtrlNbr.Value, "Dispatcher", "admin-001");
         await repo.AddAsync(invitation, TestContext.Current.CancellationToken);
 
         var found = await repo.GetByCtrlNbrAsync(invitation.CtrlNbr, TestContext.Current.CancellationToken);
@@ -33,7 +33,7 @@ public sealed class InvitationTests : IDisposable
         Assert.NotNull(found);
         Assert.Equal("test@example.com", found.Email);
         Assert.Equal(parent.CtrlNbr, found.ParentCtrlNbr);
-        Assert.Equal(Roles.Dispatcher, found.Role);
+        Assert.Equal("Dispatcher", found.Role);
         Assert.Equal(InvitationStatus.Pending, found.Status);
         Assert.NotEmpty(found.Token);
     }
@@ -83,7 +83,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Accept_Transitions_To_Accepted_And_Raises_Event()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         var initialCount = invitation.DomainEvents.Count;
 
         invitation.Accept();
@@ -100,7 +100,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Accept_Already_Accepted_Throws()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         invitation.Accept();
 
         Assert.Throws<InvalidOperationException>(() => invitation.Accept());
@@ -112,7 +112,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Revoke_Transitions_To_Revoked_And_Raises_Event()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         var initialCount = invitation.DomainEvents.Count;
 
         invitation.Revoke();
@@ -128,7 +128,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Revoke_Already_Revoked_Throws()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         invitation.Revoke();
 
         Assert.Throws<InvalidOperationException>(() => invitation.Revoke());
@@ -140,7 +140,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Revoke_Accepted_Invitation_Throws()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         invitation.Accept();
 
         Assert.Throws<InvalidOperationException>(() => invitation.Revoke());
@@ -182,7 +182,7 @@ public sealed class InvitationTests : IDisposable
         var parent = Parent.Create("Token Parent");
         await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
-        var invitation = Invitation.Create("token@example.com", parent.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("token@example.com", parent.CtrlNbr.Value, "Dispatcher", "admin-001");
         await repo.AddAsync(invitation, TestContext.Current.CancellationToken);
 
         var found = await repo.GetByTokenAsync(invitation.Token);
@@ -208,7 +208,7 @@ public sealed class InvitationTests : IDisposable
         var parent2 = Parent.Create("Parent B");
         await parentRepo.AddAsync(parent2, TestContext.Current.CancellationToken);
 
-        var i1 = Invitation.Create("multi@example.com", parent1.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
+        var i1 = Invitation.Create("multi@example.com", parent1.CtrlNbr.Value, "Dispatcher", "admin-001");
         await repo.AddAsync(i1, TestContext.Current.CancellationToken);
         var i2 = Invitation.Create("multi@example.com", parent2.CtrlNbr.Value, Roles.Employee, "admin-001");
         await repo.AddAsync(i2, TestContext.Current.CancellationToken);
@@ -234,20 +234,20 @@ public sealed class InvitationTests : IDisposable
         var parent = Parent.Create("Pending Parent");
         await parentRepo.AddAsync(parent, TestContext.Current.CancellationToken);
 
-        var pending = Invitation.Create("pending@example.com", parent.CtrlNbr.Value, Roles.Dispatcher, "admin-001");
+        var pending = Invitation.Create("pending@example.com", parent.CtrlNbr.Value, "Dispatcher", "admin-001");
         await repo.AddAsync(pending, TestContext.Current.CancellationToken);
 
         // Accept it, then create a new pending one
         pending.Accept();
         await repo.UpdateAsync(pending, TestContext.Current.CancellationToken);
 
-        var newPending = Invitation.Create("pending@example.com", parent.CtrlNbr.Value, Roles.CrewManager, "admin-001");
+        var newPending = Invitation.Create("pending@example.com", parent.CtrlNbr.Value, "CrewManager", "admin-001");
         await repo.AddAsync(newPending, TestContext.Current.CancellationToken);
 
         var found = await repo.GetPendingByEmailAndParentAsync("pending@example.com", parent.CtrlNbr.Value);
 
         Assert.NotNull(found);
-        Assert.Equal(Roles.CrewManager, found.Role);
+        Assert.Equal("CrewManager", found.Role);
         Assert.Equal(InvitationStatus.Pending, found.Status);
     }
 
@@ -286,16 +286,6 @@ public sealed class InvitationTests : IDisposable
     }
 
     /// <summary>
-    /// Verifies Create rejects an invalid role not in Roles.AllPerParentRoles.
-    /// </summary>
-    [Fact]
-    public void Create_With_Invalid_Role_Throws()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            Invitation.Create("test@example.com", 250101120000001, "FakeRole", "admin-001"));
-    }
-
-    /// <summary>
     /// Verifies Create rejects zero or negative expirationDays.
     /// </summary>
     [Theory]
@@ -313,7 +303,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void MarkExpired_Transitions_Pending_To_Expired()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
 
         invitation.MarkExpired();
 
@@ -326,7 +316,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void MarkExpired_On_Accepted_Throws()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         invitation.Accept();
 
         Assert.Throws<InvalidOperationException>(() => invitation.MarkExpired());
@@ -340,7 +330,7 @@ public sealed class InvitationTests : IDisposable
     public void Accept_On_Expired_Does_Not_Mutate_Status()
     {
         // Create with minimal expiration then manually mark expired to simulate
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         invitation.MarkExpired();
 
         // Now it's Expired � Accept should throw because status is not Pending
@@ -354,7 +344,7 @@ public sealed class InvitationTests : IDisposable
     [Fact]
     public void Accept_Revoked_Invitation_Throws()
     {
-        var invitation = Invitation.Create("test@example.com", 250101120000001, Roles.Dispatcher, "admin-001");
+        var invitation = Invitation.Create("test@example.com", 250101120000001, "Dispatcher", "admin-001");
         invitation.Revoke();
 
         Assert.Throws<InvalidOperationException>(() => invitation.Accept());

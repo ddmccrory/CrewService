@@ -98,6 +98,7 @@ app.UseAuthorization();
 app.MapGrpcService<AccountService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<AddressTypeService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<AuthService>().EnableGrpcWeb();
+app.MapGrpcService<BootstrapService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<CraftService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<EmailAddressTypeService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<EmployeeService>().EnableGrpcWeb().RequireAuthorization();

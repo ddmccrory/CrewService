@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -27,6 +27,7 @@
     <Protobuf Include="..\..\Protos\account.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\address_type.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\auth.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\bootstrap.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\common.proto" GrpcServices="None" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\craft.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\email_address_type.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />

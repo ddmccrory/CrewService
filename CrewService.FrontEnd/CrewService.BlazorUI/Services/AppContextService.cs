@@ -41,6 +41,26 @@ public class AppContextService
         OnContextChanged?.Invoke();
     }
 
+    /// <summary>
+    /// Sets parent and railroad in one batch, firing <see cref="OnContextChanged"/>
+    /// only once.  Use when restoring from session to avoid duplicate page reloads.
+    /// </summary>
+    public void SetContext(long parentCtrlNbr, string parentName, long? railroadCtrlNbr, string? railroadName)
+    {
+        SelectedParentCtrlNbr = parentCtrlNbr;
+        SelectedParentName = parentName;
+        SelectedRailroadCtrlNbr = null;
+        SelectedRailroadName = null;
+
+        if (railroadCtrlNbr.HasValue && railroadName is not null)
+        {
+            SelectedRailroadCtrlNbr = railroadCtrlNbr;
+            SelectedRailroadName = railroadName;
+        }
+
+        OnContextChanged?.Invoke();
+    }
+
     public void ClearRailroad()
     {
         SelectedRailroadCtrlNbr = null;

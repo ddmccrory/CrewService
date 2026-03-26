@@ -12,6 +12,7 @@
 
 @inject InvitationsClient InvitationsClient
 @inject TenantConfigClient ConfigClient
+@inject AuthorizationClient AuthorizationClient
 
 <PageTitle>Invitations</PageTitle>
 
@@ -36,6 +37,8 @@ else
     }
 
     <Modal Visible="showCreateForm"
+           Title="Create Invitation"
+           Icon="bi bi-plus-circle"
            OnClose="() => showCreateForm = false">
         <BodyContent>
             <EditForm Model="createModel" OnValidSubmit="CreateInvitation" id="create-invitation-form">
@@ -155,6 +158,7 @@ else
     protected override string? FeatureKey => "admin/invitations";
 
     private IReadOnlyList<InvitationResponse>? invitations;
+    private IReadOnlyList<RoleResponse> allSystemRoles = [];
     private bool showCreateForm;
     private CreateInvitationModel createModel = new();
     private List<string> availableRoles = [];
@@ -229,9 +233,9 @@ else
         return ticks > 0 ? new DateTime(ticks, DateTimeKind.Utc).ToString("MMM d, yyyy") : "—";
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
+        await LoadSystemRoles();
         DetermineAvailableRoles();
 
         if (HasParent)
@@ -275,9 +279,22 @@ else
         }
         else
         {
-            var (roles, railroads) = InvitationRoleResolver.Resolve(CurrentUser.User!);
+            var (roles, railroads) = InvitationRoleResolver.Resolve(CurrentUser.User!, allSystemRoles);
             availableRoles = [.. roles];
             userRailroadCtrlNbrs = railroads;
+        }
+    }
+
+    private async Task LoadSystemRoles()
+    {
+        try
+        {
+            var response = await AuthorizationClient.GetAllRolesAsync();
+            allSystemRoles = response.Roles;
+        }
+        catch
+        {
+            allSystemRoles = [];
         }
     }
 
@@ -314,7 +331,7 @@ else
     private void OnRoleChanged()
     {
         showRailroadDropdown = !string.IsNullOrEmpty(createModel.Role)
-            && Roles.RolesRequiringRailroad.Contains(createModel.Role);
+            && Roles.RequiresRailroad(createModel.Role);
 
         if (!showRailroadDropdown)
             createModel.RailroadCtrlNbr = 0;

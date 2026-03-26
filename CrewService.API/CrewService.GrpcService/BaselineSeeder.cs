@@ -14,16 +14,16 @@ namespace CrewService.GrpcService;
 internal static class BaselineSeeder
 {
     // -- System role definitions -----------------------------------------
-    private static readonly (string Name, string? Description, int Level)[] SystemRoles =
+    private static readonly (string Name, string? Description, int Level, bool IsSystem)[] SystemRoles =
     [
-        ("SystemAdmin", "Full system access across all parents and railroads", 100),
-        ("ParentAdmin", "Parent company administrator", 80),
-        ("RailroadAdmin", "Railroad-level administrator", 60),
-        ("CraftManager", "Manages crafts and seniority", 40),
-        ("CrewManager", "Manages crew staffing and assignments", 40),
-        ("Dispatcher", "Manages daily operations and vacancy resolution", 40),
-        ("PayrollClerk", "Manages payroll and pay rates", 40),
-        ("Employee", "Standard employee access", 20)
+        ("SystemAdmin", "Full system access across all parents and railroads", 100, true),
+        ("ParentAdmin", "Parent company administrator", 80, true),
+        ("RailroadAdmin", "Railroad-level administrator", 60, true),
+        ("CraftManager", "Manages crafts and seniority", 40, false),
+        ("CrewManager", "Manages crew staffing and assignments", 40, false),
+        ("Dispatcher", "Manages daily operations and vacancy resolution", 40, false),
+        ("PayrollClerk", "Manages payroll and pay rates", 40, false),
+        ("Employee", "Standard employee access", 20, true)
     ];
 
     // -- Feature definitions ---------------------------------------------
@@ -181,11 +181,17 @@ internal static class BaselineSeeder
         var roleRepo = sp.GetRequiredService<IRoleRepository>();
         var existingRoles = await roleRepo.GetAllAsync();
 
-        foreach (var (name, description, level) in SystemRoles)
+        foreach (var (name, description, level, isSystem) in SystemRoles)
         {
-            if (!existingRoles.Any(r => r.Name == name))
+            var existing = existingRoles.FirstOrDefault(r => r.Name == name);
+            if (existing is null)
             {
-                await roleRepo.AddAsync(Role.Create(name, description, isSystem: true, level));
+                await roleRepo.AddAsync(Role.Create(name, description, isSystem: isSystem, level));
+            }
+            else if (existing.IsSystem != isSystem)
+            {
+                existing.SetProtection(isSystem);
+                await roleRepo.UpdateAsync(existing);
             }
         }
     }

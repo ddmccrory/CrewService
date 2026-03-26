@@ -137,6 +137,25 @@ public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, Cir
         }
     }
 
+    public async Task<GetEffectivePermissionsResponse> GetEffectivePermissionsBatchAsync(IEnumerable<long> roleCtrlNbrs, long parentCtrlNbr = 0, long craftCtrlNbr = 0)
+    {
+        try
+        {
+            var request = new GetEffectivePermissionsRequest
+            {
+                ParentCtrlNbr = parentCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
+            };
+            request.RoleCtrlNbrs.AddRange(roleCtrlNbrs);
+            return await _client.GetEffectivePermissionsAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<PermissionResponse> UpdatePermissionAsync(long roleCtrlNbr, long featureCtrlNbr, int accessLevel, long parentCtrlNbr = 0, long craftCtrlNbr = 0)
     {
         try

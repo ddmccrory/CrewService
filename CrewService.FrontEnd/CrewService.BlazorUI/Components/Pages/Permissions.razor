@@ -144,9 +144,8 @@ else if (roles is not null && features is not null)
     private bool useParentOverride;
     private long selectedCraftCtrlNbr;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
         await LoadCrafts();
         await LoadMatrix();
     }
@@ -162,7 +161,10 @@ else if (roles is not null && features is not null)
         try
         {
             var response = await CraftClient.GetAllCraftsAsync();
-            crafts = response.Crafts;
+            crafts = response.Crafts
+                .DistinctBy(c => c.CraftName)
+                .OrderBy(c => c.CraftName)
+                .ToList();
         }
         catch (Exception ex)
         {

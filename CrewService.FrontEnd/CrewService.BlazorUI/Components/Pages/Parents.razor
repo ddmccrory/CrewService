@@ -17,6 +17,7 @@
 <h1>Parents</h1>
 
 <Modal Visible="showSaveModal"
+       Title="@(editCtrlNbr > 0 ? "Edit Parent" : "Create Parent")"
        Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
        OnClose="CloseSaveModal">
     <BodyContent>
@@ -114,9 +115,8 @@
     private long deleteCtrlNbr;
     private string deleteParentName = "";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadDataAsync()
     {
-        await base.OnInitializedAsync();
         await LoadParents();
     }
 

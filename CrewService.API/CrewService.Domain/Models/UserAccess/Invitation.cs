@@ -54,9 +54,6 @@ public sealed class Invitation : Entity
         ArgumentException.ThrowIfNullOrEmpty(invitedByUserId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expirationDays);
 
-        if (!Roles.AllInvitableRoles.Contains(role))
-            throw new ArgumentException($"Unknown role '{role}'.", nameof(role));
-
         var invitation = new Invitation(
             email.ToLowerInvariant(),
             parentCtrlNbr,
