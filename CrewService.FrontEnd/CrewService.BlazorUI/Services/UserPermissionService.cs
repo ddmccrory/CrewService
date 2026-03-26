@@ -50,9 +50,11 @@ public sealed class UserPermissionService(
     {
         try
         {
+            // Fire all three gRPC calls in parallel — craft doesn't depend on roles/features.
             var rolesTask = authClient.GetAllRolesAsync();
             var featuresTask = authClient.GetAllFeaturesAsync();
-            await Task.WhenAll(rolesTask, featuresTask);
+            var craftTask = ResolveActiveCraftAsync();
+            await Task.WhenAll(rolesTask, featuresTask, craftTask);
 
             _roleNameToCtrlNbr = rolesTask.Result.Roles
                 .ToDictionary(r => r.Name, r => r.CtrlNbr);
@@ -63,9 +65,6 @@ public sealed class UserPermissionService(
             _userRoleCtrlNbrs = [.. _roleNameToCtrlNbr
                 .Where(kvp => user.IsInRole(kvp.Key))
                 .Select(kvp => kvp.Value)];
-
-            // Resolve the employee's active craft from their last active roster
-            await ResolveActiveCraftAsync();
         }
         catch (Exception ex)
         {

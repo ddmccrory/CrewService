@@ -420,8 +420,10 @@
         var authState = await AuthStateTask;
         if (authState.User.Identity?.IsAuthenticated == true)
         {
+            // Only initialize catalogs; the first real permission load is triggered
+            // by AppComponentBase or HandleContextChanged after ContextSwitcher
+            // restores the parent.  NavMenu re-renders via OnPermissionsLoaded.
             await Permissions.InitializeAsync(authState.User);
-            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
         }
     }
 

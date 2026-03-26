@@ -140,7 +140,11 @@
             selectedParentCtrlNbr = parent.CtrlNbr;
             railroadOptions.Clear();
             railroadOptions.AddRange(parent.Railroads);
-            AppContext.SetParent(parent.CtrlNbr, parent.Name);
+
+            // Resolve the railroad (if any) before notifying, so we fire a single
+            // OnContextChanged instead of two separate events.
+            long? restoredRailroadCtrlNbr = null;
+            string? restoredRailroadName = null;
 
             var railroadResult = await SessionStorage.GetAsync<StoredContext>(StorageKeyRailroad);
             if (railroadResult.Success && railroadResult.Value is not null)
@@ -150,10 +154,13 @@
                 if (railroad is not null)
                 {
                     selectedRailroadCtrlNbr = railroad.CtrlNbr;
-                    AppContext.SetRailroad(railroad.CtrlNbr, railroad.Name);
+                    restoredRailroadCtrlNbr = railroad.CtrlNbr;
+                    restoredRailroadName = railroad.Name;
                 }
             }
 
+            // Single notification — parent + railroad in one batch
+            AppContext.SetContext(parent.CtrlNbr, parent.Name, restoredRailroadCtrlNbr, restoredRailroadName);
             return true;
         }
         catch
@@ -170,14 +177,20 @@
             selectedParentCtrlNbr = onlyParent.CtrlNbr;
             railroadOptions.Clear();
             railroadOptions.AddRange(onlyParent.Railroads);
-            AppContext.SetParent(onlyParent.CtrlNbr, onlyParent.Name);
+
+            long? autoRailroadCtrlNbr = null;
+            string? autoRailroadName = null;
 
             if (railroadOptions.Count == 1)
             {
                 var onlyRailroad = railroadOptions[0];
                 selectedRailroadCtrlNbr = onlyRailroad.CtrlNbr;
-                AppContext.SetRailroad(onlyRailroad.CtrlNbr, onlyRailroad.Name);
+                autoRailroadCtrlNbr = onlyRailroad.CtrlNbr;
+                autoRailroadName = onlyRailroad.Name;
             }
+
+            // Single notification — parent + railroad in one batch
+            AppContext.SetContext(onlyParent.CtrlNbr, onlyParent.Name, autoRailroadCtrlNbr, autoRailroadName);
         }
     }
 
