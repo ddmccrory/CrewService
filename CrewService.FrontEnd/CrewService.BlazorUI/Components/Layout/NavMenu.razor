@@ -1,4 +1,5 @@
-﻿@implements IDisposable
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
@@ -386,6 +387,9 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
     private string? currentUrl;
 
     private bool IsCurrentPath(params string[] prefixes)
@@ -407,6 +411,18 @@
         NavigationManager.LocationChanged += OnLocationChanged;
         AppContext.OnContextChanged += OnContextChanged;
         Permissions.OnPermissionsLoaded += OnPermissionsLoaded;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var authState = await AuthStateTask;
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            await Permissions.InitializeAsync(authState.User);
+            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)

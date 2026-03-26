@@ -89,7 +89,12 @@ public sealed class UserPermissionService(
     {
         _permissions.Clear();
 
-        if (_userRoleCtrlNbrs.Count == 0) return;
+        if (_userRoleCtrlNbrs.Count == 0)
+        {
+            IsLoaded = true;
+            OnPermissionsLoaded?.Invoke();
+            return;
+        }
 
         try
         {
