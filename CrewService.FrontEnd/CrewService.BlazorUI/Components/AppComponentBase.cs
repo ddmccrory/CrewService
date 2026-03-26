@@ -28,6 +28,9 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     [Inject]
     protected UserPermissionService Permissions { get; set; } = default!;
 
+    [Inject]
+    protected CircuitBootstrapService CircuitBootstrap { get; set; } = default!;
+
     [CascadingParameter]
     protected Task<AuthenticationState> AuthStateTask { get; set; } = default!;
 
@@ -86,12 +89,16 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateTask;
-        await CurrentUser.InitializeAsync(authState.User);
 
-        // Permission gRPC calls require an interactive circuit; skip during prerender
-        // to avoid failed round-trips that slow every page load.
+        // gRPC calls require an interactive circuit; skip during prerender
+        // to avoid wasted round-trips whose results are discarded.
         if (RendererInfo.IsInteractive)
         {
+            // Bootstrap seeds CurrentUser, catalogs, permissions, and context
+            // options in a single gRPC call. If it fails, the individual calls
+            // below run normally as a fallback.
+            await CircuitBootstrap.EnsureInitializedAsync(authState.User);
+            await CurrentUser.InitializeAsync(authState.User);
             await Permissions.InitializeAsync(authState.User);
             await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
             await LoadDataAsync();

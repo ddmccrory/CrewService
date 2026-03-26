@@ -1,11 +1,11 @@
-@using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models.Auth
-@using CrewService.BlazorUI.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using System.Security.Claims
+@using static CrewService.BlazorUI.Services.ContextOptionsService
 
-@inject ParentsClient ParentsClient
+@inject CircuitBootstrapService CircuitBootstrap
+@inject ContextOptionsService ContextOptions
 @inject AppContextService AppContext
 @inject ProtectedSessionStorage SessionStorage
 @inject AuthenticationStateProvider AuthStateProvider
@@ -48,56 +48,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var response = await ParentsClient.GetAllAsync();
-        var allParents = response.Parent
-            .Select(p => new ParentOption(
-                p.CtrlNbr,
-                p.Name,
-                p.Railroads
-                    .Select(r => new RailroadOption(r.CtrlNbr, r.Name, string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}"))
-                    .OrderBy(r => r.DisplayName)
-                    .ToList()))
-            .OrderBy(p => p.Name)
-            .ToList();
-
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         _currentLoginId = user.FindFirst(CustomClaimTypes.LoginId)?.Value;
 
-        if (!user.IsInRole(Roles.SystemAdmin))
-        {
-            // Parse parent_role claims: "{parent}:{role}" or "{parent}:{role}:{railroad}"
-            var claimParts = user.Claims
-                .Where(c => c.Type == CustomClaimTypes.ParentRole)
-                .Select(c => c.Value.Split(':'))
-                .Where(parts => parts.Length >= 2 && long.TryParse(parts[0], out _))
-                .ToList();
-
-            var userParentCtrlNbrs = claimParts
-                .Select(parts => long.Parse(parts[0]))
-                .Distinct()
-                .ToHashSet();
-
-            // Collect the railroad CtrlNbrs the user is assigned to, per parent
-            var userRailroadCtrlNbrs = claimParts
-                .Where(parts => parts.Length >= 3 && long.TryParse(parts[2], out _))
-                .Select(parts => long.Parse(parts[2]))
-                .Distinct()
-                .ToHashSet();
-
-            if (userParentCtrlNbrs.Count > 0)
-            {
-                allParents = allParents
-                    .Where(p => userParentCtrlNbrs.Contains(p.CtrlNbr))
-                    .Select(p => userRailroadCtrlNbrs.Count > 0
-                        ? p with { Railroads = p.Railroads.Where(r => userRailroadCtrlNbrs.Contains(r.CtrlNbr)).ToList() }
-                        : p)
-                    .ToList();
-            }
-        }
+        await CircuitBootstrap.EnsureInitializedAsync(user);
+        var filteredParents = await ContextOptions.GetOptionsAsync();
 
         parentOptions.Clear();
-        parentOptions.AddRange(allParents);
+        parentOptions.AddRange(filteredParents);
         _dataLoaded = true;
     }
 
@@ -241,14 +200,21 @@
         railroadOptions.Clear();
         railroadOptions.AddRange(selectedParent.Railroads);
 
-        AppContext.SetParent(selectedParent.CtrlNbr, selectedParent.Name);
+        long? autoRailroadCtrlNbr = null;
+        string? autoRailroadName = null;
 
         if (railroadOptions.Count == 1)
         {
             var onlyRailroad = railroadOptions[0];
             selectedRailroadCtrlNbr = onlyRailroad.CtrlNbr;
-            AppContext.SetRailroad(onlyRailroad.CtrlNbr, onlyRailroad.Name);
+            autoRailroadCtrlNbr = onlyRailroad.CtrlNbr;
+            autoRailroadName = onlyRailroad.Name;
         }
+
+        // Single notification — parent + optional auto-selected railroad in one batch.
+        // Avoids firing two OnContextChanged events (and two page data reloads)
+        // when a parent with a single railroad is selected.
+        AppContext.SetContext(selectedParent.CtrlNbr, selectedParent.Name, autoRailroadCtrlNbr, autoRailroadName);
 
         await PersistToSessionAsync();
     }
@@ -272,7 +238,5 @@
         await PersistToSessionAsync();
     }
 
-    private sealed record ParentOption(long CtrlNbr, string Name, List<RailroadOption> Railroads);
-    private sealed record RailroadOption(long CtrlNbr, string Name, string DisplayName);
     private sealed record StoredContext(long CtrlNbr, string Name);
 }

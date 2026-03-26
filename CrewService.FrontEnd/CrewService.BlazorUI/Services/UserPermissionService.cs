@@ -52,10 +52,14 @@ public sealed class UserPermissionService(
         try
         {
             // Catalogs are global reference data — fetched once per server via singleton cache.
-            // Craft resolution is per-user so it runs in parallel with the (potentially cached) catalog fetch.
+            // CurrentUser resolves the employee record from claims.
+            // Neither depends on the other, so they run in parallel.
             var catalogTask = catalogCache.GetAsync(authClient);
-            var craftTask = ResolveActiveCraftAsync();
-            await Task.WhenAll(catalogTask, craftTask);
+            var userTask = currentUser.InitializeAsync(user);
+            await Task.WhenAll(catalogTask, userTask);
+
+            // Craft resolution needs CurrentUser.IsEmployee (now available).
+            await ResolveActiveCraftAsync();
 
             var catalog = catalogTask.Result;
             _roleNameToCtrlNbr = catalog.RoleNameToCtrlNbr;
@@ -170,6 +174,41 @@ public sealed class UserPermissionService(
         {
             logger.LogWarning(ex, "Could not resolve active craft for employee {CtrlNbr}", currentUser.Employee.CtrlNbr);
         }
+    }
+
+    // ── Bootstrap seeding ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Seeds catalogs, role identifiers, craft context, and initial permissions
+    /// from bootstrap data. Sets the initialisation Task to completed so that
+    /// <see cref="InitializeAsync"/> and <see cref="LoadPermissionsAsync"/> become no-ops.
+    /// </summary>
+    public void SeedFromBootstrap(
+        Dictionary<string, long> roleNameToCtrlNbr,
+        Dictionary<long, string> featureCtrlNbrToKey,
+        List<long> userRoleCtrlNbrs,
+        long activeCraftCtrlNbr,
+        string? activeCraftName,
+        Dictionary<string, int> initialPermissions)
+    {
+        if (_initTask is not null) return; // Already initialized
+
+        _roleNameToCtrlNbr = roleNameToCtrlNbr;
+        _featureCtrlNbrToKey = featureCtrlNbrToKey;
+        _userRoleCtrlNbrs = userRoleCtrlNbrs;
+        ActiveCraftCtrlNbr = activeCraftCtrlNbr;
+        ActiveCraftName = activeCraftName;
+        _initTask = Task.CompletedTask;
+
+        // Seed initial permissions (null parent context)
+        _permissions.Clear();
+        foreach (var kvp in initialPermissions)
+            _permissions[kvp.Key] = kvp.Value;
+
+        _loadedOnce = true;
+        _loadedParentCtrlNbr = null;
+        IsLoaded = true;
+        OnPermissionsLoaded?.Invoke();
     }
 
     // ── Access checks ───────────────────────────────────────────────────

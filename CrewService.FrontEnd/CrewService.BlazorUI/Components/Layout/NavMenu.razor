@@ -4,6 +4,7 @@
 @inject NavigationManager NavigationManager
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
 @inject CrewService.BlazorUI.Services.UserPermissionService Permissions
+@inject CrewService.BlazorUI.Services.CircuitBootstrapService CircuitBootstrap
 
 <div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
@@ -420,10 +421,12 @@
         var authState = await AuthStateTask;
         if (authState.User.Identity?.IsAuthenticated == true)
         {
-            // Only initialize catalogs; the first real permission load is triggered
-            // by AppComponentBase or HandleContextChanged after ContextSwitcher
-            // restores the parent.  NavMenu re-renders via OnPermissionsLoaded.
+            // Bootstrap seeds all services in a single gRPC call.
+            // The individual calls below are no-ops if bootstrap succeeded;
+            // they run normally as a fallback if bootstrap failed.
+            await CircuitBootstrap.EnsureInitializedAsync(authState.User);
             await Permissions.InitializeAsync(authState.User);
+            await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
         }
     }
 

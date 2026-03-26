@@ -50,6 +50,9 @@ builder.Services.AddSingleton<PermissionCatalogCache>();
 builder.Services.AddScoped<AppContextService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<UserPermissionService>();
+builder.Services.AddScoped<BootstrapClient>();
+builder.Services.AddScoped<ContextOptionsService>();
+builder.Services.AddScoped<CircuitBootstrapService>();
 
 var app = builder.Build();
 

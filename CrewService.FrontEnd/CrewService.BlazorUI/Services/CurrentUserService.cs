@@ -11,15 +11,10 @@ namespace CrewService.BlazorUI.Services;
 /// identity, admin status, and employee record from <see cref="ClaimsPrincipal"/>.
 /// Eliminates duplicated auth/employee resolution logic across pages.
 /// </summary>
-public class CurrentUserService
+public class CurrentUserService(EmployeeClient employeeClient)
 {
-    private readonly EmployeeClient _employeeClient;
+    private readonly EmployeeClient _employeeClient = employeeClient;
     private bool _initialized;
-
-    public CurrentUserService(EmployeeClient employeeClient)
-    {
-        _employeeClient = employeeClient;
-    }
 
     /// <summary>The user's email or name identifier claim.</summary>
     public string? Username { get; private set; }
@@ -68,6 +63,32 @@ public class CurrentUserService
             {
                 IsEmployee = false;
             }
+        }
+    }
+
+    /// <summary>
+    /// Seeds this service from bootstrap data, avoiding the separate gRPC call
+    /// to the Employee service. No-op if already initialized.
+    /// </summary>
+    public void SeedFromBootstrap(ClaimsPrincipal user, GetEmployeeResponse? employee)
+    {
+        if (_initialized) return;
+        _initialized = true;
+        User = user;
+
+        Username = user.FindFirst(ClaimTypes.Email)?.Value
+            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        IsAdmin = user.IsInRole(Roles.SystemAdmin)
+            || user.IsInRole(Roles.ParentAdmin)
+            || user.IsInRole(Roles.RailroadAdmin);
+
+        EmployeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
+
+        if (employee is not null)
+        {
+            Employee = employee;
+            IsEmployee = true;
         }
     }
 

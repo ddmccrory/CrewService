@@ -53,6 +53,17 @@ public sealed class PermissionCatalogCache
         }
     }
 
+    /// <summary>
+    /// Seeds the catalog cache from bootstrap data if the cache is empty or expired.
+    /// Avoids the need for a separate <c>GetAllRoles</c> + <c>GetAllFeatures</c> round-trip.
+    /// </summary>
+    public void SeedIfEmpty(Dictionary<string, long> roleNameToCtrlNbr, Dictionary<long, string> featureCtrlNbrToKey)
+    {
+        var snapshot = _snapshot;
+        if (snapshot is not null && !snapshot.IsExpired) return;
+        _snapshot = new CatalogSnapshot(roleNameToCtrlNbr, featureCtrlNbrToKey, DateTime.UtcNow.Add(CacheTtl));
+    }
+
     public sealed record CatalogSnapshot(
         Dictionary<string, long> RoleNameToCtrlNbr,
         Dictionary<long, string> FeatureCtrlNbrToKey,
