@@ -300,7 +300,7 @@
                 @* ── Administration ── *@
                 @if (Permissions.HasAccessToAny("parents", "config/group-types", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types", "config/groups")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
