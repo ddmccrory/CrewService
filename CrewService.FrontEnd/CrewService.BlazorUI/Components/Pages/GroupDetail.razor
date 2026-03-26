@@ -165,7 +165,11 @@ else
     {
         try
         {
-            var response = await ConfigClient.GetGroupTreeAsync(CtrlNbr);
+            // Load tree from the topmost ancestor so siblings at every level appear
+            var rootCtrlNbr = ancestors is { Count: > 0 }
+                ? ancestors[^1].CtrlNbr
+                : CtrlNbr;
+            var response = await ConfigClient.GetGroupTreeAsync(rootCtrlNbr);
             descendants = response.Groups;
         }
         catch (Exception ex)
@@ -207,40 +211,25 @@ else
 
     private List<TreeNode> BuildGroupHierarchy()
     {
-        if (group is null) return [];
+        if (group is null || descendants is null or { Count: 0 }) return [];
 
-        var allDescendants = descendants ?? [];
+        // The root is the topmost ancestor, or the current group if no ancestors
+        var rootCtrlNbr = ancestors is { Count: > 0 }
+            ? ancestors[^1].CtrlNbr
+            : CtrlNbr;
 
-        // Build a recursive subtree rooted at the current group
-        var currentNode = BuildSubtree(group.CtrlNbr, allDescendants);
-
-        // Wrap ancestors around the current node (innermost → outermost)
-        if (ancestors is not null)
-        {
-            foreach (var ancestor in ancestors)
-            {
-                currentNode = new TreeNode
-                {
-                    Label = ancestor.Name,
-                    Href = $"/config/groups/{ancestor.CtrlNbr}",
-                    Subtitle = $"({GetGroupTypeName(ancestor.GroupTypeCtrlNbr)})",
-                    Children = [currentNode]
-                };
-            }
-        }
-
-        return [currentNode];
+        return [BuildSubtree(rootCtrlNbr, descendants)];
     }
 
-    private TreeNode BuildSubtree(long nodeCtrlNbr, IReadOnlyList<GroupResponse> allDescendants)
+    private TreeNode BuildSubtree(long nodeCtrlNbr, IReadOnlyList<GroupResponse> allGroups)
     {
         var node = nodeCtrlNbr == CtrlNbr
             ? group!
-            : allDescendants.First(d => d.CtrlNbr == nodeCtrlNbr);
+            : allGroups.First(d => d.CtrlNbr == nodeCtrlNbr);
 
-        var children = allDescendants
+        var children = allGroups
             .Where(d => d.ParentGroupCtrlNbr == nodeCtrlNbr && d.CtrlNbr != nodeCtrlNbr)
-            .Select(child => BuildSubtree(child.CtrlNbr, allDescendants))
+            .Select(child => BuildSubtree(child.CtrlNbr, allGroups))
             .ToList();
 
         return new TreeNode
