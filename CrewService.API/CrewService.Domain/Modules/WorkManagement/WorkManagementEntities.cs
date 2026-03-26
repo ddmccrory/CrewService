@@ -80,22 +80,53 @@ public sealed class WorkInstance : Entity
     }
 }
 
+
+public sealed class Department : Entity
+{
+    public ControlNumber RailroadCtrlNbr { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+
+    private Department() { RailroadCtrlNbr = null!; }
+
+    public static Department Create(ControlNumber railroadCtrlNbr, string name)
+    {
+        return new Department
+        {
+            RailroadCtrlNbr = railroadCtrlNbr,
+            Name = name
+        };
+    }
+
+    public void Update(string name)
+    {
+        Name = name;
+    }
+}
 public sealed class PositionRole : Entity
 {
     public ControlNumber CraftCtrlNbr { get; private set; }
-    public string Code { get; private set; } = string.Empty;
+    public string? Code { get; private set; }
     public string Name { get; private set; } = string.Empty;
+    public string? AlternateName { get; private set; }
 
     private PositionRole() { CraftCtrlNbr = null!; }
 
-    public static PositionRole Create(ControlNumber craftCtrlNbr, string code, string name)
+    public static PositionRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null)
     {
         return new PositionRole
         {
             CraftCtrlNbr = craftCtrlNbr,
             Code = code,
-            Name = name
+            Name = name,
+            AlternateName = alternateName
         };
+    }
+
+    public void Update(string? code, string name, string? alternateName)
+    {
+        Code = code;
+        Name = name;
+        AlternateName = alternateName;
     }
 }
 
@@ -157,6 +188,31 @@ public sealed class SlotRequirement : Entity
             QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
             Notes = notes
         };
+    }
+}
+
+public sealed class TemplatePosition : Entity
+{
+    public ControlNumber AssignmentTemplateCtrlNbr { get; private set; }
+    public ControlNumber PositionRoleCtrlNbr { get; private set; }
+    public int Quantity { get; private set; }
+
+    private TemplatePosition() { AssignmentTemplateCtrlNbr = null!; PositionRoleCtrlNbr = null!; }
+
+    public static TemplatePosition Create(ControlNumber assignmentTemplateCtrlNbr, ControlNumber positionRoleCtrlNbr, int quantity)
+    {
+        return new TemplatePosition
+        {
+            AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr,
+            PositionRoleCtrlNbr = positionRoleCtrlNbr,
+            Quantity = quantity
+        };
+    }
+
+    public void Update(ControlNumber positionRoleCtrlNbr, int quantity)
+    {
+        PositionRoleCtrlNbr = positionRoleCtrlNbr;
+        Quantity = quantity;
     }
 }
 

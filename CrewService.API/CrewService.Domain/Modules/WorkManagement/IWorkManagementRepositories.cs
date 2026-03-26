@@ -28,3 +28,13 @@ public interface ISlotRequirementRepository : IRepository<SlotRequirement>
 {
     Task<List<SlotRequirement>> GetByPositionSlotAsync(ControlNumber positionSlotCtrlNbr);
 }
+
+public interface IDepartmentRepository : IRepository<Department>
+{
+    Task<List<Department>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
+}
+
+public interface ITemplatePositionRepository : IRepository<TemplatePosition>
+{
+    Task<List<TemplatePosition>> GetByTemplateAsync(ControlNumber assignmentTemplateCtrlNbr);
+}

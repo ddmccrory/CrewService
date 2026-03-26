@@ -22,6 +22,7 @@ public sealed class Craft : Entity
     public bool ProcessPayroll { get; private set; }
     public bool ShowNotifications { get; private set; }
     public int VacationAssignmentType { get; private set; }
+    public ControlNumber? DepartmentCtrlNbr { get; private set; }
 
     private Craft()
     {
