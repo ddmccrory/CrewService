@@ -13,6 +13,7 @@ public sealed class UserPermissionService(
     AuthorizationClient authClient,
     SeniorityClient seniorityClient,
     CurrentUserService currentUser,
+    PermissionCatalogCache catalogCache,
     ILogger<UserPermissionService> logger)
 {
     private Dictionary<string, long> _roleNameToCtrlNbr = [];
@@ -50,17 +51,15 @@ public sealed class UserPermissionService(
     {
         try
         {
-            // Fire all three gRPC calls in parallel — craft doesn't depend on roles/features.
-            var rolesTask = authClient.GetAllRolesAsync();
-            var featuresTask = authClient.GetAllFeaturesAsync();
+            // Catalogs are global reference data — fetched once per server via singleton cache.
+            // Craft resolution is per-user so it runs in parallel with the (potentially cached) catalog fetch.
+            var catalogTask = catalogCache.GetAsync(authClient);
             var craftTask = ResolveActiveCraftAsync();
-            await Task.WhenAll(rolesTask, featuresTask, craftTask);
+            await Task.WhenAll(catalogTask, craftTask);
 
-            _roleNameToCtrlNbr = rolesTask.Result.Roles
-                .ToDictionary(r => r.Name, r => r.CtrlNbr);
-
-            _featureCtrlNbrToKey = featuresTask.Result.Features
-                .ToDictionary(f => f.CtrlNbr, f => f.Key);
+            var catalog = catalogTask.Result;
+            _roleNameToCtrlNbr = catalog.RoleNameToCtrlNbr;
+            _featureCtrlNbrToKey = catalog.FeatureCtrlNbrToKey;
 
             _userRoleCtrlNbrs = [.. _roleNameToCtrlNbr
                 .Where(kvp => user.IsInRole(kvp.Key))
@@ -116,26 +115,20 @@ public sealed class UserPermissionService(
 
         try
         {
+            // Single batch gRPC call for all roles — eliminates N-1 round-trips for multi-role users.
+            var response = await authClient.GetEffectivePermissionsBatchAsync(
+                _userRoleCtrlNbrs, parentCtrlNbr ?? 0, ActiveCraftCtrlNbr);
+
             // Build in a local dictionary so _permissions stays valid while gRPC is in-flight.
             var newPermissions = new Dictionary<string, int>();
-
-            var tasks = _userRoleCtrlNbrs.Select(roleCtrlNbr =>
-                authClient.GetEffectivePermissionsAsync(
-                    roleCtrlNbr, parentCtrlNbr ?? 0, ActiveCraftCtrlNbr));
-
-            var responses = await Task.WhenAll(tasks);
-
-            foreach (var response in responses)
+            foreach (var perm in response.Permissions)
             {
-                foreach (var perm in response.Permissions)
+                if (_featureCtrlNbrToKey.TryGetValue(perm.FeatureCtrlNbr, out var featureKey))
                 {
-                    if (_featureCtrlNbrToKey.TryGetValue(perm.FeatureCtrlNbr, out var featureKey))
+                    // When a user holds multiple roles, take the highest access level
+                    if (!newPermissions.TryGetValue(featureKey, out var existing) || perm.AccessLevel > existing)
                     {
-                        // When a user holds multiple roles, take the highest access level
-                        if (!newPermissions.TryGetValue(featureKey, out var existing) || perm.AccessLevel > existing)
-                        {
-                            newPermissions[featureKey] = perm.AccessLevel;
-                        }
+                        newPermissions[featureKey] = perm.AccessLevel;
                     }
                 }
             }

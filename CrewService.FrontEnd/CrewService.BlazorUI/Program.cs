@@ -46,6 +46,7 @@ builder.Services.AddScoped<AuthenticationStateProvider, PersistingServerAuthenti
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<AppThemeService>();
+builder.Services.AddSingleton<PermissionCatalogCache>();
 builder.Services.AddScoped<AppContextService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<UserPermissionService>();
