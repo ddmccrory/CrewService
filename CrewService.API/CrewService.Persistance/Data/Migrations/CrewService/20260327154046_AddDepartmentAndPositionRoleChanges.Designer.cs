@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260327154046_AddDepartmentAndPositionRoleChanges")]
+    partial class AddDepartmentAndPositionRoleChanges
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -488,10 +491,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("DepartmentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("DynamicGroupCtrlNbr")
+                    b.Property<long>("DynamicGroupCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("HoursofService")
@@ -507,9 +507,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("MaximumVacationDayTime")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("ProcessPayroll")
@@ -531,8 +528,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
-
-                    b.HasIndex("DepartmentCtrlNbr");
 
                     b.HasIndex("DynamicGroupCtrlNbr");
 
@@ -4390,9 +4385,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("DynamicGroupCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
@@ -4401,12 +4393,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("ParentCtrlNbr")
+                    b.Property<long>("RailroadCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
 
-                    b.HasIndex("DynamicGroupCtrlNbr");
+                    b.HasIndex("RailroadCtrlNbr");
 
                     b.ToTable("Department");
                 });
@@ -5703,15 +5695,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Craft", b =>
                 {
-                    b.HasOne("CrewService.Domain.Modules.WorkManagement.Department", null)
-                        .WithMany()
-                        .HasForeignKey("DepartmentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
                         .WithMany()
                         .HasForeignKey("DynamicGroupCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryStandard", null)
                         .WithMany()
@@ -13424,8 +13412,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                 {
                     b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
                         .WithMany()
-                        .HasForeignKey("DynamicGroupCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {

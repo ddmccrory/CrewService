@@ -223,6 +223,45 @@
                         }
                     </NavMenuGroup>
                 }
+
+                @* ── Work Management ── *@
+                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/assignment-templates", "work-management/position-roles"))
+                {
+                    <NavMenuGroup Title="Work Management" Icon="bi-briefcase-fill" IsInitiallyExpanded="@IsCurrentPath("work-management")">
+                        @if (Permissions.HasAccess("work-management/departments"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/departments">
+                                    <span class="bi bi-diagram-2" aria-hidden="true"></span> Departments
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("work-management/crafts"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/crafts">
+                                    <span class="bi bi-tools" aria-hidden="true"></span> Crafts
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("work-management/assignment-templates"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/assignment-templates">
+                                    <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Assignment Templates
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("work-management/position-roles"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/position-roles">
+                                    <span class="bi bi-person-badge" aria-hidden="true"></span> Position Roles
+                                </NavLink>
+                            </div>
+                        }
+                    </NavMenuGroup>
+                }
                 } @* end railroad-scoped *@
 
                 @if (AppContext.HasParent)
@@ -230,7 +269,7 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/crafts", "employees/prior-service", "admin/invitations"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations"))
                 {
                     <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
                         @if (Permissions.HasAccess("employees"))
@@ -246,14 +285,6 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/seniority">
                                     <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("employees/crafts"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/crafts">
-                                    <span class="bi bi-tools" aria-hidden="true"></span> Crafts
                                 </NavLink>
                             </div>
                         }

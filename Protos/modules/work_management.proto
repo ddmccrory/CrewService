@@ -57,20 +57,6 @@ service WorkManagementSrvc {
   rpc DeletePositionRole(DeletePositionRoleRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/work-management/roles/{ctrl_nbr}" };
   }
-
-  // Template Positions
-  rpc GetTemplatePositions(GetTemplatePositionsRequest) returns (GetTemplatePositionsResponse) {
-    option (google.api.http) = { get: "/v1/work-management/templates/{assignment_template_ctrl_nbr}/positions" };
-  }
-  rpc CreateTemplatePosition(CreateTemplatePositionRequest) returns (TemplatePositionResponse) {
-    option (google.api.http) = { post: "/v1/work-management/template-positions" body: "*" };
-  }
-  rpc UpdateTemplatePosition(UpdateTemplatePositionRequest) returns (TemplatePositionResponse) {
-    option (google.api.http) = { put: "/v1/work-management/template-positions/{ctrl_nbr}" body: "*" };
-  }
-  rpc DeleteTemplatePosition(DeleteTemplatePositionRequest) returns (common.DeleteResponse) {
-    option (google.api.http) = { delete: "/v1/work-management/template-positions/{ctrl_nbr}" };
-  }
 }
 
 // Template messages
@@ -167,27 +153,3 @@ message CreatePositionRoleRequest { int64 craft_ctrl_nbr = 1; string code = 2; s
 message PositionRoleResponse { int64 ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; string code = 3; string name = 4; string alternate_name = 5; }
 message UpdatePositionRoleRequest { int64 ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
 message DeletePositionRoleRequest { int64 ctrl_nbr = 1; }
-
-// TemplatePosition messages
-message GetTemplatePositionsRequest { int64 assignment_template_ctrl_nbr = 1; }
-message GetTemplatePositionsResponse {
-  repeated TemplatePositionResponse positions = 1;
-  int32 total_count = 2;
-}
-message CreateTemplatePositionRequest {
-  int64 assignment_template_ctrl_nbr = 1;
-  int64 position_role_ctrl_nbr = 2;
-  int32 quantity = 3;
-}
-message UpdateTemplatePositionRequest {
-  int64 ctrl_nbr = 1;
-  int64 position_role_ctrl_nbr = 2;
-  int32 quantity = 3;
-}
-message DeleteTemplatePositionRequest { int64 ctrl_nbr = 1; }
-message TemplatePositionResponse {
-  int64 ctrl_nbr = 1;
-  int64 assignment_template_ctrl_nbr = 2;
-  int64 position_role_ctrl_nbr = 3;
-  int32 quantity = 4;
-}

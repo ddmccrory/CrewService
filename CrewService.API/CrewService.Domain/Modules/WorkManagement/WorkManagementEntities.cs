@@ -83,16 +83,18 @@ public sealed class WorkInstance : Entity
 
 public sealed class Department : Entity
 {
-    public ControlNumber RailroadCtrlNbr { get; private set; }
+    public long ParentCtrlNbr { get; private set; }
+    public ControlNumber? DynamicGroupCtrlNbr { get; private set; }
     public string Name { get; private set; } = string.Empty;
 
-    private Department() { RailroadCtrlNbr = null!; }
+    private Department() { }
 
-    public static Department Create(ControlNumber railroadCtrlNbr, string name)
+    public static Department Create(long parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr, string name)
     {
         return new Department
         {
-            RailroadCtrlNbr = railroadCtrlNbr,
+            ParentCtrlNbr = parentCtrlNbr,
+            DynamicGroupCtrlNbr = dynamicGroupCtrlNbr,
             Name = name
         };
     }
@@ -188,31 +190,6 @@ public sealed class SlotRequirement : Entity
             QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
             Notes = notes
         };
-    }
-}
-
-public sealed class TemplatePosition : Entity
-{
-    public ControlNumber AssignmentTemplateCtrlNbr { get; private set; }
-    public ControlNumber PositionRoleCtrlNbr { get; private set; }
-    public int Quantity { get; private set; }
-
-    private TemplatePosition() { AssignmentTemplateCtrlNbr = null!; PositionRoleCtrlNbr = null!; }
-
-    public static TemplatePosition Create(ControlNumber assignmentTemplateCtrlNbr, ControlNumber positionRoleCtrlNbr, int quantity)
-    {
-        return new TemplatePosition
-        {
-            AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr,
-            PositionRoleCtrlNbr = positionRoleCtrlNbr,
-            Quantity = quantity
-        };
-    }
-
-    public void Update(ControlNumber positionRoleCtrlNbr, int quantity)
-    {
-        PositionRoleCtrlNbr = positionRoleCtrlNbr;
-        Quantity = quantity;
     }
 }
 

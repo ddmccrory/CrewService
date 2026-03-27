@@ -1,5 +1,4 @@
 using CrewService.Domain.Interfaces;
-using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
@@ -11,10 +10,12 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class CraftRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Craft>(dbContext, currentUserService), ICraftRepository
 {
-    public async Task<List<Craft>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr)
+    public async Task<List<Craft>> GetByParentAndRailroadAsync(long parentCtrlNbr, long? railroadCtrlNbr)
     {
+        var railroadCn = railroadCtrlNbr.HasValue ? ControlNumber.Create(railroadCtrlNbr.Value) : (ControlNumber?)null;
         return await DbContext.Set<Craft>()
-            .Where(c => c.DynamicGroupCtrlNbr == dynamicGroupCtrlNbr)
+            .Where(c => c.ParentCtrlNbr == parentCtrlNbr
+                && (c.DynamicGroupCtrlNbr == null || c.DynamicGroupCtrlNbr == railroadCn))
             .OrderBy(c => c.CraftNumber)
             .ToListAsync();
     }

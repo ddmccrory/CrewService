@@ -76,22 +76,13 @@ internal sealed class SlotRequirementRepository(CrewServiceDbContext dbContext, 
 internal sealed class DepartmentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Department>(dbContext, currentUserService), IDepartmentRepository
 {
-    public async Task<List<Department>> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
+    public async Task<List<Department>> GetByParentAndRailroadAsync(long parentCtrlNbr, long? railroadCtrlNbr)
     {
+        var railroadCn = railroadCtrlNbr.HasValue ? ControlNumber.Create(railroadCtrlNbr.Value) : (ControlNumber?)null;
         return await DbContext.Set<Department>()
-            .Where(d => d.RailroadCtrlNbr == railroadCtrlNbr)
+            .Where(d => d.ParentCtrlNbr == parentCtrlNbr
+                && (d.DynamicGroupCtrlNbr == null || d.DynamicGroupCtrlNbr == railroadCn))
             .OrderBy(d => d.Name)
-            .ToListAsync();
-    }
-}
-
-internal sealed class TemplatePositionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<TemplatePosition>(dbContext, currentUserService), ITemplatePositionRepository
-{
-    public async Task<List<TemplatePosition>> GetByTemplateAsync(ControlNumber assignmentTemplateCtrlNbr)
-    {
-        return await DbContext.Set<TemplatePosition>()
-            .Where(tp => tp.AssignmentTemplateCtrlNbr == assignmentTemplateCtrlNbr)
             .ToListAsync();
     }
 }

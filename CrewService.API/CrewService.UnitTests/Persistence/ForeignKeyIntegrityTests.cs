@@ -62,6 +62,9 @@ public class ForeignKeyIntegrityTests
             ("GroupType", "ParentGroupTypeCtrlNbr"),
             // Permission.ParentCtrlNbr is a scope filter for per-parent overrides, not a FK
             ("Permission", "ParentCtrlNbr"),
+            // Hierarchical scoping — ParentCtrlNbr references Parent entity (outside bounded context)
+            ("Department", "ParentCtrlNbr"),
+            ("Craft", "ParentCtrlNbr"),
         };
 
         var orphans = new List<string>();

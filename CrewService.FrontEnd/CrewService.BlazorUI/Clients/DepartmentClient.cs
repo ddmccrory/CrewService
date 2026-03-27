@@ -7,11 +7,11 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class DepartmentClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<DepartmentClient> logger)
     : BaseGrpcClient<DepartmentSrvc.DepartmentSrvcClient>(channelProvider, tokenProvider, callInvoker => new DepartmentSrvc.DepartmentSrvcClient(callInvoker), logger)
 {
-    public async Task<GetDepartmentsResponse> GetAllAsync(long railroadCtrlNbr)
+    public async Task<GetDepartmentsResponse> GetAllAsync(long parentCtrlNbr, long railroadCtrlNbr)
     {
         try
         {
-            return await _client.GetAllAsync(new GetDepartmentsRequest { RailroadCtrlNbr = railroadCtrlNbr });
+            return await _client.GetAllAsync(new GetDepartmentsRequest { ParentCtrlNbr = parentCtrlNbr, DynamicGroupCtrlNbr = railroadCtrlNbr });
         }
         catch (Exception ex)
         {
@@ -20,13 +20,14 @@ public sealed class DepartmentClient(GrpcChannelProvider channelProvider, Circui
         }
     }
 
-    public async Task<DepartmentResponse> CreateAsync(long railroadCtrlNbr, string name)
+    public async Task<DepartmentResponse> CreateAsync(long parentCtrlNbr, long railroadCtrlNbr, string name)
     {
         try
         {
             return await _client.CreateAsync(new CreateDepartmentRequest
             {
-                RailroadCtrlNbr = railroadCtrlNbr,
+                ParentCtrlNbr = parentCtrlNbr,
+                DynamicGroupCtrlNbr = railroadCtrlNbr,
                 Name = name
             });
         }

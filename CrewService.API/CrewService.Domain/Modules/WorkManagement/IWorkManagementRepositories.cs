@@ -31,10 +31,5 @@ public interface ISlotRequirementRepository : IRepository<SlotRequirement>
 
 public interface IDepartmentRepository : IRepository<Department>
 {
-    Task<List<Department>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
-}
-
-public interface ITemplatePositionRepository : IRepository<TemplatePosition>
-{
-    Task<List<TemplatePosition>> GetByTemplateAsync(ControlNumber assignmentTemplateCtrlNbr);
+    Task<List<Department>> GetByParentAndRailroadAsync(long parentCtrlNbr, long? railroadCtrlNbr);
 }

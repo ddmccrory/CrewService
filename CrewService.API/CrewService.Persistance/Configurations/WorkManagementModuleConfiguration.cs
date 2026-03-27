@@ -122,32 +122,16 @@ internal class DepartmentConfiguration : IEntityTypeConfiguration<Department>
     {
         builder.HasKey(d => d.CtrlNbr);
         builder.Property(d => d.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(d => d.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(d => d.ParentCtrlNbr).IsRequired();
+        builder.Property(d => d.DynamicGroupCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(d => d.Name).HasMaxLength(100).IsRequired();
 
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(d => d.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(d => d.DynamicGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(d => d.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(d => d.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(d => d.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-    }
-}
-
-internal class TemplatePositionConfiguration : IEntityTypeConfiguration<TemplatePosition>
-{
-    public void Configure(EntityTypeBuilder<TemplatePosition> builder)
-    {
-        builder.HasKey(tp => tp.CtrlNbr);
-        builder.Property(tp => tp.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(tp => tp.AssignmentTemplateCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(tp => tp.PositionRoleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(tp => tp.Quantity).IsRequired();
-
-        builder.HasOne<AssignmentTemplate>().WithMany().HasForeignKey(tp => tp.AssignmentTemplateCtrlNbr).OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<PositionRole>().WithMany().HasForeignKey(tp => tp.PositionRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-
-        builder.OwnsOne(tp => tp.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(tp => tp.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(tp => tp.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }

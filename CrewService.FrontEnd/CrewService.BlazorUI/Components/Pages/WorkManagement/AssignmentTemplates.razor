@@ -1,0 +1,318 @@
+@page "/work-management/assignment-templates"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject WorkManagementClient WorkManagementClient
+@inject TenantConfigClient ConfigClient
+
+<PageTitle>Assignment Templates</PageTitle>
+
+<h1>Assignment Templates</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage assignment templates.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing assignment templates for <strong>@SelectedRailroadName</strong></p>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Work Area</label>
+        <select class="form-select" style="max-width: 350px;" value="@selectedWorkAreaCtrlNbr" @onchange="OnWorkAreaChanged">
+            <option value="0">-- Select Work Area --</option>
+            @if (workAreas is not null)
+            {
+                @foreach (var wa in workAreas)
+                {
+                    <option value="@wa.CtrlNbr">@wa.Name</option>
+                }
+            }
+        </select>
+    </div>
+
+    @if (selectedWorkAreaCtrlNbr > 0)
+    {
+        <Modal Visible="showSaveModal"
+               Title="@(editCtrlNbr > 0 ? "Edit Assignment Template" : "Create Assignment Template")"
+               Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="CloseSaveModal">
+            <BodyContent>
+                <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-template-form">
+                    <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Code</label>
+                        <InputText @bind-Value="saveModel.Code" class="form-control" placeholder="e.g. J101" />
+                        <ValidationMessage For="() => saveModel.Code" class="text-danger" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Name</label>
+                        <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Job 101" />
+                        <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                    </div>
+                    <div class="mb-0 form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="isActiveSwitch" />
+                        <label class="form-check-label" for="isActiveSwitch">Active</label>
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+                <button type="submit" form="save-template-form" class="btn btn-primary">
+                    <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+                </button>
+            </Footer>
+        </Modal>
+
+        <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+               OnClose="() => showDeleteModal = false" Size="sm">
+            <BodyContent>
+                <p>Are you sure you want to delete <strong>@deleteName</strong>?</p>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                    <span class="bi bi-trash me-1"></span> Delete
+                </button>
+            </Footer>
+        </Modal>
+
+        @if (successMessage is not null)
+        {
+            <div class="alert alert-success alert-dismissible" role="alert">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <DataTable TItem="TemplateResponse" Items="templates" Columns="columns"
+                   SearchFilter="@((t, term) => t.Code.Contains(term, StringComparison.OrdinalIgnoreCase) || t.Name.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search by code or name..."
+                   EmptyMessage="No assignment templates found for this work area."
+                   DefaultSortColumn="Code">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Create Template
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="tmpl">
+                <td>@tmpl.Code</td>
+                <td>@tmpl.Name</td>
+                <td>
+                    @if (tmpl.IsActive)
+                    {
+                        <span class="badge bg-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Inactive</span>
+                    }
+                </td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(tmpl)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(tmpl)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/assignment-templates";
+
+    private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<TemplateResponse>? templates;
+    private long selectedWorkAreaCtrlNbr;
+
+    private static readonly IReadOnlyList<DataTableColumn<TemplateResponse>> columns =
+    [
+        new("Code", t => t.Code),
+        new("Name", t => t.Name),
+        new("Status", t => t.IsActive ? "Active" : "Inactive"),
+        DataTableColumn<TemplateResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private TemplateInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+            await LoadWorkAreas();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        selectedWorkAreaCtrlNbr = 0;
+        templates = null;
+
+        if (HasRailroad)
+            await LoadWorkAreas();
+        else
+            workAreas = null;
+    }
+
+    private async Task LoadWorkAreas()
+    {
+        try
+        {
+            var response = await ConfigClient.GetWorkAreasAsync();
+            workAreas = response.Groups;
+        }
+        catch
+        {
+            workAreas = [];
+        }
+    }
+
+    private async Task OnWorkAreaChanged(ChangeEventArgs e)
+    {
+        selectedWorkAreaCtrlNbr = long.TryParse(e.Value?.ToString(), out var val) ? val : 0;
+        templates = null;
+
+        if (selectedWorkAreaCtrlNbr > 0)
+            await LoadTemplates();
+    }
+
+    private async Task LoadTemplates()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await WorkManagementClient.GetAllTemplatesAsync(selectedWorkAreaCtrlNbr);
+            templates = response.Templates;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load templates: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(TemplateResponse tmpl)
+    {
+        editCtrlNbr = tmpl.CtrlNbr;
+        saveModel = new()
+        {
+            Code = tmpl.Code,
+            Name = tmpl.Name,
+            IsActive = tmpl.IsActive
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(TemplateResponse tmpl)
+    {
+        deleteCtrlNbr = tmpl.CtrlNbr;
+        deleteName = $"{tmpl.Code} — {tmpl.Name}";
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await WorkManagementClient.UpdateTemplateAsync(editCtrlNbr, saveModel.Code!, saveModel.Name!, null, saveModel.IsActive);
+                successMessage = "Assignment template updated.";
+            }
+            else
+            {
+                await WorkManagementClient.CreateTemplateAsync(selectedWorkAreaCtrlNbr, saveModel.Code!, saveModel.Name!, null, saveModel.IsActive);
+                successMessage = "Assignment template created.";
+            }
+
+            CloseSaveModal();
+            await LoadTemplates();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save template: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await WorkManagementClient.DeleteTemplateAsync(deleteCtrlNbr);
+            successMessage = "Assignment template deleted.";
+            showDeleteModal = false;
+            await LoadTemplates();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete template: {ex.Message}";
+            showDeleteModal = false;
+        }
+    }
+
+    private sealed class TemplateInputModel
+    {
+        [Required(ErrorMessage = "Code is required.")]
+        [StringLength(30, MinimumLength = 1)]
+        public string? Code { get; set; }
+
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+}

@@ -1,5 +1,6 @@
-﻿using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -17,9 +18,10 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
+        builder.Property(c => c.ParentCtrlNbr).IsRequired();
         builder.Property(c => c.DynamicGroupCtrlNbr).HasConversion(
-            ctrlNbr => ctrlNbr.Value,
-            value => ControlNumber.Create(value));
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
 
         builder.Property(c => c.CraftName).HasMaxLength(100).IsRequired();
         builder.Property(c => c.CraftPluralName).HasMaxLength(100).IsRequired();
@@ -39,8 +41,13 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
         builder.Property(c => c.ShowNotifications).IsRequired();
         builder.Property(c => c.VacationAssignmentType).IsRequired();
 
+        builder.Property(c => c.DepartmentCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.DynamicGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RegulatoryStandard>().WithMany().HasForeignKey(c => c.RegulatoryStandardCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(c => c.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, audit =>
         {

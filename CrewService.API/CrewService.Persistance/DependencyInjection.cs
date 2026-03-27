@@ -143,7 +143,6 @@ public static class DependencyInjection
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
 
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
-        services.AddScoped<ITemplatePositionRepository, TemplatePositionRepository>();
         // Crews Module Repositories
         services.AddScoped<ICrewRepository, CrewRepository>();
         services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();

@@ -1,7 +1,10 @@
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 
 namespace CrewService.GrpcService;
@@ -55,10 +58,15 @@ internal static class BaselineSeeder
         ("compliance/absence-codes", "Absence Codes", "Compliance", "/compliance/absence-codes"),
         ("compliance/policies", "Policies", "Compliance", "/compliance/policies"),
 
+        // Work Management
+        ("work-management/departments", "Departments", "Work Management", "/work-management/departments"),
+        ("work-management/crafts", "Crafts", "Work Management", "/work-management/crafts"),
+        ("work-management/assignment-templates", "Assignment Templates", "Work Management", "/work-management/assignment-templates"),
+        ("work-management/position-roles", "Position Roles", "Work Management", "/work-management/position-roles"),
+
         // Employee Management
         ("employees", "Employees", "Employee Management", "/employees"),
         ("employees/seniority", "Seniority Rosters", "Employee Management", "/employees/seniority"),
-        ("employees/crafts", "Crafts", "Employee Management", "/employees/crafts"),
         ("employees/prior-service", "Prior Service Credits", "Employee Management", "/employees/prior-service"),
         ("admin/invitations", "Invitations", "Employee Management", "/admin/invitations"),
 
@@ -107,10 +115,15 @@ internal static class BaselineSeeder
         ["compliance/absence-codes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["compliance/policies"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
 
+        // Work Management
+        ["work-management/departments"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["work-management/crafts"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["work-management/assignment-templates"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager"],
+        ["work-management/position-roles"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+
         // Employee Management
         ["employees"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["employees/seniority"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
-        ["employees/crafts"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["employees/prior-service"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/invitations"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
 
@@ -146,6 +159,28 @@ internal static class BaselineSeeder
         await SeedRolesAsync(sp);
         await SeedFeaturesAsync(sp);
         await SeedDefaultPermissionsAsync(sp);
+        await SeedSystemAdminAsync(sp);
+    }
+
+    private static async Task SeedSystemAdminAsync(IServiceProvider sp)
+    {
+        var userMgr = sp.GetRequiredService<UserManager<User>>();
+        var adminUser = await userMgr.FindByEmailAsync("admin@crewservice.dev");
+        if (adminUser is null)
+        {
+            adminUser = new User
+            {
+                UserName       = "admin@crewservice.dev",
+                Email          = "admin@crewservice.dev",
+                EmailConfirmed = true,
+                FirstName      = "System",
+                LastName       = "Admin",
+                FullName       = "System Admin",
+                FullNameLNF    = "Admin, System",
+                PrimaryRoleId  = Roles.SystemAdmin
+            };
+            await userMgr.CreateAsync(adminUser, "Admin@123");
+        }
     }
 
     private static async Task SeedGroupTypesAsync(IServiceProvider sp)

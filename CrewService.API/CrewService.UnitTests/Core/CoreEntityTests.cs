@@ -86,9 +86,11 @@ public class CraftTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var craft = Craft.Create(1, "Engineer", "Engineers", 1,
+        var craft = Craft.Create(10, 1, "Engineer", "Engineers", 1,
             true, false, 8, 8, 10, 24, 30, true, true, true, 0);
 
+        Assert.Equal(10, craft.ParentCtrlNbr);
+        Assert.Equal(1, craft.DynamicGroupCtrlNbr!.Value);
         Assert.Equal("Engineer", craft.CraftName);
         Assert.Equal("Engineers", craft.CraftPluralName);
         Assert.Equal(1, craft.CraftNumber);

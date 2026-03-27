@@ -9,7 +9,7 @@ public class DepartmentService(
 {
     public override async Task<GetDepartmentsResponse> GetAll(GetDepartmentsRequest request, ServerCallContext context)
     {
-        var departments = await departmentRepository.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr));
+        var departments = await departmentRepository.GetByParentAndRailroadAsync(request.ParentCtrlNbr, request.DynamicGroupCtrlNbr > 0 ? request.DynamicGroupCtrlNbr : null);
         var response = new GetDepartmentsResponse { TotalCount = departments.Count };
         foreach (var d in departments)
             response.Departments.Add(MapDepartment(d));
@@ -18,7 +18,7 @@ public class DepartmentService(
 
     public override async Task<DepartmentResponse> Create(CreateDepartmentRequest request, ServerCallContext context)
     {
-        var department = Department.Create(request.RailroadCtrlNbr, request.Name);
+        var department = Department.Create(request.ParentCtrlNbr, request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null, request.Name);
         await departmentRepository.AddAsync(department);
         return MapDepartment(department);
     }
@@ -41,7 +41,8 @@ public class DepartmentService(
     private static DepartmentResponse MapDepartment(Department d) => new()
     {
         CtrlNbr = d.CtrlNbr.Value,
-        RailroadCtrlNbr = d.RailroadCtrlNbr.Value,
+        ParentCtrlNbr = d.ParentCtrlNbr,
+        DynamicGroupCtrlNbr = d.DynamicGroupCtrlNbr?.Value ?? 0,
         Name = d.Name
     };
 }

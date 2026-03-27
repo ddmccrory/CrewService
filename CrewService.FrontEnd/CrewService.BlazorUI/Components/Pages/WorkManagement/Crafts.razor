@@ -1,0 +1,490 @@
+@page "/work-management/crafts"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject CraftClient CraftClient
+@inject DepartmentClient DepartmentClient
+@inject TenantConfigClient TenantConfigClient
+
+<PageTitle>Crafts</PageTitle>
+
+<h1>Crafts</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage crafts.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing crafts for <strong>@SelectedRailroadName</strong></p>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Craft" : "Create Craft")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal"
+           Size="lg">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-craft-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Owner</label>
+                    <InputSelect @bind-Value="saveModel.OwnerCtrlNbr" class="form-select">
+                        <option value="0">All Railroads (Parent Level)</option>
+                        @if (railroads is not null)
+                        {
+                            @foreach (var rr in railroads)
+                            {
+                                <option value="@rr.CtrlNbr">@rr.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                    <div class="form-text">Parent-level crafts are inherited by all railroads.</div>
+                </div>
+                }
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Name</label>
+                        <InputText @bind-Value="saveModel.CraftName" class="form-control" placeholder="e.g. Engineer" />
+                        <ValidationMessage For="() => saveModel.CraftName" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Plural Name</label>
+                        <InputText @bind-Value="saveModel.CraftPluralName" class="form-control" placeholder="e.g. Engineers" />
+                        <ValidationMessage For="() => saveModel.CraftPluralName" class="text-danger" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Craft Number</label>
+                        <InputNumber @bind-Value="saveModel.CraftNumber" class="form-control" />
+                        <ValidationMessage For="() => saveModel.CraftNumber" class="text-danger" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Vacation Assignment Type</label>
+                        <InputNumber @bind-Value="saveModel.VacationAssignmentType" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Max Vacation Day Time</label>
+                        <InputNumber @bind-Value="saveModel.MaximumVacationDayTime" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Department</label>
+                        <InputSelect @bind-Value="saveModel.DepartmentCtrlNbr" class="form-select">
+                            <option value="0">— None —</option>
+                            @if (departments is not null)
+                            {
+                                @foreach (var dept in departments)
+                                {
+                                    <option value="@dept.CtrlNbr">@dept.Name</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <h6 class="text-muted mb-3">Hours &amp; Time Settings</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Mark-Off Hours</label>
+                        <InputNumber @bind-Value="saveModel.MarkOffHours" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Mark-Up Hours</label>
+                        <InputNumber @bind-Value="saveModel.MarkUpHours" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Required Rest Hours</label>
+                        <InputNumber @bind-Value="saveModel.RequiredRestHours" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Unpaid Meal (min)</label>
+                        <InputNumber @bind-Value="saveModel.UnpaidMealPeriodMinutes" class="form-control" />
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <h6 class="text-muted mb-3">Options</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.AutoMarkUp" class="form-check-input" id="chkAutoMarkUp" />
+                            <label class="form-check-label" for="chkAutoMarkUp">Auto Mark-Up</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.ApproveAllMarkOffs" class="form-check-input" id="chkApproveMarkOffs" />
+                            <label class="form-check-label" for="chkApproveMarkOffs">Approve All Mark-Offs</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.HoursOfService" class="form-check-input" id="chkHoS" />
+                            <label class="form-check-label" for="chkHoS">Hours of Service</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.ProcessPayroll" class="form-check-input" id="chkPayroll" />
+                            <label class="form-check-label" for="chkPayroll">Process Payroll</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.ShowNotifications" class="form-check-input" id="chkNotify" />
+                            <label class="form-check-label" for="chkNotify">Show Notifications</label>
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-craft-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="CraftResponse" Items="crafts" Columns="columns"
+               SearchFilter="@((c, term) => c.CraftName.Contains(term, StringComparison.OrdinalIgnoreCase) || c.CraftPluralName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search crafts..."
+               EmptyMessage="No crafts found."
+               DefaultSortColumn="Name">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <span class="bi bi-plus-circle"></span> Create Craft
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="craft">
+            <td>@craft.CraftName</td>
+            <td>@craft.CraftPluralName</td>
+            <td>@craft.CraftNumber</td>
+            <td>@(craft.HoursofService ? "Yes" : "No")</td>
+            <td>@(craft.ProcessPayroll ? "Yes" : "No")</td>
+            <td>@GetDepartmentName(craft.DepartmentCtrlNbr)</td>
+            <td>
+                @if (IsOwnedByRailroad(craft))
+                {
+                    <span class="badge bg-primary">Railroad</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Parent (inherited)</span>
+                }
+            </td>
+            <td>
+                @if (!IsFeatureReadOnly && IsOwnedByRailroad(craft))
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(craft)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(craft)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/crafts";
+
+    private IReadOnlyList<CraftResponse>? crafts;
+    private IReadOnlyList<DepartmentResponse>? departments;
+    private IReadOnlyList<GroupResponse>? railroads;
+
+    private static readonly IReadOnlyList<DataTableColumn<CraftResponse>> columns =
+    [
+        new("Name", c => c.CraftName),
+        new("Plural Name", c => c.CraftPluralName),
+        new("Number", c => c.CraftNumber, width: "100px"),
+        new("HoS", c => c.HoursofService, width: "80px"),
+        new("Payroll", c => c.ProcessPayroll, width: "80px"),
+        new("Department", c => c.DepartmentCtrlNbr > 0 ? "Assigned" : "—"),
+        new("Owner", c => c.DynamicGroupCtrlNbr > 0 ? "Railroad" : "Parent", width: "120px"),
+        DataTableColumn<CraftResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private CraftInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadRailroads();
+            await LoadDepartments();
+            await LoadCrafts();
+        }
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadRailroads();
+            await LoadDepartments();
+            await LoadCrafts();
+        }
+        else
+        {
+            crafts = null;
+            departments = null;
+            railroads = null;
+        }
+    }
+
+    private async Task LoadRailroads()
+    {
+        try
+        {
+            var response = await TenantConfigClient.GetGroupsByTypeNameAsync("Railroad", SelectedParentCtrlNbr!.Value);
+            railroads = response.Groups;
+        }
+        catch
+        {
+            railroads = [];
+        }
+    }
+
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            departments = response.Departments;
+        }
+        catch
+        {
+            departments = [];
+        }
+    }
+
+    private async Task LoadCrafts()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            crafts = response.Crafts;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load crafts: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new() { OwnerCtrlNbr = SelectedRailroadCtrlNbr!.Value };
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(CraftResponse craft)
+    {
+        editCtrlNbr = craft.CtrlNbr;
+        saveModel = new()
+        {
+            CraftName = craft.CraftName,
+            CraftPluralName = craft.CraftPluralName,
+            CraftNumber = craft.CraftNumber,
+            AutoMarkUp = craft.AutoMarkUp,
+            ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
+            MarkOffHours = craft.MarkOffHours,
+            MarkUpHours = craft.MarkUpHours,
+            RequiredRestHours = craft.RequiredRestHours,
+            MaximumVacationDayTime = craft.MaximumVacationDayTime,
+            UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
+            HoursOfService = craft.HoursofService,
+            ProcessPayroll = craft.ProcessPayroll,
+            ShowNotifications = craft.ShowNotifications,
+            VacationAssignmentType = craft.VacationAssignmentType,
+            DepartmentCtrlNbr = craft.DepartmentCtrlNbr
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(CraftResponse craft)
+    {
+        deleteCtrlNbr = craft.CtrlNbr;
+        deleteName = craft.CraftName;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await CraftClient.UpdateAsync(new UpdateCraftRequest
+                {
+                    CtrlNbr = editCtrlNbr,
+                    CraftName = saveModel.CraftName!,
+                    CraftPluralName = saveModel.CraftPluralName!,
+                    CraftNumber = saveModel.CraftNumber,
+                    AutoMarkUp = saveModel.AutoMarkUp,
+                    ApproveAllMarkOffs = saveModel.ApproveAllMarkOffs,
+                    MarkOffHours = saveModel.MarkOffHours,
+                    MarkUpHours = saveModel.MarkUpHours,
+                    RequiredRestHours = saveModel.RequiredRestHours,
+                    MaximumVacationDayTime = saveModel.MaximumVacationDayTime,
+                    UnpaidMealPeriodMinutes = saveModel.UnpaidMealPeriodMinutes,
+                    HoursofService = saveModel.HoursOfService,
+                    ProcessPayroll = saveModel.ProcessPayroll,
+                    ShowNotifications = saveModel.ShowNotifications,
+                    VacationAssignmentType = saveModel.VacationAssignmentType,
+                    DepartmentCtrlNbr = saveModel.DepartmentCtrlNbr
+                });
+                successMessage = "Craft updated.";
+            }
+            else
+            {
+                await CraftClient.CreateAsync(new CreateCraftRequest
+                {
+                    ParentCtrlNbr = SelectedParentCtrlNbr!.Value,
+                    DynamicGroupCtrlNbr = saveModel.OwnerCtrlNbr,
+                    CraftName = saveModel.CraftName!,
+                    CraftPluralName = saveModel.CraftPluralName!,
+                    CraftNumber = saveModel.CraftNumber,
+                    AutoMarkUp = saveModel.AutoMarkUp,
+                    ApproveAllMarkOffs = saveModel.ApproveAllMarkOffs,
+                    MarkOffHours = saveModel.MarkOffHours,
+                    MarkUpHours = saveModel.MarkUpHours,
+                    RequiredRestHours = saveModel.RequiredRestHours,
+                    MaximumVacationDayTime = saveModel.MaximumVacationDayTime,
+                    UnpaidMealPeriodMinutes = saveModel.UnpaidMealPeriodMinutes,
+                    HoursofService = saveModel.HoursOfService,
+                    ProcessPayroll = saveModel.ProcessPayroll,
+                    ShowNotifications = saveModel.ShowNotifications,
+                    VacationAssignmentType = saveModel.VacationAssignmentType,
+                    DepartmentCtrlNbr = saveModel.DepartmentCtrlNbr
+                });
+                successMessage = "Craft created.";
+            }
+
+            CloseSaveModal();
+            await LoadCrafts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save craft: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            await CraftClient.DeleteAsync(deleteCtrlNbr);
+            showDeleteModal = false;
+            successMessage = "Craft deleted.";
+            await LoadCrafts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete craft: {ex.Message}";
+        }
+    }
+
+    private string GetDepartmentName(long departmentCtrlNbr)
+    {
+        if (departmentCtrlNbr == 0 || departments is null) return "—";
+        return departments.FirstOrDefault(d => d.CtrlNbr == departmentCtrlNbr)?.Name ?? "—";
+    }
+
+    private bool IsOwnedByRailroad(CraftResponse craft) =>
+        craft.DynamicGroupCtrlNbr > 0 && craft.DynamicGroupCtrlNbr == SelectedRailroadCtrlNbr;
+
+    private sealed class CraftInputModel
+    {
+        [Required, StringLength(100)]
+        public string? CraftName { get; set; }
+
+        [Required, StringLength(100)]
+        public string? CraftPluralName { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int CraftNumber { get; set; }
+
+        public bool AutoMarkUp { get; set; }
+        public bool ApproveAllMarkOffs { get; set; }
+        public int MarkOffHours { get; set; }
+        public int MarkUpHours { get; set; }
+        public int RequiredRestHours { get; set; }
+        public int MaximumVacationDayTime { get; set; }
+        public int UnpaidMealPeriodMinutes { get; set; }
+        public bool HoursOfService { get; set; }
+        public bool ProcessPayroll { get; set; }
+        public bool ShowNotifications { get; set; }
+        public int VacationAssignmentType { get; set; }
+        public long DepartmentCtrlNbr { get; set; }
+        public long OwnerCtrlNbr { get; set; }
+    }
+}
