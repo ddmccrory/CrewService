@@ -62,21 +62,23 @@ internal class CrewIncumbencyConfiguration : IEntityTypeConfiguration<CrewIncumb
     }
 }
 
-internal class CrewAttachmentTemplateConfiguration : IEntityTypeConfiguration<CrewAttachmentTemplate>
+internal class CrewAssignmentConfiguration : IEntityTypeConfiguration<CrewAssignment>
 {
-    public void Configure(EntityTypeBuilder<CrewAttachmentTemplate> builder)
+    public void Configure(EntityTypeBuilder<CrewAssignment> builder)
     {
-        builder.HasKey(t => t.CtrlNbr);
-        builder.Property(t => t.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(t => t.AssignmentGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(t => t.CrewCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.HasKey(a => a.CtrlNbr);
+        builder.Property(a => a.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.CrewCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.AssignmentGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.DaysOfWeekMask).IsRequired();
+        builder.Property(a => a.StartUtc).IsRequired();
 
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(t => t.AssignmentGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Crew>().WithMany().HasForeignKey(t => t.CrewCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Crew>().WithMany().HasForeignKey(a => a.CrewCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(a => a.AssignmentGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
-        builder.OwnsOne(t => t.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(t => t.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(t => t.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.DeletedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
 
@@ -95,23 +97,5 @@ internal class CrewAttachmentInstanceConfiguration : IEntityTypeConfiguration<Cr
         builder.OwnsOne(i => i.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(i => i.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(i => i.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-    }
-}
-
-internal class ReliefCoverageRuleConfiguration : IEntityTypeConfiguration<ReliefCoverageRule>
-{
-    public void Configure(EntityTypeBuilder<ReliefCoverageRule> builder)
-    {
-        builder.HasKey(r => r.CtrlNbr);
-        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(r => r.ReliefCrewCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(r => r.AssignmentGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-
-        builder.HasOne<Crew>().WithMany().HasForeignKey(r => r.ReliefCrewCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(r => r.AssignmentGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-
-        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
