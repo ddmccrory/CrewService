@@ -8,8 +8,7 @@ public class CrewsService(
     ICrewRepository crewRepository,
     ICrewPositionRepository crewPositionRepository,
     ICrewIncumbencyRepository incumbencyRepository,
-    ICrewAttachmentTemplateRepository attachmentRepo,
-    IReliefCoverageRuleRepository reliefRepo) : CrewsSrvc.CrewsSrvcBase
+    ICrewAssignmentRepository assignmentRepository) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
@@ -115,58 +114,48 @@ public class CrewsService(
         EndUtc = i.EndUtc?.ToString("O") ?? string.Empty
     };
 
-    // Attachment Templates
-    public override async Task<GetCrewAttachmentTemplatesResponse> GetCrewAttachmentTemplates(GetCrewAttachmentTemplatesRequest request, ServerCallContext context)
+    // Crew Assignments
+    public override async Task<GetCrewAssignmentsResponse> GetCrewAssignments(GetCrewAssignmentsRequest request, ServerCallContext context)
     {
-        var items = await attachmentRepo.GetByAssignmentGroupAsync(ControlNumber.Create(request.CrewCtrlNbr));
-        var response = new GetCrewAttachmentTemplatesResponse { TotalCount = items.Count };
-        foreach (var t in items) response.Templates.Add(MapAttachmentTemplate(t));
+        var items = await assignmentRepository.GetByCrewAsync(ControlNumber.Create(request.CrewCtrlNbr));
+        var response = new GetCrewAssignmentsResponse { TotalCount = items.Count };
+        foreach (var a in items) response.Assignments.Add(MapAssignment(a));
         return response;
     }
 
-    public override async Task<CrewAttachmentTemplateResponse> CreateCrewAttachmentTemplate(CreateCrewAttachmentTemplateRequest request, ServerCallContext context)
+    public override async Task<CrewAssignmentResponse> CreateCrewAssignment(CreateCrewAssignmentRequest request, ServerCallContext context)
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var attachment = CrewAttachmentTemplate.Create(request.AssignmentGroupCtrlNbr, request.CrewCtrlNbr, startUtc, endUtc);
-        await attachmentRepo.AddAsync(attachment);
-        return MapAttachmentTemplate(attachment);
+        var assignment = CrewAssignment.Create(request.CrewCtrlNbr, request.AssignmentGroupCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
+        await assignmentRepository.AddAsync(assignment);
+        return MapAssignment(assignment);
     }
 
-    private static CrewAttachmentTemplateResponse MapAttachmentTemplate(CrewAttachmentTemplate t) => new()
+    public override async Task<CrewAssignmentResponse> UpdateCrewAssignment(UpdateCrewAssignmentRequest request, ServerCallContext context)
     {
-        CtrlNbr = t.CtrlNbr.Value,
-        AssignmentGroupCtrlNbr = t.AssignmentGroupCtrlNbr.Value,
-        CrewCtrlNbr = t.CrewCtrlNbr.Value,
-        StartUtc = t.StartUtc.ToString("O"),
-        EndUtc = t.EndUtc?.ToString("O") ?? string.Empty
-    };
-
-    // Relief Coverage Rules
-    public override async Task<GetReliefCoverageRulesResponse> GetReliefCoverageRules(GetReliefCoverageRulesRequest request, ServerCallContext context)
-    {
-        var items = await reliefRepo.GetByReliefCrewAsync(ControlNumber.Create(request.ReliefCrewCtrlNbr));
-        var response = new GetReliefCoverageRulesResponse { TotalCount = items.Count };
-        foreach (var r in items) response.Rules.Add(MapReliefRule(r));
-        return response;
-    }
-
-    public override async Task<ReliefCoverageRuleResponse> CreateReliefCoverageRule(CreateReliefCoverageRuleRequest request, ServerCallContext context)
-    {
+        var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewAssignment {request.CtrlNbr} not found."));
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var rule = ReliefCoverageRule.Create(request.ReliefCrewCtrlNbr, request.AssignmentGroupCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
-        await reliefRepo.AddAsync(rule);
-        return MapReliefRule(rule);
+        assignment.Update(request.DaysOfWeekMask, startUtc, endUtc);
+        await assignmentRepository.UpdateAsync(assignment);
+        return MapAssignment(assignment);
     }
 
-    private static ReliefCoverageRuleResponse MapReliefRule(ReliefCoverageRule r) => new()
+    public override async Task<DeleteResponse> DeleteCrewAssignment(DeleteCrewAssignmentRequest request, ServerCallContext context)
     {
-        CtrlNbr = r.CtrlNbr.Value,
-        ReliefCrewCtrlNbr = r.ReliefCrewCtrlNbr.Value,
-        AssignmentGroupCtrlNbr = r.AssignmentGroupCtrlNbr.Value,
-        DaysOfWeekMask = r.DaysOfWeekMask,
-        StartUtc = r.StartUtc.ToString("O"),
-        EndUtc = r.EndUtc?.ToString("O") ?? string.Empty
+        await assignmentRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
+    private static CrewAssignmentResponse MapAssignment(CrewAssignment a) => new()
+    {
+        CtrlNbr = a.CtrlNbr.Value,
+        CrewCtrlNbr = a.CrewCtrlNbr.Value,
+        AssignmentGroupCtrlNbr = a.AssignmentGroupCtrlNbr.Value,
+        DaysOfWeekMask = a.DaysOfWeekMask,
+        StartUtc = a.StartUtc.ToString("O"),
+        EndUtc = a.EndUtc?.ToString("O") ?? string.Empty
     };
 }

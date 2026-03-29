@@ -117,7 +117,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("DrugAlcoholAction", "DrugAlcoholTestRecord", DeleteBehavior.Cascade)]
     [InlineData("SafetyObservationResolution", "SafetyObservation", DeleteBehavior.Cascade)]
     [InlineData("CertificationRevocationRecord", "EmployeeCertification", DeleteBehavior.Cascade)]
-    [InlineData("CrewAttachmentTemplate", "Crew", DeleteBehavior.Cascade)]
+    [InlineData("CrewAssignment", "Crew", DeleteBehavior.Cascade)]
     [InlineData("PayrollExportBatch", "PayrollRun", DeleteBehavior.Cascade)]
     [InlineData("AbsenceCodeCraftOverride", "AbsenceCode", DeleteBehavior.Cascade)]
     [InlineData("AbsenceApproval", "AbsenceRequest", DeleteBehavior.Cascade)]

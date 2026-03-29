@@ -173,17 +173,6 @@ public class AbolishmentRecordTests
     }
 }
 
-public class CrewOffDayTests
-{
-    [Fact]
-    public void Create_SetsProperties()
-    {
-        var offDay = CrewOffDay.Create(ControlNumber.Create(1), DayOfWeek.Sunday);
-
-        Assert.Equal(1, offDay.CrewPositionCtrlNbr.Value);
-        Assert.Equal(DayOfWeek.Sunday, offDay.DayOfWeek);
-    }
-}
 
 public class DepartmentTests
 {

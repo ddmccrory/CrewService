@@ -35,20 +35,18 @@ service CrewsSrvc {
     option (google.api.http) = { post: "/v1/crews/incumbencies" body: "*" };
   }
 
-  // Attachments
-  rpc GetCrewAttachmentTemplates(GetCrewAttachmentTemplatesRequest) returns (GetCrewAttachmentTemplatesResponse) {
-    option (google.api.http) = { get: "/v1/crews/{crew_ctrl_nbr}/attachment-templates" };
+  // Crew Assignments
+  rpc GetCrewAssignments(GetCrewAssignmentsRequest) returns (GetCrewAssignmentsResponse) {
+    option (google.api.http) = { get: "/v1/crews/{crew_ctrl_nbr}/assignments" };
   }
-  rpc CreateCrewAttachmentTemplate(CreateCrewAttachmentTemplateRequest) returns (CrewAttachmentTemplateResponse) {
-    option (google.api.http) = { post: "/v1/crews/attachment-templates" body: "*" };
+  rpc CreateCrewAssignment(CreateCrewAssignmentRequest) returns (CrewAssignmentResponse) {
+    option (google.api.http) = { post: "/v1/crews/assignments" body: "*" };
   }
-
-  // Relief Coverage
-  rpc GetReliefCoverageRules(GetReliefCoverageRulesRequest) returns (GetReliefCoverageRulesResponse) {
-    option (google.api.http) = { get: "/v1/crews/{relief_crew_ctrl_nbr}/relief-rules" };
+  rpc UpdateCrewAssignment(UpdateCrewAssignmentRequest) returns (CrewAssignmentResponse) {
+    option (google.api.http) = { put: "/v1/crews/assignments/{ctrl_nbr}" body: "*" };
   }
-  rpc CreateReliefCoverageRule(CreateReliefCoverageRuleRequest) returns (ReliefCoverageRuleResponse) {
-    option (google.api.http) = { post: "/v1/crews/relief-rules" body: "*" };
+  rpc DeleteCrewAssignment(DeleteCrewAssignmentRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/crews/assignments/{ctrl_nbr}" };
   }
 }
 
@@ -120,42 +118,29 @@ message CrewIncumbencyResponse {
   string end_utc = 5;
 }
 
-// Attachment Template messages
-message GetCrewAttachmentTemplatesRequest { int64 crew_ctrl_nbr = 1; }
-message GetCrewAttachmentTemplatesResponse {
-  repeated CrewAttachmentTemplateResponse templates = 1;
+// Crew Assignment messages
+message GetCrewAssignmentsRequest { int64 crew_ctrl_nbr = 1; }
+message GetCrewAssignmentsResponse {
+  repeated CrewAssignmentResponse assignments = 1;
   int32 total_count = 2;
 }
-message CreateCrewAttachmentTemplateRequest {
-  int64 assignment_group_ctrl_nbr = 1;
-  int64 crew_ctrl_nbr = 2;
-  string start_utc = 3;
-  string end_utc = 4;
-}
-message CrewAttachmentTemplateResponse {
-  int64 ctrl_nbr = 1;
-  int64 assignment_group_ctrl_nbr = 2;
-  int64 crew_ctrl_nbr = 3;
-  string start_utc = 4;
-  string end_utc = 5;
-}
-
-// Relief Coverage messages
-message GetReliefCoverageRulesRequest { int64 relief_crew_ctrl_nbr = 1; }
-message GetReliefCoverageRulesResponse {
-  repeated ReliefCoverageRuleResponse rules = 1;
-  int32 total_count = 2;
-}
-message CreateReliefCoverageRuleRequest {
-  int64 relief_crew_ctrl_nbr = 1;
+message CreateCrewAssignmentRequest {
+  int64 crew_ctrl_nbr = 1;
   int64 assignment_group_ctrl_nbr = 2;
   int32 days_of_week_mask = 3;
   string start_utc = 4;
   string end_utc = 5;
 }
-message ReliefCoverageRuleResponse {
+message UpdateCrewAssignmentRequest {
   int64 ctrl_nbr = 1;
-  int64 relief_crew_ctrl_nbr = 2;
+  int32 days_of_week_mask = 2;
+  string start_utc = 3;
+  string end_utc = 4;
+}
+message DeleteCrewAssignmentRequest { int64 ctrl_nbr = 1; }
+message CrewAssignmentResponse {
+  int64 ctrl_nbr = 1;
+  int64 crew_ctrl_nbr = 2;
   int64 assignment_group_ctrl_nbr = 3;
   int32 days_of_week_mask = 4;
   string start_utc = 5;

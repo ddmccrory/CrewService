@@ -637,8 +637,7 @@ internal static class DevDataSeeder
         var crewRepo = sp.GetRequiredService<ICrewRepository>();
         var crewPositionRepo = sp.GetRequiredService<ICrewPositionRepository>();
         var incumbencyRepo = sp.GetRequiredService<ICrewIncumbencyRepository>();
-        var attachmentTemplateRepo = sp.GetRequiredService<ICrewAttachmentTemplateRepository>();
-        var reliefRuleRepo = sp.GetRequiredService<IReliefCoverageRuleRepository>();
+        var crewAssignmentRepo = sp.GetRequiredService<ICrewAssignmentRepository>();
 
         var existingCrews = await crewRepo.GetAllAsync();
         if (existingCrews.Count == 0)
@@ -680,9 +679,7 @@ internal static class DevDataSeeder
         await incumbencyRepo.AddAsync(CrewIncumbency.Create(extraPos1.CtrlNbr, empList2[42].CtrlNbr, now));
         await incumbencyRepo.AddAsync(CrewIncumbency.Create(extraPos2.CtrlNbr, empList2[2].CtrlNbr, now));
 
-        // Attachment � link Crew A to Job 101 template
-
-        // Relief rule � extra crew covers Job 101 on weekdays (Mon�Fri = 0b0111110)
+        // CrewAssignments will be seeded once DynamicGroup assignment groups are created in the seeder
 
         } // end crews guard
 
