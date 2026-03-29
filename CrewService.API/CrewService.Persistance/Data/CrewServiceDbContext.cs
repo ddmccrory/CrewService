@@ -57,16 +57,14 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.WorkManagement.ShiftDefinition> ShiftDefinitions => Set<Domain.Modules.WorkManagement.ShiftDefinition>();
     public DbSet<Domain.Modules.WorkManagement.ShiftInstance> ShiftInstances => Set<Domain.Modules.WorkManagement.ShiftInstance>();
     public DbSet<Domain.Modules.WorkManagement.PositionSlotInstance> PositionSlotInstances => Set<Domain.Modules.WorkManagement.PositionSlotInstance>();
-    public DbSet<Domain.Modules.WorkManagement.CrewOffDay> CrewOffDays => Set<Domain.Modules.WorkManagement.CrewOffDay>();
     public DbSet<Domain.Modules.WorkManagement.AbolishmentRecord> AbolishmentRecords => Set<Domain.Modules.WorkManagement.AbolishmentRecord>();
 
     // Crews Module
     public DbSet<Domain.Modules.Crews.Crew> Crews => Set<Domain.Modules.Crews.Crew>();
     public DbSet<Domain.Modules.Crews.CrewPosition> CrewPositions => Set<Domain.Modules.Crews.CrewPosition>();
     public DbSet<Domain.Modules.Crews.CrewIncumbency> CrewIncumbencies => Set<Domain.Modules.Crews.CrewIncumbency>();
-    public DbSet<Domain.Modules.Crews.CrewAttachmentTemplate> CrewAttachmentTemplates => Set<Domain.Modules.Crews.CrewAttachmentTemplate>();
+    public DbSet<Domain.Modules.Crews.CrewAssignment> CrewAssignments => Set<Domain.Modules.Crews.CrewAssignment>();
     public DbSet<Domain.Modules.Crews.CrewAttachmentInstance> CrewAttachmentInstances => Set<Domain.Modules.Crews.CrewAttachmentInstance>();
-    public DbSet<Domain.Modules.Crews.ReliefCoverageRule> ReliefCoverageRules => Set<Domain.Modules.Crews.ReliefCoverageRule>();
 
     // Bulletins Module
     public DbSet<Domain.Modules.Bulletins.PositionVacancy> PositionVacancies => Set<Domain.Modules.Bulletins.PositionVacancy>();
