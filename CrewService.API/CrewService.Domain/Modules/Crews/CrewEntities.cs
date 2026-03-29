@@ -74,27 +74,6 @@ public sealed class CrewIncumbency : Entity
     }
 }
 
-public sealed class CrewAttachmentTemplate : Entity
-{
-    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
-    public ControlNumber CrewCtrlNbr { get; private set; }
-    public DateTime StartUtc { get; private set; }
-    public DateTime? EndUtc { get; private set; }
-
-    private CrewAttachmentTemplate() { AssignmentGroupCtrlNbr = null!; CrewCtrlNbr = null!; }
-
-    public static CrewAttachmentTemplate Create(ControlNumber assignmentGroupCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
-    {
-        return new CrewAttachmentTemplate
-        {
-            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
-            CrewCtrlNbr = crewCtrlNbr,
-            StartUtc = startUtc,
-            EndUtc = endUtc
-        };
-    }
-}
-
 public sealed class CrewAttachmentInstance : Entity
 {
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
@@ -115,50 +94,6 @@ public sealed class CrewAttachmentInstance : Entity
         };
     }
 }
-
-public sealed class ReliefCoverageRule : Entity
-{
-    public ControlNumber ReliefCrewCtrlNbr { get; private set; }
-    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
-    public int DaysOfWeekMask { get; private set; }
-    public DateTime StartUtc { get; private set; }
-    public DateTime? EndUtc { get; private set; }
-
-    private ReliefCoverageRule() { ReliefCrewCtrlNbr = null!; AssignmentGroupCtrlNbr = null!; }
-
-    public static ReliefCoverageRule Create(ControlNumber reliefCrewCtrlNbr, ControlNumber assignmentGroupCtrlNbr,
-        int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
-    {
-        return new ReliefCoverageRule
-        {
-            ReliefCrewCtrlNbr = reliefCrewCtrlNbr,
-            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
-            DaysOfWeekMask = daysOfWeekMask,
-            StartUtc = startUtc,
-            EndUtc = endUtc
-        };
-    }
-}
-
-// Domain Events
-public sealed record CrewCreatedDomainEvent : DomainEvent
-{
-    public CrewCreatedDomainEvent(Crew c)
-        : base(nameof(Crew), c.CtrlNbr.Value, new { c.CrewType, c.Name }) { }
-}
-
-public sealed record CrewUpdatedDomainEvent : DomainEvent
-{
-    public CrewUpdatedDomainEvent(Crew c)
-        : base(nameof(Crew), c.CtrlNbr.Value, new { c.Name, c.IsActive }) { }
-}
-
-public sealed record CrewPositionVacatedDomainEvent : DomainEvent
-{
-    public CrewPositionVacatedDomainEvent(CrewPosition p, ControlNumber? previousIncumbentCtrlNbr, string vacancyReasonCode)
-        : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
-}
-
 
 public sealed class CrewAssignment : Entity
 {
@@ -189,4 +124,23 @@ public sealed class CrewAssignment : Entity
         StartUtc = startUtc;
         EndUtc = endUtc;
     }
+}
+
+// Domain Events
+public sealed record CrewCreatedDomainEvent : DomainEvent
+{
+    public CrewCreatedDomainEvent(Crew c)
+        : base(nameof(Crew), c.CtrlNbr.Value, new { c.CrewType, c.Name }) { }
+}
+
+public sealed record CrewUpdatedDomainEvent : DomainEvent
+{
+    public CrewUpdatedDomainEvent(Crew c)
+        : base(nameof(Crew), c.CtrlNbr.Value, new { c.Name, c.IsActive }) { }
+}
+
+public sealed record CrewPositionVacatedDomainEvent : DomainEvent
+{
+    public CrewPositionVacatedDomainEvent(CrewPosition p, ControlNumber? previousIncumbentCtrlNbr, string vacancyReasonCode)
+        : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
 }

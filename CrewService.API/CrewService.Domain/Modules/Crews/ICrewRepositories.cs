@@ -20,19 +20,9 @@ public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>
     Task<List<CrewIncumbency>> GetActiveByEmployeeAsync(ControlNumber employeeCtrlNbr, DateTime asOfUtc);
 }
 
-public interface ICrewAttachmentTemplateRepository : IRepository<CrewAttachmentTemplate>
-{
-    Task<List<CrewAttachmentTemplate>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
-}
-
 public interface ICrewAttachmentInstanceRepository : IRepository<CrewAttachmentInstance>
 {
     Task<List<CrewAttachmentInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr);
-}
-
-public interface IReliefCoverageRuleRepository : IRepository<ReliefCoverageRule>
-{
-    Task<List<ReliefCoverageRule>> GetByReliefCrewAsync(ControlNumber reliefCrewCtrlNbr);
 }
 
 public interface ICrewAssignmentRepository : IRepository<CrewAssignment>
