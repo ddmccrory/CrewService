@@ -24,3 +24,4 @@
 - Edit and Delete buttons belong on lister/table pages (in row action columns), NOT on detail page headers. Detail pages are read-only views; editing and deleting an item is done from the list page that contains it.
 - System group types (Railroad, Assignment) should be created per-parent, not globally. Each parent gets its own Railroad and Assignment types when created.
 - Time display format (12-hour vs 24-hour) may become a configurable parent/railroad-level setting in the future. Keep time formatting logic centralized so it can be easily swapped to a system setting later.
+- Memory: AssignmentSchedule default behavior: No schedule (no AssignmentSchedule row) means the assignment runs on NO days, not every day. An assignment must have an explicitly set OperatingDaysMask to be included in call sheet generation.

@@ -158,3 +158,35 @@ public sealed record CrewPositionVacatedDomainEvent : DomainEvent
     public CrewPositionVacatedDomainEvent(CrewPosition p, ControlNumber? previousIncumbentCtrlNbr, string vacancyReasonCode)
         : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
 }
+
+
+public sealed class CrewAssignment : Entity
+{
+    public ControlNumber CrewCtrlNbr { get; private set; }
+    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
+    public int DaysOfWeekMask { get; private set; }
+    public DateTime StartUtc { get; private set; }
+    public DateTime? EndUtc { get; private set; }
+
+    private CrewAssignment() { CrewCtrlNbr = null!; AssignmentGroupCtrlNbr = null!; }
+
+    public static CrewAssignment Create(ControlNumber crewCtrlNbr, ControlNumber assignmentGroupCtrlNbr,
+        int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
+    {
+        return new CrewAssignment
+        {
+            CrewCtrlNbr = crewCtrlNbr,
+            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
+            DaysOfWeekMask = daysOfWeekMask,
+            StartUtc = startUtc,
+            EndUtc = endUtc
+        };
+    }
+
+    public void Update(int daysOfWeekMask, DateTime startUtc, DateTime? endUtc)
+    {
+        DaysOfWeekMask = daysOfWeekMask;
+        StartUtc = startUtc;
+        EndUtc = endUtc;
+    }
+}
