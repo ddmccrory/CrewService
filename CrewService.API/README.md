@@ -4,13 +4,13 @@ The Crew Service Platform is a comprehensive railroad crew management and dispat
 
 The platform manages the complete lifecycle of railroad crew operations:
 
-- **Organizational hierarchy** — Dynamic, tenant-defined group structures. Group Types define the tiers (e.g. Region, Subdivision, WorkArea). Dynamic Groups form a parent-child tree. Groups flagged as work areas are the operational level where crafts, rosters, boards, crews, and policies are defined. Railroads are placed at any group level via Railroad Placements, allowing flexible organizational modeling. Custom attributes attach arbitrary metadata to groups of a given type
+- **Organizational hierarchy** — Dynamic, tenant-defined group structures. Group Types define the tiers (e.g. Region, Subdivision, Location). Two system group types — **Railroad** and **Assignment** — are automatically created per parent when the parent is created. Dynamic Groups form a parent-child tree with parent and railroad scoping. Groups flagged as work areas are the operational level where crafts, rosters, boards, crews, and policies are defined. Railroads are placed at any group level via Railroad Placements, allowing flexible organizational modeling. Custom attribute definitions attach typed metadata (string, int, bool, decimal, date, time) to groups of a given type. Assignment types are auto-seeded with **isActive** (bool) and **OnDutyTime** (time) attribute definitions
 - **Employee management** — Full employee records: demographics (gender, race, marital status, birth date), employment data (employment date, status, employee number), operational flags (allow FMLA, call for overtime, process payroll, tie up off property), and identification (SSN and driver's license encrypted at rest). Each employee has typed addresses, phone numbers (with calling order for electronic calling), and email addresses. Prior service credit, employment status history, and seniority entries complete the employee profile
 - **Crafts** — The central organizing unit of the platform. Each work area defines its crafts (e.g. Engineer, Conductor, Clerical). A craft carries agreement-driven configuration that governs all downstream behavior: mark-off/mark-up hours, required rest hours, unpaid meal period minutes, Hours of Service applicability, vacation rules, and payroll processing flags. Policies, boards, bulletins, displacement, dispatching, and payroll all key off the craft
 - **Rosters** — A roster belongs to a specific craft + railroad combination and represents a named seniority list (e.g. "Engineer Roster" for CSX at Jax Yard). Rosters carry purpose flags — `Training` (student roster), `ExtraBoard` (extra board roster), and `OvertimeBoard` (overtime roster). Employees are placed on rosters via seniority entries
 - **Seniority** — A seniority entry places an employee on a roster with a rank, roster date, seniority state (active, furloughed, on leave, etc.), and training eligibility flag. The `LastActiveRoster` flag marks the employee's current roster. Seniority rank drives bulletin bid priority, displacement order, extra board calling order, and seniority move eligibility
-- **Work management** — Assignment templates define reusable job definitions per work area and craft (e.g. "Q101 Jacksonville-Waycross"). Work instances are specific occurrences on a date with start/end/call times. Position slots define the staffing need per instance (e.g. 1 Engineer, 1 Conductor). Slots are filled by binding employees. Position roles define the types of positions a craft supports
-- **Crew composition** — Regular crews are assigned to specific assignment templates; relief crews fill in on rest days. Each crew has ordered positions (linked to position roles like Engineer, Conductor). Incumbencies assign employees to crew positions for date ranges. Crew attachment templates link crews to the assignments they work. Relief coverage rules define which templates a relief crew covers and on which days of the week
+- **Work management** — Departments organize operational areas within a parent (e.g. "Transportation", "Mechanical"). Position roles define the types of positions a craft supports (e.g. Engineer, Conductor), with optional alternate names. Work instances are specific occurrences of an assignment on a date with start/end/call times. Position slots define the staffing need per instance (e.g. 1 Engineer, 1 Conductor). Slots are filled by binding employees
+- **Crew composition** — Regular crews are assigned to specific assignments; relief crews fill in on rest days. Each crew has ordered positions (linked to position roles like Engineer, Conductor). Incumbencies assign employees to crew positions for date ranges. Crew attachment templates link crews to the assignments they work. Relief coverage rules define which assignments a relief crew covers and on which days of the week
 - **Extra boards & cascade policies** — Extra boards are seniority-ordered pools of available employees per craft + work area, typed as PRIMARY or AUXILIARY. Board members are ordered by seniority rank. Cascade policies define how unfilled positions escalate up the group hierarchy by craft — specifying the search strategy (e.g. UP_HIERARCHY), maximum levels to search, and ordering method (e.g. SENIORITY)
 - **Bulletins & vacancy** — Position vacancies are scoped to a craft and can target crew positions, board positions, or position slots. When bulletined, a bid window opens (duration governed by the craft's BulletinPolicy). Employees bid with a priority preference; bids are ranked by seniority. The highest-seniority bidder is awarded the position. Lower-priority bids are auto-withdrawn
 - **Dispatching** — Projections show upcoming unfilled slots across work areas. Dispatchers execute crew calls to assign employees (typically the next available on the extra board by seniority). Every call attempt is recorded in decision logs. Override requests allow out-of-order assignments and require approval. Employee bookings reserve employees for future slots
@@ -162,7 +162,7 @@ Each module owns its entities, repository interfaces, domain events, proto contr
 
 | Module | Bounded Context | Key Entities |
 |---|---|---|
-| **TenantConfig** | Tenant-defined organizational hierarchy. Group Types define tiers (e.g. Region, Subdivision, WorkArea). Dynamic Groups form a parent-child tree. Groups flagged as work areas are the operational level where crafts, rosters, and crews are defined. Railroads are placed at any group level. Custom attributes attach arbitrary metadata to groups. | GroupType, DynamicGroup, RailroadGroupPlacement, GroupAttributeDefinition, GroupAttributeValue |
+| **TenantConfig** | Tenant-defined organizational hierarchy. Group Types define tiers (e.g. Region, Subdivision, Location). Two system types — Railroad and Assignment — are auto-created per parent. Dynamic Groups form a parent-child tree with parent and railroad scoping. Groups flagged as work areas are the operational level where crafts, rosters, and crews are defined. Railroads are placed at any group level. Custom attribute definitions attach typed metadata (string, int, bool, decimal, date, time) to groups. Assignment types auto-include isActive and OnDutyTime attributes. | GroupType, DynamicGroup, RailroadGroupPlacement, GroupAttributeDefinition, GroupAttributeValue |
 | **Employees** | Full employee lifecycle: demographics, employment data, operational flags, identification (SSN/DL encrypted at rest), nested addresses/phones/emails (typed by contact type), prior service credit, employment status tracking with history | Employee, Address, PhoneNumber, EmailAddress, EmploymentStatus, EmploymentStatusHistory, PriorServiceCredit |
 | **Contact Types** | Reference data for contact information | AddressType, PhoneNumberType, EmailAddressType |
 | **Crafts** | Central organizing unit per work area (e.g. Engineer, Conductor, Clerical). Carries agreement-driven configuration: mark-off/mark-up hours, required rest hours, meal periods, HOS applicability, vacation rules, payroll flags. All policies, boards, bulletins, displacement, and dispatching key off the craft | Craft |
@@ -170,8 +170,8 @@ Each module owns its entities, repository interfaces, domain events, proto contr
 | **Seniority** | Places an employee on a roster with a rank, roster date, seniority state, and training eligibility. Rank drives bulletin bid priority, displacement order, extra board calling order, and seniority move eligibility | Seniority, SeniorityState |
 | **Organization** | Parent = top-level corporate tenant (logical isolation within a shared database — all operational data is scoped by Parent). Railroad = rail carrier under a parent (identified by RR mark). PayrollTier = pay rate brackets scoped to a work area. | Parent, Railroad, PayrollTier |
 | **UserAccess** | Invite-only user access. Invitations link email + Parent + role. UserParentAssignment links a registered user to a Parent with a role; a user can have assignments to multiple Parents. JWT claims are built from these assignments at login. | UserParentAssignment, Invitation, Roles |
-| **WorkManagement** | AssignmentTemplate = reusable job definition per work area + craft. WorkInstance = specific occurrence on a date. PositionSlot = staffing need on an instance (filled by binding employees). PositionRole = type of position a craft supports (e.g. Engineer, Conductor). | AssignmentTemplate, WorkInstance, PositionRole, PositionSlot |
-| **Crews** | Regular/relief crews per work area + craft. CrewPositions define ordered slots (linked to PositionRoles). Incumbency assigns an employee for a date range. Attachment templates link crews to assignment templates. Relief coverage rules define which templates a relief crew covers and on which days (bitmask). | Crew, CrewPosition, CrewIncumbency, CrewAttachmentTemplate, ReliefCoverageRule |
+| **WorkManagement** | Department = organizational area within a parent (e.g. Transportation, Mechanical). WorkInstance = specific occurrence of an assignment on a date. PositionSlot = staffing need on an instance (filled by binding employees). PositionRole = type of position a craft supports (e.g. Engineer, Conductor), with optional alternate name and code. Also includes ShiftDefinition, ShiftInstance, PositionSlotInstance, AbolishmentRecord, CrewOffDay. | Department, WorkInstance, PositionRole, PositionSlot, ShiftDefinition, ShiftInstance |
+| **Crews** | Regular/relief crews per work area + craft. CrewPositions define ordered slots (linked to PositionRoles). Incumbency assigns an employee for a date range. Attachment templates link crews to assignments. Relief coverage rules define which assignments a relief crew covers and on which days (bitmask). | Crew, CrewPosition, CrewIncumbency, CrewAttachmentTemplate, ReliefCoverageRule |
 | **Boards** | Extra boards per craft + work area (PRIMARY/AUXILIARY), board membership with seniority-ordered positions, cascade policies that define how unfilled positions escalate up the group hierarchy by craft | ExtraBoard, BoardMember, BoardCascadePolicy |
 | **Policies** | Per-craft displacement rules (window hours, seniority-based order, extra board fallback), bulletin posting rules (duration per craft), and seniority move rules (eligibility window, roster-date-based order) | CraftDisplacementPolicy, BulletinPolicy, SeniorityMovePolicy |
 | **Bulletins** | Position vacancies per craft, bulletin posting with bid windows (duration governed by craft-level BulletinPolicy), employee bidding ranked by seniority, award to highest-seniority bidder | PositionVacancy, Bulletin, BulletinBid |
@@ -214,6 +214,9 @@ CrewService/
 │   │       ├── EmploymentStatusService.cs, EmploymentStatusHistoryService.cs
 │   │       ├── PayrollTierService.cs, PriorServiceCreditService.cs
 │   │       └── Modules/
+│   │           ├── ParentService.cs          # Auto-seeds per-parent system types + attribute definitions
+│   │           ├── DepartmentService.cs
+│   │           ├── AuthorizationService.cs
 │   │           ├── TenantConfigService.cs
 │   │           ├── WorkManagementService.cs
 │   │           ├── CrewsService.cs
@@ -248,7 +251,7 @@ CrewService/
 │   │       ├── TenantConfig/            # GroupType, DynamicGroup, RailroadGroupPlacement, Attributes
 │   │       ├── UserAccess/              # Invitation, Roles
 │   │       ├── Employees/               # Employee module interfaces
-│   │       ├── WorkManagement/          # AssignmentTemplate, WorkInstance, PositionRole, PositionSlot
+│       ├── WorkManagement/          # Department, WorkInstance, PositionRole, PositionSlot, ShiftDefinition
 │   │       ├── Crews/                   # Crew, CrewPosition, CrewIncumbency, etc.
 │   │       ├── Boards/                  # ExtraBoard, BoardMember, BoardCascadePolicy
 │   │       ├── Policies/                # CraftDisplacementPolicy, BulletinPolicy, SeniorityMovePolicy
@@ -358,7 +361,7 @@ Manages the authenticated user's own profile (first/middle/last name) and UI the
 
 **Service:** `TenantConfigSrvc` (proto: `modules/tenant_config.proto`)
 
-Manages the dynamic group hierarchy that defines each tenant's organizational structure. The hierarchy is fully configurable — there are no hard-coded levels. A typical setup has three tiers: **Region → Subdivision → Work Area**, but tenants can define any structure via Group Types. Groups flagged as **work areas** are the operational level where crafts, rosters, boards, crews, and policies are defined. Railroads are placed at any group level via Railroad Placements, allowing a single railroad to appear at a region level (broad) or a work area level (narrow). Custom Attribute Definitions let tenants attach arbitrary metadata to groups of a given type.
+Manages the dynamic group hierarchy that defines each tenant's organizational structure. The hierarchy is fully configurable — there are no hard-coded levels. A typical setup has three tiers: **Region → Subdivision → Work Area**, but tenants can define any structure via Group Types. Two **system group types** — **Railroad** and **Assignment** — are automatically created per parent when the parent is created. Groups flagged as **work areas** are the operational level where crafts, rosters, boards, crews, and policies are defined. Railroads are placed at any group level via Railroad Placements, allowing a single railroad to appear at a region level (broad) or a work area level (narrow). Custom Attribute Definitions let tenants attach typed metadata (string, int, bool, decimal, date, time) to groups of a given type. Assignment types are automatically seeded with **isActive** (bool) and **OnDutyTime** (time) attribute definitions. Dynamic Groups now support **parent scoping** (`ParentCtrlNbr`) and **railroad scoping** (`RailroadCtrlNbr`).
 
 **Group Types**
 
@@ -629,17 +632,17 @@ Payroll tiers define pay rate brackets scoped to a work area (e.g. tier 1 = 7 ye
 
 **Service:** `WorkManagementSrvc` (proto: `modules/work_management.proto`)
 
-Manages the layered structure of railroad work. An **Assignment Template** is a reusable job definition scoped to a work area and craft (e.g. "Q101 Jacksonville-Waycross" — a through-freight assignment running daily). A **Work Instance** is a specific occurrence of a template on a given date with start/end/call times. Each work instance has **Position Slots** that define the staffing need (e.g. 1 Engineer, 1 Conductor). Slots are filled by binding employees. **Position Roles** define the types of positions a craft supports (e.g. Engineer, Conductor, Brakeman). Crews are attached to templates and inherit their position structure.
+Manages the layered structure of railroad work. **Departments** organize operational areas within a parent (e.g. "Transportation", "Mechanical"). Assignments are defined as dynamic groups under the per-parent **Assignment** group type in TenantConfig — not as WorkManagement entities. A **Work Instance** is a specific occurrence of an assignment on a given date with start/end/call times. Each work instance has **Position Slots** that define the staffing need (e.g. 1 Engineer, 1 Conductor). Slots are filled by binding employees. **Position Roles** define the types of positions a craft supports (e.g. Engineer, Conductor, Brakeman), with optional alternate name and code. Crews are attached to assignments and inherit their position structure.
 
-**Assignment Templates**
+**Departments** — `DepartmentSrvc` (proto: `modules/department.proto`)
 
 | Method | HTTP | Route | Description |
 |---|---|---|---|
-| `GetAllTemplates` | `GET` | `/v1/work-management/templates` | List assignment templates |
-| `GetTemplate` | `GET` | `/v1/work-management/templates/{ctrl_nbr}` | Get a single template |
-| `CreateTemplate` | `POST` | `/v1/work-management/templates` | Create a template at a work area |
-| `UpdateTemplate` | `PUT` | `/v1/work-management/templates/{ctrl_nbr}` | Update a template |
-| `DeleteTemplate` | `DELETE` | `/v1/work-management/templates/{ctrl_nbr}` | Soft-delete a template |
+| `GetDepartments` | `GET` | `/v1/departments` | List departments |
+| `GetDepartment` | `GET` | `/v1/departments/{ctrl_nbr}` | Get a single department |
+| `CreateDepartment` | `POST` | `/v1/departments` | Create a department |
+| `UpdateDepartment` | `PUT` | `/v1/departments/{ctrl_nbr}` | Update a department |
+| `DeleteDepartment` | `DELETE` | `/v1/departments/{ctrl_nbr}` | Soft-delete a department |
 
 **Work Instances**
 
@@ -663,6 +666,8 @@ Manages the layered structure of railroad work. An **Assignment Template** is a 
 |---|---|---|---|
 | `GetPositionRoles` | `GET` | `/v1/work-management/roles/{craft_ctrl_nbr}` | List position roles for a craft |
 | `CreatePositionRole` | `POST` | `/v1/work-management/roles` | Create a position role (e.g. Engineer, Conductor) |
+| `UpdatePositionRole` | `PUT` | `/v1/work-management/roles/{ctrl_nbr}` | Update a position role |
+| `DeletePositionRole` | `DELETE` | `/v1/work-management/roles/{ctrl_nbr}` | Soft-delete a position role |
 
 ---
 
@@ -670,7 +675,7 @@ Manages the layered structure of railroad work. An **Assignment Template** is a 
 
 **Service:** `CrewsSrvc` (proto: `modules/crews.proto`)
 
-Manages regular and relief crews and their staffing structure. A **Crew** is scoped to a work area and craft, typed as REGULAR (assigned to a specific set of templates) or EXTRA (a pool). Each crew has ordered **Crew Positions** (linked to a position role, e.g. Engineer slot #1). An **Incumbency** assigns an employee to a crew position for an effective date range. **Crew Attachment Templates** link a crew to the assignment templates it works. **Relief Coverage Rules** define which templates a relief crew covers and on which days (day-of-week bitmask), so the system knows which relief crew fills in when a regular crew's rest day falls on a template's operating day.
+Manages regular and relief crews and their staffing structure. A **Crew** is scoped to a work area and craft, typed as REGULAR (assigned to a specific set of assignments) or EXTRA (a pool). Each crew has ordered **Crew Positions** (linked to a position role, e.g. Engineer slot #1). An **Incumbency** assigns an employee to a crew position for an effective date range. **Crew Attachment Templates** link a crew to the assignment groups it works. **Relief Coverage Rules** define which assignments a relief crew covers and on which days (day-of-week bitmask), so the system knows which relief crew fills in when a regular crew's rest day falls on an assignment's operating day.
 
 | Method | HTTP | Route | Description |
 |---|---|---|---|
@@ -684,9 +689,9 @@ Manages regular and relief crews and their staffing structure. A **Crew** is sco
 | `GetCrewIncumbencies` | `GET` | `/v1/crews/positions/{crew_position_ctrl_nbr}/incumbencies` | List incumbencies for a position |
 | `CreateCrewIncumbency` | `POST` | `/v1/crews/incumbencies` | Assign an employee to a crew position |
 | `GetCrewAttachmentTemplates` | `GET` | `/v1/crews/{crew_ctrl_nbr}/attachment-templates` | List template attachments for a crew |
-| `CreateCrewAttachmentTemplate` | `POST` | `/v1/crews/attachment-templates` | Attach a crew to an assignment template |
+| `CreateCrewAttachmentTemplate` | `POST` | `/v1/crews/attachment-templates` | Attach a crew to an assignment |
 | `GetReliefCoverageRules` | `GET` | `/v1/crews/{relief_crew_ctrl_nbr}/relief-rules` | List relief rules for a crew |
-| `CreateReliefCoverageRule` | `POST` | `/v1/crews/relief-rules` | Define a relief coverage rule (crew + template + day mask) |
+| `CreateReliefCoverageRule` | `POST` | `/v1/crews/relief-rules` | Define a relief coverage rule (crew + assignment + day mask) |
 
 ---
 
@@ -1078,7 +1083,7 @@ All domain entities inherit from `Entity`, which provides soft-delete support:
 ## Development Notes
 
 - **Auto-migration:** In Development, `MigrateDatabasesAsync()` runs automatically at startup for both `DbContext`s
-- **Dev seeding:** `DevDataSeeder.SeedAsync()` runs after migrations, idempotently seeding all 14 data sections (group hierarchy, employees, crafts, rosters, seniority, work management, crews, boards, bulletins, dispatching, policies, payroll, safety, FRA compliance)
+- **Dev seeding:** `DevDataSeeder.SeedAsync()` runs after migrations, using `ParentService` to create parents (which auto-seeds per-parent system group types and attribute definitions). Seeds all data sections idempotently (group hierarchy, employees, crafts, rosters, seniority, work management, crews, boards, bulletins, dispatching, policies, payroll, safety, FRA compliance)
 - **gRPC-Web:** All services are mapped with `.EnableGrpcWeb()` for Blazor client compatibility
 - **Swagger:** gRPC transcoding endpoints are browsable at `/swagger` in development
 - **Module boundaries:** No cross-module EF navigation; integrate via application interfaces + domain events
@@ -1188,6 +1193,8 @@ Feature specifications are stored in `docs/` at the repository root:
 | `spec_employee_module_integration_into_dynamic_group_hierarchy.md` | Employee integration into dynamic group hierarchy |
 | `spec_railroad_group_placement.md` | Railroad placement in dynamic group hierarchy |
 | `spec_user_parent_assignment.md` | User-to-parent assignment with role-based access |
+| `spec_7_work_management_departments_positions_templates.md` | Work Management — Departments, Position Roles, Assignment Groups |
+| `implementation_plan_spec7_work_management.md` | Implementation plan for Work Management expansion |
 
 Additional gap analysis and implementation plans are in `CrewService.API/docs/gap-analysis/`.
 

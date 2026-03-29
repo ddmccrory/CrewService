@@ -1,4 +1,4 @@
-# CrewService Frontend
+ï»¿# CrewService Frontend
 
 Blazor Web App (server + WebAssembly hybrid) for the CrewService platform. Communicates with the backend API exclusively via **gRPC client stubs** generated from shared proto contracts.
 
@@ -33,7 +33,7 @@ Blazor Web App (server + WebAssembly hybrid) for the CrewService platform. Commu
 ## Architecture
 
 - **Render mode:** Interactive Server + Interactive WebAssembly (hybrid)
-- **API communication:** gRPC over `GrpcWebHandler` — no REST calls
+- **API communication:** gRPC over `GrpcWebHandler` ï¿½ no REST calls
 - **Auth:** Cookie-based session on the frontend; JWT tokens from the backend stored as cookie claims and passed to gRPC calls via interceptor
 - **Theming:** Bootswatch themes via `AppThemeService`, persisted per-user through the backend `AccountSrvc`
 
@@ -41,12 +41,12 @@ Blazor Web App (server + WebAssembly hybrid) for the CrewService platform. Commu
 
 | Project | SDK | Description |
 |---|---|---|
-| `CrewService.BlazorUI` | `Microsoft.NET.Sdk.Web` | Server-side host — DI composition, gRPC clients, Razor components, account pages |
-| `CrewService.BlazorUI.Client` | `Microsoft.NET.Sdk.BlazorWebAssembly` | WASM-side components — auth state provider, redirect-to-login |
+| `CrewService.BlazorUI` | `Microsoft.NET.Sdk.Web` | Server-side host ï¿½ DI composition, gRPC clients, Razor components, account pages |
+| `CrewService.BlazorUI.Client` | `Microsoft.NET.Sdk.BlazorWebAssembly` | WASM-side components ï¿½ auth state provider, redirect-to-login |
 
 ## Shared proto contracts
 
-Proto files live at the **repository root** in `Protos/` — shared between backend (`GrpcServices="Server"`) and frontend (`GrpcServices="Client"`). Both solutions reference the same files via relative paths with `ProtoRoot`.
+Proto files live at the **repository root** in `Protos/` ï¿½ shared between backend (`GrpcServices="Server"`) and frontend (`GrpcServices="Client"`). Both solutions reference the same files via relative paths with `ProtoRoot`.
 
 ```
 CrewService/
@@ -79,10 +79,10 @@ Login.razor
 ```
 
 Key files:
-- `Clients/BaseGrpcClient.cs` — channel creation, auth header injection
-- `Interceptors/AuthInterceptor.cs` — Grpc.Core.Interceptor that adds Bearer token
-- `Components/Account/Pages/Login.razor` — login form, cookie creation
-- `Components/Account/Pages/Logout.razor` — cookie teardown
+- `Clients/BaseGrpcClient.cs` ï¿½ channel creation, auth header injection
+- `Interceptors/AuthInterceptor.cs` ï¿½ Grpc.Core.Interceptor that adds Bearer token
+- `Components/Account/Pages/Login.razor` ï¿½ login form, cookie creation
+- `Components/Account/Pages/Logout.razor` ï¿½ cookie teardown
 
 ## gRPC client pattern
 
@@ -119,6 +119,18 @@ Clients are registered as `Scoped` in `Program.cs`. Auth-free clients (e.g., `Au
 | `ParentsClient` | `ParentSrvc` | Yes |
 | `RailroadsClient` | `RailroadSrvc` | Yes |
 | `TenantConfigClient` | `TenantConfigSrvc` | Yes |
+| `CraftClient` | `CraftSrvc` | Yes |
+| `SeniorityClient` | `SenioritySrvc` | Yes |
+| `InvitationsClient` | `InvitationSrvc` | Yes |
+| `InvitationTokenClient` | `InvitationTokenSrvc` | No |
+| `AuthorizationClient` | `AuthorizationSrvc` | Yes |
+| `BootstrapClient` | `BootstrapSrvc` | Yes |
+| `EmployeeClient` | `EmployeeSrvc` | Yes |
+| `AddressTypeClient` | `AddressTypeSrvc` | Yes |
+| `EmailAddressTypeClient` | `EmailAddressTypeSrvc` | Yes |
+| `PhoneNumberTypeClient` | `PhoneNumberTypeSrvc` | Yes |
+| `DepartmentClient` | `DepartmentSrvc` | Yes |
+| `WorkManagementClient` | `WorkManagementSrvc` | Yes |
 
 ## Pages
 
@@ -140,9 +152,15 @@ Clients are registered as `Scoped` in `Program.cs`. Auth-free clients (e.g., `Au
 | Dashboard | `/` | Auth-gated landing page |
 | Parents | `/parents` | List all parents, create/delete |
 | ParentDetail | `/parents/{id}` | Edit parent, manage railroads (add/delete) |
-| GroupTypes | `/config/group-types` | List group types, create/delete |
-| GroupTypeDetail | `/config/group-types/{id}` | Edit group type, manage groups of this type |
-| GroupDetail | `/config/groups/{id}` | Edit group, place/remove railroads, view child groups |
+| GroupTypes | `/config/group-types` | Tree view of group types with badges (group count, system type indicators) |
+| GroupTypeDetail | `/config/group-types/{id}` | Edit group type, manage groups (dynamic attribute columns), manage attribute definitions (Settings tab) |
+| GroupDetail | `/config/groups/{id}` | Edit group, place/remove railroads, view hierarchy map (ancestors + descendants) |
+| Invitations | `/invitations` | Manage user invitations (create via modal, resend, revoke) |
+| Permissions | `/permissions` | View and manage role-based permissions |
+| RoleManagement | `/role-management` | Manage roles and role assignments |
+| Departments | `/work-management/departments` | List and manage departments per parent |
+| Crafts | `/work-management/crafts` | List and manage crafts per department |
+| PositionRoles | `/work-management/position-roles` | List and manage position roles per craft |
 
 ## Repository layout
 
@@ -152,17 +170,31 @@ CrewService.FrontEnd/
 ??? CrewService.BlazorUI/
 ?   ??? Program.cs                                # DI composition, middleware, render modes
 ?   ??? Clients/                                  # Typed gRPC clients
-?   ?   ??? BaseGrpcClient.cs                     # Abstract base — channel, auth, logging
+?   ?   ??? BaseGrpcClient.cs                     # Abstract base - channel, auth, logging
+?   ?   ??? GrpcChannelProvider.cs                # Shared gRPC channel management
 ?   ?   ??? AuthClient.cs
 ?   ?   ??? AccountClient.cs
 ?   ?   ??? ParentsClient.cs
 ?   ?   ??? RailroadsClient.cs
 ?   ?   ??? TenantConfigClient.cs
+?   ?   ??? CraftClient.cs
+?   ?   ??? SeniorityClient.cs
+?   ?   ??? InvitationsClient.cs
+?   ?   ??? InvitationTokenClient.cs
+?   ?   ??? AuthorizationClient.cs
+?   ?   ??? BootstrapClient.cs
+?   ?   ??? EmployeeClient.cs
+?   ?   ??? AddressTypeClient.cs
+?   ?   ??? EmailAddressTypeClient.cs
+?   ?   ??? PhoneNumberTypeClient.cs
+?   ?   ??? DepartmentClient.cs
+?   ?   ??? WorkManagementClient.cs
 ?   ??? Interceptors/
 ?   ?   ??? AuthInterceptor.cs                    # Bearer token injection
 ?   ??? Services/
 ?   ?   ??? AppThemeService.cs                    # Bootswatch theme state
 ?   ??? Models/
+?   ?   ??? TreeNode.cs                           # Tree node with Badges list (BadgeItem record)
 ?   ?   ??? Account/                              # LoginInputModel, RegisterInputModel
 ?   ?   ??? Entities/                             # Parent, Railroad, User (local models)
 ?   ??? Converters/
@@ -177,10 +209,24 @@ CrewService.FrontEnd/
 ?   ?   ?   ??? Dashboard.razor
 ?   ?   ?   ??? Parents.razor
 ?   ?   ?   ??? ParentDetail.razor
-?   ?   ?   ??? GroupTypes.razor
-?   ?   ?   ??? GroupTypeDetail.razor
-?   ?   ?   ??? GroupDetail.razor
+?   ?   ?   ??? GroupTypes.razor                   # Tree view with badges
+?   ?   ?   ??? GroupTypeDetail.razor              # Dynamic attribute columns, Settings tab
+?   ?   ?   ??? GroupDetail.razor                  # Hierarchy map (ancestors + descendants)
+?   ?   ?   ??? Invitations.razor                  # Modal-based invitation management
+?   ?   ?   ??? Permissions.razor
+?   ?   ?   ??? RoleManagement.razor
+?   ?   ?   ??? WorkManagement/
+?   ?   ?   ?   ??? Departments.razor
+?   ?   ?   ?   ??? Crafts.razor
+?   ?   ?   ?   ??? PositionRoles.razor
 ?   ?   ?   ??? Error.razor
+?   ?   ??? Shared/                           # Reusable UI components
+?   ?   ?   ??? DataTable.razor                   # Generic sortable data table
+?   ?   ?   ??? Modal.razor                       # Modal dialog (BodyContent/Footer pattern)
+?   ?   ?   ??? TreeView.razor                    # Hierarchical tree with multiple badges
+?   ?   ?   ??? TabPanel.razor
+?   ?   ?   ??? SortableHeader.razor
+?   ?   ?   ??? BackNavButton.razor
 ?   ?   ??? Account/
 ?   ?       ??? Pages/                            # Login, Register, Logout, AccessDenied
 ?   ?       ??? Pages/Manage/                     # Index, Theme
@@ -206,7 +252,7 @@ CrewService.FrontEnd/
 
 ## Development notes
 
-- **Both solutions must be running** for the frontend to work — the backend serves gRPC, the frontend calls it
+- **Both solutions must be running** for the frontend to work ï¿½ the backend serves gRPC, the frontend calls it
 - **Proto changes:** Edit files in `Protos/` at repo root. Build either solution to regenerate stubs
 - **Adding a new client:** Create a class extending `BaseGrpcClient<T>`, register as `Scoped` in `Program.cs`, add to this README
 - **Adding a new page:** Create `.razor` in `Components/Pages/`, add `@attribute [Authorize]` for auth gating, add nav link in `NavMenu.razor`
