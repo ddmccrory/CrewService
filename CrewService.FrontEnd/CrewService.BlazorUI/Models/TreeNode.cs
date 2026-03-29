@@ -9,7 +9,10 @@ public sealed class TreeNode
     public string? Href { get; set; }
     public string? Badge { get; set; }
     public string? BadgeClass { get; set; }
+    public List<BadgeItem> Badges { get; set; } = [];
     public string? Subtitle { get; set; }
     public bool IsHighlighted { get; set; }
     public List<TreeNode> Children { get; set; } = [];
 }
+
+public sealed record BadgeItem(string Text, string CssClass = "bg-secondary");

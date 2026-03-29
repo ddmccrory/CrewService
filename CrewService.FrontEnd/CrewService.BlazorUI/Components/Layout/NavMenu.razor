@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @implements IDisposable
 
 @inject NavigationManager NavigationManager
@@ -225,7 +225,7 @@
                 }
 
                 @* ── Work Management ── *@
-                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/assignment-templates", "work-management/position-roles"))
+                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/position-roles"))
                 {
                     <NavMenuGroup Title="Work Management" Icon="bi-briefcase-fill" IsInitiallyExpanded="@IsCurrentPath("work-management")">
                         @if (Permissions.HasAccess("work-management/departments"))
@@ -241,14 +241,6 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="work-management/crafts">
                                     <span class="bi bi-tools" aria-hidden="true"></span> Crafts
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("work-management/assignment-templates"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="work-management/assignment-templates">
-                                    <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Assignment Templates
                                 </NavLink>
                             </div>
                         }
