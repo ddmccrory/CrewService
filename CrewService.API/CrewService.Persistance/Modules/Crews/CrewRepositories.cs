@@ -36,11 +36,14 @@ internal sealed class CrewIncumbencyRepository(CrewServiceDbContext dbContext, I
             .ToListAsync();
 }
 
-internal sealed class CrewAttachmentTemplateRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<CrewAttachmentTemplate>(dbContext, currentUserService), ICrewAttachmentTemplateRepository
+internal sealed class CrewAssignmentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<CrewAssignment>(dbContext, currentUserService), ICrewAssignmentRepository
 {
-    public async Task<List<CrewAttachmentTemplate>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr) =>
-        await DbContext.Set<CrewAttachmentTemplate>().Where(a => a.AssignmentGroupCtrlNbr == assignmentGroupCtrlNbr).ToListAsync();
+    public async Task<List<CrewAssignment>> GetByCrewAsync(ControlNumber crewCtrlNbr) =>
+        await DbContext.Set<CrewAssignment>().Where(a => a.CrewCtrlNbr == crewCtrlNbr).ToListAsync();
+
+    public async Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr) =>
+        await DbContext.Set<CrewAssignment>().Where(a => a.AssignmentGroupCtrlNbr == assignmentGroupCtrlNbr).ToListAsync();
 }
 
 internal sealed class CrewAttachmentInstanceRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -48,11 +51,4 @@ internal sealed class CrewAttachmentInstanceRepository(CrewServiceDbContext dbCo
 {
     public async Task<List<CrewAttachmentInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr) =>
         await DbContext.Set<CrewAttachmentInstance>().Where(a => a.WorkInstanceCtrlNbr == workInstanceCtrlNbr).ToListAsync();
-}
-
-internal sealed class ReliefCoverageRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<ReliefCoverageRule>(dbContext, currentUserService), IReliefCoverageRuleRepository
-{
-    public async Task<List<ReliefCoverageRule>> GetByReliefCrewAsync(ControlNumber reliefCrewCtrlNbr) =>
-        await DbContext.Set<ReliefCoverageRule>().Where(r => r.ReliefCrewCtrlNbr == reliefCrewCtrlNbr).ToListAsync();
 }
