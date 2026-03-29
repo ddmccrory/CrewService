@@ -51,14 +51,15 @@ internal class CrewIncumbencyConfiguration : IEntityTypeConfiguration<CrewIncumb
     }
 }
 
-internal class CrewAttachmentTemplateConfiguration : IEntityTypeConfiguration<CrewAttachmentTemplate>
+internal class CrewAssignmentConfiguration : IEntityTypeConfiguration<CrewAssignment>
 {
-    public void Configure(EntityTypeBuilder<CrewAttachmentTemplate> builder)
+    public void Configure(EntityTypeBuilder<CrewAssignment> builder)
     {
         builder.HasKey(a => a.CtrlNbr);
         builder.Property(a => a.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
         builder.Property(a => a.AssignmentGroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(a => a.CrewCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(a => a.DaysOfWeekMask).IsRequired();
         builder.Property(a => a.StartUtc).IsRequired();
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -78,21 +79,5 @@ internal class CrewAttachmentInstanceConfiguration : IEntityTypeConfiguration<Cr
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.DeletedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-    }
-}
-
-internal class ReliefCoverageRuleConfiguration : IEntityTypeConfiguration<ReliefCoverageRule>
-{
-    public void Configure(EntityTypeBuilder<ReliefCoverageRule> builder)
-    {
-        builder.HasKey(r => r.CtrlNbr);
-        builder.Property(r => r.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
-        builder.Property(r => r.ReliefCrewCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(r => r.AssignmentGroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(r => r.DaysOfWeekMask).IsRequired();
-        builder.Property(r => r.StartUtc).IsRequired();
-        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
