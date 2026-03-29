@@ -146,10 +146,9 @@ public static class DependencyInjection
         services.AddScoped<ICrewRepository, CrewRepository>();
         services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();
         services.AddScoped<ICrewIncumbencyRepository, CrewIncumbencyRepository>();
-        services.AddScoped<ICrewAttachmentTemplateRepository, CrewAttachmentTemplateRepository>();
+        services.AddScoped<ICrewAssignmentRepository, CrewAssignmentRepository>();
         services.AddScoped<ICrewAttachmentInstanceRepository, CrewAttachmentInstanceRepository>();
-        services.AddScoped<IReliefCoverageRuleRepository, ReliefCoverageRuleRepository>();
-
+        
         // Boards Module Repositories
         services.AddScoped<IExtraBoardRepository, ExtraBoardRepository>();
         services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
