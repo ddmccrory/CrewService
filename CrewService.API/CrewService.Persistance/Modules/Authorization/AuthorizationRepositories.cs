@@ -45,7 +45,7 @@ internal sealed class FeatureRepository(CrewServiceDbContext dbContext, ICurrent
 internal sealed class PermissionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Permission>(dbContext, currentUserService), IPermissionRepository
 {
-    public async Task<Permission?> GetByRoleFeatureParentCraftAsync(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, long? parentCtrlNbr, ControlNumber? craftCtrlNbr, CancellationToken ct = default)
+    public async Task<Permission?> GetByRoleFeatureParentCraftAsync(ControlNumber roleCtrlNbr, ControlNumber featureCtrlNbr, ControlNumber? parentCtrlNbr, ControlNumber? craftCtrlNbr, CancellationToken ct = default)
     {
         return await DbContext.Set<Permission>()
             .SingleOrDefaultAsync(p =>
@@ -70,7 +70,7 @@ internal sealed class PermissionRepository(CrewServiceDbContext dbContext, ICurr
     /// 3. parent specific (no craft)
     /// 4. global default (no parent, no craft)
     /// </summary>
-    public async Task<List<Permission>> GetEffectivePermissionsAsync(ControlNumber roleCtrlNbr, long? parentCtrlNbr, ControlNumber? craftCtrlNbr, CancellationToken ct = default)
+    public async Task<List<Permission>> GetEffectivePermissionsAsync(ControlNumber roleCtrlNbr, ControlNumber? parentCtrlNbr, ControlNumber? craftCtrlNbr, CancellationToken ct = default)
     {
         var allForRole = await DbContext.Set<Permission>()
             .Where(p => p.RoleCtrlNbr == roleCtrlNbr &&

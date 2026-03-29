@@ -111,32 +111,6 @@ public class PositionSlotInstanceTests
     }
 }
 
-public class AssignmentTemplateTests
-{
-    [Fact]
-    public void Create_SetsProperties()
-    {
-        var template = AssignmentTemplate.Create(1, "TMPL1", "Morning Template", null);
-
-        Assert.Equal("TMPL1", template.Code);
-        Assert.Equal("Morning Template", template.Name);
-        Assert.True(template.IsActive);
-        Assert.True(template.DomainEvents.Count > 0);
-    }
-
-    [Fact]
-    public void Update_ChangesAllFields()
-    {
-        var template = AssignmentTemplate.Create(1, "TMPL1", "Old", null);
-
-        template.Update("TMPL2", "New", "{}", false);
-
-        Assert.Equal("TMPL2", template.Code);
-        Assert.Equal("New", template.Name);
-        Assert.Equal("{}", template.RecurrenceJson);
-        Assert.False(template.IsActive);
-    }
-}
 
 public class WorkInstanceTests
 {
@@ -148,7 +122,7 @@ public class WorkInstanceTests
         var instance = WorkInstance.Create(null, 1, start, end, null);
 
         Assert.Equal("Planned", instance.Status);
-        Assert.Null(instance.AssignmentTemplateCtrlNbr);
+        Assert.Null(instance.AssignmentGroupCtrlNbr);
         Assert.True(instance.DomainEvents.Count > 0);
     }
 
@@ -211,15 +185,85 @@ public class CrewOffDayTests
     }
 }
 
+public class DepartmentTests
+{
+    [Fact]
+    public void Create_WithRailroad_SetsProperties()
+    {
+        var dept = Department.Create(10, ControlNumber.Create(5), "Transportation");
+
+        Assert.Equal(10, dept.ParentCtrlNbr);
+        Assert.Equal(5, dept.DynamicGroupCtrlNbr!.Value);
+        Assert.Equal("Transportation", dept.Name);
+    }
+
+    [Fact]
+    public void Create_ParentLevel_HasNullDynamicGroup()
+    {
+        var dept = Department.Create(10, null, "Safety");
+
+        Assert.Equal(10, dept.ParentCtrlNbr);
+        Assert.Null(dept.DynamicGroupCtrlNbr);
+        Assert.Equal("Safety", dept.Name);
+    }
+
+    [Fact]
+    public void Update_ChangesName()
+    {
+        var dept = Department.Create(10, ControlNumber.Create(5), "Transportation");
+
+        dept.Update("Mechanical");
+
+        Assert.Equal("Mechanical", dept.Name);
+        Assert.Equal(10, dept.ParentCtrlNbr);
+        Assert.Equal(5, dept.DynamicGroupCtrlNbr!.Value);
+    }
+}
+
 public class PositionRoleTests
 {
     [Fact]
     public void Create_SetsProperties()
     {
-        var role = PositionRole.Create(1, "ENG", "Engineer");
+        var role = PositionRole.Create(1, "ENG", "Engineer", "Locomotive Engineer");
 
         Assert.Equal(1, role.CraftCtrlNbr.Value);
         Assert.Equal("ENG", role.Code);
         Assert.Equal("Engineer", role.Name);
+        Assert.Equal("Locomotive Engineer", role.AlternateName);
+    }
+
+    [Fact]
+    public void Create_WithNullCode_AllowsNull()
+    {
+        var role = PositionRole.Create(1, null, "Brakeman");
+
+        Assert.Null(role.Code);
+        Assert.Equal("Brakeman", role.Name);
+        Assert.Null(role.AlternateName);
+    }
+
+    [Fact]
+    public void Update_ChangesAllFields()
+    {
+        var role = PositionRole.Create(1, "ENG", "Engineer");
+
+        role.Update("ENGR", "Senior Engineer", "Lead Locomotive Engineer");
+
+        Assert.Equal("ENGR", role.Code);
+        Assert.Equal("Senior Engineer", role.Name);
+        Assert.Equal("Lead Locomotive Engineer", role.AlternateName);
+    }
+
+    [Fact]
+    public void Update_ClearsOptionalFields()
+    {
+        var role = PositionRole.Create(1, "ENG", "Engineer", "Locomotive Engineer");
+
+        role.Update(null, "Engineer", null);
+
+        Assert.Null(role.Code);
+        Assert.Equal("Engineer", role.Name);
+        Assert.Null(role.AlternateName);
     }
 }

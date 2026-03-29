@@ -22,7 +22,7 @@ public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>
 
 public interface ICrewAttachmentTemplateRepository : IRepository<CrewAttachmentTemplate>
 {
-    Task<List<CrewAttachmentTemplate>> GetByTemplateAsync(ControlNumber assignmentTemplateCtrlNbr);
+    Task<List<CrewAttachmentTemplate>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
 }
 
 public interface ICrewAttachmentInstanceRepository : IRepository<CrewAttachmentInstance>

@@ -3,11 +3,6 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.WorkManagement;
 
-public interface IAssignmentTemplateRepository : IRepository<AssignmentTemplate>
-{
-    Task<List<AssignmentTemplate>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);
-}
-
 public interface IWorkInstanceRepository : IRepository<WorkInstance>
 {
     Task<List<WorkInstance>> GetByWorkAreaAndDateRangeAsync(ControlNumber workAreaGroupCtrlNbr, DateTime startUtc, DateTime endUtc);
@@ -27,4 +22,9 @@ public interface IPositionSlotRepository : IRepository<PositionSlot>
 public interface ISlotRequirementRepository : IRepository<SlotRequirement>
 {
     Task<List<SlotRequirement>> GetByPositionSlotAsync(ControlNumber positionSlotCtrlNbr);
+}
+
+public interface IDepartmentRepository : IRepository<Department>
+{
+    Task<List<Department>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr);
 }

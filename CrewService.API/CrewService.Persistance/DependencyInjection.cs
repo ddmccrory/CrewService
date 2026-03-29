@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Interfaces;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Authorization;
@@ -136,12 +136,12 @@ public static class DependencyInjection
         services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
 
         // WorkManagement Module Repositories
-        services.AddScoped<IAssignmentTemplateRepository, AssignmentTemplateRepository>();
-        services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
+                services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
         services.AddScoped<IPositionRoleRepository, PositionRoleRepository>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
 
+        services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         // Crews Module Repositories
         services.AddScoped<ICrewRepository, CrewRepository>();
         services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();
@@ -198,7 +198,7 @@ public static class DependencyInjection
         services.AddScoped<IOnDutyRecordRepository, OnDutyRecordRepository>();
         services.AddScoped<IOffDutyRecordRepository, OffDutyRecordRepository>();
         services.AddScoped<ICraftOperationsPolicyRepository, CraftOperationsPolicyRepository>();
-        services.AddScoped<IAssignmentTemplateQueryService, AssignmentTemplateQueryService>();
+        services.AddScoped<IAssignmentQueryService, AssignmentQueryService>();
 
         // Mark-Off Repositories (B03)
         services.AddScoped<IAbsenceCodeRepository, AbsenceCodeRepository>();

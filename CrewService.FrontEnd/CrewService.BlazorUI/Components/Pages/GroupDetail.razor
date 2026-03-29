@@ -165,11 +165,9 @@ else
     {
         try
         {
-            // Load tree from the topmost ancestor so siblings at every level appear
-            var rootCtrlNbr = ancestors is { Count: > 0 }
-                ? ancestors[^1].CtrlNbr
-                : CtrlNbr;
-            var response = await ConfigClient.GetGroupTreeAsync(rootCtrlNbr);
+            // Load all groups so siblings at every level appear in the hierarchy,
+            // even when some groups have incomplete materialized paths.
+            var response = await ConfigClient.GetGroupTreeAsync();
             descendants = response.Groups;
         }
         catch (Exception ex)
@@ -211,14 +209,34 @@ else
 
     private List<TreeNode> BuildGroupHierarchy()
     {
-        if (group is null || descendants is null or { Count: 0 }) return [];
+        if (group is null) return [];
+
+        // Merge ancestors, current group, and descendants into a single de-duplicated
+        // list so the tree is complete even when path-based queries return partial data.
+        var allGroupsMap = new Dictionary<long, GroupResponse>();
+
+        if (ancestors is not null)
+        {
+            foreach (var a in ancestors)
+                allGroupsMap.TryAdd(a.CtrlNbr, a);
+        }
+
+        allGroupsMap.TryAdd(group.CtrlNbr, group);
+
+        if (descendants is not null)
+        {
+            foreach (var d in descendants)
+                allGroupsMap.TryAdd(d.CtrlNbr, d);
+        }
+
+        if (allGroupsMap.Count == 0) return [];
 
         // The root is the topmost ancestor, or the current group if no ancestors
         var rootCtrlNbr = ancestors is { Count: > 0 }
             ? ancestors[^1].CtrlNbr
             : CtrlNbr;
 
-        return [BuildSubtree(rootCtrlNbr, descendants)];
+        return [BuildSubtree(rootCtrlNbr, allGroupsMap.Values.ToList())];
     }
 
     private TreeNode BuildSubtree(long nodeCtrlNbr, IReadOnlyList<GroupResponse> allGroups)

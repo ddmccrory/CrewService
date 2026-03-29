@@ -98,7 +98,7 @@ public interface IPayrollTierRepository : IRepository<PayrollTier>
 
 public interface ICraftRepository : IRepository<Craft>
 {
-    Task<List<Craft>> GetByDynamicGroupCtrlNbrAsync(ControlNumber dynamicGroupCtrlNbr);
+    Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr);
 }
 
 public interface IRosterRepository : IRepository<Roster>

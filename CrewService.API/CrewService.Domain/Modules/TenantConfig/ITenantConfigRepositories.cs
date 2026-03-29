@@ -5,8 +5,8 @@ namespace CrewService.Domain.Modules.TenantConfig;
 
 public interface IGroupTypeRepository : IRepository<GroupType>
 {
-    Task<GroupType?> GetByNameAsync(string name, long parentCtrlNbr = 0);
-    Task<GroupType?> GetByNameIncludingDeletedAsync(string name, long parentCtrlNbr = 0);
+    Task<GroupType?> GetByNameAsync(string name, ControlNumber? parentCtrlNbr = null);
+    Task<GroupType?> GetByNameIncludingDeletedAsync(string name, ControlNumber? parentCtrlNbr = null);
 }
 
 public interface IDynamicGroupRepository : IRepository<DynamicGroup>
@@ -14,9 +14,10 @@ public interface IDynamicGroupRepository : IRepository<DynamicGroup>
     Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? parentGroupCtrlNbr);
     Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name);
     Task<List<DynamicGroup>> GetWorkAreasAsync();
+    Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync();
     Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr);
     Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null);
-    Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, long parentCtrlNbr = 0);
+    Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, ControlNumber? parentCtrlNbr = null);
     Task BackfillPathsAsync();
 }
 

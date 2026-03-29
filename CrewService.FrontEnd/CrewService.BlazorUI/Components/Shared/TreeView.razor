@@ -24,7 +24,14 @@
             {
                 <span class="text-muted ms-1 small">@node.Subtitle</span>
             }
-            @if (!string.IsNullOrEmpty(node.Badge))
+            @if (node.Badges.Count > 0)
+            {
+                @foreach (var b in node.Badges)
+                {
+                    <span class="badge @b.CssClass ms-1">@b.Text</span>
+                }
+            }
+            else if (!string.IsNullOrEmpty(node.Badge))
             {
                 <span class="badge @(node.BadgeClass ?? "bg-secondary") ms-1">@node.Badge</span>
             }

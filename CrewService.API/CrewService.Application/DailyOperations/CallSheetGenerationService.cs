@@ -4,7 +4,7 @@ using CrewService.Domain.ValueObjects;
 namespace CrewService.Application.DailyOperations;
 
 public sealed class CallSheetGenerationService(
-    IAssignmentTemplateQueryService templateQuery,
+    IAssignmentQueryService templateQuery,
     IShiftDefinitionRepository shiftDefRepo,
     IShiftInstanceRepository shiftInstanceRepo)
 {

@@ -27,7 +27,9 @@ internal class PermissionConfiguration : IEntityTypeConfiguration<Permission>
         builder.Property(p => p.AccessLevel).IsRequired()
             .HasConversion<int>();
 
-        builder.Property(p => p.ParentCtrlNbr);
+        builder.Property(p => p.ParentCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
 
         builder.Property(p => p.CraftCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,

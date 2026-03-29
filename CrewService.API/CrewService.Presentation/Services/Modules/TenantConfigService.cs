@@ -43,7 +43,7 @@ public class TenantConfigService(
 
     public override async Task<GroupTypeResponse> CreateGroupType(CreateGroupTypeRequest request, ServerCallContext context)
     {
-        var existing = await _groupTypeRepository.GetByNameIncludingDeletedAsync(request.Name, request.ParentCtrlNbr);
+        var existing = await _groupTypeRepository.GetByNameIncludingDeletedAsync(request.Name, request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null);
 
         if (existing is not null)
         {
@@ -51,7 +51,10 @@ public class TenantConfigService(
                 throw new RpcException(new Status(StatusCode.AlreadyExists, $"GroupType '{request.Name}' already exists."));
 
             existing.Restore();
-            existing.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
+            existing.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson,
+                request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+                request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null,
+                request.ParentGroupTypeCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupTypeCtrlNbr) : null);
 
             await using var uow = await _uowFactory.CreateAsync();
             uow.GroupTypes.Update(existing);
@@ -60,7 +63,10 @@ public class TenantConfigService(
             return MapGroupType(existing);
         }
 
-        var groupType = GroupType.Create(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
+        var groupType = GroupType.Create(request.Name, request.Description, request.IsWorkArea, request.FlagsJson,
+            request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+            request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null,
+            request.ParentGroupTypeCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupTypeCtrlNbr) : null);
 
         await using var uow2 = await _uowFactory.CreateAsync();
         uow2.GroupTypes.Add(groupType);
@@ -77,7 +83,10 @@ public class TenantConfigService(
         if (groupType.IsSystemType && !string.Equals(groupType.Name, request.Name, StringComparison.OrdinalIgnoreCase))
             throw new RpcException(new Status(StatusCode.FailedPrecondition, $"System type '{groupType.Name}' cannot be renamed."));
 
-        groupType.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson, request.ParentCtrlNbr, request.RailroadCtrlNbr, request.ParentGroupTypeCtrlNbr);
+        groupType.Update(request.Name, request.Description, request.IsWorkArea, request.FlagsJson,
+            request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+            request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null,
+            request.ParentGroupTypeCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupTypeCtrlNbr) : null);
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.GroupTypes.Update(groupType);
@@ -105,7 +114,7 @@ public class TenantConfigService(
     public override async Task<GetAllGroupsResponse> GetGroupsByTypeName(GetGroupsByTypeNameRequest request, ServerCallContext context)
     {
         var response = new GetAllGroupsResponse();
-        var groups = await _dynamicGroupRepository.GetByGroupTypeNameAsync(request.TypeName, request.ParentCtrlNbr);
+        var groups = await _dynamicGroupRepository.GetByGroupTypeNameAsync(request.TypeName, request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null);
 
         foreach (var g in groups)
             response.Groups.Add(MapGroup(g));
@@ -142,6 +151,12 @@ public class TenantConfigService(
 
     public override async Task<GroupResponse> CreateGroup(CreateGroupRequest request, ServerCallContext context)
     {
+        // Enforce Assignment hierarchy: must be under a work area or its descendant
+        var groupType = await _groupTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.GroupTypeCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"GroupType {request.GroupTypeCtrlNbr} not found."));
+        if (string.Equals(groupType.Name, "Assignment", StringComparison.OrdinalIgnoreCase))
+            await ValidateAssignmentParentAsync(request.ParentGroupCtrlNbr);
+
         // Resolve parent's path for materialized path computation
         string? parentPath = null;
         if (request.ParentGroupCtrlNbr > 0)
@@ -164,7 +179,9 @@ public class TenantConfigService(
                 request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
                 null,
                 request.IsWorkArea,
-                string.IsNullOrEmpty(request.Code) ? null : request.Code);
+                string.IsNullOrEmpty(request.Code) ? null : request.Code,
+                request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+                request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null);
             existing.BuildPath(parentPath);
 
             await using var uow = await _uowFactory.CreateAsync();
@@ -180,7 +197,9 @@ public class TenantConfigService(
             request.ParentGroupCtrlNbr > 0 ? request.ParentGroupCtrlNbr : null,
             null,
             request.IsWorkArea,
-            string.IsNullOrEmpty(request.Code) ? null : request.Code);
+            string.IsNullOrEmpty(request.Code) ? null : request.Code,
+            request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+            request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null);
         group.BuildPath(parentPath);
 
         await using var uow2 = await _uowFactory.CreateAsync();
@@ -194,6 +213,11 @@ public class TenantConfigService(
     {
         var group = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Group {request.CtrlNbr} not found."));
+
+        // Enforce Assignment hierarchy: must be under a work area or its descendant
+        var groupType = await _groupTypeRepository.GetByCtrlNbrAsync(group.GroupTypeCtrlNbr);
+        if (groupType is not null && string.Equals(groupType.Name, "Assignment", StringComparison.OrdinalIgnoreCase))
+            await ValidateAssignmentParentAsync(request.ParentGroupCtrlNbr);
 
         var oldParentCtrlNbr = group.ParentGroupCtrlNbr;
 
@@ -210,7 +234,9 @@ public class TenantConfigService(
             request.ParentGroupCtrlNbr > 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
             null,
             request.IsWorkArea,
-            string.IsNullOrEmpty(request.Code) ? null : request.Code);
+            string.IsNullOrEmpty(request.Code) ? null : request.Code,
+            request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+            request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null);
         group.BuildPath(parentPath);
 
         await using var uow = await _uowFactory.CreateAsync();
@@ -265,6 +291,18 @@ public class TenantConfigService(
             response.Groups.Add(MapGroup(g));
 
         response.TotalCount = workAreas.Count;
+        return response;
+    }
+
+    public override async Task<GetAllGroupsResponse> GetWorkAreaTree(GetWorkAreasRequest request, ServerCallContext context)
+    {
+        var response = new GetAllGroupsResponse();
+        var groups = await _dynamicGroupRepository.GetWorkAreasWithDescendantsAsync();
+
+        foreach (var g in groups)
+            response.Groups.Add(MapGroup(g));
+
+        response.TotalCount = groups.Count;
         return response;
     }
 
@@ -432,6 +470,29 @@ public class TenantConfigService(
     }
 
     /// <summary>
+    /// Validates that an Assignment group is placed under a work area or a descendant of a work area.
+    /// </summary>
+    private async Task ValidateAssignmentParentAsync(long parentGroupCtrlNbr)
+    {
+        if (parentGroupCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument,
+                "Assignment groups must be placed under a work area or its descendant."));
+
+        var parent = await _dynamicGroupRepository.GetByCtrlNbrAsync(ControlNumber.Create(parentGroupCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Parent group {parentGroupCtrlNbr} not found."));
+
+        if (parent.IsWorkArea)
+            return;
+
+        var ancestors = await _dynamicGroupRepository.GetAncestorsAsync(parent.CtrlNbr);
+        if (ancestors.Any(a => a.IsWorkArea))
+            return;
+
+        throw new RpcException(new Status(StatusCode.InvalidArgument,
+            "Assignment groups must be placed under a work area or its descendant."));
+    }
+
+    /// <summary>
     /// BFS cascade: recomputes materialized paths for all descendants of the given group.
     /// </summary>
     private async Task RebuildDescendantPaths(DynamicGroup parent, IOrchestrationUnitOfWork uow)
@@ -460,9 +521,9 @@ public class TenantConfigService(
         Description = gt.Description ?? string.Empty,
         IsWorkArea = gt.IsWorkArea,
         FlagsJson = gt.FlagsJson ?? string.Empty,
-        ParentCtrlNbr = gt.ParentCtrlNbr,
-        RailroadCtrlNbr = gt.RailroadCtrlNbr,
-        ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr,
+        ParentCtrlNbr = gt.ParentCtrlNbr?.Value ?? 0,
+        RailroadCtrlNbr = gt.RailroadCtrlNbr?.Value ?? 0,
+        ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr?.Value ?? 0,
         IsSystemType = gt.IsSystemType
     };
 
@@ -474,7 +535,9 @@ public class TenantConfigService(
         Code = g.Code ?? string.Empty,
         ParentGroupCtrlNbr = g.ParentGroupCtrlNbr?.Value ?? 0,
         Path = g.Path ?? string.Empty,
-        IsWorkArea = g.IsWorkArea
+        IsWorkArea = g.IsWorkArea,
+        ParentCtrlNbr = g.ParentCtrlNbr?.Value ?? 0,
+        RailroadCtrlNbr = g.RailroadCtrlNbr?.Value ?? 0
     };
 
     private static AttributeDefinitionResponse MapAttributeDefinition(GroupAttributeDefinition ad) => new()

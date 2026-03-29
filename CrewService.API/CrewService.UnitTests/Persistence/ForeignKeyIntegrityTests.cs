@@ -62,6 +62,12 @@ public class ForeignKeyIntegrityTests
             ("GroupType", "ParentGroupTypeCtrlNbr"),
             // Permission.ParentCtrlNbr is a scope filter for per-parent overrides, not a FK
             ("Permission", "ParentCtrlNbr"),
+            // Hierarchical scoping — ParentCtrlNbr references Parent entity (outside bounded context)
+            ("Department", "ParentCtrlNbr"),
+            ("Craft", "ParentCtrlNbr"),
+            // Scoping — DynamicGroup scope filters (0 = universal)
+            ("DynamicGroup", "ParentCtrlNbr"),
+            ("DynamicGroup", "RailroadCtrlNbr"),
         };
 
         var orphans = new List<string>();
@@ -144,7 +150,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("PositionSlot", "WorkInstance", DeleteBehavior.Restrict)]
     [InlineData("PositionSlot", "Employee", DeleteBehavior.Restrict)]
     [InlineData("PositionSlotInstance", "Employee", DeleteBehavior.Restrict)]
-    [InlineData("AssignmentTemplate", "DynamicGroup", DeleteBehavior.Restrict)]
+
     [InlineData("FraDutyTour", "Employee", DeleteBehavior.Restrict)]
     [InlineData("FraDutyTour", "RegulatoryStandard", DeleteBehavior.Restrict)]
     [InlineData("PayrollRecord", "Employee", DeleteBehavior.Restrict)]
@@ -167,7 +173,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("PayrollImportRecord", "PayrollRecord", DeleteBehavior.Restrict)]
     [InlineData("SlotRequirement", "PositionRole", DeleteBehavior.Restrict)]
     [InlineData("SlotRequirement", "RegulatoryQualification", DeleteBehavior.Restrict)]
-    [InlineData("WorkInstance", "AssignmentTemplate", DeleteBehavior.Restrict)]
+
     public void CrossAggregate_RestrictsDelete(
         string childEntity, string parentEntity, DeleteBehavior expected)
     {

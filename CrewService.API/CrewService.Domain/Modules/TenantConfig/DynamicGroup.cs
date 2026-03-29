@@ -11,6 +11,8 @@ public sealed class DynamicGroup : Entity
     public ControlNumber? ParentGroupCtrlNbr { get; private set; }
     public string? Path { get; private set; }
     public bool IsWorkArea { get; private set; }
+    public ControlNumber? ParentCtrlNbr { get; private set; }
+    public ControlNumber? RailroadCtrlNbr { get; private set; }
 
     private DynamicGroup()
     {
@@ -23,7 +25,9 @@ public sealed class DynamicGroup : Entity
         string? code,
         ControlNumber? parentGroupCtrlNbr,
         string? path,
-        bool isWorkArea)
+        bool isWorkArea,
+        ControlNumber? parentCtrlNbr,
+        ControlNumber? railroadCtrlNbr)
     {
         GroupTypeCtrlNbr = groupTypeCtrlNbr;
         Name = name;
@@ -31,6 +35,8 @@ public sealed class DynamicGroup : Entity
         ParentGroupCtrlNbr = parentGroupCtrlNbr;
         Path = path;
         IsWorkArea = isWorkArea;
+        ParentCtrlNbr = parentCtrlNbr;
+        RailroadCtrlNbr = railroadCtrlNbr;
     }
 
     public static DynamicGroup Create(
@@ -39,7 +45,9 @@ public sealed class DynamicGroup : Entity
         ControlNumber? parentGroupCtrlNbr,
         string? path,
         bool isWorkArea,
-        string? code = null)
+        string? code = null,
+        ControlNumber? parentCtrlNbr = null,
+        ControlNumber? railroadCtrlNbr = null)
     {
         var group = new DynamicGroup(
             groupTypeCtrlNbr,
@@ -47,18 +55,22 @@ public sealed class DynamicGroup : Entity
             code,
             parentGroupCtrlNbr,
             path,
-            isWorkArea);
+            isWorkArea,
+            parentCtrlNbr,
+            railroadCtrlNbr);
         group.Raise(new DynamicGroupCreatedDomainEvent(group));
         return group;
     }
 
-    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null)
+    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null, ControlNumber? parentCtrlNbr = null, ControlNumber? railroadCtrlNbr = null)
     {
         Name = name;
         Code = code;
         ParentGroupCtrlNbr = parentGroupCtrlNbr;
         Path = path;
         IsWorkArea = isWorkArea;
+        ParentCtrlNbr = parentCtrlNbr;
+        RailroadCtrlNbr = railroadCtrlNbr;
         Raise(new DynamicGroupUpdatedDomainEvent(this));
     }
 

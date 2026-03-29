@@ -6,7 +6,8 @@ namespace CrewService.Domain.Models.Seniority;
 
 public sealed class Craft : Entity
 {
-    public ControlNumber DynamicGroupCtrlNbr { get; private set; }
+    public ControlNumber? ParentCtrlNbr { get; private set; }
+    public ControlNumber? DynamicGroupCtrlNbr { get; private set; }
     public string CraftName { get; private set; } = string.Empty;
     public string CraftPluralName { get; private set; } = string.Empty;
     public int CraftNumber { get; private set; }
@@ -22,14 +23,13 @@ public sealed class Craft : Entity
     public bool ProcessPayroll { get; private set; }
     public bool ShowNotifications { get; private set; }
     public int VacationAssignmentType { get; private set; }
+    public ControlNumber? DepartmentCtrlNbr { get; private set; }
 
-    private Craft()
-    {
-        DynamicGroupCtrlNbr = null!;
-    }
+    private Craft() { }
 
     private Craft(
-        ControlNumber dynamicGroupCtrlNbr,
+        ControlNumber? parentCtrlNbr,
+        ControlNumber? dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,
         int craftNumber,
@@ -43,8 +43,10 @@ public sealed class Craft : Entity
         bool hoursofService,
         bool processPayroll,
         bool showNotifications,
-        int vacationAssignmentType)
+        int vacationAssignmentType,
+        ControlNumber? departmentCtrlNbr = null)
     {
+        ParentCtrlNbr = parentCtrlNbr;
         DynamicGroupCtrlNbr = dynamicGroupCtrlNbr;
         CraftName = craftName;
         CraftPluralName = craftPluralName;
@@ -60,10 +62,12 @@ public sealed class Craft : Entity
         ProcessPayroll = processPayroll;
         ShowNotifications = showNotifications;
         VacationAssignmentType = vacationAssignmentType;
+        DepartmentCtrlNbr = departmentCtrlNbr;
     }
 
     public static Craft Create(
-        ControlNumber dynamicGroupCtrlNbr,
+        ControlNumber? parentCtrlNbr,
+        ControlNumber? dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,
         int craftNumber,
@@ -77,9 +81,11 @@ public sealed class Craft : Entity
         bool hoursofService,
         bool processPayroll,
         bool showNotifications,
-        int vacationAssignmentType)
+        int vacationAssignmentType,
+        ControlNumber? departmentCtrlNbr = null)
     {
         var entity = new Craft(
+            parentCtrlNbr,
             dynamicGroupCtrlNbr,
             craftName,
             craftPluralName,
@@ -94,7 +100,8 @@ public sealed class Craft : Entity
             hoursofService,
             processPayroll,
             showNotifications,
-            vacationAssignmentType);
+            vacationAssignmentType,
+            departmentCtrlNbr);
         entity.Raise(new CraftCreatedDomainEvent(entity.CtrlNbr));
         return entity;
     }
@@ -113,7 +120,8 @@ public sealed class Craft : Entity
         bool? hoursofService = null,
         bool? processPayroll = null,
         bool? showNotifications = null,
-        int? vacationAssignmentType = null)
+        int? vacationAssignmentType = null,
+        long? departmentCtrlNbr = null)
     {
         var changes = new Dictionary<string, object?>();
 
@@ -131,6 +139,7 @@ public sealed class Craft : Entity
         if (processPayroll is not null) { ProcessPayroll = processPayroll.Value; changes["processPayroll"] = processPayroll.Value; }
         if (showNotifications is not null) { ShowNotifications = showNotifications.Value; changes["showNotifications"] = showNotifications.Value; }
         if (vacationAssignmentType is not null) { VacationAssignmentType = vacationAssignmentType.Value; changes["vacationAssignmentType"] = vacationAssignmentType.Value; }
+        if (departmentCtrlNbr is not null) { DepartmentCtrlNbr = departmentCtrlNbr.Value > 0 ? ControlNumber.Create(departmentCtrlNbr.Value) : null; changes["departmentCtrlNbr"] = departmentCtrlNbr.Value; }
 
         if (changes.Count > 0)
         {

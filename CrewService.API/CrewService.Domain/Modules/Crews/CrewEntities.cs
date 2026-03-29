@@ -76,18 +76,18 @@ public sealed class CrewIncumbency : Entity
 
 public sealed class CrewAttachmentTemplate : Entity
 {
-    public ControlNumber AssignmentTemplateCtrlNbr { get; private set; }
+    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
     public ControlNumber CrewCtrlNbr { get; private set; }
     public DateTime StartUtc { get; private set; }
     public DateTime? EndUtc { get; private set; }
 
-    private CrewAttachmentTemplate() { AssignmentTemplateCtrlNbr = null!; CrewCtrlNbr = null!; }
+    private CrewAttachmentTemplate() { AssignmentGroupCtrlNbr = null!; CrewCtrlNbr = null!; }
 
-    public static CrewAttachmentTemplate Create(ControlNumber assignmentTemplateCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
+    public static CrewAttachmentTemplate Create(ControlNumber assignmentGroupCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
     {
         return new CrewAttachmentTemplate
         {
-            AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr,
+            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
             CrewCtrlNbr = crewCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
@@ -119,20 +119,20 @@ public sealed class CrewAttachmentInstance : Entity
 public sealed class ReliefCoverageRule : Entity
 {
     public ControlNumber ReliefCrewCtrlNbr { get; private set; }
-    public ControlNumber AssignmentTemplateCtrlNbr { get; private set; }
+    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
     public int DaysOfWeekMask { get; private set; }
     public DateTime StartUtc { get; private set; }
     public DateTime? EndUtc { get; private set; }
 
-    private ReliefCoverageRule() { ReliefCrewCtrlNbr = null!; AssignmentTemplateCtrlNbr = null!; }
+    private ReliefCoverageRule() { ReliefCrewCtrlNbr = null!; AssignmentGroupCtrlNbr = null!; }
 
-    public static ReliefCoverageRule Create(ControlNumber reliefCrewCtrlNbr, ControlNumber assignmentTemplateCtrlNbr,
+    public static ReliefCoverageRule Create(ControlNumber reliefCrewCtrlNbr, ControlNumber assignmentGroupCtrlNbr,
         int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
     {
         return new ReliefCoverageRule
         {
             ReliefCrewCtrlNbr = reliefCrewCtrlNbr,
-            AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr,
+            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
             DaysOfWeekMask = daysOfWeekMask,
             StartUtc = startUtc,
             EndUtc = endUtc

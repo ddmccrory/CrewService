@@ -70,7 +70,7 @@ else if (roles is not null && features is not null)
         </div>
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive permission-matrix-container">
         <table class="table table-bordered table-sm align-middle permission-matrix">
             <thead class="table-light">
                 <tr>
@@ -160,7 +160,7 @@ else if (roles is not null && features is not null)
     {
         try
         {
-            var response = await CraftClient.GetAllCraftsAsync();
+            var response = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr ?? 0);
             crafts = response.Crafts
                 .DistinctBy(c => c.CraftName)
                 .OrderBy(c => c.CraftName)

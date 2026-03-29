@@ -47,8 +47,8 @@
                 <label class="form-label fw-semibold">Description</label>
                 <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Description" />
             </div>
-            <div class="form-check mb-3">
-                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" disabled="@isEditingSystemType" />
+            <div class="form-check form-switch mb-3">
+                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" />
                 <label class="form-check-label" for="isWorkArea">Work Area</label>
             </div>
             <div class="mb-3">
@@ -140,10 +140,16 @@ else
                     }
                 </td>
                 <td>
-                    @if (gt.IsWorkArea)
-                    {
-                        <span class="badge bg-success">Yes</span>
-                    }
+                    <div class="d-flex gap-1">
+                        @if (gt.IsSystemType)
+                        {
+                            <span class="badge bg-info">System</span>
+                        }
+                        @if (gt.IsWorkArea)
+                        {
+                            <span class="badge bg-success">Work Area</span>
+                        }
+                    </div>
                 </td>
                 <td>
                     <div class="d-flex gap-1">
@@ -185,9 +191,17 @@ else
         new("Name", gt => gt.Name),
         new("Description", gt => gt.Description ?? ""),
         new("Parent Group Type", gt => GetParentTypeName(gt.ParentGroupTypeCtrlNbr), sortKey: "ParentType"),
-        new("Work Area", gt => (object)gt.IsWorkArea, sortKey: "WorkArea"),
+        new("Tags", gt => GetTagsSortKey(gt), sortKey: "Tags"),
         DataTableColumn<GroupTypeResponse>.Actions()
     ];
+
+    private static string GetTagsSortKey(GroupTypeResponse gt)
+    {
+        var parts = new List<string>();
+        if (gt.IsSystemType) parts.Add("System");
+        if (gt.IsWorkArea) parts.Add("Work Area");
+        return string.Join(", ", parts);
+    }
 
     private string GetParentTypeName(long parentGroupTypeCtrlNbr)
     {
@@ -231,13 +245,13 @@ else
             if (SelectedRailroadCtrlNbr is long railroadCtrlNbr)
             {
                 groupTypes = all
-                    .Where(gt => gt.ParentCtrlNbr == SelectedParentCtrlNbr && (gt.RailroadCtrlNbr == railroadCtrlNbr || gt.RailroadCtrlNbr == 0))
+                    .Where(gt => gt.ParentCtrlNbr == 0 || (gt.ParentCtrlNbr == SelectedParentCtrlNbr && (gt.RailroadCtrlNbr == railroadCtrlNbr || gt.RailroadCtrlNbr == 0)))
                     .ToList();
             }
             else if (SelectedParentCtrlNbr is long parentCtrlNbr)
             {
                 groupTypes = all
-                    .Where(gt => gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0)
+                    .Where(gt => gt.ParentCtrlNbr == 0 || (gt.ParentCtrlNbr == parentCtrlNbr && gt.RailroadCtrlNbr == 0))
                     .ToList();
             }
             else
@@ -262,8 +276,7 @@ else
             Label = gt.Name,
             Href = $"/config/group-types/{gt.CtrlNbr}",
             Subtitle = gt.Description,
-            Badge = gt.IsWorkArea ? "Work Area" : null,
-            BadgeClass = "bg-success",
+            Badges = BuildBadges(gt),
             Children = groupTypes
                 .Where(child => child.ParentGroupTypeCtrlNbr == gt.CtrlNbr)
                 .Select(ToNode)
@@ -275,6 +288,14 @@ else
             .Where(gt => gt.ParentGroupTypeCtrlNbr == 0 || !lookup.ContainsKey(gt.ParentGroupTypeCtrlNbr))
             .Select(ToNode)
             .ToList();
+    }
+
+    private static List<BadgeItem> BuildBadges(GroupTypeResponse gt)
+    {
+        var badges = new List<BadgeItem>();
+        if (gt.IsSystemType) badges.Add(new BadgeItem("System", "bg-info"));
+        if (gt.IsWorkArea) badges.Add(new BadgeItem("Work Area", "bg-success"));
+        return badges;
     }
 
     private void OpenCreateModal()

@@ -51,6 +51,9 @@ service TenantConfigSrvc {
   rpc GetWorkAreas(GetWorkAreasRequest) returns (GetAllGroupsResponse) {
     option (google.api.http) = { get: "/v1/tenant-config/work-areas" };
   }
+  rpc GetWorkAreaTree(GetWorkAreasRequest) returns (GetAllGroupsResponse) {
+    option (google.api.http) = { get: "/v1/tenant-config/work-area-tree" };
+  }
   rpc GetAncestors(GetAncestorsRequest) returns (GetAllGroupsResponse) {
     option (google.api.http) = { get: "/v1/tenant-config/groups/{ctrl_nbr}/ancestors" };
   }
@@ -159,6 +162,8 @@ message CreateGroupRequest {
   string path = 4;
   bool is_work_area = 5;
   string code = 6;
+  int64 parent_ctrl_nbr = 7;
+  int64 railroad_ctrl_nbr = 8;
 }
 
 message UpdateGroupRequest {
@@ -168,6 +173,8 @@ message UpdateGroupRequest {
   string path = 4;
   bool is_work_area = 5;
   string code = 6;
+  int64 parent_ctrl_nbr = 7;
+  int64 railroad_ctrl_nbr = 8;
 }
 
 message DeleteGroupRequest {
@@ -182,6 +189,8 @@ message GroupResponse {
   string path = 5;
   bool is_work_area = 6;
   string code = 7;
+  int64 parent_ctrl_nbr = 8;
+  int64 railroad_ctrl_nbr = 9;
 }
 
 message GetGroupsByTypeNameRequest {

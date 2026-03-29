@@ -5,22 +5,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CrewService.Persistance.Modules.WorkManagement;
 
-internal class AssignmentTemplateConfiguration : IEntityTypeConfiguration<AssignmentTemplate>
-{
-    public void Configure(EntityTypeBuilder<AssignmentTemplate> builder)
-    {
-        builder.HasKey(t => t.CtrlNbr);
-        builder.Property(t => t.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(t => t.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(t => t.Code).HasMaxLength(50).IsRequired();
-        builder.Property(t => t.Name).HasMaxLength(200).IsRequired();
-        builder.Property(t => t.RecurrenceJson).HasMaxLength(4000);
-        builder.Property(t => t.IsActive).IsRequired();
-        builder.OwnsOne(t => t.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(t => t.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(t => t.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-    }
-}
 
 internal class WorkInstanceConfiguration : IEntityTypeConfiguration<WorkInstance>
 {
@@ -28,7 +12,7 @@ internal class WorkInstanceConfiguration : IEntityTypeConfiguration<WorkInstance
     {
         builder.HasKey(w => w.CtrlNbr);
         builder.Property(w => w.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(w => w.AssignmentTemplateCtrlNbr).HasConversion(
+        builder.Property(w => w.AssignmentGroupCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value, v => v.HasValue ? ControlNumber.Create(v.Value) : null);
         builder.Property(w => w.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(w => w.StartUtc).IsRequired();
@@ -47,8 +31,9 @@ internal class PositionRoleConfiguration : IEntityTypeConfiguration<PositionRole
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(p => p.Code).HasMaxLength(50).IsRequired();
+        builder.Property(p => p.Code).HasMaxLength(50);
         builder.Property(p => p.Name).HasMaxLength(100).IsRequired();
+        builder.Property(p => p.AlternateName).HasMaxLength(100);
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

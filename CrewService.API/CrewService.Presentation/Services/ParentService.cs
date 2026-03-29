@@ -86,13 +86,28 @@ public class ParentService(IParentRepository parentRepository, IDynamicGroupRepo
         // Auto-seed system GroupTypes for the new parent
         foreach (var systemTypeName in GroupType.SystemTypeNames)
         {
-            var isWorkArea = string.Equals(systemTypeName, "WorkArea", StringComparison.OrdinalIgnoreCase);
+            var description = systemTypeName switch
+            {
+                "Railroad"   => "Railroad operational boundaries",
+                "Assignment" => "Work assignments under a work area or its descendants",
+                _            => $"{systemTypeName} (auto-created)"
+            };
+
             var systemType = GroupType.Create(
                 systemTypeName,
-                $"{systemTypeName} (auto-created)",
-                isWorkArea: isWorkArea,
+                description,
+                isWorkArea: false,
                 parentCtrlNbr: parent.CtrlNbr.Value);
             uow.GroupTypes.Add(systemType);
+
+            // Seed system attribute definitions for Assignment
+            if (systemTypeName == "Assignment")
+            {
+                uow.AttributeDefinitions.Add(
+                    GroupAttributeDefinition.Create(systemType.CtrlNbr, "isActive", "bool", isRequired: true, defaultValue: "true"));
+                uow.AttributeDefinitions.Add(
+                    GroupAttributeDefinition.Create(systemType.CtrlNbr, "OnDutyTime", "time", isRequired: true));
+            }
         }
 
         await uow.CommitAsync();

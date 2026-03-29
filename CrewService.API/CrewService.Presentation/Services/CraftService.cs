@@ -12,14 +12,20 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
     public override async Task<GetAllCraftResponse> GetAllAsync(GetAllCraftRequest request, ServerCallContext context)
     {
         var response = new GetAllCraftResponse();
-        var crafts = await _craftRepository.GetAllAsync();
+
+        var crafts = request.ParentCtrlNbr > 0
+            ? await _craftRepository.GetByParentAndRailroadAsync(
+                ControlNumber.Create(request.ParentCtrlNbr),
+                request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null)
+            : await _craftRepository.GetAllAsync();
 
         foreach (var craft in crafts)
         {
             response.Crafts.Add(new CraftResponse
             {
                 CtrlNbr = craft.CtrlNbr.Value,
-                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
+                ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
+                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
                 CraftName = craft.CraftName,
                 CraftPluralName = craft.CraftPluralName,
                 CraftNumber = craft.CraftNumber,
@@ -33,7 +39,8 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
                 HoursofService = craft.HoursofService,
                 ProcessPayroll = craft.ProcessPayroll,
                 ShowNotifications = craft.ShowNotifications,
-                VacationAssignmentType = craft.VacationAssignmentType
+                VacationAssignmentType = craft.VacationAssignmentType,
+                DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
             });
         }
 
@@ -48,7 +55,8 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
+            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
+                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
             CraftNumber = craft.CraftNumber,
@@ -62,14 +70,16 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             HoursofService = craft.HoursofService,
             ProcessPayroll = craft.ProcessPayroll,
             ShowNotifications = craft.ShowNotifications,
-            VacationAssignmentType = craft.VacationAssignmentType
+            VacationAssignmentType = craft.VacationAssignmentType,
+            DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
         });
     }
 
     public override async Task<CraftResponse> CreateAsync(CreateCraftRequest request, ServerCallContext context)
     {
         var craft = Craft.Create(
-            request.DynamicGroupCtrlNbr,
+            request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
+            request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null,
             request.CraftName,
             request.CraftPluralName,
             request.CraftNumber,
@@ -83,14 +93,16 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             request.HoursofService,
             request.ProcessPayroll,
             request.ShowNotifications,
-            request.VacationAssignmentType);
+            request.VacationAssignmentType,
+            request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
 
         await _craftRepository.AddAsync(craft);
 
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
+            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
+                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
             CraftNumber = craft.CraftNumber,
@@ -104,7 +116,8 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             HoursofService = craft.HoursofService,
             ProcessPayroll = craft.ProcessPayroll,
             ShowNotifications = craft.ShowNotifications,
-            VacationAssignmentType = craft.VacationAssignmentType
+            VacationAssignmentType = craft.VacationAssignmentType,
+            DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
         });
     }
 
@@ -127,14 +140,16 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             request.HoursofService,
             request.ProcessPayroll,
             request.ShowNotifications,
-            request.VacationAssignmentType);
+            request.VacationAssignmentType,
+            departmentCtrlNbr: request.DepartmentCtrlNbr);
 
         await _craftRepository.UpdateAsync(craft);
 
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr.Value,
+            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
+                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
             CraftNumber = craft.CraftNumber,
@@ -148,7 +163,8 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             HoursofService = craft.HoursofService,
             ProcessPayroll = craft.ProcessPayroll,
             ShowNotifications = craft.ShowNotifications,
-            VacationAssignmentType = craft.VacationAssignmentType
+            VacationAssignmentType = craft.VacationAssignmentType,
+            DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
         });
     }
 

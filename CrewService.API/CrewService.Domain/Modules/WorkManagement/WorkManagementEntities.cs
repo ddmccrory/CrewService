@@ -4,45 +4,10 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.WorkManagement;
 
-public sealed class AssignmentTemplate : Entity
-{
-    public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
-    public string Code { get; private set; } = string.Empty;
-    public string Name { get; private set; } = string.Empty;
-    public string? RecurrenceJson { get; private set; }
-    public bool IsActive { get; private set; }
-
-    private AssignmentTemplate() { WorkAreaGroupCtrlNbr = null!; }
-
-    private AssignmentTemplate(ControlNumber workAreaGroupCtrlNbr, string code, string name, string? recurrenceJson, bool isActive)
-    {
-        WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr;
-        Code = code;
-        Name = name;
-        RecurrenceJson = recurrenceJson;
-        IsActive = isActive;
-    }
-
-    public static AssignmentTemplate Create(ControlNumber workAreaGroupCtrlNbr, string code, string name, string? recurrenceJson, bool isActive = true)
-    {
-        var template = new AssignmentTemplate(workAreaGroupCtrlNbr, code, name, recurrenceJson, isActive);
-        template.Raise(new AssignmentTemplateCreatedDomainEvent(template));
-        return template;
-    }
-
-    public void Update(string code, string name, string? recurrenceJson, bool isActive)
-    {
-        Code = code;
-        Name = name;
-        RecurrenceJson = recurrenceJson;
-        IsActive = isActive;
-        Raise(new AssignmentTemplateUpdatedDomainEvent(this));
-    }
-}
 
 public sealed class WorkInstance : Entity
 {
-    public ControlNumber? AssignmentTemplateCtrlNbr { get; private set; }
+    public ControlNumber? AssignmentGroupCtrlNbr { get; private set; }
     public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
     public DateTime StartUtc { get; private set; }
     public DateTime EndUtc { get; private set; }
@@ -51,10 +16,10 @@ public sealed class WorkInstance : Entity
 
     private WorkInstance() { WorkAreaGroupCtrlNbr = null!; }
 
-    private WorkInstance(ControlNumber? assignmentTemplateCtrlNbr, ControlNumber workAreaGroupCtrlNbr,
+    private WorkInstance(ControlNumber? assignmentGroupCtrlNbr, ControlNumber workAreaGroupCtrlNbr,
         DateTime startUtc, DateTime endUtc, DateTime? callTimeUtc, string status)
     {
-        AssignmentTemplateCtrlNbr = assignmentTemplateCtrlNbr;
+        AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr;
         WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr;
         StartUtc = startUtc;
         EndUtc = endUtc;
@@ -62,11 +27,11 @@ public sealed class WorkInstance : Entity
         Status = status;
     }
 
-    public static WorkInstance Create(ControlNumber? assignmentTemplateCtrlNbr, ControlNumber workAreaGroupCtrlNbr,
+    public static WorkInstance Create(ControlNumber? assignmentGroupCtrlNbr, ControlNumber workAreaGroupCtrlNbr,
         DateTime startUtc, DateTime endUtc, DateTime? callTimeUtc, string status = "Planned")
     {
         var instance = new WorkInstance(
-            assignmentTemplateCtrlNbr,
+            assignmentGroupCtrlNbr,
             workAreaGroupCtrlNbr,
             startUtc, endUtc, callTimeUtc, status);
         instance.Raise(new WorkInstanceCreatedDomainEvent(instance));
@@ -80,22 +45,55 @@ public sealed class WorkInstance : Entity
     }
 }
 
+
+public sealed class Department : Entity
+{
+    public ControlNumber? ParentCtrlNbr { get; private set; }
+    public ControlNumber? DynamicGroupCtrlNbr { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+
+    private Department() { }
+
+    public static Department Create(ControlNumber? parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr, string name)
+    {
+        return new Department
+        {
+            ParentCtrlNbr = parentCtrlNbr,
+            DynamicGroupCtrlNbr = dynamicGroupCtrlNbr,
+            Name = name
+        };
+    }
+
+    public void Update(string name)
+    {
+        Name = name;
+    }
+}
 public sealed class PositionRole : Entity
 {
     public ControlNumber CraftCtrlNbr { get; private set; }
-    public string Code { get; private set; } = string.Empty;
+    public string? Code { get; private set; }
     public string Name { get; private set; } = string.Empty;
+    public string? AlternateName { get; private set; }
 
     private PositionRole() { CraftCtrlNbr = null!; }
 
-    public static PositionRole Create(ControlNumber craftCtrlNbr, string code, string name)
+    public static PositionRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null)
     {
         return new PositionRole
         {
             CraftCtrlNbr = craftCtrlNbr,
             Code = code,
-            Name = name
+            Name = name,
+            AlternateName = alternateName
         };
+    }
+
+    public void Update(string? code, string name, string? alternateName)
+    {
+        Code = code;
+        Name = name;
+        AlternateName = alternateName;
     }
 }
 
@@ -161,17 +159,6 @@ public sealed class SlotRequirement : Entity
 }
 
 // Domain Events
-public sealed record AssignmentTemplateCreatedDomainEvent : DomainEvent
-{
-    public AssignmentTemplateCreatedDomainEvent(AssignmentTemplate t)
-        : base(nameof(AssignmentTemplate), t.CtrlNbr.Value, new { t.Code, t.Name, WorkAreaGroupCtrlNbr = t.WorkAreaGroupCtrlNbr.Value }) { }
-}
-
-public sealed record AssignmentTemplateUpdatedDomainEvent : DomainEvent
-{
-    public AssignmentTemplateUpdatedDomainEvent(AssignmentTemplate t)
-        : base(nameof(AssignmentTemplate), t.CtrlNbr.Value, new { t.Code, t.Name, t.IsActive }) { }
-}
 
 public sealed record WorkInstanceCreatedDomainEvent : DomainEvent
 {

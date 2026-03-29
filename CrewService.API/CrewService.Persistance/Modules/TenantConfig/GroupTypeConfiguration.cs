@@ -19,8 +19,15 @@ internal class GroupTypeConfiguration : IEntityTypeConfiguration<GroupType>
         builder.Property(g => g.Description).HasMaxLength(500);
         builder.Property(g => g.IsWorkArea).IsRequired();
         builder.Property(g => g.FlagsJson).HasMaxLength(2000);
-        builder.Property(g => g.ParentCtrlNbr).IsRequired();
-        builder.Property(g => g.RailroadCtrlNbr).IsRequired();
+        builder.Property(g => g.ParentCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+        builder.Property(g => g.RailroadCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+        builder.Property(g => g.ParentGroupTypeCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
 
         builder.HasIndex(g => new { g.Name, g.ParentCtrlNbr, g.RailroadCtrlNbr }).IsUnique();
 

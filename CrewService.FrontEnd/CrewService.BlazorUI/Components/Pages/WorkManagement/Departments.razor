@@ -1,0 +1,296 @@
+@page "/work-management/departments"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject DepartmentClient DepartmentClient
+@inject TenantConfigClient TenantConfigClient
+
+<PageTitle>Departments</PageTitle>
+
+<h1>Departments</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage departments.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing departments for <strong>@SelectedRailroadName</strong></p>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Department" : "Create Department")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-department-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Owner</label>
+                    <InputSelect @bind-Value="saveModel.OwnerCtrlNbr" class="form-select">
+                        <option value="0">All Railroads (Parent Level)</option>
+                        @if (railroads is not null)
+                        {
+                            @foreach (var rr in railroads)
+                            {
+                                <option value="@rr.CtrlNbr">@rr.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                    <div class="form-text">Parent-level departments are inherited by all railroads.</div>
+                </div>
+                }
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Name</label>
+                    <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Operating" />
+                    <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-department-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="DepartmentResponse" Items="departments" Columns="columns"
+               SearchFilter="@((d, term) => d.Name.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search departments..."
+               EmptyMessage="No departments found."
+               DefaultSortColumn="Name">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <span class="bi bi-plus-circle"></span> Create Department
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="dept">
+            <td>@dept.Name</td>
+            <td>
+                @if (IsOwnedByRailroad(dept))
+                {
+                    <span class="badge bg-primary">Railroad</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Parent (inherited)</span>
+                }
+            </td>
+            <td>
+                @if (!IsFeatureReadOnly && IsOwnedByRailroad(dept))
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(dept)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(dept)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/departments";
+
+    private IReadOnlyList<DepartmentResponse>? departments;
+    private IReadOnlyList<GroupResponse>? railroads;
+
+    private static readonly IReadOnlyList<DataTableColumn<DepartmentResponse>> columns =
+    [
+        new("Name", d => d.Name),
+        new("Owner", d => d.DynamicGroupCtrlNbr > 0 ? "Railroad" : "Parent", width: "120px"),
+        DataTableColumn<DepartmentResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private DepartmentInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadRailroads();
+            await LoadDepartments();
+        }
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadRailroads();
+            await LoadDepartments();
+        }
+        else
+        {
+            departments = null;
+            railroads = null;
+        }
+    }
+
+    private async Task LoadRailroads()
+    {
+        try
+        {
+            var response = await TenantConfigClient.GetGroupsByTypeNameAsync("Railroad", SelectedParentCtrlNbr!.Value);
+            railroads = response.Groups;
+        }
+        catch
+        {
+            railroads = [];
+        }
+    }
+
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            departments = response.Departments;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load departments: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new() { OwnerCtrlNbr = SelectedRailroadCtrlNbr!.Value };
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(DepartmentResponse dept)
+    {
+        editCtrlNbr = dept.CtrlNbr;
+        saveModel = new() { Name = dept.Name };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(DepartmentResponse dept)
+    {
+        deleteCtrlNbr = dept.CtrlNbr;
+        deleteName = dept.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await DepartmentClient.UpdateAsync(editCtrlNbr, saveModel.Name!);
+                successMessage = "Department updated.";
+            }
+            else
+            {
+                await DepartmentClient.CreateAsync(SelectedParentCtrlNbr!.Value, saveModel.OwnerCtrlNbr, saveModel.Name!);
+                successMessage = "Department created.";
+            }
+
+            CloseSaveModal();
+            await LoadDepartments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save department: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await DepartmentClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Department deleted.";
+            showDeleteModal = false;
+            await LoadDepartments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete department: {ex.Message}";
+            showDeleteModal = false;
+        }
+    }
+
+    private bool IsOwnedByRailroad(DepartmentResponse dept) =>
+        dept.DynamicGroupCtrlNbr > 0 && dept.DynamicGroupCtrlNbr == SelectedRailroadCtrlNbr;
+
+    private sealed class DepartmentInputModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+        public long OwnerCtrlNbr { get; set; }
+    }
+}

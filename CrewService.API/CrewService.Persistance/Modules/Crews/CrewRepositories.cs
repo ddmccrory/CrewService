@@ -39,8 +39,8 @@ internal sealed class CrewIncumbencyRepository(CrewServiceDbContext dbContext, I
 internal sealed class CrewAttachmentTemplateRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<CrewAttachmentTemplate>(dbContext, currentUserService), ICrewAttachmentTemplateRepository
 {
-    public async Task<List<CrewAttachmentTemplate>> GetByTemplateAsync(ControlNumber assignmentTemplateCtrlNbr) =>
-        await DbContext.Set<CrewAttachmentTemplate>().Where(a => a.AssignmentTemplateCtrlNbr == assignmentTemplateCtrlNbr).ToListAsync();
+    public async Task<List<CrewAttachmentTemplate>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr) =>
+        await DbContext.Set<CrewAttachmentTemplate>().Where(a => a.AssignmentGroupCtrlNbr == assignmentGroupCtrlNbr).ToListAsync();
 }
 
 internal sealed class CrewAttachmentInstanceRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

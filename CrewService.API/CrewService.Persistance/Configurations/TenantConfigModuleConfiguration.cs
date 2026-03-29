@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -14,8 +14,9 @@ internal class GroupTypeConfiguration : IEntityTypeConfiguration<GroupType>
         builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
         builder.Property(g => g.Description).HasMaxLength(500);
 
-        // Scope values stored as plain columns — not FK-constrained (0 = universal)
-        builder.Property(g => g.ParentGroupTypeCtrlNbr);
+        builder.Property(g => g.ParentGroupTypeCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
 
         builder.OwnsOne(g => g.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(g => g.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -35,6 +36,13 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
         builder.Property(g => g.Path).HasMaxLength(500);
+
+        builder.Property(g => g.ParentCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(g => g.RailroadCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
 
         builder.HasOne<GroupType>().WithMany().HasForeignKey(g => g.GroupTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(g => g.ParentGroupCtrlNbr).OnDelete(DeleteBehavior.SetNull);

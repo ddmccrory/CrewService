@@ -6,10 +6,12 @@
 - Do not pause for confirmation; continue uninterrupted batched updates to SystemSpec until completion. However, DO ask for confirmation before reverting changes.
 - Prefer proper fixes over workarounds/hacks. When the correct solution is known, implement it rather than building interim solutions.
 - Fix warnings and technical debt immediately rather than deferring them.
+- Work in smaller increments rather than large batch changes. When making multiple edits, apply them incrementally and verify each step.
 
 ## Code Style
 - Use specific formatting rules
 - Follow naming conventions
+- All checkboxes in the project must use Bootstrap slide switch style: wrap in `<div class="form-check form-switch">` with `class="form-check-input"` on the input/InputCheckbox. Never use plain checkboxes.
 
 ## Project-Specific Rules
 - Custom requirement A
@@ -20,3 +22,5 @@
 - Use buttons (sized evenly) over links on list pages.
 - Create dialogs should use the Modal component pattern from the Invitations page (Modal with BodyContent/Footer render fragments, form id linking for submit). This pattern should be followed throughout the entire project. User strongly prefers modal dialogs over inline forms for CRUD operations on management pages.
 - Edit and Delete buttons belong on lister/table pages (in row action columns), NOT on detail page headers. Detail pages are read-only views; editing and deleting an item is done from the list page that contains it.
+- System group types (Railroad, Assignment) should be created per-parent, not globally. Each parent gets its own Railroad and Assignment types when created.
+- Time display format (12-hour vs 24-hour) may become a configurable parent/railroad-level setting in the future. Keep time formatting logic centralized so it can be easily swapped to a system setting later.
