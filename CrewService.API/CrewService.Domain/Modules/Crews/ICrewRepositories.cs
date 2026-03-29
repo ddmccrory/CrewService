@@ -34,3 +34,9 @@ public interface IReliefCoverageRuleRepository : IRepository<ReliefCoverageRule>
 {
     Task<List<ReliefCoverageRule>> GetByReliefCrewAsync(ControlNumber reliefCrewCtrlNbr);
 }
+
+public interface ICrewAssignmentRepository : IRepository<CrewAssignment>
+{
+    Task<List<CrewAssignment>> GetByCrewAsync(ControlNumber crewCtrlNbr);
+    Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
+}
