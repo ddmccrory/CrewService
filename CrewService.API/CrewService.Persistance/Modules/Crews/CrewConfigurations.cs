@@ -57,7 +57,7 @@ internal class CrewAttachmentTemplateConfiguration : IEntityTypeConfiguration<Cr
     {
         builder.HasKey(a => a.CtrlNbr);
         builder.Property(a => a.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
-        builder.Property(a => a.AssignmentTemplateCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(a => a.AssignmentGroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(a => a.CrewCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(a => a.StartUtc).IsRequired();
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -88,7 +88,7 @@ internal class ReliefCoverageRuleConfiguration : IEntityTypeConfiguration<Relief
         builder.HasKey(r => r.CtrlNbr);
         builder.Property(r => r.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.ReliefCrewCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(r => r.AssignmentTemplateCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(r => r.AssignmentGroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(r => r.DaysOfWeekMask).IsRequired();
         builder.Property(r => r.StartUtc).IsRequired();
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

@@ -108,7 +108,7 @@ public class AuthorizationService(
             response.Features.Add(MapFeature(feature));
 
         // Load permissions: parent/craft-specific if requested, otherwise global defaults
-        long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
+        ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
 
         foreach (var role in roles)
@@ -130,7 +130,7 @@ public class AuthorizationService(
             ? request.RoleCtrlNbrs
             : [request.RoleCtrlNbr];
 
-        long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
+        ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
 
         var response = new GetEffectivePermissionsResponse();
@@ -146,7 +146,7 @@ public class AuthorizationService(
 
     public override async Task<PermissionResponse> UpdatePermission(UpdatePermissionRequest request, ServerCallContext context)
     {
-        long? parentCtrlNbr = request.ParentCtrlNbr > 0 ? request.ParentCtrlNbr : null;
+        ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
         var accessLevel = (AccessLevel)request.AccessLevel;
 
@@ -199,7 +199,7 @@ public class AuthorizationService(
         RoleCtrlNbr = permission.RoleCtrlNbr.Value,
         FeatureCtrlNbr = permission.FeatureCtrlNbr.Value,
         AccessLevel = (int)permission.AccessLevel,
-        ParentCtrlNbr = permission.ParentCtrlNbr ?? 0,
+        ParentCtrlNbr = permission.ParentCtrlNbr?.Value ?? 0,
         CraftCtrlNbr = permission.CraftCtrlNbr?.Value ?? 0
     };
 }

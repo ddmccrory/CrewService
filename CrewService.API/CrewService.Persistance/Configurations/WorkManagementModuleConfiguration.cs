@@ -9,23 +9,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CrewService.Persistance.Configurations;
 
-internal class AssignmentTemplateConfiguration : IEntityTypeConfiguration<AssignmentTemplate>
-{
-    public void Configure(EntityTypeBuilder<AssignmentTemplate> builder)
-    {
-        builder.HasKey(t => t.CtrlNbr);
-        builder.Property(t => t.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(t => t.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(t => t.Code).HasMaxLength(30).IsRequired();
-        builder.Property(t => t.Name).HasMaxLength(100).IsRequired();
-
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(t => t.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-
-        builder.OwnsOne(t => t.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(t => t.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(t => t.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-    }
-}
 
 internal class WorkInstanceConfiguration : IEntityTypeConfiguration<WorkInstance>
 {
@@ -34,13 +17,13 @@ internal class WorkInstanceConfiguration : IEntityTypeConfiguration<WorkInstance
         builder.HasKey(w => w.CtrlNbr);
         builder.Property(w => w.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(w => w.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(w => w.AssignmentTemplateCtrlNbr).HasConversion(
+        builder.Property(w => w.AssignmentGroupCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(w => w.Status).HasMaxLength(20).IsRequired();
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(w => w.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<AssignmentTemplate>().WithMany().HasForeignKey(w => w.AssignmentTemplateCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(w => w.AssignmentGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(w => w.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(w => w.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -122,7 +105,9 @@ internal class DepartmentConfiguration : IEntityTypeConfiguration<Department>
     {
         builder.HasKey(d => d.CtrlNbr);
         builder.Property(d => d.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(d => d.ParentCtrlNbr).IsRequired();
+        builder.Property(d => d.ParentCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(d => d.DynamicGroupCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));

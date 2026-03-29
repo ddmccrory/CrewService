@@ -154,7 +154,6 @@ internal static class BaselineSeeder
                 [new Claim(ClaimTypes.Name, "SYSTEM")], "Seed"))
         };
 
-        await SeedGroupTypesAsync(sp);
         await BackfillGroupPathsAsync(sp);
         await SeedRolesAsync(sp);
         await SeedFeaturesAsync(sp);
@@ -183,27 +182,6 @@ internal static class BaselineSeeder
         }
     }
 
-    private static async Task SeedGroupTypesAsync(IServiceProvider sp)
-    {
-        var groupTypeRepo = sp.GetRequiredService<IGroupTypeRepository>();
-        var parentRepo = sp.GetRequiredService<IParentRepository>();
-
-        var allParents = await parentRepo.GetAllAsync();
-        var allGroupTypes = await groupTypeRepo.GetAllAsync();
-
-        foreach (var parent in allParents)
-        {
-            foreach (var systemTypeName in GroupType.SystemTypeNames)
-            {
-                if (!allGroupTypes.Any(gt => gt.Name == systemTypeName && gt.ParentCtrlNbr == parent.CtrlNbr.Value))
-                {
-                    var isWorkArea = string.Equals(systemTypeName, "WorkArea", StringComparison.OrdinalIgnoreCase);
-                    await groupTypeRepo.AddAsync(
-                        GroupType.Create(systemTypeName, $"{systemTypeName} (auto-created)", isWorkArea: isWorkArea, parentCtrlNbr: parent.CtrlNbr.Value));
-                }
-            }
-        }
-    }
 
     private static async Task BackfillGroupPathsAsync(IServiceProvider sp)
     {

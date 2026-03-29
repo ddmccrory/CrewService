@@ -10,13 +10,13 @@ namespace CrewService.Persistance.Modules.TenantConfig;
 internal sealed class GroupTypeRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<GroupType>(dbContext, currentUserService), IGroupTypeRepository
 {
-    public async Task<GroupType?> GetByNameAsync(string name, long parentCtrlNbr = 0)
+    public async Task<GroupType?> GetByNameAsync(string name, ControlNumber? parentCtrlNbr = null)
     {
         return await DbContext.Set<GroupType>()
             .SingleOrDefaultAsync(g => g.Name == name && g.ParentCtrlNbr == parentCtrlNbr);
     }
 
-    public async Task<GroupType?> GetByNameIncludingDeletedAsync(string name, long parentCtrlNbr = 0)
+    public async Task<GroupType?> GetByNameIncludingDeletedAsync(string name, ControlNumber? parentCtrlNbr = null)
     {
         return await DbContext.Set<GroupType>()
             .IgnoreQueryFilters()
@@ -50,6 +50,33 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             .ToListAsync();
     }
 
+    public async Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync()
+    {
+        var workAreas = await DbContext.Set<DynamicGroup>()
+            .Where(g => g.IsWorkArea)
+            .ToListAsync();
+
+        if (workAreas.Count == 0)
+            return [];
+
+        // Build a predicate that matches the work area itself OR any group whose path
+        // starts with the work area's path + "/" (descendants).
+        var workAreaPaths = workAreas
+            .Where(wa => wa.Path is not null)
+            .Select(wa => wa.Path!)
+            .ToList();
+
+        var allGroups = await DbContext.Set<DynamicGroup>()
+            .Where(g =>
+                g.IsWorkArea
+                || (g.Path != null && workAreaPaths.Any(p => g.Path.StartsWith(p + "/")))
+            )
+            .OrderBy(g => g.Path ?? g.Name)
+            .ToListAsync();
+
+        return allGroups;
+    }
+
     public async Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr)
     {
         var ancestors = new List<DynamicGroup>();
@@ -71,20 +98,49 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             return await DbContext.Set<DynamicGroup>().OrderBy(g => g.Path).ToListAsync();
 
         var root = await DbContext.Set<DynamicGroup>().SingleOrDefaultAsync(g => g.CtrlNbr == rootCtrlNbr);
-        if (root?.Path is null)
-            return root is null ? [] : [root];
+        if (root is null)
+            return [];
 
-        return await DbContext.Set<DynamicGroup>()
-            .Where(g => g.Path != null && g.Path.StartsWith(root.Path))
-            .OrderBy(g => g.Path)
-            .ToListAsync();
+        // When the root has a materialized path, use prefix matching (with "/" delimiter
+        // to avoid collisions like "/100" matching "/1001").
+        if (root.Path is not null)
+        {
+            var prefix = root.Path + "/";
+            return await DbContext.Set<DynamicGroup>()
+                .Where(g => g.Path != null && (g.Path == root.Path || g.Path.StartsWith(prefix)))
+                .OrderBy(g => g.Path)
+                .ToListAsync();
+        }
+
+        // Fallback: root has no path — BFS via ParentGroupCtrlNbr so descendants are
+        // still returned even when materialized paths haven't been backfilled.
+        var result = new List<DynamicGroup> { root };
+        var queue = new Queue<ControlNumber>();
+        queue.Enqueue(root.CtrlNbr);
+
+        while (queue.Count > 0)
+        {
+            var parentCtrlNbr = queue.Dequeue();
+            var children = await DbContext.Set<DynamicGroup>()
+                .Where(g => g.ParentGroupCtrlNbr == parentCtrlNbr)
+                .OrderBy(g => g.Name)
+                .ToListAsync();
+
+            foreach (var child in children)
+            {
+                result.Add(child);
+                queue.Enqueue(child.CtrlNbr);
+            }
+        }
+
+        return result;
     }
 
-    public async Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, long parentCtrlNbr = 0)
+    public async Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, ControlNumber? parentCtrlNbr = null)
     {
         var groupTypeCtrlNbrs = await DbContext.Set<GroupType>()
             .Where(gt => gt.Name == typeName
-                && (parentCtrlNbr == 0 || gt.ParentCtrlNbr == parentCtrlNbr))
+                && (parentCtrlNbr == null || gt.ParentCtrlNbr == parentCtrlNbr || gt.ParentCtrlNbr == null))
             .Select(gt => gt.CtrlNbr)
             .ToListAsync();
 

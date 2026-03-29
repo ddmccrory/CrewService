@@ -15,13 +15,13 @@ public interface IShiftInstanceRepository
     Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default);
 }
 
-public interface IAssignmentTemplateQueryService
+public interface IAssignmentQueryService
 {
-    Task<IReadOnlyList<AssignmentTemplateDto>> GetTemplatesForDateAsync(ControlNumber workAreaGroupCtrlNbr, DateOnly targetDate, CancellationToken ct = default);
+    Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(ControlNumber workAreaGroupCtrlNbr, DateOnly targetDate, CancellationToken ct = default);
 }
 
-public sealed record AssignmentTemplateDto(
-    ControlNumber TemplateCtrlNbr,
+public sealed record AssignmentDto(
+    ControlNumber AssignmentGroupCtrlNbr,
     ControlNumber WorkAreaGroupCtrlNbr,
     IReadOnlyList<CrewPositionDto> Positions);
 

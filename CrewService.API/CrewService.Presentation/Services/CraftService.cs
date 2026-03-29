@@ -14,7 +14,9 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         var response = new GetAllCraftResponse();
 
         var crafts = request.ParentCtrlNbr > 0
-            ? await _craftRepository.GetByParentAndRailroadAsync(request.ParentCtrlNbr, request.DynamicGroupCtrlNbr > 0 ? request.DynamicGroupCtrlNbr : null)
+            ? await _craftRepository.GetByParentAndRailroadAsync(
+                ControlNumber.Create(request.ParentCtrlNbr),
+                request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null)
             : await _craftRepository.GetAllAsync();
 
         foreach (var craft in crafts)
@@ -22,7 +24,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             response.Crafts.Add(new CraftResponse
             {
                 CtrlNbr = craft.CtrlNbr.Value,
-                ParentCtrlNbr = craft.ParentCtrlNbr,
+                ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
                 DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
                 CraftName = craft.CraftName,
                 CraftPluralName = craft.CraftPluralName,
@@ -53,7 +55,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            ParentCtrlNbr = craft.ParentCtrlNbr,
+            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
                 DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
@@ -76,7 +78,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
     public override async Task<CraftResponse> CreateAsync(CreateCraftRequest request, ServerCallContext context)
     {
         var craft = Craft.Create(
-            request.ParentCtrlNbr,
+            request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
             request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null,
             request.CraftName,
             request.CraftPluralName,
@@ -99,7 +101,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            ParentCtrlNbr = craft.ParentCtrlNbr,
+            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
                 DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,
@@ -146,7 +148,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         return await Task.FromResult(new CraftResponse
         {
             CtrlNbr = craft.CtrlNbr.Value,
-            ParentCtrlNbr = craft.ParentCtrlNbr,
+            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
                 DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
             CraftName = craft.CraftName,
             CraftPluralName = craft.CraftPluralName,

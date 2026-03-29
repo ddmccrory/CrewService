@@ -5,48 +5,14 @@ using Grpc.Core;
 namespace CrewService.Presentation.Services.Modules;
 
 public class WorkManagementService(
-    IAssignmentTemplateRepository templateRepository,
     IWorkInstanceRepository workInstanceRepository,
     IPositionSlotRepository positionSlotRepository,
     IPositionRoleRepository positionRoleRepository) : WorkManagementSrvc.WorkManagementSrvcBase
 {
-    public override async Task<GetAllTemplatesResponse> GetAllTemplates(GetAllTemplatesRequest request, ServerCallContext context)
-    {
-        var templates = await templateRepository.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr));
-        var response = new GetAllTemplatesResponse { TotalCount = templates.Count };
-        foreach (var t in templates)
-            response.Templates.Add(MapTemplate(t));
-        return response;
-    }
 
-    public override async Task<TemplateResponse> GetTemplate(GetTemplateRequest request, ServerCallContext context)
-    {
-        var template = await templateRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Template {request.CtrlNbr} not found."));
-        return MapTemplate(template);
-    }
 
-    public override async Task<TemplateResponse> CreateTemplate(CreateTemplateRequest request, ServerCallContext context)
-    {
-        var template = AssignmentTemplate.Create(request.WorkAreaGroupCtrlNbr, request.Code, request.Name, request.RecurrenceJson, request.IsActive);
-        await templateRepository.AddAsync(template);
-        return MapTemplate(template);
-    }
 
-    public override async Task<DeleteResponse> DeleteTemplate(DeleteTemplateRequest request, ServerCallContext context)
-    {
-        await templateRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
-        return new DeleteResponse { Success = true };
-    }
 
-    public override async Task<TemplateResponse> UpdateTemplate(UpdateTemplateRequest request, ServerCallContext context)
-    {
-        var template = await templateRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Template {request.CtrlNbr} not found."));
-        template.Update(request.Code, request.Name, request.RecurrenceJson, request.IsActive);
-        await templateRepository.UpdateAsync(template);
-        return MapTemplate(template);
-    }
 
     public override async Task<GetWorkInstancesResponse> GetWorkInstances(GetWorkInstancesRequest request, ServerCallContext context)
     {
@@ -63,7 +29,7 @@ public class WorkManagementService(
     public override async Task<WorkInstanceResponse> CreateWorkInstance(CreateWorkInstanceRequest request, ServerCallContext context)
     {
         var instance = WorkInstance.Create(
-            request.AssignmentTemplateCtrlNbr > 0 ? request.AssignmentTemplateCtrlNbr : null,
+            request.AssignmentGroupCtrlNbr > 0 ? request.AssignmentGroupCtrlNbr : null,
             request.WorkAreaGroupCtrlNbr,
             DateTime.Parse(request.StartUtc).ToUniversalTime(),
             DateTime.Parse(request.EndUtc).ToUniversalTime(),
@@ -106,20 +72,11 @@ public class WorkManagementService(
         return MapSlot(slot);
     }
 
-    private static TemplateResponse MapTemplate(AssignmentTemplate t) => new()
-    {
-        CtrlNbr = t.CtrlNbr.Value,
-        WorkAreaGroupCtrlNbr = t.WorkAreaGroupCtrlNbr.Value,
-        Code = t.Code,
-        Name = t.Name,
-        RecurrenceJson = t.RecurrenceJson ?? string.Empty,
-        IsActive = t.IsActive
-    };
 
     private static WorkInstanceResponse MapWorkInstance(WorkInstance w) => new()
     {
         CtrlNbr = w.CtrlNbr.Value,
-        AssignmentTemplateCtrlNbr = w.AssignmentTemplateCtrlNbr?.Value ?? 0,
+        AssignmentGroupCtrlNbr = w.AssignmentGroupCtrlNbr?.Value ?? 0,
         WorkAreaGroupCtrlNbr = w.WorkAreaGroupCtrlNbr.Value,
         StartUtc = w.StartUtc.ToString("O"),
         EndUtc = w.EndUtc.ToString("O"),

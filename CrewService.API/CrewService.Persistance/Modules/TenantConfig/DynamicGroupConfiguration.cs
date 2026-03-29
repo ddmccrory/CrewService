@@ -29,6 +29,13 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
         builder.Property(g => g.Path).HasMaxLength(2000);
         builder.Property(g => g.IsWorkArea).IsRequired();
 
+        builder.Property(g => g.ParentCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+        builder.Property(g => g.RailroadCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+
         builder.HasIndex(g => new { g.ParentGroupCtrlNbr, g.Name });
 
         builder.OwnsOne(g => g.CreatedBy, audit =>

@@ -7,17 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Modules.WorkManagement;
 
-internal sealed class AssignmentTemplateRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<AssignmentTemplate>(dbContext, currentUserService), IAssignmentTemplateRepository
-{
-    public async Task<List<AssignmentTemplate>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr)
-    {
-        return await DbContext.Set<AssignmentTemplate>()
-            .Where(t => t.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr)
-            .OrderBy(t => t.Code)
-            .ToListAsync();
-    }
-}
 
 internal sealed class WorkInstanceRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<WorkInstance>(dbContext, currentUserService), IWorkInstanceRepository
@@ -76,12 +65,11 @@ internal sealed class SlotRequirementRepository(CrewServiceDbContext dbContext, 
 internal sealed class DepartmentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Department>(dbContext, currentUserService), IDepartmentRepository
 {
-    public async Task<List<Department>> GetByParentAndRailroadAsync(long parentCtrlNbr, long? railroadCtrlNbr)
+    public async Task<List<Department>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr)
     {
-        var railroadCn = railroadCtrlNbr.HasValue ? ControlNumber.Create(railroadCtrlNbr.Value) : (ControlNumber?)null;
         return await DbContext.Set<Department>()
             .Where(d => d.ParentCtrlNbr == parentCtrlNbr
-                && (d.DynamicGroupCtrlNbr == null || d.DynamicGroupCtrlNbr == railroadCn))
+                && (d.DynamicGroupCtrlNbr == null || d.DynamicGroupCtrlNbr == railroadCtrlNbr))
             .OrderBy(d => d.Name)
             .ToListAsync();
     }

@@ -136,8 +136,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
 
         // WorkManagement Module Repositories
-        services.AddScoped<IAssignmentTemplateRepository, AssignmentTemplateRepository>();
-        services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
+                services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
         services.AddScoped<IPositionRoleRepository, PositionRoleRepository>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
@@ -199,7 +198,7 @@ public static class DependencyInjection
         services.AddScoped<IOnDutyRecordRepository, OnDutyRecordRepository>();
         services.AddScoped<IOffDutyRecordRepository, OffDutyRecordRepository>();
         services.AddScoped<ICraftOperationsPolicyRepository, CraftOperationsPolicyRepository>();
-        services.AddScoped<IAssignmentTemplateQueryService, AssignmentTemplateQueryService>();
+        services.AddScoped<IAssignmentQueryService, AssignmentQueryService>();
 
         // Mark-Off Repositories (B03)
         services.AddScoped<IAbsenceCodeRepository, AbsenceCodeRepository>();

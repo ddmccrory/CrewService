@@ -74,7 +74,7 @@ public class CrewAttachmentTemplateTests
         var start = DateTime.UtcNow;
         var attachment = CrewAttachmentTemplate.Create(10, 20, start);
 
-        Assert.Equal(10, attachment.AssignmentTemplateCtrlNbr.Value);
+        Assert.Equal(10, attachment.AssignmentGroupCtrlNbr.Value);
         Assert.Equal(20, attachment.CrewCtrlNbr.Value);
         Assert.Equal(start, attachment.StartUtc);
         Assert.Null(attachment.EndUtc);
@@ -100,7 +100,7 @@ public class ReliefCoverageRuleTests
         var rule = ReliefCoverageRule.Create(1, 2, 0b1111100, start);
 
         Assert.Equal(1, rule.ReliefCrewCtrlNbr.Value);
-        Assert.Equal(2, rule.AssignmentTemplateCtrlNbr.Value);
+        Assert.Equal(2, rule.AssignmentGroupCtrlNbr.Value);
         Assert.Equal(0b1111100, rule.DaysOfWeekMask);
         Assert.Equal(start, rule.StartUtc);
         Assert.Null(rule.EndUtc);

@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Interfaces;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
@@ -50,7 +50,6 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<TeamsWebhookConfig> TeamsWebhookConfigs => Set<TeamsWebhookConfig>();
 
     // WorkManagement Module
-    public DbSet<Domain.Modules.WorkManagement.AssignmentTemplate> AssignmentTemplates => Set<Domain.Modules.WorkManagement.AssignmentTemplate>();
     public DbSet<Domain.Modules.WorkManagement.WorkInstance> WorkInstances => Set<Domain.Modules.WorkManagement.WorkInstance>();
     public DbSet<Domain.Modules.WorkManagement.PositionRole> PositionRoles => Set<Domain.Modules.WorkManagement.PositionRole>();
     public DbSet<Domain.Modules.WorkManagement.PositionSlot> PositionSlots => Set<Domain.Modules.WorkManagement.PositionSlot>();

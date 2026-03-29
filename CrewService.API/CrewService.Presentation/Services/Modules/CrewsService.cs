@@ -118,7 +118,7 @@ public class CrewsService(
     // Attachment Templates
     public override async Task<GetCrewAttachmentTemplatesResponse> GetCrewAttachmentTemplates(GetCrewAttachmentTemplatesRequest request, ServerCallContext context)
     {
-        var items = await attachmentRepo.GetByTemplateAsync(ControlNumber.Create(request.CrewCtrlNbr));
+        var items = await attachmentRepo.GetByAssignmentGroupAsync(ControlNumber.Create(request.CrewCtrlNbr));
         var response = new GetCrewAttachmentTemplatesResponse { TotalCount = items.Count };
         foreach (var t in items) response.Templates.Add(MapAttachmentTemplate(t));
         return response;
@@ -128,7 +128,7 @@ public class CrewsService(
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var attachment = CrewAttachmentTemplate.Create(request.AssignmentTemplateCtrlNbr, request.CrewCtrlNbr, startUtc, endUtc);
+        var attachment = CrewAttachmentTemplate.Create(request.AssignmentGroupCtrlNbr, request.CrewCtrlNbr, startUtc, endUtc);
         await attachmentRepo.AddAsync(attachment);
         return MapAttachmentTemplate(attachment);
     }
@@ -136,7 +136,7 @@ public class CrewsService(
     private static CrewAttachmentTemplateResponse MapAttachmentTemplate(CrewAttachmentTemplate t) => new()
     {
         CtrlNbr = t.CtrlNbr.Value,
-        AssignmentTemplateCtrlNbr = t.AssignmentTemplateCtrlNbr.Value,
+        AssignmentGroupCtrlNbr = t.AssignmentGroupCtrlNbr.Value,
         CrewCtrlNbr = t.CrewCtrlNbr.Value,
         StartUtc = t.StartUtc.ToString("O"),
         EndUtc = t.EndUtc?.ToString("O") ?? string.Empty
@@ -155,7 +155,7 @@ public class CrewsService(
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var rule = ReliefCoverageRule.Create(request.ReliefCrewCtrlNbr, request.AssignmentTemplateCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
+        var rule = ReliefCoverageRule.Create(request.ReliefCrewCtrlNbr, request.AssignmentGroupCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
         await reliefRepo.AddAsync(rule);
         return MapReliefRule(rule);
     }
@@ -164,7 +164,7 @@ public class CrewsService(
     {
         CtrlNbr = r.CtrlNbr.Value,
         ReliefCrewCtrlNbr = r.ReliefCrewCtrlNbr.Value,
-        AssignmentTemplateCtrlNbr = r.AssignmentTemplateCtrlNbr.Value,
+        AssignmentGroupCtrlNbr = r.AssignmentGroupCtrlNbr.Value,
         DaysOfWeekMask = r.DaysOfWeekMask,
         StartUtc = r.StartUtc.ToString("O"),
         EndUtc = r.EndUtc?.ToString("O") ?? string.Empty

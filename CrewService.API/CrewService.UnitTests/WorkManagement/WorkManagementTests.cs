@@ -111,32 +111,6 @@ public class PositionSlotInstanceTests
     }
 }
 
-public class AssignmentTemplateTests
-{
-    [Fact]
-    public void Create_SetsProperties()
-    {
-        var template = AssignmentTemplate.Create(1, "TMPL1", "Morning Template", null);
-
-        Assert.Equal("TMPL1", template.Code);
-        Assert.Equal("Morning Template", template.Name);
-        Assert.True(template.IsActive);
-        Assert.True(template.DomainEvents.Count > 0);
-    }
-
-    [Fact]
-    public void Update_ChangesAllFields()
-    {
-        var template = AssignmentTemplate.Create(1, "TMPL1", "Old", null);
-
-        template.Update("TMPL2", "New", "{}", false);
-
-        Assert.Equal("TMPL2", template.Code);
-        Assert.Equal("New", template.Name);
-        Assert.Equal("{}", template.RecurrenceJson);
-        Assert.False(template.IsActive);
-    }
-}
 
 public class WorkInstanceTests
 {
@@ -148,7 +122,7 @@ public class WorkInstanceTests
         var instance = WorkInstance.Create(null, 1, start, end, null);
 
         Assert.Equal("Planned", instance.Status);
-        Assert.Null(instance.AssignmentTemplateCtrlNbr);
+        Assert.Null(instance.AssignmentGroupCtrlNbr);
         Assert.True(instance.DomainEvents.Count > 0);
     }
 

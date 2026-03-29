@@ -6,7 +6,7 @@ namespace CrewService.Domain.Models.Seniority;
 
 public sealed class Craft : Entity
 {
-    public long ParentCtrlNbr { get; private set; }
+    public ControlNumber? ParentCtrlNbr { get; private set; }
     public ControlNumber? DynamicGroupCtrlNbr { get; private set; }
     public string CraftName { get; private set; } = string.Empty;
     public string CraftPluralName { get; private set; } = string.Empty;
@@ -28,7 +28,7 @@ public sealed class Craft : Entity
     private Craft() { }
 
     private Craft(
-        long parentCtrlNbr,
+        ControlNumber? parentCtrlNbr,
         ControlNumber? dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,
@@ -66,7 +66,7 @@ public sealed class Craft : Entity
     }
 
     public static Craft Create(
-        long parentCtrlNbr,
+        ControlNumber? parentCtrlNbr,
         ControlNumber? dynamicGroupCtrlNbr,
         string craftName,
         string craftPluralName,

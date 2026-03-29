@@ -127,14 +127,14 @@ message GetCrewAttachmentTemplatesResponse {
   int32 total_count = 2;
 }
 message CreateCrewAttachmentTemplateRequest {
-  int64 assignment_template_ctrl_nbr = 1;
+  int64 assignment_group_ctrl_nbr = 1;
   int64 crew_ctrl_nbr = 2;
   string start_utc = 3;
   string end_utc = 4;
 }
 message CrewAttachmentTemplateResponse {
   int64 ctrl_nbr = 1;
-  int64 assignment_template_ctrl_nbr = 2;
+  int64 assignment_group_ctrl_nbr = 2;
   int64 crew_ctrl_nbr = 3;
   string start_utc = 4;
   string end_utc = 5;
@@ -148,7 +148,7 @@ message GetReliefCoverageRulesResponse {
 }
 message CreateReliefCoverageRuleRequest {
   int64 relief_crew_ctrl_nbr = 1;
-  int64 assignment_template_ctrl_nbr = 2;
+  int64 assignment_group_ctrl_nbr = 2;
   int32 days_of_week_mask = 3;
   string start_utc = 4;
   string end_utc = 5;
@@ -156,7 +156,7 @@ message CreateReliefCoverageRuleRequest {
 message ReliefCoverageRuleResponse {
   int64 ctrl_nbr = 1;
   int64 relief_crew_ctrl_nbr = 2;
-  int64 assignment_template_ctrl_nbr = 3;
+  int64 assignment_group_ctrl_nbr = 3;
   int32 days_of_week_mask = 4;
   string start_utc = 5;
   string end_utc = 6;

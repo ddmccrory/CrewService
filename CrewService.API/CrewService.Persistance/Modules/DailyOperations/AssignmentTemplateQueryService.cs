@@ -1,30 +1,43 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Domain.Modules.Crews;
-using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Modules.DailyOperations;
 
-internal sealed class AssignmentTemplateQueryService(CrewServiceDbContext dbContext) : IAssignmentTemplateQueryService
+internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : IAssignmentQueryService
 {
-    public async Task<IReadOnlyList<AssignmentTemplateDto>> GetTemplatesForDateAsync(
+    public async Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(
         ControlNumber workAreaGroupCtrlNbr, DateOnly targetDate, CancellationToken ct = default)
     {
         var targetUtc = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var now = DateTime.UtcNow;
 
-        var templates = await dbContext.Set<AssignmentTemplate>()
-            .Where(t => t.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && t.IsActive)
+        var assignmentTypeIds = await dbContext.Set<GroupType>()
+            .Where(gt => gt.Name == "Assignment")
+            .Select(gt => gt.CtrlNbr)
             .ToListAsync(ct);
 
-        if (templates.Count == 0) return [];
+        if (assignmentTypeIds.Count == 0) return [];
 
-        var templateCtrlNbrs = templates.Select(t => t.CtrlNbr).ToList();
+        var workAreaPath = (await dbContext.Set<DynamicGroup>()
+            .Where(g => g.CtrlNbr == workAreaGroupCtrlNbr)
+            .Select(g => g.Path)
+            .FirstOrDefaultAsync(ct)) ?? "";
+
+        var assignments = await dbContext.Set<DynamicGroup>()
+            .Where(g => assignmentTypeIds.Contains(g.GroupTypeCtrlNbr)
+                && g.Path != null && g.Path.StartsWith(workAreaPath + "/"))
+            .ToListAsync(ct);
+
+        if (assignments.Count == 0) return [];
+
+        var assignmentCtrlNbrs = assignments.Select(a => a.CtrlNbr).ToList();
 
         var attachments = await dbContext.Set<CrewAttachmentTemplate>()
-            .Where(a => templateCtrlNbrs.Contains(a.AssignmentTemplateCtrlNbr)
+            .Where(a => assignmentCtrlNbrs.Contains(a.AssignmentGroupCtrlNbr)
                         && a.StartUtc <= targetUtc
                         && (a.EndUtc == null || a.EndUtc > targetUtc))
             .ToListAsync(ct);
@@ -44,12 +57,12 @@ internal sealed class AssignmentTemplateQueryService(CrewServiceDbContext dbCont
                         && (i.EndUtc == null || i.EndUtc > now))
             .ToListAsync(ct);
 
-        var result = new List<AssignmentTemplateDto>();
+        var result = new List<AssignmentDto>();
 
-        foreach (var template in templates)
+        foreach (var assignment in assignments)
         {
             var crewIds = attachments
-                .Where(a => a.AssignmentTemplateCtrlNbr == template.CtrlNbr)
+                .Where(a => a.AssignmentGroupCtrlNbr == assignment.CtrlNbr)
                 .Select(a => a.CrewCtrlNbr)
                 .ToHashSet();
 
@@ -66,9 +79,9 @@ internal sealed class AssignmentTemplateQueryService(CrewServiceDbContext dbCont
                 })
                 .ToList();
 
-            result.Add(new AssignmentTemplateDto(
-                template.CtrlNbr,
-                template.WorkAreaGroupCtrlNbr,
+            result.Add(new AssignmentDto(
+                assignment.CtrlNbr,
+                workAreaGroupCtrlNbr,
                 positionDtos));
         }
 

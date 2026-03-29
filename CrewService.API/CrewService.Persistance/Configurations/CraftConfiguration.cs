@@ -18,7 +18,9 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
-        builder.Property(c => c.ParentCtrlNbr).IsRequired();
+        builder.Property(c => c.ParentCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
         builder.Property(c => c.DynamicGroupCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));

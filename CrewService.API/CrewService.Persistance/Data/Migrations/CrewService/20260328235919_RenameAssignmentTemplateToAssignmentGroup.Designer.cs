@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328235919_RenameAssignmentTemplateToAssignmentGroup")]
+    partial class RenameAssignmentTemplateToAssignmentGroup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -509,7 +512,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<int>("MaximumVacationDayTime")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("ParentCtrlNbr")
+                    b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("ProcessPayroll")
@@ -4118,18 +4121,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<long?>("ParentGroupCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Path")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
-
-                    b.Property<long?>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
 
@@ -4235,13 +4232,13 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("ParentCtrlNbr")
+                    b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("ParentGroupTypeCtrlNbr")
+                    b.Property<long>("ParentGroupTypeCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("RailroadCtrlNbr")
+                    b.Property<long>("RailroadCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
@@ -4369,7 +4366,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("ParentCtrlNbr")
+                    b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
