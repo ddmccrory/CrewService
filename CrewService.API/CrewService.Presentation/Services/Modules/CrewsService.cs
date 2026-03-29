@@ -12,9 +12,13 @@ public class CrewsService(
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
-        var crews = string.IsNullOrEmpty(request.CrewType)
-            ? await crewRepository.GetByHomeGroupAsync(ControlNumber.Create(request.HomeGroupCtrlNbr))
-            : await crewRepository.GetByTypeAsync(request.CrewType);
+        List<Domain.Modules.Crews.Crew> crews;
+        if (!string.IsNullOrEmpty(request.CrewType))
+            crews = await crewRepository.GetByTypeAsync(request.CrewType);
+        else if (request.HomeGroupCtrlNbr > 0)
+            crews = await crewRepository.GetByHomeGroupAsync(ControlNumber.Create(request.HomeGroupCtrlNbr));
+        else
+            crews = await crewRepository.GetAllAsync();
         var response = new GetAllCrewsResponse { TotalCount = crews.Count };
         foreach (var c in crews)
             response.Crews.Add(MapCrew(c));

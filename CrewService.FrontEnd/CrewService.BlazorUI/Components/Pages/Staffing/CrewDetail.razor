@@ -1,0 +1,471 @@
+@page "/staffing/crews/{CtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject CrewClient CrewClient
+@inject TenantConfigClient TenantConfigClient
+@inject NavigationManager Nav
+
+<PageTitle>Crew Detail</PageTitle>
+
+@if (crew is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="Crews" OnClick="@(() => Nav.NavigateTo("staffing/crews"))" />
+
+    <h1>@crew.Name</h1>
+    <p class="text-muted mb-1">
+        <span class="badge bg-secondary me-1">@crew.CrewType</span>
+        @if (crew.IsActive)
+        {
+            <span class="badge bg-success">Active</span>
+        }
+        else
+        {
+            <span class="badge bg-warning text-dark">Inactive</span>
+        }
+    </p>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible mt-2" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @* ── Positions Tab ── *@
+    @if (activeTab == "positions")
+    {
+        <DataTable TItem="CrewPositionResponse" Items="positions" Columns="positionColumns"
+                   EmptyMessage="No positions found."
+                   DefaultSortColumn="Order">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreatePositionModal">
+                        <span class="bi bi-plus-circle"></span> Add Position
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="pos">
+                <td>@pos.PositionRoleCtrlNbr</td>
+                <td>@pos.DisplayOrder</td>
+            </RowContent>
+        </DataTable>
+
+        <Modal Visible="showPositionModal" Title="Add Position" Icon="bi bi-plus-circle"
+               OnClose="() => showPositionModal = false">
+            <BodyContent>
+                <EditForm Model="positionModel" OnValidSubmit="OnSavePosition" id="save-position-form">
+                    <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Position Role</label>
+                        <InputNumber @bind-Value="positionModel.PositionRoleCtrlNbr" class="form-control" />
+                        <ValidationMessage For="() => positionModel.PositionRoleCtrlNbr" class="text-danger" />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">Display Order</label>
+                        <InputNumber @bind-Value="positionModel.DisplayOrder" class="form-control" />
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => showPositionModal = false">Cancel</button>
+                <button type="submit" form="save-position-form" class="btn btn-primary">
+                    <span class="bi bi-check-circle me-1"></span> Create
+                </button>
+            </Footer>
+        </Modal>
+    }
+
+    @* ── Assignments Tab ── *@
+    @if (activeTab == "assignments")
+    {
+        <Modal Visible="showAssignmentModal"
+               Title="@(editAssignmentCtrlNbr > 0 ? "Edit Assignment" : "Add Assignment")"
+               Icon="@(editAssignmentCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="CloseAssignmentModal">
+            <BodyContent>
+                <EditForm Model="assignmentModel" OnValidSubmit="OnSaveAssignment" id="save-assignment-form">
+                    <DataAnnotationsValidator />
+                    @if (editAssignmentCtrlNbr == 0)
+                    {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Assignment Group</label>
+                        <InputSelect @bind-Value="assignmentModel.AssignmentGroupCtrlNbr" class="form-select">
+                            <option value="0">-- Select --</option>
+                            @if (assignmentGroups is not null)
+                            {
+                                @foreach (var ag in assignmentGroups)
+                                {
+                                    <option value="@ag.CtrlNbr">@ag.Name</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Operating Days</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @foreach (var day in DayLabels)
+                            {
+                                var bit = 1 << day.Value;
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="day-@day.Value"
+                                           checked="@((assignmentModel.DaysOfWeekMask & bit) != 0)"
+                                           @onchange="@(e => ToggleDay(bit, (bool)e.Value!))" />
+                                    <label class="form-check-label" for="day-@day.Value">@day.Label</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Start Date</label>
+                        <InputDate @bind-Value="assignmentModel.StartDate" class="form-control" />
+                        <ValidationMessage For="() => assignmentModel.StartDate" class="text-danger" />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">End Date (optional)</label>
+                        <InputDate @bind-Value="assignmentModel.EndDate" class="form-control" />
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseAssignmentModal">Cancel</button>
+                <button type="submit" form="save-assignment-form" class="btn btn-primary">
+                    <span class="bi bi-check-circle me-1"></span> @(editAssignmentCtrlNbr > 0 ? "Update" : "Create")
+                </button>
+            </Footer>
+        </Modal>
+
+        <Modal Visible="showDeleteAssignmentModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+               OnClose="() => showDeleteAssignmentModal = false" Size="sm">
+            <BodyContent>
+                <p>Are you sure you want to delete this assignment?</p>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteAssignmentModal = false">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAssignment">
+                    <span class="bi bi-trash me-1"></span> Delete
+                </button>
+            </Footer>
+        </Modal>
+
+        <DataTable TItem="CrewAssignmentResponse" Items="assignments" Columns="assignmentColumns"
+                   EmptyMessage="No assignments found."
+                   DefaultSortColumn="Assignment">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateAssignmentModal">
+                        <span class="bi bi-plus-circle"></span> Add Assignment
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="a">
+                <td>@a.AssignmentGroupCtrlNbr</td>
+                <td>@FormatDays(a.DaysOfWeekMask)</td>
+                <td>@FormatDate(a.StartUtc)</td>
+                <td>@(string.IsNullOrEmpty(a.EndUtc) ? "—" : FormatDate(a.EndUtc))</td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditAssignmentModal(a)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteAssignmentModal(a)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    [Parameter] public long CtrlNbr { get; set; }
+
+    protected override string? FeatureKey => "staffing/crews";
+
+    private CrewResponse? crew;
+    private IReadOnlyList<CrewPositionResponse>? positions;
+    private IReadOnlyList<CrewAssignmentResponse>? assignments;
+    private IReadOnlyList<GroupResponse>? assignmentGroups;
+
+    private string activeTab = "positions";
+
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("positions", "Positions", "bi-person-badge"),
+        new("assignments", "Assignments", "bi-calendar-week")
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn<CrewPositionResponse>> positionColumns =
+    [
+        new("Role", p => p.PositionRoleCtrlNbr),
+        new("Order", p => p.DisplayOrder, width: "100px")
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn<CrewAssignmentResponse>> assignmentColumns =
+    [
+        new("Assignment", a => a.AssignmentGroupCtrlNbr),
+        new("Days", a => a.DaysOfWeekMask),
+        new("Start", a => a.StartUtc),
+        new("End", a => a.EndUtc),
+        DataTableColumn<CrewAssignmentResponse>.Actions()
+    ];
+
+    private static readonly (string Label, int Value)[] DayLabels =
+    [
+        ("Sun", 0), ("Mon", 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6)
+    ];
+
+    // Positions state
+    private bool showPositionModal;
+    private PositionInputModel positionModel = new();
+
+    // Assignments state
+    private bool showAssignmentModal;
+    private long editAssignmentCtrlNbr;
+    private AssignmentInputModel assignmentModel = new();
+    private bool showDeleteAssignmentModal;
+    private long deleteAssignmentCtrlNbr;
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadCrew();
+        await LoadPositions();
+        await LoadAssignments();
+        await LoadAssignmentGroups();
+    }
+
+    private async Task LoadCrew()
+    {
+        try
+        {
+            crew = await CrewClient.GetCrewAsync(CtrlNbr);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load crew: {ex.Message}";
+        }
+    }
+
+    private async Task LoadPositions()
+    {
+        try
+        {
+            var response = await CrewClient.GetCrewPositionsAsync(CtrlNbr);
+            positions = response.Positions;
+        }
+        catch
+        {
+            positions = [];
+        }
+    }
+
+    private async Task LoadAssignments()
+    {
+        try
+        {
+            var response = await CrewClient.GetCrewAssignmentsAsync(CtrlNbr);
+            assignments = response.Assignments;
+        }
+        catch
+        {
+            assignments = [];
+        }
+    }
+
+    private async Task LoadAssignmentGroups()
+    {
+        try
+        {
+            var response = await TenantConfigClient.GetGroupsByTypeNameAsync("Assignment");
+            assignmentGroups = response.Groups;
+        }
+        catch
+        {
+            assignmentGroups = [];
+        }
+    }
+
+    // ── Positions ──
+
+    private void OpenCreatePositionModal()
+    {
+        positionModel = new() { DisplayOrder = (positions?.Count ?? 0) + 1 };
+        showPositionModal = true;
+    }
+
+    private async Task OnSavePosition()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            await CrewClient.CreateCrewPositionAsync(CtrlNbr, positionModel.PositionRoleCtrlNbr, positionModel.DisplayOrder);
+            successMessage = "Position added.";
+            showPositionModal = false;
+            await LoadPositions();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add position: {ex.Message}";
+        }
+    }
+
+    // ── Assignments ──
+
+    private void OpenCreateAssignmentModal()
+    {
+        editAssignmentCtrlNbr = 0;
+        assignmentModel = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
+        showAssignmentModal = true;
+    }
+
+    private void OpenEditAssignmentModal(CrewAssignmentResponse a)
+    {
+        editAssignmentCtrlNbr = a.CtrlNbr;
+        assignmentModel = new()
+        {
+            AssignmentGroupCtrlNbr = a.AssignmentGroupCtrlNbr,
+            DaysOfWeekMask = a.DaysOfWeekMask,
+            StartDate = string.IsNullOrEmpty(a.StartUtc) ? DateOnly.FromDateTime(DateTime.Today) : DateOnly.Parse(a.StartUtc[..10]),
+            EndDate = string.IsNullOrEmpty(a.EndUtc) ? null : DateOnly.Parse(a.EndUtc[..10])
+        };
+        showAssignmentModal = true;
+    }
+
+    private void CloseAssignmentModal()
+    {
+        showAssignmentModal = false;
+        editAssignmentCtrlNbr = 0;
+        assignmentModel = new();
+    }
+
+    private void OpenDeleteAssignmentModal(CrewAssignmentResponse a)
+    {
+        deleteAssignmentCtrlNbr = a.CtrlNbr;
+        showDeleteAssignmentModal = true;
+    }
+
+    private async Task OnSaveAssignment()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            var startUtc = assignmentModel.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
+            var endUtc = assignmentModel.EndDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
+
+            if (editAssignmentCtrlNbr > 0)
+            {
+                await CrewClient.UpdateCrewAssignmentAsync(editAssignmentCtrlNbr, assignmentModel.DaysOfWeekMask, startUtc, endUtc);
+                successMessage = "Assignment updated.";
+            }
+            else
+            {
+                await CrewClient.CreateCrewAssignmentAsync(CtrlNbr, assignmentModel.AssignmentGroupCtrlNbr, assignmentModel.DaysOfWeekMask, startUtc, endUtc);
+                successMessage = "Assignment created.";
+            }
+
+            CloseAssignmentModal();
+            await LoadAssignments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save assignment: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDeleteAssignment()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            await CrewClient.DeleteCrewAssignmentAsync(deleteAssignmentCtrlNbr);
+            successMessage = "Assignment deleted.";
+            showDeleteAssignmentModal = false;
+            await LoadAssignments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete assignment: {ex.Message}";
+            showDeleteAssignmentModal = false;
+        }
+    }
+
+    private void ToggleDay(int bit, bool isChecked)
+    {
+        if (isChecked)
+            assignmentModel.DaysOfWeekMask |= bit;
+        else
+            assignmentModel.DaysOfWeekMask &= ~bit;
+    }
+
+    private static string FormatDays(int mask)
+    {
+        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        var active = new List<string>();
+        for (var i = 0; i < 7; i++)
+        {
+            if ((mask & (1 << i)) != 0) active.Add(days[i]);
+        }
+        return active.Count == 0 ? "None" : string.Join(", ", active);
+    }
+
+    private static string FormatDate(string isoUtc)
+    {
+        if (DateTime.TryParse(isoUtc, out var dt))
+            return dt.ToString("yyyy-MM-dd");
+        return isoUtc;
+    }
+
+    // ── Input Models ──
+
+    private sealed class PositionInputModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Position role is required.")]
+        public long PositionRoleCtrlNbr { get; set; }
+        public int DisplayOrder { get; set; } = 1;
+    }
+
+    private sealed class AssignmentInputModel
+    {
+        public long AssignmentGroupCtrlNbr { get; set; }
+        public int DaysOfWeekMask { get; set; }
+
+        [Required(ErrorMessage = "Start date is required.")]
+        public DateOnly StartDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public DateOnly? EndDate { get; set; }
+    }
+}

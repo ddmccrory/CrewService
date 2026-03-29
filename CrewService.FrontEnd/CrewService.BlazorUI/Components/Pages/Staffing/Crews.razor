@@ -1,0 +1,322 @@
+@page "/staffing/crews"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject CrewClient CrewClient
+@inject TenantConfigClient TenantConfigClient
+@inject NavigationManager Nav
+
+<PageTitle>Crews</PageTitle>
+
+<h1>Crews</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage crews.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing crews for <strong>@SelectedRailroadName</strong></p>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Crew" : "Create Crew")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-crew-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Crew Type</label>
+                    <InputSelect @bind-Value="saveModel.CrewType" class="form-select">
+                        <option value="REGULAR">Regular</option>
+                        <option value="EXTRA">Extra</option>
+                        <option value="RELIEF">Relief</option>
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Home Group</label>
+                    <InputSelect @bind-Value="saveModel.HomeGroupCtrlNbr" class="form-select">
+                        <option value="0">-- Select --</option>
+                        @if (workAreas is not null)
+                        {
+                            @foreach (var wa in workAreas)
+                            {
+                                <option value="@wa.CtrlNbr">@wa.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => saveModel.HomeGroupCtrlNbr" class="text-danger" />
+                </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Jax Turn Crew A" />
+                    <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                </div>
+                <div class="mb-0">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="crew-active-switch" />
+                        <label class="form-check-label" for="crew-active-switch">Active</label>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-crew-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="CrewResponse" Items="crews" Columns="columns"
+               SearchFilter="@((c, term) => c.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || c.CrewType.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search crews..."
+               EmptyMessage="No crews found."
+               DefaultSortColumn="Name">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <span class="bi bi-plus-circle"></span> Create Crew
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="crew">
+            <td>
+                <a href="staffing/crews/@crew.CtrlNbr" class="text-decoration-none fw-semibold">@crew.Name</a>
+            </td>
+            <td><span class="badge bg-secondary">@crew.CrewType</span></td>
+            <td>
+                @if (crew.IsActive)
+                {
+                    <span class="badge bg-success">Active</span>
+                }
+                else
+                {
+                    <span class="badge bg-warning text-dark">Inactive</span>
+                }
+            </td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(crew)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(crew)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "staffing/crews";
+
+    private IReadOnlyList<CrewResponse>? crews;
+    private IReadOnlyList<GroupResponse>? workAreas;
+
+    private static readonly IReadOnlyList<DataTableColumn<CrewResponse>> columns =
+    [
+        new("Name", c => c.Name),
+        new("Type", c => c.CrewType, width: "120px"),
+        new("Status", c => c.IsActive ? "Active" : "Inactive", width: "100px"),
+        DataTableColumn<CrewResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private CrewInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadWorkAreas();
+            await LoadCrews();
+        }
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadWorkAreas();
+            await LoadCrews();
+        }
+        else
+        {
+            crews = null;
+            workAreas = null;
+        }
+    }
+
+    private async Task LoadWorkAreas()
+    {
+        try
+        {
+            var response = await TenantConfigClient.GetWorkAreasAsync();
+            workAreas = response.Groups;
+        }
+        catch
+        {
+            workAreas = [];
+        }
+    }
+
+    private async Task LoadCrews()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await CrewClient.GetAllCrewsAsync(0);
+            crews = response.Crews;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load crews: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new() { IsActive = true };
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(CrewResponse crew)
+    {
+        editCtrlNbr = crew.CtrlNbr;
+        saveModel = new()
+        {
+            Name = crew.Name,
+            IsActive = crew.IsActive
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(CrewResponse crew)
+    {
+        deleteCtrlNbr = crew.CtrlNbr;
+        deleteName = crew.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await CrewClient.UpdateCrewAsync(editCtrlNbr, saveModel.Name!, saveModel.IsActive);
+                successMessage = "Crew updated.";
+            }
+            else
+            {
+                await CrewClient.CreateCrewAsync(saveModel.CrewType!, saveModel.HomeGroupCtrlNbr, saveModel.Name!, saveModel.IsActive);
+                successMessage = "Crew created.";
+            }
+
+            CloseSaveModal();
+            await LoadCrews();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save crew: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await CrewClient.DeleteCrewAsync(deleteCtrlNbr);
+            successMessage = "Crew deleted.";
+            showDeleteModal = false;
+            await LoadCrews();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete crew: {ex.Message}";
+            showDeleteModal = false;
+        }
+    }
+
+    private sealed class CrewInputModel
+    {
+        [Required(ErrorMessage = "Crew type is required.")]
+        public string? CrewType { get; set; } = "REGULAR";
+
+        public long HomeGroupCtrlNbr { get; set; }
+
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+}
