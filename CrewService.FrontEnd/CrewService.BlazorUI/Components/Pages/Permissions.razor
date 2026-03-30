@@ -39,7 +39,7 @@
 else if (roles is not null && features is not null)
 {
     <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
-        <div class="form-check form-switch">
+        <div class="form-check form-switch form-check-reverse">
             <input class="form-check-input" type="checkbox" id="parentOverride" @bind="useParentOverride" @bind:after="OnOverrideToggled" disabled="@(!HasParent)" />
             <label class="form-check-label" for="parentOverride">
                 Per-parent override

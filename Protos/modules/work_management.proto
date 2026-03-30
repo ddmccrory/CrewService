@@ -26,19 +26,19 @@ service WorkManagementSrvc {
   rpc UnbindSlot(UnbindSlotRequest) returns (PositionSlotResponse) {
     option (google.api.http) = { post: "/v1/work-management/slots/{ctrl_nbr}/unbind" body: "*" };
   }
-  rpc GetPositionRoles(GetPositionRolesRequest) returns (GetPositionRolesResponse) {
-    option (google.api.http) = { get: "/v1/work-management/roles/{craft_ctrl_nbr}" };
+  rpc GetCraftRoles(GetCraftRolesRequest) returns (GetCraftRolesResponse) {
+    option (google.api.http) = { get: "/v1/work-management/craft-roles/{craft_ctrl_nbr}" };
   }
-  rpc CreatePositionRole(CreatePositionRoleRequest) returns (PositionRoleResponse) {
-    option (google.api.http) = { post: "/v1/work-management/roles" body: "*" };
+  rpc CreateCraftRole(CreateCraftRoleRequest) returns (CraftRoleResponse) {
+    option (google.api.http) = { post: "/v1/work-management/craft-roles" body: "*" };
   }
 
-  // Position Roles (Update + Delete)
-  rpc UpdatePositionRole(UpdatePositionRoleRequest) returns (PositionRoleResponse) {
-    option (google.api.http) = { put: "/v1/work-management/roles/{ctrl_nbr}" body: "*" };
+  // Craft Roles (Update + Delete)
+  rpc UpdateCraftRole(UpdateCraftRoleRequest) returns (CraftRoleResponse) {
+    option (google.api.http) = { put: "/v1/work-management/craft-roles/{ctrl_nbr}" body: "*" };
   }
-  rpc DeletePositionRole(DeletePositionRoleRequest) returns (common.DeleteResponse) {
-    option (google.api.http) = { delete: "/v1/work-management/roles/{ctrl_nbr}" };
+  rpc DeleteCraftRole(DeleteCraftRoleRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/work-management/craft-roles/{ctrl_nbr}" };
   }
 }
 
@@ -78,7 +78,7 @@ message GetPositionSlotsResponse {
 }
 message CreatePositionSlotRequest {
   int64 work_instance_ctrl_nbr = 1;
-  int64 position_role_ctrl_nbr = 2;
+  int64 craft_role_ctrl_nbr = 2;
 }
 message BindSlotRequest {
   int64 ctrl_nbr = 1;
@@ -89,16 +89,16 @@ message UnbindSlotRequest { int64 ctrl_nbr = 1; }
 message PositionSlotResponse {
   int64 ctrl_nbr = 1;
   int64 work_instance_ctrl_nbr = 2;
-  int64 position_role_ctrl_nbr = 3;
+  int64 craft_role_ctrl_nbr = 3;
   string status = 4;
   int64 bound_employee_ctrl_nbr = 5;
   string binding_source = 6;
 }
 
 
-message GetPositionRolesRequest { int64 craft_ctrl_nbr = 1; }
-message GetPositionRolesResponse { repeated PositionRoleResponse roles = 1; int32 total_count = 2; }
-message CreatePositionRoleRequest { int64 craft_ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
-message PositionRoleResponse { int64 ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; string code = 3; string name = 4; string alternate_name = 5; }
-message UpdatePositionRoleRequest { int64 ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
-message DeletePositionRoleRequest { int64 ctrl_nbr = 1; }
+message GetCraftRolesRequest { int64 craft_ctrl_nbr = 1; }
+message GetCraftRolesResponse { repeated CraftRoleResponse roles = 1; int32 total_count = 2; }
+message CreateCraftRoleRequest { int64 craft_ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
+message CraftRoleResponse { int64 ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; string code = 3; string name = 4; string alternate_name = 5; }
+message UpdateCraftRoleRequest { int64 ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
+message DeleteCraftRoleRequest { int64 ctrl_nbr = 1; }

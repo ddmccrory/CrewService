@@ -80,16 +80,13 @@ else
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Department</label>
-                        <InputSelect @bind-Value="saveModel.DepartmentCtrlNbr" class="form-select">
-                            <option value="0">— None —</option>
-                            @if (departments is not null)
-                            {
-                                @foreach (var dept in departments)
-                                {
-                                    <option value="@dept.CtrlNbr">@dept.Name</option>
-                                }
-                            }
-                        </InputSelect>
+                        <SelectInput TItem="DepartmentResponse" TValue="long"
+                                     @bind-Value="saveModel.DepartmentCtrlNbr"
+                                     Items="departments"
+                                     ValueSelector="@(d => d.CtrlNbr)"
+                                     TextSelector="@(d => d.Name)"
+                                     Placeholder="— None —"
+                                     class="form-select" />
                     </div>
                 </div>
 

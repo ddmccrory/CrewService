@@ -24,15 +24,15 @@ internal sealed class PayRateRepository(CrewServiceDbContext dbContext, ICurrent
 {
     public async Task<PayRate?> GetEffectiveAsync(
         ControlNumber craftCtrlNbr, DateTime asOfDate,
-        ControlNumber? positionRoleCtrlNbr = null, CancellationToken ct = default)
+        ControlNumber? craftRoleCtrlNbr = null, CancellationToken ct = default)
     {
         var query = DbContext.Set<PayRate>()
             .Where(r => r.CraftCtrlNbr == craftCtrlNbr && r.EffectiveDate <= asOfDate);
 
-        if (positionRoleCtrlNbr is not null)
-            query = query.Where(r => r.PositionRoleCtrlNbr == positionRoleCtrlNbr);
+        if (craftRoleCtrlNbr is not null)
+            query = query.Where(r => r.CraftRoleCtrlNbr == craftRoleCtrlNbr);
         else
-            query = query.Where(r => r.PositionRoleCtrlNbr == null);
+            query = query.Where(r => r.CraftRoleCtrlNbr == null);
 
         return await query.OrderByDescending(r => r.EffectiveDate).FirstOrDefaultAsync(ct);
     }

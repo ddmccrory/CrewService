@@ -69,18 +69,18 @@ public sealed class Department : Entity
         Name = name;
     }
 }
-public sealed class PositionRole : Entity
+public sealed class CraftRole : Entity
 {
     public ControlNumber CraftCtrlNbr { get; private set; }
     public string? Code { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string? AlternateName { get; private set; }
 
-    private PositionRole() { CraftCtrlNbr = null!; }
+    private CraftRole() { CraftCtrlNbr = null!; }
 
-    public static PositionRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null)
+    public static CraftRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null)
     {
-        return new PositionRole
+        return new CraftRole
         {
             CraftCtrlNbr = craftCtrlNbr,
             Code = code,
@@ -100,19 +100,19 @@ public sealed class PositionRole : Entity
 public sealed class PositionSlot : Entity
 {
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
-    public ControlNumber PositionRoleCtrlNbr { get; private set; }
+    public ControlNumber CraftRoleCtrlNbr { get; private set; }
     public string Status { get; private set; } = "Created";
     public ControlNumber? BoundEmployeeCtrlNbr { get; private set; }
     public string? BindingSource { get; private set; }
 
-    private PositionSlot() { WorkInstanceCtrlNbr = null!; PositionRoleCtrlNbr = null!; }
+    private PositionSlot() { WorkInstanceCtrlNbr = null!; CraftRoleCtrlNbr = null!; }
 
-    public static PositionSlot Create(ControlNumber workInstanceCtrlNbr, ControlNumber positionRoleCtrlNbr)
+    public static PositionSlot Create(ControlNumber workInstanceCtrlNbr, ControlNumber craftRoleCtrlNbr)
     {
         return new PositionSlot
         {
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
-            PositionRoleCtrlNbr = positionRoleCtrlNbr,
+            CraftRoleCtrlNbr = craftRoleCtrlNbr,
             Status = "Created"
         };
     }
@@ -138,20 +138,20 @@ public sealed class SlotRequirement : Entity
 {
     public ControlNumber PositionSlotCtrlNbr { get; private set; }
     public int Priority { get; private set; }
-    public ControlNumber? PositionRoleCtrlNbr { get; private set; }
+    public ControlNumber? CraftRoleCtrlNbr { get; private set; }
     public ControlNumber? QualificationTypeCtrlNbr { get; private set; }
     public string? Notes { get; private set; }
 
     private SlotRequirement() { PositionSlotCtrlNbr = null!; }
 
     public static SlotRequirement Create(ControlNumber positionSlotCtrlNbr, int priority,
-        ControlNumber? positionRoleCtrlNbr = null, ControlNumber? qualificationTypeCtrlNbr = null, string? notes = null)
+        ControlNumber? craftRoleCtrlNbr = null, ControlNumber? qualificationTypeCtrlNbr = null, string? notes = null)
     {
         return new SlotRequirement
         {
             PositionSlotCtrlNbr = positionSlotCtrlNbr,
             Priority = priority,
-            PositionRoleCtrlNbr = positionRoleCtrlNbr,
+            CraftRoleCtrlNbr = craftRoleCtrlNbr,
             QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
             Notes = notes
         };

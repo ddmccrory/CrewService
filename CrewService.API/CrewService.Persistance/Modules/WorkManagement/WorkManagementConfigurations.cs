@@ -24,9 +24,9 @@ internal class WorkInstanceConfiguration : IEntityTypeConfiguration<WorkInstance
     }
 }
 
-internal class PositionRoleConfiguration : IEntityTypeConfiguration<PositionRole>
+internal class CraftRoleConfiguration : IEntityTypeConfiguration<CraftRole>
 {
-    public void Configure(EntityTypeBuilder<PositionRole> builder)
+    public void Configure(EntityTypeBuilder<CraftRole> builder)
     {
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
@@ -47,7 +47,7 @@ internal class PositionSlotConfiguration : IEntityTypeConfiguration<PositionSlot
         builder.HasKey(s => s.CtrlNbr);
         builder.Property(s => s.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(s => s.WorkInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.Property(s => s.PositionRoleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(s => s.CraftRoleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(s => s.Status).HasMaxLength(30).IsRequired();
         builder.Property(s => s.BoundEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value, v => v.HasValue ? ControlNumber.Create(v.Value) : null);
@@ -66,7 +66,7 @@ internal class SlotRequirementConfiguration : IEntityTypeConfiguration<SlotRequi
         builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.PositionSlotCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(r => r.Priority).IsRequired();
-        builder.Property(r => r.PositionRoleCtrlNbr).HasConversion(
+        builder.Property(r => r.CraftRoleCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value, v => v.HasValue ? ControlNumber.Create(v.Value) : null);
         builder.Property(r => r.QualificationTypeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value, v => v.HasValue ? ControlNumber.Create(v.Value) : null);

@@ -7,7 +7,7 @@ namespace CrewService.Presentation.Services.Modules;
 public class WorkManagementService(
     IWorkInstanceRepository workInstanceRepository,
     IPositionSlotRepository positionSlotRepository,
-    IPositionRoleRepository positionRoleRepository) : WorkManagementSrvc.WorkManagementSrvcBase
+    ICraftRoleRepository craftRoleRepository) : WorkManagementSrvc.WorkManagementSrvcBase
 {
 
 
@@ -49,7 +49,7 @@ public class WorkManagementService(
 
     public override async Task<PositionSlotResponse> CreatePositionSlot(CreatePositionSlotRequest request, ServerCallContext context)
     {
-        var slot = PositionSlot.Create(request.WorkInstanceCtrlNbr, request.PositionRoleCtrlNbr);
+        var slot = PositionSlot.Create(request.WorkInstanceCtrlNbr, request.CraftRoleCtrlNbr);
         await positionSlotRepository.AddAsync(slot);
         return MapSlot(slot);
     }
@@ -88,44 +88,46 @@ public class WorkManagementService(
     {
         CtrlNbr = s.CtrlNbr.Value,
         WorkInstanceCtrlNbr = s.WorkInstanceCtrlNbr.Value,
-        PositionRoleCtrlNbr = s.PositionRoleCtrlNbr.Value,
+        CraftRoleCtrlNbr = s.CraftRoleCtrlNbr.Value,
         Status = s.Status,
         BoundEmployeeCtrlNbr = s.BoundEmployeeCtrlNbr?.Value ?? 0,
         BindingSource = s.BindingSource ?? string.Empty
     };
 
-    public override async Task<GetPositionRolesResponse> GetPositionRoles(GetPositionRolesRequest request, ServerCallContext context)
+    public override async Task<GetCraftRolesResponse> GetCraftRoles(GetCraftRolesRequest request, ServerCallContext context)
     {
-        var roles = await positionRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
-        var response = new GetPositionRolesResponse { TotalCount = roles.Count };
+        var roles = request.CraftCtrlNbr > 0
+            ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
+            : await craftRoleRepository.GetAllAsync();
+        var response = new GetCraftRolesResponse { TotalCount = roles.Count };
         foreach (var r in roles) response.Roles.Add(MapRole(r));
         return response;
     }
 
-    public override async Task<PositionRoleResponse> CreatePositionRole(CreatePositionRoleRequest request, ServerCallContext context)
+    public override async Task<CraftRoleResponse> CreateCraftRole(CreateCraftRoleRequest request, ServerCallContext context)
     {
-        var role = PositionRole.Create(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName);
-        await positionRoleRepository.AddAsync(role);
+        var role = CraftRole.Create(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName);
+        await craftRoleRepository.AddAsync(role);
         return MapRole(role);
     }
 
 
-    public override async Task<PositionRoleResponse> UpdatePositionRole(UpdatePositionRoleRequest request, ServerCallContext context)
+    public override async Task<CraftRoleResponse> UpdateCraftRole(UpdateCraftRoleRequest request, ServerCallContext context)
     {
-        var role = await positionRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"PositionRole {request.CtrlNbr} not found."));
+        var role = await craftRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CtrlNbr} not found."));
         role.Update(request.Code, request.Name, request.AlternateName);
-        await positionRoleRepository.UpdateAsync(role);
+        await craftRoleRepository.UpdateAsync(role);
         return MapRole(role);
     }
 
-    public override async Task<DeleteResponse> DeletePositionRole(DeletePositionRoleRequest request, ServerCallContext context)
+    public override async Task<DeleteResponse> DeleteCraftRole(DeleteCraftRoleRequest request, ServerCallContext context)
     {
-        await positionRoleRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        await craftRoleRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
         return new DeleteResponse { Success = true };
     }
 
-    private static PositionRoleResponse MapRole(PositionRole r) => new()
+    private static CraftRoleResponse MapRole(CraftRole r) => new()
     {
         CtrlNbr = r.CtrlNbr.Value,
         CraftCtrlNbr = r.CraftCtrlNbr.Value,

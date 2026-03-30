@@ -136,21 +136,21 @@
                     </InputSelect>
                     <label>Marital Status</label>
                 </div>
-                <div class="form-check form-switch mb-3">
+                <div class="form-check form-switch form-check-reverse mb-3">
                     <InputCheckbox @bind-Value="Input.CallForOvertime" class="form-check-input" />
                     <label class="form-check-label">Call for Overtime</label>
                 </div>
                 @if (CurrentUser.IsAdmin)
                 {
-                <div class="form-check form-switch mb-3">
+                <div class="form-check form-switch form-check-reverse mb-3">
                     <InputCheckbox @bind-Value="Input.AllowFmlaMarkOff" class="form-check-input" />
                     <label class="form-check-label">Allow FMLA Mark Off</label>
                 </div>
-                <div class="form-check form-switch mb-3">
+                <div class="form-check form-switch form-check-reverse mb-3">
                     <InputCheckbox @bind-Value="Input.ProcessPayroll" class="form-check-input" />
                     <label class="form-check-label">Process Payroll</label>
                 </div>
-                <div class="form-check form-switch mb-3">
+                <div class="form-check form-switch form-check-reverse mb-3">
                     <InputCheckbox @bind-Value="Input.TieUpOffProperty" class="form-check-input" />
                     <label class="form-check-label">Tie Up Off Property</label>
                 </div>

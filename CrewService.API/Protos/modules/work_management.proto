@@ -115,7 +115,7 @@ message GetPositionSlotsResponse {
 }
 message CreatePositionSlotRequest {
   int64 work_instance_ctrl_nbr = 1;
-  int64 position_role_ctrl_nbr = 2;
+  int64 craft_role_ctrl_nbr = 2;
 }
 message BindSlotRequest {
   int64 ctrl_nbr = 1;
@@ -126,7 +126,7 @@ message UnbindSlotRequest { int64 ctrl_nbr = 1; }
 message PositionSlotResponse {
   int64 ctrl_nbr = 1;
   int64 work_instance_ctrl_nbr = 2;
-  int64 position_role_ctrl_nbr = 3;
+  int64 craft_role_ctrl_nbr = 3;
   string status = 4;
   int64 bound_employee_ctrl_nbr = 5;
   string binding_source = 6;

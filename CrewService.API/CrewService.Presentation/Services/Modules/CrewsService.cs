@@ -8,17 +8,35 @@ public class CrewsService(
     ICrewRepository crewRepository,
     ICrewPositionRepository crewPositionRepository,
     ICrewIncumbencyRepository incumbencyRepository,
-    ICrewAttachmentTemplateRepository attachmentRepo,
-    IReliefCoverageRuleRepository reliefRepo) : CrewsSrvc.CrewsSrvcBase
+    ICrewAssignmentRepository assignmentRepository) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
-        var crews = string.IsNullOrEmpty(request.CrewType)
-            ? await crewRepository.GetByHomeGroupAsync(ControlNumber.Create(request.HomeGroupCtrlNbr))
-            : await crewRepository.GetByTypeAsync(request.CrewType);
+        List<Domain.Modules.Crews.Crew> crews;
+        if (!string.IsNullOrEmpty(request.CrewType))
+            crews = await crewRepository.GetByTypeAsync(request.CrewType);
+        else if (request.HomeGroupCtrlNbr > 0)
+            crews = await crewRepository.GetByHomeGroupAsync(ControlNumber.Create(request.HomeGroupCtrlNbr));
+        else if (request.RailroadCtrlNbr > 0)
+            crews = await crewRepository.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr));
+        else
+            crews = await crewRepository.GetAllAsync();
+        var crewIds = crews.Select(c => c.CtrlNbr).ToList();
+        var allPositions = await crewPositionRepository.GetByCrewsAsync(crewIds);
+        var allAssignments = await assignmentRepository.GetByCrewsAsync(crewIds);
+        var positionCounts = allPositions.GroupBy(p => p.CrewCtrlNbr).ToDictionary(g => g.Key, g => g.Count());
+        var daysMasks = allAssignments.GroupBy(a => a.CrewCtrlNbr).ToDictionary(g => g.Key, g => g.Aggregate(0, (mask, a) => mask | a.DaysOfWeekMask));
+
         var response = new GetAllCrewsResponse { TotalCount = crews.Count };
         foreach (var c in crews)
-            response.Crews.Add(MapCrew(c));
+        {
+            var mapped = MapCrew(c);
+            positionCounts.TryGetValue(c.CtrlNbr, out var posCount);
+            daysMasks.TryGetValue(c.CtrlNbr, out var daysMask);
+            mapped.PositionCount = posCount;
+            mapped.WorkDaysMask = daysMask;
+            response.Crews.Add(mapped);
+        }
         return response;
     }
 
@@ -31,7 +49,8 @@ public class CrewsService(
 
     public override async Task<CrewResponse> CreateCrew(CreateCrewRequest request, ServerCallContext context)
     {
-        var crew = Crew.Create(request.CrewType, request.HomeGroupCtrlNbr, request.Name, request.IsActive);
+        var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        var crew = Crew.Create(request.CrewType, request.HomeGroupCtrlNbr, request.Name, request.IsActive, departmentCtrlNbr);
         await crewRepository.AddAsync(crew);
         return MapCrew(crew);
     }
@@ -40,7 +59,8 @@ public class CrewsService(
     {
         var crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
-        crew.Update(request.Name, request.IsActive);
+        var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        crew.Update(request.Name, request.IsActive, departmentCtrlNbr);
         await crewRepository.UpdateAsync(crew);
         return MapCrew(crew);
     }
@@ -60,7 +80,7 @@ public class CrewsService(
             {
                 CtrlNbr = p.CtrlNbr.Value,
                 CrewCtrlNbr = p.CrewCtrlNbr.Value,
-                PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value,
+                CraftRoleCtrlNbr = p.CraftRoleCtrlNbr.Value,
                 DisplayOrder = p.DisplayOrder
             });
         return response;
@@ -68,13 +88,13 @@ public class CrewsService(
 
     public override async Task<CrewPositionResponse> CreateCrewPosition(CreateCrewPositionRequest request, ServerCallContext context)
     {
-        var position = CrewPosition.Create(request.CrewCtrlNbr, request.PositionRoleCtrlNbr, request.DisplayOrder);
+        var position = CrewPosition.Create(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder);
         await crewPositionRepository.AddAsync(position);
         return new CrewPositionResponse
         {
             CtrlNbr = position.CtrlNbr.Value,
             CrewCtrlNbr = position.CrewCtrlNbr.Value,
-            PositionRoleCtrlNbr = position.PositionRoleCtrlNbr.Value,
+            CraftRoleCtrlNbr = position.CraftRoleCtrlNbr.Value,
             DisplayOrder = position.DisplayOrder
         };
     }
@@ -84,6 +104,7 @@ public class CrewsService(
         CtrlNbr = c.CtrlNbr.Value,
         CrewType = c.CrewType,
         HomeGroupCtrlNbr = c.HomeGroupCtrlNbr.Value,
+        DepartmentCtrlNbr = c.DepartmentCtrlNbr?.Value ?? 0,
         Name = c.Name,
         IsActive = c.IsActive
     };
@@ -115,58 +136,48 @@ public class CrewsService(
         EndUtc = i.EndUtc?.ToString("O") ?? string.Empty
     };
 
-    // Attachment Templates
-    public override async Task<GetCrewAttachmentTemplatesResponse> GetCrewAttachmentTemplates(GetCrewAttachmentTemplatesRequest request, ServerCallContext context)
+    // Crew Assignments
+    public override async Task<GetCrewAssignmentsResponse> GetCrewAssignments(GetCrewAssignmentsRequest request, ServerCallContext context)
     {
-        var items = await attachmentRepo.GetByAssignmentGroupAsync(ControlNumber.Create(request.CrewCtrlNbr));
-        var response = new GetCrewAttachmentTemplatesResponse { TotalCount = items.Count };
-        foreach (var t in items) response.Templates.Add(MapAttachmentTemplate(t));
+        var items = await assignmentRepository.GetByCrewAsync(ControlNumber.Create(request.CrewCtrlNbr));
+        var response = new GetCrewAssignmentsResponse { TotalCount = items.Count };
+        foreach (var a in items) response.Assignments.Add(MapAssignment(a));
         return response;
     }
 
-    public override async Task<CrewAttachmentTemplateResponse> CreateCrewAttachmentTemplate(CreateCrewAttachmentTemplateRequest request, ServerCallContext context)
+    public override async Task<CrewAssignmentResponse> CreateCrewAssignment(CreateCrewAssignmentRequest request, ServerCallContext context)
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var attachment = CrewAttachmentTemplate.Create(request.AssignmentGroupCtrlNbr, request.CrewCtrlNbr, startUtc, endUtc);
-        await attachmentRepo.AddAsync(attachment);
-        return MapAttachmentTemplate(attachment);
+        var assignment = CrewAssignment.Create(request.CrewCtrlNbr, request.AssignmentGroupCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
+        await assignmentRepository.AddAsync(assignment);
+        return MapAssignment(assignment);
     }
 
-    private static CrewAttachmentTemplateResponse MapAttachmentTemplate(CrewAttachmentTemplate t) => new()
+    public override async Task<CrewAssignmentResponse> UpdateCrewAssignment(UpdateCrewAssignmentRequest request, ServerCallContext context)
     {
-        CtrlNbr = t.CtrlNbr.Value,
-        AssignmentGroupCtrlNbr = t.AssignmentGroupCtrlNbr.Value,
-        CrewCtrlNbr = t.CrewCtrlNbr.Value,
-        StartUtc = t.StartUtc.ToString("O"),
-        EndUtc = t.EndUtc?.ToString("O") ?? string.Empty
-    };
-
-    // Relief Coverage Rules
-    public override async Task<GetReliefCoverageRulesResponse> GetReliefCoverageRules(GetReliefCoverageRulesRequest request, ServerCallContext context)
-    {
-        var items = await reliefRepo.GetByReliefCrewAsync(ControlNumber.Create(request.ReliefCrewCtrlNbr));
-        var response = new GetReliefCoverageRulesResponse { TotalCount = items.Count };
-        foreach (var r in items) response.Rules.Add(MapReliefRule(r));
-        return response;
-    }
-
-    public override async Task<ReliefCoverageRuleResponse> CreateReliefCoverageRule(CreateReliefCoverageRuleRequest request, ServerCallContext context)
-    {
+        var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewAssignment {request.CtrlNbr} not found."));
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var rule = ReliefCoverageRule.Create(request.ReliefCrewCtrlNbr, request.AssignmentGroupCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
-        await reliefRepo.AddAsync(rule);
-        return MapReliefRule(rule);
+        assignment.Update(request.DaysOfWeekMask, startUtc, endUtc);
+        await assignmentRepository.UpdateAsync(assignment);
+        return MapAssignment(assignment);
     }
 
-    private static ReliefCoverageRuleResponse MapReliefRule(ReliefCoverageRule r) => new()
+    public override async Task<DeleteResponse> DeleteCrewAssignment(DeleteCrewAssignmentRequest request, ServerCallContext context)
     {
-        CtrlNbr = r.CtrlNbr.Value,
-        ReliefCrewCtrlNbr = r.ReliefCrewCtrlNbr.Value,
-        AssignmentGroupCtrlNbr = r.AssignmentGroupCtrlNbr.Value,
-        DaysOfWeekMask = r.DaysOfWeekMask,
-        StartUtc = r.StartUtc.ToString("O"),
-        EndUtc = r.EndUtc?.ToString("O") ?? string.Empty
+        await assignmentRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        return new DeleteResponse { Success = true };
+    }
+
+    private static CrewAssignmentResponse MapAssignment(CrewAssignment a) => new()
+    {
+        CtrlNbr = a.CtrlNbr.Value,
+        CrewCtrlNbr = a.CrewCtrlNbr.Value,
+        AssignmentGroupCtrlNbr = a.AssignmentGroupCtrlNbr.Value,
+        DaysOfWeekMask = a.DaysOfWeekMask,
+        StartUtc = a.StartUtc.ToString("O"),
+        EndUtc = a.EndUtc?.ToString("O") ?? string.Empty
     };
 }

@@ -8,17 +8,19 @@ public sealed class Crew : Entity
 {
     public string CrewType { get; private set; } = "REGULAR";
     public ControlNumber HomeGroupCtrlNbr { get; private set; }
+    public ControlNumber? DepartmentCtrlNbr { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
 
     private Crew() { HomeGroupCtrlNbr = null!; }
 
-    public static Crew Create(string crewType, ControlNumber homeGroupCtrlNbr, string name, bool isActive = true)
+    public static Crew Create(string crewType, ControlNumber homeGroupCtrlNbr, string name, bool isActive = true, ControlNumber? departmentCtrlNbr = null)
     {
         var crew = new Crew
         {
             CrewType = crewType,
             HomeGroupCtrlNbr = homeGroupCtrlNbr,
+            DepartmentCtrlNbr = departmentCtrlNbr,
             Name = name,
             IsActive = isActive
         };
@@ -26,10 +28,11 @@ public sealed class Crew : Entity
         return crew;
     }
 
-    public void Update(string name, bool isActive)
+    public void Update(string name, bool isActive, ControlNumber? departmentCtrlNbr = null)
     {
         Name = name;
         IsActive = isActive;
+        DepartmentCtrlNbr = departmentCtrlNbr;
         Raise(new CrewUpdatedDomainEvent(this));
     }
 }
@@ -37,17 +40,17 @@ public sealed class Crew : Entity
 public sealed class CrewPosition : Entity
 {
     public ControlNumber CrewCtrlNbr { get; private set; }
-    public ControlNumber PositionRoleCtrlNbr { get; private set; }
+    public ControlNumber CraftRoleCtrlNbr { get; private set; }
     public int DisplayOrder { get; private set; }
 
-    private CrewPosition() { CrewCtrlNbr = null!; PositionRoleCtrlNbr = null!; }
+    private CrewPosition() { CrewCtrlNbr = null!; CraftRoleCtrlNbr = null!; }
 
-    public static CrewPosition Create(ControlNumber crewCtrlNbr, ControlNumber positionRoleCtrlNbr, int displayOrder)
+    public static CrewPosition Create(ControlNumber crewCtrlNbr, ControlNumber craftRoleCtrlNbr, int displayOrder)
     {
         return new CrewPosition
         {
             CrewCtrlNbr = crewCtrlNbr,
-            PositionRoleCtrlNbr = positionRoleCtrlNbr,
+            CraftRoleCtrlNbr = craftRoleCtrlNbr,
             DisplayOrder = displayOrder
         };
     }
@@ -68,27 +71,6 @@ public sealed class CrewIncumbency : Entity
         {
             CrewPositionCtrlNbr = crewPositionCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
-            StartUtc = startUtc,
-            EndUtc = endUtc
-        };
-    }
-}
-
-public sealed class CrewAttachmentTemplate : Entity
-{
-    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
-    public ControlNumber CrewCtrlNbr { get; private set; }
-    public DateTime StartUtc { get; private set; }
-    public DateTime? EndUtc { get; private set; }
-
-    private CrewAttachmentTemplate() { AssignmentGroupCtrlNbr = null!; CrewCtrlNbr = null!; }
-
-    public static CrewAttachmentTemplate Create(ControlNumber assignmentGroupCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
-    {
-        return new CrewAttachmentTemplate
-        {
-            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
-            CrewCtrlNbr = crewCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
@@ -116,27 +98,34 @@ public sealed class CrewAttachmentInstance : Entity
     }
 }
 
-public sealed class ReliefCoverageRule : Entity
+public sealed class CrewAssignment : Entity
 {
-    public ControlNumber ReliefCrewCtrlNbr { get; private set; }
+    public ControlNumber CrewCtrlNbr { get; private set; }
     public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
     public int DaysOfWeekMask { get; private set; }
     public DateTime StartUtc { get; private set; }
     public DateTime? EndUtc { get; private set; }
 
-    private ReliefCoverageRule() { ReliefCrewCtrlNbr = null!; AssignmentGroupCtrlNbr = null!; }
+    private CrewAssignment() { CrewCtrlNbr = null!; AssignmentGroupCtrlNbr = null!; }
 
-    public static ReliefCoverageRule Create(ControlNumber reliefCrewCtrlNbr, ControlNumber assignmentGroupCtrlNbr,
+    public static CrewAssignment Create(ControlNumber crewCtrlNbr, ControlNumber assignmentGroupCtrlNbr,
         int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
     {
-        return new ReliefCoverageRule
+        return new CrewAssignment
         {
-            ReliefCrewCtrlNbr = reliefCrewCtrlNbr,
+            CrewCtrlNbr = crewCtrlNbr,
             AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
             DaysOfWeekMask = daysOfWeekMask,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
+    }
+
+    public void Update(int daysOfWeekMask, DateTime startUtc, DateTime? endUtc)
+    {
+        DaysOfWeekMask = daysOfWeekMask;
+        StartUtc = startUtc;
+        EndUtc = endUtc;
     }
 }
 
@@ -156,5 +145,5 @@ public sealed record CrewUpdatedDomainEvent : DomainEvent
 public sealed record CrewPositionVacatedDomainEvent : DomainEvent
 {
     public CrewPositionVacatedDomainEvent(CrewPosition p, ControlNumber? previousIncumbentCtrlNbr, string vacancyReasonCode)
-        : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
+        : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, CraftRoleCtrlNbr = p.CraftRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
 }

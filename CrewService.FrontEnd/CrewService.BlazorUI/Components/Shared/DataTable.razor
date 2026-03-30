@@ -1,13 +1,13 @@
 @typeparam TItem
 
-@if (ToolbarContent is not null || SearchFilter is not null)
+@if (ToolbarContent is not null || HasSearch)
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         @if (ToolbarContent is not null)
         {
             @ToolbarContent
         }
-        @if (SearchFilter is not null)
+        @if (HasSearch)
         {
             <div class="d-flex align-items-center gap-2 ms-auto" style="max-width: 350px;">
                 <span class="bi bi-search text-muted"></span>
@@ -102,10 +102,10 @@ else
 
             IEnumerable<TItem> result = Items;
 
-            if (SearchFilter is not null && !string.IsNullOrWhiteSpace(searchText))
+            if (HasSearch && !string.IsNullOrWhiteSpace(searchText))
             {
                 var term = searchText.Trim();
-                result = result.Where(item => SearchFilter(item, term));
+                result = result.Where(item => MatchesSearch(item, term));
             }
 
             var col = Columns.FirstOrDefault(c => c.SortKey == sortColumn);
@@ -132,6 +132,17 @@ else
     }
 
     private void ClearSearch() => searchText = string.Empty;
+
+    private bool HasSearch => SearchFilter is not null || Columns.Any(c => c.SortValue is not null);
+
+    private bool MatchesSearch(TItem item, string term)
+    {
+        if (SearchFilter is not null)
+            return SearchFilter(item, term);
+
+        return Columns.Any(c => c.SortValue is not null
+            && c.SortValue(item)?.ToString()?.Contains(term, StringComparison.OrdinalIgnoreCase) == true);
+    }
 
     private static readonly IComparer<object?> SortComparer = Comparer<object?>.Create((a, b) =>
     {

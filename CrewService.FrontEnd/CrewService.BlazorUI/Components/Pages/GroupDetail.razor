@@ -250,9 +250,13 @@ else
             .Select(child => BuildSubtree(child.CtrlNbr, allGroups))
             .ToList();
 
+        var label = string.IsNullOrEmpty(node.Code)
+            ? node.Name
+            : $"{node.Code.ToUpperInvariant()} \u2013 {node.Name}";
+
         return new TreeNode
         {
-            Label = node.Name,
+            Label = label,
             Subtitle = $"({GetGroupTypeName(node.GroupTypeCtrlNbr)})",
             IsHighlighted = node.CtrlNbr == CtrlNbr,
             Href = node.CtrlNbr == CtrlNbr ? null : $"/config/groups/{node.CtrlNbr}",

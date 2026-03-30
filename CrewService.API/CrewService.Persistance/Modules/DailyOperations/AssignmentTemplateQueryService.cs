@@ -36,10 +36,10 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
 
         var assignmentCtrlNbrs = assignments.Select(a => a.CtrlNbr).ToList();
 
-        var attachments = await dbContext.Set<CrewAttachmentTemplate>()
+        var dayBit = 1 << (int)targetDate.DayOfWeek;
+        var attachments = await dbContext.Set<CrewAssignment>()
             .Where(a => assignmentCtrlNbrs.Contains(a.AssignmentGroupCtrlNbr)
-                        && a.StartUtc <= targetUtc
-                        && (a.EndUtc == null || a.EndUtc > targetUtc))
+                        && a.StartUtc <= targetUtc && (a.EndUtc == null || a.EndUtc > targetUtc) && (a.DaysOfWeekMask & dayBit) != 0)
             .ToListAsync(ct);
 
         var crewCtrlNbrs = attachments.Select(a => a.CrewCtrlNbr).Distinct().ToList();

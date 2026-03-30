@@ -36,7 +36,7 @@ public class CrewPositionTests
         var position = CrewPosition.Create(1, 10, 2);
 
         Assert.Equal(1, position.CrewCtrlNbr.Value);
-        Assert.Equal(10, position.PositionRoleCtrlNbr.Value);
+        Assert.Equal(10, position.CraftRoleCtrlNbr.Value);
         Assert.Equal(2, position.DisplayOrder);
     }
 }
@@ -66,18 +66,19 @@ public class CrewIncumbencyTests
     }
 }
 
-public class CrewAttachmentTemplateTests
+public class CrewAssignmentTests
 {
     [Fact]
     public void Create_SetsProperties()
     {
         var start = DateTime.UtcNow;
-        var attachment = CrewAttachmentTemplate.Create(10, 20, start);
+        var assignment = CrewAssignment.Create(10, 20, 0b0111110, start);
 
-        Assert.Equal(10, attachment.AssignmentGroupCtrlNbr.Value);
-        Assert.Equal(20, attachment.CrewCtrlNbr.Value);
-        Assert.Equal(start, attachment.StartUtc);
-        Assert.Null(attachment.EndUtc);
+        Assert.Equal(10, assignment.CrewCtrlNbr.Value);
+        Assert.Equal(20, assignment.AssignmentGroupCtrlNbr.Value);
+        Assert.Equal(0b0111110, assignment.DaysOfWeekMask);
+        Assert.Equal(start, assignment.StartUtc);
+        Assert.Null(assignment.EndUtc);
     }
 
     [Fact]
@@ -85,24 +86,31 @@ public class CrewAttachmentTemplateTests
     {
         var start = DateTime.UtcNow;
         var end = start.AddDays(7);
-        var attachment = CrewAttachmentTemplate.Create(10, 20, start, end);
+        var assignment = CrewAssignment.Create(10, 20, 0b0111110, start, end);
 
-        Assert.Equal(end, attachment.EndUtc);
+        Assert.Equal(end, assignment.EndUtc);
     }
-}
 
-public class ReliefCoverageRuleTests
-{
     [Fact]
-    public void Create_SetsProperties()
+    public void Update_ChangesProperties()
     {
         var start = DateTime.UtcNow;
-        var rule = ReliefCoverageRule.Create(1, 2, 0b1111100, start);
+        var assignment = CrewAssignment.Create(10, 20, 0b0111110, start);
+        var newStart = start.AddDays(1);
+        var newEnd = start.AddDays(30);
 
-        Assert.Equal(1, rule.ReliefCrewCtrlNbr.Value);
-        Assert.Equal(2, rule.AssignmentGroupCtrlNbr.Value);
-        Assert.Equal(0b1111100, rule.DaysOfWeekMask);
-        Assert.Equal(start, rule.StartUtc);
-        Assert.Null(rule.EndUtc);
+        assignment.Update(0b1111111, newStart, newEnd);
+
+        Assert.Equal(0b1111111, assignment.DaysOfWeekMask);
+        Assert.Equal(newStart, assignment.StartUtc);
+        Assert.Equal(newEnd, assignment.EndUtc);
+    }
+
+    [Fact]
+    public void Create_WithZeroMask_MeansNoDays()
+    {
+        var assignment = CrewAssignment.Create(10, 20, 0, DateTime.UtcNow);
+
+        Assert.Equal(0, assignment.DaysOfWeekMask);
     }
 }

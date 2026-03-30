@@ -225,7 +225,7 @@
                 }
 
                 @* ── Work Management ── *@
-                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/position-roles"))
+                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles"))
                 {
                     <NavMenuGroup Title="Work Management" Icon="bi-briefcase-fill" IsInitiallyExpanded="@IsCurrentPath("work-management")">
                         @if (Permissions.HasAccess("work-management/departments"))
@@ -244,11 +244,11 @@
                                 </NavLink>
                             </div>
                         }
-                        @if (Permissions.HasAccess("work-management/position-roles"))
+                        @if (Permissions.HasAccess("work-management/craft-roles"))
                         {
                             <div class="nav-item">
-                                <NavLink class="nav-link" href="work-management/position-roles">
-                                    <span class="bi bi-person-badge" aria-hidden="true"></span> Position Roles
+                                <NavLink class="nav-link" href="work-management/craft-roles">
+                                    <span class="bi bi-person-badge" aria-hidden="true"></span> Craft Roles
                                 </NavLink>
                             </div>
                         }

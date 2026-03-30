@@ -7,11 +7,13 @@ public interface ICrewRepository : IRepository<Crew>
 {
     Task<List<Crew>> GetByHomeGroupAsync(ControlNumber homeGroupCtrlNbr);
     Task<List<Crew>> GetByTypeAsync(string crewType);
+    Task<List<Crew>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
 }
 
 public interface ICrewPositionRepository : IRepository<CrewPosition>
 {
     Task<List<CrewPosition>> GetByCrewAsync(ControlNumber crewCtrlNbr);
+    Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
 }
 
 public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>
@@ -20,17 +22,14 @@ public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>
     Task<List<CrewIncumbency>> GetActiveByEmployeeAsync(ControlNumber employeeCtrlNbr, DateTime asOfUtc);
 }
 
-public interface ICrewAttachmentTemplateRepository : IRepository<CrewAttachmentTemplate>
-{
-    Task<List<CrewAttachmentTemplate>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
-}
-
 public interface ICrewAttachmentInstanceRepository : IRepository<CrewAttachmentInstance>
 {
     Task<List<CrewAttachmentInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr);
 }
 
-public interface IReliefCoverageRuleRepository : IRepository<ReliefCoverageRule>
+public interface ICrewAssignmentRepository : IRepository<CrewAssignment>
 {
-    Task<List<ReliefCoverageRule>> GetByReliefCrewAsync(ControlNumber reliefCrewCtrlNbr);
+    Task<List<CrewAssignment>> GetByCrewAsync(ControlNumber crewCtrlNbr);
+    Task<List<CrewAssignment>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
+    Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
 }
