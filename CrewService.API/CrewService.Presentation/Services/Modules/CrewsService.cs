@@ -17,11 +17,26 @@ public class CrewsService(
             crews = await crewRepository.GetByTypeAsync(request.CrewType);
         else if (request.HomeGroupCtrlNbr > 0)
             crews = await crewRepository.GetByHomeGroupAsync(ControlNumber.Create(request.HomeGroupCtrlNbr));
+        else if (request.RailroadCtrlNbr > 0)
+            crews = await crewRepository.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr));
         else
             crews = await crewRepository.GetAllAsync();
+        var crewIds = crews.Select(c => c.CtrlNbr).ToList();
+        var allPositions = await crewPositionRepository.GetByCrewsAsync(crewIds);
+        var allAssignments = await assignmentRepository.GetByCrewsAsync(crewIds);
+        var positionCounts = allPositions.GroupBy(p => p.CrewCtrlNbr).ToDictionary(g => g.Key, g => g.Count());
+        var daysMasks = allAssignments.GroupBy(a => a.CrewCtrlNbr).ToDictionary(g => g.Key, g => g.Aggregate(0, (mask, a) => mask | a.DaysOfWeekMask));
+
         var response = new GetAllCrewsResponse { TotalCount = crews.Count };
         foreach (var c in crews)
-            response.Crews.Add(MapCrew(c));
+        {
+            var mapped = MapCrew(c);
+            positionCounts.TryGetValue(c.CtrlNbr, out var posCount);
+            daysMasks.TryGetValue(c.CtrlNbr, out var daysMask);
+            mapped.PositionCount = posCount;
+            mapped.WorkDaysMask = daysMask;
+            response.Crews.Add(mapped);
+        }
         return response;
     }
 
@@ -34,7 +49,8 @@ public class CrewsService(
 
     public override async Task<CrewResponse> CreateCrew(CreateCrewRequest request, ServerCallContext context)
     {
-        var crew = Crew.Create(request.CrewType, request.HomeGroupCtrlNbr, request.Name, request.IsActive);
+        var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        var crew = Crew.Create(request.CrewType, request.HomeGroupCtrlNbr, request.Name, request.IsActive, departmentCtrlNbr);
         await crewRepository.AddAsync(crew);
         return MapCrew(crew);
     }
@@ -43,7 +59,8 @@ public class CrewsService(
     {
         var crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
-        crew.Update(request.Name, request.IsActive);
+        var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        crew.Update(request.Name, request.IsActive, departmentCtrlNbr);
         await crewRepository.UpdateAsync(crew);
         return MapCrew(crew);
     }
@@ -63,7 +80,7 @@ public class CrewsService(
             {
                 CtrlNbr = p.CtrlNbr.Value,
                 CrewCtrlNbr = p.CrewCtrlNbr.Value,
-                PositionRoleCtrlNbr = p.PositionRoleCtrlNbr.Value,
+                CraftRoleCtrlNbr = p.CraftRoleCtrlNbr.Value,
                 DisplayOrder = p.DisplayOrder
             });
         return response;
@@ -71,13 +88,13 @@ public class CrewsService(
 
     public override async Task<CrewPositionResponse> CreateCrewPosition(CreateCrewPositionRequest request, ServerCallContext context)
     {
-        var position = CrewPosition.Create(request.CrewCtrlNbr, request.PositionRoleCtrlNbr, request.DisplayOrder);
+        var position = CrewPosition.Create(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder);
         await crewPositionRepository.AddAsync(position);
         return new CrewPositionResponse
         {
             CtrlNbr = position.CtrlNbr.Value,
             CrewCtrlNbr = position.CrewCtrlNbr.Value,
-            PositionRoleCtrlNbr = position.PositionRoleCtrlNbr.Value,
+            CraftRoleCtrlNbr = position.CraftRoleCtrlNbr.Value,
             DisplayOrder = position.DisplayOrder
         };
     }
@@ -87,6 +104,7 @@ public class CrewsService(
         CtrlNbr = c.CtrlNbr.Value,
         CrewType = c.CrewType,
         HomeGroupCtrlNbr = c.HomeGroupCtrlNbr.Value,
+        DepartmentCtrlNbr = c.DepartmentCtrlNbr?.Value ?? 0,
         Name = c.Name,
         IsActive = c.IsActive
     };

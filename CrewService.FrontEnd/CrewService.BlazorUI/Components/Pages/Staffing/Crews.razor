@@ -12,6 +12,7 @@
 
 @inject CrewClient CrewClient
 @inject TenantConfigClient TenantConfigClient
+@inject DepartmentClient DepartmentClient
 @inject NavigationManager Nav
 
 <PageTitle>Crews</PageTitle>
@@ -48,26 +49,32 @@ else
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Home Group</label>
-                    <InputSelect @bind-Value="saveModel.HomeGroupCtrlNbr" class="form-select">
-                        <option value="0">-- Select --</option>
-                        @if (workAreas is not null)
-                        {
-                            @foreach (var wa in workAreas)
-                            {
-                                <option value="@wa.CtrlNbr">@wa.Name</option>
-                            }
-                        }
-                    </InputSelect>
+                    <SelectInput TItem="GroupResponse" TValue="long"
+                                 @bind-Value="saveModel.HomeGroupCtrlNbr"
+                                 Items="workAreas"
+                                 ValueSelector="@(wa => wa.CtrlNbr)"
+                                 TextSelector="@(wa => wa.Name)"
+                                 class="form-select" />
                     <ValidationMessage For="() => saveModel.HomeGroupCtrlNbr" class="text-danger" />
                 </div>
                 }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Department</label>
+                    <SelectInput TItem="DepartmentResponse" TValue="long"
+                                 @bind-Value="saveModel.DepartmentCtrlNbr"
+                                 Items="departments"
+                                 ValueSelector="@(d => d.CtrlNbr)"
+                                 TextSelector="@(d => d.Name)"
+                                 class="form-select" />
+                    <ValidationMessage For="() => saveModel.DepartmentCtrlNbr" class="text-danger" />
+                </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Name</label>
                     <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Jax Turn Crew A" />
                     <ValidationMessage For="() => saveModel.Name" class="text-danger" />
                 </div>
                 <div class="mb-0">
-                    <div class="form-check form-switch">
+                    <div class="form-check form-switch form-check-reverse">
                         <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="crew-active-switch" />
                         <label class="form-check-label" for="crew-active-switch">Active</label>
                     </div>
@@ -112,7 +119,6 @@ else
     }
 
     <DataTable TItem="CrewResponse" Items="crews" Columns="columns"
-               SearchFilter="@((c, term) => c.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || c.CrewType.Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search crews..."
                EmptyMessage="No crews found."
                DefaultSortColumn="Name">
@@ -129,6 +135,9 @@ else
                 <a href="staffing/crews/@crew.CtrlNbr" class="text-decoration-none fw-semibold">@crew.Name</a>
             </td>
             <td><span class="badge bg-secondary">@crew.CrewType</span></td>
+            <td>@GetDepartmentName(crew.DepartmentCtrlNbr)</td>
+            <td>@crew.PositionCount</td>
+            <td>@FormatDays(crew.WorkDaysMask)</td>
             <td>
                 @if (crew.IsActive)
                 {
@@ -161,11 +170,16 @@ else
 
     private IReadOnlyList<CrewResponse>? crews;
     private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<DepartmentResponse>? departments;
+    private Dictionary<long, string> departmentNames = [];
 
-    private static readonly IReadOnlyList<DataTableColumn<CrewResponse>> columns =
+    private IReadOnlyList<DataTableColumn<CrewResponse>> columns =>
     [
         new("Name", c => c.Name),
         new("Type", c => c.CrewType, width: "120px"),
+        new("Department", c => GetDepartmentName(c.DepartmentCtrlNbr)),
+        new("Positions", c => c.PositionCount, width: "100px"),
+        new("Work Days", c => FormatDays(c.WorkDaysMask)),
         new("Status", c => c.IsActive ? "Active" : "Inactive", width: "100px"),
         DataTableColumn<CrewResponse>.Actions()
     ];
@@ -183,6 +197,7 @@ else
         if (HasRailroad)
         {
             await LoadWorkAreas();
+            await LoadDepartments();
             await LoadCrews();
         }
     }
@@ -192,12 +207,15 @@ else
         if (HasRailroad)
         {
             await LoadWorkAreas();
+            await LoadDepartments();
             await LoadCrews();
         }
         else
         {
             crews = null;
             workAreas = null;
+            departments = null;
+            departmentNames = [];
         }
     }
 
@@ -206,7 +224,10 @@ else
         try
         {
             var response = await TenantConfigClient.GetWorkAreasAsync();
-            workAreas = response.Groups;
+            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
+            workAreas = response.Groups
+                .Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl)
+                .ToList();
         }
         catch
         {
@@ -214,12 +235,29 @@ else
         }
     }
 
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            departments = response.Departments;
+            departmentNames = departments.ToDictionary(d => d.CtrlNbr, d => d.Name);
+        }
+        catch
+        {
+            departments = [];
+        }
+    }
+
+    private string GetDepartmentName(long ctrlNbr) =>
+        ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var name) ? name : "—";
+
     private async Task LoadCrews()
     {
         try
         {
             errorMessage = null;
-            var response = await CrewClient.GetAllCrewsAsync(0);
+            var response = await CrewClient.GetAllCrewsAsync(SelectedRailroadCtrlNbr!.Value);
             crews = response.Crews;
         }
         catch (Exception ex)
@@ -241,7 +279,8 @@ else
         saveModel = new()
         {
             Name = crew.Name,
-            IsActive = crew.IsActive
+            IsActive = crew.IsActive,
+            DepartmentCtrlNbr = crew.DepartmentCtrlNbr
         };
         showSaveModal = true;
     }
@@ -269,12 +308,12 @@ else
 
             if (editCtrlNbr > 0)
             {
-                await CrewClient.UpdateCrewAsync(editCtrlNbr, saveModel.Name!, saveModel.IsActive);
+                await CrewClient.UpdateCrewAsync(editCtrlNbr, saveModel.Name!, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
                 successMessage = "Crew updated.";
             }
             else
             {
-                await CrewClient.CreateCrewAsync(saveModel.CrewType!, saveModel.HomeGroupCtrlNbr, saveModel.Name!, saveModel.IsActive);
+                await CrewClient.CreateCrewAsync(saveModel.CrewType!, saveModel.HomeGroupCtrlNbr, saveModel.Name!, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
                 successMessage = "Crew created.";
             }
 
@@ -306,12 +345,27 @@ else
         }
     }
 
+    private static string FormatDays(int mask)
+    {
+        if (mask == 0) return "None";
+        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        var active = new List<string>();
+        for (var i = 0; i < 7; i++)
+        {
+            if ((mask & (1 << i)) != 0) active.Add(days[i]);
+        }
+        return string.Join(", ", active);
+    }
+
     private sealed class CrewInputModel
     {
         [Required(ErrorMessage = "Crew type is required.")]
         public string? CrewType { get; set; } = "REGULAR";
 
         public long HomeGroupCtrlNbr { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Department is required.")]
+        public long DepartmentCtrlNbr { get; set; }
 
         [Required(ErrorMessage = "Name is required.")]
         [StringLength(100, MinimumLength = 1)]

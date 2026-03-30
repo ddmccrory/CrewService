@@ -209,12 +209,12 @@ public class DepartmentTests
     }
 }
 
-public class PositionRoleTests
+public class CraftRoleTests
 {
     [Fact]
     public void Create_SetsProperties()
     {
-        var role = PositionRole.Create(1, "ENG", "Engineer", "Locomotive Engineer");
+        var role = CraftRole.Create(1, "ENG", "Engineer", "Locomotive Engineer");
 
         Assert.Equal(1, role.CraftCtrlNbr.Value);
         Assert.Equal("ENG", role.Code);
@@ -225,7 +225,7 @@ public class PositionRoleTests
     [Fact]
     public void Create_WithNullCode_AllowsNull()
     {
-        var role = PositionRole.Create(1, null, "Brakeman");
+        var role = CraftRole.Create(1, null, "Brakeman");
 
         Assert.Null(role.Code);
         Assert.Equal("Brakeman", role.Name);
@@ -235,7 +235,7 @@ public class PositionRoleTests
     [Fact]
     public void Update_ChangesAllFields()
     {
-        var role = PositionRole.Create(1, "ENG", "Engineer");
+        var role = CraftRole.Create(1, "ENG", "Engineer");
 
         role.Update("ENGR", "Senior Engineer", "Lead Locomotive Engineer");
 
@@ -247,7 +247,7 @@ public class PositionRoleTests
     [Fact]
     public void Update_ClearsOptionalFields()
     {
-        var role = PositionRole.Create(1, "ENG", "Engineer", "Locomotive Engineer");
+        var role = CraftRole.Create(1, "ENG", "Engineer", "Locomotive Engineer");
 
         role.Update(null, "Engineer", null);
 

@@ -8,9 +8,9 @@ public interface IWorkInstanceRepository : IRepository<WorkInstance>
     Task<List<WorkInstance>> GetByWorkAreaAndDateRangeAsync(ControlNumber workAreaGroupCtrlNbr, DateTime startUtc, DateTime endUtc);
 }
 
-public interface IPositionRoleRepository : IRepository<PositionRole>
+public interface ICraftRoleRepository : IRepository<CraftRole>
 {
-    Task<List<PositionRole>> GetByCraftAsync(ControlNumber craftCtrlNbr);
+    Task<List<CraftRole>> GetByCraftAsync(ControlNumber craftCtrlNbr);
 }
 
 public interface IPositionSlotRepository : IRepository<PositionSlot>

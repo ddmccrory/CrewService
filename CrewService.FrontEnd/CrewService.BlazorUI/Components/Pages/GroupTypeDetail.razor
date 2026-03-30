@@ -87,7 +87,7 @@ else
                         </InputSelect>
                     </div>
                 }
-                <div class="form-check form-switch mb-3">
+                <div class="form-check form-switch form-check-reverse mb-3">
                     <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" disabled />
                     <label class="form-check-label text-muted" for="groupIsWorkArea">Work Area (inherited from group type)</label>
                 </div>
@@ -152,7 +152,7 @@ else
                SearchFilter="@((g, term) => g.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || (!string.IsNullOrEmpty(g.Code) && g.Code.Contains(term, StringComparison.OrdinalIgnoreCase)) || (g.ParentGroupCtrlNbr > 0 && allGroupsLookup.GetValueOrDefault(g.ParentGroupCtrlNbr, "").Contains(term, StringComparison.OrdinalIgnoreCase)))"
                SearchPlaceholder="Search groups..."
                EmptyMessage="No groups defined for this type yet."
-               DefaultSortColumn="Name">
+               DefaultSortColumn="Code">
         <ToolbarContent>
             @if (!IsFeatureReadOnly)
             {
@@ -162,10 +162,10 @@ else
             }
         </ToolbarContent>
         <RowContent Context="g">
+            <td>@(string.IsNullOrEmpty(g.Code) ? "\u2014" : g.Code.ToUpperInvariant())</td>
             <td>
                 <a href="/config/groups/@g.CtrlNbr" class="text-decoration-none">@g.Name</a>
             </td>
-            <td>@(string.IsNullOrEmpty(g.Code) ? "\u2014" : g.Code)</td>
             <td>
                 @if (g.ParentGroupCtrlNbr > 0)
                 {
@@ -325,8 +325,8 @@ else
 
     private IReadOnlyList<DataTableColumn<GroupResponse>> groupColumns =>
     [
+        new("Code", g => (g.Code ?? "").ToUpperInvariant()),
         new("Name", g => g.Name),
-        new("Code", g => g.Code ?? ""),
         new("Parent Group", g => g.ParentGroupCtrlNbr > 0 ? allGroupsLookup.GetValueOrDefault(g.ParentGroupCtrlNbr, "") : ""),
         ..BuildAttributeColumns(),
         DataTableColumn<GroupResponse>.Actions()
@@ -761,12 +761,18 @@ else
 
     private sealed class GroupInputModel
     {
+        private string? _code;
+
         [Required(ErrorMessage = "Name is required.")]
         [StringLength(100, MinimumLength = 1)]
         public string? Name { get; set; }
 
         [StringLength(50)]
-        public string? Code { get; set; }
+        public string? Code
+        {
+            get => _code;
+            set => _code = value?.ToUpperInvariant();
+        }
 
         public long ParentGroupCtrlNbr { get; set; }
         public bool IsWorkArea { get; set; }

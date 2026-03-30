@@ -50,26 +50,27 @@ else
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Role</label>
-                    <InputSelect @bind-Value="createModel.Role" class="form-select" @bind-Value:after="OnRoleChanged">
-                        <option value="">-- Select Role --</option>
-                        @foreach (var role in availableRoles)
-                        {
-                            <option value="@role">@role</option>
-                        }
-                    </InputSelect>
+                    <SelectInput TItem="string" TValue="string"
+                                 @bind-Value="createModel.Role"
+                                 @bind-Value:after="OnRoleChanged"
+                                 Items="availableRoles"
+                                 ValueSelector="@(r => r)"
+                                 TextSelector="@(r => r)"
+                                 Placeholder="-- Select Role --"
+                                 class="form-select" />
                     <ValidationMessage For="() => createModel.Role" class="text-danger" />
                 </div>
                 @if (showRailroadDropdown && HasParent)
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Railroad</label>
-                        <InputSelect @bind-Value="createModel.RailroadCtrlNbr" class="form-select">
-                            <option value="0">-- Select Railroad --</option>
-                            @foreach (var rr in parentRailroads)
-                            {
-                                <option value="@rr.CtrlNbr">@rr.Name</option>
-                            }
-                        </InputSelect>
+                        <SelectInput TItem="GroupResponse" TValue="long"
+                                     @bind-Value="createModel.RailroadCtrlNbr"
+                                     Items="parentRailroads"
+                                     ValueSelector="@(rr => rr.CtrlNbr)"
+                                     TextSelector="@(rr => rr.Name)"
+                                     Placeholder="-- Select Railroad --"
+                                     class="form-select" />
                     </div>
                 }
                 <div class="mb-0">
@@ -128,7 +129,7 @@ else
                    EmptyMessage="@($"No {activeTab.ToLower()} invitations found.")"
                    DefaultSortColumn="Email">
             <ToolbarContent>
-                <button class="btn btn-primary" @onclick="() => showCreateForm = true">
+                <button class="btn btn-primary" @onclick="OpenCreateForm">
                     <span class="bi bi-plus-circle"></span> Create Invitation
                 </button>
             </ToolbarContent>
@@ -335,8 +336,13 @@ else
 
         if (!showRailroadDropdown)
             createModel.RailroadCtrlNbr = 0;
-        else if (parentRailroads.Count == 1)
-            createModel.RailroadCtrlNbr = parentRailroads[0].CtrlNbr;
+    }
+
+    private void OpenCreateForm()
+    {
+        createModel = new();
+        showRailroadDropdown = false;
+        showCreateForm = true;
     }
 
     private string GetRailroadName(long ctrlNbr)

@@ -138,7 +138,7 @@ public class ForeignKeyIntegrityTests
 
     [Theory]
     [InlineData("CrewIncumbency", "Employee", DeleteBehavior.Restrict)]
-    [InlineData("CrewPosition", "PositionRole", DeleteBehavior.Restrict)]
+    [InlineData("CrewPosition", "CraftRole", DeleteBehavior.Restrict)]
     [InlineData("BoardMember", "Employee", DeleteBehavior.Restrict)]
     [InlineData("ExtraBoard", "Craft", DeleteBehavior.Restrict)]
     [InlineData("Seniority", "Employee", DeleteBehavior.Restrict)]
@@ -146,7 +146,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("Roster", "Craft", DeleteBehavior.Restrict)]
     [InlineData("Craft", "DynamicGroup", DeleteBehavior.Restrict)]
     [InlineData("Craft", "RegulatoryStandard", DeleteBehavior.Restrict)]
-    [InlineData("PositionRole", "Craft", DeleteBehavior.Restrict)]
+    [InlineData("CraftRole", "Craft", DeleteBehavior.Restrict)]
     [InlineData("PositionSlot", "WorkInstance", DeleteBehavior.Restrict)]
     [InlineData("PositionSlot", "Employee", DeleteBehavior.Restrict)]
     [InlineData("PositionSlotInstance", "Employee", DeleteBehavior.Restrict)]
@@ -155,7 +155,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("FraDutyTour", "RegulatoryStandard", DeleteBehavior.Restrict)]
     [InlineData("PayrollRecord", "Employee", DeleteBehavior.Restrict)]
     [InlineData("PayrollRecord", "OnDutyRecord", DeleteBehavior.Restrict)]
-    [InlineData("PayRate", "PositionRole", DeleteBehavior.Restrict)]
+    [InlineData("PayRate", "CraftRole", DeleteBehavior.Restrict)]
     [InlineData("UserParentAssignment", "Parent", DeleteBehavior.Restrict)]
     [InlineData("Invitation", "Parent", DeleteBehavior.Restrict)]
     [InlineData("Employee", "EmploymentStatus", DeleteBehavior.Restrict)]
@@ -171,7 +171,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("HolidayPayrollRecord", "PayrollRecord", DeleteBehavior.Restrict)]
     [InlineData("HolidayQualificationRule", "Craft", DeleteBehavior.Restrict)]
     [InlineData("PayrollImportRecord", "PayrollRecord", DeleteBehavior.Restrict)]
-    [InlineData("SlotRequirement", "PositionRole", DeleteBehavior.Restrict)]
+    [InlineData("SlotRequirement", "CraftRole", DeleteBehavior.Restrict)]
     [InlineData("SlotRequirement", "RegulatoryQualification", DeleteBehavior.Restrict)]
 
     public void CrossAggregate_RestrictsDelete(

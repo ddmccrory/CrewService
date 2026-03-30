@@ -467,6 +467,23 @@ internal static class DevDataSeeder
 
         } // end upgrade guard
 
+        // ?? Section 3b: Departments ???????????????????????????????????????????
+        var departmentRepo = sp.GetRequiredService<IDepartmentRepository>();
+        var existingDepts = await departmentRepo.GetAllAsync();
+        if (existingDepts.Count == 0)
+        {
+        var csxRR = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
+        var ptraRR = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
+        var csxTransportation = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Transportation");
+        var csxClerical = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Clerical");
+        var ptraTransportation = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Transportation");
+        await departmentRepo.AddAsync(csxTransportation);
+        await departmentRepo.AddAsync(csxClerical);
+        var ptraClerical = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Clerical");
+        await departmentRepo.AddAsync(ptraTransportation);
+        await departmentRepo.AddAsync(ptraClerical);
+        } // end departments guard
+
         // ?? Section 4: Seniority � Crafts, Rosters, Rankings ?????????????
         var craftRepo = sp.GetRequiredService<ICraftRepository>();
         var rosterRepo = sp.GetRequiredService<IRosterRepository>();
@@ -478,43 +495,48 @@ internal static class DevDataSeeder
         // Crafts at railroad level with parent ownership
         var csxRailroadForCraft = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var ptraRailroadForCraft = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
+        var allDepts = await departmentRepo.GetAllAsync();
+        var csxTransDept = allDepts.First(d => d.Name == "Transportation" && d.ParentCtrlNbr == csxParentCtrlNbr);
+        var csxClericalDept = allDepts.First(d => d.Name == "Clerical" && d.ParentCtrlNbr == csxParentCtrlNbr);
+        var ptraTransDept = allDepts.First(d => d.Name == "Transportation" && d.ParentCtrlNbr == ptraParentCore.CtrlNbr);
+        var ptraClericalDept = allDepts.First(d => d.Name == "Clerical" && d.ParentCtrlNbr == ptraParentCore.CtrlNbr);
 
         // CSX Crafts (owned by CSX railroad under CSX Corporation parent)
         var csxEngineer = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1);
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
         await craftRepo.AddAsync(csxEngineer);
 
         var csxConductor = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Conductor", "Conductors", 2,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1);
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
         await craftRepo.AddAsync(csxConductor);
 
         var csxClerical = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
-            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0);
+            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: csxClericalDept.CtrlNbr);
         await craftRepo.AddAsync(csxClerical);
 
         // PTRA Crafts (owned by PTRA railroad under PTRA parent)
         var ptraEngineer = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1);
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
         await craftRepo.AddAsync(ptraEngineer);
 
         var ptraConductor = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Conductor", "Conductors", 2,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1);
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
         await craftRepo.AddAsync(ptraConductor);
 
         var ptraClerical = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
-            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0);
+            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: ptraClericalDept.CtrlNbr);
         await craftRepo.AddAsync(ptraClerical);
 
         // Rosters -- one per craft per railroad
@@ -557,11 +579,11 @@ internal static class DevDataSeeder
         } // end seniority guard
 
         // ?? Section 5: Work Management � Roles, Templates, Instances, Slots ??
-        var positionRoleRepo = sp.GetRequiredService<IPositionRoleRepository>();
+        var craftRoleRepo = sp.GetRequiredService<ICraftRoleRepository>();
         var workInstanceRepo = sp.GetRequiredService<IWorkInstanceRepository>();
         var positionSlotRepo = sp.GetRequiredService<IPositionSlotRepository>();
 
-        var existingRoles = await positionRoleRepo.GetAllAsync();
+        var existingRoles = await craftRoleRepo.GetAllAsync();
         if (existingRoles.Count == 0)
         {
         // Re-lookup crafts and work areas for FK references
@@ -572,23 +594,23 @@ internal static class DevDataSeeder
         var condCraft = crafts.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
         var clerCraft = crafts.First(c => c.CraftName == "Clerical" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
 
-        // Position Roles � Conductor craft
-        var studentTrainman = PositionRole.Create(condCraft.CtrlNbr, "STRN", "Student Trainman");
-        var trainman = PositionRole.Create(condCraft.CtrlNbr, "TRMN", "Trainman");
-        var conductor = PositionRole.Create(condCraft.CtrlNbr, "COND", "Conductor");
-        await positionRoleRepo.AddAsync(studentTrainman);
-        await positionRoleRepo.AddAsync(trainman);
-        await positionRoleRepo.AddAsync(conductor);
+        // Craft Roles � Conductor craft
+        var studentTrainman = CraftRole.Create(condCraft.CtrlNbr, "STRN", "Student Trainman");
+        var trainman = CraftRole.Create(condCraft.CtrlNbr, "TRMN", "Trainman");
+        var conductor = CraftRole.Create(condCraft.CtrlNbr, "COND", "Conductor");
+        await craftRoleRepo.AddAsync(studentTrainman);
+        await craftRoleRepo.AddAsync(trainman);
+        await craftRoleRepo.AddAsync(conductor);
 
-        // Position Roles � Engineer craft
-        var studentEngineer = PositionRole.Create(engCraft.CtrlNbr, "SENG", "Student Engineer");
-        var engineer = PositionRole.Create(engCraft.CtrlNbr, "ENGR", "Engineer");
-        await positionRoleRepo.AddAsync(studentEngineer);
-        await positionRoleRepo.AddAsync(engineer);
+        // Craft Roles � Engineer craft
+        var studentEngineer = CraftRole.Create(engCraft.CtrlNbr, "SENG", "Student Engineer");
+        var engineer = CraftRole.Create(engCraft.CtrlNbr, "ENGR", "Engineer");
+        await craftRoleRepo.AddAsync(studentEngineer);
+        await craftRoleRepo.AddAsync(engineer);
 
-        // Position Roles � Clerical craft
-        var crewDispatcher = PositionRole.Create(clerCraft.CtrlNbr, "DISP", "Crew Dispatcher");
-        await positionRoleRepo.AddAsync(crewDispatcher);
+        // Craft Roles � Clerical craft
+        var crewDispatcher = CraftRole.Create(clerCraft.CtrlNbr, "DISP", "Crew Dispatcher");
+        await craftRoleRepo.AddAsync(crewDispatcher);
 
 
         // Work Instances � 2 per template (today + tomorrow)
@@ -644,14 +666,17 @@ internal static class DevDataSeeder
         {
         var allGroups2 = await groupRepo.GetAllAsync();
         var jaxSub2 = allGroups2.First(g => g.Name == "Jacksonville Sub");
-        var allRoles = await positionRoleRepo.GetAllAsync();
+        var allRoles = await craftRoleRepo.GetAllAsync();
         var condRole = allRoles.First(r => r.Code == "COND");
         var engRole = allRoles.First(r => r.Code == "ENGR");
         var empList2 = await employeeRepo.GetAllAsync();
+        var crewDepts = await departmentRepo.GetAllAsync();
+        var csxRailroadForCrews = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
+        var crewTransDept = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == csxRailroadForCrews.CtrlNbr);
         // Regular crews
-        var crewA = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew A");
-        var crewB = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew B");
-        var extraCrew = Crew.Create("EXTRA", jaxSub2.CtrlNbr, "Jax Extra Board Crew");
+        var crewA = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew A", departmentCtrlNbr: crewTransDept?.CtrlNbr);
+        var crewB = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew B", departmentCtrlNbr: crewTransDept?.CtrlNbr);
+        var extraCrew = Crew.Create("EXTRA", jaxSub2.CtrlNbr, "Jax Extra Board Crew", departmentCtrlNbr: crewTransDept?.CtrlNbr);
         await crewRepo.AddAsync(crewA);
         await crewRepo.AddAsync(crewB);
         await crewRepo.AddAsync(extraCrew);

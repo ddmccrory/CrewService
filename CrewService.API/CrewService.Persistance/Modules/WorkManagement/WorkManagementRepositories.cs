@@ -20,12 +20,12 @@ internal sealed class WorkInstanceRepository(CrewServiceDbContext dbContext, ICu
     }
 }
 
-internal sealed class PositionRoleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<PositionRole>(dbContext, currentUserService), IPositionRoleRepository
+internal sealed class CraftRoleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<CraftRole>(dbContext, currentUserService), ICraftRoleRepository
 {
-    public async Task<List<PositionRole>> GetByCraftAsync(ControlNumber craftCtrlNbr)
+    public async Task<List<CraftRole>> GetByCraftAsync(ControlNumber craftCtrlNbr)
     {
-        return await DbContext.Set<PositionRole>()
+        return await DbContext.Set<CraftRole>()
             .Where(p => p.CraftCtrlNbr == craftCtrlNbr)
             .OrderBy(p => p.Code)
             .ToListAsync();

@@ -12,13 +12,13 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
 
 
 
-    // ── Position Roles ──
+    // ── Craft Roles ──
 
-    public async Task<GetPositionRolesResponse> GetPositionRolesAsync(long craftCtrlNbr)
+    public async Task<GetCraftRolesResponse> GetCraftRolesAsync(long craftCtrlNbr = 0)
     {
         try
         {
-            return await _client.GetPositionRolesAsync(new GetPositionRolesRequest { CraftCtrlNbr = craftCtrlNbr });
+            return await _client.GetCraftRolesAsync(new GetCraftRolesRequest { CraftCtrlNbr = craftCtrlNbr });
         }
         catch (Exception ex)
         {
@@ -27,11 +27,11 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         }
     }
 
-    public async Task<PositionRoleResponse> CreatePositionRoleAsync(long craftCtrlNbr, string? code, string name, string? alternateName)
+    public async Task<CraftRoleResponse> CreateCraftRoleAsync(long craftCtrlNbr, string? code, string name, string? alternateName)
     {
         try
         {
-            return await _client.CreatePositionRoleAsync(new CreatePositionRoleRequest
+            return await _client.CreateCraftRoleAsync(new CreateCraftRoleRequest
             {
                 CraftCtrlNbr = craftCtrlNbr,
                 Code = code ?? string.Empty,
@@ -46,11 +46,11 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         }
     }
 
-    public async Task<PositionRoleResponse> UpdatePositionRoleAsync(long ctrlNbr, string? code, string name, string? alternateName)
+    public async Task<CraftRoleResponse> UpdateCraftRoleAsync(long ctrlNbr, string? code, string name, string? alternateName)
     {
         try
         {
-            return await _client.UpdatePositionRoleAsync(new UpdatePositionRoleRequest
+            return await _client.UpdateCraftRoleAsync(new UpdateCraftRoleRequest
             {
                 CtrlNbr = ctrlNbr,
                 Code = code ?? string.Empty,
@@ -65,11 +65,11 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         }
     }
 
-    public async Task<DeleteResponse> DeletePositionRoleAsync(long ctrlNbr)
+    public async Task<DeleteResponse> DeleteCraftRoleAsync(long ctrlNbr)
     {
         try
         {
-            return await _client.DeletePositionRoleAsync(new DeletePositionRoleRequest { CtrlNbr = ctrlNbr });
+            return await _client.DeleteCraftRoleAsync(new DeleteCraftRoleRequest { CtrlNbr = ctrlNbr });
         }
         catch (Exception ex)
         {

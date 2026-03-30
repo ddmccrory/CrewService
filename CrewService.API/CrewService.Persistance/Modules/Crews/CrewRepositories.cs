@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Repositories;
@@ -15,6 +16,19 @@ internal sealed class CrewRepository(CrewServiceDbContext dbContext, ICurrentUse
 
     public async Task<List<Crew>> GetByTypeAsync(string crewType) =>
         await DbContext.Set<Crew>().Where(c => c.CrewType == crewType).OrderBy(c => c.Name).ToListAsync();
+
+    public async Task<List<Crew>> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
+    {
+        var groupCtrlNbrs = await DbContext.Set<DynamicGroup>()
+            .Where(g => g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr)
+            .Select(g => g.CtrlNbr)
+            .ToListAsync();
+
+        return await DbContext.Set<Crew>()
+            .Where(c => groupCtrlNbrs.Contains(c.HomeGroupCtrlNbr))
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+    }
 }
 
 internal sealed class CrewPositionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -22,6 +36,9 @@ internal sealed class CrewPositionRepository(CrewServiceDbContext dbContext, ICu
 {
     public async Task<List<CrewPosition>> GetByCrewAsync(ControlNumber crewCtrlNbr) =>
         await DbContext.Set<CrewPosition>().Where(p => p.CrewCtrlNbr == crewCtrlNbr).OrderBy(p => p.DisplayOrder).ToListAsync();
+
+    public async Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs) =>
+        await DbContext.Set<CrewPosition>().Where(p => crewCtrlNbrs.Contains(p.CrewCtrlNbr)).ToListAsync();
 }
 
 internal sealed class CrewIncumbencyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -41,6 +58,9 @@ internal sealed class CrewAssignmentRepository(CrewServiceDbContext dbContext, I
 {
     public async Task<List<CrewAssignment>> GetByCrewAsync(ControlNumber crewCtrlNbr) =>
         await DbContext.Set<CrewAssignment>().Where(a => a.CrewCtrlNbr == crewCtrlNbr).ToListAsync();
+
+    public async Task<List<CrewAssignment>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs) =>
+        await DbContext.Set<CrewAssignment>().Where(a => crewCtrlNbrs.Contains(a.CrewCtrlNbr)).ToListAsync();
 
     public async Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr) =>
         await DbContext.Set<CrewAssignment>().Where(a => a.AssignmentGroupCtrlNbr == assignmentGroupCtrlNbr).ToListAsync();

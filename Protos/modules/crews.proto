@@ -55,6 +55,7 @@ message GetAllCrewsRequest {
   string crew_type = 2;
   int32 page_number = 3;
   int32 page_size = 4;
+  int64 railroad_ctrl_nbr = 5;
 }
 message GetAllCrewsResponse {
   repeated CrewResponse crews = 1;
@@ -66,11 +67,13 @@ message CreateCrewRequest {
   int64 home_group_ctrl_nbr = 2;
   string name = 3;
   bool is_active = 4;
+  int64 department_ctrl_nbr = 5;
 }
 message UpdateCrewRequest {
   int64 ctrl_nbr = 1;
   string name = 2;
   bool is_active = 3;
+  int64 department_ctrl_nbr = 4;
 }
 message DeleteCrewRequest { int64 ctrl_nbr = 1; }
 message CrewResponse {
@@ -79,6 +82,9 @@ message CrewResponse {
   int64 home_group_ctrl_nbr = 3;
   string name = 4;
   bool is_active = 5;
+  int64 department_ctrl_nbr = 6;
+  int32 position_count = 7;
+  int32 work_days_mask = 8;
 }
 
 message GetCrewPositionsRequest { int64 crew_ctrl_nbr = 1; }
@@ -88,13 +94,13 @@ message GetCrewPositionsResponse {
 }
 message CreateCrewPositionRequest {
   int64 crew_ctrl_nbr = 1;
-  int64 position_role_ctrl_nbr = 2;
+  int64 craft_role_ctrl_nbr = 2;
   int32 display_order = 3;
 }
 message CrewPositionResponse {
   int64 ctrl_nbr = 1;
   int64 crew_ctrl_nbr = 2;
-  int64 position_role_ctrl_nbr = 3;
+  int64 craft_role_ctrl_nbr = 3;
   int32 display_order = 4;
 }
 

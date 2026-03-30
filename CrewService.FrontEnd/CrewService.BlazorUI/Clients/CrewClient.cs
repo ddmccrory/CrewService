@@ -9,12 +9,13 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
 {
     // ── Crews ──
 
-    public async Task<GetAllCrewsResponse> GetAllCrewsAsync(long homeGroupCtrlNbr, string? crewType = null)
+    public async Task<GetAllCrewsResponse> GetAllCrewsAsync(long railroadCtrlNbr, long homeGroupCtrlNbr = 0, string? crewType = null)
     {
         try
         {
             return await _client.GetAllCrewsAsync(new GetAllCrewsRequest
             {
+                RailroadCtrlNbr = railroadCtrlNbr,
                 HomeGroupCtrlNbr = homeGroupCtrlNbr,
                 CrewType = crewType ?? string.Empty
             });
@@ -31,7 +32,7 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<CrewResponse> CreateCrewAsync(string crewType, long homeGroupCtrlNbr, string name, bool isActive)
+    public async Task<CrewResponse> CreateCrewAsync(string crewType, long homeGroupCtrlNbr, string name, bool isActive, long departmentCtrlNbr = 0)
     {
         try
         {
@@ -40,13 +41,14 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
                 CrewType = crewType,
                 HomeGroupCtrlNbr = homeGroupCtrlNbr,
                 Name = name,
-                IsActive = isActive
+                IsActive = isActive,
+                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<CrewResponse> UpdateCrewAsync(long ctrlNbr, string name, bool isActive)
+    public async Task<CrewResponse> UpdateCrewAsync(long ctrlNbr, string name, bool isActive, long departmentCtrlNbr = 0)
     {
         try
         {
@@ -54,7 +56,8 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
             {
                 CtrlNbr = ctrlNbr,
                 Name = name,
-                IsActive = isActive
+                IsActive = isActive,
+                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
@@ -80,14 +83,14 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<CrewPositionResponse> CreateCrewPositionAsync(long crewCtrlNbr, long positionRoleCtrlNbr, int displayOrder)
+    public async Task<CrewPositionResponse> CreateCrewPositionAsync(long crewCtrlNbr, long craftRoleCtrlNbr, int displayOrder)
     {
         try
         {
             return await _client.CreateCrewPositionAsync(new CreateCrewPositionRequest
             {
                 CrewCtrlNbr = crewCtrlNbr,
-                PositionRoleCtrlNbr = positionRoleCtrlNbr,
+                CraftRoleCtrlNbr = craftRoleCtrlNbr,
                 DisplayOrder = displayOrder
             });
         }

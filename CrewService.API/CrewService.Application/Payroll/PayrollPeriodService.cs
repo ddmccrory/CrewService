@@ -7,7 +7,7 @@ public interface IPayRateRepository
 {
     Task<PayRate?> GetEffectiveAsync(
         ControlNumber craftCtrlNbr, DateTime asOfDate,
-        ControlNumber? positionRoleCtrlNbr = null, CancellationToken ct = default);
+        ControlNumber? craftRoleCtrlNbr = null, CancellationToken ct = default);
 }
 
 public sealed class PayrollPeriodService(IPayrollRunRepository runRepo)

@@ -7,11 +7,13 @@ public interface ICrewRepository : IRepository<Crew>
 {
     Task<List<Crew>> GetByHomeGroupAsync(ControlNumber homeGroupCtrlNbr);
     Task<List<Crew>> GetByTypeAsync(string crewType);
+    Task<List<Crew>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
 }
 
 public interface ICrewPositionRepository : IRepository<CrewPosition>
 {
     Task<List<CrewPosition>> GetByCrewAsync(ControlNumber crewCtrlNbr);
+    Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
 }
 
 public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>
@@ -28,5 +30,6 @@ public interface ICrewAttachmentInstanceRepository : IRepository<CrewAttachmentI
 public interface ICrewAssignmentRepository : IRepository<CrewAssignment>
 {
     Task<List<CrewAssignment>> GetByCrewAsync(ControlNumber crewCtrlNbr);
+    Task<List<CrewAssignment>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
     Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
 }

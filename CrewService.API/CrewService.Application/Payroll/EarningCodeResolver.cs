@@ -14,7 +14,7 @@ public sealed record EarningContext(
     bool IsHoliday,
     bool IsOvertime,
     string? AbsenceCode,
-    string? PositionRoleCode);
+    string? CraftRoleCode);
 
 public sealed record EarningCodeResult(string ResultCode, bool RequiresApproval);
 

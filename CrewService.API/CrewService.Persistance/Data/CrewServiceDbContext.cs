@@ -51,7 +51,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 
     // WorkManagement Module
     public DbSet<Domain.Modules.WorkManagement.WorkInstance> WorkInstances => Set<Domain.Modules.WorkManagement.WorkInstance>();
-    public DbSet<Domain.Modules.WorkManagement.PositionRole> PositionRoles => Set<Domain.Modules.WorkManagement.PositionRole>();
+    public DbSet<Domain.Modules.WorkManagement.CraftRole> CraftRoles => Set<Domain.Modules.WorkManagement.CraftRole>();
     public DbSet<Domain.Modules.WorkManagement.PositionSlot> PositionSlots => Set<Domain.Modules.WorkManagement.PositionSlot>();
     public DbSet<Domain.Modules.WorkManagement.SlotRequirement> SlotRequirements => Set<Domain.Modules.WorkManagement.SlotRequirement>();
     public DbSet<Domain.Modules.WorkManagement.ShiftDefinition> ShiftDefinitions => Set<Domain.Modules.WorkManagement.ShiftDefinition>();

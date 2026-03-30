@@ -33,10 +33,10 @@ internal class CrewPositionConfiguration : IEntityTypeConfiguration<CrewPosition
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.CrewCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.PositionRoleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.CraftRoleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
 
         builder.HasOne<Crew>().WithMany().HasForeignKey(p => p.CrewCtrlNbr).OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<PositionRole>().WithMany().HasForeignKey(p => p.PositionRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<CraftRole>().WithMany().HasForeignKey(p => p.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

@@ -11,7 +11,9 @@
 ## Code Style
 - Use specific formatting rules
 - Follow naming conventions
+- All ControlNumber references in the codebase should use the ControlNumber value object type, not raw long. When comparing ControlNumber values, use the ControlNumber type directly rather than extracting .Value to long.
 - All checkboxes in the project must use Bootstrap slide switch style: wrap in `<div class="form-check form-switch">` with `class="form-check-input"` on the input/InputCheckbox. Never use plain checkboxes.
+- Code columns should always be uppercase in display (using `.ToUpperInvariant()`), should be the first column in DataTable definitions, and should be the default sort column.
 
 ## Project-Specific Rules
 - Custom requirement A

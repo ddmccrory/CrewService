@@ -36,7 +36,7 @@ public class CrewPositionTests
         var position = CrewPosition.Create(1, 10, 2);
 
         Assert.Equal(1, position.CrewCtrlNbr.Value);
-        Assert.Equal(10, position.PositionRoleCtrlNbr.Value);
+        Assert.Equal(10, position.CraftRoleCtrlNbr.Value);
         Assert.Equal(2, position.DisplayOrder);
     }
 }
