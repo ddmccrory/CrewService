@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -7,7 +8,9 @@ namespace CrewService.Presentation.Services.Modules;
 public class WorkManagementService(
     IWorkInstanceRepository workInstanceRepository,
     IPositionSlotRepository positionSlotRepository,
-    ICraftRoleRepository craftRoleRepository) : WorkManagementSrvc.WorkManagementSrvcBase
+    ICraftRoleRepository craftRoleRepository,
+    IShiftDefinitionRepository shiftDefinitionRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory) : WorkManagementSrvc.WorkManagementSrvcBase
 {
 
 
@@ -34,7 +37,11 @@ public class WorkManagementService(
             DateTime.Parse(request.StartUtc).ToUniversalTime(),
             DateTime.Parse(request.EndUtc).ToUniversalTime(),
             string.IsNullOrEmpty(request.CallTimeUtc) ? null : DateTime.Parse(request.CallTimeUtc).ToUniversalTime());
-        await workInstanceRepository.AddAsync(instance);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.WorkInstances.Add(instance);
+        await uow.CommitAsync();
+
         return MapWorkInstance(instance);
     }
 
@@ -50,7 +57,11 @@ public class WorkManagementService(
     public override async Task<PositionSlotResponse> CreatePositionSlot(CreatePositionSlotRequest request, ServerCallContext context)
     {
         var slot = PositionSlot.Create(request.WorkInstanceCtrlNbr, request.CraftRoleCtrlNbr);
-        await positionSlotRepository.AddAsync(slot);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.PositionSlots.Add(slot);
+        await uow.CommitAsync();
+
         return MapSlot(slot);
     }
 
@@ -59,7 +70,11 @@ public class WorkManagementService(
         var slot = await positionSlotRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Slot {request.CtrlNbr} not found."));
         slot.Bind(request.EmployeeCtrlNbr, request.Source);
-        await positionSlotRepository.UpdateAsync(slot);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.PositionSlots.Update(slot);
+        await uow.CommitAsync();
+
         return MapSlot(slot);
     }
 
@@ -68,7 +83,11 @@ public class WorkManagementService(
         var slot = await positionSlotRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Slot {request.CtrlNbr} not found."));
         slot.Unbind();
-        await positionSlotRepository.UpdateAsync(slot);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.PositionSlots.Update(slot);
+        await uow.CommitAsync();
+
         return MapSlot(slot);
     }
 
@@ -107,7 +126,11 @@ public class WorkManagementService(
     public override async Task<CraftRoleResponse> CreateCraftRole(CreateCraftRoleRequest request, ServerCallContext context)
     {
         var role = CraftRole.Create(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName);
-        await craftRoleRepository.AddAsync(role);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CraftRoles.Add(role);
+        await uow.CommitAsync();
+
         return MapRole(role);
     }
 
@@ -117,13 +140,23 @@ public class WorkManagementService(
         var role = await craftRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CtrlNbr} not found."));
         role.Update(request.Code, request.Name, request.AlternateName);
-        await craftRoleRepository.UpdateAsync(role);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CraftRoles.Update(role);
+        await uow.CommitAsync();
+
         return MapRole(role);
     }
 
     public override async Task<DeleteResponse> DeleteCraftRole(DeleteCraftRoleRequest request, ServerCallContext context)
     {
-        await craftRoleRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var role = await craftRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CtrlNbr} not found."));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CraftRoles.Remove(role);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
@@ -134,5 +167,84 @@ public class WorkManagementService(
         Code = r.Code ?? string.Empty,
         Name = r.Name,
         AlternateName = r.AlternateName ?? string.Empty
+    };
+
+    // ── Shift Definitions ──
+
+    public override async Task<GetShiftDefinitionsResponse> GetShiftDefinitions(GetShiftDefinitionsRequest request, ServerCallContext context)
+    {
+        if (request.WorkAreaGroupCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "WorkAreaGroupCtrlNbr is required."));
+
+        var shifts = await shiftDefinitionRepository.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr));
+        var response = new GetShiftDefinitionsResponse { TotalCount = shifts.Count };
+        foreach (var sd in shifts)
+            response.ShiftDefinitions.Add(MapShiftDefinition(sd));
+        return response;
+    }
+
+    public override async Task<ShiftDefinitionResponse> CreateShiftDefinition(CreateShiftDefinitionRequest request, ServerCallContext context)
+    {
+        var shift = ShiftDefinition.Create(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+            request.ShiftCode,
+            request.DisplayName,
+            TimeOnly.Parse(request.DefaultStartTime),
+            TimeOnly.Parse(request.DefaultEndTime),
+            request.DisplayOrder,
+            request.IsActive,
+            request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.ShiftDefinitions.Add(shift);
+        await uow.CommitAsync();
+
+        return MapShiftDefinition(shift);
+    }
+
+    public override async Task<ShiftDefinitionResponse> UpdateShiftDefinition(UpdateShiftDefinitionRequest request, ServerCallContext context)
+    {
+        var shift = await shiftDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"ShiftDefinition {request.CtrlNbr} not found."));
+
+        shift.Update(
+            shiftCode: request.ShiftCode,
+            displayName: request.DisplayName,
+            defaultStartTime: TimeOnly.Parse(request.DefaultStartTime),
+            defaultEndTime: TimeOnly.Parse(request.DefaultEndTime),
+            displayOrder: request.DisplayOrder,
+            isActive: request.IsActive,
+            departmentCtrlNbr: request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.ShiftDefinitions.Update(shift);
+        await uow.CommitAsync();
+
+        return MapShiftDefinition(shift);
+    }
+
+    public override async Task<DeleteResponse> DeleteShiftDefinition(DeleteShiftDefinitionRequest request, ServerCallContext context)
+    {
+        var shift = await shiftDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"ShiftDefinition {request.CtrlNbr} not found."));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.ShiftDefinitions.Remove(shift);
+        await uow.CommitAsync();
+
+        return new DeleteResponse { Success = true };
+    }
+
+    private static ShiftDefinitionResponse MapShiftDefinition(ShiftDefinition sd) => new()
+    {
+        CtrlNbr = sd.CtrlNbr.Value,
+        WorkAreaGroupCtrlNbr = sd.WorkAreaGroupCtrlNbr.Value,
+        ShiftCode = sd.ShiftCode,
+        DisplayName = sd.DisplayName,
+        DefaultStartTime = sd.DefaultStartTime.ToString("HH:mm"),
+        DefaultEndTime = sd.DefaultEndTime.ToString("HH:mm"),
+        DisplayOrder = sd.DisplayOrder,
+        IsActive = sd.IsActive,
+        DepartmentCtrlNbr = sd.DepartmentCtrlNbr?.Value ?? 0
     };
 }

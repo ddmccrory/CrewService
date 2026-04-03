@@ -77,4 +77,62 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
             throw;
         }
     }
+
+    // ── Shift Definitions ──
+
+    public async Task<GetShiftDefinitionsResponse> GetShiftDefinitionsAsync(long workAreaGroupCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetShiftDefinitionsAsync(new GetShiftDefinitionsRequest { WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, string defaultStartTime, string defaultEndTime, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    {
+        try
+        {
+            return await _client.CreateShiftDefinitionAsync(new CreateShiftDefinitionRequest
+            {
+                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+                ShiftCode = shiftCode,
+                DisplayName = displayName,
+                DefaultStartTime = defaultStartTime,
+                DefaultEndTime = defaultEndTime,
+                DisplayOrder = displayOrder,
+                IsActive = isActive,
+                DepartmentCtrlNbr = departmentCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, string defaultStartTime, string defaultEndTime, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    {
+        try
+        {
+            return await _client.UpdateShiftDefinitionAsync(new UpdateShiftDefinitionRequest
+            {
+                CtrlNbr = ctrlNbr,
+                ShiftCode = shiftCode,
+                DisplayName = displayName,
+                DefaultStartTime = defaultStartTime,
+                DefaultEndTime = defaultEndTime,
+                DisplayOrder = displayOrder,
+                IsActive = isActive,
+                DepartmentCtrlNbr = departmentCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<DeleteResponse> DeleteShiftDefinitionAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.DeleteShiftDefinitionAsync(new DeleteShiftDefinitionRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }
