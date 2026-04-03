@@ -148,6 +148,8 @@ public static class DependencyInjection
         services.AddScoped<ICrewIncumbencyRepository, CrewIncumbencyRepository>();
         services.AddScoped<ICrewAssignmentRepository, CrewAssignmentRepository>();
         services.AddScoped<ICrewAttachmentInstanceRepository, CrewAttachmentInstanceRepository>();
+        services.AddScoped<IAssignmentRepository, AssignmentRepository>();
+        services.AddScoped<IAssignmentScheduleRepository, AssignmentScheduleRepository>();
         
         // Boards Module Repositories
         services.AddScoped<IExtraBoardRepository, ExtraBoardRepository>();
