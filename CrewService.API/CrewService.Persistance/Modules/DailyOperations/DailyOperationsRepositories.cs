@@ -13,12 +13,12 @@ namespace CrewService.Persistance.Modules.DailyOperations;
 internal sealed class ShiftDefinitionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<ShiftDefinition>(dbContext, currentUserService), IShiftDefinitionRepository
 {
-    public async Task<IReadOnlyList<ShiftDefinition>> GetByWorkAreaAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default) =>
+    public async Task<List<ShiftDefinition>> GetByWorkAreaAsync(
+        ControlNumber workAreaGroupCtrlNbr) =>
         await DbContext.Set<ShiftDefinition>()
             .Where(s => s.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr)
             .OrderBy(s => s.DisplayOrder)
-            .ToListAsync(ct);
+            .ToListAsync();
 }
 
 internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

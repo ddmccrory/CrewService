@@ -19,6 +19,7 @@ using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Application.FraCompliance;
 using CrewService.Infrastructure.Models.UserAccount;
+using CrewService.Domain.Interfaces;
 using CrewService.Presentation;
 using CrewService.Presentation.Services;
 using Microsoft.AspNetCore.Http;
@@ -104,14 +105,9 @@ internal static class DevDataSeeder
         // No placement rows -- backward-compatible scenario
 
         // ?? Scenario 2: PTRA (Legacy Railroad) ??????????????????????
-        // Railroad is the work area; hierarchy: Railroad -> Location -> Assignment
+        // Railroad is the work area; hierarchy: Railroad -> Location
         var ptraLocationType = GroupType.Create("Location", "On duty locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
         await groupTypeRepo.AddAsync(ptraLocationType);
-
-        // Update the auto-created PTRA Assignment type to nest under Location
-        var ptraAssignmentType = autoCreatedTypes.First(gt => gt.Name == "Assignment" && gt.ParentCtrlNbr == ptraCorpResp.CtrlNbr);
-        ptraAssignmentType.Update(ptraAssignmentType.Name, ptraAssignmentType.Description, ptraAssignmentType.IsWorkArea, ptraAssignmentType.FlagsJson, ptraAssignmentType.ParentCtrlNbr, ptraAssignmentType.RailroadCtrlNbr, parentGroupTypeCtrlNbr: ptraLocationType.CtrlNbr.Value);
-        await groupTypeRepo.UpdateAsync(ptraAssignmentType);
 
         var northYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "North Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "11", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
         await groupRepo.AddAsync(northYard);
@@ -177,20 +173,12 @@ internal static class DevDataSeeder
 
         // Backfill per-parent system types for pre-existing parents that may be missing types
         var groupTypesBackfill = await groupTypeRepo.GetAllAsync();
-        var attrDefRepo = sp.GetRequiredService<IGroupAttributeDefinitionRepository>();
 
         foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
         {
             var pCtrl = parentCore.CtrlNbr.Value;
             if (!groupTypesBackfill.Any(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == pCtrl))
                 await groupTypeRepo.AddAsync(GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: pCtrl));
-            if (!groupTypesBackfill.Any(gt => gt.Name == "Assignment" && gt.ParentCtrlNbr == pCtrl))
-            {
-                var assignmentType = GroupType.Create("Assignment", "Work assignments under a work area or its descendants", isWorkArea: false, parentCtrlNbr: pCtrl);
-                await groupTypeRepo.AddAsync(assignmentType);
-                await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(assignmentType.CtrlNbr, "isActive", "bool", isRequired: false, defaultValue: "true"));
-                await attrDefRepo.AddAsync(GroupAttributeDefinition.Create(assignmentType.CtrlNbr, "OnDutyTime", "time", isRequired: false));
-            }
         }
 
         // Backfill group types scoped to CSX Corporation
@@ -660,6 +648,9 @@ internal static class DevDataSeeder
         var crewPositionRepo = sp.GetRequiredService<ICrewPositionRepository>();
         var incumbencyRepo = sp.GetRequiredService<ICrewIncumbencyRepository>();
         var crewAssignmentRepo = sp.GetRequiredService<ICrewAssignmentRepository>();
+        var assignmentRepo2 = sp.GetRequiredService<IAssignmentRepository>();
+        var assignmentScheduleRepo = sp.GetRequiredService<IAssignmentScheduleRepository>();
+        var uowFactory = sp.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
 
         var existingCrews = await crewRepo.GetAllAsync();
         if (existingCrews.Count == 0)
@@ -677,9 +668,14 @@ internal static class DevDataSeeder
         var crewA = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew A", departmentCtrlNbr: crewTransDept?.CtrlNbr);
         var crewB = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew B", departmentCtrlNbr: crewTransDept?.CtrlNbr);
         var extraCrew = Crew.Create("EXTRA", jaxSub2.CtrlNbr, "Jax Extra Board Crew", departmentCtrlNbr: crewTransDept?.CtrlNbr);
-        await crewRepo.AddAsync(crewA);
-        await crewRepo.AddAsync(crewB);
-        await crewRepo.AddAsync(extraCrew);
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crews.Add(crewA);
+            uow.Crews.Add(crewB);
+            uow.Crews.Add(extraCrew);
+            await uow.CommitAsync();
+        }
 
         // Crew Positions � 2 per crew (Conductor + Engineer)
         var crewAPos1 = CrewPosition.Create(crewA.CtrlNbr, condRole.CtrlNbr, 1);
@@ -688,23 +684,96 @@ internal static class DevDataSeeder
         var crewBPos2 = CrewPosition.Create(crewB.CtrlNbr, engRole.CtrlNbr, 2);
         var extraPos1 = CrewPosition.Create(extraCrew.CtrlNbr, condRole.CtrlNbr, 1);
         var extraPos2 = CrewPosition.Create(extraCrew.CtrlNbr, engRole.CtrlNbr, 2);
-        await crewPositionRepo.AddAsync(crewAPos1);
-        await crewPositionRepo.AddAsync(crewAPos2);
-        await crewPositionRepo.AddAsync(crewBPos1);
-        await crewPositionRepo.AddAsync(crewBPos2);
-        await crewPositionRepo.AddAsync(extraPos1);
-        await crewPositionRepo.AddAsync(extraPos2);
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.CrewPositions.Add(crewAPos1);
+            uow.CrewPositions.Add(crewAPos2);
+            uow.CrewPositions.Add(crewBPos1);
+            uow.CrewPositions.Add(crewBPos2);
+            uow.CrewPositions.Add(extraPos1);
+            uow.CrewPositions.Add(extraPos2);
+            await uow.CommitAsync();
+        }
 
         // Incumbencies � assign employees to crew positions
         var now = DateTime.UtcNow;
-        await incumbencyRepo.AddAsync(CrewIncumbency.Create(crewAPos1.CtrlNbr, empList2[40].CtrlNbr, now));
-        await incumbencyRepo.AddAsync(CrewIncumbency.Create(crewAPos2.CtrlNbr, empList2[0].CtrlNbr, now));
-        await incumbencyRepo.AddAsync(CrewIncumbency.Create(crewBPos1.CtrlNbr, empList2[41].CtrlNbr, now));
-        await incumbencyRepo.AddAsync(CrewIncumbency.Create(crewBPos2.CtrlNbr, empList2[1].CtrlNbr, now));
-        await incumbencyRepo.AddAsync(CrewIncumbency.Create(extraPos1.CtrlNbr, empList2[42].CtrlNbr, now));
-        await incumbencyRepo.AddAsync(CrewIncumbency.Create(extraPos2.CtrlNbr, empList2[2].CtrlNbr, now));
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewAPos1.CtrlNbr, empList2[40].CtrlNbr, now));
+            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewAPos2.CtrlNbr, empList2[0].CtrlNbr, now));
+            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewBPos1.CtrlNbr, empList2[41].CtrlNbr, now));
+            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewBPos2.CtrlNbr, empList2[1].CtrlNbr, now));
+            uow.CrewIncumbencies.Add(CrewIncumbency.Create(extraPos1.CtrlNbr, empList2[42].CtrlNbr, now));
+            uow.CrewIncumbencies.Add(CrewIncumbency.Create(extraPos2.CtrlNbr, empList2[2].CtrlNbr, now));
+            await uow.CommitAsync();
+        }
 
-        // CrewAssignments will be seeded once DynamicGroup assignment groups are created in the seeder
+        // Shift Definitions for Jacksonville Sub
+        var shiftDefRepo = sp.GetRequiredService<IShiftDefinitionRepository>();
+        var existingShifts = await shiftDefRepo.GetByWorkAreaAsync(jaxSub2.CtrlNbr);
+        ShiftDefinition shiftFirst, shiftSecond, shiftThird;
+        if (existingShifts.Count == 0)
+        {
+            shiftFirst = ShiftDefinition.Create(jaxSub2.CtrlNbr, "1ST", "First Shift", new TimeOnly(6, 0), new TimeOnly(14, 0), 1, true, crewTransDept?.CtrlNbr);
+            shiftSecond = ShiftDefinition.Create(jaxSub2.CtrlNbr, "2ND", "Second Shift", new TimeOnly(14, 0), new TimeOnly(22, 0), 2, true, crewTransDept?.CtrlNbr);
+            shiftThird = ShiftDefinition.Create(jaxSub2.CtrlNbr, "3RD", "Third Shift", new TimeOnly(22, 0), new TimeOnly(6, 0), 3, true, crewTransDept?.CtrlNbr);
+            await using (var uow = await uowFactory.CreateAsync())
+            {
+                uow.ShiftDefinitions.Add(shiftFirst);
+                uow.ShiftDefinitions.Add(shiftSecond);
+                uow.ShiftDefinitions.Add(shiftThird);
+                await uow.CommitAsync();
+            }
+        }
+        else
+        {
+            shiftFirst = existingShifts.First(s => s.ShiftCode == "1ST");
+            shiftSecond = existingShifts.First(s => s.ShiftCode == "2ND");
+            shiftThird = existingShifts.First(s => s.ShiftCode == "3RD");
+        }
+
+        // Shift Definitions for PTRA
+        var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
+        var ptraTransDeptForShifts = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
+        var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
+        if (existingPtraShifts.Count == 0)
+        {
+            var ptraShift1A = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1A", "First Shift 6:30 AM", new TimeOnly(6, 30), new TimeOnly(14, 30), 1, true, ptraTransDeptForShifts?.CtrlNbr);
+            var ptraShift1B = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1B", "First Shift 7:00 AM", new TimeOnly(7, 0), new TimeOnly(15, 0), 2, true, ptraTransDeptForShifts?.CtrlNbr);
+            await using (var uow = await uowFactory.CreateAsync())
+            {
+                uow.ShiftDefinitions.Add(ptraShift1A);
+                uow.ShiftDefinitions.Add(ptraShift1B);
+                await uow.CommitAsync();
+            }
+        }
+
+        // Assignments
+        var asgn1 = Assignment.Create(jaxSub2.CtrlNbr, "JAX-101", "Jax Turn 101", departmentCtrlNbr: crewTransDept?.CtrlNbr);
+        var asgn2 = Assignment.Create(jaxSub2.CtrlNbr, "JAX-102", "Jax Turn 102", departmentCtrlNbr: crewTransDept?.CtrlNbr);
+        var asgnExtra = Assignment.Create(jaxSub2.CtrlNbr, "JAX-XB", "Jax Extra Board", isExtra: true, departmentCtrlNbr: crewTransDept?.CtrlNbr);
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Assignments.Add(asgn1);
+            uow.Assignments.Add(asgn2);
+            uow.Assignments.Add(asgnExtra);
+            await uow.CommitAsync();
+        }
+
+        // Assignment Schedules — weekday bitmask: Mon-Fri = 0b0111110 = 62
+        const int weekdays = 0b0111110;
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn1.CtrlNbr, shiftFirst.CtrlNbr, weekdays));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn2.CtrlNbr, shiftSecond.CtrlNbr, weekdays));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgnExtra.CtrlNbr, shiftFirst.CtrlNbr, weekdays));
+            uow.CrewAssignments.Add(CrewAssignment.Create(crewA.CtrlNbr, asgn1.CtrlNbr, weekdays, now));
+            uow.CrewAssignments.Add(CrewAssignment.Create(crewB.CtrlNbr, asgn2.CtrlNbr, weekdays, now));
+            uow.CrewAssignments.Add(CrewAssignment.Create(extraCrew.CtrlNbr, asgnExtra.CtrlNbr, weekdays, now));
+            await uow.CommitAsync();
+        }
 
         } // end crews guard
 

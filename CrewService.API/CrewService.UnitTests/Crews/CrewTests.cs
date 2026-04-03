@@ -75,7 +75,7 @@ public class CrewAssignmentTests
         var assignment = CrewAssignment.Create(10, 20, 0b0111110, start);
 
         Assert.Equal(10, assignment.CrewCtrlNbr.Value);
-        Assert.Equal(20, assignment.AssignmentGroupCtrlNbr.Value);
+        Assert.Equal(20, assignment.AssignmentCtrlNbr.Value);
         Assert.Equal(0b0111110, assignment.DaysOfWeekMask);
         Assert.Equal(start, assignment.StartUtc);
         Assert.Null(assignment.EndUtc);
