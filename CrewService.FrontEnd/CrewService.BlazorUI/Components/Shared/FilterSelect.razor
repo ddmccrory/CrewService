@@ -1,0 +1,51 @@
+@typeparam TItem
+@typeparam TValue
+
+<select value="@FormatValue(Value)" @onchange="OnChanged" @attributes="AdditionalAttributes">
+    @if (Items is not { Count: 1 })
+    {
+        <option value="@FormatValue(default)">@Placeholder</option>
+    }
+    @if (Items is not null)
+    {
+        @foreach (var item in Items)
+        {
+            <option value="@FormatValue(ValueSelector(item))">@TextSelector(item)</option>
+        }
+    }
+</select>
+
+@code {
+    /// <summary>The list of items to render as options.</summary>
+    [Parameter] public IReadOnlyList<TItem>? Items { get; set; }
+
+    /// <summary>Extracts the option value from an item.</summary>
+    [Parameter, EditorRequired] public Func<TItem, TValue> ValueSelector { get; set; } = default!;
+
+    /// <summary>Extracts the display text from an item.</summary>
+    [Parameter, EditorRequired] public Func<TItem, string> TextSelector { get; set; } = default!;
+
+    /// <summary>The currently selected value (two-way bindable).</summary>
+    [Parameter] public TValue? Value { get; set; }
+
+    /// <summary>Callback when Value changes (supports @bind-Value).</summary>
+    [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
+
+    /// <summary>Text shown when no item is selected. Hidden when exactly one item exists.</summary>
+    [Parameter] public string Placeholder { get; set; } = "-- Select --";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        if (BindConverter.TryConvertTo<TValue>(e.Value?.ToString(),
+                System.Globalization.CultureInfo.CurrentCulture, out var parsed))
+        {
+            Value = parsed;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private static string FormatValue(TValue? value) => value?.ToString() ?? "";
+}
