@@ -2,12 +2,17 @@
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Modules.Crews;
+using CrewService.Persistance.Modules.DailyOperations;
 using CrewService.Persistance.Modules.TenantConfig;
+using CrewService.Persistance.Modules.WorkManagement;
 using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -68,6 +73,31 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IGroupAttributeDefinitionRepository? _attributeDefinitions;
     private IGroupAttributeValueRepository? _attributeValues;
 
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Crews
+    // ──────────────────────────────────────────────────────────────────
+    private ICrewRepository? _crews;
+    private ICrewPositionRepository? _crewPositions;
+    private ICrewIncumbencyRepository? _crewIncumbencies;
+    private ICrewAssignmentRepository? _crewAssignments;
+    private ICrewAttachmentInstanceRepository? _crewAttachmentInstances;
+
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Assignments
+    // ──────────────────────────────────────────────────────────────────
+    private IAssignmentRepository? _assignments;
+    private IAssignmentScheduleRepository? _assignmentSchedules;
+
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: WorkManagement
+    // ──────────────────────────────────────────────────────────────────
+    private IDepartmentRepository? _departments;
+    private ICraftRoleRepository? _craftRoles;
+    private IWorkInstanceRepository? _workInstances;
+    private IPositionSlotRepository? _positionSlots;
+    private ISlotRequirementRepository? _slotRequirements;
+    private IShiftDefinitionRepository? _shiftDefinitions;
+
     public string CorrelationId { get; }
     public string OrchestrationId { get; }
 
@@ -106,6 +136,31 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IDynamicGroupRepository DynamicGroups => _dynamicGroups ??= new DynamicGroupRepository(_crewContext, _currentUserService);
     public IGroupAttributeDefinitionRepository AttributeDefinitions => _attributeDefinitions ??= new GroupAttributeDefinitionRepository(_crewContext, _currentUserService);
     public IGroupAttributeValueRepository AttributeValues => _attributeValues ??= new GroupAttributeValueRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Crews
+    // ──────────────────────────────────────────────────────────────────
+    public ICrewRepository Crews => _crews ??= new CrewRepository(_crewContext, _currentUserService);
+    public ICrewPositionRepository CrewPositions => _crewPositions ??= new CrewPositionRepository(_crewContext, _currentUserService);
+    public ICrewIncumbencyRepository CrewIncumbencies => _crewIncumbencies ??= new CrewIncumbencyRepository(_crewContext, _currentUserService);
+    public ICrewAssignmentRepository CrewAssignments => _crewAssignments ??= new CrewAssignmentRepository(_crewContext, _currentUserService);
+    public ICrewAttachmentInstanceRepository CrewAttachmentInstances => _crewAttachmentInstances ??= new CrewAttachmentInstanceRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Assignments
+    // ──────────────────────────────────────────────────────────────────
+    public IAssignmentRepository Assignments => _assignments ??= new AssignmentRepository(_crewContext, _currentUserService);
+    public IAssignmentScheduleRepository AssignmentSchedules => _assignmentSchedules ??= new AssignmentScheduleRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: WorkManagement
+    // ──────────────────────────────────────────────────────────────────
+    public IDepartmentRepository Departments => _departments ??= new DepartmentRepository(_crewContext, _currentUserService);
+    public ICraftRoleRepository CraftRoles => _craftRoles ??= new CraftRoleRepository(_crewContext, _currentUserService);
+    public IWorkInstanceRepository WorkInstances => _workInstances ??= new WorkInstanceRepository(_crewContext, _currentUserService);
+    public IPositionSlotRepository PositionSlots => _positionSlots ??= new PositionSlotRepository(_crewContext, _currentUserService);
+    public ISlotRequirementRepository SlotRequirements => _slotRequirements ??= new SlotRequirementRepository(_crewContext, _currentUserService);
+    public IShiftDefinitionRepository ShiftDefinitions => _shiftDefinitions ??= new ShiftDefinitionRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
         DbConnection connection,

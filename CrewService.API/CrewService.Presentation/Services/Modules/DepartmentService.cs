@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -5,7 +6,8 @@ using Grpc.Core;
 namespace CrewService.Presentation.Services.Modules;
 
 public class DepartmentService(
-    IDepartmentRepository departmentRepository) : DepartmentSrvc.DepartmentSrvcBase
+    IDepartmentRepository departmentRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory) : DepartmentSrvc.DepartmentSrvcBase
 {
     public override async Task<GetDepartmentsResponse> GetAll(GetDepartmentsRequest request, ServerCallContext context)
     {
@@ -24,7 +26,11 @@ public class DepartmentService(
             request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
             request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null,
             request.Name);
-        await departmentRepository.AddAsync(department);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Departments.Add(department);
+        await uow.CommitAsync();
+
         return MapDepartment(department);
     }
 
@@ -33,13 +39,23 @@ public class DepartmentService(
         var department = await departmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Department {request.CtrlNbr} not found."));
         department.Update(request.Name);
-        await departmentRepository.UpdateAsync(department);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Departments.Update(department);
+        await uow.CommitAsync();
+
         return MapDepartment(department);
     }
 
     public override async Task<DeleteResponse> Delete(DeleteDepartmentRequest request, ServerCallContext context)
     {
-        await departmentRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var department = await departmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Department {request.CtrlNbr} not found."));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Departments.Remove(department);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 

@@ -1,6 +1,5 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Domain.Modules.Crews;
-using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
@@ -10,39 +9,40 @@ namespace CrewService.Persistance.Modules.DailyOperations;
 internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : IAssignmentQueryService
 {
     public async Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(
-        ControlNumber workAreaGroupCtrlNbr, DateOnly targetDate, CancellationToken ct = default)
+        ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, CancellationToken ct = default)
     {
         var targetUtc = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var now = DateTime.UtcNow;
+        var dayBit = 1 << (int)targetDate.DayOfWeek;
 
-        var assignmentTypeIds = await dbContext.Set<GroupType>()
-            .Where(gt => gt.Name == "Assignment")
-            .Select(gt => gt.CtrlNbr)
+        // Find assignments for this work area that have a schedule matching the shift + day
+        var scheduledAssignmentCtrlNbrs = await dbContext.Set<AssignmentSchedule>()
+            .Where(s => s.ShiftDefinitionCtrlNbr == shiftDefinitionCtrlNbr
+                        && (s.OperatingDaysMask & dayBit) != 0)
+            .Select(s => s.AssignmentCtrlNbr)
+            .Distinct()
             .ToListAsync(ct);
 
-        if (assignmentTypeIds.Count == 0) return [];
+        if (scheduledAssignmentCtrlNbrs.Count == 0) return [];
 
-        var workAreaPath = (await dbContext.Set<DynamicGroup>()
-            .Where(g => g.CtrlNbr == workAreaGroupCtrlNbr)
-            .Select(g => g.Path)
-            .FirstOrDefaultAsync(ct)) ?? "";
-
-        var assignments = await dbContext.Set<DynamicGroup>()
-            .Where(g => assignmentTypeIds.Contains(g.GroupTypeCtrlNbr)
-                && g.Path != null && g.Path.StartsWith(workAreaPath + "/"))
+        var assignments = await dbContext.Set<Assignment>()
+            .Where(a => scheduledAssignmentCtrlNbrs.Contains(a.CtrlNbr)
+                        && a.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr
+                        && a.IsActive)
             .ToListAsync(ct);
 
         if (assignments.Count == 0) return [];
 
         var assignmentCtrlNbrs = assignments.Select(a => a.CtrlNbr).ToList();
 
-        var dayBit = 1 << (int)targetDate.DayOfWeek;
-        var attachments = await dbContext.Set<CrewAssignment>()
-            .Where(a => assignmentCtrlNbrs.Contains(a.AssignmentGroupCtrlNbr)
-                        && a.StartUtc <= targetUtc && (a.EndUtc == null || a.EndUtc > targetUtc) && (a.DaysOfWeekMask & dayBit) != 0)
+        // Find crew assignments covering these assignments on this day
+        var crewAssignments = await dbContext.Set<CrewAssignment>()
+            .Where(ca => assignmentCtrlNbrs.Contains(ca.AssignmentCtrlNbr)
+                         && ca.StartUtc <= targetUtc && (ca.EndUtc == null || ca.EndUtc > targetUtc)
+                         && (ca.DaysOfWeekMask & dayBit) != 0)
             .ToListAsync(ct);
 
-        var crewCtrlNbrs = attachments.Select(a => a.CrewCtrlNbr).Distinct().ToList();
+        var crewCtrlNbrs = crewAssignments.Select(ca => ca.CrewCtrlNbr).Distinct().ToList();
 
         var positions = await dbContext.Set<CrewPosition>()
             .Where(p => crewCtrlNbrs.Contains(p.CrewCtrlNbr))
@@ -61,9 +61,9 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
 
         foreach (var assignment in assignments)
         {
-            var crewIds = attachments
-                .Where(a => a.AssignmentGroupCtrlNbr == assignment.CtrlNbr)
-                .Select(a => a.CrewCtrlNbr)
+            var crewIds = crewAssignments
+                .Where(ca => ca.AssignmentCtrlNbr == assignment.CtrlNbr)
+                .Select(ca => ca.CrewCtrlNbr)
                 .ToHashSet();
 
             var positionDtos = positions

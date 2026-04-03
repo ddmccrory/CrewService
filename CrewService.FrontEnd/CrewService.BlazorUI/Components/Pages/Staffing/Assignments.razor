@@ -1,0 +1,310 @@
+@page "/staffing/assignments"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+@inherits AppComponentBase
+@attribute [Authorize]
+@inject AssignmentClient AssignmentClient
+@inject TenantConfigClient TenantConfigClient
+@inject DepartmentClient DepartmentClient
+@inject NavigationManager Nav
+
+<PageTitle>Assignments</PageTitle>
+<h1>Assignments</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage assignments.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing assignments for <strong>@SelectedRailroadName</strong></p>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Assignment" : "Create Assignment")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-assignment-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Work Area</label>
+                    <SelectInput TItem="GroupResponse" TValue="long"
+                                 @bind-Value="saveModel.WorkAreaGroupCtrlNbr"
+                                 Items="workAreas"
+                                 ValueSelector="@(wa => wa.CtrlNbr)"
+                                 TextSelector="@(wa => wa.Name)"
+                                 class="form-select" />
+                </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Department</label>
+                    <SelectInput TItem="DepartmentResponse" TValue="long"
+                                 @bind-Value="saveModel.DepartmentCtrlNbr"
+                                 Items="departments"
+                                 ValueSelector="@(d => d.CtrlNbr)"
+                                 TextSelector="@(d => d.Name)"
+                                 class="form-select" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Code</label>
+                    <InputText @bind-Value="saveModel.Code" class="form-control" placeholder="e.g. YD3" />
+                    <ValidationMessage For="() => saveModel.Code" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Yard Job 3" />
+                    <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsExtra" class="form-check-input" id="extra-switch" />
+                        <label class="form-check-label" for="extra-switch">Extra Board Assignment</label>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="active-switch" />
+                        <label class="form-check-label" for="active-switch">Active</label>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-assignment-form" class="btn btn-primary">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent><p>Are you sure you want to delete <strong>@deleteName</strong>?</p></BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="StaffingAssignmentResponse" Items="items" Columns="columns"
+               SearchPlaceholder="Search assignments..."
+               EmptyMessage="No assignments found."
+               DefaultSortColumn="Code">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <span class="bi bi-plus-circle"></span> Create Assignment
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="a">
+            <td><a href="staffing/assignments/@a.CtrlNbr" class="text-decoration-none fw-semibold">@a.Code.ToUpperInvariant()</a></td>
+            <td>@a.Name</td>
+            <td>@GetWorkAreaName(a.WorkAreaGroupCtrlNbr)</td>
+            <td>@GetDepartmentName(a.DepartmentCtrlNbr)</td>
+            <td>
+                @if (a.IsActive) { <span class="badge bg-success">Active</span> }
+                else { <span class="badge bg-warning text-dark">Inactive</span> }
+                @if (a.IsExtra) { <span class="badge bg-info ms-1">Extra</span> }
+            </td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(a)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(a)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "staffing/crews";
+
+    private IReadOnlyList<StaffingAssignmentResponse>? items;
+    private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<DepartmentResponse>? departments;
+    private Dictionary<long, string> workAreaNames = [];
+    private Dictionary<long, string> departmentNames = [];
+
+    private IReadOnlyList<DataTableColumn<StaffingAssignmentResponse>> columns =>
+    [
+        new("Code", a => a.Code.ToUpperInvariant()),
+        new("Name", a => a.Name),
+        new("Work Area", a => GetWorkAreaName(a.WorkAreaGroupCtrlNbr)),
+        new("Department", a => GetDepartmentName(a.DepartmentCtrlNbr)),
+        new("Status", a => a.IsActive ? "Active" : "Inactive", width: "100px"),
+        DataTableColumn<StaffingAssignmentResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private AssignmentInputModel saveModel = new();
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadWorkAreas();
+            await LoadDepartments();
+            await LoadAssignments();
+        }
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (HasRailroad)
+        {
+            await LoadWorkAreas();
+            await LoadDepartments();
+            await LoadAssignments();
+        }
+        else { items = null; workAreas = null; departments = null; }
+    }
+
+    private async Task LoadWorkAreas()
+    {
+        try
+        {
+            var response = await TenantConfigClient.GetWorkAreasAsync();
+            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
+            workAreas = response.Groups.Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl).ToList();
+            workAreaNames = workAreas.ToDictionary(g => g.CtrlNbr, g => g.Name);
+        }
+        catch { workAreas = []; }
+    }
+
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            departments = response.Departments;
+            departmentNames = departments.ToDictionary(d => d.CtrlNbr, d => d.Name);
+        }
+        catch { departments = []; }
+    }
+
+    private async Task LoadAssignments()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await AssignmentClient.GetAllAsync(railroadCtrlNbr: SelectedRailroadCtrlNbr!.Value);
+            items = response.Assignments;
+        }
+        catch (Exception ex) { errorMessage = $"Failed to load assignments: {ex.Message}"; }
+    }
+
+    private string GetWorkAreaName(long ctrlNbr) =>
+        ctrlNbr > 0 && workAreaNames.TryGetValue(ctrlNbr, out var n) ? n : "—";
+    private string GetDepartmentName(long ctrlNbr) =>
+        ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var n) ? n : "—";
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new() { IsActive = true };
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(StaffingAssignmentResponse a)
+    {
+        editCtrlNbr = a.CtrlNbr;
+        saveModel = new()
+        {
+            Code = a.Code, Name = a.Name,
+            IsExtra = a.IsExtra, IsActive = a.IsActive,
+            DepartmentCtrlNbr = a.DepartmentCtrlNbr
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal() { showSaveModal = false; editCtrlNbr = 0; saveModel = new(); }
+
+    private void OpenDeleteModal(StaffingAssignmentResponse a)
+    {
+        deleteCtrlNbr = a.CtrlNbr;
+        deleteName = a.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null; successMessage = null;
+            if (editCtrlNbr > 0)
+            {
+                await AssignmentClient.UpdateAsync(editCtrlNbr, saveModel.Code!, saveModel.Name!, saveModel.IsExtra, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                successMessage = "Assignment updated.";
+            }
+            else
+            {
+                await AssignmentClient.CreateAsync(saveModel.WorkAreaGroupCtrlNbr, saveModel.Code!, saveModel.Name!, saveModel.IsExtra, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                successMessage = "Assignment created.";
+            }
+            CloseSaveModal();
+            await LoadAssignments();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to save: {ex.Message}"; }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null; successMessage = null;
+            await AssignmentClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Assignment deleted.";
+            showDeleteModal = false;
+            await LoadAssignments();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to delete: {ex.Message}"; showDeleteModal = false; }
+    }
+
+    private sealed class AssignmentInputModel
+    {
+        public long WorkAreaGroupCtrlNbr { get; set; }
+        public long DepartmentCtrlNbr { get; set; }
+        [Required(ErrorMessage = "Code is required.")] public string? Code { get; set; }
+        [Required(ErrorMessage = "Name is required.")] public string? Name { get; set; }
+        public bool IsExtra { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

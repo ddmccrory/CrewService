@@ -62,8 +62,8 @@ internal sealed class CrewAssignmentRepository(CrewServiceDbContext dbContext, I
     public async Task<List<CrewAssignment>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs) =>
         await DbContext.Set<CrewAssignment>().Where(a => crewCtrlNbrs.Contains(a.CrewCtrlNbr)).ToListAsync();
 
-    public async Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr) =>
-        await DbContext.Set<CrewAssignment>().Where(a => a.AssignmentGroupCtrlNbr == assignmentGroupCtrlNbr).ToListAsync();
+    public async Task<List<CrewAssignment>> GetByAssignmentAsync(ControlNumber assignmentCtrlNbr) =>
+        await DbContext.Set<CrewAssignment>().Where(a => a.AssignmentCtrlNbr == assignmentCtrlNbr).ToListAsync();
 }
 
 internal sealed class CrewAttachmentInstanceRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

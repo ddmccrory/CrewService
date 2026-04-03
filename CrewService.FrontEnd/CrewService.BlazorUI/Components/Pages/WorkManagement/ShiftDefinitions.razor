@@ -1,0 +1,414 @@
+@page "/work-management/shift-definitions"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject WorkManagementClient WorkManagementClient
+@inject TenantConfigClient TenantConfigClient
+@inject DepartmentClient DepartmentClient
+
+<PageTitle>Shift Definitions</PageTitle>
+
+<h1>Shift Definitions</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage shift definitions.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing shift definitions for <strong>@SelectedRailroadName</strong></p>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Work Area</label>
+        <FilterSelect TItem="GroupResponse" TValue="long"
+                      @bind-Value="selectedWorkAreaCtrlNbr"
+                      @bind-Value:after="OnWorkAreaSelected"
+                      Items="workAreas"
+                      ValueSelector="@(wa => wa.CtrlNbr)"
+                      TextSelector="@(wa => wa.Name)"
+                      Placeholder="-- Select Work Area --"
+                      class="form-select" style="max-width: 350px;" />
+    </div>
+
+    @if (selectedWorkAreaCtrlNbr > 0)
+    {
+        <Modal Visible="showSaveModal"
+               Title="@(editCtrlNbr > 0 ? "Edit Shift Definition" : "Create Shift Definition")"
+               Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="CloseSaveModal">
+            <BodyContent>
+                <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-shift-form">
+                    <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Department</label>
+                        <SelectInput TItem="DepartmentResponse" TValue="long"
+                                     @bind-Value="saveModel.DepartmentCtrlNbr"
+                                     Items="departments"
+                                     ValueSelector="@(d => d.CtrlNbr)"
+                                     TextSelector="@(d => d.Name)"
+                                     Placeholder="-- None (all departments) --"
+                                     class="form-select" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Shift Code</label>
+                        <InputText @bind-Value="saveModel.ShiftCode" class="form-control" placeholder="e.g. 1ST" />
+                        <ValidationMessage For="() => saveModel.ShiftCode" class="text-danger" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Display Name</label>
+                        <InputText @bind-Value="saveModel.DisplayName" class="form-control" placeholder="e.g. First Shift" />
+                        <ValidationMessage For="() => saveModel.DisplayName" class="text-danger" />
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Default Start Time</label>
+                            <InputText @bind-Value="saveModel.DefaultStartTime" class="form-control" placeholder="HH:mm" />
+                            <ValidationMessage For="() => saveModel.DefaultStartTime" class="text-danger" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Default End Time</label>
+                            <InputText @bind-Value="saveModel.DefaultEndTime" class="form-control" placeholder="HH:mm" />
+                            <ValidationMessage For="() => saveModel.DefaultEndTime" class="text-danger" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Display Order</label>
+                        <InputNumber @bind-Value="saveModel.DisplayOrder" class="form-control" />
+                        <ValidationMessage For="() => saveModel.DisplayOrder" class="text-danger" />
+                    </div>
+                    <div class="mb-0">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="shiftIsActive" />
+                            <label class="form-check-label" for="shiftIsActive">Active</label>
+                        </div>
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+                <button type="submit" form="save-shift-form" class="btn btn-primary">
+                    <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+                </button>
+            </Footer>
+        </Modal>
+
+        <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+               OnClose="() => showDeleteModal = false" Size="sm">
+            <BodyContent>
+                <p>Are you sure you want to delete <strong>@deleteName</strong>?</p>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                    <span class="bi bi-trash me-1"></span> Delete
+                </button>
+            </Footer>
+        </Modal>
+
+        @if (successMessage is not null)
+        {
+            <div class="alert alert-success alert-dismissible" role="alert">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <DataTable TItem="ShiftDefinitionResponse" Items="shifts" Columns="columns"
+                   SearchFilter="@((s, term) => s.ShiftCode.Contains(term, StringComparison.OrdinalIgnoreCase) || s.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search by code or name..."
+                   EmptyMessage="No shift definitions found for this work area."
+                   DefaultSortColumn="Code">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Create Shift Definition
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="shift">
+                <td>@shift.ShiftCode.ToUpperInvariant()</td>
+                <td>@shift.DisplayName</td>
+                <td>@GetDepartmentName(shift.DepartmentCtrlNbr)</td>
+                <td>@shift.DefaultStartTime</td>
+                <td>@shift.DefaultEndTime</td>
+                <td class="text-center">@shift.DisplayOrder</td>
+                <td>
+                    @if (shift.IsActive)
+                    {
+                        <span class="badge bg-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Inactive</span>
+                    }
+                </td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(shift)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(shift)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/shift-definitions";
+
+    private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<ShiftDefinitionResponse>? shifts;
+    private IReadOnlyList<DepartmentResponse>? departments;
+    private Dictionary<long, string> departmentNames = new();
+    private long selectedWorkAreaCtrlNbr;
+
+    private static readonly IReadOnlyList<DataTableColumn<ShiftDefinitionResponse>> columns =
+    [
+        new("Code", s => s.ShiftCode),
+        new("Name", s => s.DisplayName),
+        new("Department", s => s.DepartmentCtrlNbr > 0 ? "Yes" : "—"),
+        new("Start", s => s.DefaultStartTime, width: "100px"),
+        new("End", s => s.DefaultEndTime, width: "100px"),
+        new("Order", s => s.DisplayOrder, width: "80px"),
+        new("Status", s => s.IsActive ? "Active" : "Inactive", width: "100px"),
+        DataTableColumn<ShiftDefinitionResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private ShiftDefinitionInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+            await LoadWorkAreas();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        selectedWorkAreaCtrlNbr = 0;
+        shifts = null;
+        departments = null;
+        departmentNames = new();
+
+        if (HasRailroad)
+            await LoadWorkAreas();
+        else
+            workAreas = null;
+    }
+
+    private async Task LoadWorkAreas()
+    {
+        try
+        {
+            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
+            var response = await TenantConfigClient.GetWorkAreasAsync();
+            workAreas = response.Groups.Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl).ToList();
+
+            if (workAreas.Count == 1)
+            {
+                selectedWorkAreaCtrlNbr = workAreas[0].CtrlNbr;
+                await LoadDepartments();
+                await LoadShifts();
+            }
+        }
+        catch { workAreas = []; }
+    }
+
+    private async Task OnWorkAreaSelected()
+    {
+        shifts = null;
+        departments = null;
+        departmentNames = new();
+
+        if (selectedWorkAreaCtrlNbr > 0)
+        {
+            await LoadDepartments();
+            await LoadShifts();
+        }
+    }
+
+    private async Task LoadShifts()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await WorkManagementClient.GetShiftDefinitionsAsync(selectedWorkAreaCtrlNbr);
+            shifts = response.ShiftDefinitions;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load shift definitions: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new() { IsActive = true, DisplayOrder = (shifts?.Count ?? 0) + 1 };
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(ShiftDefinitionResponse shift)
+    {
+        editCtrlNbr = shift.CtrlNbr;
+        saveModel = new()
+        {
+            DepartmentCtrlNbr = shift.DepartmentCtrlNbr,
+            ShiftCode = shift.ShiftCode,
+            DisplayName = shift.DisplayName,
+            DefaultStartTime = shift.DefaultStartTime,
+            DefaultEndTime = shift.DefaultEndTime,
+            DisplayOrder = shift.DisplayOrder,
+            IsActive = shift.IsActive
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(ShiftDefinitionResponse shift)
+    {
+        deleteCtrlNbr = shift.CtrlNbr;
+        deleteName = shift.DisplayName;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await WorkManagementClient.UpdateShiftDefinitionAsync(
+                    editCtrlNbr, saveModel.ShiftCode!, saveModel.DisplayName!,
+                    saveModel.DefaultStartTime!, saveModel.DefaultEndTime!,
+                    saveModel.DisplayOrder, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                successMessage = "Shift definition updated.";
+            }
+            else
+            {
+                await WorkManagementClient.CreateShiftDefinitionAsync(
+                    selectedWorkAreaCtrlNbr, saveModel.ShiftCode!, saveModel.DisplayName!,
+                    saveModel.DefaultStartTime!, saveModel.DefaultEndTime!,
+                    saveModel.DisplayOrder, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                successMessage = "Shift definition created.";
+            }
+
+            CloseSaveModal();
+            await LoadShifts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save shift definition: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            await WorkManagementClient.DeleteShiftDefinitionAsync(deleteCtrlNbr);
+            successMessage = "Shift definition deleted.";
+            showDeleteModal = false;
+            await LoadShifts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete shift definition: {ex.Message}";
+            showDeleteModal = false;
+        }
+    }
+
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            departments = response.Departments;
+            departmentNames = departments.ToDictionary(d => d.CtrlNbr, d => d.Name);
+        }
+        catch
+        {
+            departments = [];
+            departmentNames = new();
+        }
+    }
+
+    private string GetDepartmentName(long ctrlNbr) =>
+        ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var name) ? name : "—";
+
+    private sealed class ShiftDefinitionInputModel
+    {
+        private string? _shiftCode;
+
+        public long DepartmentCtrlNbr { get; set; }
+
+        [Required(ErrorMessage = "Shift code is required.")]
+        [StringLength(20, MinimumLength = 1)]
+        public string? ShiftCode
+        {
+            get => _shiftCode;
+            set => _shiftCode = value?.ToUpperInvariant();
+        }
+
+        [Required(ErrorMessage = "Display name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? DisplayName { get; set; }
+
+        [Required(ErrorMessage = "Start time is required.")]
+        [RegularExpression(@"^([01]?\d|2[0-3]):[0-5]\d$", ErrorMessage = "Use HH:mm format.")]
+        public string? DefaultStartTime { get; set; }
+
+        [Required(ErrorMessage = "End time is required.")]
+        [RegularExpression(@"^([01]?\d|2[0-3]):[0-5]\d$", ErrorMessage = "Use HH:mm format.")]
+        public string? DefaultEndTime { get; set; }
+
+        [Range(1, 999, ErrorMessage = "Display order must be between 1 and 999.")]
+        public int DisplayOrder { get; set; } = 1;
+
+        public bool IsActive { get; set; } = true;
+    }
+}

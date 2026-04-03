@@ -31,5 +31,5 @@ public interface ICrewAssignmentRepository : IRepository<CrewAssignment>
 {
     Task<List<CrewAssignment>> GetByCrewAsync(ControlNumber crewCtrlNbr);
     Task<List<CrewAssignment>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
-    Task<List<CrewAssignment>> GetByAssignmentGroupAsync(ControlNumber assignmentGroupCtrlNbr);
+    Task<List<CrewAssignment>> GetByAssignmentAsync(ControlNumber assignmentCtrlNbr);
 }

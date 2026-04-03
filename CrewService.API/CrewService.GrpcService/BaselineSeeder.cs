@@ -63,6 +63,7 @@ internal static class BaselineSeeder
         ("work-management/crafts", "Crafts", "Work Management", "/work-management/crafts"),
         ("work-management/assignment-templates", "Assignment Templates", "Work Management", "/work-management/assignment-templates"),
         ("work-management/craft-roles", "Craft Roles", "Work Management", "/work-management/craft-roles"),
+        ("work-management/shift-definitions", "Shift Definitions", "Work Management", "/work-management/shift-definitions"),
 
         // Employee Management
         ("employees", "Employees", "Employee Management", "/employees"),
@@ -120,6 +121,7 @@ internal static class BaselineSeeder
         ["work-management/crafts"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["work-management/assignment-templates"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager"],
         ["work-management/craft-roles"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["work-management/shift-definitions"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
 
         // Employee Management
         ["employees"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],

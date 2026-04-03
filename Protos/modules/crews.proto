@@ -48,6 +48,9 @@ service CrewsSrvc {
   rpc DeleteCrewAssignment(DeleteCrewAssignmentRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/crews/assignments/{ctrl_nbr}" };
   }
+  rpc GetCrewAssignmentsByAssignment(GetCrewAssignmentsByAssignmentRequest) returns (GetCrewAssignmentsResponse) {
+    option (google.api.http) = { get: "/v1/crews/assignments/by-assignment/{assignment_ctrl_nbr}" };
+  }
 }
 
 message GetAllCrewsRequest {
@@ -126,13 +129,14 @@ message CrewIncumbencyResponse {
 
 // Crew Assignment messages
 message GetCrewAssignmentsRequest { int64 crew_ctrl_nbr = 1; }
+message GetCrewAssignmentsByAssignmentRequest { int64 assignment_ctrl_nbr = 1; }
 message GetCrewAssignmentsResponse {
   repeated CrewAssignmentResponse assignments = 1;
   int32 total_count = 2;
 }
 message CreateCrewAssignmentRequest {
   int64 crew_ctrl_nbr = 1;
-  int64 assignment_group_ctrl_nbr = 2;
+  int64 assignment_ctrl_nbr = 2;
   int32 days_of_week_mask = 3;
   string start_utc = 4;
   string end_utc = 5;
@@ -147,8 +151,9 @@ message DeleteCrewAssignmentRequest { int64 ctrl_nbr = 1; }
 message CrewAssignmentResponse {
   int64 ctrl_nbr = 1;
   int64 crew_ctrl_nbr = 2;
-  int64 assignment_group_ctrl_nbr = 3;
+  int64 assignment_ctrl_nbr = 3;
   int32 days_of_week_mask = 4;
   string start_utc = 5;
   string end_utc = 6;
+  string crew_name = 7;
 }

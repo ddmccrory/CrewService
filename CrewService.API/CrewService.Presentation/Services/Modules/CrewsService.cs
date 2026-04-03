@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -8,7 +9,8 @@ public class CrewsService(
     ICrewRepository crewRepository,
     ICrewPositionRepository crewPositionRepository,
     ICrewIncumbencyRepository incumbencyRepository,
-    ICrewAssignmentRepository assignmentRepository) : CrewsSrvc.CrewsSrvcBase
+    ICrewAssignmentRepository assignmentRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
@@ -51,7 +53,11 @@ public class CrewsService(
     {
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
         var crew = Crew.Create(request.CrewType, request.HomeGroupCtrlNbr, request.Name, request.IsActive, departmentCtrlNbr);
-        await crewRepository.AddAsync(crew);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Crews.Add(crew);
+        await uow.CommitAsync();
+
         return MapCrew(crew);
     }
 
@@ -61,13 +67,23 @@ public class CrewsService(
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
         crew.Update(request.Name, request.IsActive, departmentCtrlNbr);
-        await crewRepository.UpdateAsync(crew);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Crews.Update(crew);
+        await uow.CommitAsync();
+
         return MapCrew(crew);
     }
 
     public override async Task<DeleteResponse> DeleteCrew(DeleteCrewRequest request, ServerCallContext context)
     {
-        await crewRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Crews.Remove(crew);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
@@ -89,7 +105,11 @@ public class CrewsService(
     public override async Task<CrewPositionResponse> CreateCrewPosition(CreateCrewPositionRequest request, ServerCallContext context)
     {
         var position = CrewPosition.Create(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder);
-        await crewPositionRepository.AddAsync(position);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CrewPositions.Add(position);
+        await uow.CommitAsync();
+
         return new CrewPositionResponse
         {
             CtrlNbr = position.CtrlNbr.Value,
@@ -123,7 +143,11 @@ public class CrewsService(
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
         var incumbency = CrewIncumbency.Create(request.CrewPositionCtrlNbr, request.EmployeeCtrlNbr, startUtc, endUtc);
-        await incumbencyRepository.AddAsync(incumbency);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CrewIncumbencies.Add(incumbency);
+        await uow.CommitAsync();
+
         return MapIncumbency(incumbency);
     }
 
@@ -140,8 +164,26 @@ public class CrewsService(
     public override async Task<GetCrewAssignmentsResponse> GetCrewAssignments(GetCrewAssignmentsRequest request, ServerCallContext context)
     {
         var items = await assignmentRepository.GetByCrewAsync(ControlNumber.Create(request.CrewCtrlNbr));
+        return await BuildCrewAssignmentsResponse(items);
+    }
+
+    public override async Task<GetCrewAssignmentsResponse> GetCrewAssignmentsByAssignment(GetCrewAssignmentsByAssignmentRequest request, ServerCallContext context)
+    {
+        var items = await assignmentRepository.GetByAssignmentAsync(ControlNumber.Create(request.AssignmentCtrlNbr));
+        return await BuildCrewAssignmentsResponse(items);
+    }
+
+    private async Task<GetCrewAssignmentsResponse> BuildCrewAssignmentsResponse(List<CrewAssignment> items)
+    {
+        var crewCtrlNbrs = items.Select(a => a.CrewCtrlNbr).Distinct().ToList();
+        var crewNames = new Dictionary<long, string>();
+        foreach (var ctrlNbr in crewCtrlNbrs)
+        {
+            var crew = await crewRepository.GetByCtrlNbrAsync(ctrlNbr);
+            if (crew is not null) crewNames[ctrlNbr.Value] = crew.Name;
+        }
         var response = new GetCrewAssignmentsResponse { TotalCount = items.Count };
-        foreach (var a in items) response.Assignments.Add(MapAssignment(a));
+        foreach (var a in items) response.Assignments.Add(MapAssignment(a, crewNames));
         return response;
     }
 
@@ -149,8 +191,12 @@ public class CrewsService(
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var assignment = CrewAssignment.Create(request.CrewCtrlNbr, request.AssignmentGroupCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
-        await assignmentRepository.AddAsync(assignment);
+        var assignment = CrewAssignment.Create(request.CrewCtrlNbr, request.AssignmentCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CrewAssignments.Add(assignment);
+        await uow.CommitAsync();
+
         return MapAssignment(assignment);
     }
 
@@ -161,23 +207,34 @@ public class CrewsService(
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
         assignment.Update(request.DaysOfWeekMask, startUtc, endUtc);
-        await assignmentRepository.UpdateAsync(assignment);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CrewAssignments.Update(assignment);
+        await uow.CommitAsync();
+
         return MapAssignment(assignment);
     }
 
     public override async Task<DeleteResponse> DeleteCrewAssignment(DeleteCrewAssignmentRequest request, ServerCallContext context)
     {
-        await assignmentRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+        var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewAssignment {request.CtrlNbr} not found."));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CrewAssignments.Remove(assignment);
+        await uow.CommitAsync();
+
         return new DeleteResponse { Success = true };
     }
 
-    private static CrewAssignmentResponse MapAssignment(CrewAssignment a) => new()
+    private static CrewAssignmentResponse MapAssignment(CrewAssignment a, Dictionary<long, string>? crewNames = null) => new()
     {
         CtrlNbr = a.CtrlNbr.Value,
         CrewCtrlNbr = a.CrewCtrlNbr.Value,
-        AssignmentGroupCtrlNbr = a.AssignmentGroupCtrlNbr.Value,
+        AssignmentCtrlNbr = a.AssignmentCtrlNbr.Value,
         DaysOfWeekMask = a.DaysOfWeekMask,
         StartUtc = a.StartUtc.ToString("O"),
-        EndUtc = a.EndUtc?.ToString("O") ?? string.Empty
+        EndUtc = a.EndUtc?.ToString("O") ?? string.Empty,
+        CrewName = crewNames is not null && crewNames.TryGetValue(a.CrewCtrlNbr.Value, out var name) ? name : string.Empty
     };
 }

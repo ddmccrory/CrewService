@@ -8,8 +8,7 @@ public sealed class GroupType : Entity
     /// <summary>Names reserved for baseline-seeded system types that cannot be renamed or deleted.</summary>
     public static readonly IReadOnlySet<string> SystemTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "Railroad",
-        "Assignment"
+        "Railroad"
     };
 
     public string Name { get; private set; } = string.Empty;
@@ -20,7 +19,7 @@ public sealed class GroupType : Entity
     public ControlNumber? RailroadCtrlNbr { get; private set; }
     public ControlNumber? ParentGroupTypeCtrlNbr { get; private set; }
 
-    /// <summary>True when this type is a system type (Railroad, WorkArea, or Assignment) that cannot be renamed or deleted.</summary>
+    /// <summary>True when this type is a system type (Railroad) that cannot be renamed or deleted.</summary>
     public bool IsSystemType => SystemTypeNames.Contains(Name);
 
     private GroupType() { }

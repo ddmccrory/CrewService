@@ -11,6 +11,7 @@
 @attribute [Authorize]
 
 @inject CrewClient CrewClient
+@inject AssignmentClient AssignmentClient
 @inject TenantConfigClient TenantConfigClient
 @inject WorkManagementClient WorkManagementClient
 @inject CraftClient CraftClient
@@ -122,10 +123,10 @@ else
                     @if (editAssignmentCtrlNbr == 0)
                     {
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Assignment Group</label>
-                        <SelectInput TItem="GroupResponse" TValue="long"
-                                     @bind-Value="assignmentModel.AssignmentGroupCtrlNbr"
-                                     Items="assignmentGroups"
+                        <label class="form-label fw-semibold">Assignment</label>
+                        <SelectInput TItem="StaffingAssignmentResponse" TValue="long"
+                                     @bind-Value="assignmentModel.AssignmentCtrlNbr"
+                                     Items="assignmentOptions"
                                      ValueSelector="@(ag => ag.CtrlNbr)"
                                      TextSelector="@(ag => ag.Name)"
                                      class="form-select" />
@@ -190,7 +191,7 @@ else
                 }
             </ToolbarContent>
             <RowContent Context="a">
-                <td>@GetAssignmentGroupName(a.AssignmentGroupCtrlNbr)</td>
+                <td>@GetAssignmentName(a.AssignmentCtrlNbr)</td>
                 <td>@FormatDays(a.DaysOfWeekMask)</td>
                 <td>@FormatOffDays(a.DaysOfWeekMask)</td>
                 <td>@FormatDate(a.StartUtc)</td>
@@ -221,10 +222,10 @@ else
     private CrewResponse? crew;
     private IReadOnlyList<CrewPositionResponse>? positions;
     private IReadOnlyList<CrewAssignmentResponse>? assignments;
-    private IReadOnlyList<GroupResponse>? assignmentGroups;
+    private IReadOnlyList<StaffingAssignmentResponse>? assignmentOptions;
     private IReadOnlyList<CraftRoleResponse>? craftRoles;
 
-    private Dictionary<long, string> assignmentGroupNames = [];
+    private Dictionary<long, string> assignmentNames = [];
     private Dictionary<long, string> craftRoleNames = [];
 
     private string activeTab = "positions";
@@ -243,7 +244,7 @@ else
 
     private IReadOnlyList<DataTableColumn<CrewAssignmentResponse>> assignmentColumns =>
     [
-        new("Assignment", a => GetAssignmentGroupName(a.AssignmentGroupCtrlNbr)),
+        new("Assignment", a => GetAssignmentName(a.AssignmentCtrlNbr)),
         new("Work Days", a => a.DaysOfWeekMask),
         new("Off Days", a => a.DaysOfWeekMask),
         new("Start", a => a.StartUtc),
@@ -272,7 +273,7 @@ else
         await LoadCrew();
         await LoadPositions();
         await LoadAssignments();
-        await LoadAssignmentGroups();
+        await LoadAssignmentOptions();
         await LoadCraftRoles();
     }
 
@@ -314,17 +315,17 @@ else
         }
     }
 
-    private async Task LoadAssignmentGroups()
+    private async Task LoadAssignmentOptions()
     {
         try
         {
-            var response = await TenantConfigClient.GetGroupsByTypeNameAsync("Assignment");
-            assignmentGroups = response.Groups;
-            assignmentGroupNames = assignmentGroups.ToDictionary(g => g.CtrlNbr, g => g.Name);
+            var response = await AssignmentClient.GetAllAsync(workAreaGroupCtrlNbr: crew?.HomeGroupCtrlNbr ?? 0);
+            assignmentOptions = response.Assignments;
+            assignmentNames = assignmentOptions.ToDictionary(a => a.CtrlNbr, a => a.Name);
         }
         catch
         {
-            assignmentGroups = [];
+            assignmentOptions = [];
         }
     }
 
@@ -358,8 +359,8 @@ else
         }
     }
 
-    private string GetAssignmentGroupName(long ctrlNbr) =>
-        assignmentGroupNames.TryGetValue(ctrlNbr, out var name) ? name : ctrlNbr.ToString();
+    private string GetAssignmentName(long ctrlNbr) =>
+        assignmentNames.TryGetValue(ctrlNbr, out var name) ? name : ctrlNbr.ToString();
 
     private string GetCraftRoleName(long ctrlNbr) =>
         craftRoleNames.TryGetValue(ctrlNbr, out var name) ? name : ctrlNbr.ToString();
@@ -403,7 +404,7 @@ else
         editAssignmentCtrlNbr = a.CtrlNbr;
         assignmentModel = new()
         {
-            AssignmentGroupCtrlNbr = a.AssignmentGroupCtrlNbr,
+            AssignmentCtrlNbr = a.AssignmentCtrlNbr,
             DaysOfWeekMask = a.DaysOfWeekMask,
             StartDate = string.IsNullOrEmpty(a.StartUtc) ? DateOnly.FromDateTime(DateTime.Today) : DateOnly.Parse(a.StartUtc[..10]),
             EndDate = string.IsNullOrEmpty(a.EndUtc) ? null : DateOnly.Parse(a.EndUtc[..10])
@@ -440,7 +441,7 @@ else
             }
             else
             {
-                await CrewClient.CreateCrewAssignmentAsync(CtrlNbr, assignmentModel.AssignmentGroupCtrlNbr, assignmentModel.DaysOfWeekMask, startUtc, endUtc);
+                await CrewClient.CreateCrewAssignmentAsync(CtrlNbr, assignmentModel.AssignmentCtrlNbr, assignmentModel.DaysOfWeekMask, startUtc, endUtc);
                 successMessage = "Assignment created.";
             }
 
@@ -501,13 +502,6 @@ else
         return off.Count == 0 ? "None" : string.Join(", ", off);
     }
 
-    private static string FormatDate(string isoUtc)
-    {
-        if (DateTime.TryParse(isoUtc, out var dt))
-            return dt.ToString("yyyy-MM-dd");
-        return isoUtc;
-    }
-
     // ── Input Models ──
 
     private sealed class PositionInputModel
@@ -519,7 +513,7 @@ else
 
     private sealed class AssignmentInputModel
     {
-        public long AssignmentGroupCtrlNbr { get; set; }
+        public long AssignmentCtrlNbr { get; set; }
         public int DaysOfWeekMask { get; set; }
 
         [Required(ErrorMessage = "Start date is required.")]

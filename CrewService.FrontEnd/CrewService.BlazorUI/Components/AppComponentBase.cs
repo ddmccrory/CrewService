@@ -145,6 +145,16 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
         }
     }
 
+    // ── Formatting helpers ──────────────────────────────────────────────
+
+    /// <summary>Formats an ISO 8601 UTC date string as <c>yyyy-MM-dd</c> for display.</summary>
+    protected static string FormatDate(string isoUtc)
+    {
+        if (DateTime.TryParse(isoUtc, out var dt))
+            return dt.ToString("yyyy-MM-dd");
+        return isoUtc;
+    }
+
     public virtual void Dispose()
     {
         AppContext.OnContextChanged -= HandleContextChanged;

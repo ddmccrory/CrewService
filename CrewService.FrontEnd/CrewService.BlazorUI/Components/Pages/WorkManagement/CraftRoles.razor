@@ -30,16 +30,14 @@ else
 
     <div class="mb-3">
         <label class="form-label fw-semibold">Craft</label>
-        <select class="form-select" style="max-width: 350px;" value="@selectedCraftCtrlNbr" @onchange="OnCraftChanged">
-            <option value="0">-- Select Craft --</option>
-            @if (crafts is not null)
-            {
-                @foreach (var craft in crafts)
-                {
-                    <option value="@craft.CtrlNbr">@craft.CraftName</option>
-                }
-            }
-        </select>
+        <FilterSelect TItem="CraftResponse" TValue="long"
+                      @bind-Value="selectedCraftCtrlNbr"
+                      @bind-Value:after="OnCraftSelected"
+                      Items="crafts"
+                      ValueSelector="@(c => c.CtrlNbr)"
+                      TextSelector="@(c => c.CraftName)"
+                      Placeholder="-- Select Craft --"
+                      class="form-select" style="max-width: 350px;" />
     </div>
 
     @if (selectedCraftCtrlNbr > 0)
@@ -165,10 +163,7 @@ else
     protected override async Task LoadDataAsync()
     {
         if (HasRailroad)
-        {
             await LoadCrafts();
-            await AutoSelectSingleCraft();
-        }
     }
 
     protected override async Task OnAppContextChangedAsync()
@@ -177,21 +172,17 @@ else
         roles = null;
 
         if (HasRailroad)
-        {
             await LoadCrafts();
-            await AutoSelectSingleCraft();
-        }
         else
             crafts = null;
     }
 
-    private async Task AutoSelectSingleCraft()
+    private async Task OnCraftSelected()
     {
-        if (crafts?.Count == 1)
-        {
-            selectedCraftCtrlNbr = crafts[0].CtrlNbr;
+        roles = null;
+
+        if (selectedCraftCtrlNbr > 0)
             await LoadRoles();
-        }
     }
 
     private async Task LoadCrafts()
@@ -200,20 +191,17 @@ else
         {
             var response = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
             crafts = response.Crafts;
+
+            if (crafts.Count == 1)
+            {
+                selectedCraftCtrlNbr = crafts[0].CtrlNbr;
+                await LoadRoles();
+            }
         }
         catch
         {
             crafts = [];
         }
-    }
-
-    private async Task OnCraftChanged(ChangeEventArgs e)
-    {
-        selectedCraftCtrlNbr = long.TryParse(e.Value?.ToString(), out var val) ? val : 0;
-        roles = null;
-
-        if (selectedCraftCtrlNbr > 0)
-            await LoadRoles();
     }
 
     private async Task LoadRoles()
