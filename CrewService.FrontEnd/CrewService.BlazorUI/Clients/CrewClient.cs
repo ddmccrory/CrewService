@@ -108,14 +108,23 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<CrewAssignmentResponse> CreateCrewAssignmentAsync(long crewCtrlNbr, long assignmentGroupCtrlNbr, int daysOfWeekMask, string startUtc, string? endUtc = null)
+    public async Task<GetCrewAssignmentsResponse> GetCrewAssignmentsByAssignmentAsync(long assignmentCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetCrewAssignmentsByAssignmentAsync(new GetCrewAssignmentsByAssignmentRequest { AssignmentCtrlNbr = assignmentCtrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<CrewAssignmentResponse> CreateCrewAssignmentAsync(long crewCtrlNbr, long assignmentCtrlNbr, int daysOfWeekMask, string startUtc, string? endUtc = null)
     {
         try
         {
             return await _client.CreateCrewAssignmentAsync(new CreateCrewAssignmentRequest
             {
                 CrewCtrlNbr = crewCtrlNbr,
-                AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr,
                 DaysOfWeekMask = daysOfWeekMask,
                 StartUtc = startUtc,
                 EndUtc = endUtc ?? string.Empty
