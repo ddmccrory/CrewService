@@ -3,11 +3,6 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
 
-public interface IShiftDefinitionRepository
-{
-    Task<IReadOnlyList<ShiftDefinition>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-}
-
 public interface IShiftInstanceRepository
 {
     Task AddAsync(ShiftInstance instance, CancellationToken ct = default);
@@ -17,11 +12,11 @@ public interface IShiftInstanceRepository
 
 public interface IAssignmentQueryService
 {
-    Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(ControlNumber workAreaGroupCtrlNbr, DateOnly targetDate, CancellationToken ct = default);
+    Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, CancellationToken ct = default);
 }
 
 public sealed record AssignmentDto(
-    ControlNumber AssignmentGroupCtrlNbr,
+    ControlNumber AssignmentCtrlNbr,
     ControlNumber WorkAreaGroupCtrlNbr,
     IReadOnlyList<CrewPositionDto> Positions);
 

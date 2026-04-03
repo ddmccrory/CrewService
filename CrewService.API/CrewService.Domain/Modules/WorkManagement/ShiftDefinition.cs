@@ -6,6 +6,7 @@ namespace CrewService.Domain.Modules.WorkManagement;
 public sealed class ShiftDefinition : Entity
 {
     public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
+    public ControlNumber? DepartmentCtrlNbr { get; private set; }
     public string ShiftCode { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
     public TimeOnly DefaultStartTime { get; private set; }
@@ -25,11 +26,13 @@ public sealed class ShiftDefinition : Entity
         TimeOnly defaultStartTime,
         TimeOnly defaultEndTime,
         int displayOrder,
-        bool isActive)
+        bool isActive,
+        ControlNumber? departmentCtrlNbr = null)
     {
         return new ShiftDefinition
         {
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+            DepartmentCtrlNbr = departmentCtrlNbr,
             ShiftCode = shiftCode,
             DisplayName = displayName,
             DefaultStartTime = defaultStartTime,
@@ -45,7 +48,8 @@ public sealed class ShiftDefinition : Entity
         TimeOnly? defaultStartTime = null,
         TimeOnly? defaultEndTime = null,
         int? displayOrder = null,
-        bool? isActive = null)
+        bool? isActive = null,
+        ControlNumber? departmentCtrlNbr = null)
     {
         if (shiftCode is not null) ShiftCode = shiftCode;
         if (displayName is not null) DisplayName = displayName;
@@ -53,5 +57,6 @@ public sealed class ShiftDefinition : Entity
         if (defaultEndTime.HasValue) DefaultEndTime = defaultEndTime.Value;
         if (displayOrder.HasValue) DisplayOrder = displayOrder.Value;
         if (isActive.HasValue) IsActive = isActive.Value;
+        DepartmentCtrlNbr = departmentCtrlNbr;
     }
 }

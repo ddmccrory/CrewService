@@ -65,6 +65,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Crews.CrewIncumbency> CrewIncumbencies => Set<Domain.Modules.Crews.CrewIncumbency>();
     public DbSet<Domain.Modules.Crews.CrewAssignment> CrewAssignments => Set<Domain.Modules.Crews.CrewAssignment>();
     public DbSet<Domain.Modules.Crews.CrewAttachmentInstance> CrewAttachmentInstances => Set<Domain.Modules.Crews.CrewAttachmentInstance>();
+    public DbSet<Domain.Modules.Crews.Assignment> Assignments => Set<Domain.Modules.Crews.Assignment>();
+    public DbSet<Domain.Modules.Crews.AssignmentSchedule> AssignmentSchedules => Set<Domain.Modules.Crews.AssignmentSchedule>();
 
     // Bulletins Module
     public DbSet<Domain.Modules.Bulletins.PositionVacancy> PositionVacancies => Set<Domain.Modules.Bulletins.PositionVacancy>();

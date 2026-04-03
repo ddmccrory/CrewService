@@ -121,6 +121,7 @@ app.MapGrpcService<TenantConfigService>().EnableGrpcWeb().RequireAuthorization()
 app.MapGrpcService<WorkManagementService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<DepartmentService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<CrewsService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<AssignmentsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<BoardsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<PoliciesService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<BulletinsService>().EnableGrpcWeb().RequireAuthorization();

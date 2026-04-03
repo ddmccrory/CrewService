@@ -101,20 +101,20 @@ public sealed class CrewAttachmentInstance : Entity
 public sealed class CrewAssignment : Entity
 {
     public ControlNumber CrewCtrlNbr { get; private set; }
-    public ControlNumber AssignmentGroupCtrlNbr { get; private set; }
+    public ControlNumber AssignmentCtrlNbr { get; private set; }
     public int DaysOfWeekMask { get; private set; }
     public DateTime StartUtc { get; private set; }
     public DateTime? EndUtc { get; private set; }
 
-    private CrewAssignment() { CrewCtrlNbr = null!; AssignmentGroupCtrlNbr = null!; }
+    private CrewAssignment() { CrewCtrlNbr = null!; AssignmentCtrlNbr = null!; }
 
-    public static CrewAssignment Create(ControlNumber crewCtrlNbr, ControlNumber assignmentGroupCtrlNbr,
+    public static CrewAssignment Create(ControlNumber crewCtrlNbr, ControlNumber assignmentCtrlNbr,
         int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
     {
         return new CrewAssignment
         {
             CrewCtrlNbr = crewCtrlNbr,
-            AssignmentGroupCtrlNbr = assignmentGroupCtrlNbr,
+            AssignmentCtrlNbr = assignmentCtrlNbr,
             DaysOfWeekMask = daysOfWeekMask,
             StartUtc = startUtc,
             EndUtc = endUtc

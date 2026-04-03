@@ -14,14 +14,15 @@ public sealed class CallSheetGenerationService(
         DateOnly targetDate,
         CancellationToken ct = default)
     {
-        var templates = await templateQuery.GetTemplatesForDateAsync(workAreaGroupCtrlNbr, targetDate, ct);
-        var shiftDefs = await shiftDefRepo.GetByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        var shiftDefs = await shiftDefRepo.GetByWorkAreaAsync(workAreaGroupCtrlNbr);
         var activeShifts = shiftDefs.Where(s => s.IsActive).OrderBy(s => s.DisplayOrder).ToList();
 
         var createdShifts = new List<ShiftInstance>();
 
         foreach (var shiftDef in activeShifts)
         {
+            var templates = await templateQuery.GetTemplatesForDateAsync(workAreaGroupCtrlNbr, shiftDef.CtrlNbr, targetDate, ct);
+
             var shiftStart = targetDate.ToDateTime(shiftDef.DefaultStartTime, DateTimeKind.Utc);
             var shiftEnd = targetDate.ToDateTime(shiftDef.DefaultEndTime, DateTimeKind.Utc);
 

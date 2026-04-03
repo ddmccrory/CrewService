@@ -1,6 +1,8 @@
 ﻿using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.WorkManagement;
 
 namespace CrewService.Domain.Interfaces;
 
@@ -56,6 +58,31 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IDynamicGroupRepository DynamicGroups { get; }
     IGroupAttributeDefinitionRepository AttributeDefinitions { get; }
     IGroupAttributeValueRepository AttributeValues { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Crews
+    // ──────────────────────────────────────────────────────────────────
+    ICrewRepository Crews { get; }
+    ICrewPositionRepository CrewPositions { get; }
+    ICrewIncumbencyRepository CrewIncumbencies { get; }
+    ICrewAssignmentRepository CrewAssignments { get; }
+    ICrewAttachmentInstanceRepository CrewAttachmentInstances { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Assignments
+    // ──────────────────────────────────────────────────────────────────
+    IAssignmentRepository Assignments { get; }
+    IAssignmentScheduleRepository AssignmentSchedules { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // WorkManagement
+    // ──────────────────────────────────────────────────────────────────
+    IDepartmentRepository Departments { get; }
+    ICraftRoleRepository CraftRoles { get; }
+    IWorkInstanceRepository WorkInstances { get; }
+    IPositionSlotRepository PositionSlots { get; }
+    ISlotRequirementRepository SlotRequirements { get; }
+    IShiftDefinitionRepository ShiftDefinitions { get; }
 
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,

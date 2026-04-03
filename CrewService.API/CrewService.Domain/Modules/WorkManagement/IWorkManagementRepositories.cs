@@ -28,3 +28,8 @@ public interface IDepartmentRepository : IRepository<Department>
 {
     Task<List<Department>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr);
 }
+
+public interface IShiftDefinitionRepository : IRepository<ShiftDefinition>
+{
+    Task<List<ShiftDefinition>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);
+}
