@@ -1,0 +1,301 @@
+@page "/staffing/assignments/{CtrlNbr:long}"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+@inherits AppComponentBase
+@attribute [Authorize]
+@inject AssignmentClient AssignmentClient
+@inject CrewClient CrewClient
+@inject WorkManagementClient WorkManagementClient
+@inject NavigationManager Nav
+
+<PageTitle>Assignment Detail</PageTitle>
+
+<BackNavButton Text="Assignments" OnClick="@(() => Nav.NavigateTo("staffing/assignments"))" />
+
+@if (assignment is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <h1>@assignment.Name</h1>
+    <p class="text-muted mb-1">
+        <span class="badge bg-secondary me-1">@assignment.Code.ToUpperInvariant()</span>
+        @if (assignment.IsActive)
+        {
+            <span class="badge bg-success">Active</span>
+        }
+        else
+        {
+            <span class="badge bg-warning text-dark">Inactive</span>
+        }
+        @if (assignment.IsExtra)
+        {
+            <span class="badge bg-info ms-1">Extra</span>
+        }
+    </p>
+
+    @if (successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible mt-2" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @* ── Schedule Tab ── *@
+    @if (activeTab == "schedule")
+    {
+        <DataTable TItem="AssignmentScheduleResponse" Items="schedules" Columns="scheduleColumns"
+                   EmptyMessage="No schedules found."
+                   DefaultSortColumn="Shift">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateScheduleModal">
+                        <span class="bi bi-plus-circle"></span> Add Schedule
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="s">
+                <td>@(string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName)</td>
+                <td>@FormatDays(s.OperatingDaysMask)</td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditScheduleModal(s)">
+                            <span class="bi bi-pencil"></span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSchedule(s.CtrlNbr)">
+                            <span class="bi bi-trash"></span>
+                        </button>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+
+        <Modal Visible="showScheduleModal"
+               Title="@(editingScheduleCtrlNbr is null ? "Add Schedule" : "Edit Schedule")"
+               Icon="bi bi-calendar-week"
+               OnClose="() => showScheduleModal = false">
+            <BodyContent>
+                <EditForm Model="this" OnValidSubmit="OnSaveSchedule" id="save-schedule-form">
+                    @if (editingScheduleCtrlNbr is null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Shift Definition</label>
+                            <SelectInput TItem="ShiftDefinitionResponse" TValue="long"
+                                         @bind-Value="scheduleShiftCtrlNbr"
+                                         Items="shiftDefinitions"
+                                         ValueSelector="@(sd => sd.CtrlNbr)"
+                                         TextSelector="@(sd => $"{sd.ShiftCode} \u2014 {sd.DisplayName}")"
+                                         class="form-select" />
+                        </div>
+                    }
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">Operating Days</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @foreach (var day in DayLabels)
+                            {
+                                var bit = 1 << day.Value;
+                                <div class="form-check form-switch form-check-reverse">
+                                    <input type="checkbox" class="form-check-input" id="sched-day-@day.Value"
+                                           checked="@((scheduleOperatingDaysMask & bit) != 0)"
+                                           @onchange="@(e => ToggleDay(bit, (bool)e.Value!))" />
+                                    <label class="form-check-label" for="sched-day-@day.Value">@day.Label</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="submit" form="save-schedule-form" class="btn btn-primary">Save</button>
+            </Footer>
+        </Modal>
+    }
+
+    @* ── Crew Assignments Tab ── *@
+    @if (activeTab == "crews")
+    {
+        <div class="alert alert-info mt-2 mb-0">
+            <span class="bi bi-info-circle me-1"></span>
+            Crew assignments are managed from the individual <a href="staffing/crews">Crew detail pages</a>.
+        </div>
+        <DataTable TItem="CrewAssignmentResponse" Items="crewAssignments" Columns="crewAssignmentColumns"
+                   EmptyMessage="No crews assigned."
+                   DefaultSortColumn="Crew">
+            <RowContent Context="a">
+                <td>@a.CrewName</td>
+                <td>@FormatDays(a.DaysOfWeekMask)</td>
+                <td>@FormatDate(a.StartUtc)</td>
+                <td>@(string.IsNullOrEmpty(a.EndUtc) ? "—" : FormatDate(a.EndUtc))</td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    [Parameter] public long CtrlNbr { get; set; }
+    protected override string? FeatureKey => "staffing/crews";
+    private StaffingAssignmentResponse? assignment;
+    private IReadOnlyList<AssignmentScheduleResponse>? schedules;
+    private IReadOnlyList<ShiftDefinitionResponse>? shiftDefinitions;
+    private IReadOnlyList<CrewAssignmentResponse>? crewAssignments;
+    private string activeTab = "schedule";
+
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("schedule", "Schedule", "bi-calendar-week"),
+        new("crews", "Crew Assignments", "bi-people")
+    ];
+
+    private IReadOnlyList<DataTableColumn<AssignmentScheduleResponse>> scheduleColumns =>
+    [
+        new("Shift", s => string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName),
+        new("Operating Days", s => FormatDays(s.OperatingDaysMask)),
+        DataTableColumn<AssignmentScheduleResponse>.Actions()
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn<CrewAssignmentResponse>> crewAssignmentColumns =
+    [
+        new("Crew", a => a.CrewName),
+        new("Work Days", a => a.DaysOfWeekMask),
+        new("Start", a => a.StartUtc),
+        new("End", a => a.EndUtc)
+    ];
+
+    private static readonly (string Label, int Value)[] DayLabels =
+    [
+        ("Sun", 0), ("Mon", 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6)
+    ];
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadAssignment();
+        await LoadShiftDefinitions();
+        await LoadSchedules();
+        await LoadCrewAssignments();
+    }
+
+    private async Task LoadAssignment()
+    {
+        try { assignment = await AssignmentClient.GetAsync(CtrlNbr); }
+        catch (Exception ex) { errorMessage = $"Failed to load: {ex.Message}"; }
+    }
+
+    private async Task LoadSchedules()
+    {
+        try
+        {
+            var response = await AssignmentClient.GetSchedulesAsync(CtrlNbr);
+            schedules = response.Schedules;
+        }
+        catch { schedules = []; }
+    }
+
+    private async Task LoadShiftDefinitions()
+    {
+        try
+        {
+            if (assignment is not null && assignment.WorkAreaGroupCtrlNbr > 0)
+            {
+                var response = await WorkManagementClient.GetShiftDefinitionsAsync(assignment.WorkAreaGroupCtrlNbr);
+                shiftDefinitions = response.ShiftDefinitions;
+            }
+            else { shiftDefinitions = []; }
+        }
+        catch { shiftDefinitions = []; }
+    }
+
+    private async Task LoadCrewAssignments()
+    {
+        try
+        {
+            var response = await CrewClient.GetCrewAssignmentsByAssignmentAsync(CtrlNbr);
+            crewAssignments = response.Assignments;
+        }
+        catch { crewAssignments = []; }
+    }
+
+    // ── Schedule CRUD ──
+    private bool showScheduleModal;
+    private long? editingScheduleCtrlNbr;
+    private int scheduleOperatingDaysMask;
+    private long scheduleShiftCtrlNbr;
+
+    private void OpenCreateScheduleModal()
+    {
+        editingScheduleCtrlNbr = null;
+        scheduleShiftCtrlNbr = 0;
+        scheduleOperatingDaysMask = 0;
+        showScheduleModal = true;
+    }
+
+    private void OpenEditScheduleModal(AssignmentScheduleResponse s)
+    {
+        editingScheduleCtrlNbr = s.CtrlNbr;
+        scheduleShiftCtrlNbr = s.ShiftDefinitionCtrlNbr;
+        scheduleOperatingDaysMask = s.OperatingDaysMask;
+        showScheduleModal = true;
+    }
+
+    private void ToggleDay(int bit, bool on)
+    {
+        scheduleOperatingDaysMask = on
+            ? scheduleOperatingDaysMask | bit
+            : scheduleOperatingDaysMask & ~bit;
+    }
+
+    private async Task OnSaveSchedule()
+    {
+        try
+        {
+            if (editingScheduleCtrlNbr is null)
+                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask);
+            else
+                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask);
+
+            showScheduleModal = false;
+            successMessage = editingScheduleCtrlNbr is null ? "Schedule created." : "Schedule updated.";
+            await LoadSchedules();
+        }
+        catch (Exception ex) { errorMessage = $"Save failed: {ex.Message}"; }
+    }
+
+    private async Task DeleteSchedule(long ctrlNbr)
+    {
+        try
+        {
+            await AssignmentClient.DeleteScheduleAsync(ctrlNbr);
+            successMessage = "Schedule deleted.";
+            await LoadSchedules();
+        }
+        catch (Exception ex) { errorMessage = $"Delete failed: {ex.Message}"; }
+    }
+
+    private static string FormatDays(int mask)
+    {
+        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        var active = new List<string>();
+        for (var i = 0; i < 7; i++)
+        {
+            if ((mask & (1 << i)) != 0) active.Add(days[i]);
+        }
+        return active.Count == 0 ? "None" : string.Join(", ", active);
+    }
+}

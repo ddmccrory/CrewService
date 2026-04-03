@@ -30,6 +30,7 @@ builder.Services.AddScoped<SeniorityClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 builder.Services.AddScoped<DepartmentClient>();
 builder.Services.AddScoped<CrewClient>();
+builder.Services.AddScoped<AssignmentClient>();
 builder.Services.AddScoped<WorkManagementClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
