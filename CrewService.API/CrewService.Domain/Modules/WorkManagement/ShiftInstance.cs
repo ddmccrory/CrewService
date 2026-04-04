@@ -9,8 +9,11 @@ public sealed class ShiftInstance : Entity
 
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
     public string ShiftCode { get; private set; } = string.Empty;
+    public string ShiftDisplayName { get; private set; } = string.Empty;
     public DateTime ShiftStartUtc { get; private set; }
     public DateTime ShiftEndUtc { get; private set; }
+    public ControlNumber? DepartmentCtrlNbr { get; private set; }
+    public string? DepartmentName { get; private set; }
     public string Status { get; private set; } = "Planned";
     public bool IsComplete { get; private set; }
     public DateTime? CompletedAtUtc { get; private set; }
@@ -25,15 +28,21 @@ public sealed class ShiftInstance : Entity
     public static ShiftInstance Create(
         ControlNumber workInstanceCtrlNbr,
         string shiftCode,
+        string shiftDisplayName,
         DateTime shiftStartUtc,
-        DateTime shiftEndUtc)
+        DateTime shiftEndUtc,
+        ControlNumber? departmentCtrlNbr = null,
+        string? departmentName = null)
     {
         return new ShiftInstance
         {
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
             ShiftCode = shiftCode,
+            ShiftDisplayName = shiftDisplayName,
             ShiftStartUtc = shiftStartUtc,
             ShiftEndUtc = shiftEndUtc,
+            DepartmentCtrlNbr = departmentCtrlNbr,
+            DepartmentName = departmentName,
             Status = "Planned"
         };
     }
@@ -41,11 +50,16 @@ public sealed class ShiftInstance : Entity
     public PositionSlotInstance AddPositionSlot(
         ControlNumber crewPositionCtrlNbr,
         ControlNumber? incumbentEmployeeCtrlNbr,
-        int displayOrder)
+        int displayOrder,
+        ControlNumber assignmentCtrlNbr,
+        string assignmentCode,
+        string assignmentName,
+        string craftRoleName)
     {
         var status = incumbentEmployeeCtrlNbr is not null ? "Filled" : "Open";
         var slot = PositionSlotInstance.Create(
-            CtrlNbr, crewPositionCtrlNbr, incumbentEmployeeCtrlNbr, displayOrder, status);
+            CtrlNbr, crewPositionCtrlNbr, incumbentEmployeeCtrlNbr, displayOrder, status,
+            assignmentCtrlNbr, assignmentCode, assignmentName, craftRoleName);
         _positionSlots.Add(slot);
         return slot;
     }
