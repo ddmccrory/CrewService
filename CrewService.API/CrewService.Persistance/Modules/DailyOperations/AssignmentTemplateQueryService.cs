@@ -1,5 +1,6 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +58,13 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
                         && (i.EndUtc == null || i.EndUtc > now))
             .ToListAsync(ct);
 
+        // Resolve craft role names for each position
+        var craftRoleCtrlNbrs = positions.Select(p => p.CraftRoleCtrlNbr).Distinct().ToList();
+        var craftRoles = await dbContext.Set<CraftRole>()
+            .Where(cr => craftRoleCtrlNbrs.Contains(cr.CtrlNbr))
+            .ToListAsync(ct);
+        var craftRoleLookup = craftRoles.ToDictionary(cr => cr.CtrlNbr, cr => cr.Name);
+
         var result = new List<AssignmentDto>();
 
         foreach (var assignment in assignments)
@@ -72,16 +80,21 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
                 {
                     var incumbent = incumbencies
                         .FirstOrDefault(i => i.CrewPositionCtrlNbr == p.CtrlNbr);
+                    craftRoleLookup.TryGetValue(p.CraftRoleCtrlNbr, out var roleName);
                     return new CrewPositionDto(
                         p.CtrlNbr,
                         incumbent?.EmployeeCtrlNbr,
-                        p.DisplayOrder);
+                        p.DisplayOrder,
+                        roleName ?? string.Empty);
                 })
                 .ToList();
 
             result.Add(new AssignmentDto(
                 assignment.CtrlNbr,
                 workAreaGroupCtrlNbr,
+                assignment.DepartmentCtrlNbr,
+                assignment.Code,
+                assignment.Name,
                 positionDtos));
         }
 

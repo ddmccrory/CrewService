@@ -36,6 +36,11 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
             .Where(s => s.WorkInstanceCtrlNbr == workInstanceCtrlNbr)
             .OrderBy(s => s.ShiftStartUtc)
             .ToListAsync(ct);
+
+    public async Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(
+        ControlNumber workInstanceCtrlNbr, string shiftCode, CancellationToken ct = default) =>
+        await DbContext.Set<ShiftInstance>()
+            .AnyAsync(s => s.WorkInstanceCtrlNbr == workInstanceCtrlNbr && s.ShiftCode == shiftCode, ct);
 }
 
 internal sealed class OnDutyRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

@@ -15,6 +15,11 @@ internal class ShiftInstanceConfiguration : IEntityTypeConfiguration<ShiftInstan
         builder.Property(s => s.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(s => s.WorkInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(s => s.ShiftCode).HasMaxLength(20).IsRequired();
+        builder.Property(s => s.ShiftDisplayName).HasMaxLength(100).IsRequired();
+        builder.Property(s => s.DepartmentCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(s => s.DepartmentName).HasMaxLength(100);
         builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
 
         builder.HasMany(s => s.PositionSlots).WithOne().HasForeignKey(p => p.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
@@ -40,6 +45,10 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(p => p.Status).HasMaxLength(20).IsRequired();
         builder.Property(p => p.AnnulmentReason).HasMaxLength(500);
+        builder.Property(p => p.AssignmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.AssignmentCode).HasMaxLength(20).IsRequired();
+        builder.Property(p => p.AssignmentName).HasMaxLength(100).IsRequired();
+        builder.Property(p => p.CraftRoleName).HasMaxLength(100).IsRequired();
 
         builder.HasOne<CrewPosition>().WithMany().HasForeignKey(p => p.CrewPositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.IncumbentEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
