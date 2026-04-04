@@ -19,16 +19,18 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<GenerateCallSheetResponse> GenerateCallSheetAsync(long workAreaGroupCtrlNbr, long shiftDefinitionCtrlNbr, string targetDate)
+    public async Task<GenerateCallSheetResponse> GenerateCallSheetAsync(long workAreaGroupCtrlNbr, long shiftDefinitionCtrlNbr, string targetDate, long departmentCtrlNbr = 0)
     {
         try
         {
-            return await _client.GenerateCallSheetAsync(new GenerateCallSheetRequest
+            var req = new GenerateCallSheetRequest
             {
                 WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
                 ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
                 TargetDate = targetDate
-            });
+            };
+            if (departmentCtrlNbr > 0) req.DepartmentCtrlNbr = departmentCtrlNbr;
+            return await _client.GenerateCallSheetAsync(req);
         }
         catch (Exception ex) { LogException(ex); throw; }
     }

@@ -190,8 +190,7 @@ public class WorkManagementService(
             request.ShiftCode,
             request.DisplayName,
             request.DisplayOrder,
-            request.IsActive,
-            request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+            request.IsActive);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.ShiftDefinitions.Add(shift);
@@ -209,8 +208,7 @@ public class WorkManagementService(
             shiftCode: request.ShiftCode,
             displayName: request.DisplayName,
             displayOrder: request.DisplayOrder,
-            isActive: request.IsActive,
-            departmentCtrlNbr: request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+            isActive: request.IsActive);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.ShiftDefinitions.Update(shift);
@@ -238,7 +236,6 @@ public class WorkManagementService(
         ShiftCode = sd.ShiftCode,
         DisplayName = sd.DisplayName,
         DisplayOrder = sd.DisplayOrder,
-        IsActive = sd.IsActive,
-        DepartmentCtrlNbr = sd.DepartmentCtrlNbr?.Value ?? 0
+        IsActive = sd.IsActive
     };
 }

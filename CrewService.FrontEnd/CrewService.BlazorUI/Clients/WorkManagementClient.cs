@@ -89,7 +89,7 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive)
     {
         try
         {
@@ -100,13 +100,12 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 DisplayName = displayName,
                 DisplayOrder = displayOrder,
                 IsActive = isActive,
-                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive)
     {
         try
         {
@@ -117,7 +116,6 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 DisplayName = displayName,
                 DisplayOrder = displayOrder,
                 IsActive = isActive,
-                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

@@ -12,7 +12,6 @@
 
 @inject WorkManagementClient WorkManagementClient
 @inject TenantConfigClient TenantConfigClient
-@inject DepartmentClient DepartmentClient
 
 <PageTitle>Shift Definitions</PageTitle>
 
@@ -50,16 +49,6 @@ else
             <BodyContent>
                 <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-shift-form">
                     <DataAnnotationsValidator />
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Department</label>
-                        <SelectInput TItem="DepartmentResponse" TValue="long"
-                                     @bind-Value="saveModel.DepartmentCtrlNbr"
-                                     Items="departments"
-                                     ValueSelector="@(d => d.CtrlNbr)"
-                                     TextSelector="@(d => d.Name)"
-                                     Placeholder="-- None (all departments) --"
-                                     class="form-select" />
-                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Shift Code</label>
                         <InputText @bind-Value="saveModel.ShiftCode" class="form-control" placeholder="e.g. 1ST" />
@@ -136,7 +125,6 @@ else
             <RowContent Context="shift">
                 <td>@shift.ShiftCode.ToUpperInvariant()</td>
                 <td>@shift.DisplayName</td>
-                <td>@GetDepartmentName(shift.DepartmentCtrlNbr)</td>
                 <td class="text-center">@shift.DisplayOrder</td>
                 <td>
                     @if (shift.IsActive)
@@ -165,21 +153,18 @@ else
         </DataTable>
     }
 }
-
 @code {
     protected override string? FeatureKey => "work-management/shift-definitions";
 
     private IReadOnlyList<GroupResponse>? workAreas;
     private IReadOnlyList<ShiftDefinitionResponse>? shifts;
-    private IReadOnlyList<DepartmentResponse>? departments;
-    private Dictionary<long, string> departmentNames = new();
+
     private long selectedWorkAreaCtrlNbr;
 
     private static readonly IReadOnlyList<DataTableColumn<ShiftDefinitionResponse>> columns =
     [
         new("Code", s => s.ShiftCode),
         new("Name", s => s.DisplayName),
-        new("Department", s => s.DepartmentCtrlNbr > 0 ? "Yes" : "—"),
         new("Order", s => s.DisplayOrder, width: "80px"),
         new("Status", s => s.IsActive ? "Active" : "Inactive", width: "100px"),
         DataTableColumn<ShiftDefinitionResponse>.Actions()
@@ -203,8 +188,6 @@ else
     {
         selectedWorkAreaCtrlNbr = 0;
         shifts = null;
-        departments = null;
-        departmentNames = new();
 
         if (HasRailroad)
             await LoadWorkAreas();
@@ -223,7 +206,6 @@ else
             if (workAreas.Count == 1)
             {
                 selectedWorkAreaCtrlNbr = workAreas[0].CtrlNbr;
-                await LoadDepartments();
                 await LoadShifts();
             }
         }
@@ -233,14 +215,9 @@ else
     private async Task OnWorkAreaSelected()
     {
         shifts = null;
-        departments = null;
-        departmentNames = new();
 
         if (selectedWorkAreaCtrlNbr > 0)
-        {
-            await LoadDepartments();
             await LoadShifts();
-        }
     }
 
     private async Task LoadShifts()
@@ -269,7 +246,6 @@ else
         editCtrlNbr = shift.CtrlNbr;
         saveModel = new()
         {
-            DepartmentCtrlNbr = shift.DepartmentCtrlNbr,
             ShiftCode = shift.ShiftCode,
             DisplayName = shift.DisplayName,
             DisplayOrder = shift.DisplayOrder,
@@ -303,14 +279,14 @@ else
             {
                 await WorkManagementClient.UpdateShiftDefinitionAsync(
                     editCtrlNbr, saveModel.ShiftCode!, saveModel.DisplayName!,
-                    saveModel.DisplayOrder, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                    saveModel.DisplayOrder, saveModel.IsActive);
                 successMessage = "Shift definition updated.";
             }
             else
             {
                 await WorkManagementClient.CreateShiftDefinitionAsync(
                     selectedWorkAreaCtrlNbr, saveModel.ShiftCode!, saveModel.DisplayName!,
-                    saveModel.DisplayOrder, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                    saveModel.DisplayOrder, saveModel.IsActive);
                 successMessage = "Shift definition created.";
             }
 
@@ -342,29 +318,9 @@ else
         }
     }
 
-    private async Task LoadDepartments()
-    {
-        try
-        {
-            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
-            departments = response.Departments;
-            departmentNames = departments.ToDictionary(d => d.CtrlNbr, d => d.Name);
-        }
-        catch
-        {
-            departments = [];
-            departmentNames = new();
-        }
-    }
-
-    private string GetDepartmentName(long ctrlNbr) =>
-        ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var name) ? name : "—";
-
     private sealed class ShiftDefinitionInputModel
     {
         private string? _shiftCode;
-
-        public long DepartmentCtrlNbr { get; set; }
 
         [Required(ErrorMessage = "Shift code is required.")]
         [StringLength(20, MinimumLength = 1)]

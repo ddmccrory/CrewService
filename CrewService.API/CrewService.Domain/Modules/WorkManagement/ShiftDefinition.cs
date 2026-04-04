@@ -6,7 +6,6 @@ namespace CrewService.Domain.Modules.WorkManagement;
 public sealed class ShiftDefinition : Entity
 {
     public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
-    public ControlNumber? DepartmentCtrlNbr { get; private set; }
     public string ShiftCode { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
     public int DisplayOrder { get; private set; }
@@ -22,13 +21,11 @@ public sealed class ShiftDefinition : Entity
         string shiftCode,
         string displayName,
         int displayOrder,
-        bool isActive,
-        ControlNumber? departmentCtrlNbr = null)
+        bool isActive)
     {
         return new ShiftDefinition
         {
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
-            DepartmentCtrlNbr = departmentCtrlNbr,
             ShiftCode = shiftCode,
             DisplayName = displayName,
             DisplayOrder = displayOrder,
@@ -40,13 +37,11 @@ public sealed class ShiftDefinition : Entity
         string? shiftCode = null,
         string? displayName = null,
         int? displayOrder = null,
-        bool? isActive = null,
-        ControlNumber? departmentCtrlNbr = null)
+        bool? isActive = null)
     {
         if (shiftCode is not null) ShiftCode = shiftCode;
         if (displayName is not null) DisplayName = displayName;
         if (displayOrder.HasValue) DisplayOrder = displayOrder.Value;
         if (isActive.HasValue) IsActive = isActive.Value;
-        DepartmentCtrlNbr = departmentCtrlNbr;
     }
 }

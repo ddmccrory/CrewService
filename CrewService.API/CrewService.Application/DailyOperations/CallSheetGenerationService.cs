@@ -14,6 +14,7 @@ public sealed class CallSheetGenerationService(
         ControlNumber workAreaGroupCtrlNbr,
         ControlNumber shiftDefinitionCtrlNbr,
         DateOnly targetDate,
+        ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default)
     {
         var shiftDef = await shiftDefRepo.GetByCtrlNbrAsync(shiftDefinitionCtrlNbr, ct)
@@ -38,9 +39,9 @@ public sealed class CallSheetGenerationService(
 
         // Resolve department name
         string? departmentName = null;
-        if (shiftDef.DepartmentCtrlNbr is not null)
+        if (departmentCtrlNbr is not null)
         {
-            var dept = await departmentRepo.GetByCtrlNbrAsync(shiftDef.DepartmentCtrlNbr, ct);
+            var dept = await departmentRepo.GetByCtrlNbrAsync(departmentCtrlNbr, ct);
             departmentName = dept?.Name;
         }
 
@@ -57,7 +58,7 @@ public sealed class CallSheetGenerationService(
             workInstance.CtrlNbr,
             shiftDef.ShiftCode,
             shiftDef.DisplayName,
-            shiftDef.DepartmentCtrlNbr,
+            departmentCtrlNbr,
             departmentName);
 
         // Add position slots with denormalized assignment/craft role data

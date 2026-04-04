@@ -48,6 +48,7 @@ public class DailyOperationsService(
     {
         var workAreaGroupCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
         var shiftDefinitionCtrlNbr = ControlNumber.Create(request.ShiftDefinitionCtrlNbr);
+        var departmentCtrlNbr = request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
 
         if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
@@ -55,7 +56,7 @@ public class DailyOperationsService(
         try
         {
             var shiftInstance = await callSheetGeneration.GenerateForShiftAsync(
-                workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, context.CancellationToken);
+                workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, departmentCtrlNbr, context.CancellationToken);
 
             return new GenerateCallSheetResponse
             {

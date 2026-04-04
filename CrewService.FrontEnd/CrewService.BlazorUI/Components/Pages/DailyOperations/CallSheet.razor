@@ -12,6 +12,7 @@
 @inject DailyOperationsClient DailyOperationsClient
 @inject WorkManagementClient WorkManagementClient
 @inject TenantConfigClient TenantConfigClient
+@inject DepartmentClient DepartmentClient
 
 <PageTitle>Call Sheet</PageTitle>
 
@@ -191,6 +192,16 @@ else
                                  Placeholder="-- Select Shift --"
                                  class="form-select" />
                 </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Department</label>
+                    <SelectInput TItem="DepartmentResponse" TValue="long"
+                                 @bind-Value="generateModel.DepartmentCtrlNbr"
+                                 Items="departments"
+                                 ValueSelector="@(d => d.CtrlNbr)"
+                                 TextSelector="@(d => d.Name)"
+                                 Placeholder="-- None --"
+                                 class="form-select" />
+                </div>
                 <p class="text-muted">
                     This will generate the call sheet for the selected shift on <strong>@selectedDate.ToString("yyyy-MM-dd")</strong>,
                     creating all scheduled positions as open vacancies.
@@ -217,6 +228,7 @@ else
     private IReadOnlyList<GroupResponse>? workAreas;
     private IReadOnlyList<DailyShiftInstanceResponse>? shifts;
     private IReadOnlyList<ShiftDefinitionResponse>? availableShifts;
+    private IReadOnlyList<DepartmentResponse>? departments;
     private long selectedWorkAreaCtrlNbr;
     private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
     private bool callSheetLoaded;
@@ -308,7 +320,7 @@ else
         errorMessage = null;
         successMessage = null;
         generateModel = new();
-
+        try { var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value); departments = response.Departments; } catch { departments = []; }
         try
         {
             var response = await WorkManagementClient.GetShiftDefinitionsAsync(selectedWorkAreaCtrlNbr);
@@ -337,8 +349,8 @@ else
             await DailyOperationsClient.GenerateCallSheetAsync(
                 selectedWorkAreaCtrlNbr,
                 generateModel.ShiftDefinitionCtrlNbr,
-                selectedDate.ToString("yyyy-MM-dd"));
-
+                selectedDate.ToString("yyyy-MM-dd"),
+                generateModel.DepartmentCtrlNbr);
             showGenerateModal = false;
             successMessage = "Shift call sheet generated successfully.";
             await LoadCallSheet();
@@ -386,5 +398,6 @@ else
     private class GenerateShiftModel
     {
         public long ShiftDefinitionCtrlNbr { get; set; }
+        public long DepartmentCtrlNbr { get; set; }
     }
 }

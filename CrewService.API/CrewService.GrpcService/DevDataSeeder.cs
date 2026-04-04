@@ -715,9 +715,9 @@ internal static class DevDataSeeder
         ShiftDefinition shiftFirst, shiftSecond, shiftThird;
         if (existingShifts.Count == 0)
         {
-            shiftFirst = ShiftDefinition.Create(jaxSub2.CtrlNbr, "1ST", "First Shift", 1, true, crewTransDept?.CtrlNbr);
-            shiftSecond = ShiftDefinition.Create(jaxSub2.CtrlNbr, "2ND", "Second Shift", 2, true, crewTransDept?.CtrlNbr);
-            shiftThird = ShiftDefinition.Create(jaxSub2.CtrlNbr, "3RD", "Third Shift", 3, true, crewTransDept?.CtrlNbr);
+            shiftFirst = ShiftDefinition.Create(jaxSub2.CtrlNbr, "1ST", "First Shift", 1, true);
+            shiftSecond = ShiftDefinition.Create(jaxSub2.CtrlNbr, "2ND", "Second Shift", 2, true);
+            shiftThird = ShiftDefinition.Create(jaxSub2.CtrlNbr, "3RD", "Third Shift", 3, true);
             await using (var uow = await uowFactory.CreateAsync())
             {
                 uow.ShiftDefinitions.Add(shiftFirst);
@@ -735,12 +735,11 @@ internal static class DevDataSeeder
 
         // Shift Definitions for PTRA
         var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
-        var ptraTransDeptForShifts = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
         if (existingPtraShifts.Count == 0)
         {
-            var ptraShift1A = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1A", "First Shift 6:30 AM", 1, true, ptraTransDeptForShifts?.CtrlNbr);
-            var ptraShift1B = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1B", "First Shift 7:00 AM", 2, true, ptraTransDeptForShifts?.CtrlNbr);
+            var ptraShift1A = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1A", "First Shift 6:30 AM", 1, true);
+            var ptraShift1B = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1B", "First Shift 7:00 AM", 2, true);
             await using (var uow = await uowFactory.CreateAsync())
             {
                 uow.ShiftDefinitions.Add(ptraShift1A);
