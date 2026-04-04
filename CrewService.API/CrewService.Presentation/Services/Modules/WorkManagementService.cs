@@ -189,8 +189,6 @@ public class WorkManagementService(
             ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
             request.ShiftCode,
             request.DisplayName,
-            TimeOnly.Parse(request.DefaultStartTime),
-            TimeOnly.Parse(request.DefaultEndTime),
             request.DisplayOrder,
             request.IsActive,
             request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
@@ -210,8 +208,6 @@ public class WorkManagementService(
         shift.Update(
             shiftCode: request.ShiftCode,
             displayName: request.DisplayName,
-            defaultStartTime: TimeOnly.Parse(request.DefaultStartTime),
-            defaultEndTime: TimeOnly.Parse(request.DefaultEndTime),
             displayOrder: request.DisplayOrder,
             isActive: request.IsActive,
             departmentCtrlNbr: request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
@@ -241,8 +237,6 @@ public class WorkManagementService(
         WorkAreaGroupCtrlNbr = sd.WorkAreaGroupCtrlNbr.Value,
         ShiftCode = sd.ShiftCode,
         DisplayName = sd.DisplayName,
-        DefaultStartTime = sd.DefaultStartTime.ToString("HH:mm"),
-        DefaultEndTime = sd.DefaultEndTime.ToString("HH:mm"),
         DisplayOrder = sd.DisplayOrder,
         IsActive = sd.IsActive,
         DepartmentCtrlNbr = sd.DepartmentCtrlNbr?.Value ?? 0

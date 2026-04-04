@@ -17,12 +17,17 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
         var dayBit = 1 << (int)targetDate.DayOfWeek;
 
         // Find assignments for this work area that have a schedule matching the shift + day
-        var scheduledAssignmentCtrlNbrs = await dbContext.Set<AssignmentSchedule>()
+        var schedules = await dbContext.Set<AssignmentSchedule>()
             .Where(s => s.ShiftDefinitionCtrlNbr == shiftDefinitionCtrlNbr
                         && (s.OperatingDaysMask & dayBit) != 0)
-            .Select(s => s.AssignmentCtrlNbr)
-            .Distinct()
+            .Select(s => new { s.AssignmentCtrlNbr, s.OnDutyTime, s.OffDutyTime })
             .ToListAsync(ct);
+
+        var scheduleLookup = schedules
+            .GroupBy(s => s.AssignmentCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var scheduledAssignmentCtrlNbrs = scheduleLookup.Keys.ToList();
 
         if (scheduledAssignmentCtrlNbrs.Count == 0) return [];
 
@@ -89,12 +94,15 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
                 })
                 .ToList();
 
+            var schedule = scheduleLookup[assignment.CtrlNbr];
             result.Add(new AssignmentDto(
                 assignment.CtrlNbr,
                 workAreaGroupCtrlNbr,
                 assignment.DepartmentCtrlNbr,
                 assignment.Code,
                 assignment.Name,
+                schedule.OnDutyTime,
+                schedule.OffDutyTime,
                 positionDtos));
         }
 

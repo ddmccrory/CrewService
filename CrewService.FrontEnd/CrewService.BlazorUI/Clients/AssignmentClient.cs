@@ -84,7 +84,7 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<AssignmentScheduleResponse> CreateScheduleAsync(long assignmentCtrlNbr, long shiftDefinitionCtrlNbr, int operatingDaysMask)
+    public async Task<AssignmentScheduleResponse> CreateScheduleAsync(long assignmentCtrlNbr, long shiftDefinitionCtrlNbr, int operatingDaysMask, string onDutyTime, string offDutyTime)
     {
         try
         {
@@ -92,20 +92,24 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
             {
                 AssignmentCtrlNbr = assignmentCtrlNbr,
                 ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
-                OperatingDaysMask = operatingDaysMask
+                OperatingDaysMask = operatingDaysMask,
+                OnDutyTime = onDutyTime,
+                OffDutyTime = offDutyTime
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<AssignmentScheduleResponse> UpdateScheduleAsync(long ctrlNbr, int operatingDaysMask)
+    public async Task<AssignmentScheduleResponse> UpdateScheduleAsync(long ctrlNbr, int operatingDaysMask, string onDutyTime, string offDutyTime)
     {
         try
         {
             return await _client.UpdateAssignmentScheduleAsync(new UpdateAssignmentScheduleRequest
             {
                 CtrlNbr = ctrlNbr,
-                OperatingDaysMask = operatingDaysMask
+                OperatingDaysMask = operatingDaysMask,
+                OnDutyTime = onDutyTime,
+                OffDutyTime = offDutyTime
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

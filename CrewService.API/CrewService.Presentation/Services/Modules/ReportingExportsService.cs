@@ -72,8 +72,6 @@ public class ReportingExportsService(
             response.Shifts.Add(new ShiftReportSectionMsg
             {
                 ShiftCode = s.ShiftCode,
-                ShiftStartUtc = s.ShiftStartUtc.ToString("O"),
-                ShiftEndUtc = s.ShiftEndUtc.ToString("O"),
                 TotalSlots = s.TotalSlots,
                 FilledSlots = s.FilledSlots,
                 OpenSlots = s.OpenSlots

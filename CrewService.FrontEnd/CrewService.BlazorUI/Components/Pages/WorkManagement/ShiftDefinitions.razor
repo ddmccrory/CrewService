@@ -70,18 +70,6 @@ else
                         <InputText @bind-Value="saveModel.DisplayName" class="form-control" placeholder="e.g. First Shift" />
                         <ValidationMessage For="() => saveModel.DisplayName" class="text-danger" />
                     </div>
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Default Start Time</label>
-                            <InputText @bind-Value="saveModel.DefaultStartTime" class="form-control" placeholder="HH:mm" />
-                            <ValidationMessage For="() => saveModel.DefaultStartTime" class="text-danger" />
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Default End Time</label>
-                            <InputText @bind-Value="saveModel.DefaultEndTime" class="form-control" placeholder="HH:mm" />
-                            <ValidationMessage For="() => saveModel.DefaultEndTime" class="text-danger" />
-                        </div>
-                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Display Order</label>
                         <InputNumber @bind-Value="saveModel.DisplayOrder" class="form-control" />
@@ -149,8 +137,6 @@ else
                 <td>@shift.ShiftCode.ToUpperInvariant()</td>
                 <td>@shift.DisplayName</td>
                 <td>@GetDepartmentName(shift.DepartmentCtrlNbr)</td>
-                <td>@shift.DefaultStartTime</td>
-                <td>@shift.DefaultEndTime</td>
                 <td class="text-center">@shift.DisplayOrder</td>
                 <td>
                     @if (shift.IsActive)
@@ -194,8 +180,6 @@ else
         new("Code", s => s.ShiftCode),
         new("Name", s => s.DisplayName),
         new("Department", s => s.DepartmentCtrlNbr > 0 ? "Yes" : "—"),
-        new("Start", s => s.DefaultStartTime, width: "100px"),
-        new("End", s => s.DefaultEndTime, width: "100px"),
         new("Order", s => s.DisplayOrder, width: "80px"),
         new("Status", s => s.IsActive ? "Active" : "Inactive", width: "100px"),
         DataTableColumn<ShiftDefinitionResponse>.Actions()
@@ -288,8 +272,6 @@ else
             DepartmentCtrlNbr = shift.DepartmentCtrlNbr,
             ShiftCode = shift.ShiftCode,
             DisplayName = shift.DisplayName,
-            DefaultStartTime = shift.DefaultStartTime,
-            DefaultEndTime = shift.DefaultEndTime,
             DisplayOrder = shift.DisplayOrder,
             IsActive = shift.IsActive
         };
@@ -321,7 +303,6 @@ else
             {
                 await WorkManagementClient.UpdateShiftDefinitionAsync(
                     editCtrlNbr, saveModel.ShiftCode!, saveModel.DisplayName!,
-                    saveModel.DefaultStartTime!, saveModel.DefaultEndTime!,
                     saveModel.DisplayOrder, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
                 successMessage = "Shift definition updated.";
             }
@@ -329,7 +310,6 @@ else
             {
                 await WorkManagementClient.CreateShiftDefinitionAsync(
                     selectedWorkAreaCtrlNbr, saveModel.ShiftCode!, saveModel.DisplayName!,
-                    saveModel.DefaultStartTime!, saveModel.DefaultEndTime!,
                     saveModel.DisplayOrder, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
                 successMessage = "Shift definition created.";
             }
@@ -397,14 +377,6 @@ else
         [Required(ErrorMessage = "Display name is required.")]
         [StringLength(100, MinimumLength = 1)]
         public string? DisplayName { get; set; }
-
-        [Required(ErrorMessage = "Start time is required.")]
-        [RegularExpression(@"^([01]?\d|2[0-3]):[0-5]\d$", ErrorMessage = "Use HH:mm format.")]
-        public string? DefaultStartTime { get; set; }
-
-        [Required(ErrorMessage = "End time is required.")]
-        [RegularExpression(@"^([01]?\d|2[0-3]):[0-5]\d$", ErrorMessage = "Use HH:mm format.")]
-        public string? DefaultEndTime { get; set; }
 
         [Range(1, 999, ErrorMessage = "Display order must be between 1 and 999.")]
         public int DisplayOrder { get; set; } = 1;

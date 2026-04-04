@@ -22,6 +22,8 @@ public sealed record AssignmentDto(
     ControlNumber? DepartmentCtrlNbr,
     string AssignmentCode,
     string AssignmentName,
+    TimeOnly OnDutyTime,
+    TimeOnly OffDutyTime,
     IReadOnlyList<CrewPositionDto> Positions);
 
 public sealed record CrewPositionDto(

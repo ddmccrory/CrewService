@@ -15,8 +15,7 @@ public sealed record SkipRuleCandidate(
 
 public sealed record SkipRuleSlot(
     ControlNumber PositionSlotCtrlNbr,
-    ControlNumber CrewPositionCtrlNbr,
-    DateTime ShiftStartUtc);
+    ControlNumber CrewPositionCtrlNbr);
 
 public sealed class SkipContext
 {

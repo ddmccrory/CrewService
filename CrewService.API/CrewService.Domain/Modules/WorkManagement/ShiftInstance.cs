@@ -10,8 +10,6 @@ public sealed class ShiftInstance : Entity
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
     public string ShiftCode { get; private set; } = string.Empty;
     public string ShiftDisplayName { get; private set; } = string.Empty;
-    public DateTime ShiftStartUtc { get; private set; }
-    public DateTime ShiftEndUtc { get; private set; }
     public ControlNumber? DepartmentCtrlNbr { get; private set; }
     public string? DepartmentName { get; private set; }
     public string Status { get; private set; } = "Planned";
@@ -29,8 +27,6 @@ public sealed class ShiftInstance : Entity
         ControlNumber workInstanceCtrlNbr,
         string shiftCode,
         string shiftDisplayName,
-        DateTime shiftStartUtc,
-        DateTime shiftEndUtc,
         ControlNumber? departmentCtrlNbr = null,
         string? departmentName = null)
     {
@@ -39,8 +35,6 @@ public sealed class ShiftInstance : Entity
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
             ShiftCode = shiftCode,
             ShiftDisplayName = shiftDisplayName,
-            ShiftStartUtc = shiftStartUtc,
-            ShiftEndUtc = shiftEndUtc,
             DepartmentCtrlNbr = departmentCtrlNbr,
             DepartmentName = departmentName,
             Status = "Planned"

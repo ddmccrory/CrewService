@@ -73,6 +73,8 @@ else
             </ToolbarContent>
             <RowContent Context="s">
                 <td>@(string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName)</td>
+                <td>@s.OnDutyTime</td>
+                <td>@s.OffDutyTime</td>
                 <td>@FormatDays(s.OperatingDaysMask)</td>
                 <td>
                     @if (!IsFeatureReadOnly)
@@ -106,6 +108,16 @@ else
                                          class="form-select" />
                         </div>
                     }
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">On Duty Time</label>
+                            <input type="text" class="form-control" @bind="scheduleOnDutyTime" placeholder="HH:mm" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Off Duty Time</label>
+                            <input type="text" class="form-control" @bind="scheduleOffDutyTime" placeholder="HH:mm" />
+                        </div>
+                    </div>
                     <div class="mb-0">
                         <label class="form-label fw-semibold">Operating Days</label>
                         <div class="d-flex gap-2 flex-wrap">
@@ -167,6 +179,8 @@ else
     private IReadOnlyList<DataTableColumn<AssignmentScheduleResponse>> scheduleColumns =>
     [
         new("Shift", s => string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName),
+        new("On Duty", s => (object)s.OnDutyTime),
+        new("Off Duty", s => (object)s.OffDutyTime),
         new("Operating Days", s => FormatDays(s.OperatingDaysMask)),
         DataTableColumn<AssignmentScheduleResponse>.Actions()
     ];
@@ -237,12 +251,16 @@ else
     private long? editingScheduleCtrlNbr;
     private int scheduleOperatingDaysMask;
     private long scheduleShiftCtrlNbr;
+    private string scheduleOnDutyTime = "06:00";
+    private string scheduleOffDutyTime = "18:00";
 
     private void OpenCreateScheduleModal()
     {
         editingScheduleCtrlNbr = null;
         scheduleShiftCtrlNbr = 0;
         scheduleOperatingDaysMask = 0;
+        scheduleOnDutyTime = "06:00";
+        scheduleOffDutyTime = "18:00";
         showScheduleModal = true;
     }
 
@@ -251,6 +269,8 @@ else
         editingScheduleCtrlNbr = s.CtrlNbr;
         scheduleShiftCtrlNbr = s.ShiftDefinitionCtrlNbr;
         scheduleOperatingDaysMask = s.OperatingDaysMask;
+        scheduleOnDutyTime = string.IsNullOrEmpty(s.OnDutyTime) ? "06:00" : s.OnDutyTime;
+        scheduleOffDutyTime = string.IsNullOrEmpty(s.OffDutyTime) ? "18:00" : s.OffDutyTime;
         showScheduleModal = true;
     }
 
@@ -266,9 +286,9 @@ else
         try
         {
             if (editingScheduleCtrlNbr is null)
-                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask);
+                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask, scheduleOnDutyTime, scheduleOffDutyTime);
             else
-                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask);
+                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask, scheduleOnDutyTime, scheduleOffDutyTime);
 
             showScheduleModal = false;
             successMessage = editingScheduleCtrlNbr is null ? "Schedule created." : "Schedule updated.";

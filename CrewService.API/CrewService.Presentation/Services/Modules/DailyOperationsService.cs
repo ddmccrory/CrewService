@@ -123,8 +123,6 @@ public class DailyOperationsService(
             CtrlNbr = shift.CtrlNbr.Value,
             ShiftCode = shift.ShiftCode,
             ShiftDisplayName = shift.ShiftDisplayName,
-            ShiftStart = Timestamp.FromDateTime(DateTime.SpecifyKind(shift.ShiftStartUtc, DateTimeKind.Utc)),
-            ShiftEnd = Timestamp.FromDateTime(DateTime.SpecifyKind(shift.ShiftEndUtc, DateTimeKind.Utc)),
             Status = shift.Status,
             DepartmentName = shift.DepartmentName ?? string.Empty,
         };

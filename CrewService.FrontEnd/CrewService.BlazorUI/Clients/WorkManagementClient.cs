@@ -89,7 +89,7 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, string defaultStartTime, string defaultEndTime, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
     {
         try
         {
@@ -98,8 +98,6 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
                 ShiftCode = shiftCode,
                 DisplayName = displayName,
-                DefaultStartTime = defaultStartTime,
-                DefaultEndTime = defaultEndTime,
                 DisplayOrder = displayOrder,
                 IsActive = isActive,
                 DepartmentCtrlNbr = departmentCtrlNbr
@@ -108,7 +106,7 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, string defaultStartTime, string defaultEndTime, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
     {
         try
         {
@@ -117,8 +115,6 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 CtrlNbr = ctrlNbr,
                 ShiftCode = shiftCode,
                 DisplayName = displayName,
-                DefaultStartTime = defaultStartTime,
-                DefaultEndTime = defaultEndTime,
                 DisplayOrder = displayOrder,
                 IsActive = isActive,
                 DepartmentCtrlNbr = departmentCtrlNbr

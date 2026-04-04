@@ -34,7 +34,7 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
         await DbContext.Set<ShiftInstance>()
             .Include(s => s.PositionSlots)
             .Where(s => s.WorkInstanceCtrlNbr == workInstanceCtrlNbr)
-            .OrderBy(s => s.ShiftStartUtc)
+            .OrderBy(s => s.ShiftCode)
             .ToListAsync(ct);
 
     public async Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(

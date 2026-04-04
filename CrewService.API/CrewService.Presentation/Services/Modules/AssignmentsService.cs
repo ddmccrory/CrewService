@@ -111,7 +111,9 @@ public class AssignmentsService(
         var schedule = AssignmentSchedule.Create(
             ControlNumber.Create(request.AssignmentCtrlNbr),
             ControlNumber.Create(request.ShiftDefinitionCtrlNbr),
-            request.OperatingDaysMask);
+            request.OperatingDaysMask,
+            TimeOnly.Parse(request.OnDutyTime),
+            TimeOnly.Parse(request.OffDutyTime));
 
         await using var uow = await uowFactory.CreateAsync();
         uow.AssignmentSchedules.Add(schedule);
@@ -124,7 +126,7 @@ public class AssignmentsService(
     {
         var schedule = await scheduleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"AssignmentSchedule {request.CtrlNbr} not found."));
-        schedule.Update(request.OperatingDaysMask);
+        schedule.Update(request.OperatingDaysMask, TimeOnly.Parse(request.OnDutyTime), TimeOnly.Parse(request.OffDutyTime));
 
         await using var uow = await uowFactory.CreateAsync();
         uow.AssignmentSchedules.Update(schedule);
@@ -161,6 +163,8 @@ public class AssignmentsService(
         CtrlNbr = s.CtrlNbr.Value,
         AssignmentCtrlNbr = s.AssignmentCtrlNbr.Value,
         ShiftDefinitionCtrlNbr = s.ShiftDefinitionCtrlNbr.Value,
-        OperatingDaysMask = s.OperatingDaysMask
+        OperatingDaysMask = s.OperatingDaysMask,
+        OnDutyTime = s.OnDutyTime.ToString("HH:mm"),
+        OffDutyTime = s.OffDutyTime.ToString("HH:mm")
     };
 }

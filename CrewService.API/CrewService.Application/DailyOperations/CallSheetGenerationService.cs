@@ -36,7 +36,7 @@ public sealed class CallSheetGenerationService(
             throw new InvalidOperationException(
                 $"A call sheet for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd} already exists.");
 
-        // Resolve department snapshot
+        // Resolve department name
         string? departmentName = null;
         if (shiftDef.DepartmentCtrlNbr is not null)
         {
@@ -52,20 +52,11 @@ public sealed class CallSheetGenerationService(
             throw new InvalidOperationException(
                 $"No assignments are scheduled for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd}.");
 
-        // Build shift times
-        var shiftStart = targetDate.ToDateTime(shiftDef.DefaultStartTime, DateTimeKind.Utc);
-        var shiftEnd = targetDate.ToDateTime(shiftDef.DefaultEndTime, DateTimeKind.Utc);
-
-        if (shiftEnd <= shiftStart)
-            shiftEnd = shiftEnd.AddDays(1);
-
         // Create the shift instance with snapshot data
         var shiftInstance = ShiftInstance.Create(
             workInstance.CtrlNbr,
             shiftDef.ShiftCode,
             shiftDef.DisplayName,
-            shiftStart,
-            shiftEnd,
             shiftDef.DepartmentCtrlNbr,
             departmentName);
 
