@@ -49,9 +49,9 @@ public sealed class CallSheetGenerationService(
         var templates = await templateQuery.GetTemplatesForDateAsync(
             workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, ct);
 
-        if (templates.Count == 0)
-            throw new InvalidOperationException(
-                $"No assignments are scheduled for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd}.");
+        // templates may be empty (e.g. no assignments scheduled on a weekend) —
+        // that is fine; the shift instance is created with zero position slots.
+
 
         // Create the shift instance with snapshot data
         var shiftInstance = ShiftInstance.Create(
