@@ -79,12 +79,14 @@ else
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
-                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditScheduleModal(s)">
-                            <span class="bi bi-pencil"></span>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSchedule(s.CtrlNbr)">
-                            <span class="bi bi-trash"></span>
-                        </button>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditScheduleModal(s)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => DeleteSchedule(s.CtrlNbr)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
                     }
                 </td>
             </RowContent>
