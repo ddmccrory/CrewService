@@ -104,9 +104,10 @@ public class PositionSlotInstanceTests
     private static PositionSlotInstance CreateSlot()
     {
         var shiftInstance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
+            ControlNumber.Create(1), "DAY", "Day Shift", DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
 
-        var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), null, 1);
+        var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
         return slot;
     }
 }
