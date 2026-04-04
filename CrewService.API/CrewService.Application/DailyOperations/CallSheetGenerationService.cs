@@ -6,50 +6,111 @@ namespace CrewService.Application.DailyOperations;
 public sealed class CallSheetGenerationService(
     IAssignmentQueryService templateQuery,
     IShiftDefinitionRepository shiftDefRepo,
-    IShiftInstanceRepository shiftInstanceRepo)
+    IShiftInstanceRepository shiftInstanceRepo,
+    IWorkInstanceRepository workInstanceRepo,
+    IDepartmentRepository departmentRepo)
 {
-    public async Task<IReadOnlyList<ShiftInstance>> GenerateAsync(
+    public async Task<ShiftInstance> GenerateForShiftAsync(
         ControlNumber workAreaGroupCtrlNbr,
-        ControlNumber workInstanceCtrlNbr,
+        ControlNumber shiftDefinitionCtrlNbr,
         DateOnly targetDate,
         CancellationToken ct = default)
     {
-        var shiftDefs = await shiftDefRepo.GetByWorkAreaAsync(workAreaGroupCtrlNbr);
-        var activeShifts = shiftDefs.Where(s => s.IsActive).OrderBy(s => s.DisplayOrder).ToList();
+        var shiftDef = await shiftDefRepo.GetByCtrlNbrAsync(shiftDefinitionCtrlNbr, ct)
+            ?? throw new InvalidOperationException($"Shift definition {shiftDefinitionCtrlNbr} not found.");
 
-        var createdShifts = new List<ShiftInstance>();
+        if (!shiftDef.IsActive)
+            throw new InvalidOperationException($"Shift definition '{shiftDef.ShiftCode}' is not active.");
 
-        foreach (var shiftDef in activeShifts)
+        if (shiftDef.WorkAreaGroupCtrlNbr != workAreaGroupCtrlNbr)
+            throw new InvalidOperationException($"Shift definition '{shiftDef.ShiftCode}' does not belong to the specified work area.");
+
+        // Find or create the WorkInstance for this work area + date
+        var workInstance = await FindOrCreateWorkInstanceAsync(workAreaGroupCtrlNbr, targetDate, ct);
+
+        // Duplicate check: shift already generated for this work instance?
+        var alreadyExists = await shiftInstanceRepo.ExistsByWorkInstanceAndShiftCodeAsync(
+            workInstance.CtrlNbr, shiftDef.ShiftCode, ct);
+
+        if (alreadyExists)
+            throw new InvalidOperationException(
+                $"A call sheet for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd} already exists.");
+
+        // Resolve department snapshot
+        string? departmentName = null;
+        if (shiftDef.DepartmentCtrlNbr is not null)
         {
-            var templates = await templateQuery.GetTemplatesForDateAsync(workAreaGroupCtrlNbr, shiftDef.CtrlNbr, targetDate, ct);
-
-            var shiftStart = targetDate.ToDateTime(shiftDef.DefaultStartTime, DateTimeKind.Utc);
-            var shiftEnd = targetDate.ToDateTime(shiftDef.DefaultEndTime, DateTimeKind.Utc);
-
-            if (shiftEnd <= shiftStart)
-                shiftEnd = shiftEnd.AddDays(1);
-
-            var shiftInstance = ShiftInstance.Create(
-                workInstanceCtrlNbr,
-                shiftDef.ShiftCode,
-                shiftStart,
-                shiftEnd);
-
-            foreach (var template in templates)
-            {
-                foreach (var position in template.Positions)
-                {
-                    shiftInstance.AddPositionSlot(
-                        position.PositionCtrlNbr,
-                        position.IncumbentEmployeeCtrlNbr,
-                        position.DisplayOrder);
-                }
-            }
-
-            await shiftInstanceRepo.AddAsync(shiftInstance, ct);
-            createdShifts.Add(shiftInstance);
+            var dept = await departmentRepo.GetByCtrlNbrAsync(shiftDef.DepartmentCtrlNbr, ct);
+            departmentName = dept?.Name;
         }
 
-        return createdShifts;
+        // Query assignment templates for this shift + date
+        var templates = await templateQuery.GetTemplatesForDateAsync(
+            workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, ct);
+
+        if (templates.Count == 0)
+            throw new InvalidOperationException(
+                $"No assignments are scheduled for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd}.");
+
+        // Build shift times
+        var shiftStart = targetDate.ToDateTime(shiftDef.DefaultStartTime, DateTimeKind.Utc);
+        var shiftEnd = targetDate.ToDateTime(shiftDef.DefaultEndTime, DateTimeKind.Utc);
+
+        if (shiftEnd <= shiftStart)
+            shiftEnd = shiftEnd.AddDays(1);
+
+        // Create the shift instance with snapshot data
+        var shiftInstance = ShiftInstance.Create(
+            workInstance.CtrlNbr,
+            shiftDef.ShiftCode,
+            shiftDef.DisplayName,
+            shiftStart,
+            shiftEnd,
+            shiftDef.DepartmentCtrlNbr,
+            departmentName);
+
+        // Add position slots with denormalized assignment/craft role data
+        foreach (var template in templates)
+        {
+            foreach (var position in template.Positions)
+            {
+                shiftInstance.AddPositionSlot(
+                    position.PositionCtrlNbr,
+                    position.IncumbentEmployeeCtrlNbr,
+                    position.DisplayOrder,
+                    template.AssignmentCtrlNbr,
+                    template.AssignmentCode,
+                    template.AssignmentName,
+                    position.CraftRoleName);
+            }
+        }
+
+        await shiftInstanceRepo.AddAsync(shiftInstance, ct);
+        return shiftInstance;
+    }
+
+    private async Task<WorkInstance> FindOrCreateWorkInstanceAsync(
+        ControlNumber workAreaGroupCtrlNbr,
+        DateOnly targetDate,
+        CancellationToken ct)
+    {
+        var dayStartUtc = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var dayEndUtc = targetDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
+        var existing = await workInstanceRepo.GetByWorkAreaAndDateRangeAsync(
+            workAreaGroupCtrlNbr, dayStartUtc, dayEndUtc);
+
+        if (existing.Count > 0)
+            return existing[0];
+
+        var workInstance = WorkInstance.Create(
+            assignmentGroupCtrlNbr: null,
+            workAreaGroupCtrlNbr,
+            startUtc: dayStartUtc,
+            endUtc: dayEndUtc,
+            callTimeUtc: null);
+
+        await workInstanceRepo.AddAsync(workInstance, ct);
+        return workInstance;
     }
 }

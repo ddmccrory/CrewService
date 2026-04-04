@@ -8,6 +8,7 @@ public interface IShiftInstanceRepository
     Task AddAsync(ShiftInstance instance, CancellationToken ct = default);
     Task<ShiftInstance?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
     Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default);
+    Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, CancellationToken ct = default);
 }
 
 public interface IAssignmentQueryService
@@ -18,9 +19,13 @@ public interface IAssignmentQueryService
 public sealed record AssignmentDto(
     ControlNumber AssignmentCtrlNbr,
     ControlNumber WorkAreaGroupCtrlNbr,
+    ControlNumber? DepartmentCtrlNbr,
+    string AssignmentCode,
+    string AssignmentName,
     IReadOnlyList<CrewPositionDto> Positions);
 
 public sealed record CrewPositionDto(
     ControlNumber PositionCtrlNbr,
     ControlNumber? IncumbentEmployeeCtrlNbr,
-    int DisplayOrder);
+    int DisplayOrder,
+    string CraftRoleName);
