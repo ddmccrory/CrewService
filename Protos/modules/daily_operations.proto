@@ -7,7 +7,10 @@ import "google/api/annotations.proto";
 
 service DailyOperationsSrvc {
   rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse) {
-    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}" };
+    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}/{target_date}" };
+  }
+  rpc GenerateCallSheet (GenerateCallSheetRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/call-sheet/generate" body: "*" };
   }
   rpc PlaceOnDuty (PlaceOnDutyRequest) returns (OnDutyRecordResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/on-duty" body: "*" };
@@ -29,13 +32,26 @@ message GetCallSheetResponse {
   repeated DailyShiftInstanceResponse shifts = 1;
 }
 
+message GenerateCallSheetRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 shift_definition_ctrl_nbr = 2;
+  string target_date = 3;
+}
+
+message GenerateCallSheetResponse {
+  DailyShiftInstanceResponse shift = 1;
+}
+
 message DailyShiftInstanceResponse {
   int64 ctrl_nbr = 1;
   string shift_code = 2;
-  google.protobuf.Timestamp shift_start = 3;
-  google.protobuf.Timestamp shift_end = 4;
-  string status = 5;
-  repeated DailyPositionSlotResponse position_slots = 6;
+  string shift_display_name = 3;
+  google.protobuf.Timestamp shift_start = 4;
+  google.protobuf.Timestamp shift_end = 5;
+  string status = 6;
+  optional int64 department_ctrl_nbr = 7;
+  string department_name = 8;
+  repeated DailyPositionSlotResponse position_slots = 9;
 }
 
 message DailyPositionSlotResponse {
@@ -47,6 +63,10 @@ message DailyPositionSlotResponse {
   bool is_do_not_fill = 6;
   bool is_skipped = 7;
   int32 display_order = 8;
+  int64 assignment_ctrl_nbr = 9;
+  string assignment_code = 10;
+  string assignment_name = 11;
+  string craft_role_name = 12;
 }
 
 message PlaceOnDutyRequest {

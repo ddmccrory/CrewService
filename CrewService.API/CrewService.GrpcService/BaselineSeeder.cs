@@ -33,6 +33,7 @@ internal static class BaselineSeeder
     private static readonly (string Key, string DisplayName, string Category, string Route)[] SystemFeatures =
     [
         // Daily Operations
+                ("daily-operations/call-sheet", "Call Sheet", "Daily Operations", "/daily-operations/call-sheet"),
         ("daily/call-board", "Call Board", "Daily Operations", "/daily/call-board"),
         ("daily/assignments", "Assignments", "Daily Operations", "/daily/assignments"),
         ("daily/mark-offs", "Mark-Offs", "Daily Operations", "/daily/mark-offs"),
@@ -91,6 +92,7 @@ internal static class BaselineSeeder
     private static readonly Dictionary<string, string[]> FeatureFullAccessRoles = new()
     {
         // Daily Operations
+                ["daily-operations/call-sheet"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager", "Dispatcher"],
         ["daily/call-board"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager", "Dispatcher"],
         ["daily/assignments"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager", "Dispatcher"],
         ["daily/mark-offs"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager", "Dispatcher"],

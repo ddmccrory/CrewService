@@ -68,6 +68,9 @@ public class ForeignKeyIntegrityTests
             // Scoping — DynamicGroup scope filters (0 = universal)
             ("DynamicGroup", "ParentCtrlNbr"),
             ("DynamicGroup", "RailroadCtrlNbr"),
+            // Snapshot — denormalized point-in-time copies on call sheet entities
+            ("ShiftInstance", "DepartmentCtrlNbr"),
+            ("PositionSlotInstance", "AssignmentCtrlNbr"),
         };
 
         var orphans = new List<string>();
