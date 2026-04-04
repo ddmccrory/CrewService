@@ -78,6 +78,7 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
 
     protected string? successMessage;
     protected string? errorMessage;
+    protected bool isSaving;
 
     // ── Lifecycle ───────────────────────────────────────────────────────
 

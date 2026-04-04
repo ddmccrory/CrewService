@@ -111,11 +111,11 @@ else
                     <div class="row mb-3">
                         <div class="col-6">
                             <label class="form-label fw-semibold">On Duty Time</label>
-                            <input type="text" class="form-control" @bind="scheduleOnDutyTime" placeholder="HH:mm" />
+                            <input type="time" class="form-control" @bind="scheduleOnDutyTime" />
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-semibold">Off Duty Time</label>
-                            <input type="text" class="form-control" @bind="scheduleOffDutyTime" placeholder="HH:mm" />
+                            <input type="time" class="form-control" @bind="scheduleOffDutyTime" />
                         </div>
                     </div>
                     <div class="mb-0">
@@ -136,7 +136,7 @@ else
                 </EditForm>
             </BodyContent>
             <Footer>
-                <button type="submit" form="save-schedule-form" class="btn btn-primary">Save</button>
+                <button type="submit" form="save-schedule-form" class="btn btn-primary" disabled="@isSaving">Save</button>
             </Footer>
         </Modal>
     }
@@ -251,16 +251,16 @@ else
     private long? editingScheduleCtrlNbr;
     private int scheduleOperatingDaysMask;
     private long scheduleShiftCtrlNbr;
-    private string scheduleOnDutyTime = "06:00";
-    private string scheduleOffDutyTime = "18:00";
+    private TimeOnly scheduleOnDutyTime = new(6, 0);
+    private TimeOnly scheduleOffDutyTime = new(18, 0);
 
     private void OpenCreateScheduleModal()
     {
         editingScheduleCtrlNbr = null;
         scheduleShiftCtrlNbr = 0;
         scheduleOperatingDaysMask = 0;
-        scheduleOnDutyTime = "06:00";
-        scheduleOffDutyTime = "18:00";
+        scheduleOnDutyTime = new TimeOnly(6, 0);
+        scheduleOffDutyTime = new TimeOnly(18, 0);
         showScheduleModal = true;
     }
 
@@ -269,8 +269,8 @@ else
         editingScheduleCtrlNbr = s.CtrlNbr;
         scheduleShiftCtrlNbr = s.ShiftDefinitionCtrlNbr;
         scheduleOperatingDaysMask = s.OperatingDaysMask;
-        scheduleOnDutyTime = string.IsNullOrEmpty(s.OnDutyTime) ? "06:00" : s.OnDutyTime;
-        scheduleOffDutyTime = string.IsNullOrEmpty(s.OffDutyTime) ? "18:00" : s.OffDutyTime;
+        scheduleOnDutyTime = TimeOnly.TryParse(s.OnDutyTime, out var onT) ? onT : new TimeOnly(6, 0);
+        scheduleOffDutyTime = TimeOnly.TryParse(s.OffDutyTime, out var offT) ? offT : new TimeOnly(18, 0);
         showScheduleModal = true;
     }
 
@@ -285,27 +285,31 @@ else
     {
         try
         {
+            isSaving = true;
             if (editingScheduleCtrlNbr is null)
-                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask, scheduleOnDutyTime, scheduleOffDutyTime);
+                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask, scheduleOnDutyTime.ToString("HH:mm"), scheduleOffDutyTime.ToString("HH:mm"));
             else
-                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask, scheduleOnDutyTime, scheduleOffDutyTime);
+                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask, scheduleOnDutyTime.ToString("HH:mm"), scheduleOffDutyTime.ToString("HH:mm"));
 
             showScheduleModal = false;
             successMessage = editingScheduleCtrlNbr is null ? "Schedule created." : "Schedule updated.";
             await LoadSchedules();
         }
         catch (Exception ex) { errorMessage = $"Save failed: {ex.Message}"; }
+        finally { isSaving = false; }
     }
 
     private async Task DeleteSchedule(long ctrlNbr)
     {
         try
         {
+            isSaving = true;
             await AssignmentClient.DeleteScheduleAsync(ctrlNbr);
             successMessage = "Schedule deleted.";
             await LoadSchedules();
         }
         catch (Exception ex) { errorMessage = $"Delete failed: {ex.Message}"; }
+        finally { isSaving = false; }
     }
 
     private static string FormatDays(int mask)

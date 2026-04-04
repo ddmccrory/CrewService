@@ -103,7 +103,7 @@ else
             </BodyContent>
             <Footer>
                 <button type="button" class="btn btn-outline-secondary" @onclick="() => showPositionModal = false">Cancel</button>
-                <button type="submit" form="save-position-form" class="btn btn-primary">
+                <button type="submit" form="save-position-form" class="btn btn-primary" disabled="@isSaving">
                     <span class="bi bi-check-circle me-1"></span> Create
                 </button>
             </Footer>
@@ -160,7 +160,7 @@ else
             </BodyContent>
             <Footer>
                 <button type="button" class="btn btn-outline-secondary" @onclick="CloseAssignmentModal">Cancel</button>
-                <button type="submit" form="save-assignment-form" class="btn btn-primary">
+                <button type="submit" form="save-assignment-form" class="btn btn-primary" disabled="@isSaving">
                     <span class="bi bi-check-circle me-1"></span> @(editAssignmentCtrlNbr > 0 ? "Update" : "Create")
                 </button>
             </Footer>
@@ -173,7 +173,7 @@ else
             </BodyContent>
             <Footer>
                 <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteAssignmentModal = false">Cancel</button>
-                <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAssignment">
+                <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDeleteAssignment">
                     <span class="bi bi-trash me-1"></span> Delete
                 </button>
             </Footer>
@@ -377,6 +377,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
             await CrewClient.CreateCrewPositionAsync(CtrlNbr, positionModel.CraftRoleCtrlNbr, positionModel.DisplayOrder);
@@ -388,6 +389,7 @@ else
         {
             errorMessage = $"Failed to add position: {ex.Message}";
         }
+        finally { isSaving = false; }
     }
 
     // ── Assignments ──
@@ -429,6 +431,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
             var startUtc = assignmentModel.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
@@ -452,12 +455,14 @@ else
         {
             errorMessage = $"Failed to save assignment: {ex.Message}";
         }
+        finally { isSaving = false; }
     }
 
     private async Task ConfirmDeleteAssignment()
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
             await CrewClient.DeleteCrewAssignmentAsync(deleteAssignmentCtrlNbr);
@@ -470,6 +475,7 @@ else
             errorMessage = $"Failed to delete assignment: {ex.Message}";
             showDeleteAssignmentModal = false;
         }
+        finally { isSaving = false; }
     }
 
     private void ToggleDay(int bit, bool isChecked)

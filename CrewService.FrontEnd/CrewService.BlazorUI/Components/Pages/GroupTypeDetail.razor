@@ -128,7 +128,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseGroupSaveModal">Cancel</button>
-            <button type="submit" form="save-group-form" class="btn btn-primary">
+            <button type="submit" form="save-group-form" class="btn btn-primary" disabled="@isSaving">
                 <span class="bi bi-check-circle me-1"></span> @(editGroupCtrlNbr > 0 ? "Update" : "Add")
             </button>
         </Footer>
@@ -142,7 +142,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="() => showGroupDeleteModal = false">Cancel</button>
-            <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteGroup">
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDeleteGroup">
                 <span class="bi bi-trash me-1"></span> Delete
             </button>
         </Footer>
@@ -238,7 +238,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseAttrSaveModal">Cancel</button>
-            <button type="submit" form="save-attr-form" class="btn btn-primary">
+            <button type="submit" form="save-attr-form" class="btn btn-primary" disabled="@isSaving">
                 <span class="bi bi-check-circle me-1"></span> @(editAttrCtrlNbr > 0 ? "Update" : "Add")
             </button>
         </Footer>
@@ -252,7 +252,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="() => showAttrDeleteModal = false">Cancel</button>
-            <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAttribute">
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDeleteAttribute">
                 <span class="bi bi-trash me-1"></span> Delete
             </button>
         </Footer>
@@ -616,6 +616,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -649,12 +650,14 @@ else
         {
             errorMessage = $"Failed to save group: {ex.Message}";
         }
+        finally { isSaving = false; }
     }
 
     private async Task ConfirmDeleteGroup()
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -669,6 +672,7 @@ else
             errorMessage = $"Failed to delete group: {ex.Message}";
             showGroupDeleteModal = false;
         }
+        finally { isSaving = false; }
     }
 
     // ??????????????????????????????????????????????????????????????????
@@ -713,6 +717,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -734,12 +739,14 @@ else
         {
             errorMessage = $"Failed to save attribute: {ex.Message}";
         }
+        finally { isSaving = false; }
     }
 
     private async Task ConfirmDeleteAttribute()
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -753,6 +760,7 @@ else
             errorMessage = $"Failed to delete attribute: {ex.Message}";
             showAttrDeleteModal = false;
         }
+        finally { isSaving = false; }
     }
 
     // ??????????????????????????????????????????????????????????????????
