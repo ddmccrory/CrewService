@@ -158,7 +158,7 @@ public class DailyOperationsService(
             {
                 CtrlNbr = slot.CtrlNbr.Value,
                 CrewPositionCtrlNbr = slot.CrewPositionCtrlNbr.Value,
-                Status = slot.Status,
+                Status = MapSlotStatus(slot.Status),
                 IsAnnulled = slot.IsAnnulled,
                 IsDoNotFill = slot.IsDoNotFill,
                 IsSkipped = slot.IsSkipped,
@@ -167,6 +167,11 @@ public class DailyOperationsService(
                 AssignmentCode = slot.AssignmentCode,
                 AssignmentName = slot.AssignmentName,
                 CraftRoleName = slot.CraftRoleName,
+                OnDutyTime = slot.OnDutyTime.ToString("hh\\:mm tt"),
+                OffDutyTime = slot.OffDutyTime.ToString("hh\\:mm tt"),
+                GroupName = slot.GroupName,
+                GroupCode = slot.GroupCode,
+                IsIncumbent = slot.IsIncumbent,
             };
             if (slot.IncumbentEmployeeCtrlNbr is not null)
                 slotResp.IncumbentEmployeeCtrlNbr = slot.IncumbentEmployeeCtrlNbr.Value;
@@ -175,4 +180,21 @@ public class DailyOperationsService(
 
         return shiftResp;
     }
+
+    private static PositionSlotStatusEnum MapSlotStatus(PositionSlotStatus status) => status switch
+    {
+        PositionSlotStatus.Open => PositionSlotStatusEnum.PositionSlotStatusOpen,
+        PositionSlotStatus.Filled => PositionSlotStatusEnum.PositionSlotStatusFilled,
+        PositionSlotStatus.OnDuty => PositionSlotStatusEnum.PositionSlotStatusOnDuty,
+        PositionSlotStatus.OnDutyOvertime => PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime,
+        PositionSlotStatus.TiedUp => PositionSlotStatusEnum.PositionSlotStatusTiedUp,
+        PositionSlotStatus.MarkedOff => PositionSlotStatusEnum.PositionSlotStatusMarkedOff,
+        PositionSlotStatus.Unavailable => PositionSlotStatusEnum.PositionSlotStatusUnavailable,
+        PositionSlotStatus.Annulled => PositionSlotStatusEnum.PositionSlotStatusAnnulled,
+        PositionSlotStatus.DoNotFill => PositionSlotStatusEnum.PositionSlotStatusDoNotFill,
+        PositionSlotStatus.ExtraBoard => PositionSlotStatusEnum.PositionSlotStatusExtraBoard,
+        PositionSlotStatus.NoBids => PositionSlotStatusEnum.PositionSlotStatusNoBids,
+        PositionSlotStatus.Skipped => PositionSlotStatusEnum.PositionSlotStatusSkipped,
+        _ => PositionSlotStatusEnum.PositionSlotStatusOpen
+    };
 }

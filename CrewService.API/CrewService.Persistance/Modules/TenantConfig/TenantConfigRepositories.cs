@@ -42,12 +42,14 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             .SingleOrDefaultAsync(g => g.GroupTypeCtrlNbr == groupTypeCtrlNbr && g.Name == name);
     }
 
-    public async Task<List<DynamicGroup>> GetWorkAreasAsync()
+    public async Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? railroadCtrlNbr = null)
     {
-        return await DbContext.Set<DynamicGroup>()
-            .Where(g => g.IsWorkArea)
-            .OrderBy(g => g.Name)
-            .ToListAsync();
+        var query = DbContext.Set<DynamicGroup>().Where(g => g.IsWorkArea);
+
+        if (railroadCtrlNbr is not null)
+            query = query.Where(g => g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr);
+
+        return await query.OrderBy(g => g.Name).ToListAsync();
     }
 
     public async Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync()

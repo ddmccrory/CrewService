@@ -116,10 +116,11 @@ public class ShiftInstanceTests
             ControlNumber.Create(1), "DAY", "Day Shift");
 
         var slot = instance.AddPositionSlot(ControlNumber.Create(10), null, 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
 
         Assert.Single(instance.PositionSlots);
-        Assert.Equal("Open", slot.Status);
+        Assert.Equal(PositionSlotStatus.Open, slot.Status);
     }
 
     [Fact]
@@ -129,9 +130,10 @@ public class ShiftInstanceTests
             ControlNumber.Create(1), "DAY", "Day Shift");
 
         var slot = instance.AddPositionSlot(ControlNumber.Create(10), ControlNumber.Create(100), 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
 
-        Assert.Equal("Filled", slot.Status);
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
         Assert.Equal(100, slot.IncumbentEmployeeCtrlNbr!.Value);
     }
 

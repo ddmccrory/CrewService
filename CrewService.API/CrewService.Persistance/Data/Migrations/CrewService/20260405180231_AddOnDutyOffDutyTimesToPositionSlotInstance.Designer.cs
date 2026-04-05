@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260405180231_AddOnDutyOffDutyTimesToPositionSlotInstance")]
+    partial class AddOnDutyOffDutyTimesToPositionSlotInstance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -1507,9 +1510,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<long?>("DepartmentCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long>("GroupCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
@@ -1524,11 +1524,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("WorkAreaGroupCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("DepartmentCtrlNbr");
 
-                    b.HasIndex("GroupCtrlNbr");
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("Assignments");
                 });
@@ -4515,20 +4518,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("GroupCode")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("");
-
-                    b.Property<string>("GroupName")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("");
-
                     b.Property<long?>("IncumbentEmployeeCtrlNbr")
                         .HasColumnType("INTEGER");
 
@@ -4539,9 +4528,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDoNotFill")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsIncumbent")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsSkipped")
@@ -7713,7 +7699,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
                         .WithMany()
-                        .HasForeignKey("GroupCtrlNbr")
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

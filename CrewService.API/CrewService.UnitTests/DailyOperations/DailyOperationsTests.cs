@@ -24,9 +24,10 @@ public class ShiftInstanceTests
         var slot = shift.AddPositionSlot(
             ControlNumber.Create(10),
             ControlNumber.Create(100), 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
 
-        Assert.Equal("Filled", slot.Status);
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
         Assert.Single(shift.PositionSlots);
     }
 
@@ -38,9 +39,10 @@ public class ShiftInstanceTests
 
         var slot = shift.AddPositionSlot(
             ControlNumber.Create(10), null, 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
 
-        Assert.Equal("Open", slot.Status);
+        Assert.Equal(PositionSlotStatus.Open, slot.Status);
     }
 
     [Fact]
@@ -64,11 +66,12 @@ public class PositionSlotInstanceTests
         var shift = ShiftInstance.Create(
             ControlNumber.Create(1), "1", "First Shift");
         var slot = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
 
         slot.Annul("No work available");
 
-        Assert.Equal("Annulled", slot.Status);
+        Assert.Equal(PositionSlotStatus.Annulled, slot.Status);
         Assert.True(slot.IsAnnulled);
         Assert.Equal("No work available", slot.AnnulmentReason);
     }
@@ -79,11 +82,12 @@ public class PositionSlotInstanceTests
         var shift = ShiftInstance.Create(
             ControlNumber.Create(1), "1", "First Shift");
         var slot = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
 
         slot.Fill(ControlNumber.Create(200));
 
-        Assert.Equal("Filled", slot.Status);
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
         Assert.Equal(200, slot.IncumbentEmployeeCtrlNbr!.Value);
     }
 }

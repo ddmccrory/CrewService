@@ -5,17 +5,17 @@ namespace CrewService.Domain.Modules.Crews;
 
 public sealed class Assignment : Entity
 {
-    public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
+    public ControlNumber GroupCtrlNbr { get; private set; }
     public ControlNumber? DepartmentCtrlNbr { get; private set; }
     public string Code { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
     public bool IsExtra { get; private set; }
     public bool IsActive { get; private set; }
 
-    private Assignment() { WorkAreaGroupCtrlNbr = null!; }
+    private Assignment() { GroupCtrlNbr = null!; }
 
     public static Assignment Create(
-        ControlNumber workAreaGroupCtrlNbr,
+        ControlNumber groupCtrlNbr,
         string code,
         string name,
         bool isExtra = false,
@@ -24,7 +24,7 @@ public sealed class Assignment : Entity
     {
         return new Assignment
         {
-            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+            GroupCtrlNbr = groupCtrlNbr,
             DepartmentCtrlNbr = departmentCtrlNbr,
             Code = code,
             Name = name,
@@ -38,13 +38,15 @@ public sealed class Assignment : Entity
         string? name = null,
         bool? isExtra = null,
         bool? isActive = null,
-        ControlNumber? departmentCtrlNbr = null)
+        ControlNumber? departmentCtrlNbr = null,
+        ControlNumber? groupCtrlNbr = null)
     {
         if (code is not null) Code = code;
         if (name is not null) Name = name;
         if (isExtra is not null) IsExtra = isExtra.Value;
         if (isActive is not null) IsActive = isActive.Value;
         DepartmentCtrlNbr = departmentCtrlNbr;
+        if (groupCtrlNbr is not null) GroupCtrlNbr = groupCtrlNbr;
     }
 }
 

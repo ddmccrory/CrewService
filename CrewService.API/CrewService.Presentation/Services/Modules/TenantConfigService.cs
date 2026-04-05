@@ -274,7 +274,8 @@ public class TenantConfigService(
     public override async Task<GetAllGroupsResponse> GetWorkAreas(GetWorkAreasRequest request, ServerCallContext context)
     {
         var response = new GetAllGroupsResponse();
-        var workAreas = await _dynamicGroupRepository.GetWorkAreasAsync();
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : (ControlNumber?)null;
+        var workAreas = await _dynamicGroupRepository.GetWorkAreasAsync(railroadCtrlNbr);
 
         foreach (var g in workAreas)
             response.Groups.Add(MapGroup(g));

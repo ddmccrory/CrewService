@@ -1,4 +1,5 @@
 using CrewService.Application.DailyOperations;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using System.Text;
 
@@ -32,7 +33,7 @@ public sealed class DailyReportGenerationService(
         foreach (var shift in shiftInstances)
         {
             var total = shift.PositionSlots.Count;
-            var filled = shift.PositionSlots.Count(p => p.Status != "Open");
+            var filled = shift.PositionSlots.Count(p => p.Status != PositionSlotStatus.Open);
             sections.Add(new ShiftReportSection(
                 shift.ShiftCode,
                 total,

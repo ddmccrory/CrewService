@@ -19,12 +19,14 @@ public interface IAssignmentQueryService
 
 public sealed record AssignmentDto(
     ControlNumber AssignmentCtrlNbr,
-    ControlNumber WorkAreaGroupCtrlNbr,
+    ControlNumber GroupCtrlNbr,
     ControlNumber? DepartmentCtrlNbr,
     string AssignmentCode,
     string AssignmentName,
     TimeOnly OnDutyTime,
     TimeOnly OffDutyTime,
+    string GroupName,
+    string GroupCode,
     IReadOnlyList<CrewPositionDto> Positions);
 
 public sealed record CrewPositionDto(

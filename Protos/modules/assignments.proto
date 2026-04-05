@@ -50,7 +50,7 @@ message GetAssignmentsResponse {
 }
 message GetStaffingAssignmentRequest { int64 ctrl_nbr = 1; }
 message CreateStaffingAssignmentRequest {
-  int64 work_area_group_ctrl_nbr = 1;
+  int64 group_ctrl_nbr = 1;
   int64 department_ctrl_nbr = 2;
   string code = 3;
   string name = 4;
@@ -64,16 +64,20 @@ message UpdateStaffingAssignmentRequest {
   string name = 4;
   bool is_extra = 6;
   bool is_active = 7;
+  int64 group_ctrl_nbr = 8;
 }
 message DeleteStaffingAssignmentRequest { int64 ctrl_nbr = 1; }
 message StaffingAssignmentResponse {
   int64 ctrl_nbr = 1;
-  int64 work_area_group_ctrl_nbr = 2;
+  int64 group_ctrl_nbr = 2;
   int64 department_ctrl_nbr = 3;
   string code = 4;
   string name = 5;
   bool is_extra = 7;
   bool is_active = 8;
+  string group_name = 9;
+  string group_code = 10;
+  int64 work_area_group_ctrl_nbr = 11;
 }
 
 // Assignment Schedule messages

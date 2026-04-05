@@ -342,7 +342,7 @@ else
             var departmentCtrlNbr = crew?.DepartmentCtrlNbr ?? 0;
             var response = await WorkManagementClient.GetCraftRolesAsync(departmentCtrlNbr: departmentCtrlNbr);
             craftRoles = response.Roles;
-            craftRoleNames = craftRoles.ToDictionary(r => r.CtrlNbr, r => string.IsNullOrWhiteSpace(r.Code) ? r.Name : r.Code);
+            craftRoleNames = craftRoles.ToDictionary(r => r.CtrlNbr, r => string.IsNullOrWhiteSpace(r.Code) ? r.Name : $"{r.Code} – {r.Name}");
         }
         catch
         {

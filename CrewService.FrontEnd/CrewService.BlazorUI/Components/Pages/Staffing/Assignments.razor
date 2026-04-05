@@ -1,4 +1,4 @@
-@page "/staffing/assignments"
+@page "/daily/assignments"
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
@@ -32,18 +32,15 @@ else
         <BodyContent>
             <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-assignment-form">
                 <DataAnnotationsValidator />
-                @if (editCtrlNbr == 0)
-                {
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Work Area</label>
+                    <label class="form-label fw-semibold">Group</label>
                     <SelectInput TItem="GroupResponse" TValue="long"
-                                 @bind-Value="saveModel.WorkAreaGroupCtrlNbr"
-                                 Items="workAreas"
+                                 @bind-Value="saveModel.GroupCtrlNbr"
+                                 Items="allGroups"
                                  ValueSelector="@(wa => wa.CtrlNbr)"
                                  TextSelector="@(wa => wa.Name)"
                                  class="form-select" />
                 </div>
-                }
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Department</label>
                     <SelectInput TItem="DepartmentResponse" TValue="long"
@@ -118,7 +115,7 @@ else
         <RowContent Context="a">
             <td><a href="staffing/assignments/@a.CtrlNbr" class="text-decoration-none fw-semibold">@a.Code.ToUpperInvariant()</a></td>
             <td>@a.Name</td>
-            <td>@GetWorkAreaName(a.WorkAreaGroupCtrlNbr)</td>
+            <td>@a.GroupName</td>
             <td>@GetDepartmentName(a.DepartmentCtrlNbr)</td>
             <td>
                 @if (a.IsActive) { <span class="badge bg-success">Active</span> }
@@ -146,16 +143,16 @@ else
     protected override string? FeatureKey => "staffing/crews";
 
     private IReadOnlyList<StaffingAssignmentResponse>? items;
-    private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<GroupResponse>? allGroups;
     private IReadOnlyList<DepartmentResponse>? departments;
-    private Dictionary<long, string> workAreaNames = [];
+    
     private Dictionary<long, string> departmentNames = [];
 
     private IReadOnlyList<DataTableColumn<StaffingAssignmentResponse>> columns =>
     [
         new("Code", a => a.Code.ToUpperInvariant()),
         new("Name", a => a.Name),
-        new("Work Area", a => GetWorkAreaName(a.WorkAreaGroupCtrlNbr)),
+        new("Group", a => a.GroupName),
         new("Department", a => GetDepartmentName(a.DepartmentCtrlNbr)),
         new("Status", a => a.IsActive ? "Active" : "Inactive", width: "100px"),
         DataTableColumn<StaffingAssignmentResponse>.Actions()
@@ -186,19 +183,17 @@ else
             await LoadDepartments();
             await LoadAssignments();
         }
-        else { items = null; workAreas = null; departments = null; }
+        else { items = null; allGroups = null; departments = null; }
     }
 
     private async Task LoadWorkAreas()
     {
         try
         {
-            var response = await TenantConfigClient.GetWorkAreasAsync();
-            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
-            workAreas = response.Groups.Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl).ToList();
-            workAreaNames = workAreas.ToDictionary(g => g.CtrlNbr, g => g.Name);
+            var response = await TenantConfigClient.GetGroupTreeAsync(SelectedRailroadCtrlNbr!.Value);
+            allGroups = response.Groups.ToList();
         }
-        catch { workAreas = []; }
+        catch { allGroups = []; }
     }
 
     private async Task LoadDepartments()
@@ -223,8 +218,7 @@ else
         catch (Exception ex) { errorMessage = $"Failed to load assignments: {ex.Message}"; }
     }
 
-    private string GetWorkAreaName(long ctrlNbr) =>
-        ctrlNbr > 0 && workAreaNames.TryGetValue(ctrlNbr, out var n) ? n : "—";
+
     private string GetDepartmentName(long ctrlNbr) =>
         ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var n) ? n : "—";
 
@@ -242,7 +236,8 @@ else
         {
             Code = a.Code, Name = a.Name,
             IsExtra = a.IsExtra, IsActive = a.IsActive,
-            DepartmentCtrlNbr = a.DepartmentCtrlNbr
+            DepartmentCtrlNbr = a.DepartmentCtrlNbr,
+            GroupCtrlNbr = a.GroupCtrlNbr
         };
         showSaveModal = true;
     }
@@ -264,12 +259,12 @@ else
             errorMessage = null; successMessage = null;
             if (editCtrlNbr > 0)
             {
-                await AssignmentClient.UpdateAsync(editCtrlNbr, saveModel.Code!, saveModel.Name!, saveModel.IsExtra, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                await AssignmentClient.UpdateAsync(editCtrlNbr, saveModel.Code!, saveModel.Name!, saveModel.IsExtra, saveModel.IsActive, saveModel.DepartmentCtrlNbr, saveModel.GroupCtrlNbr);
                 successMessage = "Assignment updated.";
             }
             else
             {
-                await AssignmentClient.CreateAsync(saveModel.WorkAreaGroupCtrlNbr, saveModel.Code!, saveModel.Name!, saveModel.IsExtra, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                await AssignmentClient.CreateAsync(saveModel.GroupCtrlNbr, saveModel.Code!, saveModel.Name!, saveModel.IsExtra, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
                 successMessage = "Assignment created.";
             }
             CloseSaveModal();
@@ -296,7 +291,7 @@ else
 
     private sealed class AssignmentInputModel
     {
-        public long WorkAreaGroupCtrlNbr { get; set; }
+        public long GroupCtrlNbr { get; set; }
         public long DepartmentCtrlNbr { get; set; }
         [Required(ErrorMessage = "Code is required.")] public string? Code { get; set; }
         [Required(ErrorMessage = "Name is required.")] public string? Name { get; set; }

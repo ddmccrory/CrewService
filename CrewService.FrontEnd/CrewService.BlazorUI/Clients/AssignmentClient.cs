@@ -31,13 +31,13 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<StaffingAssignmentResponse> CreateAsync(long workAreaGroupCtrlNbr, string code, string name, bool isExtra, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<StaffingAssignmentResponse> CreateAsync(long groupCtrlNbr, string code, string name, bool isExtra, bool isActive, long departmentCtrlNbr = 0)
     {
         try
         {
             return await _client.CreateAssignmentAsync(new CreateStaffingAssignmentRequest
             {
-                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+                GroupCtrlNbr = groupCtrlNbr,
                 DepartmentCtrlNbr = departmentCtrlNbr,
                 Code = code,
                 Name = name,
@@ -48,7 +48,7 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<StaffingAssignmentResponse> UpdateAsync(long ctrlNbr, string code, string name, bool isExtra, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<StaffingAssignmentResponse> UpdateAsync(long ctrlNbr, string code, string name, bool isExtra, bool isActive, long departmentCtrlNbr = 0, long groupCtrlNbr = 0)
     {
         try
         {
@@ -59,7 +59,8 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
                 Code = code,
                 Name = name,
                 IsExtra = isExtra,
-                IsActive = isActive
+                IsActive = isActive,
+                GroupCtrlNbr = groupCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

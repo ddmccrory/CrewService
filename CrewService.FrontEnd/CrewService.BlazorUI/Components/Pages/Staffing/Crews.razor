@@ -213,11 +213,8 @@ else
     {
         try
         {
-            var response = await TenantConfigClient.GetWorkAreasAsync();
-            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
-            workAreas = response.Groups
-                .Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl)
-                .ToList();
+            var response = await TenantConfigClient.GetWorkAreasAsync(SelectedRailroadCtrlNbr!.Value);
+            workAreas = response.Groups.ToList();
         }
         catch
         {

@@ -1,5 +1,6 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
@@ -16,7 +17,11 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
         var now = DateTime.UtcNow;
         var dayBit = 1 << (int)targetDate.DayOfWeek;
 
-        // Find assignments for this work area that have a schedule matching the shift + day
+        // Resolve the work area and all its descendant groups
+        var descendantCtrlNbrs = await GetWorkAreaAndDescendantCtrlNbrsAsync(workAreaGroupCtrlNbr, ct);
+        if (descendantCtrlNbrs.Count == 0) return [];
+
+        // Find assignments for this work area (and descendants) that have a schedule matching the shift + day
         var schedules = await dbContext.Set<AssignmentSchedule>()
             .Where(s => s.ShiftDefinitionCtrlNbr == shiftDefinitionCtrlNbr
                         && (s.OperatingDaysMask & dayBit) != 0)
@@ -33,7 +38,7 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
 
         var assignments = await dbContext.Set<Assignment>()
             .Where(a => scheduledAssignmentCtrlNbrs.Contains(a.CtrlNbr)
-                        && a.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr
+                        && descendantCtrlNbrs.Contains(a.GroupCtrlNbr)
                         && a.IsActive && (departmentCtrlNbr == null || a.DepartmentCtrlNbr == departmentCtrlNbr))
             .ToListAsync(ct);
 
@@ -70,6 +75,12 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
             .ToListAsync(ct);
         var craftRoleLookup = craftRoles.ToDictionary(cr => cr.CtrlNbr, cr => cr.Name);
 
+        // Resolve group names/codes for each assignment's group
+        var groupCtrlNbrs = assignments.Select(a => a.GroupCtrlNbr).Distinct().ToList();
+        var groups = await dbContext.Set<DynamicGroup>()
+            .Where(g => groupCtrlNbrs.Contains(g.CtrlNbr))
+            .ToDictionaryAsync(g => g.CtrlNbr, ct);
+
         var result = new List<AssignmentDto>();
 
         foreach (var assignment in assignments)
@@ -95,15 +106,57 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
                 .ToList();
 
             var schedule = scheduleLookup[assignment.CtrlNbr];
+            groups.TryGetValue(assignment.GroupCtrlNbr, out var group);
             result.Add(new AssignmentDto(
                 assignment.CtrlNbr,
-                workAreaGroupCtrlNbr,
+                assignment.GroupCtrlNbr,
                 assignment.DepartmentCtrlNbr,
                 assignment.Code,
                 assignment.Name,
                 schedule.OnDutyTime,
                 schedule.OffDutyTime,
+                group?.Name ?? string.Empty,
+                group?.Code ?? string.Empty,
                 positionDtos));
+        }
+
+        return result;
+    }
+
+    private async Task<List<ControlNumber>> GetWorkAreaAndDescendantCtrlNbrsAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct)
+    {
+        var workArea = await dbContext.Set<DynamicGroup>()
+            .SingleOrDefaultAsync(g => g.CtrlNbr == workAreaGroupCtrlNbr, ct);
+
+        if (workArea is null)
+            return [];
+
+        if (workArea.Path is not null)
+        {
+            var prefix = workArea.Path + "/";
+            return await dbContext.Set<DynamicGroup>()
+                .Where(g => g.Path != null && (g.Path == workArea.Path || g.Path.StartsWith(prefix)))
+                .Select(g => g.CtrlNbr)
+                .ToListAsync(ct);
+        }
+
+        var result = new List<ControlNumber> { workArea.CtrlNbr };
+        var queue = new Queue<ControlNumber>();
+        queue.Enqueue(workArea.CtrlNbr);
+
+        while (queue.Count > 0)
+        {
+            var parentCtrlNbr = queue.Dequeue();
+            var childCtrlNbrs = await dbContext.Set<DynamicGroup>()
+                .Where(g => g.ParentGroupCtrlNbr == parentCtrlNbr)
+                .Select(g => g.CtrlNbr)
+                .ToListAsync(ct);
+
+            foreach (var childCtrlNbr in childCtrlNbrs)
+            {
+                result.Add(childCtrlNbr);
+                queue.Enqueue(childCtrlNbr);
+            }
         }
 
         return result;

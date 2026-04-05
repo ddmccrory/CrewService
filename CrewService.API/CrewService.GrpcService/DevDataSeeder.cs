@@ -109,13 +109,13 @@ internal static class DevDataSeeder
         var ptraLocationType = GroupType.Create("Location", "On duty locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
         await groupTypeRepo.AddAsync(ptraLocationType);
 
-        var northYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "North Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "11", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
+        var northYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "North Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "NOYD", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
         await groupRepo.AddAsync(northYard);
 
-        var manchesterYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "Manchester Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "13", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
+        var manchesterYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "Manchester Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "MCYD", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
         await groupRepo.AddAsync(manchesterYard);
 
-        var pasadenaYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "Pasadena Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "14", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
+        var pasadenaYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "Pasadena Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "PSYD", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
         await groupRepo.AddAsync(pasadenaYard);
 
         // ?? Scenario 3: Holding Company (CSX) ????????????????????????
@@ -600,6 +600,19 @@ internal static class DevDataSeeder
         var crewDispatcher = CraftRole.Create(clerCraft.CtrlNbr, "DISP", "Crew Dispatcher");
         await craftRoleRepo.AddAsync(crewDispatcher);
 
+        // Craft Roles - PTRA Engineer craft
+        var ptraRailroadWM = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
+        var ptraEngCraft = crafts.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
+        var ptraCondCraft = crafts.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
+        var ptraEngineerRole = CraftRole.Create(ptraEngCraft.CtrlNbr, "E", "Engineer");
+        await craftRoleRepo.AddAsync(ptraEngineerRole);
+
+        // Craft Roles - PTRA Conductor craft
+        var ptraForeman = CraftRole.Create(ptraCondCraft.CtrlNbr, "F", "Foreman");
+        var ptraHelper = CraftRole.Create(ptraCondCraft.CtrlNbr, "H", "Helper");
+        await craftRoleRepo.AddAsync(ptraForeman);
+        await craftRoleRepo.AddAsync(ptraHelper);
+
 
         // Work Instances � 2 per template (today + tomorrow)
         var today = DateTime.UtcNow.Date;
@@ -738,12 +751,14 @@ internal static class DevDataSeeder
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
         if (existingPtraShifts.Count == 0)
         {
-            var ptraShift1A = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1A", "First Shift 6:30 AM", 1, true);
-            var ptraShift1B = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1B", "First Shift 7:00 AM", 2, true);
+            var ptraShift1 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1", "First Shift", 1, true);
+            var ptraShift2 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "2", "Second Shift", 2, true);
+            var ptraShift3 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "3", "Third Shift", 3, true);
             await using (var uow = await uowFactory.CreateAsync())
             {
-                uow.ShiftDefinitions.Add(ptraShift1A);
-                uow.ShiftDefinitions.Add(ptraShift1B);
+                uow.ShiftDefinitions.Add(ptraShift1);
+                uow.ShiftDefinitions.Add(ptraShift2);
+                uow.ShiftDefinitions.Add(ptraShift3);
                 await uow.CommitAsync();
             }
         }

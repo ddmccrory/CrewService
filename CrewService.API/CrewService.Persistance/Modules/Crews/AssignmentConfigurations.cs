@@ -13,8 +13,8 @@ internal class AssignmentConfiguration : IEntityTypeConfiguration<Assignment>
     {
         builder.HasKey(a => a.CtrlNbr);
         builder.Property(a => a.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
-        builder.Property(a => a.WorkAreaGroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(a => a.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(a => a.GroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(a => a.GroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.Property(a => a.DepartmentCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));

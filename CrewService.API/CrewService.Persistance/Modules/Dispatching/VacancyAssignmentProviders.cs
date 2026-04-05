@@ -21,7 +21,7 @@ internal sealed class OpenSlotProvider(CrewServiceDbContext dbContext) : IOpenSl
         if (shift is null) return [];
 
         return [.. shift.PositionSlots
-            .Where(p => p.Status == "Open" && !p.IsAnnulled && !p.IsDoNotFill)
+            .Where(p => p.Status == PositionSlotStatus.Open && !p.IsAnnulled && !p.IsDoNotFill)
             .OrderBy(p => p.DisplayOrder)
             .Select(p => new SkipRuleSlot(p.CtrlNbr, p.CrewPositionCtrlNbr))];
     }

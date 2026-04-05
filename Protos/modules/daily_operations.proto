@@ -60,11 +60,25 @@ message DailyShiftInstanceResponse {
   repeated DailyPositionSlotResponse position_slots = 7;
 }
 
+enum PositionSlotStatusEnum {
+  POSITION_SLOT_STATUS_OPEN = 0;
+  POSITION_SLOT_STATUS_FILLED = 1;
+  POSITION_SLOT_STATUS_ON_DUTY = 2;
+  POSITION_SLOT_STATUS_ON_DUTY_OVERTIME = 3;
+  POSITION_SLOT_STATUS_TIED_UP = 4;
+  POSITION_SLOT_STATUS_MARKED_OFF = 5;
+  POSITION_SLOT_STATUS_UNAVAILABLE = 6;
+  POSITION_SLOT_STATUS_ANNULLED = 7;
+  POSITION_SLOT_STATUS_DO_NOT_FILL = 8;
+  POSITION_SLOT_STATUS_EXTRA_BOARD = 9;
+  POSITION_SLOT_STATUS_NO_BIDS = 10;
+  POSITION_SLOT_STATUS_SKIPPED = 11;
+}
 message DailyPositionSlotResponse {
   int64 ctrl_nbr = 1;
   int64 crew_position_ctrl_nbr = 2;
   optional int64 incumbent_employee_ctrl_nbr = 3;
-  string status = 4;
+  PositionSlotStatusEnum status = 4;
   bool is_annulled = 5;
   bool is_do_not_fill = 6;
   bool is_skipped = 7;
@@ -73,6 +87,11 @@ message DailyPositionSlotResponse {
   string assignment_code = 10;
   string assignment_name = 11;
   string craft_role_name = 12;
+  string on_duty_time = 13;
+  string off_duty_time = 14;
+  string group_name = 15;
+  string group_code = 16;
+  bool is_incumbent = 17;
 }
 
 message PlaceOnDutyRequest {

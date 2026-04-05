@@ -48,12 +48,18 @@ public sealed class ShiftInstance : Entity
         ControlNumber assignmentCtrlNbr,
         string assignmentCode,
         string assignmentName,
-        string craftRoleName)
+        string craftRoleName,
+        string groupName,
+        string groupCode,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime)
     {
-        var status = incumbentEmployeeCtrlNbr is not null ? "Filled" : "Open";
+        var status = incumbentEmployeeCtrlNbr is not null ? PositionSlotStatus.Filled : PositionSlotStatus.Open;
+        var isIncumbent = incumbentEmployeeCtrlNbr is not null;
         var slot = PositionSlotInstance.Create(
-            CtrlNbr, crewPositionCtrlNbr, incumbentEmployeeCtrlNbr, displayOrder, status,
-            assignmentCtrlNbr, assignmentCode, assignmentName, craftRoleName);
+            CtrlNbr, crewPositionCtrlNbr, incumbentEmployeeCtrlNbr, displayOrder, status, isIncumbent,
+            assignmentCtrlNbr, assignmentCode, assignmentName, craftRoleName,
+            groupName, groupCode, onDutyTime, offDutyTime);
         _positionSlots.Add(slot);
         return slot;
     }
