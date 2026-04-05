@@ -29,7 +29,7 @@ else
 {
     <p class="text-muted mb-3">Daily operations for <strong>@SelectedRailroadName</strong></p>
 
-    <div class="row mb-3 align-items-end g-2">
+    <div class="row align-items-end g-2" style="margin-bottom: 2.25rem;">
         <div class="col-auto">
             <label class="form-label fw-semibold">Work Area</label>
             <FilterSelect TItem="GroupResponse" TValue="long"
@@ -41,11 +41,16 @@ else
                           Placeholder="-- Select Work Area --"
                           class="form-select" style="max-width: 350px;" />
         </div>
-        <div class="col-auto">
+        <div class="col-auto" style="position: relative;">
             <label class="form-label fw-semibold">Date</label>
-            <input type="date" class="form-control" style="max-width: 200px;"
+            <input type="date" class="form-control form-control-sm" style="width: 180px;"
                    value="@selectedDate.ToString("yyyy-MM-dd")"
                    @onchange="OnDateChanged" />
+            <div class="btn-group mt-1" style="position: absolute; width: 180px; font-size: 0.7rem;">
+                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(-1)">Yesterday</button>
+                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(0)">Today</button>
+                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(1)">Tomorrow</button>
+            </div>
         </div>
         <div class="col-auto">
             <label class="form-label fw-semibold">Department</label>
@@ -129,12 +134,22 @@ else
                 </ul>
 
                 <div class="card mb-3">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <span class="badge bg-primary me-1">@activeShift.ShiftCode.ToUpperInvariant()</span>
                             @activeShift.ShiftDisplayName
                         </h6>
                         <div class="d-flex align-items-center gap-2">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Layout toggle">
+                                <button type="button" class="btn @(useHorizontalLayout ? "btn-outline-secondary" : "btn-secondary")"
+                                        @onclick="() => useHorizontalLayout = false" title="Vertical layout">
+                                    <span class="bi bi-list"></span>
+                                </button>
+                                <button type="button" class="btn @(useHorizontalLayout ? "btn-secondary" : "btn-outline-secondary")"
+                                        @onclick="() => useHorizontalLayout = true" title="Horizontal layout">
+                                    <span class="bi bi-table"></span>
+                                </button>
+                            </div>
                             <span class="badge @GetStatusBadgeClass(activeShift.Status)">@activeShift.Status</span>
                             <button class="btn btn-sm btn-outline-secondary"
                                     @onclick="() => RefreshShift(activeShift.CtrlNbr)"
@@ -143,6 +158,17 @@ else
                             </button>
                             @if (!IsFeatureReadOnly)
                             {
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false"
+                                            title="Add an extra assignment to this shift">
+                                        <span class="bi bi-plus-circle"></span> Add Assignment
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><button class="dropdown-item" disabled><span class="bi bi-clipboard-check me-2"></span>From Template</button></li>
+                                        <li><button class="dropdown-item" disabled><span class="bi bi-pencil-square me-2"></span>Ad-Hoc</button></li>
+                                    </ul>
+                                </div>
                                 <button class="btn btn-sm btn-outline-danger"
                                         @onclick="() => OpenCloseModal(activeShift)"
                                         title="Close this shift">
@@ -151,29 +177,183 @@ else
                             }
                         </div>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="card-body p-0" style="overflow: visible;">
                         @if (activeShift.PositionSlots.Count == 0)
                         {
                             <p class="text-muted p-3 mb-0"><em>No positions on this shift.</em></p>
                         }
+                        else if (useHorizontalLayout)
+                        {
+                            var assignmentGroups = activeShift.PositionSlots
+                                .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.OnDutyTime, p.OffDutyTime, p.GroupCode })
+                                .OrderBy(g => g.Key.AssignmentCode)
+                                .ToList();
+
+                            var craftRoleColumns = activeShift.PositionSlots
+                                .Select(s => s.CraftRoleName)
+                                .Distinct()
+                                .OrderBy(name => name)
+                                .ToList();
+
+                            <div class="table-responsive" style="overflow: visible; font-size: 0.85rem;">
+                                <table class="table table-sm table-striped table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Assignment</th>
+                                            <th>Location</th>
+                                            <th>On Duty</th>
+                                            <th>Off Duty</th>
+                                            @foreach (var role in craftRoleColumns)
+                                            {
+                                                <th>@role</th>
+                                            }
+                                            @if (!IsFeatureReadOnly)
+                                            {
+                                                <th style="width: 80px;" class="text-end">Actions</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var group in assignmentGroups)
+                                        {
+                                            var slotsByRole = group
+                                                .GroupBy(s => s.CraftRoleName)
+                                                .ToDictionary(g => g.Key, g => g.OrderBy(s => s.DisplayOrder).ToList());
+
+                                            <tr>
+                                                <td>
+                                                    <strong>@group.Key.AssignmentCode.ToUpperInvariant()</strong>
+                                                </td>
+                                                <td>@group.Key.GroupCode.ToUpperInvariant()</td>
+                                                <td class="text-nowrap">@group.Key.OnDutyTime</td>
+                                                <td class="text-nowrap">@group.Key.OffDutyTime</td>
+                                                @foreach (var role in craftRoleColumns)
+                                                                {
+                                                                    @if (slotsByRole.TryGetValue(role, out var slots))
+                                                                    {
+                                                                        <td>
+                                                                            @foreach (var slot in slots)
+                                                                            {
+                                                                                <div class="d-flex align-items-center gap-1">
+                                                                                    @{ var hVacancy = GetSlotVacancyDisplay(slot); }
+                                                                                    @if (!string.IsNullOrEmpty(hVacancy))
+                                                                                    {
+                                                                                        <strong class="text-primary small">@hVacancy</strong>
+                                                                                    }
+                                                                                    else if (slot.HasIncumbentEmployeeCtrlNbr)
+                                                                                    {
+                                                                                        <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
+                                                                                        @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled)
+                                                                                        {
+                                                                                            <small class="text-primary ms-1">ANLD</small>
+                                                                                        }
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        <span class="badge @GetSlotStatusBadgeClass(slot)">@GetSlotDisplayStatus(slot)</span>
+                                                                                    }
+                                                                                    @if (!IsFeatureReadOnly && IsSlotActionable(slot))
+                                                                                    {
+                                                                                        <div class="dropdown">
+                                                                                            <button class="btn btn-sm btn-outline-secondary py-0 px-1" type="button"
+                                                                                                    data-bs-toggle="dropdown" aria-expanded="false" title="Position actions">
+                                                                                                <span class="bi bi-three-dots-vertical"></span>
+                                                                                            </button>
+                                                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                                                @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusOpen
+                                                                                                    || slot.Status == PositionSlotStatusEnum.PositionSlotStatusExtraBoard
+                                                                                                    || slot.Status == PositionSlotStatusEnum.PositionSlotStatusNoBids)
+                                                                                                {
+                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-person-plus me-2"></span>Fill Vacancy</button></li>
+                                                                                                }
+                                                                                                @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusFilled)
+                                                                                                {
+                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-box-arrow-in-right me-2"></span>Place On Duty</button></li>
+                                                                                                }
+                                                                                                @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDuty
+                                                                                                    || slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime)
+                                                                                                {
+                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-box-arrow-right me-2"></span>Tie Up</button></li>
+                                                                                                }
+                                                                                                @if (slot.Status != PositionSlotStatusEnum.PositionSlotStatusAnnulled
+                                                                                                    && slot.Status != PositionSlotStatusEnum.PositionSlotStatusDoNotFill
+                                                                                                    && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp)
+                                                                                                {
+                                                                                                    <li><hr class="dropdown-divider" /></li>
+                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul</button></li>
+                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                                                }
+                                                                                            </ul>
+                                                                                        </div>
+                                                                                    }
+                                                                                </div>
+                                                                            }
+                                                                        </td>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <td></td>
+                                                                    }
+                                                                }
+                                                                @if (!IsFeatureReadOnly)
+                                                                {
+                                                                    <td class="text-end">
+                                                                        <div class="dropdown">
+                                                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                                                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                                                                <span class="bi bi-three-dots-vertical"></span>
+                                                                            </button>
+                                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                                            </ul>
+                                                                        </div>
+                                                                    </td>
+                                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                         else
                         {
                             @foreach (var assignmentGroup in activeShift.PositionSlots
-                                .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName })
+                                .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName, p.OnDutyTime, p.OffDutyTime, p.GroupCode, p.GroupName })
                                 .OrderBy(g => g.Key.AssignmentCode))
                             {
-                                <div class="ms-3 mb-2 mt-2">
-                                    <strong>
-                                        <span class="text-primary">@assignmentGroup.Key.AssignmentCode.ToUpperInvariant()</span>
-                                        @assignmentGroup.Key.AssignmentName
-                                    </strong>
+                                <div class="ms-3 mb-2 mt-2" style="font-size: 0.85rem;">
+                                    <div class="d-flex align-items-center">
+                                        <strong>@assignmentGroup.Key.AssignmentName</strong>
+                                        <span class="text-muted ms-2">@assignmentGroup.Key.GroupName</span>
+                                        <span class="text-muted ms-2 small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
+                                        @if (!IsFeatureReadOnly)
+                                        {
+                                            <div class="dropdown ms-2">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-0" type="button"
+                                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <span class="bi bi-three-dots-vertical"></span>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                    <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                    <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                </ul>
+                                            </div>
+                                        }
+                                    </div>
                                     <table class="table table-sm table-hover mb-0 mt-1">
-                                        <thead class="table-light">
+                                        <thead>
                                             <tr>
                                                 <th style="width: 60px;">#</th>
                                                 <th>Craft/Role</th>
                                                 <th>Status</th>
-                                                <th>Incumbent</th>
+                                                <th>Employee</th>
+                                                @if (!IsFeatureReadOnly)
+                                                {
+                                                    <th style="width: 80px;" class="text-end">Actions</th>
+                                                }
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -188,15 +368,63 @@ else
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        @if (slot.HasIncumbentEmployeeCtrlNbr)
+                                                        @{ var vacancyText = GetSlotVacancyDisplay(slot); }
+                                                        @if (!string.IsNullOrEmpty(vacancyText))
                                                         {
-                                                            <text>Employee #@slot.IncumbentEmployeeCtrlNbr</text>
+                                                            <strong class="text-primary">@vacancyText</strong>
+                                                        }
+                                                        else if (slot.HasIncumbentEmployeeCtrlNbr)
+                                                        {
+                                                            <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
+                                                            @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled)
+                                                            {
+                                                                <small class="text-primary ms-1">ANLD</small>
+                                                            }
                                                         }
                                                         else
                                                         {
-                                                            <em class="text-muted">Vacant</em>
+                                                            <em class="text-muted">—</em>
                                                         }
                                                     </td>
+                                                    @if (!IsFeatureReadOnly)
+                                                    {
+                                                        <td class="text-end">
+                                                            @if (IsSlotActionable(slot))
+                                                            {
+                                                                <div class="dropdown">
+                                                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                                                        <span class="bi bi-three-dots-vertical"></span>
+                                                                    </button>
+                                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                                        @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusOpen
+                                                                            || slot.Status == PositionSlotStatusEnum.PositionSlotStatusExtraBoard
+                                                                            || slot.Status == PositionSlotStatusEnum.PositionSlotStatusNoBids)
+                                                                        {
+                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-person-plus me-2"></span>Fill Vacancy</button></li>
+                                                                        }
+                                                                        @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusFilled)
+                                                                        {
+                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-box-arrow-in-right me-2"></span>Place On Duty</button></li>
+                                                                        }
+                                                                        @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDuty
+                                                                            || slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime)
+                                                                        {
+                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-box-arrow-right me-2"></span>Tie Up</button></li>
+                                                                        }
+                                                                        @if (slot.Status != PositionSlotStatusEnum.PositionSlotStatusAnnulled
+                                                                            && slot.Status != PositionSlotStatusEnum.PositionSlotStatusDoNotFill
+                                                                            && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp)
+                                                                        {
+                                                                            <li><hr class="dropdown-divider" /></li>
+                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul</button></li>
+                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                        }
+                                                                    </ul>
+                                                                </div>
+                                                            }
+                                                        </td>
+                                                    }
                                                 </tr>
                                             }
                                         </tbody>
@@ -274,6 +502,7 @@ else
     private bool callSheetLoaded;
     private long selectedDepartmentCtrlNbr;
     private long activeShiftCtrlNbr;
+    private bool useHorizontalLayout;
 
     private bool showGenerateModal;
     private bool isGenerating;
@@ -311,9 +540,8 @@ else
     {
         try
         {
-            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
-            var response = await TenantConfigClient.GetWorkAreasAsync();
-            workAreas = response.Groups.Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl).ToList();
+            var response = await TenantConfigClient.GetWorkAreasAsync(SelectedRailroadCtrlNbr!.Value);
+            workAreas = response.Groups.ToList();
         }
         catch { workAreas = []; }
 
@@ -354,6 +582,12 @@ else
             if (selectedWorkAreaCtrlNbr > 0)
                 await LoadCallSheet();
         }
+    }
+
+    private Task SetDate(int offsetFromToday)
+    {
+        var e = new ChangeEventArgs { Value = DateOnly.FromDateTime(DateTime.Today.AddDays(offsetFromToday)).ToString("yyyy-MM-dd") };
+        return OnDateChanged(e);
     }
 
     private async Task LoadCallSheet()
@@ -416,6 +650,8 @@ else
     private void OnDepartmentSelected()
     {
         activeShiftCtrlNbr = 0;
+        var dept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
+        useHorizontalLayout = dept?.Name.Equals("Transportation", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private void CloseGenerateModal() => showGenerateModal = false;
@@ -487,27 +723,69 @@ else
         _ => "bg-info"
     };
 
-    private static string GetSlotStatusBadgeClass(DailyPositionSlotResponse slot)
+    private static string GetSlotStatusBadgeClass(DailyPositionSlotResponse slot) => slot.Status switch
     {
-        if (slot.IsAnnulled) return "bg-danger";
-        if (slot.IsDoNotFill) return "bg-warning text-dark";
-        if (slot.IsSkipped) return "bg-secondary";
-        return slot.Status switch
-        {
-            "Filled" => "bg-success",
-            "OnDuty" => "bg-primary",
-            "TiedUp" => "bg-secondary",
-            _ => "bg-warning text-dark"
-        };
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "bg-danger",
+        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "bg-warning text-dark",
+        PositionSlotStatusEnum.PositionSlotStatusSkipped => "bg-secondary",
+        PositionSlotStatusEnum.PositionSlotStatusFilled => "bg-info",
+        PositionSlotStatusEnum.PositionSlotStatusOnDuty => "bg-success",
+        PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "bg-danger",
+        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "bg-secondary",
+        PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "bg-danger",
+        PositionSlotStatusEnum.PositionSlotStatusUnavailable => "bg-danger",
+        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "bg-primary",
+        PositionSlotStatusEnum.PositionSlotStatusNoBids => "bg-primary",
+        _ => "bg-warning text-dark" // Open
+    };
+
+    private static string GetSlotDisplayStatus(DailyPositionSlotResponse slot) => slot.Status switch
+    {
+        PositionSlotStatusEnum.PositionSlotStatusOpen => "Vacancy",
+        PositionSlotStatusEnum.PositionSlotStatusFilled => "Filled",
+        PositionSlotStatusEnum.PositionSlotStatusOnDuty => "On Duty",
+        PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "Overtime",
+        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "Tied Up",
+        PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "Marked Off",
+        PositionSlotStatusEnum.PositionSlotStatusUnavailable => "Unavailable",
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "Annulled",
+        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "Do Not Fill",
+        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "Extra Board",
+        PositionSlotStatusEnum.PositionSlotStatusNoBids => "No Bids",
+        PositionSlotStatusEnum.PositionSlotStatusSkipped => "Skipped",
+        _ => "Open"
+    };
+
+    private static string GetSlotEmployeeDisplay(DailyPositionSlotResponse slot)
+    {
+        if (!slot.HasIncumbentEmployeeCtrlNbr) return string.Empty;
+        var prefix = slot.IsIncumbent ? "" : "* ";
+        return $"{prefix}Emp #{slot.IncumbentEmployeeCtrlNbr}";
     }
 
-    private static string GetSlotDisplayStatus(DailyPositionSlotResponse slot)
+    private static string GetSlotEmployeeCssClass(DailyPositionSlotResponse slot) => slot.Status switch
     {
-        if (slot.IsAnnulled) return "Annulled";
-        if (slot.IsDoNotFill) return "Do Not Fill";
-        if (slot.IsSkipped) return "Skipped";
-        return slot.Status;
-    }
+        PositionSlotStatusEnum.PositionSlotStatusOnDuty => "text-success fw-bold",
+        PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "text-danger fw-bold",
+        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "",
+        PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "text-danger text-decoration-line-through",
+        PositionSlotStatusEnum.PositionSlotStatusUnavailable => "text-danger text-decoration-line-through",
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "text-decoration-line-through",
+        _ => ""
+    };
+
+    private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot) => slot.Status switch
+    {
+        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
+        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "***EXTRA BOARD***",
+        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
+        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
+        _ => string.Empty
+    };
+
+    private static bool IsSlotActionable(DailyPositionSlotResponse slot) =>
+        slot.Status is not PositionSlotStatusEnum.PositionSlotStatusSkipped;
 
     private class GenerateShiftModel
     {

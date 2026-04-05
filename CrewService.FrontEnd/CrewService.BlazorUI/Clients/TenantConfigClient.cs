@@ -208,11 +208,11 @@ public sealed class TenantConfigClient(GrpcChannelProvider channelProvider, Circ
         }
     }
 
-    public async Task<GetAllGroupsResponse> GetWorkAreasAsync()
+    public async Task<GetAllGroupsResponse> GetWorkAreasAsync(long railroadCtrlNbr = 0)
     {
         try
         {
-            return await _client.GetWorkAreasAsync(new GetWorkAreasRequest());
+            return await _client.GetWorkAreasAsync(new GetWorkAreasRequest { RailroadCtrlNbr = railroadCtrlNbr });
         }
         catch (Exception ex)
         {
