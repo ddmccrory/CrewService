@@ -6,6 +6,7 @@ namespace CrewService.Domain.Modules.Crews;
 public interface IAssignmentRepository : IRepository<Assignment>
 {
     Task<List<Assignment>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);
+    Task<List<Assignment>> GetByWorkAreaAndDepartmentAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber departmentCtrlNbr);
     Task<List<Assignment>> GetAllByRailroadAsync(ControlNumber railroadCtrlNbr);
 }
 

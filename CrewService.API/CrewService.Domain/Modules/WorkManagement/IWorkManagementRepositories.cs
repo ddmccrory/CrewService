@@ -11,6 +11,7 @@ public interface IWorkInstanceRepository : IRepository<WorkInstance>
 public interface ICraftRoleRepository : IRepository<CraftRole>
 {
     Task<List<CraftRole>> GetByCraftAsync(ControlNumber craftCtrlNbr);
+    Task<List<CraftRole>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
 }
 
 public interface IPositionSlotRepository : IRepository<PositionSlot>

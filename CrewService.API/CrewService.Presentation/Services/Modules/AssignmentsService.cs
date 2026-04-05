@@ -15,7 +15,9 @@ public class AssignmentsService(
     public override async Task<GetAssignmentsResponse> GetAssignments(GetAssignmentsRequest request, ServerCallContext context)
     {
         List<Assignment> assignments;
-        if (request.WorkAreaGroupCtrlNbr > 0)
+        if (request.WorkAreaGroupCtrlNbr > 0 && request.DepartmentCtrlNbr > 0)
+            assignments = await assignmentRepository.GetByWorkAreaAndDepartmentAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr), ControlNumber.Create(request.DepartmentCtrlNbr));
+        else if (request.WorkAreaGroupCtrlNbr > 0)
             assignments = await assignmentRepository.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr));
         else if (request.RailroadCtrlNbr > 0)
             assignments = await assignmentRepository.GetAllByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr));

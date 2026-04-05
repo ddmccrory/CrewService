@@ -14,6 +14,9 @@ internal sealed class AssignmentRepository(CrewServiceDbContext dbContext, ICurr
     public async Task<List<Assignment>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr) =>
         await DbContext.Set<Assignment>().Where(a => a.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr).OrderBy(a => a.Code).ToListAsync();
 
+
+    public async Task<List<Assignment>> GetByWorkAreaAndDepartmentAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber departmentCtrlNbr) =>
+        await DbContext.Set<Assignment>().Where(a => a.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && a.DepartmentCtrlNbr == departmentCtrlNbr).OrderBy(a => a.Code).ToListAsync();
     public async Task<List<Assignment>> GetAllByRailroadAsync(ControlNumber railroadCtrlNbr)
     {
         var groupCtrlNbrs = await DbContext.Set<DynamicGroup>()

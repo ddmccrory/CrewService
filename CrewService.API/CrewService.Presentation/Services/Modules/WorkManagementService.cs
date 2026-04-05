@@ -115,9 +115,11 @@ public class WorkManagementService(
 
     public override async Task<GetCraftRolesResponse> GetCraftRoles(GetCraftRolesRequest request, ServerCallContext context)
     {
-        var roles = request.CraftCtrlNbr > 0
-            ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-            : await craftRoleRepository.GetAllAsync();
+        var roles = request.DepartmentCtrlNbr > 0
+            ? await craftRoleRepository.GetByDepartmentAsync(ControlNumber.Create(request.DepartmentCtrlNbr))
+            : request.CraftCtrlNbr > 0
+                ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
+                : await craftRoleRepository.GetAllAsync();
         var response = new GetCraftRolesResponse { TotalCount = roles.Count };
         foreach (var r in roles) response.Roles.Add(MapRole(r));
         return response;

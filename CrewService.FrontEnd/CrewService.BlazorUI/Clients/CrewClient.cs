@@ -97,6 +97,15 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<DeleteResponse> DeleteCrewPositionAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.DeleteCrewPositionAsync(new DeleteCrewPositionRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Crew Assignments ──
 
     public async Task<GetCrewAssignmentsResponse> GetCrewAssignmentsAsync(long crewCtrlNbr)

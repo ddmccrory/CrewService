@@ -28,6 +28,9 @@ service CrewsSrvc {
   }
 
   // Incumbencies
+  rpc DeleteCrewPosition(DeleteCrewPositionRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/crews/positions/{ctrl_nbr}" };
+  }
   rpc GetCrewIncumbencies(GetCrewIncumbenciesRequest) returns (GetCrewIncumbenciesResponse) {
     option (google.api.http) = { get: "/v1/crews/positions/{crew_position_ctrl_nbr}/incumbencies" };
   }
@@ -106,6 +109,8 @@ message CrewPositionResponse {
   int64 craft_role_ctrl_nbr = 3;
   int32 display_order = 4;
 }
+
+message DeleteCrewPositionRequest { int64 ctrl_nbr = 1; }
 
 // Incumbency messages
 message GetCrewIncumbenciesRequest { int64 crew_position_ctrl_nbr = 1; }

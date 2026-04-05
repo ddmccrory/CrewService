@@ -8,14 +8,15 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
 {
     // ── Assignments ──
 
-    public async Task<GetAssignmentsResponse> GetAllAsync(long workAreaGroupCtrlNbr = 0, long railroadCtrlNbr = 0)
+    public async Task<GetAssignmentsResponse> GetAllAsync(long workAreaGroupCtrlNbr = 0, long railroadCtrlNbr = 0, long departmentCtrlNbr = 0)
     {
         try
         {
             return await _client.GetAssignmentsAsync(new GetAssignmentsRequest
             {
                 WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
-                RailroadCtrlNbr = railroadCtrlNbr
+                RailroadCtrlNbr = railroadCtrlNbr,
+                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

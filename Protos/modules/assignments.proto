@@ -42,6 +42,7 @@ message GetAssignmentsRequest {
   int32 page_number = 2;
   int32 page_size = 3;
   int64 railroad_ctrl_nbr = 4;
+  int64 department_ctrl_nbr = 5;
 }
 message GetAssignmentsResponse {
   repeated StaffingAssignmentResponse assignments = 1;
