@@ -22,6 +22,9 @@ service DailyOperationsSrvc {
   rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/annul" body: "*" };
   }
+  rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
+  }
   rpc CloseShiftInstance (CloseShiftInstanceRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/daily-operations/shift-instance/{ctrl_nbr}" };
   }
@@ -109,6 +112,10 @@ message AnnulPositionRequest {
   string reason = 2;
 }
 
+
+message RefreshShiftInstanceRequest {
+  int64 ctrl_nbr = 1;
+}
 
 message CloseShiftInstanceRequest {
   int64 ctrl_nbr = 1;

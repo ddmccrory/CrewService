@@ -13,7 +13,7 @@ public class CallSheetGenerationServiceTests
     {
         public Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(
             ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr,
-            DateOnly targetDate, CancellationToken ct = default)
+            DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default)
             => Task.FromResult(templates);
     }
 
@@ -42,7 +42,7 @@ public class CallSheetGenerationServiceTests
         public Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<ShiftInstance>>([]);
 
-        public Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, CancellationToken ct = default)
+        public Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, ControlNumber? departmentCtrlNbr, CancellationToken ct = default)
             => Task.FromResult(false);
 
         public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)

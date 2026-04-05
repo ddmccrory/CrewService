@@ -118,6 +118,15 @@ public class DailyOperationsService(
     }
 
 
+    public override async Task<GenerateCallSheetResponse> RefreshShiftInstance(
+        RefreshShiftInstanceRequest request, ServerCallContext context)
+    {
+        var newShift = await callSheetGeneration.RegenerateShiftAsync(
+            ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(newShift) };
+    }
+
     public override async Task<DeleteResponse> CloseShiftInstance(
         CloseShiftInstanceRequest request, ServerCallContext context)
     {

@@ -35,6 +35,18 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<GenerateCallSheetResponse> RefreshShiftInstanceAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.RefreshShiftInstanceAsync(new RefreshShiftInstanceRequest
+            {
+                CtrlNbr = ctrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     public async Task<DeleteResponse> CloseShiftInstanceAsync(long ctrlNbr)
     {
         try

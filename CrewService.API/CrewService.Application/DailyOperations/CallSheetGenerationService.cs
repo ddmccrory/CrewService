@@ -29,9 +29,9 @@ public sealed class CallSheetGenerationService(
         // Find or create the WorkInstance for this work area + date
         var workInstance = await FindOrCreateWorkInstanceAsync(workAreaGroupCtrlNbr, targetDate, ct);
 
-        // Duplicate check: shift already generated for this work instance?
+        // Duplicate check: shift already generated for this work instance + department?
         var alreadyExists = await shiftInstanceRepo.ExistsByWorkInstanceAndShiftCodeAsync(
-            workInstance.CtrlNbr, shiftDef.ShiftCode, ct);
+            workInstance.CtrlNbr, shiftDef.ShiftCode, departmentCtrlNbr, ct);
 
         if (alreadyExists)
             throw new InvalidOperationException(
@@ -47,8 +47,7 @@ public sealed class CallSheetGenerationService(
 
         // Query assignment templates for this shift + date
         var templates = await templateQuery.GetTemplatesForDateAsync(
-            workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, ct);
-
+            workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, departmentCtrlNbr, ct);
         // templates may be empty (e.g. no assignments scheduled on a weekend) —
         // that is fine; the shift instance is created with zero position slots.
 
@@ -79,6 +78,62 @@ public sealed class CallSheetGenerationService(
 
         await shiftInstanceRepo.AddAsync(shiftInstance, ct);
         return shiftInstance;
+    }
+
+    public async Task<ShiftInstance> RegenerateShiftAsync(
+        ControlNumber shiftInstanceCtrlNbr,
+        CancellationToken ct = default)
+    {
+        var existingShift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftInstanceCtrlNbr, ct)
+            ?? throw new InvalidOperationException($"Shift instance {shiftInstanceCtrlNbr} not found.");
+
+        var workInstance = await workInstanceRepo.GetByCtrlNbrAsync(existingShift.WorkInstanceCtrlNbr, ct)
+            ?? throw new InvalidOperationException($"Work instance {existingShift.WorkInstanceCtrlNbr} not found.");
+
+        var shiftDefs = await shiftDefRepo.GetByWorkAreaAsync(workInstance.WorkAreaGroupCtrlNbr);
+        var shiftDef = shiftDefs.FirstOrDefault(sd => sd.ShiftCode == existingShift.ShiftCode && sd.IsActive)
+            ?? throw new InvalidOperationException($"Active shift definition for code '{existingShift.ShiftCode}' not found.");
+
+        var targetDate = DateOnly.FromDateTime(workInstance.StartUtc);
+
+        // Resolve department name (refresh from current data)
+        string? departmentName = existingShift.DepartmentName;
+        if (existingShift.DepartmentCtrlNbr is not null)
+        {
+            var dept = await departmentRepo.GetByCtrlNbrAsync(existingShift.DepartmentCtrlNbr, ct);
+            departmentName = dept?.Name ?? existingShift.DepartmentName;
+        }
+
+        // Delete the old shift instance
+        await shiftInstanceRepo.DeleteAsync(shiftInstanceCtrlNbr, ct);
+
+        // Query fresh templates and rebuild
+        var templates = await templateQuery.GetTemplatesForDateAsync(
+            workInstance.WorkAreaGroupCtrlNbr, shiftDef.CtrlNbr, targetDate, existingShift.DepartmentCtrlNbr, ct);
+        var newShift = ShiftInstance.Create(
+            workInstance.CtrlNbr,
+            shiftDef.ShiftCode,
+            shiftDef.DisplayName,
+            existingShift.DepartmentCtrlNbr,
+            departmentName);
+
+        foreach (var template in templates)
+        {
+            foreach (var position in template.Positions)
+            {
+                newShift.AddPositionSlot(
+                    position.PositionCtrlNbr,
+                    position.IncumbentEmployeeCtrlNbr,
+                    position.DisplayOrder,
+                    template.AssignmentCtrlNbr,
+                    template.AssignmentCode,
+                    template.AssignmentName,
+                    position.CraftRoleName);
+            }
+        }
+
+        await shiftInstanceRepo.AddAsync(newShift, ct);
+        return newShift;
     }
 
     private async Task<WorkInstance> FindOrCreateWorkInstanceAsync(

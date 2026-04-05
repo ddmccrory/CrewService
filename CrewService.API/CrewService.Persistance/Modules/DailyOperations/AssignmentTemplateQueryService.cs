@@ -10,7 +10,7 @@ namespace CrewService.Persistance.Modules.DailyOperations;
 internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : IAssignmentQueryService
 {
     public async Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(
-        ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, CancellationToken ct = default)
+        ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default)
     {
         var targetUtc = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var now = DateTime.UtcNow;
@@ -34,7 +34,7 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
         var assignments = await dbContext.Set<Assignment>()
             .Where(a => scheduledAssignmentCtrlNbrs.Contains(a.CtrlNbr)
                         && a.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr
-                        && a.IsActive)
+                        && a.IsActive && (departmentCtrlNbr == null || a.DepartmentCtrlNbr == departmentCtrlNbr))
             .ToListAsync(ct);
 
         if (assignments.Count == 0) return [];
