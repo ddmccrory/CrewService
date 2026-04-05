@@ -47,12 +47,14 @@ else
                    value="@selectedDate.ToString("yyyy-MM-dd")"
                    @onchange="OnDateChanged" />
         </div>
-        <div class="col-auto">
-            <button class="btn btn-primary" @onclick="LoadCallSheet"
-                    disabled="@(selectedWorkAreaCtrlNbr == 0)">
-                <span class="bi bi-search"></span> View Call Sheet
-            </button>
-        </div>
+        @if (selectedWorkAreaCtrlNbr > 0)
+        {
+            <div class="col-auto">
+                <button class="btn btn-outline-secondary" @onclick="LoadCallSheet" title="Refresh">
+                    <span class="bi bi-arrow-clockwise"></span> Refresh
+                </button>
+            </div>
+        }
     </div>
 
     @if (!string.IsNullOrEmpty(successMessage))
@@ -94,80 +96,104 @@ else
         }
         else
         {
-            @foreach (var deptGroup in shifts.GroupBy(s => s.DepartmentName).OrderBy(g => g.Key))
+            var departmentGroups = shifts
+                .GroupBy(s => new { Key = s.DepartmentName ?? string.Empty, s.DepartmentCtrlNbr })
+                .OrderBy(g => g.Key.Key)
+                .ToList();
+
+            var activeGroup = departmentGroups.Count > 1
+                ? departmentGroups.FirstOrDefault(g => g.Key.Key == activeDepartmentTab) ?? departmentGroups[0]
+                : departmentGroups[0];
+
+            @if (departmentGroups.Count > 1)
+            {
+                <ul class="nav nav-tabs mb-3">
+                    @foreach (var dept in departmentGroups)
+                    {
+                        var deptKey = dept.Key.Key;
+                        var displayName = string.IsNullOrEmpty(deptKey) ? "No Department" : deptKey;
+                        <li class="nav-item">
+                            <button class="nav-link @(activeDepartmentTab == deptKey ? "active" : "")"
+                                    @onclick="() => activeDepartmentTab = deptKey">
+                                @displayName
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @foreach (var shift in activeGroup.OrderBy(s => s.ShiftCode))
             {
                 <div class="card mb-3">
-                    <div class="card-header bg-light">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <span class="bi bi-building"></span>
-                            @(string.IsNullOrEmpty(deptGroup.Key) ? "No Department" : deptGroup.Key)
+                            <span class="badge bg-primary me-1">@shift.ShiftCode.ToUpperInvariant()</span>
+                            @shift.ShiftDisplayName
                         </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge @GetStatusBadgeClass(shift.Status)">@shift.Status</span>
+                            @if (!IsFeatureReadOnly)
+                            {
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => OpenCloseModal(shift)"
+                                        title="Close this shift">
+                                    <span class="bi bi-x-circle"></span> Close
+                                </button>
+                            }
+                        </div>
                     </div>
                     <div class="card-body p-0">
-                        @foreach (var shift in deptGroup.OrderBy(s => s.ShiftCode))
+                        @if (shift.PositionSlots.Count == 0)
                         {
-                            <div class="border-bottom p-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0">
-                                        <span class="badge bg-primary me-1">@shift.ShiftCode.ToUpperInvariant()</span>
-                                        @shift.ShiftDisplayName
-                                    </h6>
-                                    <span class="badge @GetStatusBadgeClass(shift.Status)">@shift.Status</span>
+                            <p class="text-muted p-3 mb-0"><em>No positions on this shift.</em></p>
+                        }
+                        else
+                        {
+                            @foreach (var assignmentGroup in shift.PositionSlots
+                                .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName })
+                                .OrderBy(g => g.Key.AssignmentCode))
+                            {
+                                <div class="ms-3 mb-2 mt-2">
+                                    <strong>
+                                        <span class="text-primary">@assignmentGroup.Key.AssignmentCode.ToUpperInvariant()</span>
+                                        @assignmentGroup.Key.AssignmentName
+                                    </strong>
+                                    <table class="table table-sm table-hover mb-0 mt-1">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 60px;">#</th>
+                                                <th>Craft/Role</th>
+                                                <th>Status</th>
+                                                <th>Incumbent</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var slot in assignmentGroup.OrderBy(s => s.DisplayOrder))
+                                            {
+                                                <tr>
+                                                    <td>@slot.DisplayOrder</td>
+                                                    <td>@slot.CraftRoleName</td>
+                                                    <td>
+                                                        <span class="badge @GetSlotStatusBadgeClass(slot)">
+                                                            @GetSlotDisplayStatus(slot)
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        @if (slot.HasIncumbentEmployeeCtrlNbr)
+                                                        {
+                                                            <text>Employee #@slot.IncumbentEmployeeCtrlNbr</text>
+                                                        }
+                                                        else
+                                                        {
+                                                            <em class="text-muted">Vacant</em>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
                                 </div>
-
-                                @if (shift.PositionSlots.Count == 0)
-                                {
-                                    <p class="text-muted mb-0"><em>No positions on this shift.</em></p>
-                                }
-                                else
-                                {
-                                    @foreach (var assignmentGroup in shift.PositionSlots
-                                        .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName })
-                                        .OrderBy(g => g.Key.AssignmentCode))
-                                    {
-                                        <div class="ms-3 mb-2">
-                                            <strong>
-                                                <span class="text-primary">@assignmentGroup.Key.AssignmentCode.ToUpperInvariant()</span>
-                                                @assignmentGroup.Key.AssignmentName
-                                            </strong>
-                                            <table class="table table-sm table-hover mb-0 mt-1">
-                                                <thead class="table-light">
-                                                    <tr>
-                                                        <th style="width: 60px;">#</th>
-                                                        <th>Craft/Role</th>
-                                                        <th>Status</th>
-                                                        <th>Incumbent</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach (var slot in assignmentGroup.OrderBy(s => s.DisplayOrder))
-                                                    {
-                                                        <tr>
-                                                            <td>@slot.DisplayOrder</td>
-                                                            <td>@slot.CraftRoleName</td>
-                                                            <td>
-                                                                <span class="badge @GetSlotStatusBadgeClass(slot)">
-                                                                    @GetSlotDisplayStatus(slot)
-                                                                </span>
-                                                            </td>
-                                                            <td>
-                                                                @if (slot.HasIncumbentEmployeeCtrlNbr)
-                                                                {
-                                                                    <text>Employee #@slot.IncumbentEmployeeCtrlNbr</text>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <em class="text-muted">Vacant</em>
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    }
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    }
-                                }
-                            </div>
+                            }
                         }
                     </div>
                 </div>
@@ -220,6 +246,21 @@ else
             </button>
         </Footer>
     </Modal>
+
+    @* ── Close Shift Confirmation Modal ── *@
+    <Modal Visible="showCloseModal" Title="Close Shift" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showCloseModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to close <strong>@closeShiftName</strong>?</p>
+            <p class="text-muted small mb-0">This will permanently remove the generated shift and all its position slots from this call sheet.</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showCloseModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmClose">
+                <span class="bi bi-x-circle me-1"></span> Close Shift
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -232,10 +273,15 @@ else
     private long selectedWorkAreaCtrlNbr;
     private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
     private bool callSheetLoaded;
+    private string activeDepartmentTab = string.Empty;
 
     private bool showGenerateModal;
     private bool isGenerating;
     private GenerateShiftModel generateModel = new();
+
+    private bool showCloseModal;
+    private long closeShiftCtrlNbr;
+    private string closeShiftName = "";
 
     protected override async Task LoadDataAsync()
     {
@@ -278,18 +324,23 @@ else
         shifts = null;
         callSheetLoaded = false;
         availableShifts = null;
+        activeDepartmentTab = string.Empty;
 
         if (selectedWorkAreaCtrlNbr > 0)
             await LoadCallSheet();
     }
 
-    private void OnDateChanged(ChangeEventArgs e)
+    private async Task OnDateChanged(ChangeEventArgs e)
     {
         if (DateOnly.TryParse(e.Value?.ToString(), out var date))
         {
             selectedDate = date;
             shifts = null;
             callSheetLoaded = false;
+            activeDepartmentTab = string.Empty;
+
+            if (selectedWorkAreaCtrlNbr > 0)
+                await LoadCallSheet();
         }
     }
 
@@ -306,6 +357,14 @@ else
                 selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"));
             shifts = response.Shifts;
             callSheetLoaded = true;
+
+            if (shifts.Count > 0 && string.IsNullOrEmpty(activeDepartmentTab))
+            {
+                activeDepartmentTab = shifts
+                    .Select(s => s.DepartmentName ?? string.Empty)
+                    .OrderBy(n => n)
+                    .First();
+            }
         }
         catch (Exception ex)
         {
@@ -362,6 +421,36 @@ else
         finally
         {
             isGenerating = false;
+        }
+    }
+
+    private void OpenCloseModal(DailyShiftInstanceResponse shift)
+    {
+        closeShiftCtrlNbr = shift.CtrlNbr;
+        closeShiftName = $"{shift.ShiftCode.ToUpperInvariant()} — {shift.ShiftDisplayName}";
+        showCloseModal = true;
+    }
+
+    private async Task ConfirmClose()
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.CloseShiftInstanceAsync(closeShiftCtrlNbr);
+            showCloseModal = false;
+            successMessage = $"Shift '{closeShiftName}' has been closed.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to close shift: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 

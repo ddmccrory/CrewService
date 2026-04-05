@@ -44,6 +44,9 @@ public class CallSheetGenerationServiceTests
 
         public Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, CancellationToken ct = default)
             => Task.FromResult(false);
+
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 
     private sealed class FakeWorkInstanceRepository : FakeRepository<WorkInstance>, IWorkInstanceRepository

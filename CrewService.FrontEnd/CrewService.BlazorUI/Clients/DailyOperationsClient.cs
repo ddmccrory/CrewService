@@ -34,4 +34,16 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<DeleteResponse> CloseShiftInstanceAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.CloseShiftInstanceAsync(new CloseShiftInstanceRequest
+            {
+                CtrlNbr = ctrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

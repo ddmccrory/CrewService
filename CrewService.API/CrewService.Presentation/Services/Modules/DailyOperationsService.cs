@@ -117,6 +117,18 @@ public class DailyOperationsService(
         return Task.FromResult(new DailyPositionSlotResponse());
     }
 
+
+    public override async Task<DeleteResponse> CloseShiftInstance(
+        CloseShiftInstanceRequest request, ServerCallContext context)
+    {
+        var ctrlNbr = ControlNumber.Create(request.CtrlNbr);
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.CtrlNbr} not found."));
+
+        await shiftInstanceRepo.DeleteAsync(ctrlNbr, context.CancellationToken);
+        return new DeleteResponse { Success = true };
+    }
+
     private static DailyShiftInstanceResponse MapShiftToResponse(ShiftInstance shift)
     {
         var shiftResp = new DailyShiftInstanceResponse
