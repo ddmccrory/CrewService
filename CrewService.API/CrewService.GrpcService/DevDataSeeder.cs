@@ -715,9 +715,9 @@ internal static class DevDataSeeder
         ShiftDefinition shiftFirst, shiftSecond, shiftThird;
         if (existingShifts.Count == 0)
         {
-            shiftFirst = ShiftDefinition.Create(jaxSub2.CtrlNbr, "1ST", "First Shift", new TimeOnly(6, 0), new TimeOnly(14, 0), 1, true, crewTransDept?.CtrlNbr);
-            shiftSecond = ShiftDefinition.Create(jaxSub2.CtrlNbr, "2ND", "Second Shift", new TimeOnly(14, 0), new TimeOnly(22, 0), 2, true, crewTransDept?.CtrlNbr);
-            shiftThird = ShiftDefinition.Create(jaxSub2.CtrlNbr, "3RD", "Third Shift", new TimeOnly(22, 0), new TimeOnly(6, 0), 3, true, crewTransDept?.CtrlNbr);
+            shiftFirst = ShiftDefinition.Create(jaxSub2.CtrlNbr, "1ST", "First Shift", 1, true);
+            shiftSecond = ShiftDefinition.Create(jaxSub2.CtrlNbr, "2ND", "Second Shift", 2, true);
+            shiftThird = ShiftDefinition.Create(jaxSub2.CtrlNbr, "3RD", "Third Shift", 3, true);
             await using (var uow = await uowFactory.CreateAsync())
             {
                 uow.ShiftDefinitions.Add(shiftFirst);
@@ -735,12 +735,11 @@ internal static class DevDataSeeder
 
         // Shift Definitions for PTRA
         var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
-        var ptraTransDeptForShifts = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
         if (existingPtraShifts.Count == 0)
         {
-            var ptraShift1A = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1A", "First Shift 6:30 AM", new TimeOnly(6, 30), new TimeOnly(14, 30), 1, true, ptraTransDeptForShifts?.CtrlNbr);
-            var ptraShift1B = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1B", "First Shift 7:00 AM", new TimeOnly(7, 0), new TimeOnly(15, 0), 2, true, ptraTransDeptForShifts?.CtrlNbr);
+            var ptraShift1A = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1A", "First Shift 6:30 AM", 1, true);
+            var ptraShift1B = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1B", "First Shift 7:00 AM", 2, true);
             await using (var uow = await uowFactory.CreateAsync())
             {
                 uow.ShiftDefinitions.Add(ptraShift1A);
@@ -766,9 +765,9 @@ internal static class DevDataSeeder
         const int weekdays = 0b0111110;
         await using (var uow = await uowFactory.CreateAsync())
         {
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn1.CtrlNbr, shiftFirst.CtrlNbr, weekdays));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn2.CtrlNbr, shiftSecond.CtrlNbr, weekdays));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgnExtra.CtrlNbr, shiftFirst.CtrlNbr, weekdays));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn1.CtrlNbr, shiftFirst.CtrlNbr, weekdays, new TimeOnly(6, 0), new TimeOnly(14, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn2.CtrlNbr, shiftSecond.CtrlNbr, weekdays, new TimeOnly(14, 0), new TimeOnly(22, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgnExtra.CtrlNbr, shiftFirst.CtrlNbr, weekdays, new TimeOnly(6, 0), new TimeOnly(14, 0)));
             uow.CrewAssignments.Add(CrewAssignment.Create(crewA.CtrlNbr, asgn1.CtrlNbr, weekdays, now));
             uow.CrewAssignments.Add(CrewAssignment.Create(crewB.CtrlNbr, asgn2.CtrlNbr, weekdays, now));
             uow.CrewAssignments.Add(CrewAssignment.Create(extraCrew.CtrlNbr, asgnExtra.CtrlNbr, weekdays, now));

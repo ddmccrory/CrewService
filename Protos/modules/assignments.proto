@@ -42,6 +42,7 @@ message GetAssignmentsRequest {
   int32 page_number = 2;
   int32 page_size = 3;
   int64 railroad_ctrl_nbr = 4;
+  int64 department_ctrl_nbr = 5;
 }
 message GetAssignmentsResponse {
   repeated StaffingAssignmentResponse assignments = 1;
@@ -85,10 +86,14 @@ message CreateAssignmentScheduleRequest {
   int64 assignment_ctrl_nbr = 1;
   int64 shift_definition_ctrl_nbr = 2;
   int32 operating_days_mask = 3;
+  string on_duty_time = 4;
+  string off_duty_time = 5;
 }
 message UpdateAssignmentScheduleRequest {
   int64 ctrl_nbr = 1;
   int32 operating_days_mask = 2;
+  string on_duty_time = 3;
+  string off_duty_time = 4;
 }
 message DeleteAssignmentScheduleRequest { int64 ctrl_nbr = 1; }
 message AssignmentScheduleResponse {
@@ -97,4 +102,6 @@ message AssignmentScheduleResponse {
   int64 shift_definition_ctrl_nbr = 3;
   int32 operating_days_mask = 4;
   string shift_display_name = 5;
+  string on_duty_time = 6;
+  string off_duty_time = 7;
 }

@@ -7,6 +7,7 @@
 - Prefer proper fixes over workarounds/hacks. When the correct solution is known, implement it rather than building interim solutions.
 - Fix warnings and technical debt immediately rather than deferring them.
 - Work in smaller increments rather than large batch changes. When making multiple edits, apply them incrementally and verify each step.
+- Fully discuss and agree on design before any code is written. Do not start coding until explicitly told to proceed.
 
 ## Code Style
 - Use specific formatting rules

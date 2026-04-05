@@ -45,24 +45,14 @@
     </BodyContent>
     <Footer>
         <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
-        <button type="submit" form="save-role-form" class="btn btn-primary">
+        <button type="submit" form="save-role-form" class="btn btn-primary" disabled="@isSaving">
             <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
         </button>
     </Footer>
 </Modal>
 
-<Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
-       OnClose="() => showDeleteModal = false" Size="sm">
-    <BodyContent>
-        <p>Are you sure you want to delete <strong>@deleteRoleName</strong>?</p>
-    </BodyContent>
-    <Footer>
-        <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
-        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
-            <span class="bi bi-trash me-1"></span> Delete
-        </button>
-    </Footer>
-</Modal>
+<ConfirmDeleteModal Visible="showDeleteModal" ItemName="@deleteRoleName" IsSaving="isSaving"
+                    OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
 
 @if (successMessage is not null)
 {
@@ -192,6 +182,7 @@
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -213,12 +204,14 @@
         {
             errorMessage = $"Failed to save role: {ex.Message}";
         }
+        finally { isSaving = false; }
     }
 
     private async Task ConfirmDelete()
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -232,6 +225,7 @@
             errorMessage = $"Failed to delete role: {ex.Message}";
             showDeleteModal = false;
         }
+        finally { isSaving = false; }
     }
 
     private sealed class RoleInputModel

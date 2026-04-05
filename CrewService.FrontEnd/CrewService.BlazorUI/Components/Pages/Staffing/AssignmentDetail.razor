@@ -73,16 +73,20 @@ else
             </ToolbarContent>
             <RowContent Context="s">
                 <td>@(string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName)</td>
+                <td>@s.OnDutyTime</td>
+                <td>@s.OffDutyTime</td>
                 <td>@FormatDays(s.OperatingDaysMask)</td>
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
-                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditScheduleModal(s)">
-                            <span class="bi bi-pencil"></span>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSchedule(s.CtrlNbr)">
-                            <span class="bi bi-trash"></span>
-                        </button>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditScheduleModal(s)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => DeleteSchedule(s.CtrlNbr)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
                     }
                 </td>
             </RowContent>
@@ -106,6 +110,16 @@ else
                                          class="form-select" />
                         </div>
                     }
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">On Duty Time</label>
+                            <TimePicker @bind-Value="scheduleOnDutyTime" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Off Duty Time</label>
+                            <TimePicker @bind-Value="scheduleOffDutyTime" />
+                        </div>
+                    </div>
                     <div class="mb-0">
                         <label class="form-label fw-semibold">Operating Days</label>
                         <div class="d-flex gap-2 flex-wrap">
@@ -124,7 +138,7 @@ else
                 </EditForm>
             </BodyContent>
             <Footer>
-                <button type="submit" form="save-schedule-form" class="btn btn-primary">Save</button>
+                <button type="submit" form="save-schedule-form" class="btn btn-primary" disabled="@isSaving">Save</button>
             </Footer>
         </Modal>
     }
@@ -167,6 +181,8 @@ else
     private IReadOnlyList<DataTableColumn<AssignmentScheduleResponse>> scheduleColumns =>
     [
         new("Shift", s => string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName),
+        new("On Duty", s => (object)s.OnDutyTime),
+        new("Off Duty", s => (object)s.OffDutyTime),
         new("Operating Days", s => FormatDays(s.OperatingDaysMask)),
         DataTableColumn<AssignmentScheduleResponse>.Actions()
     ];
@@ -237,12 +253,16 @@ else
     private long? editingScheduleCtrlNbr;
     private int scheduleOperatingDaysMask;
     private long scheduleShiftCtrlNbr;
+    private TimeOnly scheduleOnDutyTime = new(6, 0);
+    private TimeOnly scheduleOffDutyTime = new(18, 0);
 
     private void OpenCreateScheduleModal()
     {
         editingScheduleCtrlNbr = null;
         scheduleShiftCtrlNbr = 0;
         scheduleOperatingDaysMask = 0;
+        scheduleOnDutyTime = new TimeOnly(6, 0);
+        scheduleOffDutyTime = new TimeOnly(18, 0);
         showScheduleModal = true;
     }
 
@@ -251,6 +271,8 @@ else
         editingScheduleCtrlNbr = s.CtrlNbr;
         scheduleShiftCtrlNbr = s.ShiftDefinitionCtrlNbr;
         scheduleOperatingDaysMask = s.OperatingDaysMask;
+        scheduleOnDutyTime = TimeOnly.TryParse(s.OnDutyTime, out var onT) ? onT : new TimeOnly(6, 0);
+        scheduleOffDutyTime = TimeOnly.TryParse(s.OffDutyTime, out var offT) ? offT : new TimeOnly(18, 0);
         showScheduleModal = true;
     }
 
@@ -265,27 +287,31 @@ else
     {
         try
         {
+            isSaving = true;
             if (editingScheduleCtrlNbr is null)
-                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask);
+                await AssignmentClient.CreateScheduleAsync(CtrlNbr, scheduleShiftCtrlNbr, scheduleOperatingDaysMask, scheduleOnDutyTime.ToString("HH:mm"), scheduleOffDutyTime.ToString("HH:mm"));
             else
-                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask);
+                await AssignmentClient.UpdateScheduleAsync(editingScheduleCtrlNbr.Value, scheduleOperatingDaysMask, scheduleOnDutyTime.ToString("HH:mm"), scheduleOffDutyTime.ToString("HH:mm"));
 
             showScheduleModal = false;
             successMessage = editingScheduleCtrlNbr is null ? "Schedule created." : "Schedule updated.";
             await LoadSchedules();
         }
         catch (Exception ex) { errorMessage = $"Save failed: {ex.Message}"; }
+        finally { isSaving = false; }
     }
 
     private async Task DeleteSchedule(long ctrlNbr)
     {
         try
         {
+            isSaving = true;
             await AssignmentClient.DeleteScheduleAsync(ctrlNbr);
             successMessage = "Schedule deleted.";
             await LoadSchedules();
         }
         catch (Exception ex) { errorMessage = $"Delete failed: {ex.Message}"; }
+        finally { isSaving = false; }
     }
 
     private static string FormatDays(int mask)

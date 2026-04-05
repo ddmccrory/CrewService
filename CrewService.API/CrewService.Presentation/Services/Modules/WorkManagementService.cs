@@ -115,9 +115,11 @@ public class WorkManagementService(
 
     public override async Task<GetCraftRolesResponse> GetCraftRoles(GetCraftRolesRequest request, ServerCallContext context)
     {
-        var roles = request.CraftCtrlNbr > 0
-            ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-            : await craftRoleRepository.GetAllAsync();
+        var roles = request.DepartmentCtrlNbr > 0
+            ? await craftRoleRepository.GetByDepartmentAsync(ControlNumber.Create(request.DepartmentCtrlNbr))
+            : request.CraftCtrlNbr > 0
+                ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
+                : await craftRoleRepository.GetAllAsync();
         var response = new GetCraftRolesResponse { TotalCount = roles.Count };
         foreach (var r in roles) response.Roles.Add(MapRole(r));
         return response;
@@ -189,11 +191,8 @@ public class WorkManagementService(
             ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
             request.ShiftCode,
             request.DisplayName,
-            TimeOnly.Parse(request.DefaultStartTime),
-            TimeOnly.Parse(request.DefaultEndTime),
             request.DisplayOrder,
-            request.IsActive,
-            request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+            request.IsActive);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.ShiftDefinitions.Add(shift);
@@ -210,11 +209,8 @@ public class WorkManagementService(
         shift.Update(
             shiftCode: request.ShiftCode,
             displayName: request.DisplayName,
-            defaultStartTime: TimeOnly.Parse(request.DefaultStartTime),
-            defaultEndTime: TimeOnly.Parse(request.DefaultEndTime),
             displayOrder: request.DisplayOrder,
-            isActive: request.IsActive,
-            departmentCtrlNbr: request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+            isActive: request.IsActive);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.ShiftDefinitions.Update(shift);
@@ -241,10 +237,7 @@ public class WorkManagementService(
         WorkAreaGroupCtrlNbr = sd.WorkAreaGroupCtrlNbr.Value,
         ShiftCode = sd.ShiftCode,
         DisplayName = sd.DisplayName,
-        DefaultStartTime = sd.DefaultStartTime.ToString("HH:mm"),
-        DefaultEndTime = sd.DefaultEndTime.ToString("HH:mm"),
         DisplayOrder = sd.DisplayOrder,
-        IsActive = sd.IsActive,
-        DepartmentCtrlNbr = sd.DepartmentCtrlNbr?.Value ?? 0
+        IsActive = sd.IsActive
     };
 }

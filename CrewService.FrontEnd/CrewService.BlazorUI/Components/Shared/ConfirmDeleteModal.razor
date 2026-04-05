@@ -1,0 +1,29 @@
+<Modal Visible="@Visible" Title="@($"Confirm {ActionVerb}")" Icon="bi bi-exclamation-triangle"
+       OnClose="OnCancel" Size="sm">
+    <BodyContent>
+        <p>Are you sure you want to @ActionVerb.ToLowerInvariant() <strong>@ItemName</strong>?</p>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn @ButtonClass" disabled="@IsSaving" @onclick="OnConfirm">
+            <span class="@ButtonIcon me-1"></span> @ActionVerb
+        </button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string ItemName { get; set; } = "";
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>The verb shown in the title, body, and button. Default is "Delete".</summary>
+    [Parameter] public string ActionVerb { get; set; } = "Delete";
+
+    /// <summary>Bootstrap icon class for the confirm button. Default is "bi bi-trash".</summary>
+    [Parameter] public string ButtonIcon { get; set; } = "bi bi-trash";
+
+    /// <summary>Bootstrap button class for the confirm button. Default is "btn-danger".</summary>
+    [Parameter] public string ButtonClass { get; set; } = "btn-danger";
+}

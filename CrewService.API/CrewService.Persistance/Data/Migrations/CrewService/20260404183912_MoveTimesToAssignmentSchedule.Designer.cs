@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260404183912_MoveTimesToAssignmentSchedule")]
+    partial class MoveTimesToAssignmentSchedule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -4557,6 +4560,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("DepartmentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -4580,6 +4586,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("DepartmentCtrlNbr");
 
                     b.HasIndex("WorkAreaGroupCtrlNbr");
 
@@ -13699,6 +13707,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftDefinition", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
                         .WithMany()
                         .HasForeignKey("WorkAreaGroupCtrlNbr")

@@ -10,8 +10,7 @@ public class ShiftDefinitionTests
     public void Create_SetsProperties()
     {
         var def = ShiftDefinition.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift",
-            new TimeOnly(7, 0), new TimeOnly(15, 0), 1, true);
+            ControlNumber.Create(1), "DAY", "Day Shift", 1, true);
 
         Assert.Equal("DAY", def.ShiftCode);
         Assert.Equal("Day Shift", def.DisplayName);
@@ -22,8 +21,7 @@ public class ShiftDefinitionTests
     public void Update_ChangesOnlySpecifiedFields()
     {
         var def = ShiftDefinition.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift",
-            new TimeOnly(7, 0), new TimeOnly(15, 0), 1, true);
+            ControlNumber.Create(1), "DAY", "Day Shift", 1, true);
 
         def.Update(displayName: "Morning Shift", isActive: false);
 
@@ -104,9 +102,10 @@ public class PositionSlotInstanceTests
     private static PositionSlotInstance CreateSlot()
     {
         var shiftInstance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
+            ControlNumber.Create(1), "DAY", "Day Shift");
 
-        var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), null, 1);
+        var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
         return slot;
     }
 }

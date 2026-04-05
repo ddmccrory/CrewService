@@ -18,7 +18,7 @@ public sealed class AvailabilityRule : ISkipRule
 {
     public string RuleCode => "NOT_AVAILABLE";
     public bool ShouldSkip(SkipRuleCandidate candidate, SkipRuleSlot slot, SkipContext ctx)
-        => ctx.RestedAtUtc.HasValue && ctx.RestedAtUtc.Value > slot.ShiftStartUtc;
+        => ctx.RestedAtUtc.HasValue && ctx.RestedAtUtc.Value > ctx.NowUtc;
 }
 
 public sealed class RestRule : ISkipRule

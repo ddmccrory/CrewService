@@ -8,14 +8,15 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
 {
     // ── Assignments ──
 
-    public async Task<GetAssignmentsResponse> GetAllAsync(long workAreaGroupCtrlNbr = 0, long railroadCtrlNbr = 0)
+    public async Task<GetAssignmentsResponse> GetAllAsync(long workAreaGroupCtrlNbr = 0, long railroadCtrlNbr = 0, long departmentCtrlNbr = 0)
     {
         try
         {
             return await _client.GetAssignmentsAsync(new GetAssignmentsRequest
             {
                 WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
-                RailroadCtrlNbr = railroadCtrlNbr
+                RailroadCtrlNbr = railroadCtrlNbr,
+                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
@@ -84,7 +85,7 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<AssignmentScheduleResponse> CreateScheduleAsync(long assignmentCtrlNbr, long shiftDefinitionCtrlNbr, int operatingDaysMask)
+    public async Task<AssignmentScheduleResponse> CreateScheduleAsync(long assignmentCtrlNbr, long shiftDefinitionCtrlNbr, int operatingDaysMask, string onDutyTime, string offDutyTime)
     {
         try
         {
@@ -92,20 +93,24 @@ public sealed class AssignmentClient(GrpcChannelProvider channelProvider, Circui
             {
                 AssignmentCtrlNbr = assignmentCtrlNbr,
                 ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
-                OperatingDaysMask = operatingDaysMask
+                OperatingDaysMask = operatingDaysMask,
+                OnDutyTime = onDutyTime,
+                OffDutyTime = offDutyTime
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<AssignmentScheduleResponse> UpdateScheduleAsync(long ctrlNbr, int operatingDaysMask)
+    public async Task<AssignmentScheduleResponse> UpdateScheduleAsync(long ctrlNbr, int operatingDaysMask, string onDutyTime, string offDutyTime)
     {
         try
         {
             return await _client.UpdateAssignmentScheduleAsync(new UpdateAssignmentScheduleRequest
             {
                 CtrlNbr = ctrlNbr,
-                OperatingDaysMask = operatingDaysMask
+                OperatingDaysMask = operatingDaysMask,
+                OnDutyTime = onDutyTime,
+                OffDutyTime = offDutyTime
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

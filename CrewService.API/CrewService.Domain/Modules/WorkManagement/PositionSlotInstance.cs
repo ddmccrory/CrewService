@@ -8,6 +8,10 @@ public sealed class PositionSlotInstance : Entity
     public ControlNumber ShiftInstanceCtrlNbr { get; private set; }
     public ControlNumber CrewPositionCtrlNbr { get; private set; }
     public ControlNumber? IncumbentEmployeeCtrlNbr { get; private set; }
+    public ControlNumber AssignmentCtrlNbr { get; private set; }
+    public string AssignmentCode { get; private set; } = string.Empty;
+    public string AssignmentName { get; private set; } = string.Empty;
+    public string CraftRoleName { get; private set; } = string.Empty;
     public string Status { get; private set; } = "Open";
     public bool IsAnnulled { get; private set; }
     public bool IsDoNotFill { get; private set; }
@@ -19,6 +23,7 @@ public sealed class PositionSlotInstance : Entity
     {
         ShiftInstanceCtrlNbr = null!;
         CrewPositionCtrlNbr = null!;
+        AssignmentCtrlNbr = null!;
     }
 
     internal static PositionSlotInstance Create(
@@ -26,7 +31,11 @@ public sealed class PositionSlotInstance : Entity
         ControlNumber crewPositionCtrlNbr,
         ControlNumber? incumbentEmployeeCtrlNbr,
         int displayOrder,
-        string status)
+        string status,
+        ControlNumber assignmentCtrlNbr,
+        string assignmentCode,
+        string assignmentName,
+        string craftRoleName)
     {
         return new PositionSlotInstance
         {
@@ -34,7 +43,11 @@ public sealed class PositionSlotInstance : Entity
             CrewPositionCtrlNbr = crewPositionCtrlNbr,
             IncumbentEmployeeCtrlNbr = incumbentEmployeeCtrlNbr,
             DisplayOrder = displayOrder,
-            Status = status
+            Status = status,
+            AssignmentCtrlNbr = assignmentCtrlNbr,
+            AssignmentCode = assignmentCode,
+            AssignmentName = assignmentName,
+            CraftRoleName = craftRoleName
         };
     }
 

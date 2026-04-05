@@ -1,0 +1,517 @@
+@page "/daily-operations/call-sheet"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject DailyOperationsClient DailyOperationsClient
+@inject WorkManagementClient WorkManagementClient
+@inject TenantConfigClient TenantConfigClient
+@inject DepartmentClient DepartmentClient
+
+<PageTitle>Call Sheet</PageTitle>
+
+<h1>Call Sheet</h1>
+
+@if (!HasRailroad)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view call sheets.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Daily operations for <strong>@SelectedRailroadName</strong></p>
+
+    <div class="row mb-3 align-items-end g-2">
+        <div class="col-auto">
+            <label class="form-label fw-semibold">Work Area</label>
+            <FilterSelect TItem="GroupResponse" TValue="long"
+                          @bind-Value="selectedWorkAreaCtrlNbr"
+                          @bind-Value:after="OnWorkAreaSelected"
+                          Items="workAreas"
+                          ValueSelector="@(wa => wa.CtrlNbr)"
+                          TextSelector="@(wa => wa.Name)"
+                          Placeholder="-- Select Work Area --"
+                          class="form-select" style="max-width: 350px;" />
+        </div>
+        <div class="col-auto">
+            <label class="form-label fw-semibold">Date</label>
+            <input type="date" class="form-control" style="max-width: 200px;"
+                   value="@selectedDate.ToString("yyyy-MM-dd")"
+                   @onchange="OnDateChanged" />
+        </div>
+        <div class="col-auto">
+            <label class="form-label fw-semibold">Department</label>
+            <FilterSelect TItem="DepartmentResponse" TValue="long"
+                          @bind-Value="selectedDepartmentCtrlNbr"
+                          @bind-Value:after="OnDepartmentSelected"
+                          Items="departments"
+                          ValueSelector="@(d => d.CtrlNbr)"
+                          TextSelector="@(d => d.Name)"
+                          Placeholder="-- Select Department --"
+                          class="form-select" style="max-width: 250px;" />
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (selectedWorkAreaCtrlNbr > 0 && callSheetLoaded)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">
+                Call Sheet for @selectedDate.ToString("dddd, MMMM d, yyyy")
+            </h5>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-success" @onclick="OpenGenerateModal">
+                    <span class="bi bi-plus-circle"></span> Generate Shift
+                </button>
+            }
+        </div>
+
+        @if (selectedDepartmentCtrlNbr == 0)
+        {
+            <div class="alert alert-info">
+                <span class="bi bi-info-circle"></span>
+                Please select a department to view call sheets.
+            </div>
+        }
+        else
+        {
+            var filteredShifts = (shifts ?? [])
+                .Where(s => s.DepartmentCtrlNbr == selectedDepartmentCtrlNbr)
+                .OrderBy(s => s.ShiftCode)
+                .ToList();
+
+            if (filteredShifts.Count == 0)
+            {
+                <div class="alert alert-info">
+                    <span class="bi bi-info-circle"></span>
+                    No shifts have been generated for this department. Click <strong>Generate Shift</strong> to create one.
+                </div>
+            }
+            else
+            {
+                var activeShift = filteredShifts.FirstOrDefault(s => s.CtrlNbr == activeShiftCtrlNbr) ?? filteredShifts[0];
+
+                <ul class="nav nav-tabs mb-3">
+                    @foreach (var shift in filteredShifts)
+                    {
+                        <li class="nav-item">
+                            <button class="nav-link @(activeShift.CtrlNbr == shift.CtrlNbr ? "active" : "")"
+                                    @onclick="() => activeShiftCtrlNbr = shift.CtrlNbr">
+                                <span class="badge bg-primary me-1">@shift.ShiftCode.ToUpperInvariant()</span>
+                                @shift.ShiftDisplayName
+                            </button>
+                        </li>
+                    }
+                </ul>
+
+                <div class="card mb-3">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <span class="badge bg-primary me-1">@activeShift.ShiftCode.ToUpperInvariant()</span>
+                            @activeShift.ShiftDisplayName
+                        </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge @GetStatusBadgeClass(activeShift.Status)">@activeShift.Status</span>
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    @onclick="() => RefreshShift(activeShift.CtrlNbr)"
+                                    title="Rebuild this call sheet">
+                                <span class="bi bi-arrow-clockwise"></span> Refresh
+                            </button>
+                            @if (!IsFeatureReadOnly)
+                            {
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => OpenCloseModal(activeShift)"
+                                        title="Close this shift">
+                                    <span class="bi bi-x-circle"></span> Close
+                                </button>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (activeShift.PositionSlots.Count == 0)
+                        {
+                            <p class="text-muted p-3 mb-0"><em>No positions on this shift.</em></p>
+                        }
+                        else
+                        {
+                            @foreach (var assignmentGroup in activeShift.PositionSlots
+                                .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName })
+                                .OrderBy(g => g.Key.AssignmentCode))
+                            {
+                                <div class="ms-3 mb-2 mt-2">
+                                    <strong>
+                                        <span class="text-primary">@assignmentGroup.Key.AssignmentCode.ToUpperInvariant()</span>
+                                        @assignmentGroup.Key.AssignmentName
+                                    </strong>
+                                    <table class="table table-sm table-hover mb-0 mt-1">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 60px;">#</th>
+                                                <th>Craft/Role</th>
+                                                <th>Status</th>
+                                                <th>Incumbent</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var slot in assignmentGroup.OrderBy(s => s.DisplayOrder))
+                                            {
+                                                <tr>
+                                                    <td>@slot.DisplayOrder</td>
+                                                    <td>@slot.CraftRoleName</td>
+                                                    <td>
+                                                        <span class="badge @GetSlotStatusBadgeClass(slot)">
+                                                            @GetSlotDisplayStatus(slot)
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        @if (slot.HasIncumbentEmployeeCtrlNbr)
+                                                        {
+                                                            <text>Employee #@slot.IncumbentEmployeeCtrlNbr</text>
+                                                        }
+                                                        else
+                                                        {
+                                                            <em class="text-muted">Vacant</em>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+
+    @* ── Generate Shift Modal ── *@
+    <Modal Visible="showGenerateModal"
+           Title="Generate Shift Call Sheet"
+           Icon="bi bi-clipboard-plus"
+           OnClose="CloseGenerateModal">
+        <BodyContent>
+            <EditForm Model="generateModel" OnValidSubmit="OnGenerate" id="generate-shift-form">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Shift Definition</label>
+                    <SelectInput TItem="ShiftDefinitionResponse" TValue="long"
+                                 @bind-Value="generateModel.ShiftDefinitionCtrlNbr"
+                                 Items="availableShifts"
+                                 ValueSelector="@(s => s.CtrlNbr)"
+                                 TextSelector="@(s => $"{s.ShiftCode.ToUpperInvariant()} — {s.DisplayName}")"
+                                 Placeholder="-- Select Shift --"
+                                 class="form-select" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Department</label>
+                    <SelectInput TItem="DepartmentResponse" TValue="long"
+                                 @bind-Value="generateModel.DepartmentCtrlNbr"
+                                 Items="departments"
+                                 ValueSelector="@(d => d.CtrlNbr)"
+                                 TextSelector="@(d => d.Name)"
+                                 Placeholder="-- None --"
+                                 class="form-select" />
+                </div>
+                <p class="text-muted">
+                    This will generate the call sheet for the selected shift on <strong>@selectedDate.ToString("yyyy-MM-dd")</strong>,
+                    creating all scheduled positions as open vacancies.
+                </p>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="CloseGenerateModal">Cancel</button>
+            <button type="submit" form="generate-shift-form" class="btn btn-success"
+                    disabled="@(generateModel.ShiftDefinitionCtrlNbr == 0 || isGenerating)">
+                @if (isGenerating)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Generate
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Close Shift Confirmation Modal ── *@
+    <ConfirmDeleteModal Visible="showCloseModal" ItemName="@closeShiftName" IsSaving="isSaving"
+                        ActionVerb="Close" ButtonIcon="bi bi-x-circle" ButtonClass="btn-warning"
+                        OnConfirm="ConfirmClose" OnCancel="() => showCloseModal = false" />
+}
+
+@code {
+    protected override string? FeatureKey => "daily-operations/call-sheet";
+
+    private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<DailyShiftInstanceResponse>? shifts;
+    private IReadOnlyList<ShiftDefinitionResponse>? availableShifts;
+    private IReadOnlyList<DepartmentResponse>? departments;
+    private long selectedWorkAreaCtrlNbr;
+    private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private bool callSheetLoaded;
+    private long selectedDepartmentCtrlNbr;
+    private long activeShiftCtrlNbr;
+
+    private bool showGenerateModal;
+    private bool isGenerating;
+    private GenerateShiftModel generateModel = new();
+
+    private bool showCloseModal;
+    private long closeShiftCtrlNbr;
+    private string closeShiftName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+            await LoadWorkAreas();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        selectedWorkAreaCtrlNbr = 0;
+        selectedDepartmentCtrlNbr = 0;
+        activeShiftCtrlNbr = 0;
+        shifts = null;
+        callSheetLoaded = false;
+        availableShifts = null;
+
+        if (HasRailroad)
+            await LoadWorkAreas();
+        else
+        {
+            workAreas = null;
+            departments = null;
+        }
+    }
+
+    private async Task LoadWorkAreas()
+    {
+        try
+        {
+            var rrCtrl = SelectedRailroadCtrlNbr!.Value;
+            var response = await TenantConfigClient.GetWorkAreasAsync();
+            workAreas = response.Groups.Where(g => g.CtrlNbr == rrCtrl || g.RailroadCtrlNbr == rrCtrl).ToList();
+        }
+        catch { workAreas = []; }
+
+        try
+        {
+            var deptResponse = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            departments = deptResponse.Departments;
+        }
+        catch { departments = []; }
+
+        if (workAreas?.Count == 1)
+        {
+            selectedWorkAreaCtrlNbr = workAreas[0].CtrlNbr;
+            await LoadCallSheet();
+        }
+    }
+
+    private async Task OnWorkAreaSelected()
+    {
+        shifts = null;
+        callSheetLoaded = false;
+        availableShifts = null;
+        activeShiftCtrlNbr = 0;
+
+        if (selectedWorkAreaCtrlNbr > 0)
+            await LoadCallSheet();
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            selectedDate = date;
+            shifts = null;
+            callSheetLoaded = false;
+            activeShiftCtrlNbr = 0;
+
+            if (selectedWorkAreaCtrlNbr > 0)
+                await LoadCallSheet();
+        }
+    }
+
+    private async Task LoadCallSheet()
+    {
+        if (selectedWorkAreaCtrlNbr == 0) return;
+
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var response = await DailyOperationsClient.GetCallSheetAsync(
+                selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"));
+            shifts = response.Shifts;
+            callSheetLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load call sheet: {ex.Message}";
+            shifts = null;
+            callSheetLoaded = true;
+        }
+    }
+
+    private async Task RefreshShift(long shiftCtrlNbr)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.RefreshShiftInstanceAsync(shiftCtrlNbr);
+            await LoadCallSheet();
+            successMessage = "Call sheet rebuilt successfully.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to rebuild call sheet: {ex.Message}";
+        }
+    }
+
+    private async Task OpenGenerateModal()
+    {
+        errorMessage = null;
+        successMessage = null;
+        generateModel = new() { DepartmentCtrlNbr = selectedDepartmentCtrlNbr };
+        try
+        {
+            var response = await WorkManagementClient.GetShiftDefinitionsAsync(selectedWorkAreaCtrlNbr);
+            availableShifts = response.ShiftDefinitions.Where(s => s.IsActive).ToList();
+        }
+        catch
+        {
+            availableShifts = [];
+        }
+
+        showGenerateModal = true;
+    }
+
+    private void OnDepartmentSelected()
+    {
+        activeShiftCtrlNbr = 0;
+    }
+
+    private void CloseGenerateModal() => showGenerateModal = false;
+
+    private async Task OnGenerate()
+    {
+        if (generateModel.ShiftDefinitionCtrlNbr == 0) return;
+
+        isGenerating = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.GenerateCallSheetAsync(
+                selectedWorkAreaCtrlNbr,
+                generateModel.ShiftDefinitionCtrlNbr,
+                selectedDate.ToString("yyyy-MM-dd"),
+                generateModel.DepartmentCtrlNbr);
+            showGenerateModal = false;
+            successMessage = "Shift call sheet generated successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private void OpenCloseModal(DailyShiftInstanceResponse shift)
+    {
+        closeShiftCtrlNbr = shift.CtrlNbr;
+        closeShiftName = $"{shift.ShiftCode.ToUpperInvariant()} — {shift.ShiftDisplayName}";
+        showCloseModal = true;
+    }
+
+    private async Task ConfirmClose()
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.CloseShiftInstanceAsync(closeShiftCtrlNbr);
+            showCloseModal = false;
+            successMessage = $"Shift '{closeShiftName}' has been closed.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to close shift: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Completed" => "bg-secondary",
+        "Cancelled" => "bg-danger",
+        _ => "bg-info"
+    };
+
+    private static string GetSlotStatusBadgeClass(DailyPositionSlotResponse slot)
+    {
+        if (slot.IsAnnulled) return "bg-danger";
+        if (slot.IsDoNotFill) return "bg-warning text-dark";
+        if (slot.IsSkipped) return "bg-secondary";
+        return slot.Status switch
+        {
+            "Filled" => "bg-success",
+            "OnDuty" => "bg-primary",
+            "TiedUp" => "bg-secondary",
+            _ => "bg-warning text-dark"
+        };
+    }
+
+    private static string GetSlotDisplayStatus(DailyPositionSlotResponse slot)
+    {
+        if (slot.IsAnnulled) return "Annulled";
+        if (slot.IsDoNotFill) return "Do Not Fill";
+        if (slot.IsSkipped) return "Skipped";
+        return slot.Status;
+    }
+
+    private class GenerateShiftModel
+    {
+        public long ShiftDefinitionCtrlNbr { get; set; }
+        public long DepartmentCtrlNbr { get; set; }
+    }
+}

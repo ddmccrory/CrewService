@@ -14,7 +14,6 @@
 @inject AssignmentClient AssignmentClient
 @inject TenantConfigClient TenantConfigClient
 @inject WorkManagementClient WorkManagementClient
-@inject CraftClient CraftClient
 @inject NavigationManager Nav
 
 <PageTitle>Crew Detail</PageTitle>
@@ -77,6 +76,14 @@ else
             <RowContent Context="pos">
                 <td>@GetCraftRoleName(pos.CraftRoleCtrlNbr)</td>
                 <td>@pos.DisplayOrder</td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeletePositionModal(pos)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    }
+                </td>
             </RowContent>
         </DataTable>
 
@@ -103,11 +110,14 @@ else
             </BodyContent>
             <Footer>
                 <button type="button" class="btn btn-outline-secondary" @onclick="() => showPositionModal = false">Cancel</button>
-                <button type="submit" form="save-position-form" class="btn btn-primary">
+                <button type="submit" form="save-position-form" class="btn btn-primary" disabled="@isSaving">
                     <span class="bi bi-check-circle me-1"></span> Create
                 </button>
             </Footer>
         </Modal>
+
+        <ConfirmDeleteModal Visible="showDeletePositionModal" ItemName="@deletePositionRoleName" IsSaving="isSaving"
+                            OnConfirm="ConfirmDeletePosition" OnCancel="() => showDeletePositionModal = false" />
     }
 
     @* ── Assignments Tab ── *@
@@ -160,24 +170,14 @@ else
             </BodyContent>
             <Footer>
                 <button type="button" class="btn btn-outline-secondary" @onclick="CloseAssignmentModal">Cancel</button>
-                <button type="submit" form="save-assignment-form" class="btn btn-primary">
+                <button type="submit" form="save-assignment-form" class="btn btn-primary" disabled="@isSaving">
                     <span class="bi bi-check-circle me-1"></span> @(editAssignmentCtrlNbr > 0 ? "Update" : "Create")
                 </button>
             </Footer>
         </Modal>
 
-        <Modal Visible="showDeleteAssignmentModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
-               OnClose="() => showDeleteAssignmentModal = false" Size="sm">
-            <BodyContent>
-                <p>Are you sure you want to delete this assignment?</p>
-            </BodyContent>
-            <Footer>
-                <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteAssignmentModal = false">Cancel</button>
-                <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAssignment">
-                    <span class="bi bi-trash me-1"></span> Delete
-                </button>
-            </Footer>
-        </Modal>
+        <ConfirmDeleteModal Visible="showDeleteAssignmentModal" ItemName="this assignment" IsSaving="isSaving"
+                            OnConfirm="ConfirmDeleteAssignment" OnCancel="() => showDeleteAssignmentModal = false" />
 
         <DataTable TItem="CrewAssignmentResponse" Items="assignments" Columns="assignmentColumns"
                    EmptyMessage="No assignments found."
@@ -239,7 +239,8 @@ else
     private IReadOnlyList<DataTableColumn<CrewPositionResponse>> positionColumns =>
     [
         new("Role", p => GetCraftRoleName(p.CraftRoleCtrlNbr)),
-        new("Order", p => p.DisplayOrder, width: "100px")
+        new("Order", p => p.DisplayOrder, width: "100px"),
+        DataTableColumn<CrewPositionResponse>.Actions()
     ];
 
     private IReadOnlyList<DataTableColumn<CrewAssignmentResponse>> assignmentColumns =>
@@ -260,6 +261,9 @@ else
     // Positions state
     private bool showPositionModal;
     private PositionInputModel positionModel = new();
+    private bool showDeletePositionModal;
+    private long deletePositionCtrlNbr;
+    private string deletePositionRoleName = string.Empty;
 
     // Assignments state
     private bool showAssignmentModal;
@@ -319,7 +323,9 @@ else
     {
         try
         {
-            var response = await AssignmentClient.GetAllAsync(workAreaGroupCtrlNbr: crew?.HomeGroupCtrlNbr ?? 0);
+            var response = await AssignmentClient.GetAllAsync(
+                workAreaGroupCtrlNbr: crew?.HomeGroupCtrlNbr ?? 0,
+                departmentCtrlNbr: crew?.DepartmentCtrlNbr ?? 0);
             assignmentOptions = response.Assignments;
             assignmentNames = assignmentOptions.ToDictionary(a => a.CtrlNbr, a => a.Name);
         }
@@ -333,24 +339,9 @@ else
     {
         try
         {
-            var response = await WorkManagementClient.GetCraftRolesAsync();
-            var allRoles = response.Roles;
-
-            // Filter to craft roles belonging to crafts in this crew's department
-            if (crew?.DepartmentCtrlNbr > 0 && SelectedParentCtrlNbr.HasValue && SelectedRailroadCtrlNbr.HasValue)
-            {
-                var craftsResponse = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
-                var deptCraftIds = craftsResponse.Crafts
-                    .Where(c => c.DepartmentCtrlNbr == crew.DepartmentCtrlNbr)
-                    .Select(c => c.CtrlNbr)
-                    .ToHashSet();
-                craftRoles = allRoles.Where(r => deptCraftIds.Contains(r.CraftCtrlNbr)).ToList();
-            }
-            else
-            {
-                craftRoles = allRoles;
-            }
-
+            var departmentCtrlNbr = crew?.DepartmentCtrlNbr ?? 0;
+            var response = await WorkManagementClient.GetCraftRolesAsync(departmentCtrlNbr: departmentCtrlNbr);
+            craftRoles = response.Roles;
             craftRoleNames = craftRoles.ToDictionary(r => r.CtrlNbr, r => string.IsNullOrWhiteSpace(r.Code) ? r.Name : r.Code);
         }
         catch
@@ -377,6 +368,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
             await CrewClient.CreateCrewPositionAsync(CtrlNbr, positionModel.CraftRoleCtrlNbr, positionModel.DisplayOrder);
@@ -388,6 +380,34 @@ else
         {
             errorMessage = $"Failed to add position: {ex.Message}";
         }
+        finally { isSaving = false; }
+    }
+
+    private void OpenDeletePositionModal(CrewPositionResponse pos)
+    {
+        deletePositionCtrlNbr = pos.CtrlNbr;
+        deletePositionRoleName = GetCraftRoleName(pos.CraftRoleCtrlNbr);
+        showDeletePositionModal = true;
+    }
+
+    private async Task ConfirmDeletePosition()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+            await CrewClient.DeleteCrewPositionAsync(deletePositionCtrlNbr);
+            successMessage = "Position removed.";
+            showDeletePositionModal = false;
+            await LoadPositions();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to remove position: {ex.Message}";
+            showDeletePositionModal = false;
+        }
+        finally { isSaving = false; }
     }
 
     // ── Assignments ──
@@ -429,6 +449,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
             var startUtc = assignmentModel.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
@@ -452,12 +473,14 @@ else
         {
             errorMessage = $"Failed to save assignment: {ex.Message}";
         }
+        finally { isSaving = false; }
     }
 
     private async Task ConfirmDeleteAssignment()
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
             await CrewClient.DeleteCrewAssignmentAsync(deleteAssignmentCtrlNbr);
@@ -470,6 +493,7 @@ else
             errorMessage = $"Failed to delete assignment: {ex.Message}";
             showDeleteAssignmentModal = false;
         }
+        finally { isSaving = false; }
     }
 
     private void ToggleDay(int bit, bool isChecked)

@@ -53,9 +53,17 @@
                 @* ══ Railroad-scoped sections (require parent + railroad) ══ *@
 
                 @* ── Daily Operations ── *@
-                @if (Permissions.HasAccessToAny("daily/call-board", "daily/assignments", "daily/mark-offs", "daily/duty-status", "daily/vacancy-resolution"))
+                @if (Permissions.HasAccessToAny("daily/call-board", "daily-operations/call-sheet", "daily/assignments", "daily/mark-offs", "daily/duty-status", "daily/vacancy-resolution"))
                 {
                     <NavMenuGroup Title="Daily Operations" Icon="bi-calendar-check" IsInitiallyExpanded="@IsCurrentPath("daily")">
+                        @if (Permissions.HasAccess("daily-operations/call-sheet"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="daily-operations/call-sheet">
+                                    <span class="bi bi-clipboard-check" aria-hidden="true"></span> Call Sheet
+                                </NavLink>
+                            </div>
+                        }
                         @if (Permissions.HasAccess("daily/call-board"))
                         {
                             <div class="nav-item">

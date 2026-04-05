@@ -32,6 +32,7 @@ builder.Services.AddScoped<DepartmentClient>();
 builder.Services.AddScoped<CrewClient>();
 builder.Services.AddScoped<AssignmentClient>();
 builder.Services.AddScoped<WorkManagementClient>();
+builder.Services.AddScoped<DailyOperationsClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 

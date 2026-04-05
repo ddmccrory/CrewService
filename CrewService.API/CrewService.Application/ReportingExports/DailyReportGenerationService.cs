@@ -12,8 +12,6 @@ public sealed record DailyOperationalReport(
 
 public sealed record ShiftReportSection(
     string ShiftCode,
-    DateTime ShiftStartUtc,
-    DateTime ShiftEndUtc,
     int TotalSlots,
     int FilledSlots,
     int OpenSlots);
@@ -37,8 +35,6 @@ public sealed class DailyReportGenerationService(
             var filled = shift.PositionSlots.Count(p => p.Status != "Open");
             sections.Add(new ShiftReportSection(
                 shift.ShiftCode,
-                shift.ShiftStartUtc,
-                shift.ShiftEndUtc,
                 total,
                 filled,
                 total - filled));
@@ -60,7 +56,7 @@ public sealed class DailyReportGenerationService(
 
         foreach (var section in report.Shifts)
         {
-            sb.AppendLine($"  Shift: {section.ShiftCode}  ({section.ShiftStartUtc:HH:mm} – {section.ShiftEndUtc:HH:mm})");
+            sb.AppendLine($"  Shift: {section.ShiftCode}");
             sb.AppendLine($"    Slots: {section.TotalSlots}  Filled: {section.FilledSlots}  Open: {section.OpenSlots}");
         }
 

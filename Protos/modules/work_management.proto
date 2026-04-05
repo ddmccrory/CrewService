@@ -110,7 +110,7 @@ message PositionSlotResponse {
 }
 
 
-message GetCraftRolesRequest { int64 craft_ctrl_nbr = 1; }
+message GetCraftRolesRequest { int64 craft_ctrl_nbr = 1; int64 department_ctrl_nbr = 2; }
 message GetCraftRolesResponse { repeated CraftRoleResponse roles = 1; int32 total_count = 2; }
 message CreateCraftRoleRequest { int64 craft_ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
 message CraftRoleResponse { int64 ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; string code = 3; string name = 4; string alternate_name = 5; }
@@ -124,21 +124,15 @@ message CreateShiftDefinitionRequest {
   int64 work_area_group_ctrl_nbr = 1;
   string shift_code = 2;
   string display_name = 3;
-  string default_start_time = 4;
-  string default_end_time = 5;
-  int32 display_order = 6;
-  bool is_active = 7;
-  int64 department_ctrl_nbr = 8;
+  int32 display_order = 4;
+  bool is_active = 5;
 }
 message UpdateShiftDefinitionRequest {
   int64 ctrl_nbr = 1;
   string shift_code = 2;
   string display_name = 3;
-  string default_start_time = 4;
-  string default_end_time = 5;
-  int32 display_order = 6;
-  bool is_active = 7;
-  int64 department_ctrl_nbr = 8;
+  int32 display_order = 4;
+  bool is_active = 5;
 }
 message DeleteShiftDefinitionRequest { int64 ctrl_nbr = 1; }
 message ShiftDefinitionResponse {
@@ -146,9 +140,6 @@ message ShiftDefinitionResponse {
   int64 work_area_group_ctrl_nbr = 2;
   string shift_code = 3;
   string display_name = 4;
-  string default_start_time = 5;
-  string default_end_time = 6;
-  int32 display_order = 7;
-  bool is_active = 8;
-  int64 department_ctrl_nbr = 9;
+  int32 display_order = 5;
+  bool is_active = 6;
 }

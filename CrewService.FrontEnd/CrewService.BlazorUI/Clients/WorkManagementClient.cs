@@ -14,11 +14,11 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
 
     // ── Craft Roles ──
 
-    public async Task<GetCraftRolesResponse> GetCraftRolesAsync(long craftCtrlNbr = 0)
+    public async Task<GetCraftRolesResponse> GetCraftRolesAsync(long craftCtrlNbr = 0, long departmentCtrlNbr = 0)
     {
         try
         {
-            return await _client.GetCraftRolesAsync(new GetCraftRolesRequest { CraftCtrlNbr = craftCtrlNbr });
+            return await _client.GetCraftRolesAsync(new GetCraftRolesRequest { CraftCtrlNbr = craftCtrlNbr, DepartmentCtrlNbr = departmentCtrlNbr });
         }
         catch (Exception ex)
         {
@@ -89,7 +89,7 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, string defaultStartTime, string defaultEndTime, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<ShiftDefinitionResponse> CreateShiftDefinitionAsync(long workAreaGroupCtrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive)
     {
         try
         {
@@ -98,17 +98,14 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
                 ShiftCode = shiftCode,
                 DisplayName = displayName,
-                DefaultStartTime = defaultStartTime,
-                DefaultEndTime = defaultEndTime,
                 DisplayOrder = displayOrder,
                 IsActive = isActive,
-                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, string defaultStartTime, string defaultEndTime, int displayOrder, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<ShiftDefinitionResponse> UpdateShiftDefinitionAsync(long ctrlNbr, string shiftCode, string displayName, int displayOrder, bool isActive)
     {
         try
         {
@@ -117,11 +114,8 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 CtrlNbr = ctrlNbr,
                 ShiftCode = shiftCode,
                 DisplayName = displayName,
-                DefaultStartTime = defaultStartTime,
-                DefaultEndTime = defaultEndTime,
                 DisplayOrder = displayOrder,
                 IsActive = isActive,
-                DepartmentCtrlNbr = departmentCtrlNbr
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

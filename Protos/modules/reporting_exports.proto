@@ -74,9 +74,7 @@ message DailyReportResponse {
 
 message ShiftReportSectionMsg {
   string shift_code = 1;
-  string shift_start_utc = 2;
-  string shift_end_utc = 3;
-  int32 total_slots = 4;
-  int32 filled_slots = 5;
-  int32 open_slots = 6;
+  int32 total_slots = 2;
+  int32 filled_slots = 3;
+  int32 open_slots = 4;
 }

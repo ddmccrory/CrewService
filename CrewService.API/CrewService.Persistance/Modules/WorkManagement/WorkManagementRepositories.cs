@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Repositories;
@@ -28,6 +29,19 @@ internal sealed class CraftRoleRepository(CrewServiceDbContext dbContext, ICurre
         return await DbContext.Set<CraftRole>()
             .Where(p => p.CraftCtrlNbr == craftCtrlNbr)
             .OrderBy(p => p.Code)
+            .ToListAsync();
+    }
+
+    public async Task<List<CraftRole>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr)
+    {
+        var craftCtrlNbrs = await DbContext.Set<Craft>()
+            .Where(c => c.DepartmentCtrlNbr == departmentCtrlNbr)
+            .Select(c => c.CtrlNbr)
+            .ToListAsync();
+
+        return await DbContext.Set<CraftRole>()
+            .Where(r => craftCtrlNbrs.Contains(r.CraftCtrlNbr))
+            .OrderBy(r => r.Code)
             .ToListAsync();
     }
 }

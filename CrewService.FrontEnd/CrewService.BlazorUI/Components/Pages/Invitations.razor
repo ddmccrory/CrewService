@@ -82,7 +82,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="() => showCreateForm = false">Cancel</button>
-            <button type="submit" form="create-invitation-form" class="btn btn-primary">
+            <button type="submit" form="create-invitation-form" class="btn btn-primary" disabled="@isSaving">
                 <span class="bi bi-send me-1"></span> Send Invitation
             </button>
         </Footer>
@@ -354,6 +354,7 @@ else
     {
         try
         {
+            isSaving = true;
             errorMessage = null;
             successMessage = null;
 
@@ -377,6 +378,7 @@ else
             errorMessage = $"Failed to create invitation: {ex.Message}";
             showCreateForm = true;
         }
+        finally { isSaving = false; }
     }
 
     private async Task ResendInvitation(long ctrlNbr)

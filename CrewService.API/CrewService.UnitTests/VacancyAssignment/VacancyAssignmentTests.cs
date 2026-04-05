@@ -9,7 +9,7 @@ namespace CrewService.UnitTests.VacancyAssignment;
 public class SkipRuleTests
 {
     private static SkipRuleCandidate MakeCandidate() => new(ControlNumber.Create(1), ControlNumber.Create(10), 1);
-    private static SkipRuleSlot MakeSlot() => new(ControlNumber.Create(100), ControlNumber.Create(200), DateTime.UtcNow.AddHours(2));
+    private static SkipRuleSlot MakeSlot() => new(ControlNumber.Create(100), ControlNumber.Create(200));
 
     [Fact]
     public void WorkedCapRule_UnderCap_NoSkip()
@@ -47,18 +47,18 @@ public class SkipRuleTests
     public void AvailabilityRule_NotYetRested_Skips()
     {
         var rule = new AvailabilityRule();
-        var slot = MakeSlot();
-        var ctx = new SkipContext { RestedAtUtc = slot.ShiftStartUtc.AddHours(1) };
-        Assert.True(rule.ShouldSkip(MakeCandidate(), slot, ctx));
+        var now = DateTime.UtcNow;
+        var ctx = new SkipContext { NowUtc = now, RestedAtUtc = now.AddHours(1) };
+        Assert.True(rule.ShouldSkip(MakeCandidate(), MakeSlot(), ctx));
     }
 
     [Fact]
     public void AvailabilityRule_AlreadyRested_NoSkip()
     {
         var rule = new AvailabilityRule();
-        var slot = MakeSlot();
-        var ctx = new SkipContext { RestedAtUtc = slot.ShiftStartUtc.AddHours(-1) };
-        Assert.False(rule.ShouldSkip(MakeCandidate(), slot, ctx));
+        var now = DateTime.UtcNow;
+        var ctx = new SkipContext { NowUtc = now, RestedAtUtc = now.AddHours(-1) };
+        Assert.False(rule.ShouldSkip(MakeCandidate(), MakeSlot(), ctx));
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class AssignmentStrategyTests
     {
         var strategy = new StandardAssignmentStrategy();
         var candidate = new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1);
-        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200), DateTime.UtcNow);
+        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
         var result = strategy.TryAssign(candidate, slot, new AssignmentContext());
         Assert.True(result.Success);
         Assert.Equal(candidate.EmployeeCtrlNbr, result.AssignedEmployeeCtrlNbr);
@@ -120,7 +120,7 @@ public class AssignmentStrategyTests
     {
         var strategy = new ForemanHelperStrategy();
         var candidate = new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1);
-        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200), DateTime.UtcNow);
+        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
         var result = strategy.TryAssign(candidate, slot, new AssignmentContext { HelperSearchEnabled = false });
         Assert.False(result.Success);
     }
@@ -130,7 +130,7 @@ public class AssignmentStrategyTests
     {
         var strategy = new ForemanHelperStrategy();
         var candidate = new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1);
-        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200), DateTime.UtcNow);
+        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
         var result = strategy.TryAssign(candidate, slot, new AssignmentContext { HelperSearchEnabled = true });
         Assert.True(result.Success);
     }

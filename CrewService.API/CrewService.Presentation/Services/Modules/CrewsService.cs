@@ -119,6 +119,18 @@ public class CrewsService(
         };
     }
 
+    public override async Task<DeleteResponse> DeleteCrewPosition(DeleteCrewPositionRequest request, ServerCallContext context)
+    {
+        var position = await crewPositionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewPosition {request.CtrlNbr} not found."));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CrewPositions.Remove(position);
+        await uow.CommitAsync();
+
+        return new DeleteResponse { Success = true };
+    }
+
     private static CrewResponse MapCrew(Crew c) => new()
     {
         CtrlNbr = c.CtrlNbr.Value,

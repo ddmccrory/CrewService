@@ -23,7 +23,7 @@ internal sealed class OpenSlotProvider(CrewServiceDbContext dbContext) : IOpenSl
         return [.. shift.PositionSlots
             .Where(p => p.Status == "Open" && !p.IsAnnulled && !p.IsDoNotFill)
             .OrderBy(p => p.DisplayOrder)
-            .Select(p => new SkipRuleSlot(p.CtrlNbr, p.CrewPositionCtrlNbr, shift.ShiftStartUtc))];
+            .Select(p => new SkipRuleSlot(p.CtrlNbr, p.CrewPositionCtrlNbr))];
     }
 }
 
@@ -67,8 +67,8 @@ internal sealed class SkipContextProvider(CrewServiceDbContext dbContext) : ISki
         var isMarkedOff = await dbContext.Set<AbsenceRequest>()
             .AnyAsync(a => a.EmployeeCtrlNbr == empCtrl
                            && a.Status == "APPROVED"
-                           && a.StartUtc <= slot.ShiftStartUtc
-                           && (a.EndUtc == null || a.EndUtc > slot.ShiftStartUtc), ct);
+                           && a.StartUtc <= now
+                           && (a.EndUtc == null || a.EndUtc > now), ct);
 
         var lastOff = await dbContext.Set<OffDutyRecord>()
             .Where(r => r.EmployeeCtrlNbr == empCtrl)

@@ -11,8 +11,7 @@ public class ShiftInstanceTests
     public void Create_SetsStatusToPlanned()
     {
         var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "1",
-            DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
+            ControlNumber.Create(1), "1", "First Shift");
         Assert.Equal("Planned", shift.Status);
     }
 
@@ -20,12 +19,12 @@ public class ShiftInstanceTests
     public void AddPositionSlot_WithIncumbent_SetsFilled()
     {
         var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "1",
-            DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
+            ControlNumber.Create(1), "1", "First Shift");
 
         var slot = shift.AddPositionSlot(
             ControlNumber.Create(10),
-            ControlNumber.Create(100), 1);
+            ControlNumber.Create(100), 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
 
         Assert.Equal("Filled", slot.Status);
         Assert.Single(shift.PositionSlots);
@@ -35,11 +34,11 @@ public class ShiftInstanceTests
     public void AddPositionSlot_NoIncumbent_SetsOpen()
     {
         var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "1",
-            DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
+            ControlNumber.Create(1), "1", "First Shift");
 
         var slot = shift.AddPositionSlot(
-            ControlNumber.Create(10), null, 1);
+            ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
 
         Assert.Equal("Open", slot.Status);
     }
@@ -48,8 +47,7 @@ public class ShiftInstanceTests
     public void Complete_SetsStatusAndTimestamp()
     {
         var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "1",
-            DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
+            ControlNumber.Create(1), "1", "First Shift");
         shift.Complete();
 
         Assert.Equal("Completed", shift.Status);
@@ -64,9 +62,9 @@ public class PositionSlotInstanceTests
     public void Annul_SetsStatusAndReason()
     {
         var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "1",
-            DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
-        var slot = shift.AddPositionSlot(ControlNumber.Create(10), null, 1);
+            ControlNumber.Create(1), "1", "First Shift");
+        var slot = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
 
         slot.Annul("No work available");
 
@@ -79,9 +77,9 @@ public class PositionSlotInstanceTests
     public void Fill_SetsIncumbentAndStatus()
     {
         var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "1",
-            DateTime.UtcNow, DateTime.UtcNow.AddHours(8));
-        var slot = shift.AddPositionSlot(ControlNumber.Create(10), null, 1);
+            ControlNumber.Create(1), "1", "First Shift");
+        var slot = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
 
         slot.Fill(ControlNumber.Create(200));
 

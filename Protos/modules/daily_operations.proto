@@ -4,10 +4,14 @@ option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
+import "common.proto";
 
 service DailyOperationsSrvc {
   rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse) {
-    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}" };
+    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}/{target_date}" };
+  }
+  rpc GenerateCallSheet (GenerateCallSheetRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/call-sheet/generate" body: "*" };
   }
   rpc PlaceOnDuty (PlaceOnDutyRequest) returns (OnDutyRecordResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/on-duty" body: "*" };
@@ -17,6 +21,12 @@ service DailyOperationsSrvc {
   }
   rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/annul" body: "*" };
+  }
+  rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
+  }
+  rpc CloseShiftInstance (CloseShiftInstanceRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/daily-operations/shift-instance/{ctrl_nbr}" };
   }
 }
 
@@ -29,13 +39,25 @@ message GetCallSheetResponse {
   repeated DailyShiftInstanceResponse shifts = 1;
 }
 
+message GenerateCallSheetRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 shift_definition_ctrl_nbr = 2;
+  string target_date = 3;
+  optional int64 department_ctrl_nbr = 4;
+}
+
+message GenerateCallSheetResponse {
+  DailyShiftInstanceResponse shift = 1;
+}
+
 message DailyShiftInstanceResponse {
   int64 ctrl_nbr = 1;
   string shift_code = 2;
-  google.protobuf.Timestamp shift_start = 3;
-  google.protobuf.Timestamp shift_end = 4;
-  string status = 5;
-  repeated DailyPositionSlotResponse position_slots = 6;
+  string shift_display_name = 3;
+  string status = 4;
+  optional int64 department_ctrl_nbr = 5;
+  string department_name = 6;
+  repeated DailyPositionSlotResponse position_slots = 7;
 }
 
 message DailyPositionSlotResponse {
@@ -47,6 +69,10 @@ message DailyPositionSlotResponse {
   bool is_do_not_fill = 6;
   bool is_skipped = 7;
   int32 display_order = 8;
+  int64 assignment_ctrl_nbr = 9;
+  string assignment_code = 10;
+  string assignment_name = 11;
+  string craft_role_name = 12;
 }
 
 message PlaceOnDutyRequest {
@@ -84,4 +110,13 @@ message OffDutyRecordResponse {
 message AnnulPositionRequest {
   int64 position_slot_ctrl_nbr = 1;
   string reason = 2;
+}
+
+
+message RefreshShiftInstanceRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CloseShiftInstanceRequest {
+  int64 ctrl_nbr = 1;
 }

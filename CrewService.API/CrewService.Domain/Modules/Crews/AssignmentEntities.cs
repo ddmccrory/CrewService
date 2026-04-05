@@ -53,24 +53,35 @@ public sealed class AssignmentSchedule : Entity
     public ControlNumber AssignmentCtrlNbr { get; private set; }
     public ControlNumber ShiftDefinitionCtrlNbr { get; private set; }
     public int OperatingDaysMask { get; private set; }
+    public TimeOnly OnDutyTime { get; private set; }
+    public TimeOnly OffDutyTime { get; private set; }
 
     private AssignmentSchedule() { AssignmentCtrlNbr = null!; ShiftDefinitionCtrlNbr = null!; }
 
     public static AssignmentSchedule Create(
         ControlNumber assignmentCtrlNbr,
         ControlNumber shiftDefinitionCtrlNbr,
-        int operatingDaysMask)
+        int operatingDaysMask,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime)
     {
         return new AssignmentSchedule
         {
             AssignmentCtrlNbr = assignmentCtrlNbr,
             ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
-            OperatingDaysMask = operatingDaysMask
+            OperatingDaysMask = operatingDaysMask,
+            OnDutyTime = onDutyTime,
+            OffDutyTime = offDutyTime
         };
     }
 
-    public void Update(int operatingDaysMask)
+    public void Update(
+        int operatingDaysMask,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime)
     {
         OperatingDaysMask = operatingDaysMask;
+        OnDutyTime = onDutyTime;
+        OffDutyTime = offDutyTime;
     }
 }

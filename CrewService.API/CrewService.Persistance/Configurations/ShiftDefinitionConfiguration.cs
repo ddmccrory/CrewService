@@ -18,11 +18,6 @@ internal class ShiftDefinitionConfiguration : IEntityTypeConfiguration<ShiftDefi
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(s => s.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
-        builder.Property(s => s.DepartmentCtrlNbr).HasConversion(
-            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
-            value => value == null ? null : ControlNumber.Create(value.Value));
-        builder.HasOne<Department>().WithMany().HasForeignKey(s => s.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-
         builder.OwnsOne(s => s.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(s => s.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(s => s.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
