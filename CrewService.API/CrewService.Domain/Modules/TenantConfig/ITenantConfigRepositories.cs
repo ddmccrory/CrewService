@@ -13,7 +13,7 @@ public interface IDynamicGroupRepository : IRepository<DynamicGroup>
 {
     Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? parentGroupCtrlNbr);
     Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name);
-    Task<List<DynamicGroup>> GetWorkAreasAsync();
+    Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? railroadCtrlNbr = null);
     Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync();
     Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr);
     Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null);

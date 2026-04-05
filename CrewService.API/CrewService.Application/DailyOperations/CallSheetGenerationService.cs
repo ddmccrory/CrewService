@@ -72,7 +72,11 @@ public sealed class CallSheetGenerationService(
                     template.AssignmentCtrlNbr,
                     template.AssignmentCode,
                     template.AssignmentName,
-                    position.CraftRoleName);
+                    position.CraftRoleName,
+                    template.GroupName,
+                    template.GroupCode,
+                    template.OnDutyTime,
+                    template.OffDutyTime);
             }
         }
 
@@ -128,7 +132,11 @@ public sealed class CallSheetGenerationService(
                     template.AssignmentCtrlNbr,
                     template.AssignmentCode,
                     template.AssignmentName,
-                    position.CraftRoleName);
+                    position.CraftRoleName,
+                    template.GroupName,
+                    template.GroupCode,
+                    template.OnDutyTime,
+                    template.OffDutyTime);
             }
         }
 

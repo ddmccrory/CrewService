@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -10,6 +11,7 @@ public class AssignmentsService(
     IAssignmentRepository assignmentRepository,
     IAssignmentScheduleRepository scheduleRepository,
     IShiftDefinitionRepository shiftDefinitionRepository,
+    IDynamicGroupRepository dynamicGroupRepository,
     IOrchestrationUnitOfWorkFactory uowFactory) : AssignmentsSrvc.AssignmentsSrvcBase
 {
     public override async Task<GetAssignmentsResponse> GetAssignments(GetAssignmentsRequest request, ServerCallContext context)
@@ -26,7 +28,7 @@ public class AssignmentsService(
 
         var response = new GetAssignmentsResponse { TotalCount = assignments.Count };
         foreach (var a in assignments)
-            response.Assignments.Add(MapAssignment(a));
+            response.Assignments.Add(await MapAssignmentAsync(a));
         return response;
     }
 
@@ -34,14 +36,14 @@ public class AssignmentsService(
     {
         var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {request.CtrlNbr} not found."));
-        return MapAssignment(assignment);
+        return await MapAssignmentAsync(assignment);
     }
 
     public override async Task<StaffingAssignmentResponse> CreateAssignment(CreateStaffingAssignmentRequest request, ServerCallContext context)
     {
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
         var assignment = Assignment.Create(
-            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+            ControlNumber.Create(request.GroupCtrlNbr),
             request.Code,
             request.Name,
             request.IsExtra,
@@ -52,7 +54,7 @@ public class AssignmentsService(
         uow.Assignments.Add(assignment);
         await uow.CommitAsync();
 
-        return MapAssignment(assignment);
+        return await MapAssignmentAsync(assignment);
     }
 
     public override async Task<StaffingAssignmentResponse> UpdateAssignment(UpdateStaffingAssignmentRequest request, ServerCallContext context)
@@ -60,13 +62,14 @@ public class AssignmentsService(
         var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {request.CtrlNbr} not found."));
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
-        assignment.Update(request.Code, request.Name, request.IsExtra, request.IsActive, departmentCtrlNbr);
+        var groupCtrlNbr = request.GroupCtrlNbr > 0 ? ControlNumber.Create(request.GroupCtrlNbr) : null;
+        assignment.Update(request.Code, request.Name, request.IsExtra, request.IsActive, departmentCtrlNbr, groupCtrlNbr);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.Assignments.Update(assignment);
         await uow.CommitAsync();
 
-        return MapAssignment(assignment);
+        return await MapAssignmentAsync(assignment);
     }
 
     public override async Task<DeleteResponse> DeleteAssignment(DeleteStaffingAssignmentRequest request, ServerCallContext context)
@@ -92,7 +95,8 @@ public class AssignmentsService(
         var shiftNames = new Dictionary<long, string>();
         if (assignment is not null)
         {
-            var shifts = await shiftDefinitionRepository.GetByWorkAreaAsync(assignment.WorkAreaGroupCtrlNbr);
+            var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(assignment.GroupCtrlNbr);
+            var shifts = workAreaCtrlNbr is not null ? await shiftDefinitionRepository.GetByWorkAreaAsync(workAreaCtrlNbr) : [];
             foreach (var sd in shifts)
                 shiftNames[sd.CtrlNbr.Value] = $"{sd.ShiftCode} \u2014 {sd.DisplayName}";
         }
@@ -149,16 +153,43 @@ public class AssignmentsService(
         return new DeleteResponse { Success = true };
     }
 
-    private static StaffingAssignmentResponse MapAssignment(Assignment a) => new()
+    private async Task<StaffingAssignmentResponse> MapAssignmentAsync(Assignment a)
     {
-        CtrlNbr = a.CtrlNbr.Value,
-        WorkAreaGroupCtrlNbr = a.WorkAreaGroupCtrlNbr.Value,
-        DepartmentCtrlNbr = a.DepartmentCtrlNbr?.Value ?? 0,
-        Code = a.Code,
-        Name = a.Name,
-        IsExtra = a.IsExtra,
-        IsActive = a.IsActive
-    };
+        var group = await dynamicGroupRepository.GetByCtrlNbrAsync(a.GroupCtrlNbr);
+        var workAreaCtrlNbr = 0L;
+        if (group is not null)
+        {
+            if (group.IsWorkArea)
+                workAreaCtrlNbr = group.CtrlNbr.Value;
+            else
+            {
+                var ancestors = await dynamicGroupRepository.GetAncestorsAsync(a.GroupCtrlNbr);
+                workAreaCtrlNbr = ancestors.FirstOrDefault(g => g.IsWorkArea)?.CtrlNbr.Value ?? 0;
+            }
+        }
+        return new StaffingAssignmentResponse
+        {
+            CtrlNbr = a.CtrlNbr.Value,
+            GroupCtrlNbr = a.GroupCtrlNbr.Value,
+            DepartmentCtrlNbr = a.DepartmentCtrlNbr?.Value ?? 0,
+            Code = a.Code,
+            Name = a.Name,
+            IsExtra = a.IsExtra,
+            IsActive = a.IsActive,
+            GroupName = group?.Name ?? string.Empty,
+            GroupCode = group?.Code ?? string.Empty,
+            WorkAreaGroupCtrlNbr = workAreaCtrlNbr
+        };
+    }
+
+    private async Task<ControlNumber?> ResolveWorkAreaCtrlNbrAsync(ControlNumber groupCtrlNbr)
+    {
+        var group = await dynamicGroupRepository.GetByCtrlNbrAsync(groupCtrlNbr);
+        if (group is null) return null;
+        if (group.IsWorkArea) return group.CtrlNbr;
+        var ancestors = await dynamicGroupRepository.GetAncestorsAsync(groupCtrlNbr);
+        return ancestors.FirstOrDefault(g => g.IsWorkArea)?.CtrlNbr;
+    }
 
     private static AssignmentScheduleResponse MapSchedule(AssignmentSchedule s) => new()
     {

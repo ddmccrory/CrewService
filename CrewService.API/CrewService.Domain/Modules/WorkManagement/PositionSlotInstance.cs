@@ -12,7 +12,12 @@ public sealed class PositionSlotInstance : Entity
     public string AssignmentCode { get; private set; } = string.Empty;
     public string AssignmentName { get; private set; } = string.Empty;
     public string CraftRoleName { get; private set; } = string.Empty;
-    public string Status { get; private set; } = "Open";
+    public string GroupName { get; private set; } = string.Empty;
+    public string GroupCode { get; private set; } = string.Empty;
+    public TimeOnly OnDutyTime { get; private set; }
+    public TimeOnly OffDutyTime { get; private set; }
+    public PositionSlotStatus Status { get; private set; } = PositionSlotStatus.Open;
+    public bool IsIncumbent { get; private set; }
     public bool IsAnnulled { get; private set; }
     public bool IsDoNotFill { get; private set; }
     public bool IsSkipped { get; private set; }
@@ -31,11 +36,16 @@ public sealed class PositionSlotInstance : Entity
         ControlNumber crewPositionCtrlNbr,
         ControlNumber? incumbentEmployeeCtrlNbr,
         int displayOrder,
-        string status,
+        PositionSlotStatus status,
+        bool isIncumbent,
         ControlNumber assignmentCtrlNbr,
         string assignmentCode,
         string assignmentName,
-        string craftRoleName)
+        string craftRoleName,
+        string groupName,
+        string groupCode,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime)
     {
         return new PositionSlotInstance
         {
@@ -44,45 +54,61 @@ public sealed class PositionSlotInstance : Entity
             IncumbentEmployeeCtrlNbr = incumbentEmployeeCtrlNbr,
             DisplayOrder = displayOrder,
             Status = status,
+            IsIncumbent = isIncumbent,
             AssignmentCtrlNbr = assignmentCtrlNbr,
             AssignmentCode = assignmentCode,
             AssignmentName = assignmentName,
-            CraftRoleName = craftRoleName
+            CraftRoleName = craftRoleName,
+            GroupName = groupName,
+            GroupCode = groupCode,
+            OnDutyTime = onDutyTime,
+            OffDutyTime = offDutyTime
         };
     }
 
     public void Fill(ControlNumber employeeCtrlNbr)
     {
+        Fill(employeeCtrlNbr, isIncumbent: true);
+    }
+
+    public void Fill(ControlNumber employeeCtrlNbr, bool isIncumbent)
+    {
         IncumbentEmployeeCtrlNbr = employeeCtrlNbr;
-        Status = "Filled";
+        IsIncumbent = isIncumbent;
+        Status = PositionSlotStatus.Filled;
     }
 
     public void MarkOnDuty()
     {
-        Status = "OnDuty";
+        Status = PositionSlotStatus.OnDuty;
+    }
+
+    public void MarkOnDutyOvertime()
+    {
+        Status = PositionSlotStatus.OnDutyOvertime;
     }
 
     public void MarkTiedUp()
     {
-        Status = "TiedUp";
+        Status = PositionSlotStatus.TiedUp;
     }
 
     public void Annul(string reason)
     {
         IsAnnulled = true;
         AnnulmentReason = reason;
-        Status = "Annulled";
+        Status = PositionSlotStatus.Annulled;
     }
 
     public void MarkDoNotFill()
     {
         IsDoNotFill = true;
-        Status = "DoNotFill";
+        Status = PositionSlotStatus.DoNotFill;
     }
 
     public void Skip()
     {
         IsSkipped = true;
-        Status = "Skipped";
+        Status = PositionSlotStatus.Skipped;
     }
 }

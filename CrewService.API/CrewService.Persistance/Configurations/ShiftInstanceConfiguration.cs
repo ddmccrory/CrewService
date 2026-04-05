@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -43,12 +43,17 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
         builder.Property(p => p.IncumbentEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(p => p.Status).HasMaxLength(20).IsRequired();
+        builder.Property(p => p.Status).HasMaxLength(20).IsRequired()
+            .HasConversion(s => s.ToString(), v => Enum.Parse<PositionSlotStatus>(v));
         builder.Property(p => p.AnnulmentReason).HasMaxLength(500);
         builder.Property(p => p.AssignmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.AssignmentCode).HasMaxLength(20).IsRequired();
         builder.Property(p => p.AssignmentName).HasMaxLength(100).IsRequired();
         builder.Property(p => p.CraftRoleName).HasMaxLength(100).IsRequired();
+        builder.Property(p => p.GroupName).HasMaxLength(200).HasDefaultValue(string.Empty);
+        builder.Property(p => p.GroupCode).HasMaxLength(50).HasDefaultValue(string.Empty);
+        builder.Property(p => p.OnDutyTime);
+        builder.Property(p => p.OffDutyTime);
 
         builder.HasOne<CrewPosition>().WithMany().HasForeignKey(p => p.CrewPositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.IncumbentEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
