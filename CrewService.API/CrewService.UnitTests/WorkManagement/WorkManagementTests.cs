@@ -40,7 +40,7 @@ public class PositionSlotInstanceTests
 
         slot.Fill(ControlNumber.Create(100));
 
-        Assert.Equal("Filled", slot.Status);
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
         Assert.Equal(100, slot.IncumbentEmployeeCtrlNbr!.Value);
     }
 
@@ -52,7 +52,7 @@ public class PositionSlotInstanceTests
 
         slot.MarkOnDuty();
 
-        Assert.Equal("OnDuty", slot.Status);
+        Assert.Equal(PositionSlotStatus.OnDuty, slot.Status);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class PositionSlotInstanceTests
 
         slot.MarkTiedUp();
 
-        Assert.Equal("TiedUp", slot.Status);
+        Assert.Equal(PositionSlotStatus.TiedUp, slot.Status);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class PositionSlotInstanceTests
 
         slot.Annul("Position abolished");
 
-        Assert.Equal("Annulled", slot.Status);
+        Assert.Equal(PositionSlotStatus.Annulled, slot.Status);
         Assert.True(slot.IsAnnulled);
         Assert.Equal("Position abolished", slot.AnnulmentReason);
     }
@@ -84,7 +84,7 @@ public class PositionSlotInstanceTests
 
         slot.MarkDoNotFill();
 
-        Assert.Equal("DoNotFill", slot.Status);
+        Assert.Equal(PositionSlotStatus.DoNotFill, slot.Status);
         Assert.True(slot.IsDoNotFill);
     }
 
@@ -95,7 +95,7 @@ public class PositionSlotInstanceTests
 
         slot.Skip();
 
-        Assert.Equal("Skipped", slot.Status);
+        Assert.Equal(PositionSlotStatus.Skipped, slot.Status);
         Assert.True(slot.IsSkipped);
     }
 
@@ -105,7 +105,8 @@ public class PositionSlotInstanceTests
             ControlNumber.Create(1), "DAY", "Day Shift");
 
         var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), null, 1,
-            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer");
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
         return slot;
     }
 }

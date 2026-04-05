@@ -135,6 +135,7 @@ public class CallSheetGenerationServiceTests
             new(ControlNumber.Create(130), ControlNumber.Create(1), null,
                 "TY-101", "Pool Turn 101",
                 new TimeOnly(7, 0), new TimeOnly(15, 0),
+                "Test Group", "TG",
                 [
                     new CrewPositionDto(ControlNumber.Create(10), ControlNumber.Create(200), 1, "Engineer"),
                     new CrewPositionDto(ControlNumber.Create(11), null, 2, "Conductor")
