@@ -113,11 +113,11 @@ else
                     <div class="row mb-3">
                         <div class="col-6">
                             <label class="form-label fw-semibold">On Duty Time</label>
-                            <input type="time" class="form-control" @bind="scheduleOnDutyTime" />
+                            <TimePicker @bind-Value="scheduleOnDutyTime" />
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-semibold">Off Duty Time</label>
-                            <input type="time" class="form-control" @bind="scheduleOffDutyTime" />
+                            <TimePicker @bind-Value="scheduleOffDutyTime" />
                         </div>
                     </div>
                     <div class="mb-0">

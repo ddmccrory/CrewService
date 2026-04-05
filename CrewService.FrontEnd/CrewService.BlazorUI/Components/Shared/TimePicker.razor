@@ -1,0 +1,24 @@
+@*
+    Shared TimePicker — wraps a native time input.
+    Time formatting is centralized here so the display format can be driven
+    by a system-level setting in the future.
+*@
+
+<input type="time" class="form-control" style="width:auto"
+       value="@TimeString" @onchange="OnChanged"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public TimeOnly Value { get; set; }
+    [Parameter] public EventCallback<TimeOnly> ValueChanged { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string TimeString => Value.ToString("HH:mm");
+
+    private Task OnChanged(ChangeEventArgs e)
+    {
+        if (TimeOnly.TryParse(e.Value?.ToString(), out var parsed))
+            return ValueChanged.InvokeAsync(parsed);
+        return Task.CompletedTask;
+    }
+}
