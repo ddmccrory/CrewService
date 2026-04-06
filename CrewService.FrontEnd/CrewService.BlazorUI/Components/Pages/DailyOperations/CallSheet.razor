@@ -354,6 +354,14 @@ else
                                                                     </td>
                                                                 }
                                             </tr>
+                                            @if (!string.IsNullOrEmpty(hNote))
+                                            {
+                                                <tr class="border-0">
+                                                    <td colspan="@(4 + craftRoleColumns.Count + (isShiftReadOnly ? 0 : 1))" class="border-0 pt-0 pb-1 text-info fst-italic small ps-4">
+                                                        <span class="bi bi-journal-text me-1"></span>@hNote
+                                                    </td>
+                                                </tr>
+                                            }
                                         }
                                     </tbody>
                                 </table>
@@ -396,6 +404,16 @@ else
                                             </div>
                                         }
                                     </div>
+                                    @if (!string.IsNullOrEmpty(vNote))
+                                    {
+                                        <table class="table table-sm table-borderless mb-0 mt-1">
+                                            <tr>
+                                                <td class="text-info fst-italic small pt-0 pb-1 ps-2">
+                                                    <span class="bi bi-journal-text me-1"></span>@vNote
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    }
                                     <table class="table table-sm table-hover mb-0 mt-1">
                                         <thead>
                                             <tr>
@@ -424,7 +442,7 @@ else
                                                         @{ var vacancyText = GetSlotVacancyDisplay(slot); }
                                                         @if (!string.IsNullOrEmpty(vacancyText))
                                                         {
-                                                            <strong class="text-primary font-monospace" style="white-space: pre;">@vacancyText</strong>
+                                                            <strong class="text-primary small font-monospace" style="white-space: pre;">@vacancyText</strong>
                                                         }
                                                         else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                         {
