@@ -28,11 +28,15 @@ service DailyOperationsSrvc {
   rpc CloseShiftInstance (CloseShiftInstanceRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/daily-operations/shift-instance/{ctrl_nbr}" };
   }
+  rpc ReopenShiftInstance (ReopenShiftInstanceRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/reopen" };
+  }
 }
 
 message GetCallSheetRequest {
   int64 work_area_group_ctrl_nbr = 1;
   string target_date = 2;
+  bool include_closed = 3;
 }
 
 message GetCallSheetResponse {
@@ -137,5 +141,9 @@ message RefreshShiftInstanceRequest {
 }
 
 message CloseShiftInstanceRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message ReopenShiftInstanceRequest {
   int64 ctrl_nbr = 1;
 }

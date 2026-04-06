@@ -6,14 +6,15 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<DailyOperationsClient> logger)
     : BaseGrpcClient<DailyOperationsSrvc.DailyOperationsSrvcClient>(channelProvider, tokenProvider, callInvoker => new DailyOperationsSrvc.DailyOperationsSrvcClient(callInvoker), logger)
 {
-    public async Task<GetCallSheetResponse> GetCallSheetAsync(long workAreaGroupCtrlNbr, string targetDate)
+    public async Task<GetCallSheetResponse> GetCallSheetAsync(long workAreaGroupCtrlNbr, string targetDate, bool includeClosed = false)
     {
         try
         {
             return await _client.GetCallSheetAsync(new GetCallSheetRequest
             {
                 WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
-                TargetDate = targetDate
+                TargetDate = targetDate,
+                IncludeClosed = includeClosed
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
@@ -52,6 +53,18 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         try
         {
             return await _client.CloseShiftInstanceAsync(new CloseShiftInstanceRequest
+            {
+                CtrlNbr = ctrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GenerateCallSheetResponse> ReopenShiftInstanceAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.ReopenShiftInstanceAsync(new ReopenShiftInstanceRequest
             {
                 CtrlNbr = ctrlNbr
             });

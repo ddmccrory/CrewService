@@ -47,6 +47,9 @@ public class CallSheetGenerationServiceTests
 
         public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
             => Task.CompletedTask;
+
+        public Task UpdateAsync(ShiftInstance instance, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 
     private sealed class FakeWorkInstanceRepository : FakeRepository<WorkInstance>, IWorkInstanceRepository

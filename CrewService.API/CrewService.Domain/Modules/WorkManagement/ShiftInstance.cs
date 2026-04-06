@@ -76,6 +76,13 @@ public sealed class ShiftInstance : Entity
         CompletedAtUtc = DateTime.UtcNow;
     }
 
+    public void Reopen()
+    {
+        Status = "Active";
+        IsComplete = false;
+        CompletedAtUtc = null;
+    }
+
     public void Cancel()
     {
         Status = "Cancelled";

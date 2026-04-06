@@ -63,6 +63,14 @@ else
                           Placeholder="-- Select Department --"
                           class="form-select" style="max-width: 250px;" />
         </div>
+        <div class="col-auto d-flex align-items-end" style="padding-bottom: 0.375rem;">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showClosedToggle"
+                       checked="@showClosedShifts"
+                       @onchange="OnShowClosedChanged" />
+                <label class="form-check-label" for="showClosedToggle">Show closed</label>
+            </div>
+        </div>
     </div>
 
     @if (!string.IsNullOrEmpty(successMessage))
@@ -119,14 +127,15 @@ else
             else
             {
                 var activeShift = filteredShifts.FirstOrDefault(s => s.CtrlNbr == activeShiftCtrlNbr) ?? filteredShifts[0];
+                var isShiftReadOnly = IsFeatureReadOnly || activeShift.Status == "Completed";
 
                 <ul class="nav nav-tabs mb-3">
                     @foreach (var shift in filteredShifts)
                     {
                         <li class="nav-item">
-                            <button class="nav-link @(activeShift.CtrlNbr == shift.CtrlNbr ? "active" : "")"
+                            <button class="nav-link @(activeShift.CtrlNbr == shift.CtrlNbr ? "active" : "") @(shift.Status == "Completed" ? "text-muted" : "")"
                                     @onclick="() => activeShiftCtrlNbr = shift.CtrlNbr">
-                                <span class="badge bg-primary me-1">@shift.ShiftCode.ToUpperInvariant()</span>
+                                <span class="badge @(shift.Status == "Completed" ? "bg-secondary" : "bg-primary") me-1">@shift.ShiftCode.ToUpperInvariant()</span>
                                 @shift.ShiftDisplayName
                             </button>
                         </li>
@@ -151,28 +160,44 @@ else
                                 </button>
                             </div>
                             <span class="badge @GetStatusBadgeClass(activeShift.Status)">@activeShift.Status</span>
-                            <button class="btn btn-sm btn-outline-secondary"
-                                    @onclick="() => RefreshShift(activeShift.CtrlNbr)"
-                                    title="Rebuild this call sheet">
-                                <span class="bi bi-arrow-clockwise"></span> Refresh
-                            </button>
-                            @if (!IsFeatureReadOnly)
+                            @if (activeShift.Status != "Completed")
                             {
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                                            data-bs-toggle="dropdown" aria-expanded="false"
-                                            title="Add an extra assignment to this shift">
-                                        <span class="bi bi-plus-circle"></span> Add Assignment
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        @onclick="() => RefreshShift(activeShift.CtrlNbr)"
+                                        title="Rebuild this call sheet">
+                                    <span class="bi bi-arrow-clockwise"></span> Refresh
+                                </button>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false"
+                                                title="Add an extra assignment to this shift">
+                                            <span class="bi bi-plus-circle"></span> Add Assignment
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><button class="dropdown-item" disabled><span class="bi bi-clipboard-check me-2"></span>From Template</button></li>
+                                            <li><button class="dropdown-item" disabled><span class="bi bi-pencil-square me-2"></span>Ad-Hoc</button></li>
+                                        </ul>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => OpenCloseModal(activeShift)"
+                                            title="Close this shift">
+                                        <span class="bi bi-x-circle"></span> Close
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><button class="dropdown-item" disabled><span class="bi bi-clipboard-check me-2"></span>From Template</button></li>
-                                        <li><button class="dropdown-item" disabled><span class="bi bi-pencil-square me-2"></span>Ad-Hoc</button></li>
-                                    </ul>
-                                </div>
-                                <button class="btn btn-sm btn-outline-danger"
-                                        @onclick="() => OpenCloseModal(activeShift)"
-                                        title="Close this shift">
-                                    <span class="bi bi-x-circle"></span> Close
+                                }
+                            }
+                            else if (!IsFeatureReadOnly)
+                            {
+                                <button class="btn btn-sm btn-outline-success"
+                                        @onclick="() => ReopenShift(activeShift.CtrlNbr)"
+                                        disabled="@isReopening"
+                                        title="Re-open this completed shift">
+                                    @if (isReopening)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <span class="bi bi-arrow-counterclockwise"></span> Re-open
                                 </button>
                             }
                         </div>
@@ -207,7 +232,7 @@ else
                                             {
                                                 <th>@role</th>
                                             }
-                                            @if (!IsFeatureReadOnly)
+                                            @if (!isShiftReadOnly)
                                             {
                                                 <th style="width: 80px;" class="text-end">Actions</th>
                                             }
@@ -252,7 +277,7 @@ else
                                                                                     {
                                                                                         <span class="badge @GetSlotStatusBadgeClass(slot)">@GetSlotDisplayStatus(slot)</span>
                                                                                     }
-                                                                                    @if (!IsFeatureReadOnly && IsSlotActionable(slot))
+                                                                                    @if (!isShiftReadOnly && IsSlotActionable(slot))
                                                                                     {
                                                                                         <div class="dropdown">
                                                                                             <button class="btn btn-sm btn-outline-secondary py-0 px-1" type="button"
@@ -295,7 +320,7 @@ else
                                                                         <td></td>
                                                                     }
                                                                 }
-                                                                @if (!IsFeatureReadOnly)
+                                                                @if (!isShiftReadOnly)
                                                                 {
                                                                     <td class="text-end">
                                                                         <div class="dropdown">
@@ -328,7 +353,7 @@ else
                                         <strong>@assignmentGroup.Key.AssignmentName</strong>
                                         <span class="text-muted ms-2">@assignmentGroup.Key.GroupName</span>
                                         <span class="text-muted ms-2 small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
-                                        @if (!IsFeatureReadOnly)
+                                        @if (!isShiftReadOnly)
                                         {
                                             <div class="dropdown ms-2">
                                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-0" type="button"
@@ -350,7 +375,7 @@ else
                                                 <th>Craft/Role</th>
                                                 <th>Status</th>
                                                 <th>Employee</th>
-                                                @if (!IsFeatureReadOnly)
+                                                @if (!isShiftReadOnly)
                                                 {
                                                     <th style="width: 80px;" class="text-end">Actions</th>
                                                 }
@@ -386,7 +411,7 @@ else
                                                             <em class="text-muted">—</em>
                                                         }
                                                     </td>
-                                                    @if (!IsFeatureReadOnly)
+                                                    @if (!isShiftReadOnly)
                                                     {
                                                         <td class="text-end">
                                                             @if (IsSlotActionable(slot))
@@ -503,6 +528,7 @@ else
     private long selectedDepartmentCtrlNbr;
     private long activeShiftCtrlNbr;
     private bool useHorizontalLayout;
+    private bool showClosedShifts;
 
     private bool showGenerateModal;
     private bool isGenerating;
@@ -511,6 +537,7 @@ else
     private bool showCloseModal;
     private long closeShiftCtrlNbr;
     private string closeShiftName = "";
+    private bool isReopening;
 
     protected override async Task LoadDataAsync()
     {
@@ -526,6 +553,7 @@ else
         shifts = null;
         callSheetLoaded = false;
         availableShifts = null;
+        showClosedShifts = false;
 
         if (HasRailroad)
             await LoadWorkAreas();
@@ -600,7 +628,7 @@ else
         try
         {
             var response = await DailyOperationsClient.GetCallSheetAsync(
-                selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"));
+                selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"), showClosedShifts);
             shifts = response.Shifts;
             callSheetLoaded = true;
         }
@@ -652,6 +680,13 @@ else
         activeShiftCtrlNbr = 0;
         var dept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
         useHorizontalLayout = dept?.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private async Task OnShowClosedChanged(ChangeEventArgs e)
+    {
+        showClosedShifts = e.Value is true;
+        if (selectedWorkAreaCtrlNbr > 0)
+            await LoadCallSheet();
     }
 
     private void CloseGenerateModal() => showGenerateModal = false;
@@ -712,6 +747,28 @@ else
         finally
         {
             isSaving = false;
+        }
+    }
+
+    private async Task ReopenShift(long shiftCtrlNbr)
+    {
+        isReopening = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.ReopenShiftInstanceAsync(shiftCtrlNbr);
+            successMessage = "Shift has been re-opened.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to re-open shift: {ex.Message}";
+        }
+        finally
+        {
+            isReopening = false;
         }
     }
 

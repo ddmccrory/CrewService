@@ -38,6 +38,9 @@ public class DailyOperationsService(
 
         foreach (var shift in shifts)
         {
+            if (!request.IncludeClosed && shift.IsComplete)
+                continue;
+
             response.Shifts.Add(MapShiftToResponse(shift));
         }
         return response;
@@ -134,8 +137,21 @@ public class DailyOperationsService(
         var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.CtrlNbr} not found."));
 
-        await shiftInstanceRepo.DeleteAsync(ctrlNbr, context.CancellationToken);
+        shift.Complete();
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
         return new DeleteResponse { Success = true };
+    }
+
+    public override async Task<GenerateCallSheetResponse> ReopenShiftInstance(
+        ReopenShiftInstanceRequest request, ServerCallContext context)
+    {
+        var ctrlNbr = ControlNumber.Create(request.CtrlNbr);
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.CtrlNbr} not found."));
+
+        shift.Reopen();
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
     }
 
     private static DailyShiftInstanceResponse MapShiftToResponse(ShiftInstance shift)
