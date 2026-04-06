@@ -194,6 +194,30 @@ public class DailyOperationsService(
         return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
     }
 
+    public override async Task<GenerateCallSheetResponse> RestoreAssignment(
+        RestoreAssignmentRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var assignmentCtrlNbr = ControlNumber.Create(request.AssignmentCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var slots = shift.PositionSlots
+            .Where(s => s.AssignmentCtrlNbr == assignmentCtrlNbr && s.IsAnnulled)
+            .ToList();
+
+        if (slots.Count == 0)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "No annulled positions found for this assignment."));
+
+        foreach (var slot in slots)
+            slot.RestoreSlot();
+
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
 
     public override async Task<GenerateCallSheetResponse> RefreshShiftInstance(
         RefreshShiftInstanceRequest request, ServerCallContext context)

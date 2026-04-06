@@ -127,4 +127,17 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<GenerateCallSheetResponse> RestoreAssignmentAsync(long shiftInstanceCtrlNbr, long assignmentCtrlNbr)
+    {
+        try
+        {
+            return await _client.RestoreAssignmentAsync(new RestoreAssignmentRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

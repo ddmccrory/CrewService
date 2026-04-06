@@ -31,6 +31,9 @@ service DailyOperationsSrvc {
   rpc RestorePositionSlot (RestorePositionSlotRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/restore-position" body: "*" };
   }
+  rpc RestoreAssignment (RestoreAssignmentRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/restore-assignment" body: "*" };
+  }
   rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
   }
@@ -163,6 +166,10 @@ message RestorePositionSlotRequest {
   int64 position_slot_ctrl_nbr = 2;
 }
 
+message RestoreAssignmentRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+}
 
 message RefreshShiftInstanceRequest {
   int64 ctrl_nbr = 1;

@@ -337,7 +337,11 @@ else
                                                                             </button>
                                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                                 <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
-                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                                                                @if (allAnnulled)
+                                                                                                {
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
+                                                                                                }
+                                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                                                 <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
                                                                             </ul>
                                                                         </div>
@@ -370,6 +374,10 @@ else
                                                 </button>
                                                 <ul class="dropdown-menu">
                                                     <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                    @if (vAllAnnulled)
+                                                    {
+                                                        <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
+                                                    }
                                                     <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                     <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
                                                 </ul>
@@ -569,6 +577,11 @@ else
     <ConfirmModal Visible="showRestoreModal" ItemName="@restoreItemName" IsSaving="isRestoring"
                         ActionVerb="Restore" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
                         OnConfirm="ConfirmRestore" OnCancel="() => showRestoreModal = false" />
+
+    @* ── Restore Assignment Confirmation Modal ── *@
+    <ConfirmModal Visible="showRestoreAssignmentModal" ItemName="@restoreAssignmentItemName" IsSaving="isRestoringAssignment"
+                        ActionVerb="Restore Assignment" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
+                        OnConfirm="ConfirmRestoreAssignment" OnCancel="() => showRestoreAssignmentModal = false" />
 }
 
 @code {
@@ -614,6 +627,13 @@ else
     private long restoreShiftCtrlNbr;
     private long restoreSlotCtrlNbr;
     private string restoreItemName = "";
+
+    // Restore Assignment modal state
+    private bool showRestoreAssignmentModal;
+    private bool isRestoringAssignment;
+    private long restoreAssignmentShiftCtrlNbr;
+    private long restoreAssignmentCtrlNbr;
+    private string restoreAssignmentItemName = "";
 
     protected override async Task LoadDataAsync()
     {
@@ -1041,6 +1061,37 @@ else
         finally
         {
             isRestoring = false;
+        }
+    }
+
+    private void OpenRestoreAssignmentModal(long shiftCtrlNbr, long assignmentCtrlNbr, string itemName)
+    {
+        restoreAssignmentShiftCtrlNbr = shiftCtrlNbr;
+        restoreAssignmentCtrlNbr = assignmentCtrlNbr;
+        restoreAssignmentItemName = itemName;
+        showRestoreAssignmentModal = true;
+    }
+
+    private async Task ConfirmRestoreAssignment()
+    {
+        isRestoringAssignment = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.RestoreAssignmentAsync(restoreAssignmentShiftCtrlNbr, restoreAssignmentCtrlNbr);
+            showRestoreAssignmentModal = false;
+            successMessage = "Assignment restored successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to restore assignment: {ex.Message}";
+        }
+        finally
+        {
+            isRestoringAssignment = false;
         }
     }
 

@@ -144,6 +144,33 @@ public class PositionSlotInstanceTests
         Assert.Equal(200, slot.IncumbentEmployeeCtrlNbr!.Value);
     }
 
+    [Fact]
+    public void RestoreSlot_AllAnnulledSlots_RestoresEachToCorrectStatus()
+    {
+        var shift = ShiftInstance.Create(
+            ControlNumber.Create(1), "DAY", "Day Shift");
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        var vacant = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            assignmentCtrlNbr, "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+        var filled = shift.AddPositionSlot(ControlNumber.Create(11), ControlNumber.Create(200), 2,
+            assignmentCtrlNbr, "TY-101", "Pool Turn 101", "Foreman", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+
+        vacant.Annul("No work", DateTime.UtcNow);
+        filled.Annul("No work", DateTime.UtcNow);
+
+        foreach (var slot in shift.PositionSlots.Where(s => s.AssignmentCtrlNbr == assignmentCtrlNbr && s.IsAnnulled))
+            slot.RestoreSlot();
+
+        Assert.Equal(PositionSlotStatus.Open, vacant.Status);
+        Assert.False(vacant.IsAnnulled);
+        Assert.Equal(PositionSlotStatus.Filled, filled.Status);
+        Assert.False(filled.IsAnnulled);
+        Assert.Equal(200, filled.IncumbentEmployeeCtrlNbr!.Value);
+    }
+
     private static PositionSlotInstance CreateSlot()
     {
         var shiftInstance = ShiftInstance.Create(
