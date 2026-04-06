@@ -22,6 +22,7 @@ public sealed class PositionSlotInstance : Entity
     public bool IsDoNotFill { get; private set; }
     public bool IsSkipped { get; private set; }
     public string? AnnulmentReason { get; private set; }
+    public DateTime? AnnulmentDateTimeUtc { get; private set; }
     public int DisplayOrder { get; private set; }
 
     private PositionSlotInstance()
@@ -93,10 +94,11 @@ public sealed class PositionSlotInstance : Entity
         Status = PositionSlotStatus.TiedUp;
     }
 
-    public void Annul(string reason)
+    public void Annul(string reason, DateTime annulmentDateTimeUtc)
     {
         IsAnnulled = true;
         AnnulmentReason = reason;
+        AnnulmentDateTimeUtc = annulmentDateTimeUtc;
         Status = PositionSlotStatus.Annulled;
     }
 

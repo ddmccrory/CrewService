@@ -114,10 +114,66 @@ public class DailyOperationsService(
         };
     }
 
-    public override Task<DailyPositionSlotResponse> AnnulPosition(
+    public override async Task<GenerateCallSheetResponse> AnnulPosition(
         AnnulPositionRequest request, ServerCallContext context)
     {
-        return Task.FromResult(new DailyPositionSlotResponse());
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var slotCtrlNbr = ControlNumber.Create(request.PositionSlotCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var slot = shift.PositionSlots.SingleOrDefault(s => s.CtrlNbr == slotCtrlNbr)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position slot {request.PositionSlotCtrlNbr} not found on shift."));
+
+        slot.Annul(request.Reason, request.AnnulmentDateTime.ToDateTime());
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
+    public override async Task<GenerateCallSheetResponse> AnnulAssignment(
+        AnnulAssignmentRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var assignmentCtrlNbr = ControlNumber.Create(request.AssignmentCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var slots = shift.PositionSlots
+            .Where(s => s.AssignmentCtrlNbr == assignmentCtrlNbr
+                && s.Status != PositionSlotStatus.Annulled)
+            .ToList();
+
+        if (slots.Count == 0)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "No annullable positions found for this assignment."));
+
+        var annulmentDateTime = request.AnnulmentDateTime.ToDateTime();
+        foreach (var slot in slots)
+            slot.Annul(request.Reason, annulmentDateTime);
+
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
+    public override async Task<GenerateCallSheetResponse> DoNotFillPosition(
+        DoNotFillPositionRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var slotCtrlNbr = ControlNumber.Create(request.PositionSlotCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var slot = shift.PositionSlots.SingleOrDefault(s => s.CtrlNbr == slotCtrlNbr)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position slot {request.PositionSlotCtrlNbr} not found on shift."));
+
+        slot.MarkDoNotFill();
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
     }
 
 

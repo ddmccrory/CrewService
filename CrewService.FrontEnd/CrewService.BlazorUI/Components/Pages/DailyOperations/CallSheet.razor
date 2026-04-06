@@ -244,8 +244,9 @@ else
                                             var slotsByRole = group
                                                 .GroupBy(s => s.CraftRoleName)
                                                 .ToDictionary(g => g.Key, g => g.OrderBy(s => s.DisplayOrder).ToList());
+                                            var allAnnulled = IsAssignmentFullyAnnulled(group);
 
-                                            <tr>
+                                            <tr class="@(allAnnulled ? "text-muted text-decoration-line-through" : "")">
                                                 <td>
                                                     <strong>@group.Key.AssignmentCode.ToUpperInvariant()</strong>
                                                 </td>
@@ -305,8 +306,8 @@ else
                                                                                                     && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp)
                                                                                                 {
                                                                                                     <li><hr class="dropdown-divider" /></li>
-                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul</button></li>
-                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, slot.CtrlNbr, 0, slot.CraftRoleName)"><span class="bi bi-x-circle me-2"></span>Annul</button></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenDoNotFillModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
                                                                                                 }
                                                                                             </ul>
                                                                                         </div>
@@ -329,7 +330,7 @@ else
                                                                                 <span class="bi bi-three-dots-vertical"></span>
                                                                             </button>
                                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                                                <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
                                                                                 <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                                                 <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
                                                                             </ul>
@@ -348,8 +349,9 @@ else
                                 .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName, p.OnDutyTime, p.OffDutyTime, p.GroupCode, p.GroupName })
                                 .OrderBy(g => g.Key.AssignmentCode))
                             {
-                                <div class="ms-3 mb-2 mt-2" style="font-size: 0.85rem;">
-                                    <div class="d-flex align-items-center">
+                                var vAllAnnulled = IsAssignmentFullyAnnulled(assignmentGroup);
+                                <div class="ms-3 mb-2 mt-2 @(vAllAnnulled ? "text-muted" : "")" style="font-size: 0.85rem;">
+                                    <div class="d-flex align-items-center @(vAllAnnulled ? "text-decoration-line-through" : "")">
                                         <strong>@assignmentGroup.Key.AssignmentName</strong>
                                         <span class="text-muted ms-2">@assignmentGroup.Key.GroupName</span>
                                         <span class="text-muted ms-2 small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
@@ -361,7 +363,7 @@ else
                                                     <span class="bi bi-three-dots-vertical"></span>
                                                 </button>
                                                 <ul class="dropdown-menu">
-                                                    <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                    <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
                                                     <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                     <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
                                                 </ul>
@@ -442,8 +444,8 @@ else
                                                                             && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp)
                                                                         {
                                                                             <li><hr class="dropdown-divider" /></li>
-                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul</button></li>
-                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, slot.CtrlNbr, 0, slot.CraftRoleName)"><span class="bi bi-x-circle me-2"></span>Annul</button></li>
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenDoNotFillModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
                                                                         }
                                                                     </ul>
                                                                 </div>
@@ -510,9 +512,46 @@ else
     </Modal>
 
     @* ── Close Shift Confirmation Modal ── *@
-    <ConfirmDeleteModal Visible="showCloseModal" ItemName="@closeShiftName" IsSaving="isSaving"
+    <ConfirmModal Visible="showCloseModal" ItemName="@closeShiftName" IsSaving="isSaving"
                         ActionVerb="Close" ButtonIcon="bi bi-x-circle" ButtonClass="btn-warning"
                         OnConfirm="ConfirmClose" OnCancel="() => showCloseModal = false" />
+
+    @* ── Annul Modal (shared for position and assignment) ── *@
+    <Modal Visible="showAnnulModal"
+           Title="@annulModalTitle"
+           Icon="bi bi-x-circle"
+           OnClose="CloseAnnulModal">
+        <BodyContent>
+            <EditForm Model="annulModel" OnValidSubmit="ConfirmAnnul" id="annul-form">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Annulment Date/Time</label>
+                    <input type="datetime-local" class="form-control"
+                           value="@annulModel.AnnulmentDateTime.ToString("yyyy-MM-ddTHH:mm")"
+                           @onchange="e => annulModel.AnnulmentDateTime = DateTime.Parse(e.Value!.ToString()!)" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <InputTextArea @bind-Value="annulModel.Reason" class="form-control" rows="3" placeholder="Enter annulment reason..." />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="CloseAnnulModal">Cancel</button>
+            <button type="submit" form="annul-form" class="btn btn-danger"
+                    disabled="@(string.IsNullOrWhiteSpace(annulModel.Reason) || isAnnulling)">
+                @if (isAnnulling)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-x-circle me-1"></span> Annul
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Do Not Fill Confirmation Modal ── *@
+    <ConfirmModal Visible="showDoNotFillModal" ItemName="@doNotFillItemName" IsSaving="isDoNotFilling"
+                        ActionVerb="Do Not Fill" ButtonIcon="bi bi-slash-circle" ButtonClass="btn-warning"
+                        OnConfirm="ConfirmDoNotFill" OnCancel="() => showDoNotFillModal = false" />
 }
 
 @code {
@@ -538,6 +577,19 @@ else
     private long closeShiftCtrlNbr;
     private string closeShiftName = "";
     private bool isReopening;
+
+    // Annul modal state
+    private bool showAnnulModal;
+    private bool isAnnulling;
+    private string annulModalTitle = "";
+    private AnnulModel annulModel = new();
+
+    // Do Not Fill modal state
+    private bool showDoNotFillModal;
+    private bool isDoNotFilling;
+    private long doNotFillShiftCtrlNbr;
+    private long doNotFillSlotCtrlNbr;
+    private string doNotFillItemName = "";
 
     protected override async Task LoadDataAsync()
     {
@@ -844,9 +896,111 @@ else
     private static bool IsSlotActionable(DailyPositionSlotResponse slot) =>
         slot.Status is not PositionSlotStatusEnum.PositionSlotStatusSkipped;
 
+    private static bool IsAssignmentFullyAnnulled(IEnumerable<DailyPositionSlotResponse> slots) =>
+        slots.All(s => s.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled);
+
+    private void OpenAnnulModal(long shiftCtrlNbr, long slotCtrlNbr, long assignmentCtrlNbr, string itemName)
+    {
+        annulModel = new()
+        {
+            ShiftInstanceCtrlNbr = shiftCtrlNbr,
+            PositionSlotCtrlNbr = slotCtrlNbr,
+            AssignmentCtrlNbr = assignmentCtrlNbr,
+            AnnulmentDateTime = DateTime.Now
+        };
+        annulModalTitle = assignmentCtrlNbr > 0
+            ? $"Annul Assignment — {itemName}"
+            : $"Annul Position — {itemName}";
+        showAnnulModal = true;
+    }
+
+    private void CloseAnnulModal() => showAnnulModal = false;
+
+    private async Task ConfirmAnnul()
+    {
+        isAnnulling = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var annulmentUtc = DateTime.SpecifyKind(annulModel.AnnulmentDateTime, DateTimeKind.Utc);
+
+            if (annulModel.AssignmentCtrlNbr > 0)
+            {
+                await DailyOperationsClient.AnnulAssignmentAsync(
+                    annulModel.ShiftInstanceCtrlNbr,
+                    annulModel.AssignmentCtrlNbr,
+                    annulModel.Reason ?? "",
+                    annulmentUtc);
+                successMessage = "Assignment annulled successfully.";
+            }
+            else
+            {
+                await DailyOperationsClient.AnnulPositionAsync(
+                    annulModel.ShiftInstanceCtrlNbr,
+                    annulModel.PositionSlotCtrlNbr,
+                    annulModel.Reason ?? "",
+                    annulmentUtc);
+                successMessage = "Position annulled successfully.";
+            }
+
+            showAnnulModal = false;
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Annulment failed: {ex.Message}";
+        }
+        finally
+        {
+            isAnnulling = false;
+        }
+    }
+
+    private void OpenDoNotFillModal(long shiftCtrlNbr, long slotCtrlNbr, string itemName)
+    {
+        doNotFillShiftCtrlNbr = shiftCtrlNbr;
+        doNotFillSlotCtrlNbr = slotCtrlNbr;
+        doNotFillItemName = itemName;
+        showDoNotFillModal = true;
+    }
+
+    private async Task ConfirmDoNotFill()
+    {
+        isDoNotFilling = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.DoNotFillPositionAsync(doNotFillShiftCtrlNbr, doNotFillSlotCtrlNbr);
+            showDoNotFillModal = false;
+            successMessage = "Position marked as Do Not Fill.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to mark position: {ex.Message}";
+        }
+        finally
+        {
+            isDoNotFilling = false;
+        }
+    }
+
     private class GenerateShiftModel
     {
         public long ShiftDefinitionCtrlNbr { get; set; }
         public long DepartmentCtrlNbr { get; set; }
+    }
+
+    private class AnnulModel
+    {
+        public long ShiftInstanceCtrlNbr { get; set; }
+        public long PositionSlotCtrlNbr { get; set; }
+        public long AssignmentCtrlNbr { get; set; }
+        public string? Reason { get; set; }
+        public DateTime AnnulmentDateTime { get; set; } = DateTime.Now;
     }
 }

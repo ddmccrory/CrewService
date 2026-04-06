@@ -116,7 +116,7 @@ else
             </Footer>
         </Modal>
 
-        <ConfirmDeleteModal Visible="showDeletePositionModal" ItemName="@deletePositionRoleName" IsSaving="isSaving"
+        <ConfirmModal Visible="showDeletePositionModal" ItemName="@deletePositionRoleName" IsSaving="isSaving"
                             OnConfirm="ConfirmDeletePosition" OnCancel="() => showDeletePositionModal = false" />
     }
 
@@ -176,7 +176,7 @@ else
             </Footer>
         </Modal>
 
-        <ConfirmDeleteModal Visible="showDeleteAssignmentModal" ItemName="this assignment" IsSaving="isSaving"
+        <ConfirmModal Visible="showDeleteAssignmentModal" ItemName="this assignment" IsSaving="isSaving"
                             OnConfirm="ConfirmDeleteAssignment" OnCancel="() => showDeleteAssignmentModal = false" />
 
         <DataTable TItem="CrewAssignmentResponse" Items="assignments" Columns="assignmentColumns"

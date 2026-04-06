@@ -19,8 +19,14 @@ service DailyOperationsSrvc {
   rpc TieUp (TieUpRequest) returns (OffDutyRecordResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/tie-up" body: "*" };
   }
-  rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse) {
-    option (google.api.http) = { post: "/v1/daily-operations/annul" body: "*" };
+  rpc AnnulPosition (AnnulPositionRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/annul-position" body: "*" };
+  }
+  rpc AnnulAssignment (AnnulAssignmentRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/annul-assignment" body: "*" };
+  }
+  rpc DoNotFillPosition (DoNotFillPositionRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/do-not-fill" body: "*" };
   }
   rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
@@ -131,8 +137,22 @@ message OffDutyRecordResponse {
 }
 
 message AnnulPositionRequest {
-  int64 position_slot_ctrl_nbr = 1;
-  string reason = 2;
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+  string reason = 3;
+  google.protobuf.Timestamp annulment_date_time = 4;
+}
+
+message AnnulAssignmentRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  string reason = 3;
+  google.protobuf.Timestamp annulment_date_time = 4;
+}
+
+message DoNotFillPositionRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
 }
 
 

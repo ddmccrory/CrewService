@@ -63,7 +63,7 @@
     </Footer>
 </Modal>
 
-<ConfirmDeleteModal Visible="showDeleteModal" ItemName="@deletePhoneLabel"
+<ConfirmModal Visible="showDeleteModal" ItemName="@deletePhoneLabel"
                     OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
 
 @if (successMessage is not null)

@@ -82,7 +82,7 @@ else
         </Footer>
     </Modal>
 
-    <ConfirmDeleteModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
+    <ConfirmModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
                         OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
 
     @if (successMessage is not null)

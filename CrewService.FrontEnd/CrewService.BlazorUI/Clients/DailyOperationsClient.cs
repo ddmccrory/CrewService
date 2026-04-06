@@ -71,4 +71,47 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<GenerateCallSheetResponse> AnnulPositionAsync(long shiftInstanceCtrlNbr, long positionSlotCtrlNbr, string reason, DateTime annulmentDateTimeUtc)
+    {
+        try
+        {
+            return await _client.AnnulPositionAsync(new AnnulPositionRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                PositionSlotCtrlNbr = positionSlotCtrlNbr,
+                Reason = reason,
+                AnnulmentDateTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(annulmentDateTimeUtc)
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GenerateCallSheetResponse> AnnulAssignmentAsync(long shiftInstanceCtrlNbr, long assignmentCtrlNbr, string reason, DateTime annulmentDateTimeUtc)
+    {
+        try
+        {
+            return await _client.AnnulAssignmentAsync(new AnnulAssignmentRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr,
+                Reason = reason,
+                AnnulmentDateTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(annulmentDateTimeUtc)
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GenerateCallSheetResponse> DoNotFillPositionAsync(long shiftInstanceCtrlNbr, long positionSlotCtrlNbr)
+    {
+        try
+        {
+            return await _client.DoNotFillPositionAsync(new DoNotFillPositionRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                PositionSlotCtrlNbr = positionSlotCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

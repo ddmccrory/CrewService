@@ -70,11 +70,12 @@ public class PositionSlotInstanceTests
     {
         var slot = CreateSlot();
 
-        slot.Annul("Position abolished");
+        slot.Annul("Position abolished", DateTime.UtcNow);
 
         Assert.Equal(PositionSlotStatus.Annulled, slot.Status);
         Assert.True(slot.IsAnnulled);
         Assert.Equal("Position abolished", slot.AnnulmentReason);
+        Assert.NotNull(slot.AnnulmentDateTimeUtc);
     }
 
     [Fact]
