@@ -264,7 +264,7 @@ else
                                                                                     @{ var hVacancy = GetSlotVacancyDisplay(slot); }
                                                                                     @if (!string.IsNullOrEmpty(hVacancy))
                                                                                     {
-                                                                                        <strong class="text-primary small">@hVacancy</strong>
+                                                                                        <strong class="text-primary small font-monospace" style="white-space: pre;">@hVacancy</strong>
                                                                                     }
                                                                                     else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                                                     {
@@ -336,7 +336,7 @@ else
                                                                                 <span class="bi bi-three-dots-vertical"></span>
                                                                             </button>
                                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                                <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                                                <li><button class="dropdown-item" disabled="@allAnnulled" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
                                                                                                 @if (allAnnulled)
                                                                                                 {
                                                                                                     <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
@@ -373,7 +373,7 @@ else
                                                     <span class="bi bi-three-dots-vertical"></span>
                                                 </button>
                                                 <ul class="dropdown-menu">
-                                                    <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                    <li><button class="dropdown-item" disabled="@vAllAnnulled" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
                                                     @if (vAllAnnulled)
                                                     {
                                                         <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
@@ -412,7 +412,7 @@ else
                                                         @{ var vacancyText = GetSlotVacancyDisplay(slot); }
                                                         @if (!string.IsNullOrEmpty(vacancyText))
                                                         {
-                                                            <strong class="text-primary">@vacancyText</strong>
+                                                            <strong class="text-primary font-monospace" style="white-space: pre;">@vacancyText</strong>
                                                         }
                                                         else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                         {
@@ -927,15 +927,21 @@ else
         _ => ""
     };
 
-    private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot) => slot.Status switch
+    private const int VacancyDisplayWidth = 15;
+
+    private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot)
     {
-        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
-        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*",
-        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
-        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
-        _ => string.Empty
-    };
+        var text = slot.Status switch
+        {
+            PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
+            PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*",
+            PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
+            PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
+            PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
+            _ => string.Empty
+        };
+        return string.IsNullOrEmpty(text) ? text : text.PadRight(VacancyDisplayWidth);
+    }
 
     private static bool IsSlotActionable(DailyPositionSlotResponse slot) =>
         slot.Status is not PositionSlotStatusEnum.PositionSlotStatusSkipped;
