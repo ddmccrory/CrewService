@@ -114,7 +114,7 @@ public sealed class PositionSlotInstance : Entity
         Status = PositionSlotStatus.Skipped;
     }
 
-    public void Restore()
+    public void RestoreSlot()
     {
         IsAnnulled = false;
         AnnulmentReason = null;

@@ -188,7 +188,7 @@ public class DailyOperationsService(
         var slot = shift.PositionSlots.SingleOrDefault(s => s.CtrlNbr == slotCtrlNbr)
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position slot {request.PositionSlotCtrlNbr} not found on shift."));
 
-        slot.Restore();
+        slot.RestoreSlot();
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
         return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };

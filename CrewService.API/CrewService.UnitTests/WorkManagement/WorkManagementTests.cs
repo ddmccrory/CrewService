@@ -106,7 +106,7 @@ public class PositionSlotInstanceTests
         var slot = CreateSlot();
         slot.Annul("No work", DateTime.UtcNow);
 
-        slot.Restore();
+        slot.RestoreSlot();
 
         Assert.Equal(PositionSlotStatus.Open, slot.Status);
         Assert.False(slot.IsAnnulled);
@@ -121,7 +121,7 @@ public class PositionSlotInstanceTests
         var slot = CreateSlot();
         slot.MarkDoNotFill();
 
-        slot.Restore();
+        slot.RestoreSlot();
 
         Assert.Equal(PositionSlotStatus.Open, slot.Status);
         Assert.False(slot.IsDoNotFill);
@@ -137,7 +137,7 @@ public class PositionSlotInstanceTests
             new TimeOnly(7, 0), new TimeOnly(15, 0));
         slot.Annul("Temp annul", DateTime.UtcNow);
 
-        slot.Restore();
+        slot.RestoreSlot();
 
         Assert.Equal(PositionSlotStatus.Filled, slot.Status);
         Assert.False(slot.IsAnnulled);
@@ -246,7 +246,7 @@ public class DepartmentTests
     {
         var dept = Department.Create(10, ControlNumber.Create(5), "Transportation");
 
-        dept.Update("Mechanical");
+        dept.Update("Mechanical", "horizontal");
 
         Assert.Equal("Mechanical", dept.Name);
         Assert.Equal(10, dept.ParentCtrlNbr);
