@@ -1,12 +1,14 @@
 ﻿using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Presentation.Services;
 
-public sealed class AccountService(UserManager<User> userManager) : AccountSrvc.AccountSrvcBase
+public sealed partial class AccountService(UserManager<User> userManager, ILogger<AccountService> logger) : AccountSrvc.AccountSrvcBase
 {
     private readonly UserManager<User> _userManager = userManager;
+    private readonly ILogger<AccountService> _logger = logger;
 
     public override async Task<GetProfileResponse> GetProfile(GetProfileRequest request, ServerCallContext context)
     {
@@ -43,6 +45,9 @@ public sealed class AccountService(UserManager<User> userManager) : AccountSrvc.
     {
         ThemeResponse response = new();
 
+        _logger.LogInformation("ModifyTheme called for user '{UserName}' with theme '{ThemeName}' mode '{ThemeMode}'",
+            request.UserName, request.ThemeName, request.ThemeMode);
+
         if (!string.IsNullOrEmpty(request.UserName))
         {
             var user = await _userManager.FindByEmailAsync(request.UserName);
@@ -50,6 +55,7 @@ public sealed class AccountService(UserManager<User> userManager) : AccountSrvc.
 
             if (user is null)
             {
+                _logger.LogWarning("ModifyTheme: User '{UserName}' not found", request.UserName);
                 response.Success = false;
                 response.Message.Add("User could not be found.");
             }
@@ -62,11 +68,15 @@ public sealed class AccountService(UserManager<User> userManager) : AccountSrvc.
 
                 if (result.Succeeded)
                 {
+                    _logger.LogInformation("ModifyTheme: Successfully saved theme '{ThemeName}' mode '{ThemeMode}' for user '{UserName}'",
+                        request.ThemeName, request.ThemeMode, request.UserName);
                     response.Success = true;
                     response.Message.Add($"User theme has successfully modified to {request.ThemeName} ({request.ThemeMode}).");
                 }
                 else
                 {
+                    _logger.LogError("ModifyTheme: UpdateAsync failed for user '{UserName}': {Errors}",
+                        request.UserName, string.Join("; ", result.Errors.Select(e => e.Description)));
                     response.Success = false;
                     foreach (var erorr in result.Errors)
                         response.Message.Add(erorr.Description);
@@ -75,6 +85,7 @@ public sealed class AccountService(UserManager<User> userManager) : AccountSrvc.
         }
         else
         {
+            _logger.LogWarning("ModifyTheme: UserName is empty");
             response.Success = false;
             response.Message.Add("User Name is required.");
         }

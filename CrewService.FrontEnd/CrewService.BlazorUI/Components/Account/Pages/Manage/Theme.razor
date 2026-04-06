@@ -32,13 +32,27 @@
         <button class="dropdown-item" @onclick="SelectModeDark">Dark</button>
     </div>
 </div>
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 @if (!isHidden)
 {
     <div class="btn-group">
-        <button type="button" class="btn btn-primary" @onclick="OnSaveAsync">Save</button>
+        <button type="button" class="btn btn-primary" @onclick="OnSaveAsync" disabled="@isSaving">Save</button>
     </div>
     <div class="btn-group">
-        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn btn-secondary" @onclick="OnCancel" disabled="@isSaving">Cancel</button>
     </div>
 }
     <hr />
@@ -1435,9 +1449,35 @@
 
     private async Task OnSaveAsync()
     {
-        await AccountClient.SaveThemeAsync(CurrentUser.Username ?? string.Empty, AppThemeService.Mode, AppThemeService.ThemeName);
-        AppThemeService.ClearPreviousValues();
-        NavigationManager.NavigateTo("/Account/Manage/Theme", forceLoad: true);
+        successMessage = null;
+        errorMessage = null;
+        isSaving = true;
+
+        try
+        {
+            var response = await AccountClient.SaveThemeAsync(
+                CurrentUser.Username ?? string.Empty,
+                AppThemeService.Mode,
+                AppThemeService.ThemeName);
+
+            if (response.Success)
+            {
+                AppThemeService.ClearPreviousValues();
+                NavigationManager.NavigateTo("/Account/Manage/Theme", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = string.Join("; ", response.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save theme: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     private void OnCancel()
