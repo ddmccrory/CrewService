@@ -51,22 +51,25 @@ public sealed class Department : Entity
     public ControlNumber? ParentCtrlNbr { get; private set; }
     public ControlNumber? DynamicGroupCtrlNbr { get; private set; }
     public string Name { get; private set; } = string.Empty;
+    public string DefaultCallSheetView { get; private set; } = "Vertical";
 
     private Department() { }
 
-    public static Department Create(ControlNumber? parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr, string name)
+    public static Department Create(ControlNumber? parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr, string name, string defaultCallSheetView = "Vertical")
     {
         return new Department
         {
             ParentCtrlNbr = parentCtrlNbr,
             DynamicGroupCtrlNbr = dynamicGroupCtrlNbr,
-            Name = name
+            Name = name,
+            DefaultCallSheetView = defaultCallSheetView
         };
     }
 
-    public void Update(string name)
+    public void Update(string name, string defaultCallSheetView)
     {
         Name = name;
+        DefaultCallSheetView = defaultCallSheetView;
     }
 }
 public sealed class CraftRole : Entity

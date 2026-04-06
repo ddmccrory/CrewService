@@ -112,6 +112,7 @@ internal class DepartmentConfiguration : IEntityTypeConfiguration<Department>
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(d => d.Name).HasMaxLength(100).IsRequired();
+        builder.Property(d => d.DefaultCallSheetView).HasMaxLength(20).IsRequired().HasDefaultValue("Vertical");
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(d => d.DynamicGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

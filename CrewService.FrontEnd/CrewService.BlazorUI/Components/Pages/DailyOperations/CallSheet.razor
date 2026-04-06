@@ -651,7 +651,7 @@ else
     {
         activeShiftCtrlNbr = 0;
         var dept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
-        useHorizontalLayout = dept?.Name.Equals("Transportation", StringComparison.OrdinalIgnoreCase) == true;
+        useHorizontalLayout = dept?.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private void CloseGenerateModal() => showGenerateModal = false;

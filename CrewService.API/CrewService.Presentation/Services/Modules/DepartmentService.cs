@@ -25,7 +25,8 @@ public class DepartmentService(
         var department = Department.Create(
             request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
             request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null,
-            request.Name);
+            request.Name,
+            string.IsNullOrEmpty(request.DefaultCallSheetView) ? "Vertical" : request.DefaultCallSheetView);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.Departments.Add(department);
@@ -38,7 +39,7 @@ public class DepartmentService(
     {
         var department = await departmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Department {request.CtrlNbr} not found."));
-        department.Update(request.Name);
+        department.Update(request.Name, string.IsNullOrEmpty(request.DefaultCallSheetView) ? "Vertical" : request.DefaultCallSheetView);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.Departments.Update(department);
@@ -64,6 +65,7 @@ public class DepartmentService(
         CtrlNbr = d.CtrlNbr.Value,
         ParentCtrlNbr = d.ParentCtrlNbr?.Value ?? 0,
         DynamicGroupCtrlNbr = d.DynamicGroupCtrlNbr?.Value ?? 0,
-        Name = d.Name
+        Name = d.Name,
+        DefaultCallSheetView = d.DefaultCallSheetView
     };
 }
