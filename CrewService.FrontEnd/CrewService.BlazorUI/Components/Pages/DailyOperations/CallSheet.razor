@@ -909,11 +909,11 @@ else
 
     private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot) => slot.Status switch
     {
-        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***  ",
-        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*  ",
-        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***  ",
+        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
+        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*",
+        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
         PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED*** ",
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
         _ => string.Empty
     };
 
