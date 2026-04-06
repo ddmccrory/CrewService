@@ -114,4 +114,17 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<GenerateCallSheetResponse> RestorePositionAsync(long shiftInstanceCtrlNbr, long positionSlotCtrlNbr)
+    {
+        try
+        {
+            return await _client.RestorePositionSlotAsync(new RestorePositionSlotRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                PositionSlotCtrlNbr = positionSlotCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

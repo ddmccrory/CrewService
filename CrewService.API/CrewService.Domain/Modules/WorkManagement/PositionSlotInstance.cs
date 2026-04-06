@@ -113,4 +113,15 @@ public sealed class PositionSlotInstance : Entity
         IsSkipped = true;
         Status = PositionSlotStatus.Skipped;
     }
+
+    public void Restore()
+    {
+        IsAnnulled = false;
+        AnnulmentReason = null;
+        AnnulmentDateTimeUtc = null;
+        IsDoNotFill = false;
+        Status = IncumbentEmployeeCtrlNbr is not null
+            ? PositionSlotStatus.Filled
+            : PositionSlotStatus.Open;
+    }
 }

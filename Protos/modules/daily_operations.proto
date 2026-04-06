@@ -28,6 +28,9 @@ service DailyOperationsSrvc {
   rpc DoNotFillPosition (DoNotFillPositionRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/do-not-fill" body: "*" };
   }
+  rpc RestorePositionSlot (RestorePositionSlotRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/restore-position" body: "*" };
+  }
   rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
   }
@@ -151,6 +154,11 @@ message AnnulAssignmentRequest {
 }
 
 message DoNotFillPositionRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+}
+
+message RestorePositionSlotRequest {
   int64 shift_instance_ctrl_nbr = 1;
   int64 position_slot_ctrl_nbr = 2;
 }

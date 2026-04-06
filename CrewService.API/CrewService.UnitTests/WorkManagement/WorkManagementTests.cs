@@ -100,6 +100,50 @@ public class PositionSlotInstanceTests
         Assert.True(slot.IsSkipped);
     }
 
+    [Fact]
+    public void Restore_FromAnnulled_ResetsToOpen()
+    {
+        var slot = CreateSlot();
+        slot.Annul("No work", DateTime.UtcNow);
+
+        slot.Restore();
+
+        Assert.Equal(PositionSlotStatus.Open, slot.Status);
+        Assert.False(slot.IsAnnulled);
+        Assert.Null(slot.AnnulmentReason);
+        Assert.Null(slot.AnnulmentDateTimeUtc);
+        Assert.False(slot.IsDoNotFill);
+    }
+
+    [Fact]
+    public void Restore_FromDoNotFill_ResetsToOpen()
+    {
+        var slot = CreateSlot();
+        slot.MarkDoNotFill();
+
+        slot.Restore();
+
+        Assert.Equal(PositionSlotStatus.Open, slot.Status);
+        Assert.False(slot.IsDoNotFill);
+    }
+
+    [Fact]
+    public void Restore_WithIncumbent_ResetsToFilled()
+    {
+        var shiftInstance = ShiftInstance.Create(
+            ControlNumber.Create(1), "DAY", "Day Shift");
+        var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), ControlNumber.Create(200), 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+        slot.Annul("Temp annul", DateTime.UtcNow);
+
+        slot.Restore();
+
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
+        Assert.False(slot.IsAnnulled);
+        Assert.Equal(200, slot.IncumbentEmployeeCtrlNbr!.Value);
+    }
+
     private static PositionSlotInstance CreateSlot()
     {
         var shiftInstance = ShiftInstance.Create(

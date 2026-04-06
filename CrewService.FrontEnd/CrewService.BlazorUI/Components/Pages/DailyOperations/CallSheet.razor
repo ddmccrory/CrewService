@@ -230,7 +230,7 @@ else
                                             <th>Off Duty</th>
                                             @foreach (var role in craftRoleColumns)
                                             {
-                                                <th>@role</th>
+                                                <th style="min-width: 15ch;">@role</th>
                                             }
                                             @if (!isShiftReadOnly)
                                             {
@@ -308,6 +308,12 @@ else
                                                                                                     <li><hr class="dropdown-divider" /></li>
                                                                                                     <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, slot.CtrlNbr, 0, slot.CraftRoleName)"><span class="bi bi-x-circle me-2"></span>Annul</button></li>
                                                                                                     <li><button class="dropdown-item" @onclick="() => OpenDoNotFillModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                                                }
+                                                                                                @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled
+                                                                                                    || slot.Status == PositionSlotStatusEnum.PositionSlotStatusDoNotFill)
+                                                                                                {
+                                                                                                    <li><hr class="dropdown-divider" /></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenRestoreModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore</button></li>
                                                                                                 }
                                                                                             </ul>
                                                                                         </div>
@@ -447,6 +453,12 @@ else
                                                                             <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, slot.CtrlNbr, 0, slot.CraftRoleName)"><span class="bi bi-x-circle me-2"></span>Annul</button></li>
                                                                             <li><button class="dropdown-item" @onclick="() => OpenDoNotFillModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
                                                                         }
+                                                                        @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled
+                                                                            || slot.Status == PositionSlotStatusEnum.PositionSlotStatusDoNotFill)
+                                                                        {
+                                                                            <li><hr class="dropdown-divider" /></li>
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenRestoreModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore</button></li>
+                                                                        }
                                                                     </ul>
                                                                 </div>
                                                             }
@@ -552,6 +564,11 @@ else
     <ConfirmModal Visible="showDoNotFillModal" ItemName="@doNotFillItemName" IsSaving="isDoNotFilling"
                         ActionVerb="Do Not Fill" ButtonIcon="bi bi-slash-circle" ButtonClass="btn-warning"
                         OnConfirm="ConfirmDoNotFill" OnCancel="() => showDoNotFillModal = false" />
+
+    @* ── Restore Position Confirmation Modal ── *@
+    <ConfirmModal Visible="showRestoreModal" ItemName="@restoreItemName" IsSaving="isRestoring"
+                        ActionVerb="Restore" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
+                        OnConfirm="ConfirmRestore" OnCancel="() => showRestoreModal = false" />
 }
 
 @code {
@@ -590,6 +607,13 @@ else
     private long doNotFillShiftCtrlNbr;
     private long doNotFillSlotCtrlNbr;
     private string doNotFillItemName = "";
+
+    // Restore modal state
+    private bool showRestoreModal;
+    private bool isRestoring;
+    private long restoreShiftCtrlNbr;
+    private long restoreSlotCtrlNbr;
+    private string restoreItemName = "";
 
     protected override async Task LoadDataAsync()
     {
@@ -885,11 +909,11 @@ else
 
     private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot) => slot.Status switch
     {
-        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
-        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "***EXTRA BOARD***",
-        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
+        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***  ",
+        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*  ",
+        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***  ",
         PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED*** ",
         _ => string.Empty
     };
 
@@ -986,6 +1010,37 @@ else
         finally
         {
             isDoNotFilling = false;
+        }
+    }
+
+    private void OpenRestoreModal(long shiftCtrlNbr, long slotCtrlNbr, string itemName)
+    {
+        restoreShiftCtrlNbr = shiftCtrlNbr;
+        restoreSlotCtrlNbr = slotCtrlNbr;
+        restoreItemName = itemName;
+        showRestoreModal = true;
+    }
+
+    private async Task ConfirmRestore()
+    {
+        isRestoring = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.RestorePositionAsync(restoreShiftCtrlNbr, restoreSlotCtrlNbr);
+            showRestoreModal = false;
+            successMessage = "Position restored successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to restore position: {ex.Message}";
+        }
+        finally
+        {
+            isRestoring = false;
         }
     }
 

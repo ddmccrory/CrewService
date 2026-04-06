@@ -176,6 +176,24 @@ public class DailyOperationsService(
         return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
     }
 
+    public override async Task<GenerateCallSheetResponse> RestorePositionSlot(
+        RestorePositionSlotRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var slotCtrlNbr = ControlNumber.Create(request.PositionSlotCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var slot = shift.PositionSlots.SingleOrDefault(s => s.CtrlNbr == slotCtrlNbr)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position slot {request.PositionSlotCtrlNbr} not found on shift."));
+
+        slot.Restore();
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
 
     public override async Task<GenerateCallSheetResponse> RefreshShiftInstance(
         RefreshShiftInstanceRequest request, ServerCallContext context)
