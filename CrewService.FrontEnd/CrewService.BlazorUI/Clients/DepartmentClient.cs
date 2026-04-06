@@ -20,7 +20,7 @@ public sealed class DepartmentClient(GrpcChannelProvider channelProvider, Circui
         }
     }
 
-    public async Task<DepartmentResponse> CreateAsync(long parentCtrlNbr, long railroadCtrlNbr, string name)
+    public async Task<DepartmentResponse> CreateAsync(long parentCtrlNbr, long railroadCtrlNbr, string name, string defaultCallSheetView = "Vertical")
     {
         try
         {
@@ -28,7 +28,8 @@ public sealed class DepartmentClient(GrpcChannelProvider channelProvider, Circui
             {
                 ParentCtrlNbr = parentCtrlNbr,
                 DynamicGroupCtrlNbr = railroadCtrlNbr,
-                Name = name
+                Name = name,
+                DefaultCallSheetView = defaultCallSheetView
             });
         }
         catch (Exception ex)
@@ -38,14 +39,15 @@ public sealed class DepartmentClient(GrpcChannelProvider channelProvider, Circui
         }
     }
 
-    public async Task<DepartmentResponse> UpdateAsync(long ctrlNbr, string name)
+    public async Task<DepartmentResponse> UpdateAsync(long ctrlNbr, string name, string defaultCallSheetView)
     {
         try
         {
             return await _client.UpdateAsync(new UpdateDepartmentRequest
             {
                 CtrlNbr = ctrlNbr,
-                Name = name
+                Name = name,
+                DefaultCallSheetView = defaultCallSheetView
             });
         }
         catch (Exception ex)

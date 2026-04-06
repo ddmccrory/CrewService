@@ -52,10 +52,17 @@ else
                     <div class="form-text">Parent-level departments are inherited by all railroads.</div>
                 </div>
                 }
-                <div class="mb-0">
+                <div class="mb-3">
                     <label class="form-label fw-semibold">Name</label>
                     <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Operating" />
                     <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Default Call Sheet View</label>
+                    <InputSelect @bind-Value="saveModel.DefaultCallSheetView" class="form-select">
+                        <option value="Vertical">Vertical</option>
+                        <option value="Horizontal">Horizontal</option>
+                    </InputSelect>
                 </div>
             </EditForm>
         </BodyContent>
@@ -111,6 +118,7 @@ else
         </ToolbarContent>
         <RowContent Context="dept">
             <td>@dept.Name</td>
+            <td>@dept.DefaultCallSheetView</td>
             <td>
                 @if (IsOwnedByRailroad(dept))
                 {
@@ -147,6 +155,7 @@ else
     private static readonly IReadOnlyList<DataTableColumn<DepartmentResponse>> columns =
     [
         new("Name", d => d.Name),
+        new("Default View", d => d.DefaultCallSheetView, width: "140px"),
         new("Owner", d => d.DynamicGroupCtrlNbr > 0 ? "Railroad" : "Parent", width: "120px"),
         DataTableColumn<DepartmentResponse>.Actions()
     ];
@@ -219,7 +228,7 @@ else
     private void OpenEditModal(DepartmentResponse dept)
     {
         editCtrlNbr = dept.CtrlNbr;
-        saveModel = new() { Name = dept.Name };
+        saveModel = new() { Name = dept.Name, DefaultCallSheetView = dept.DefaultCallSheetView };
         showSaveModal = true;
     }
 
@@ -247,12 +256,12 @@ else
 
             if (editCtrlNbr > 0)
             {
-                await DepartmentClient.UpdateAsync(editCtrlNbr, saveModel.Name!);
+                await DepartmentClient.UpdateAsync(editCtrlNbr, saveModel.Name!, saveModel.DefaultCallSheetView);
                 successMessage = "Department updated.";
             }
             else
             {
-                await DepartmentClient.CreateAsync(SelectedParentCtrlNbr!.Value, saveModel.OwnerCtrlNbr, saveModel.Name!);
+                await DepartmentClient.CreateAsync(SelectedParentCtrlNbr!.Value, saveModel.OwnerCtrlNbr, saveModel.Name!, saveModel.DefaultCallSheetView);
                 successMessage = "Department created.";
             }
 
@@ -295,6 +304,7 @@ else
         [Required(ErrorMessage = "Name is required.")]
         [StringLength(100, MinimumLength = 1)]
         public string? Name { get; set; }
+        public string DefaultCallSheetView { get; set; } = "Vertical";
         public long OwnerCtrlNbr { get; set; }
     }
 }
