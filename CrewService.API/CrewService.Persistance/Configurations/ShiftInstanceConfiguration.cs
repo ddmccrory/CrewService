@@ -23,6 +23,7 @@ internal class ShiftInstanceConfiguration : IEntityTypeConfiguration<ShiftInstan
         builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
 
         builder.HasMany(s => s.PositionSlots).WithOne().HasForeignKey(p => p.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(s => s.AssignmentNotes).WithOne().HasForeignKey(n => n.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne<WorkInstance>().WithMany().HasForeignKey(s => s.WorkInstanceCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
@@ -61,5 +62,23 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class AssignmentNoteConfiguration : IEntityTypeConfiguration<AssignmentNote>
+{
+    public void Configure(EntityTypeBuilder<AssignmentNote> builder)
+    {
+        builder.HasKey(n => n.CtrlNbr);
+        builder.Property(n => n.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(n => n.ShiftInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(n => n.AssignmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(n => n.NoteText).HasMaxLength(2000).IsRequired();
+
+        builder.HasIndex(n => new { n.ShiftInstanceCtrlNbr, n.AssignmentCtrlNbr }).IsUnique();
+
+        builder.OwnsOne(n => n.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(n => n.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(n => n.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }

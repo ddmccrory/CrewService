@@ -34,6 +34,9 @@ service DailyOperationsSrvc {
   rpc RestoreAssignment (RestoreAssignmentRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/restore-assignment" body: "*" };
   }
+  rpc SaveAssignmentNote (SaveAssignmentNoteRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/assignment-note" body: "*" };
+  }
   rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
   }
@@ -74,6 +77,7 @@ message DailyShiftInstanceResponse {
   optional int64 department_ctrl_nbr = 5;
   string department_name = 6;
   repeated DailyPositionSlotResponse position_slots = 7;
+  repeated AssignmentNoteResponse assignment_notes = 8;
 }
 
 enum PositionSlotStatusEnum {
@@ -169,6 +173,17 @@ message RestorePositionSlotRequest {
 message RestoreAssignmentRequest {
   int64 shift_instance_ctrl_nbr = 1;
   int64 assignment_ctrl_nbr = 2;
+}
+
+message SaveAssignmentNoteRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  string note_text = 3;
+}
+
+message AssignmentNoteResponse {
+  int64 assignment_ctrl_nbr = 1;
+  string note_text = 2;
 }
 
 message RefreshShiftInstanceRequest {

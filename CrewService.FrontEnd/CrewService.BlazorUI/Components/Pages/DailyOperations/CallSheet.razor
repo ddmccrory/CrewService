@@ -245,10 +245,15 @@ else
                                                 .GroupBy(s => s.CraftRoleName)
                                                 .ToDictionary(g => g.Key, g => g.OrderBy(s => s.DisplayOrder).ToList());
                                             var allAnnulled = IsAssignmentFullyAnnulled(group);
+                                            var hNote = GetAssignmentNote(activeShift, group.Key.AssignmentCtrlNbr);
 
                                             <tr class="@(allAnnulled ? "text-muted text-decoration-line-through" : "")">
                                                 <td>
                                                     <strong>@group.Key.AssignmentCode.ToUpperInvariant()</strong>
+                                                    @if (!string.IsNullOrEmpty(hNote))
+                                                    {
+                                                        <span class="bi bi-journal-text text-info ms-1" title="@hNote"></span>
+                                                    }
                                                 </td>
                                                 <td>@group.Key.GroupCode.ToUpperInvariant()</td>
                                                 <td class="text-nowrap">@group.Key.OnDutyTime</td>
@@ -339,10 +344,11 @@ else
                                                                                 <li><button class="dropdown-item" disabled="@allAnnulled" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
                                                                                                 @if (allAnnulled)
                                                                                                 {
-                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
-                                                                                                }
-                                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
-                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                                                                        <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
+                                                                                                    }
+                                                                                                    <li><hr class="dropdown-divider" /></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), hNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
                                                                             </ul>
                                                                         </div>
                                                                     </td>
@@ -360,9 +366,14 @@ else
                                 .OrderBy(g => g.Key.AssignmentCode))
                             {
                                 var vAllAnnulled = IsAssignmentFullyAnnulled(assignmentGroup);
+                                var vNote = GetAssignmentNote(activeShift, assignmentGroup.Key.AssignmentCtrlNbr);
                                 <div class="ms-3 mb-2 mt-2 @(vAllAnnulled ? "text-muted" : "")" style="font-size: 0.85rem;">
                                     <div class="d-flex align-items-center @(vAllAnnulled ? "text-decoration-line-through" : "")">
                                         <strong>@assignmentGroup.Key.AssignmentName</strong>
+                                        @if (!string.IsNullOrEmpty(vNote))
+                                        {
+                                            <span class="bi bi-journal-text text-info ms-1" title="@vNote"></span>
+                                        }
                                         <span class="text-muted ms-2">@assignmentGroup.Key.GroupName</span>
                                         <span class="text-muted ms-2 small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
                                         @if (!isShiftReadOnly)
@@ -378,7 +389,8 @@ else
                                                     {
                                                         <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
                                                     }
-                                                    <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                    <li><hr class="dropdown-divider" /></li>
+                                                    <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), vNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                     <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
                                                 </ul>
                                             </div>
@@ -582,6 +594,32 @@ else
     <ConfirmModal Visible="showRestoreAssignmentModal" ItemName="@restoreAssignmentItemName" IsSaving="isRestoringAssignment"
                         ActionVerb="Restore Assignment" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
                         OnConfirm="ConfirmRestoreAssignment" OnCancel="() => showRestoreAssignmentModal = false" />
+
+    @* ── Assignment Notes Modal ── *@
+    <Modal Visible="showNotesModal"
+           Title="@notesModalTitle"
+           Icon="bi bi-journal-text"
+           OnClose="() => showNotesModal = false">
+        <BodyContent>
+            <EditForm Model="notesModel" OnValidSubmit="SaveNotes" id="notes-form">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Notes</label>
+                    <InputTextArea @bind-Value="notesModel.NoteText" class="form-control" rows="6" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => showNotesModal = false">Cancel</button>
+            <button type="submit" form="notes-form" class="btn btn-primary"
+                    disabled="@isSavingNotes">
+                @if (isSavingNotes)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-floppy me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -634,6 +672,14 @@ else
     private long restoreAssignmentShiftCtrlNbr;
     private long restoreAssignmentCtrlNbr;
     private string restoreAssignmentItemName = "";
+
+    // Notes modal state
+    private bool showNotesModal;
+    private bool isSavingNotes;
+    private long notesShiftCtrlNbr;
+    private long notesAssignmentCtrlNbr;
+    private string notesModalTitle = "";
+    private NotesModel notesModel = new();
 
     protected override async Task LoadDataAsync()
     {
@@ -1101,6 +1147,41 @@ else
         }
     }
 
+    private static string GetAssignmentNote(DailyShiftInstanceResponse shift, long assignmentCtrlNbr) =>
+        shift.AssignmentNotes.FirstOrDefault(n => n.AssignmentCtrlNbr == assignmentCtrlNbr)?.NoteText ?? "";
+
+    private void OpenNotesModal(long shiftCtrlNbr, long assignmentCtrlNbr, string assignmentCode, string existingNote)
+    {
+        notesShiftCtrlNbr = shiftCtrlNbr;
+        notesAssignmentCtrlNbr = assignmentCtrlNbr;
+        notesModalTitle = $"Notes — {assignmentCode}";
+        notesModel = new NotesModel { NoteText = existingNote };
+        showNotesModal = true;
+    }
+
+    private async Task SaveNotes()
+    {
+        isSavingNotes = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.SaveAssignmentNoteAsync(notesShiftCtrlNbr, notesAssignmentCtrlNbr, notesModel.NoteText ?? "");
+            showNotesModal = false;
+            successMessage = "Notes saved successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save notes: {ex.Message}";
+        }
+        finally
+        {
+            isSavingNotes = false;
+        }
+    }
+
     private class GenerateShiftModel
     {
         public long ShiftDefinitionCtrlNbr { get; set; }
@@ -1114,5 +1195,10 @@ else
         public long AssignmentCtrlNbr { get; set; }
         public string? Reason { get; set; }
         public DateTime AnnulmentDateTime { get; set; } = DateTime.Now;
+    }
+
+    private class NotesModel
+    {
+        public string? NoteText { get; set; }
     }
 }

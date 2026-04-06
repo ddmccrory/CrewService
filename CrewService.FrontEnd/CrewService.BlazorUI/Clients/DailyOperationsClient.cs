@@ -140,4 +140,18 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<GenerateCallSheetResponse> SaveAssignmentNoteAsync(long shiftInstanceCtrlNbr, long assignmentCtrlNbr, string noteText)
+    {
+        try
+        {
+            return await _client.SaveAssignmentNoteAsync(new SaveAssignmentNoteRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr,
+                NoteText = noteText
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

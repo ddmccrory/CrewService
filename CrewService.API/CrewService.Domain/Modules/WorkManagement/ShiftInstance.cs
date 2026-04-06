@@ -6,6 +6,7 @@ namespace CrewService.Domain.Modules.WorkManagement;
 public sealed class ShiftInstance : Entity
 {
     private readonly List<PositionSlotInstance> _positionSlots = [];
+    private readonly List<AssignmentNote> _assignmentNotes = [];
 
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
     public string ShiftCode { get; private set; } = string.Empty;
@@ -17,6 +18,7 @@ public sealed class ShiftInstance : Entity
     public DateTime? CompletedAtUtc { get; private set; }
 
     public IReadOnlyList<PositionSlotInstance> PositionSlots => _positionSlots.AsReadOnly();
+    public IReadOnlyList<AssignmentNote> AssignmentNotes => _assignmentNotes.AsReadOnly();
 
     private ShiftInstance()
     {
@@ -86,5 +88,19 @@ public sealed class ShiftInstance : Entity
     public void Cancel()
     {
         Status = "Cancelled";
+    }
+
+    public void SetAssignmentNote(ControlNumber assignmentCtrlNbr, string noteText)
+    {
+        var note = _assignmentNotes.SingleOrDefault(n => n.AssignmentCtrlNbr == assignmentCtrlNbr);
+        if (note is null)
+        {
+            note = AssignmentNote.Create(CtrlNbr, assignmentCtrlNbr, noteText);
+            _assignmentNotes.Add(note);
+        }
+        else
+        {
+            note.UpdateText(noteText);
+        }
     }
 }

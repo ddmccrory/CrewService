@@ -218,6 +218,21 @@ public class DailyOperationsService(
         return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
     }
 
+    public override async Task<GenerateCallSheetResponse> SaveAssignmentNote(
+        SaveAssignmentNoteRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var assignmentCtrlNbr = ControlNumber.Create(request.AssignmentCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        shift.SetAssignmentNote(assignmentCtrlNbr, request.NoteText);
+        await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
 
     public override async Task<GenerateCallSheetResponse> RefreshShiftInstance(
         RefreshShiftInstanceRequest request, ServerCallContext context)
@@ -290,6 +305,15 @@ public class DailyOperationsService(
             if (slot.IncumbentEmployeeCtrlNbr is not null)
                 slotResp.IncumbentEmployeeCtrlNbr = slot.IncumbentEmployeeCtrlNbr.Value;
             shiftResp.PositionSlots.Add(slotResp);
+        }
+
+        foreach (var note in shift.AssignmentNotes)
+        {
+            shiftResp.AssignmentNotes.Add(new AssignmentNoteResponse
+            {
+                AssignmentCtrlNbr = note.AssignmentCtrlNbr.Value,
+                NoteText = note.NoteText
+            });
         }
 
         return shiftResp;

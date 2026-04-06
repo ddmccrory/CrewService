@@ -184,6 +184,47 @@ public class PositionSlotInstanceTests
 }
 
 
+public class ShiftInstanceNoteTests
+{
+    [Fact]
+    public void SetAssignmentNote_CreatesNewNote()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        shift.SetAssignmentNote(assignmentCtrlNbr, "Test note");
+
+        Assert.Single(shift.AssignmentNotes);
+        Assert.Equal(50, shift.AssignmentNotes[0].AssignmentCtrlNbr.Value);
+        Assert.Equal("Test note", shift.AssignmentNotes[0].NoteText);
+    }
+
+    [Fact]
+    public void SetAssignmentNote_UpdatesExistingNote()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        shift.SetAssignmentNote(assignmentCtrlNbr, "Original");
+        shift.SetAssignmentNote(assignmentCtrlNbr, "Updated");
+
+        Assert.Single(shift.AssignmentNotes);
+        Assert.Equal("Updated", shift.AssignmentNotes[0].NoteText);
+    }
+
+    [Fact]
+    public void SetAssignmentNote_DifferentAssignments_CreatesSeparateNotes()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+
+        shift.SetAssignmentNote(ControlNumber.Create(50), "Note A");
+        shift.SetAssignmentNote(ControlNumber.Create(60), "Note B");
+
+        Assert.Equal(2, shift.AssignmentNotes.Count);
+    }
+}
+
+
 public class WorkInstanceTests
 {
     [Fact]
