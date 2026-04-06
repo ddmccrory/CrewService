@@ -721,10 +721,12 @@ else
                                         <td class="text-end">
                                             <div class="btn-group btn-group-sm">
                                                 <button type="button" class="btn btn-outline-secondary py-0"
+                                                        disabled="@(!CanMoveUp(item))"
                                                         @onclick="() => MovePositionUp(item)" title="Move up">
                                                     <span class="bi bi-arrow-up"></span>
                                                 </button>
                                                 <button type="button" class="btn btn-outline-secondary py-0"
+                                                        disabled="@(!CanMoveDown(item))"
                                                         @onclick="() => MovePositionDown(item)" title="Move down">
                                                     <span class="bi bi-arrow-down"></span>
                                                 </button>
@@ -1463,6 +1465,25 @@ else
         if (idx < 0 || idx >= craftGroup.Count - 1) return;
         (craftGroup[idx].DisplayOrder, craftGroup[idx + 1].DisplayOrder) =
             (craftGroup[idx + 1].DisplayOrder, craftGroup[idx].DisplayOrder);
+    }
+
+    private bool CanMoveUp(PositionEditItem item)
+    {
+        var craftGroup = positionsEditList
+            .Where(p => p.CraftRoleName == item.CraftRoleName && !p.IsRemoved)
+            .OrderBy(p => p.DisplayOrder)
+            .ToList();
+        return craftGroup.IndexOf(item) > 0;
+    }
+
+    private bool CanMoveDown(PositionEditItem item)
+    {
+        var craftGroup = positionsEditList
+            .Where(p => p.CraftRoleName == item.CraftRoleName && !p.IsRemoved)
+            .OrderBy(p => p.DisplayOrder)
+            .ToList();
+        var idx = craftGroup.IndexOf(item);
+        return idx >= 0 && idx < craftGroup.Count - 1;
     }
 
     private bool HasPositionChanges =>
