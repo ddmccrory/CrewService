@@ -44,6 +44,24 @@ internal sealed class CraftRoleRepository(CrewServiceDbContext dbContext, ICurre
             .OrderBy(r => r.Code)
             .ToListAsync();
     }
+
+    public async Task<List<CraftRole>> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
+    {
+        var departmentCtrlNbrs = await DbContext.Set<Department>()
+            .Where(d => d.DynamicGroupCtrlNbr == railroadCtrlNbr)
+            .Select(d => d.CtrlNbr)
+            .ToListAsync();
+
+        var craftCtrlNbrs = await DbContext.Set<Craft>()
+            .Where(c => c.DepartmentCtrlNbr != null && departmentCtrlNbrs.Contains(c.DepartmentCtrlNbr))
+            .Select(c => c.CtrlNbr)
+            .ToListAsync();
+
+        return await DbContext.Set<CraftRole>()
+            .Where(r => craftCtrlNbrs.Contains(r.CraftCtrlNbr))
+            .OrderBy(r => r.Code)
+            .ToListAsync();
+    }
 }
 
 internal sealed class PositionSlotRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

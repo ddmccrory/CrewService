@@ -37,6 +37,9 @@ service DailyOperationsSrvc {
   rpc SaveAssignmentNote (SaveAssignmentNoteRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/assignment-note" body: "*" };
   }
+  rpc ManageAssignmentPositions (ManageAssignmentPositionsRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/manage-positions" body: "*" };
+  }
   rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
   }
@@ -112,6 +115,7 @@ message DailyPositionSlotResponse {
   string group_name = 15;
   string group_code = 16;
   bool is_incumbent = 17;
+  bool is_ad_hoc = 18;
 }
 
 message PlaceOnDutyRequest {
@@ -184,6 +188,19 @@ message SaveAssignmentNoteRequest {
 message AssignmentNoteResponse {
   int64 assignment_ctrl_nbr = 1;
   string note_text = 2;
+}
+
+message ManageAssignmentPositionsRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  repeated string added_craft_role_names = 3;
+  repeated int64 removed_position_slot_ctrl_nbrs = 4;
+  repeated PositionSlotOrderEntry position_slot_orders = 5;
+}
+
+message PositionSlotOrderEntry {
+  int64 ctrl_nbr = 1;
+  int32 display_order = 2;
 }
 
 message RefreshShiftInstanceRequest {

@@ -40,7 +40,9 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.ShiftInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.CrewPositionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.CrewPositionCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(p => p.IncumbentEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
@@ -56,7 +58,7 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
         builder.Property(p => p.OnDutyTime);
         builder.Property(p => p.OffDutyTime);
 
-        builder.HasOne<CrewPosition>().WithMany().HasForeignKey(p => p.CrewPositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<CrewPosition>().WithMany().HasForeignKey(p => p.CrewPositionCtrlNbr).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.IncumbentEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

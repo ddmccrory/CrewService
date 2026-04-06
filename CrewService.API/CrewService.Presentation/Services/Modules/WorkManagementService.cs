@@ -119,7 +119,9 @@ public class WorkManagementService(
             ? await craftRoleRepository.GetByDepartmentAsync(ControlNumber.Create(request.DepartmentCtrlNbr))
             : request.CraftCtrlNbr > 0
                 ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-                : await craftRoleRepository.GetAllAsync();
+                : request.RailroadCtrlNbr > 0
+                    ? await craftRoleRepository.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr))
+                    : await craftRoleRepository.GetAllAsync();
         var response = new GetCraftRolesResponse { TotalCount = roles.Count };
         foreach (var r in roles) response.Roles.Add(MapRole(r));
         return response;

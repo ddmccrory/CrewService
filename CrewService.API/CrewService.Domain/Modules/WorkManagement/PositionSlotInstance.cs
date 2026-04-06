@@ -6,7 +6,7 @@ namespace CrewService.Domain.Modules.WorkManagement;
 public sealed class PositionSlotInstance : Entity
 {
     public ControlNumber ShiftInstanceCtrlNbr { get; private set; }
-    public ControlNumber CrewPositionCtrlNbr { get; private set; }
+    public ControlNumber? CrewPositionCtrlNbr { get; private set; }
     public ControlNumber? IncumbentEmployeeCtrlNbr { get; private set; }
     public ControlNumber AssignmentCtrlNbr { get; private set; }
     public string AssignmentCode { get; private set; } = string.Empty;
@@ -21,6 +21,7 @@ public sealed class PositionSlotInstance : Entity
     public bool IsAnnulled { get; private set; }
     public bool IsDoNotFill { get; private set; }
     public bool IsSkipped { get; private set; }
+    public bool IsAdHoc { get; private set; }
     public string? AnnulmentReason { get; private set; }
     public DateTime? AnnulmentDateTimeUtc { get; private set; }
     public int DisplayOrder { get; private set; }
@@ -28,7 +29,6 @@ public sealed class PositionSlotInstance : Entity
     private PositionSlotInstance()
     {
         ShiftInstanceCtrlNbr = null!;
-        CrewPositionCtrlNbr = null!;
         AssignmentCtrlNbr = null!;
     }
 
@@ -123,5 +123,42 @@ public sealed class PositionSlotInstance : Entity
         Status = IncumbentEmployeeCtrlNbr is not null
             ? PositionSlotStatus.Filled
             : PositionSlotStatus.Open;
+    }
+
+    internal static PositionSlotInstance CreateAdHoc(
+        ControlNumber shiftInstanceCtrlNbr,
+        int displayOrder,
+        ControlNumber assignmentCtrlNbr,
+        string assignmentCode,
+        string assignmentName,
+        string craftRoleName,
+        string groupName,
+        string groupCode,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime)
+    {
+        return new PositionSlotInstance
+        {
+            ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+            CrewPositionCtrlNbr = null,
+            IncumbentEmployeeCtrlNbr = null,
+            DisplayOrder = displayOrder,
+            Status = PositionSlotStatus.Open,
+            IsIncumbent = false,
+            IsAdHoc = true,
+            AssignmentCtrlNbr = assignmentCtrlNbr,
+            AssignmentCode = assignmentCode,
+            AssignmentName = assignmentName,
+            CraftRoleName = craftRoleName,
+            GroupName = groupName,
+            GroupCode = groupCode,
+            OnDutyTime = onDutyTime,
+            OffDutyTime = offDutyTime
+        };
+    }
+
+    internal void SetDisplayOrder(int displayOrder)
+    {
+        DisplayOrder = displayOrder;
     }
 }

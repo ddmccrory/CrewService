@@ -184,6 +184,146 @@ public class PositionSlotInstanceTests
 }
 
 
+public class ShiftInstancePositionManagementTests
+{
+    [Fact]
+    public void AddAdHocPositionSlot_CreatesAdHocSlotWithCopiedMetadata()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Conductor");
+
+        Assert.True(adHoc.IsAdHoc);
+        Assert.Null(adHoc.CrewPositionCtrlNbr);
+        Assert.Equal(PositionSlotStatus.Open, adHoc.Status);
+        Assert.Equal("Conductor", adHoc.CraftRoleName);
+        Assert.Equal("TY-101", adHoc.AssignmentCode);
+        Assert.Equal("Pool Turn 101", adHoc.AssignmentName);
+    }
+
+    [Fact]
+    public void AddAdHocPositionSlot_CalculatesDisplayOrderPerCraft()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        // Existing Engineer slot has DisplayOrder = 1
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Engineer");
+
+        Assert.Equal(2, adHoc.DisplayOrder);
+    }
+
+    [Fact]
+    public void AddAdHocPositionSlot_NewCraftRole_StartsAtDisplayOrder1()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Brakeman");
+
+        Assert.Equal(1, adHoc.DisplayOrder);
+    }
+
+    [Fact]
+    public void AddAdHocPositionSlot_NoExistingAssignment_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.AddAdHocPositionSlot(ControlNumber.Create(999), "Engineer"));
+    }
+
+    [Fact]
+    public void RemovePositionSlot_AdHocOpen_Removes()
+    {
+        var shift = CreateShiftWithPositions();
+        var adHoc = shift.AddAdHocPositionSlot(ControlNumber.Create(50), "Conductor");
+        var initialCount = shift.PositionSlots.Count;
+
+        shift.RemovePositionSlot(adHoc.CtrlNbr);
+
+        Assert.Equal(initialCount - 1, shift.PositionSlots.Count);
+        Assert.DoesNotContain(adHoc, shift.PositionSlots);
+    }
+
+    [Fact]
+    public void RemovePositionSlot_TemplateSlot_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+        var templateSlot = shift.PositionSlots[0]; // Template slot from AddPositionSlot
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.RemovePositionSlot(templateSlot.CtrlNbr));
+    }
+
+    [Fact]
+    public void RemovePositionSlot_FilledAdHoc_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+        var adHoc = shift.AddAdHocPositionSlot(ControlNumber.Create(50), "Conductor");
+        adHoc.Fill(ControlNumber.Create(200));
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.RemovePositionSlot(adHoc.CtrlNbr));
+    }
+
+    [Fact]
+    public void RemovePositionSlot_NotFound_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.RemovePositionSlot(ControlNumber.Create(999)));
+    }
+
+    [Fact]
+    public void ReorderPositionSlots_UpdatesDisplayOrders()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Engineer");
+
+        var original = shift.PositionSlots[0]; // DisplayOrder = 1
+        // adHoc has DisplayOrder = 2
+
+        shift.ReorderPositionSlots(
+        [
+            (original.CtrlNbr, 2),
+            (adHoc.CtrlNbr, 1)
+        ]);
+
+        Assert.Equal(2, original.DisplayOrder);
+        Assert.Equal(1, adHoc.DisplayOrder);
+    }
+
+    [Fact]
+    public void ReorderPositionSlots_IgnoresUnknownCtrlNbrs()
+    {
+        var shift = CreateShiftWithPositions();
+        var slot = shift.PositionSlots[0];
+
+        // Should not throw
+        shift.ReorderPositionSlots(
+        [
+            (slot.CtrlNbr, 5),
+            (ControlNumber.Create(999), 10)
+        ]);
+
+        Assert.Equal(5, slot.DisplayOrder);
+    }
+
+    private static ShiftInstance CreateShiftWithPositions()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "Pool", "POOL",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+        return shift;
+    }
+}
+
+
 public class ShiftInstanceNoteTests
 {
     [Fact]

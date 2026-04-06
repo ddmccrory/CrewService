@@ -154,4 +154,30 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<GenerateCallSheetResponse> ManageAssignmentPositionsAsync(
+        long shiftInstanceCtrlNbr,
+        long assignmentCtrlNbr,
+        IEnumerable<string> addedCraftRoleNames,
+        IEnumerable<long> removedPositionSlotCtrlNbrs,
+        IEnumerable<(long CtrlNbr, int DisplayOrder)> positionSlotOrders)
+    {
+        try
+        {
+            var req = new ManageAssignmentPositionsRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr
+            };
+            req.AddedCraftRoleNames.AddRange(addedCraftRoleNames);
+            req.RemovedPositionSlotCtrlNbrs.AddRange(removedPositionSlotCtrlNbrs);
+            req.PositionSlotOrders.AddRange(positionSlotOrders.Select(o => new PositionSlotOrderEntry
+            {
+                CtrlNbr = o.CtrlNbr,
+                DisplayOrder = o.DisplayOrder
+            }));
+            return await _client.ManageAssignmentPositionsAsync(req);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

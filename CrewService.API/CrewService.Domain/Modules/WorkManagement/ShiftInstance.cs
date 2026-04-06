@@ -103,4 +103,53 @@ public sealed class ShiftInstance : Entity
             note.UpdateText(noteText);
         }
     }
+
+    public PositionSlotInstance AddAdHocPositionSlot(ControlNumber assignmentCtrlNbr, string craftRoleName)
+    {
+        var existing = _positionSlots.FirstOrDefault(s => s.AssignmentCtrlNbr == assignmentCtrlNbr)
+            ?? throw new InvalidOperationException($"No existing positions found for assignment {assignmentCtrlNbr} to copy metadata from.");
+
+        var maxOrder = _positionSlots
+            .Where(s => s.AssignmentCtrlNbr == assignmentCtrlNbr && s.CraftRoleName == craftRoleName)
+            .Select(s => s.DisplayOrder)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        var slot = PositionSlotInstance.CreateAdHoc(
+            CtrlNbr,
+            maxOrder + 1,
+            existing.AssignmentCtrlNbr,
+            existing.AssignmentCode,
+            existing.AssignmentName,
+            craftRoleName,
+            existing.GroupName,
+            existing.GroupCode,
+            existing.OnDutyTime,
+            existing.OffDutyTime);
+        _positionSlots.Add(slot);
+        return slot;
+    }
+
+    public void RemovePositionSlot(ControlNumber positionSlotCtrlNbr)
+    {
+        var slot = _positionSlots.SingleOrDefault(s => s.CtrlNbr == positionSlotCtrlNbr)
+            ?? throw new InvalidOperationException($"Position slot {positionSlotCtrlNbr} not found.");
+
+        if (!slot.IsAdHoc)
+            throw new InvalidOperationException("Only ad-hoc positions can be removed.");
+
+        if (slot.Status != PositionSlotStatus.Open)
+            throw new InvalidOperationException("Only open positions can be removed.");
+
+        _positionSlots.Remove(slot);
+    }
+
+    public void ReorderPositionSlots(IEnumerable<(ControlNumber CtrlNbr, int DisplayOrder)> orders)
+    {
+        foreach (var (ctrlNbr, displayOrder) in orders)
+        {
+            var slot = _positionSlots.SingleOrDefault(s => s.CtrlNbr == ctrlNbr);
+            slot?.SetDisplayOrder(displayOrder);
+        }
+    }
 }

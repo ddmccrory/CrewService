@@ -348,7 +348,7 @@ else
                                                                                                     }
                                                                                                     <li><hr class="dropdown-divider" /></li>
                                                                                                     <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), hNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
-                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenPositionsModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), group)"><span class="bi bi-people me-2"></span>Positions</button></li>
                                                                             </ul>
                                                                         </div>
                                                                     </td>
@@ -399,7 +399,7 @@ else
                                                     }
                                                     <li><hr class="dropdown-divider" /></li>
                                                     <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), vNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
-                                                    <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                    <li><button class="dropdown-item" @onclick="() => OpenPositionsModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), assignmentGroup)"><span class="bi bi-people me-2"></span>Positions</button></li>
                                                 </ul>
                                             </div>
                                         }
@@ -638,6 +638,143 @@ else
             </button>
         </Footer>
     </Modal>
+
+    @* ── Manage Positions Modal ── *@
+    <Modal Visible="showPositionsModal"
+           Title="@positionsModalTitle"
+           Icon="bi bi-people"
+           Size="lg"
+           OnClose="() => showPositionsModal = false">
+        <BodyContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <div class="d-flex align-items-end gap-2 mb-3">
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-semibold">Add Position</label>
+                        <select class="form-select form-select-sm" @bind="positionsSelectedCraftRole">
+                            <option value="">-- Select Craft/Role --</option>
+                            @if (positionsCraftRoles is not null)
+                            {
+                                @foreach (var role in positionsCraftRoles.OrderBy(r => r.Name))
+                                {
+                                    <option value="@role.Name">@role.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-success"
+                            disabled="@string.IsNullOrEmpty(positionsSelectedCraftRole)"
+                            @onclick="AddPosition">
+                        <span class="bi bi-plus-circle me-1"></span> Add
+                    </button>
+                </div>
+            }
+
+            @{ var craftGroups = positionsEditList
+                   .GroupBy(p => p.CraftRoleName)
+                   .OrderBy(g => g.Key)
+                   .ToList(); }
+
+            @if (craftGroups.Count == 0)
+            {
+                <p class="text-muted"><em>No positions on this assignment.</em></p>
+            }
+            else
+            {
+                @foreach (var craftGroup in craftGroups)
+                {
+                    <h6 class="mt-2 mb-1">@craftGroup.Key</h6>
+                    <table class="table table-sm table-hover mb-2">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Status</th>
+                                <th>Type</th>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <th style="width: 120px;" class="text-end">Actions</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in craftGroup.Where(p => !p.IsRemoved).OrderBy(p => p.DisplayOrder))
+                            {
+                                <tr class="@(item.IsNew ? "table-success" : "")">
+                                    <td>@item.DisplayOrder</td>
+                                    <td>
+                                        <span class="badge @(item.IsNew ? "bg-success" : "bg-secondary")">
+                                            @(item.IsNew ? "New" : item.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (item.IsAdHoc || item.IsNew)
+                                        {
+                                            <span class="badge bg-info">Ad-Hoc</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Template</span>
+                                        }
+                                    </td>
+                                    @if (!IsFeatureReadOnly)
+                                    {
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-secondary py-0"
+                                                        @onclick="() => MovePositionUp(item)" title="Move up">
+                                                    <span class="bi bi-arrow-up"></span>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary py-0"
+                                                        @onclick="() => MovePositionDown(item)" title="Move down">
+                                                    <span class="bi bi-arrow-down"></span>
+                                                </button>
+                                                @if (item.CanRemove)
+                                                {
+                                                    <button type="button" class="btn btn-outline-danger py-0"
+                                                            @onclick="() => RemovePosition(item)" title="Remove">
+                                                        <span class="bi bi-trash"></span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            @foreach (var item in craftGroup.Where(p => p.IsRemoved))
+                            {
+                                <tr class="table-danger text-decoration-line-through">
+                                    <td>@item.DisplayOrder</td>
+                                    <td><span class="badge bg-danger">Removed</span></td>
+                                    <td><span class="badge bg-info">Ad-Hoc</span></td>
+                                    @if (!IsFeatureReadOnly)
+                                    {
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                                                    @onclick="() => UndoRemovePosition(item)" title="Undo remove">
+                                                <span class="bi bi-arrow-counterclockwise"></span>
+                                            </button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => showPositionsModal = false">Cancel</button>
+            <button type="button" class="btn btn-primary"
+                    disabled="@(!HasPositionChanges || isSavingPositions)"
+                    @onclick="SavePositions">
+                @if (isSavingPositions)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-floppy me-1"></span> Save Changes
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -698,6 +835,16 @@ else
     private long notesAssignmentCtrlNbr;
     private string notesModalTitle = "";
     private NotesModel notesModel = new();
+
+    // Positions modal state
+    private bool showPositionsModal;
+    private bool isSavingPositions;
+    private long positionsShiftCtrlNbr;
+    private long positionsAssignmentCtrlNbr;
+    private string positionsModalTitle = "";
+    private string positionsSelectedCraftRole = "";
+    private List<PositionEditItem> positionsEditList = [];
+    private IReadOnlyList<CraftRoleResponse>? positionsCraftRoles;
 
     protected override async Task LoadDataAsync()
     {
@@ -1218,5 +1365,167 @@ else
     private class NotesModel
     {
         public string? NoteText { get; set; }
+    }
+
+    // ── Position Management ──
+
+    private async Task OpenPositionsModal(long shiftCtrlNbr, long assignmentCtrlNbr, string assignmentCode,
+        IEnumerable<DailyPositionSlotResponse> currentSlots)
+    {
+        positionsShiftCtrlNbr = shiftCtrlNbr;
+        positionsAssignmentCtrlNbr = assignmentCtrlNbr;
+        positionsModalTitle = $"Manage Positions — {assignmentCode}";
+        positionsSelectedCraftRole = "";
+
+        positionsEditList = currentSlots
+            .OrderBy(s => s.CraftRoleName)
+            .ThenBy(s => s.DisplayOrder)
+            .Select(s => new PositionEditItem
+            {
+                CtrlNbr = s.CtrlNbr,
+                CraftRoleName = s.CraftRoleName,
+                DisplayOrder = s.DisplayOrder,
+                Status = GetSlotDisplayStatus(s),
+                IsAdHoc = s.IsAdHoc,
+                IsOpen = s.Status == PositionSlotStatusEnum.PositionSlotStatusOpen,
+                IsNew = false,
+                IsRemoved = false
+            })
+            .ToList();
+
+        try
+        {
+            var response = await WorkManagementClient.GetCraftRolesAsync(railroadCtrlNbr: SelectedRailroadCtrlNbr!.Value);
+            positionsCraftRoles = response.Roles;
+        }
+        catch { positionsCraftRoles = []; }
+
+        showPositionsModal = true;
+    }
+
+    private void AddPosition()
+    {
+        if (string.IsNullOrEmpty(positionsSelectedCraftRole)) return;
+
+        var maxOrder = positionsEditList
+            .Where(p => p.CraftRoleName == positionsSelectedCraftRole && !p.IsRemoved)
+            .Select(p => p.DisplayOrder)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        positionsEditList.Add(new PositionEditItem
+        {
+            CtrlNbr = 0,
+            CraftRoleName = positionsSelectedCraftRole,
+            DisplayOrder = maxOrder + 1,
+            Status = "Vacancy",
+            IsAdHoc = true,
+            IsOpen = true,
+            IsNew = true,
+            IsRemoved = false
+        });
+
+        positionsSelectedCraftRole = "";
+    }
+
+    private void RemovePosition(PositionEditItem item)
+    {
+        if (item.IsNew)
+            positionsEditList.Remove(item);
+        else
+            item.IsRemoved = true;
+    }
+
+    private void UndoRemovePosition(PositionEditItem item)
+    {
+        item.IsRemoved = false;
+    }
+
+    private void MovePositionUp(PositionEditItem item)
+    {
+        var craftGroup = positionsEditList
+            .Where(p => p.CraftRoleName == item.CraftRoleName && !p.IsRemoved)
+            .OrderBy(p => p.DisplayOrder)
+            .ToList();
+        var idx = craftGroup.IndexOf(item);
+        if (idx <= 0) return;
+        (craftGroup[idx].DisplayOrder, craftGroup[idx - 1].DisplayOrder) =
+            (craftGroup[idx - 1].DisplayOrder, craftGroup[idx].DisplayOrder);
+    }
+
+    private void MovePositionDown(PositionEditItem item)
+    {
+        var craftGroup = positionsEditList
+            .Where(p => p.CraftRoleName == item.CraftRoleName && !p.IsRemoved)
+            .OrderBy(p => p.DisplayOrder)
+            .ToList();
+        var idx = craftGroup.IndexOf(item);
+        if (idx < 0 || idx >= craftGroup.Count - 1) return;
+        (craftGroup[idx].DisplayOrder, craftGroup[idx + 1].DisplayOrder) =
+            (craftGroup[idx + 1].DisplayOrder, craftGroup[idx].DisplayOrder);
+    }
+
+    private bool HasPositionChanges =>
+        positionsEditList.Any(p => p.IsNew || p.IsRemoved) ||
+        positionsEditList.Any(p => !p.IsNew && !p.IsRemoved && p.DisplayOrder != p.OriginalDisplayOrder);
+
+    private async Task SavePositions()
+    {
+        isSavingPositions = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var addedRoles = positionsEditList.Where(p => p.IsNew).Select(p => p.CraftRoleName);
+            var removedIds = positionsEditList.Where(p => p.IsRemoved && !p.IsNew).Select(p => p.CtrlNbr);
+            var orders = positionsEditList
+                .Where(p => !p.IsNew && !p.IsRemoved)
+                .Select(p => (p.CtrlNbr, p.DisplayOrder));
+
+            await DailyOperationsClient.ManageAssignmentPositionsAsync(
+                positionsShiftCtrlNbr,
+                positionsAssignmentCtrlNbr,
+                addedRoles,
+                removedIds,
+                orders);
+
+            showPositionsModal = false;
+            successMessage = "Positions updated successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update positions: {ex.Message}";
+        }
+        finally
+        {
+            isSavingPositions = false;
+        }
+    }
+
+    private class PositionEditItem
+    {
+        public long CtrlNbr { get; set; }
+        public string CraftRoleName { get; set; } = "";
+        private int _displayOrder;
+        public int DisplayOrder
+        {
+            get => _displayOrder;
+            set
+            {
+                if (!_initialized) { _originalDisplayOrder = value; _initialized = true; }
+                _displayOrder = value;
+            }
+        }
+        public int OriginalDisplayOrder => _originalDisplayOrder;
+        private int _originalDisplayOrder;
+        private bool _initialized;
+        public string Status { get; set; } = "";
+        public bool IsAdHoc { get; set; }
+        public bool IsOpen { get; set; }
+        public bool IsNew { get; set; }
+        public bool IsRemoved { get; set; }
+        public bool CanRemove => (IsAdHoc || IsNew) && IsOpen;
     }
 }

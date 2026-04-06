@@ -234,6 +234,41 @@ public class DailyOperationsService(
     }
 
 
+    public override async Task<GenerateCallSheetResponse> ManageAssignmentPositions(
+        ManageAssignmentPositionsRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var assignmentCtrlNbr = ControlNumber.Create(request.AssignmentCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        try
+        {
+            foreach (var slotCtrlNbr in request.RemovedPositionSlotCtrlNbrs)
+                shift.RemovePositionSlot(ControlNumber.Create(slotCtrlNbr));
+
+            foreach (var craftRoleName in request.AddedCraftRoleNames)
+                shift.AddAdHocPositionSlot(assignmentCtrlNbr, craftRoleName);
+
+            if (request.PositionSlotOrders.Count > 0)
+            {
+                var orders = request.PositionSlotOrders
+                    .Select(o => (ControlNumber.Create(o.CtrlNbr), o.DisplayOrder));
+                shift.ReorderPositionSlots(orders);
+            }
+
+            await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
+
     public override async Task<GenerateCallSheetResponse> RefreshShiftInstance(
         RefreshShiftInstanceRequest request, ServerCallContext context)
     {
@@ -286,11 +321,12 @@ public class DailyOperationsService(
             var slotResp = new DailyPositionSlotResponse
             {
                 CtrlNbr = slot.CtrlNbr.Value,
-                CrewPositionCtrlNbr = slot.CrewPositionCtrlNbr.Value,
+                CrewPositionCtrlNbr = slot.CrewPositionCtrlNbr?.Value ?? 0,
                 Status = MapSlotStatus(slot.Status),
                 IsAnnulled = slot.IsAnnulled,
                 IsDoNotFill = slot.IsDoNotFill,
                 IsSkipped = slot.IsSkipped,
+                IsAdHoc = slot.IsAdHoc,
                 DisplayOrder = slot.DisplayOrder,
                 AssignmentCtrlNbr = slot.AssignmentCtrlNbr.Value,
                 AssignmentCode = slot.AssignmentCode,
