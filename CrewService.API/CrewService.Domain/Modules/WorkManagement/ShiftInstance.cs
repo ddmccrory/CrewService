@@ -58,14 +58,17 @@ public sealed class ShiftInstance : Entity
         string groupName,
         string groupCode,
         TimeOnly onDutyTime,
-        TimeOnly offDutyTime)
+        TimeOnly offDutyTime,
+        string crewName = "",
+        string crewType = "")
     {
         var status = incumbentEmployeeCtrlNbr is not null ? PositionSlotStatus.Filled : PositionSlotStatus.Open;
         var isIncumbent = incumbentEmployeeCtrlNbr is not null;
         var slot = PositionSlotInstance.Create(
             CtrlNbr, crewPositionCtrlNbr, incumbentEmployeeCtrlNbr, displayOrder, status, isIncumbent,
             assignmentCtrlNbr, assignmentCode, assignmentName, craftRoleName,
-            groupName, groupCode, onDutyTime, offDutyTime);
+            groupName, groupCode, onDutyTime, offDutyTime,
+            crewName, crewType);
         _positionSlots.Add(slot);
         return slot;
     }
@@ -129,7 +132,9 @@ public sealed class ShiftInstance : Entity
             existing.GroupName,
             existing.GroupCode,
             existing.OnDutyTime,
-            existing.OffDutyTime);
+            existing.OffDutyTime,
+            existing.CrewName,
+            existing.CrewType);
         _positionSlots.Add(slot);
         return slot;
     }
@@ -165,7 +170,7 @@ public sealed class ShiftInstance : Entity
         string groupCode,
         TimeOnly onDutyTime,
         TimeOnly offDutyTime,
-        IReadOnlyList<(ControlNumber PositionCtrlNbr, ControlNumber? IncumbentEmployeeCtrlNbr, int DisplayOrder, string CraftRoleName)> positions)
+        IReadOnlyList<(ControlNumber PositionCtrlNbr, ControlNumber? IncumbentEmployeeCtrlNbr, int DisplayOrder, string CraftRoleName, string CrewName, string CrewType)> positions)
     {
         if (_positionSlots.Any(s => s.AssignmentCtrlNbr == assignmentCtrlNbr))
             throw new InvalidOperationException($"Assignment {assignmentCtrlNbr} is already on this shift.");
@@ -175,7 +180,8 @@ public sealed class ShiftInstance : Entity
             AddPositionSlot(
                 pos.PositionCtrlNbr, pos.IncumbentEmployeeCtrlNbr, pos.DisplayOrder,
                 assignmentCtrlNbr, assignmentCode, assignmentName,
-                pos.CraftRoleName, groupName, groupCode, onDutyTime, offDutyTime);
+                pos.CraftRoleName, groupName, groupCode, onDutyTime, offDutyTime,
+                pos.CrewName, pos.CrewType);
         }
     }
 

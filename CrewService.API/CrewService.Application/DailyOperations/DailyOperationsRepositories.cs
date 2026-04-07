@@ -35,4 +35,6 @@ public sealed record CrewPositionDto(
     ControlNumber PositionCtrlNbr,
     ControlNumber? IncumbentEmployeeCtrlNbr,
     int DisplayOrder,
-    string CraftRoleName);
+    string CraftRoleName,
+    string CrewName = "",
+    string CrewType = "REGULAR");

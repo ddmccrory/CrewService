@@ -12,6 +12,7 @@ using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Encryption;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using System.Linq.Expressions;
 
 namespace CrewService.Persistance.Data;
@@ -206,11 +207,74 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
         }
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditableEntities();
+        await CascadeSoftDeletesAsync(cancellationToken);
+        return await base.SaveChangesAsync(cancellationToken);
+    }
 
-        return base.SaveChangesAsync(cancellationToken);
+    /// <summary>
+    /// Automatically cascades soft-deletes to dependent entities whose FK relationship
+    /// is configured with DeleteBehavior.Cascade, mirroring what EF does for hard deletes.
+    /// Uses BFS to handle cascading chains (e.g., Crew → CrewPosition → CrewIncumbency).
+    /// </summary>
+    private async Task CascadeSoftDeletesAsync(CancellationToken cancellationToken)
+    {
+        var newlyDeletedEntries = ChangeTracker.Entries<Entity>()
+            .Where(e => e.State == EntityState.Modified
+                && e.Entity.IsDeleted
+                && !e.OriginalValues.GetValue<bool>(nameof(Entity.IsDeleted)))
+            .ToList();
+
+        if (newlyDeletedEntries.Count == 0) return;
+
+        var auditUser = currentUserService.GetUserName();
+        var now = DateTime.UtcNow;
+
+        var queue = new Queue<(IEntityType EntityType, long PkValue)>();
+        foreach (var entry in newlyDeletedEntries)
+            queue.Enqueue((entry.Metadata, entry.Entity.CtrlNbr.Value));
+
+        while (queue.Count > 0)
+        {
+            var (parentType, parentPk) = queue.Dequeue();
+
+            var cascadeFKs = Model.GetEntityTypes()
+                .Where(et => typeof(Entity).IsAssignableFrom(et.ClrType))
+                .SelectMany(et => et.GetForeignKeys())
+                .Where(fk => fk.PrincipalEntityType.ClrType == parentType.ClrType
+                    && fk.DeleteBehavior == DeleteBehavior.Cascade);
+
+            foreach (var fk in cascadeFKs)
+            {
+                var depType = fk.DeclaringEntityType;
+                var tableName = depType.GetTableName()!;
+                var storeId = StoreObjectIdentifier.Table(tableName, depType.GetSchema());
+                var fkCol = fk.Properties[0].GetColumnName(storeId)!;
+                var pkCol = depType.FindPrimaryKey()!.Properties[0].GetColumnName(storeId)!;
+
+                var selectSql = $"SELECT \"{pkCol}\" AS \"Value\" FROM \"{tableName}\" WHERE \"{fkCol}\" = {{0}} AND IsDeleted = 0";
+                var dependentPks = await Database
+                    .SqlQueryRaw<long>(selectSql, parentPk)
+                    .ToListAsync(cancellationToken);
+
+                if (dependentPks.Count == 0) continue;
+
+                var updateSql =
+                    $"UPDATE \"{tableName}\" SET IsDeleted = 1, DeletedAt = {{0}}, " +
+                    $"DeletedBy_AuditName = {{1}}, DeletedBy_AuditDateTime = {{2}}, " +
+                    $"ModifiedBy_AuditName = {{3}}, ModifiedBy_AuditDateTime = {{4}} " +
+                    $"WHERE \"{fkCol}\" = {{5}} AND IsDeleted = 0";
+                await Database.ExecuteSqlRawAsync(
+                    updateSql,
+                    new object[] { now, auditUser, now, auditUser, now, parentPk },
+                    cancellationToken);
+
+                foreach (var depPk in dependentPks)
+                    queue.Enqueue((depType, depPk));
+            }
+        }
     }
 
     private void UpdateAuditableEntities()

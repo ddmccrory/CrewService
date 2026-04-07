@@ -25,6 +25,8 @@ public sealed class PositionSlotInstance : Entity
     public string? AnnulmentReason { get; private set; }
     public DateTime? AnnulmentDateTimeUtc { get; private set; }
     public int DisplayOrder { get; private set; }
+    public string CrewName { get; private set; } = string.Empty;
+    public string CrewType { get; private set; } = string.Empty;
 
     private PositionSlotInstance()
     {
@@ -46,7 +48,9 @@ public sealed class PositionSlotInstance : Entity
         string groupName,
         string groupCode,
         TimeOnly onDutyTime,
-        TimeOnly offDutyTime)
+        TimeOnly offDutyTime,
+        string crewName = "",
+        string crewType = "")
     {
         return new PositionSlotInstance
         {
@@ -63,7 +67,9 @@ public sealed class PositionSlotInstance : Entity
             GroupName = groupName,
             GroupCode = groupCode,
             OnDutyTime = onDutyTime,
-            OffDutyTime = offDutyTime
+            OffDutyTime = offDutyTime,
+            CrewName = crewName,
+            CrewType = crewType
         };
     }
 
@@ -135,7 +141,9 @@ public sealed class PositionSlotInstance : Entity
         string groupName,
         string groupCode,
         TimeOnly onDutyTime,
-        TimeOnly offDutyTime)
+        TimeOnly offDutyTime,
+        string crewName = "",
+        string crewType = "")
     {
         return new PositionSlotInstance
         {
@@ -153,7 +161,9 @@ public sealed class PositionSlotInstance : Entity
             GroupName = groupName,
             GroupCode = groupCode,
             OnDutyTime = onDutyTime,
-            OffDutyTime = offDutyTime
+            OffDutyTime = offDutyTime,
+            CrewName = crewName,
+            CrewType = crewType
         };
     }
 

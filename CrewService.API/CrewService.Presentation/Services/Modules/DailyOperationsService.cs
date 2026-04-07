@@ -373,7 +373,7 @@ public class DailyOperationsService(
                 ? parsedOff : template.OffDutyTime;
 
             var positions = template.Positions
-                .Select(p => (p.PositionCtrlNbr, p.IncumbentEmployeeCtrlNbr, p.DisplayOrder, p.CraftRoleName))
+                .Select(p => (p.PositionCtrlNbr, p.IncumbentEmployeeCtrlNbr, p.DisplayOrder, p.CraftRoleName, p.CrewName, p.CrewType))
                 .ToList();
 
             shift.AddTemplateAssignment(
@@ -481,6 +481,8 @@ public class DailyOperationsService(
                 GroupCode = slot.GroupCode,
                 IsIncumbent = slot.IsIncumbent,
             };
+            slotResp.CrewName = slot.CrewName;
+            slotResp.CrewType = slot.CrewType;
             if (slot.IncumbentEmployeeCtrlNbr is not null)
                 slotResp.IncumbentEmployeeCtrlNbr = slot.IncumbentEmployeeCtrlNbr.Value;
             shiftResp.PositionSlots.Add(slotResp);

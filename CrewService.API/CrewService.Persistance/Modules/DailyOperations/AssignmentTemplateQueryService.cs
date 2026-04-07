@@ -55,6 +55,10 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
 
         var crewCtrlNbrs = crewAssignments.Select(ca => ca.CrewCtrlNbr).Distinct().ToList();
 
+        var crews = await dbContext.Set<Crew>()
+            .Where(c => crewCtrlNbrs.Contains(c.CtrlNbr))
+            .ToDictionaryAsync(c => c.CtrlNbr, ct);
+
         var positions = await dbContext.Set<CrewPosition>()
             .Where(p => crewCtrlNbrs.Contains(p.CrewCtrlNbr))
             .OrderBy(p => p.DisplayOrder)
@@ -97,11 +101,14 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
                     var incumbent = incumbencies
                         .FirstOrDefault(i => i.CrewPositionCtrlNbr == p.CtrlNbr);
                     craftRoleLookup.TryGetValue(p.CraftRoleCtrlNbr, out var roleName);
+                    crews.TryGetValue(p.CrewCtrlNbr, out var crew);
                     return new CrewPositionDto(
                         p.CtrlNbr,
                         incumbent?.EmployeeCtrlNbr,
                         p.DisplayOrder,
-                        roleName ?? string.Empty);
+                        roleName ?? string.Empty,
+                        crew?.Name ?? string.Empty,
+                        crew?.CrewType ?? "REGULAR");
                 })
                 .ToList();
 
@@ -205,6 +212,10 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
 
         var crewCtrlNbrs = crewAssignments.Select(ca => ca.CrewCtrlNbr).Distinct().ToList();
 
+        var crews = await dbContext.Set<Crew>()
+            .Where(c => crewCtrlNbrs.Contains(c.CtrlNbr))
+            .ToDictionaryAsync(c => c.CtrlNbr, ct);
+
         var positions = await dbContext.Set<CrewPosition>()
             .Where(p => crewCtrlNbrs.Contains(p.CrewCtrlNbr))
             .OrderBy(p => p.DisplayOrder)
@@ -245,11 +256,14 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
                     var incumbent = incumbencies
                         .FirstOrDefault(i => i.CrewPositionCtrlNbr == p.CtrlNbr);
                     craftRoleLookup.TryGetValue(p.CraftRoleCtrlNbr, out var roleName);
+                    crews.TryGetValue(p.CrewCtrlNbr, out var crew);
                     return new CrewPositionDto(
                         p.CtrlNbr,
                         incumbent?.EmployeeCtrlNbr,
                         p.DisplayOrder,
-                        roleName ?? string.Empty);
+                        roleName ?? string.Empty,
+                        crew?.Name ?? string.Empty,
+                        crew?.CrewType ?? "REGULAR");
                 })
                 .ToList();
 
