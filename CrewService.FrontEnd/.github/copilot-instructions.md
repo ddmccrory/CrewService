@@ -30,3 +30,4 @@
 - Time display format (12-hour vs 24-hour) may become a configurable parent/railroad-level setting in the future. Keep time formatting logic centralized so it can be easily swapped to a system setting later.
 - Memory: AssignmentSchedule default behavior: No schedule (no AssignmentSchedule row) means the assignment runs on NO days, not every day. An assignment must have an explicitly set OperatingDaysMask to be included in call sheet generation.
 - In the call sheet "Add Assignment → From Template" feature, only load assignments where `IsExtra = true` (Extra Board Assignments) that have an `AssignmentSchedule` matching the same shift definition as the current shift instance.
+- All .proto files should be in the shared Protos/ folder at the repo root (C:\Projects\CrewService\Protos\) by design, so both the API and FrontEnd solutions reference the same proto files. The CrewService.API/Protos/ copies should not exist.
