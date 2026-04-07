@@ -128,6 +128,8 @@ message DailyPositionSlotResponse {
   string group_code = 16;
   bool is_incumbent = 17;
   bool is_ad_hoc = 18;
+  string crew_name = 19;
+  string crew_type = 20;
 }
 
 message PlaceOnDutyRequest {

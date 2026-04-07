@@ -77,7 +77,9 @@ public sealed class CallSheetGenerationService(
                     template.GroupName,
                     template.GroupCode,
                     template.OnDutyTime,
-                    template.OffDutyTime);
+                    template.OffDutyTime,
+                    position.CrewName,
+                    position.CrewType);
             }
         }
 
@@ -138,7 +140,9 @@ public sealed class CallSheetGenerationService(
                     template.GroupName,
                     template.GroupCode,
                     template.OnDutyTime,
-                    template.OffDutyTime);
+                    template.OffDutyTime,
+                    position.CrewName,
+                    position.CrewType);
             }
         }
 

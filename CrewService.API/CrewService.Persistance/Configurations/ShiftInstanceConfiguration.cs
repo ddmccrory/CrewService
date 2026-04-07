@@ -58,6 +58,8 @@ internal class PositionSlotInstanceConfiguration : IEntityTypeConfiguration<Posi
         builder.Property(p => p.GroupCode).HasMaxLength(50).HasDefaultValue(string.Empty);
         builder.Property(p => p.OnDutyTime);
         builder.Property(p => p.OffDutyTime);
+        builder.Property(p => p.CrewName).HasMaxLength(100).HasDefaultValue(string.Empty);
+        builder.Property(p => p.CrewType).HasMaxLength(20).HasDefaultValue(string.Empty);
 
         builder.HasOne<CrewPosition>().WithMany().HasForeignKey(p => p.CrewPositionCtrlNbr).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.IncumbentEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);

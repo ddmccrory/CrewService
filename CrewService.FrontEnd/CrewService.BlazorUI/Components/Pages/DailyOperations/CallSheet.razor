@@ -243,6 +243,11 @@ else
                                             <tr class="@(allAnnulled ? "text-muted text-decoration-line-through" : "")">
                                                 <td>
                                                     <strong>@group.Key.AssignmentCode.ToUpperInvariant()</strong>
+                                                    @{ var hReliefName = group.FirstOrDefault(s => s.CrewType == "RELIEF")?.CrewName; }
+                                                    @if (!string.IsNullOrEmpty(hReliefName))
+                                                    {
+                                                        <span class="text-danger small ms-1">(@hReliefName)</span>
+                                                    }
                                                     @if (!string.IsNullOrEmpty(hNote))
                                                     {
                                                         <span class="bi bi-journal-text text-info ms-1" title="@hNote"></span>
@@ -373,6 +378,11 @@ else
                                 <div class="ms-3 mb-2 mt-2 @(vAllAnnulled ? "text-muted" : "")" style="font-size: 0.85rem;">
                                     <div class="d-flex align-items-center @(vAllAnnulled ? "text-decoration-line-through" : "")">
                                         <strong>@assignmentGroup.Key.AssignmentName</strong>
+                                        @{ var vReliefName = assignmentGroup.FirstOrDefault(s => s.CrewType == "RELIEF")?.CrewName; }
+                                        @if (!string.IsNullOrEmpty(vReliefName))
+                                        {
+                                            <span class="text-danger small ms-1">(@vReliefName)</span>
+                                        }
                                         @if (!string.IsNullOrEmpty(vNote))
                                         {
                                             <span class="bi bi-journal-text text-info ms-1" title="@vNote"></span>
