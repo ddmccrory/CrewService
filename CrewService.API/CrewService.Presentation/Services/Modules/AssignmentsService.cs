@@ -26,9 +26,19 @@ public class AssignmentsService(
         else
             assignments = await assignmentRepository.GetAllAsync();
 
+        var assignmentIds = assignments.Select(a => a.CtrlNbr).ToList();
+        var allSchedules = await scheduleRepository.GetByAssignmentsAsync(assignmentIds);
+        var daysMasks = allSchedules.GroupBy(s => s.AssignmentCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.Aggregate(0, (mask, s) => mask | s.OperatingDaysMask));
+
         var response = new GetAssignmentsResponse { TotalCount = assignments.Count };
         foreach (var a in assignments)
-            response.Assignments.Add(await MapAssignmentAsync(a));
+        {
+            var mapped = await MapAssignmentAsync(a);
+            daysMasks.TryGetValue(a.CtrlNbr, out var daysMask);
+            mapped.WorkDaysMask = daysMask;
+            response.Assignments.Add(mapped);
+        }
         return response;
     }
 

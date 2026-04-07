@@ -94,6 +94,14 @@ internal sealed class AssignmentScheduleRepository(CrewServiceDbContext dbContex
             .ToListAsync();
     }
 
+    public async Task<List<AssignmentSchedule>> GetByAssignmentsAsync(IEnumerable<ControlNumber> assignmentCtrlNbrs)
+    {
+        var list = assignmentCtrlNbrs.ToList();
+        return await DbContext.Set<AssignmentSchedule>()
+            .Where(s => list.Contains(s.AssignmentCtrlNbr))
+            .ToListAsync();
+    }
+
     public async Task<List<AssignmentSchedule>> GetByShiftDefinitionAsync(ControlNumber shiftDefinitionCtrlNbr)
     {
         return await DbContext.Set<AssignmentSchedule>()

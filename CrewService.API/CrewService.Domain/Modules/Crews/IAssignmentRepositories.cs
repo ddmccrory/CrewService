@@ -13,5 +13,6 @@ public interface IAssignmentRepository : IRepository<Assignment>
 public interface IAssignmentScheduleRepository : IRepository<AssignmentSchedule>
 {
     Task<List<AssignmentSchedule>> GetByAssignmentAsync(ControlNumber assignmentCtrlNbr);
+    Task<List<AssignmentSchedule>> GetByAssignmentsAsync(IEnumerable<ControlNumber> assignmentCtrlNbrs);
     Task<List<AssignmentSchedule>> GetByShiftDefinitionAsync(ControlNumber shiftDefinitionCtrlNbr);
 }

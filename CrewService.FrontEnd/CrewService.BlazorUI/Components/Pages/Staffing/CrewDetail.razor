@@ -126,6 +126,7 @@ else
         <Modal Visible="showAssignmentModal"
                Title="@(editAssignmentCtrlNbr > 0 ? "Edit Assignment" : "Add Assignment")"
                Icon="@(editAssignmentCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               Size="lg"
                OnClose="CloseAssignmentModal">
             <BodyContent>
                 <EditForm Model="assignmentModel" OnValidSubmit="OnSaveAssignment" id="save-assignment-form">
@@ -193,7 +194,6 @@ else
             <RowContent Context="a">
                 <td>@GetAssignmentName(a.AssignmentCtrlNbr)</td>
                 <td>@FormatDays(a.DaysOfWeekMask)</td>
-                <td>@FormatOffDays(a.DaysOfWeekMask)</td>
                 <td>@FormatDate(a.StartUtc)</td>
                 <td>@(string.IsNullOrEmpty(a.EndUtc) ? "—" : FormatDate(a.EndUtc))</td>
                 <td>
@@ -247,7 +247,6 @@ else
     [
         new("Assignment", a => GetAssignmentName(a.AssignmentCtrlNbr)),
         new("Work Days", a => a.DaysOfWeekMask),
-        new("Off Days", a => a.DaysOfWeekMask),
         new("Start", a => a.StartUtc),
         new("End", a => a.EndUtc),
         DataTableColumn<CrewAssignmentResponse>.Actions()
