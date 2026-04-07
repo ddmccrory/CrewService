@@ -141,6 +141,19 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<GenerateCallSheetResponse> RemoveAssignmentAsync(long shiftInstanceCtrlNbr, long assignmentCtrlNbr)
+    {
+        try
+        {
+            return await _client.RemoveAssignmentAsync(new RemoveAssignmentRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     public async Task<GenerateCallSheetResponse> SaveAssignmentNoteAsync(long shiftInstanceCtrlNbr, long assignmentCtrlNbr, string noteText)
     {
         try
@@ -177,6 +190,61 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
                 DisplayOrder = o.DisplayOrder
             }));
             return await _client.ManageAssignmentPositionsAsync(req);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GetAvailableExtraAssignmentsResponse> GetAvailableExtraAssignmentsAsync(long shiftInstanceCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetAvailableExtraAssignmentsAsync(new GetAvailableExtraAssignmentsRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GenerateCallSheetResponse> AddAssignmentFromTemplateAsync(long shiftInstanceCtrlNbr, long assignmentCtrlNbr, string onDutyTime, string offDutyTime)
+    {
+        try
+        {
+            return await _client.AddAssignmentFromTemplateAsync(new AddAssignmentFromTemplateRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCtrlNbr = assignmentCtrlNbr,
+                OnDutyTime = onDutyTime,
+                OffDutyTime = offDutyTime
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GenerateCallSheetResponse> AddAdHocAssignmentAsync(
+        long shiftInstanceCtrlNbr,
+        string assignmentCode,
+        string assignmentName,
+        string groupName,
+        string groupCode,
+        string onDutyTime,
+        string offDutyTime,
+        IEnumerable<string> craftRoleNames)
+    {
+        try
+        {
+            var req = new AddAdHocAssignmentRequest
+            {
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                AssignmentCode = assignmentCode,
+                AssignmentName = assignmentName,
+                GroupName = groupName,
+                GroupCode = groupCode,
+                OnDutyTime = onDutyTime,
+                OffDutyTime = offDutyTime
+            };
+            req.CraftRoleNames.AddRange(craftRoleNames);
+            return await _client.AddAdHocAssignmentAsync(req);
         }
         catch (Exception ex) { LogException(ex); throw; }
     }

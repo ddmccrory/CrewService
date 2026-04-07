@@ -1,0 +1,49 @@
+@*
+    Shared Duty Time Picker — pairs On Duty and Off Duty time inputs.
+    When the On Duty time changes and the Off Duty time has not been independently
+    set, the Off Duty time automatically defaults to On Duty + 8 hours.
+*@
+
+<div class="row @CssClass" @attributes="AdditionalAttributes">
+    <div class="col">
+        <label class="form-label fw-semibold">On Duty Time</label>
+        <TimePicker Value="OnDutyTime" ValueChanged="OnOnDutyChanged" />
+    </div>
+    <div class="col">
+        <label class="form-label fw-semibold">Off Duty Time</label>
+        <TimePicker Value="OffDutyTime" ValueChanged="OnOffDutyChanged" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public TimeOnly OnDutyTime { get; set; }
+    [Parameter] public EventCallback<TimeOnly> OnDutyTimeChanged { get; set; }
+
+    [Parameter] public TimeOnly OffDutyTime { get; set; }
+    [Parameter] public EventCallback<TimeOnly> OffDutyTimeChanged { get; set; }
+
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _offDutyManuallySet;
+
+    private async Task OnOnDutyChanged(TimeOnly value)
+    {
+        OnDutyTime = value;
+        await OnDutyTimeChanged.InvokeAsync(value);
+
+        if (!_offDutyManuallySet)
+        {
+            var defaultOff = value.AddHours(8);
+            OffDutyTime = defaultOff;
+            await OffDutyTimeChanged.InvokeAsync(defaultOff);
+        }
+    }
+
+    private async Task OnOffDutyChanged(TimeOnly value)
+    {
+        _offDutyManuallySet = true;
+        OffDutyTime = value;
+        await OffDutyTimeChanged.InvokeAsync(value);
+    }
+}

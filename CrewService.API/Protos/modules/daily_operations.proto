@@ -49,6 +49,18 @@ service DailyOperationsSrvc {
   rpc ReopenShiftInstance (ReopenShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/reopen" };
   }
+  rpc GetAvailableExtraAssignments (GetAvailableExtraAssignmentsRequest) returns (GetAvailableExtraAssignmentsResponse) {
+    option (google.api.http) = { get: "/v1/daily-operations/shift-instance/{shift_instance_ctrl_nbr}/available-extra-assignments" };
+  }
+  rpc AddAssignmentFromTemplate (AddAssignmentFromTemplateRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/add-assignment-from-template" body: "*" };
+  }
+  rpc AddAdHocAssignment (AddAdHocAssignmentRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/add-ad-hoc-assignment" body: "*" };
+  }
+  rpc RemoveAssignment (RemoveAssignmentRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/remove-assignment" body: "*" };
+  }
 }
 
 message GetCallSheetRequest {
@@ -213,4 +225,46 @@ message CloseShiftInstanceRequest {
 
 message ReopenShiftInstanceRequest {
   int64 ctrl_nbr = 1;
+}
+
+message GetAvailableExtraAssignmentsRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+}
+
+message GetAvailableExtraAssignmentsResponse {
+  repeated AvailableAssignmentResponse assignments = 1;
+}
+
+message AvailableAssignmentResponse {
+  int64 assignment_ctrl_nbr = 1;
+  string assignment_code = 2;
+  string assignment_name = 3;
+  string on_duty_time = 4;
+  string off_duty_time = 5;
+  string group_name = 6;
+  string group_code = 7;
+  int32 position_count = 8;
+}
+
+message RemoveAssignmentRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+}
+
+message AddAssignmentFromTemplateRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  string on_duty_time = 3;
+  string off_duty_time = 4;
+}
+
+message AddAdHocAssignmentRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  string assignment_code = 2;
+  string assignment_name = 3;
+  string group_name = 4;
+  string group_code = 5;
+  string on_duty_time = 6;
+  string off_duty_time = 7;
+  repeated string craft_role_names = 8;
 }

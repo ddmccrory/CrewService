@@ -130,8 +130,7 @@ public class PositionSlotInstanceTests
     [Fact]
     public void Restore_WithIncumbent_ResetsToFilled()
     {
-        var shiftInstance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var shiftInstance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
         var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), ControlNumber.Create(200), 1,
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
             new TimeOnly(7, 0), new TimeOnly(15, 0));
@@ -147,8 +146,7 @@ public class PositionSlotInstanceTests
     [Fact]
     public void RestoreSlot_AllAnnulledSlots_RestoresEachToCorrectStatus()
     {
-        var shift = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
         var assignmentCtrlNbr = ControlNumber.Create(50);
 
         var vacant = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
@@ -173,8 +171,7 @@ public class PositionSlotInstanceTests
 
     private static PositionSlotInstance CreateSlot()
     {
-        var shiftInstance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var shiftInstance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), null, 1,
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
@@ -315,7 +312,7 @@ public class ShiftInstancePositionManagementTests
 
     private static ShiftInstance CreateShiftWithPositions()
     {
-        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
         shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "Pool", "POOL",
             new TimeOnly(7, 0), new TimeOnly(15, 0));
@@ -329,7 +326,7 @@ public class ShiftInstanceNoteTests
     [Fact]
     public void SetAssignmentNote_CreatesNewNote()
     {
-        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
         var assignmentCtrlNbr = ControlNumber.Create(50);
 
         shift.SetAssignmentNote(assignmentCtrlNbr, "Test note");
@@ -342,7 +339,7 @@ public class ShiftInstanceNoteTests
     [Fact]
     public void SetAssignmentNote_UpdatesExistingNote()
     {
-        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
         var assignmentCtrlNbr = ControlNumber.Create(50);
 
         shift.SetAssignmentNote(assignmentCtrlNbr, "Original");
@@ -355,7 +352,7 @@ public class ShiftInstanceNoteTests
     [Fact]
     public void SetAssignmentNote_DifferentAssignments_CreatesSeparateNotes()
     {
-        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         shift.SetAssignmentNote(ControlNumber.Create(50), "Note A");
         shift.SetAssignmentNote(ControlNumber.Create(60), "Note B");

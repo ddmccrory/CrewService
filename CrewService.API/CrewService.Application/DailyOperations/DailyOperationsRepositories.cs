@@ -16,6 +16,7 @@ public interface IShiftInstanceRepository
 public interface IAssignmentQueryService
 {
     Task<IReadOnlyList<AssignmentDto>> GetTemplatesForDateAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default);
+    Task<IReadOnlyList<AssignmentDto>> GetExtraAssignmentsForShiftAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default);
 }
 
 public sealed record AssignmentDto(

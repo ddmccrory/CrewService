@@ -11,7 +11,8 @@ public class DailyOperationsService(
     IWorkInstanceRepository workInstanceRepo,
     CallSheetGenerationService callSheetGeneration,
     OnDutyPlacementService onDutyPlacement,
-    TieUpService tieUpService)
+    TieUpService tieUpService,
+    IAssignmentQueryService assignmentQuery)
     : DailyOperationsSrvc.DailyOperationsSrvcBase
 {
     public override async Task<GetCallSheetResponse> GetCallSheet(
@@ -299,6 +300,148 @@ public class DailyOperationsService(
 
         shift.Reopen();
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
+    public override async Task<GetAvailableExtraAssignmentsResponse> GetAvailableExtraAssignments(
+        GetAvailableExtraAssignmentsRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var workInstance = await workInstanceRepo.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Work instance {shift.WorkInstanceCtrlNbr} not found."));
+
+        var targetDate = DateOnly.FromDateTime(workInstance.StartUtc);
+
+        var extras = await assignmentQuery.GetExtraAssignmentsForShiftAsync(
+            workInstance.WorkAreaGroupCtrlNbr, shift.ShiftDefinitionCtrlNbr, targetDate, shift.DepartmentCtrlNbr, context.CancellationToken);
+
+        var existingAssignmentCtrlNbrs = shift.PositionSlots
+            .Select(s => s.AssignmentCtrlNbr)
+            .Distinct()
+            .ToHashSet();
+
+        var response = new GetAvailableExtraAssignmentsResponse();
+        foreach (var a in extras)
+        {
+            if (existingAssignmentCtrlNbrs.Contains(a.AssignmentCtrlNbr))
+                continue;
+
+            response.Assignments.Add(new AvailableAssignmentResponse
+            {
+                AssignmentCtrlNbr = a.AssignmentCtrlNbr.Value,
+                AssignmentCode = a.AssignmentCode,
+                AssignmentName = a.AssignmentName,
+                OnDutyTime = a.OnDutyTime.ToString("hh\\:mm tt"),
+                OffDutyTime = a.OffDutyTime.ToString("hh\\:mm tt"),
+                GroupName = a.GroupName,
+                GroupCode = a.GroupCode,
+                PositionCount = a.Positions.Count
+            });
+        }
+
+        return response;
+    }
+
+    public override async Task<GenerateCallSheetResponse> AddAssignmentFromTemplate(
+        AddAssignmentFromTemplateRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var assignmentCtrlNbr = ControlNumber.Create(request.AssignmentCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        var workInstance = await workInstanceRepo.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Work instance {shift.WorkInstanceCtrlNbr} not found."));
+
+        var targetDate = DateOnly.FromDateTime(workInstance.StartUtc);
+
+        var extras = await assignmentQuery.GetExtraAssignmentsForShiftAsync(
+            workInstance.WorkAreaGroupCtrlNbr, shift.ShiftDefinitionCtrlNbr, targetDate, shift.DepartmentCtrlNbr, context.CancellationToken);
+
+        var template = extras.FirstOrDefault(a => a.AssignmentCtrlNbr == assignmentCtrlNbr)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Extra assignment {request.AssignmentCtrlNbr} not found or not eligible."));
+
+        try
+        {
+            var onDutyTime = !string.IsNullOrEmpty(request.OnDutyTime) && TimeOnly.TryParse(request.OnDutyTime, out var parsedOn)
+                ? parsedOn : template.OnDutyTime;
+            var offDutyTime = !string.IsNullOrEmpty(request.OffDutyTime) && TimeOnly.TryParse(request.OffDutyTime, out var parsedOff)
+                ? parsedOff : template.OffDutyTime;
+
+            var positions = template.Positions
+                .Select(p => (p.PositionCtrlNbr, p.IncumbentEmployeeCtrlNbr, p.DisplayOrder, p.CraftRoleName))
+                .ToList();
+
+            shift.AddTemplateAssignment(
+                template.AssignmentCtrlNbr, template.AssignmentCode, template.AssignmentName,
+                template.GroupName, template.GroupCode, onDutyTime, offDutyTime,
+                positions);
+
+            await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
+    public override async Task<GenerateCallSheetResponse> AddAdHocAssignment(
+        AddAdHocAssignmentRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        if (!TimeOnly.TryParse(request.OnDutyTime, out var onDutyTime))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid on_duty_time format."));
+
+        if (!TimeOnly.TryParse(request.OffDutyTime, out var offDutyTime))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid off_duty_time format."));
+
+        try
+        {
+            shift.AddAdHocAssignment(
+                request.AssignmentCode, request.AssignmentName,
+                request.GroupName, request.GroupCode,
+                onDutyTime, offDutyTime,
+                request.CraftRoleNames.ToList());
+
+            await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+
+        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+    }
+
+    public override async Task<GenerateCallSheetResponse> RemoveAssignment(
+        RemoveAssignmentRequest request, ServerCallContext context)
+    {
+        var shiftCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
+        var assignmentCtrlNbr = ControlNumber.Create(request.AssignmentCtrlNbr);
+
+        var shift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Shift instance {request.ShiftInstanceCtrlNbr} not found."));
+
+        try
+        {
+            shift.RemoveAssignment(assignmentCtrlNbr);
+            await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+
         return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
     }
 

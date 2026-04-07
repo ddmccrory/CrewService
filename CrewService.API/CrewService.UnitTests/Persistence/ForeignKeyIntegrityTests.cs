@@ -70,6 +70,7 @@ public class ForeignKeyIntegrityTests
             ("DynamicGroup", "RailroadCtrlNbr"),
             // Snapshot — denormalized point-in-time copies on call sheet entities
             ("ShiftInstance", "DepartmentCtrlNbr"),
+            ("ShiftInstance", "ShiftDefinitionCtrlNbr"),
             ("PositionSlotInstance", "AssignmentCtrlNbr"),
             ("AssignmentNote", "AssignmentCtrlNbr"),
         };

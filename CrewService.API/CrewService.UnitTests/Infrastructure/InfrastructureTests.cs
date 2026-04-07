@@ -101,8 +101,7 @@ public class ShiftInstanceTests
     [Fact]
     public void Create_DefaultsToPlanned()
     {
-        var instance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var instance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         Assert.Equal("Planned", instance.Status);
         Assert.False(instance.IsComplete);
@@ -112,8 +111,7 @@ public class ShiftInstanceTests
     [Fact]
     public void AddPositionSlot_AddsOpenSlot()
     {
-        var instance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var instance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         var slot = instance.AddPositionSlot(ControlNumber.Create(10), null, 1,
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
@@ -126,8 +124,7 @@ public class ShiftInstanceTests
     [Fact]
     public void AddPositionSlot_WithIncumbent_AddsFilled()
     {
-        var instance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var instance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         var slot = instance.AddPositionSlot(ControlNumber.Create(10), ControlNumber.Create(100), 1,
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
@@ -140,8 +137,7 @@ public class ShiftInstanceTests
     [Fact]
     public void Activate_SetsActive()
     {
-        var instance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var instance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         instance.Activate();
 
@@ -151,8 +147,7 @@ public class ShiftInstanceTests
     [Fact]
     public void Complete_SetsCompletedAndTimestamp()
     {
-        var instance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var instance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         instance.Complete();
 
@@ -164,8 +159,7 @@ public class ShiftInstanceTests
     [Fact]
     public void Cancel_SetsCancelled()
     {
-        var instance = ShiftInstance.Create(
-            ControlNumber.Create(1), "DAY", "Day Shift");
+        var instance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");
 
         instance.Cancel();
 

@@ -12,7 +12,7 @@
 ## Code Style
 - Use specific formatting rules
 - Follow naming conventions
-- All ControlNumber references in the codebase should use the ControlNumber value object type, not raw long. When comparing ControlNumber values, use the ControlNumber type directly rather than extracting .Value to long.
+- All ControlNumber references in the codebase should use the ControlNumber value object type, not raw long. This applies to all domain entities, value objects, and domain method signatures. When comparing ControlNumber values, use the ControlNumber type directly rather than extracting .Value to long.
 - All checkboxes in the project must use Bootstrap slide switch style: wrap in `<div class="form-check form-switch">` with `class="form-check-input"` on the input/InputCheckbox. Never use plain checkboxes.
 - Code columns should always be uppercase in display (using `.ToUpperInvariant()`), should be the first column in DataTable definitions, and should be the default sort column.
 - Never use raw `<select>` elements for dropdowns. Use `SelectInput` (inside EditForm) or `FilterSelect` (standalone filter dropdowns outside forms) from Components/Shared/. Both auto-select when there is exactly one item, hiding the placeholder. This applies to all pages including filter dropdowns on list/management pages.
@@ -29,3 +29,4 @@
 - System group types (Railroad, Assignment) should be created per-parent, not globally. Each parent gets its own Railroad and Assignment types when created.
 - Time display format (12-hour vs 24-hour) may become a configurable parent/railroad-level setting in the future. Keep time formatting logic centralized so it can be easily swapped to a system setting later.
 - Memory: AssignmentSchedule default behavior: No schedule (no AssignmentSchedule row) means the assignment runs on NO days, not every day. An assignment must have an explicitly set OperatingDaysMask to be included in call sheet generation.
+- In the call sheet "Add Assignment → From Template" feature, only load assignments where `IsExtra = true` (Extra Board Assignments) that have an `AssignmentSchedule` matching the same shift definition as the current shift instance.

@@ -2,7 +2,7 @@
 @typeparam TValue
 
 <select value="@FormatValue(Value)" @onchange="OnChanged" @attributes="AdditionalAttributes">
-    @if (Items is not { Count: 1 })
+    @if (AlwaysShowPlaceholder || Items is not { Count: 1 })
     {
         <option value="@FormatValue(default)">@Placeholder</option>
     }
@@ -31,8 +31,11 @@
     /// <summary>Callback when Value changes (supports @bind-Value).</summary>
     [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
 
-    /// <summary>Text shown when no item is selected. Hidden when exactly one item exists.</summary>
+    /// <summary>Text shown when no item is selected. Hidden when exactly one item exists (unless AlwaysShowPlaceholder is true).</summary>
     [Parameter] public string Placeholder { get; set; } = "-- Select --";
+
+    /// <summary>When true, the placeholder option is always rendered even when exactly one item exists.</summary>
+    [Parameter] public bool AlwaysShowPlaceholder { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
