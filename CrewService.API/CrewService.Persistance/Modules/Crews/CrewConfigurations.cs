@@ -1,5 +1,6 @@
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -37,7 +38,9 @@ internal class CrewPositionConfiguration : IEntityTypeConfiguration<CrewPosition
         builder.Property(p => p.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.CrewCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(p => p.CraftRoleCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(p => p.StaffablePositionCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(p => p.DisplayOrder).IsRequired();
+        builder.HasOne<StaffablePosition>().WithOne().HasForeignKey<CrewPosition>(p => p.StaffablePositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Crew>().WithMany().HasForeignKey(p => p.CrewCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<CraftRole>().WithMany().HasForeignKey(p => p.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

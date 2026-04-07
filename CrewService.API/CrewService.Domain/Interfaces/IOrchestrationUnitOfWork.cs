@@ -1,5 +1,6 @@
-﻿using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
@@ -58,6 +59,13 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IDynamicGroupRepository DynamicGroups { get; }
     IGroupAttributeDefinitionRepository AttributeDefinitions { get; }
     IGroupAttributeValueRepository AttributeValues { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
+    // Staffing
+    // ──────────────────────────────────────────────────────────────────
+    IStaffablePositionRepository StaffablePositions { get; }
+    IPositionAssignmentRepository PositionAssignments { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // Crews

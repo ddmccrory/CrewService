@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
@@ -104,9 +105,11 @@ public class CrewsService(
 
     public override async Task<CrewPositionResponse> CreateCrewPosition(CreateCrewPositionRequest request, ServerCallContext context)
     {
-        var position = CrewPosition.Create(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder);
+        var staffablePosition = StaffablePosition.Create("Crew");
+        var position = CrewPosition.Create(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder, staffablePosition.CtrlNbr);
 
         await using var uow = await uowFactory.CreateAsync();
+        uow.StaffablePositions.Add(staffablePosition);
         uow.CrewPositions.Add(position);
         await uow.CommitAsync();
 

@@ -1,4 +1,5 @@
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Xunit;
 
@@ -76,7 +77,7 @@ public class RosterBoardTests
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(10), "Main Roster");
 
-        var pos = board.AddPosition(ControlNumber.Create(100), 1);
+        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         Assert.Single(board.Positions);
         Assert.Equal(100, pos.EmployeeCtrlNbr.Value);
@@ -102,7 +103,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(10), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(100), 1);
+        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         pos.Hangout();
 
@@ -115,7 +116,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(10), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(100), 1);
+        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         pos.MarkOff();
 
@@ -127,7 +128,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(10), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(100), 1);
+        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
 
         pos.RestoreFromHangout();

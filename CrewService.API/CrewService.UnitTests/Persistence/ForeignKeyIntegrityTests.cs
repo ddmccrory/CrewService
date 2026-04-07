@@ -48,6 +48,8 @@ public class ForeignKeyIntegrityTests
             ("AbolishmentRecord", "TargetCtrlNbr"),
             ("PositionVacancy", "TargetCtrlNbr"),
             ("SeniorityMove", "TargetPositionCtrlNbr"),
+            // Polymorphic — AssignmentSourceCtrlNbr can reference SeniorityMove, Bulletin, etc.
+            ("PositionAssignment", "AssignmentSourceCtrlNbr"),
             // Multi-tenant — Client entity lives outside this bounded context
             ("AddressType", "ClientCtrlNbr"),
             ("EmailAddressType", "ClientCtrlNbr"),
@@ -143,6 +145,10 @@ public class ForeignKeyIntegrityTests
 
     [Theory]
     [InlineData("CrewIncumbency", "Employee", DeleteBehavior.Restrict)]
+    [InlineData("CrewPosition", "StaffablePosition", DeleteBehavior.Restrict)]
+    [InlineData("RosterBoardPosition", "StaffablePosition", DeleteBehavior.Restrict)]
+    [InlineData("PositionAssignment", "StaffablePosition", DeleteBehavior.Restrict)]
+    [InlineData("PositionAssignment", "Employee", DeleteBehavior.Restrict)]
     [InlineData("CrewPosition", "CraftRole", DeleteBehavior.Restrict)]
     [InlineData("BoardMember", "Employee", DeleteBehavior.Restrict)]
     [InlineData("ExtraBoard", "Craft", DeleteBehavior.Restrict)]

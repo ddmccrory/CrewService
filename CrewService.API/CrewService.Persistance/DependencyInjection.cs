@@ -5,6 +5,7 @@ using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Dispatching;
@@ -30,6 +31,7 @@ using CrewService.Persistance.Modules.Authorization;
 using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Modules.WorkManagement;
 using CrewService.Persistance.Modules.Crews;
+using CrewService.Persistance.Modules.Staffing;
 using CrewService.Persistance.Modules.Boards;
 using CrewService.Persistance.Modules.Policies;
 using CrewService.Persistance.Modules.Dispatching;
@@ -142,6 +144,10 @@ public static class DependencyInjection
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
 
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        // Staffing Module Repositories
+        services.AddScoped<IStaffablePositionRepository, StaffablePositionRepository>();
+        services.AddScoped<IPositionAssignmentRepository, PositionAssignmentRepository>();
+
         // Crews Module Repositories
         services.AddScoped<ICrewRepository, CrewRepository>();
         services.AddScoped<ICrewPositionRepository, CrewPositionRepository>();

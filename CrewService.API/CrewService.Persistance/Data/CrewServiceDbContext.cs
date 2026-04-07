@@ -118,6 +118,10 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Infrastructure.WorkerExecutionLog> WorkerExecutionLogs => Set<Domain.Modules.Infrastructure.WorkerExecutionLog>();
     public DbSet<Domain.Modules.Infrastructure.ProcessingLock> ProcessingLocks => Set<Domain.Modules.Infrastructure.ProcessingLock>();
 
+    // Staffing Module
+    public DbSet<Domain.Modules.Staffing.StaffablePosition> StaffablePositions => Set<Domain.Modules.Staffing.StaffablePosition>();
+    public DbSet<Domain.Modules.Staffing.PositionAssignment> PositionAssignments => Set<Domain.Modules.Staffing.PositionAssignment>();
+
     // Boards Module
     public DbSet<Domain.Modules.Boards.RosterBoard> RosterBoards => Set<Domain.Modules.Boards.RosterBoard>();
     public DbSet<Domain.Modules.Boards.RosterBoardPosition> RosterBoardPositions => Set<Domain.Modules.Boards.RosterBoardPosition>();

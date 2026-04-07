@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -41,16 +42,19 @@ public sealed class CrewPosition : Entity
 {
     public ControlNumber CrewCtrlNbr { get; private set; }
     public ControlNumber CraftRoleCtrlNbr { get; private set; }
+    public ControlNumber StaffablePositionCtrlNbr { get; private set; }
     public int DisplayOrder { get; private set; }
 
-    private CrewPosition() { CrewCtrlNbr = null!; CraftRoleCtrlNbr = null!; }
+    private CrewPosition() { CrewCtrlNbr = null!; CraftRoleCtrlNbr = null!; StaffablePositionCtrlNbr = null!; }
 
-    public static CrewPosition Create(ControlNumber crewCtrlNbr, ControlNumber craftRoleCtrlNbr, int displayOrder)
+    public static CrewPosition Create(ControlNumber crewCtrlNbr, ControlNumber craftRoleCtrlNbr, int displayOrder,
+        ControlNumber staffablePositionCtrlNbr)
     {
         return new CrewPosition
         {
             CrewCtrlNbr = crewCtrlNbr,
             CraftRoleCtrlNbr = craftRoleCtrlNbr,
+            StaffablePositionCtrlNbr = staffablePositionCtrlNbr,
             DisplayOrder = displayOrder
         };
     }

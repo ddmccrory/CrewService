@@ -1,4 +1,5 @@
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.ValueObjects;
 using Xunit;
@@ -21,8 +22,8 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "Yard Board");
-        board.AddPosition(ControlNumber.Create(10), 1);
-        board.AddPosition(ControlNumber.Create(11), 2);
+        board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
+        board.AddPosition(ControlNumber.Create(11), 2, StaffablePosition.Create("Board").CtrlNbr);
 
         Assert.Equal(2, board.Positions.Count);
     }
@@ -44,7 +45,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(10), 1);
+        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
 
         Assert.Equal("HungOut", pos.HangoutStatus);
@@ -56,7 +57,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(10), 1);
+        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.MarkOff();
 
         Assert.Equal("MarkedOff", pos.HangoutStatus);
@@ -67,7 +68,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(10), 1);
+        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
         pos.RestoreFromHangout();
 

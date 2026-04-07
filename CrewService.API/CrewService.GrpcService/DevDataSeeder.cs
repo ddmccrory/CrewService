@@ -8,6 +8,7 @@ using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Payroll;
@@ -690,13 +691,32 @@ internal static class DevDataSeeder
             await uow.CommitAsync();
         }
 
-        // Crew Positions � 2 per crew (Conductor + Engineer)
-        var crewAPos1 = CrewPosition.Create(crewA.CtrlNbr, condRole.CtrlNbr, 1);
-        var crewAPos2 = CrewPosition.Create(crewA.CtrlNbr, engRole.CtrlNbr, 2);
-        var crewBPos1 = CrewPosition.Create(crewB.CtrlNbr, condRole.CtrlNbr, 1);
-        var crewBPos2 = CrewPosition.Create(crewB.CtrlNbr, engRole.CtrlNbr, 2);
-        var extraPos1 = CrewPosition.Create(extraCrew.CtrlNbr, condRole.CtrlNbr, 1);
-        var extraPos2 = CrewPosition.Create(extraCrew.CtrlNbr, engRole.CtrlNbr, 2);
+        // Staffable Positions — one per crew slot (PositionType = "Crew")
+        var sp1 = StaffablePosition.Create("Crew");
+        var sp2 = StaffablePosition.Create("Crew");
+        var sp3 = StaffablePosition.Create("Crew");
+        var sp4 = StaffablePosition.Create("Crew");
+        var sp5 = StaffablePosition.Create("Crew");
+        var sp6 = StaffablePosition.Create("Crew");
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.StaffablePositions.Add(sp1);
+            uow.StaffablePositions.Add(sp2);
+            uow.StaffablePositions.Add(sp3);
+            uow.StaffablePositions.Add(sp4);
+            uow.StaffablePositions.Add(sp5);
+            uow.StaffablePositions.Add(sp6);
+            await uow.CommitAsync();
+        }
+
+        // Crew Positions — 2 per crew (Conductor + Engineer)
+        var crewAPos1 = CrewPosition.Create(crewA.CtrlNbr, condRole.CtrlNbr, 1, sp1.CtrlNbr);
+        var crewAPos2 = CrewPosition.Create(crewA.CtrlNbr, engRole.CtrlNbr, 2, sp2.CtrlNbr);
+        var crewBPos1 = CrewPosition.Create(crewB.CtrlNbr, condRole.CtrlNbr, 1, sp3.CtrlNbr);
+        var crewBPos2 = CrewPosition.Create(crewB.CtrlNbr, engRole.CtrlNbr, 2, sp4.CtrlNbr);
+        var extraPos1 = CrewPosition.Create(extraCrew.CtrlNbr, condRole.CtrlNbr, 1, sp5.CtrlNbr);
+        var extraPos2 = CrewPosition.Create(extraCrew.CtrlNbr, engRole.CtrlNbr, 2, sp6.CtrlNbr);
 
         await using (var uow = await uowFactory.CreateAsync())
         {

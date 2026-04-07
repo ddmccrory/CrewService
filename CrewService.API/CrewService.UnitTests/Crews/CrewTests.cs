@@ -1,4 +1,5 @@
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using Xunit;
 
 namespace CrewService.UnitTests.Crews;
@@ -33,11 +34,13 @@ public class CrewPositionTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var position = CrewPosition.Create(1, 10, 2);
+        var sp = StaffablePosition.Create("Crew");
+        var position = CrewPosition.Create(1, 10, 2, sp.CtrlNbr);
 
         Assert.Equal(1, position.CrewCtrlNbr.Value);
         Assert.Equal(10, position.CraftRoleCtrlNbr.Value);
         Assert.Equal(2, position.DisplayOrder);
+        Assert.Equal(sp.CtrlNbr, position.StaffablePositionCtrlNbr);
     }
 }
 
