@@ -1,4 +1,4 @@
-@page "/staffing/assignments/{CtrlNbr:long}"
+@page "/daily/assignments/{CtrlNbr:long}"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
@@ -12,7 +12,7 @@
 
 <PageTitle>Assignment Detail</PageTitle>
 
-<BackNavButton Text="Assignments" OnClick="@(() => Nav.NavigateTo("staffing/assignments"))" />
+<BackNavButton Text="Assignments" OnClick="@(() => Nav.NavigateTo("daily/assignments"))" />
 
 @if (assignment is null)
 {
@@ -95,6 +95,7 @@ else
         <Modal Visible="showScheduleModal"
                Title="@(editingScheduleCtrlNbr is null ? "Add Schedule" : "Edit Schedule")"
                Icon="bi bi-calendar-week"
+               Size="lg"
                OnClose="() => showScheduleModal = false">
             <BodyContent>
                 <EditForm Model="this" OnValidSubmit="OnSaveSchedule" id="save-schedule-form">

@@ -769,11 +769,12 @@ internal static class DevDataSeeder
         // Shift Definitions for PTRA
         var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
+        ShiftDefinition ptraShift1, ptraShift2, ptraShift3;
         if (existingPtraShifts.Count == 0)
         {
-            var ptraShift1 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1", "First Shift", 1, true);
-            var ptraShift2 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "2", "Second Shift", 2, true);
-            var ptraShift3 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "3", "Third Shift", 3, true);
+            ptraShift1 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1", "First Shift", 1, true);
+            ptraShift2 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "2", "Second Shift", 2, true);
+            ptraShift3 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "3", "Third Shift", 3, true);
             await using (var uow = await uowFactory.CreateAsync())
             {
                 uow.ShiftDefinitions.Add(ptraShift1);
@@ -781,6 +782,12 @@ internal static class DevDataSeeder
                 uow.ShiftDefinitions.Add(ptraShift3);
                 await uow.CommitAsync();
             }
+        }
+        else
+        {
+            ptraShift1 = existingPtraShifts.First(s => s.ShiftCode == "1");
+            ptraShift2 = existingPtraShifts.First(s => s.ShiftCode == "2");
+            ptraShift3 = existingPtraShifts.First(s => s.ShiftCode == "3");
         }
 
         // Assignments
@@ -806,6 +813,145 @@ internal static class DevDataSeeder
             uow.CrewAssignments.Add(CrewAssignment.Create(crewA.CtrlNbr, asgn1.CtrlNbr, weekdays, now));
             uow.CrewAssignments.Add(CrewAssignment.Create(crewB.CtrlNbr, asgn2.CtrlNbr, weekdays, now));
             uow.CrewAssignments.Add(CrewAssignment.Create(extraCrew.CtrlNbr, asgnExtra.CtrlNbr, weekdays, now));
+            await uow.CommitAsync();
+        }
+
+        // ── PTRA Assignments ────────────────────────────────────────────
+        var ptraLocNOYD = allGroups2.First(g => g.Code == "NOYD");
+        var ptraLocMCYD = allGroups2.First(g => g.Code == "MCYD");
+        var ptraLocPSYD = allGroups2.First(g => g.Code == "PSYD");
+        var ptraEngRole = allRoles.First(r => r.Code == "E");
+        var ptraFmnRole = allRoles.First(r => r.Code == "F");
+        var ptraHlpRole = allRoles.First(r => r.Code == "H");
+        var ptraTransDeptCrew = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
+
+        // 9 assignments — 3 per shift, one per location (PSYD, MCYD, NOYD)
+        var ptraAsgn130 = Assignment.Create(ptraLocPSYD.CtrlNbr, "130", "Assignment 130", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn140 = Assignment.Create(ptraLocMCYD.CtrlNbr, "140", "Assignment 140", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn150 = Assignment.Create(ptraLocNOYD.CtrlNbr, "150", "Assignment 150", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn230 = Assignment.Create(ptraLocPSYD.CtrlNbr, "230", "Assignment 230", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn240 = Assignment.Create(ptraLocMCYD.CtrlNbr, "240", "Assignment 240", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn250 = Assignment.Create(ptraLocNOYD.CtrlNbr, "250", "Assignment 250", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn330 = Assignment.Create(ptraLocPSYD.CtrlNbr, "330", "Assignment 330", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn340 = Assignment.Create(ptraLocMCYD.CtrlNbr, "340", "Assignment 340", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraAsgn350 = Assignment.Create(ptraLocNOYD.CtrlNbr, "350", "Assignment 350", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Assignments.Add(ptraAsgn130);
+            uow.Assignments.Add(ptraAsgn140);
+            uow.Assignments.Add(ptraAsgn150);
+            uow.Assignments.Add(ptraAsgn230);
+            uow.Assignments.Add(ptraAsgn240);
+            uow.Assignments.Add(ptraAsgn250);
+            uow.Assignments.Add(ptraAsgn330);
+            uow.Assignments.Add(ptraAsgn340);
+            uow.Assignments.Add(ptraAsgn350);
+            await uow.CommitAsync();
+        }
+
+        // ── PTRA Crews — 9 regular + 3 relief ───────────────────────────
+        var ptraCrew130 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "130", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew140 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "140", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew150 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "150", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew230 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "230", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew240 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "240", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew250 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "250", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew330 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "330", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew340 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "340", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrew350 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "350", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrewRlfA = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-A", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrewRlfB = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-B", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrewRlfC = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-C", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crews.Add(ptraCrew130);
+            uow.Crews.Add(ptraCrew140);
+            uow.Crews.Add(ptraCrew150);
+            uow.Crews.Add(ptraCrew230);
+            uow.Crews.Add(ptraCrew240);
+            uow.Crews.Add(ptraCrew250);
+            uow.Crews.Add(ptraCrew330);
+            uow.Crews.Add(ptraCrew340);
+            uow.Crews.Add(ptraCrew350);
+            uow.Crews.Add(ptraCrewRlfA);
+            uow.Crews.Add(ptraCrewRlfB);
+            uow.Crews.Add(ptraCrewRlfC);
+            await uow.CommitAsync();
+        }
+
+        // ── PTRA StaffablePositions ─────────────────────────────────────
+        // 3-position crews (E, F, H): 130, 150, 230, 250, 330, 350
+        // 2-position crews (E, F): 140, 240, 340, RLF-A, RLF-B, RLF-C
+        var ptra3PosCrews = new[] { ptraCrew130, ptraCrew150, ptraCrew230, ptraCrew250, ptraCrew330, ptraCrew350 };
+        var ptra2PosCrews = new[] { ptraCrew140, ptraCrew240, ptraCrew340, ptraCrewRlfA, ptraCrewRlfB, ptraCrewRlfC };
+        var ptraSPs = new List<StaffablePosition>();
+        for (int i = 0; i < (ptra3PosCrews.Length * 3) + (ptra2PosCrews.Length * 2); i++)
+            ptraSPs.Add(StaffablePosition.Create("Crew"));
+
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            foreach (var ptraSP in ptraSPs)
+                uow.StaffablePositions.Add(ptraSP);
+            await uow.CommitAsync();
+        }
+
+        // ── PTRA CrewPositions ───────────────────────────────────────────
+        int ptraSpIdx = 0;
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            foreach (var crew in ptra3PosCrews)
+            {
+                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraEngRole.CtrlNbr, 1, ptraSPs[ptraSpIdx++].CtrlNbr));
+                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraFmnRole.CtrlNbr, 2, ptraSPs[ptraSpIdx++].CtrlNbr));
+                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraHlpRole.CtrlNbr, 3, ptraSPs[ptraSpIdx++].CtrlNbr));
+            }
+            foreach (var crew in ptra2PosCrews)
+            {
+                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraEngRole.CtrlNbr, 1, ptraSPs[ptraSpIdx++].CtrlNbr));
+                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraFmnRole.CtrlNbr, 2, ptraSPs[ptraSpIdx++].CtrlNbr));
+            }
+            await uow.CommitAsync();
+        }
+
+        // ── PTRA AssignmentSchedules + CrewAssignments ───────────────────
+        var ptraStart = new DateTime(2026, 1, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            // Schedules: mask 62 = weekdays (Mon–Fri), 63 = 6-day (Sun–Fri), 127 = every day
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn130.CtrlNbr, ptraShift1.CtrlNbr, 63, new TimeOnly(7, 0), new TimeOnly(15, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn140.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn150.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn230.CtrlNbr, ptraShift2.CtrlNbr, 63, new TimeOnly(15, 0), new TimeOnly(23, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn240.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn250.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn330.CtrlNbr, ptraShift3.CtrlNbr, 63, new TimeOnly(23, 0), new TimeOnly(7, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn340.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0)));
+            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn350.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0)));
+
+            // Regular crew → assignment links
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew130.CtrlNbr, ptraAsgn130.CtrlNbr, 62, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew140.CtrlNbr, ptraAsgn140.CtrlNbr, 121, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew150.CtrlNbr, ptraAsgn150.CtrlNbr, 103, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew230.CtrlNbr, ptraAsgn230.CtrlNbr, 62, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew240.CtrlNbr, ptraAsgn240.CtrlNbr, 121, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew250.CtrlNbr, ptraAsgn250.CtrlNbr, 103, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew330.CtrlNbr, ptraAsgn330.CtrlNbr, 62, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew340.CtrlNbr, ptraAsgn340.CtrlNbr, 121, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew350.CtrlNbr, ptraAsgn350.CtrlNbr, 103, ptraStart));
+
+            // Relief crew → assignment links (cover remaining days per shift)
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfA.CtrlNbr, ptraAsgn130.CtrlNbr, 1, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfA.CtrlNbr, ptraAsgn140.CtrlNbr, 6, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfA.CtrlNbr, ptraAsgn150.CtrlNbr, 24, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfB.CtrlNbr, ptraAsgn230.CtrlNbr, 1, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfB.CtrlNbr, ptraAsgn240.CtrlNbr, 6, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfB.CtrlNbr, ptraAsgn250.CtrlNbr, 24, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfC.CtrlNbr, ptraAsgn330.CtrlNbr, 1, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfC.CtrlNbr, ptraAsgn340.CtrlNbr, 6, ptraStart));
+            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfC.CtrlNbr, ptraAsgn350.CtrlNbr, 24, ptraStart));
+
             await uow.CommitAsync();
         }
 

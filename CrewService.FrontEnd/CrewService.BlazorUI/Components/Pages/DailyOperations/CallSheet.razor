@@ -142,11 +142,7 @@ else
                 </ul>
 
                 <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <span class="badge bg-primary me-1">@activeShift.ShiftCode.ToUpperInvariant()</span>
-                            @activeShift.ShiftDisplayName
-                        </h6>
+                    <div class="card-header d-flex justify-content-end align-items-center">
                         <div class="d-flex align-items-center gap-2">
                             <div class="btn-group btn-group-sm" role="group" aria-label="Layout toggle">
                                 <button type="button" class="btn @(useHorizontalLayout ? "btn-outline-secondary" : "btn-secondary")"
@@ -246,7 +242,7 @@ else
                                                     @{ var hReliefName = group.FirstOrDefault(s => s.CrewType == "RELIEF")?.CrewName; }
                                                     @if (!string.IsNullOrEmpty(hReliefName))
                                                     {
-                                                        <span class="text-danger small ms-1">(@hReliefName)</span>
+                                                        <span class="small ms-1">(@hReliefName)</span>
                                                     }
                                                     @if (!string.IsNullOrEmpty(hNote))
                                                     {
@@ -377,21 +373,23 @@ else
                                 var vNote = GetAssignmentNote(activeShift, assignmentGroup.Key.AssignmentCtrlNbr);
                                 <div class="ms-3 mb-2 mt-2 @(vAllAnnulled ? "text-muted" : "")" style="font-size: 0.85rem;">
                                     <div class="d-flex align-items-center @(vAllAnnulled ? "text-decoration-line-through" : "")">
-                                        <strong>@assignmentGroup.Key.AssignmentName</strong>
-                                        @{ var vReliefName = assignmentGroup.FirstOrDefault(s => s.CrewType == "RELIEF")?.CrewName; }
-                                        @if (!string.IsNullOrEmpty(vReliefName))
-                                        {
-                                            <span class="text-danger small ms-1">(@vReliefName)</span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(vNote))
-                                        {
-                                            <span class="bi bi-journal-text text-info ms-1" title="@vNote"></span>
-                                        }
-                                        <span class="text-muted ms-2">@assignmentGroup.Key.GroupName</span>
-                                        <span class="text-muted ms-2 small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
+                                        <div class="d-flex align-items-center" style="min-width: 280px;">
+                                            <strong>@assignmentGroup.Key.AssignmentName</strong>
+                                            @{ var vReliefName = assignmentGroup.FirstOrDefault(s => s.CrewType == "RELIEF")?.CrewName; }
+                                            @if (!string.IsNullOrEmpty(vReliefName))
+                                            {
+                                                <span class="small ms-1">(@vReliefName)</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(vNote))
+                                            {
+                                                <span class="bi bi-journal-text text-info ms-1" title="@vNote"></span>
+                                            }
+                                        </div>
+                                        <span class="text-muted" style="min-width: 160px;">@assignmentGroup.Key.GroupName</span>
+                                        <span class="text-muted small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
                                         @if (!isShiftReadOnly)
                                         {
-                                            <div class="dropdown ms-2">
+                                            <div class="dropdown ms-auto">
                                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-0" type="button"
                                                         data-bs-toggle="dropdown" aria-expanded="false">
                                                     <span class="bi bi-three-dots-vertical"></span>

@@ -78,6 +78,7 @@ message StaffingAssignmentResponse {
   string group_name = 9;
   string group_code = 10;
   int64 work_area_group_ctrl_nbr = 11;
+  int32 work_days_mask = 12;
 }
 
 // Assignment Schedule messages
