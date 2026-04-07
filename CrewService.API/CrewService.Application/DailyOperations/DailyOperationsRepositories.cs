@@ -9,6 +9,7 @@ public interface IShiftInstanceRepository
     Task<ShiftInstance?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
     Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default);
     Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, ControlNumber? departmentCtrlNbr, CancellationToken ct = default);
+    Task UpdateAsync(ShiftInstance instance, CancellationToken ct = default);
     Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
 }
 

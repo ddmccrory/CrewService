@@ -71,6 +71,7 @@ public class ForeignKeyIntegrityTests
             // Snapshot — denormalized point-in-time copies on call sheet entities
             ("ShiftInstance", "DepartmentCtrlNbr"),
             ("PositionSlotInstance", "AssignmentCtrlNbr"),
+            ("AssignmentNote", "AssignmentCtrlNbr"),
         };
 
         var orphans = new List<string>();

@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260406163701_AddAssignmentNotes")]
+    partial class AddAssignmentNotes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -4546,7 +4549,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("CrewPositionCtrlNbr")
+                    b.Property<long>("CrewPositionCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -4570,9 +4573,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasDefaultValue("");
 
                     b.Property<long?>("IncumbentEmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsAdHoc")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsAnnulled")
@@ -13757,7 +13757,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasOne("CrewService.Domain.Modules.Crews.CrewPosition", null)
                         .WithMany()
                         .HasForeignKey("CrewPositionCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
                         .WithMany()

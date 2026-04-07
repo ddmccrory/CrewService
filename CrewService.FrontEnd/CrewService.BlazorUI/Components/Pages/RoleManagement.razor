@@ -51,7 +51,7 @@
     </Footer>
 </Modal>
 
-<ConfirmDeleteModal Visible="showDeleteModal" ItemName="@deleteRoleName" IsSaving="isSaving"
+<ConfirmModal Visible="showDeleteModal" ItemName="@deleteRoleName" IsSaving="isSaving"
                     OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
 
 @if (successMessage is not null)

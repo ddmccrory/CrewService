@@ -19,8 +19,26 @@ service DailyOperationsSrvc {
   rpc TieUp (TieUpRequest) returns (OffDutyRecordResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/tie-up" body: "*" };
   }
-  rpc AnnulPosition (AnnulPositionRequest) returns (DailyPositionSlotResponse) {
-    option (google.api.http) = { post: "/v1/daily-operations/annul" body: "*" };
+  rpc AnnulPosition (AnnulPositionRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/annul-position" body: "*" };
+  }
+  rpc AnnulAssignment (AnnulAssignmentRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/annul-assignment" body: "*" };
+  }
+  rpc DoNotFillPosition (DoNotFillPositionRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/do-not-fill" body: "*" };
+  }
+  rpc RestorePositionSlot (RestorePositionSlotRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/restore-position" body: "*" };
+  }
+  rpc RestoreAssignment (RestoreAssignmentRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/restore-assignment" body: "*" };
+  }
+  rpc SaveAssignmentNote (SaveAssignmentNoteRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/assignment-note" body: "*" };
+  }
+  rpc ManageAssignmentPositions (ManageAssignmentPositionsRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/manage-positions" body: "*" };
   }
   rpc RefreshShiftInstance (RefreshShiftInstanceRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/refresh" };
@@ -28,11 +46,15 @@ service DailyOperationsSrvc {
   rpc CloseShiftInstance (CloseShiftInstanceRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/daily-operations/shift-instance/{ctrl_nbr}" };
   }
+  rpc ReopenShiftInstance (ReopenShiftInstanceRequest) returns (GenerateCallSheetResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/shift-instance/{ctrl_nbr}/reopen" };
+  }
 }
 
 message GetCallSheetRequest {
   int64 work_area_group_ctrl_nbr = 1;
   string target_date = 2;
+  bool include_closed = 3;
 }
 
 message GetCallSheetResponse {
@@ -58,6 +80,7 @@ message DailyShiftInstanceResponse {
   optional int64 department_ctrl_nbr = 5;
   string department_name = 6;
   repeated DailyPositionSlotResponse position_slots = 7;
+  repeated AssignmentNoteResponse assignment_notes = 8;
 }
 
 enum PositionSlotStatusEnum {
@@ -92,6 +115,7 @@ message DailyPositionSlotResponse {
   string group_name = 15;
   string group_code = 16;
   bool is_incumbent = 17;
+  bool is_ad_hoc = 18;
 }
 
 message PlaceOnDutyRequest {
@@ -127,15 +151,66 @@ message OffDutyRecordResponse {
 }
 
 message AnnulPositionRequest {
-  int64 position_slot_ctrl_nbr = 1;
-  string reason = 2;
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+  string reason = 3;
+  google.protobuf.Timestamp annulment_date_time = 4;
 }
 
+message AnnulAssignmentRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  string reason = 3;
+  google.protobuf.Timestamp annulment_date_time = 4;
+}
+
+message DoNotFillPositionRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+}
+
+message RestorePositionSlotRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+}
+
+message RestoreAssignmentRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+}
+
+message SaveAssignmentNoteRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  string note_text = 3;
+}
+
+message AssignmentNoteResponse {
+  int64 assignment_ctrl_nbr = 1;
+  string note_text = 2;
+}
+
+message ManageAssignmentPositionsRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+  int64 assignment_ctrl_nbr = 2;
+  repeated string added_craft_role_names = 3;
+  repeated int64 removed_position_slot_ctrl_nbrs = 4;
+  repeated PositionSlotOrderEntry position_slot_orders = 5;
+}
+
+message PositionSlotOrderEntry {
+  int64 ctrl_nbr = 1;
+  int32 display_order = 2;
+}
 
 message RefreshShiftInstanceRequest {
   int64 ctrl_nbr = 1;
 }
 
 message CloseShiftInstanceRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message ReopenShiftInstanceRequest {
   int64 ctrl_nbr = 1;
 }

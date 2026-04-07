@@ -14,11 +14,11 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
 
     // ── Craft Roles ──
 
-    public async Task<GetCraftRolesResponse> GetCraftRolesAsync(long craftCtrlNbr = 0, long departmentCtrlNbr = 0)
+    public async Task<GetCraftRolesResponse> GetCraftRolesAsync(long craftCtrlNbr = 0, long departmentCtrlNbr = 0, long railroadCtrlNbr = 0)
     {
         try
         {
-            return await _client.GetCraftRolesAsync(new GetCraftRolesRequest { CraftCtrlNbr = craftCtrlNbr, DepartmentCtrlNbr = departmentCtrlNbr });
+            return await _client.GetCraftRolesAsync(new GetCraftRolesRequest { CraftCtrlNbr = craftCtrlNbr, DepartmentCtrlNbr = departmentCtrlNbr, RailroadCtrlNbr = railroadCtrlNbr });
         }
         catch (Exception ex)
         {

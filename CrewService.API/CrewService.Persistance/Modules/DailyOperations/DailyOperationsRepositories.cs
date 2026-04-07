@@ -27,12 +27,14 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
     public override async Task<ShiftInstance?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<ShiftInstance>()
             .Include(s => s.PositionSlots)
+            .Include(s => s.AssignmentNotes)
             .SingleOrDefaultAsync(s => s.CtrlNbr == ctrlNbr, ct);
 
     public async Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(
         ControlNumber workInstanceCtrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<ShiftInstance>()
             .Include(s => s.PositionSlots)
+            .Include(s => s.AssignmentNotes)
             .Where(s => s.WorkInstanceCtrlNbr == workInstanceCtrlNbr)
             .OrderBy(s => s.ShiftCode)
             .ToListAsync(ct);

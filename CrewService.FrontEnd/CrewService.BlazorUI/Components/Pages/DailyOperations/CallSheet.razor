@@ -39,7 +39,7 @@ else
                           ValueSelector="@(wa => wa.CtrlNbr)"
                           TextSelector="@(wa => wa.Name)"
                           Placeholder="-- Select Work Area --"
-                          class="form-select" style="max-width: 350px;" />
+                          class="form-select form-select-sm" style="width: 180px;" />
         </div>
         <div class="col-auto" style="position: relative;">
             <label class="form-label fw-semibold">Date</label>
@@ -61,7 +61,15 @@ else
                           ValueSelector="@(d => d.CtrlNbr)"
                           TextSelector="@(d => d.Name)"
                           Placeholder="-- Select Department --"
-                          class="form-select" style="max-width: 250px;" />
+                          class="form-select form-select-sm" style="width: 180px;" />
+        </div>
+        <div class="col-auto d-flex align-items-end" style="padding-bottom: 0.375rem;">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showClosedToggle"
+                       checked="@showClosedShifts"
+                       @onchange="OnShowClosedChanged" />
+                <label class="form-check-label" for="showClosedToggle">Show closed</label>
+            </div>
         </div>
     </div>
 
@@ -119,14 +127,15 @@ else
             else
             {
                 var activeShift = filteredShifts.FirstOrDefault(s => s.CtrlNbr == activeShiftCtrlNbr) ?? filteredShifts[0];
+                var isShiftReadOnly = IsFeatureReadOnly || activeShift.Status == "Completed";
 
                 <ul class="nav nav-tabs mb-3">
                     @foreach (var shift in filteredShifts)
                     {
                         <li class="nav-item">
-                            <button class="nav-link @(activeShift.CtrlNbr == shift.CtrlNbr ? "active" : "")"
+                            <button class="nav-link @(activeShift.CtrlNbr == shift.CtrlNbr ? "active" : "") @(shift.Status == "Completed" ? "text-muted" : "")"
                                     @onclick="() => activeShiftCtrlNbr = shift.CtrlNbr">
-                                <span class="badge bg-primary me-1">@shift.ShiftCode.ToUpperInvariant()</span>
+                                <span class="badge @(shift.Status == "Completed" ? "bg-secondary" : "bg-primary") me-1">@shift.ShiftCode.ToUpperInvariant()</span>
                                 @shift.ShiftDisplayName
                             </button>
                         </li>
@@ -151,28 +160,44 @@ else
                                 </button>
                             </div>
                             <span class="badge @GetStatusBadgeClass(activeShift.Status)">@activeShift.Status</span>
-                            <button class="btn btn-sm btn-outline-secondary"
-                                    @onclick="() => RefreshShift(activeShift.CtrlNbr)"
-                                    title="Rebuild this call sheet">
-                                <span class="bi bi-arrow-clockwise"></span> Refresh
-                            </button>
-                            @if (!IsFeatureReadOnly)
+                            @if (activeShift.Status != "Completed")
                             {
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                                            data-bs-toggle="dropdown" aria-expanded="false"
-                                            title="Add an extra assignment to this shift">
-                                        <span class="bi bi-plus-circle"></span> Add Assignment
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        @onclick="() => RefreshShift(activeShift.CtrlNbr)"
+                                        title="Rebuild this call sheet">
+                                    <span class="bi bi-arrow-clockwise"></span> Refresh
+                                </button>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false"
+                                                title="Add an extra assignment to this shift">
+                                            <span class="bi bi-plus-circle"></span> Add Assignment
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><button class="dropdown-item" disabled><span class="bi bi-clipboard-check me-2"></span>From Template</button></li>
+                                            <li><button class="dropdown-item" disabled><span class="bi bi-pencil-square me-2"></span>Ad-Hoc</button></li>
+                                        </ul>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => OpenCloseModal(activeShift)"
+                                            title="Close this shift">
+                                        <span class="bi bi-x-circle"></span> Close
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><button class="dropdown-item" disabled><span class="bi bi-clipboard-check me-2"></span>From Template</button></li>
-                                        <li><button class="dropdown-item" disabled><span class="bi bi-pencil-square me-2"></span>Ad-Hoc</button></li>
-                                    </ul>
-                                </div>
-                                <button class="btn btn-sm btn-outline-danger"
-                                        @onclick="() => OpenCloseModal(activeShift)"
-                                        title="Close this shift">
-                                    <span class="bi bi-x-circle"></span> Close
+                                }
+                            }
+                            else if (!IsFeatureReadOnly)
+                            {
+                                <button class="btn btn-sm btn-outline-success"
+                                        @onclick="() => ReopenShift(activeShift.CtrlNbr)"
+                                        disabled="@isReopening"
+                                        title="Re-open this completed shift">
+                                    @if (isReopening)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <span class="bi bi-arrow-counterclockwise"></span> Re-open
                                 </button>
                             }
                         </div>
@@ -205,9 +230,9 @@ else
                                             <th>Off Duty</th>
                                             @foreach (var role in craftRoleColumns)
                                             {
-                                                <th>@role</th>
+                                                <th style="min-width: 15ch;">@role</th>
                                             }
-                                            @if (!IsFeatureReadOnly)
+                                            @if (!isShiftReadOnly)
                                             {
                                                 <th style="width: 80px;" class="text-end">Actions</th>
                                             }
@@ -219,10 +244,16 @@ else
                                             var slotsByRole = group
                                                 .GroupBy(s => s.CraftRoleName)
                                                 .ToDictionary(g => g.Key, g => g.OrderBy(s => s.DisplayOrder).ToList());
+                                            var allAnnulled = IsAssignmentFullyAnnulled(group);
+                                            var hNote = GetAssignmentNote(activeShift, group.Key.AssignmentCtrlNbr);
 
-                                            <tr>
+                                            <tr class="@(allAnnulled ? "text-muted text-decoration-line-through" : "")">
                                                 <td>
                                                     <strong>@group.Key.AssignmentCode.ToUpperInvariant()</strong>
+                                                    @if (!string.IsNullOrEmpty(hNote))
+                                                    {
+                                                        <span class="bi bi-journal-text text-info ms-1" title="@hNote"></span>
+                                                    }
                                                 </td>
                                                 <td>@group.Key.GroupCode.ToUpperInvariant()</td>
                                                 <td class="text-nowrap">@group.Key.OnDutyTime</td>
@@ -238,7 +269,7 @@ else
                                                                                     @{ var hVacancy = GetSlotVacancyDisplay(slot); }
                                                                                     @if (!string.IsNullOrEmpty(hVacancy))
                                                                                     {
-                                                                                        <strong class="text-primary small">@hVacancy</strong>
+                                                                                        <strong class="text-primary small font-monospace" style="white-space: pre;">@hVacancy</strong>
                                                                                     }
                                                                                     else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                                                     {
@@ -252,7 +283,7 @@ else
                                                                                     {
                                                                                         <span class="badge @GetSlotStatusBadgeClass(slot)">@GetSlotDisplayStatus(slot)</span>
                                                                                     }
-                                                                                    @if (!IsFeatureReadOnly && IsSlotActionable(slot))
+                                                                                    @if (!isShiftReadOnly && IsSlotActionable(slot))
                                                                                     {
                                                                                         <div class="dropdown">
                                                                                             <button class="btn btn-sm btn-outline-secondary py-0 px-1" type="button"
@@ -280,8 +311,14 @@ else
                                                                                                     && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp)
                                                                                                 {
                                                                                                     <li><hr class="dropdown-divider" /></li>
-                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul</button></li>
-                                                                                                    <li><button class="dropdown-item" disabled><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, slot.CtrlNbr, 0, slot.CraftRoleName)"><span class="bi bi-x-circle me-2"></span>Annul</button></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenDoNotFillModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                                                }
+                                                                                                @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled
+                                                                                                    || slot.Status == PositionSlotStatusEnum.PositionSlotStatusDoNotFill)
+                                                                                                {
+                                                                                                    <li><hr class="dropdown-divider" /></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenRestoreModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore</button></li>
                                                                                                 }
                                                                                             </ul>
                                                                                         </div>
@@ -295,7 +332,7 @@ else
                                                                         <td></td>
                                                                     }
                                                                 }
-                                                                @if (!IsFeatureReadOnly)
+                                                                @if (!isShiftReadOnly)
                                                                 {
                                                                     <td class="text-end">
                                                                         <div class="dropdown">
@@ -304,14 +341,27 @@ else
                                                                                 <span class="bi bi-three-dots-vertical"></span>
                                                                             </button>
                                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
-                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
-                                                                                <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                                                <li><button class="dropdown-item" disabled="@allAnnulled" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                                                                @if (allAnnulled)
+                                                                                                {
+                                                                                                        <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
+                                                                                                    }
+                                                                                                    <li><hr class="dropdown-divider" /></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), hNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenPositionsModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), group)"><span class="bi bi-people me-2"></span>Positions</button></li>
                                                                             </ul>
                                                                         </div>
                                                                     </td>
                                                                 }
                                             </tr>
+                                            @if (!string.IsNullOrEmpty(hNote))
+                                            {
+                                                <tr class="border-0">
+                                                    <td colspan="@(4 + craftRoleColumns.Count + (isShiftReadOnly ? 0 : 1))" class="border-0 pt-0 pb-1 text-info fst-italic small ps-4">
+                                                        <span class="bi bi-journal-text me-1"></span>@hNote
+                                                    </td>
+                                                </tr>
+                                            }
                                         }
                                     </tbody>
                                 </table>
@@ -323,12 +373,18 @@ else
                                 .GroupBy(p => new { p.AssignmentCtrlNbr, p.AssignmentCode, p.AssignmentName, p.OnDutyTime, p.OffDutyTime, p.GroupCode, p.GroupName })
                                 .OrderBy(g => g.Key.AssignmentCode))
                             {
-                                <div class="ms-3 mb-2 mt-2" style="font-size: 0.85rem;">
-                                    <div class="d-flex align-items-center">
+                                var vAllAnnulled = IsAssignmentFullyAnnulled(assignmentGroup);
+                                var vNote = GetAssignmentNote(activeShift, assignmentGroup.Key.AssignmentCtrlNbr);
+                                <div class="ms-3 mb-2 mt-2 @(vAllAnnulled ? "text-muted" : "")" style="font-size: 0.85rem;">
+                                    <div class="d-flex align-items-center @(vAllAnnulled ? "text-decoration-line-through" : "")">
                                         <strong>@assignmentGroup.Key.AssignmentName</strong>
+                                        @if (!string.IsNullOrEmpty(vNote))
+                                        {
+                                            <span class="bi bi-journal-text text-info ms-1" title="@vNote"></span>
+                                        }
                                         <span class="text-muted ms-2">@assignmentGroup.Key.GroupName</span>
                                         <span class="text-muted ms-2 small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
-                                        @if (!IsFeatureReadOnly)
+                                        @if (!isShiftReadOnly)
                                         {
                                             <div class="dropdown ms-2">
                                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-0" type="button"
@@ -336,13 +392,28 @@ else
                                                     <span class="bi bi-three-dots-vertical"></span>
                                                 </button>
                                                 <ul class="dropdown-menu">
-                                                    <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
-                                                    <li><button class="dropdown-item" disabled><span class="bi bi-journal-text me-2"></span>Notes</button></li>
-                                                    <li><button class="dropdown-item" disabled><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                    <li><button class="dropdown-item" disabled="@vAllAnnulled" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, 0, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-x-circle me-2"></span>Annul Assignment</button></li>
+                                                    @if (vAllAnnulled)
+                                                    {
+                                                        <li><button class="dropdown-item" @onclick="() => OpenRestoreAssignmentModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore Assignment</button></li>
+                                                    }
+                                                    <li><hr class="dropdown-divider" /></li>
+                                                    <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), vNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
+                                                    <li><button class="dropdown-item" @onclick="() => OpenPositionsModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), assignmentGroup)"><span class="bi bi-people me-2"></span>Positions</button></li>
                                                 </ul>
                                             </div>
                                         }
                                     </div>
+                                    @if (!string.IsNullOrEmpty(vNote))
+                                    {
+                                        <table class="table table-sm table-borderless mb-0 mt-1">
+                                            <tr>
+                                                <td class="text-info fst-italic small pt-0 pb-1 ps-2">
+                                                    <span class="bi bi-journal-text me-1"></span>@vNote
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    }
                                     <table class="table table-sm table-hover mb-0 mt-1">
                                         <thead>
                                             <tr>
@@ -350,7 +421,7 @@ else
                                                 <th>Craft/Role</th>
                                                 <th>Status</th>
                                                 <th>Employee</th>
-                                                @if (!IsFeatureReadOnly)
+                                                @if (!isShiftReadOnly)
                                                 {
                                                     <th style="width: 80px;" class="text-end">Actions</th>
                                                 }
@@ -371,7 +442,7 @@ else
                                                         @{ var vacancyText = GetSlotVacancyDisplay(slot); }
                                                         @if (!string.IsNullOrEmpty(vacancyText))
                                                         {
-                                                            <strong class="text-primary">@vacancyText</strong>
+                                                            <strong class="text-primary small font-monospace" style="white-space: pre;">@vacancyText</strong>
                                                         }
                                                         else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                         {
@@ -386,7 +457,7 @@ else
                                                             <em class="text-muted">—</em>
                                                         }
                                                     </td>
-                                                    @if (!IsFeatureReadOnly)
+                                                    @if (!isShiftReadOnly)
                                                     {
                                                         <td class="text-end">
                                                             @if (IsSlotActionable(slot))
@@ -417,8 +488,14 @@ else
                                                                             && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp)
                                                                         {
                                                                             <li><hr class="dropdown-divider" /></li>
-                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-x-circle me-2"></span>Annul</button></li>
-                                                                            <li><button class="dropdown-item" disabled><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenAnnulModal(activeShift.CtrlNbr, slot.CtrlNbr, 0, slot.CraftRoleName)"><span class="bi bi-x-circle me-2"></span>Annul</button></li>
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenDoNotFillModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-slash-circle me-2"></span>Do Not Fill</button></li>
+                                                                        }
+                                                                        @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled
+                                                                            || slot.Status == PositionSlotStatusEnum.PositionSlotStatusDoNotFill)
+                                                                        {
+                                                                            <li><hr class="dropdown-divider" /></li>
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenRestoreModal(activeShift.CtrlNbr, slot.CtrlNbr, slot.CraftRoleName)"><span class="bi bi-arrow-counterclockwise me-2"></span>Restore</button></li>
                                                                         }
                                                                     </ul>
                                                                 </div>
@@ -485,9 +562,219 @@ else
     </Modal>
 
     @* ── Close Shift Confirmation Modal ── *@
-    <ConfirmDeleteModal Visible="showCloseModal" ItemName="@closeShiftName" IsSaving="isSaving"
+    <ConfirmModal Visible="showCloseModal" ItemName="@closeShiftName" IsSaving="isSaving"
                         ActionVerb="Close" ButtonIcon="bi bi-x-circle" ButtonClass="btn-warning"
                         OnConfirm="ConfirmClose" OnCancel="() => showCloseModal = false" />
+
+    @* ── Annul Modal (shared for position and assignment) ── *@
+    <Modal Visible="showAnnulModal"
+           Title="@annulModalTitle"
+           Icon="bi bi-x-circle"
+           OnClose="CloseAnnulModal">
+        <BodyContent>
+            <EditForm Model="annulModel" OnValidSubmit="ConfirmAnnul" id="annul-form">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Annulment Date/Time</label>
+                    <input type="datetime-local" class="form-control"
+                           value="@annulModel.AnnulmentDateTime.ToString("yyyy-MM-ddTHH:mm")"
+                           @onchange="e => annulModel.AnnulmentDateTime = DateTime.Parse(e.Value!.ToString()!)" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <InputTextArea @bind-Value="annulModel.Reason" class="form-control" rows="3" placeholder="Enter annulment reason..." />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="CloseAnnulModal">Cancel</button>
+            <button type="submit" form="annul-form" class="btn btn-danger"
+                    disabled="@(string.IsNullOrWhiteSpace(annulModel.Reason) || isAnnulling)">
+                @if (isAnnulling)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-x-circle me-1"></span> Annul
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Do Not Fill Confirmation Modal ── *@
+    <ConfirmModal Visible="showDoNotFillModal" ItemName="@doNotFillItemName" IsSaving="isDoNotFilling"
+                        ActionVerb="Do Not Fill" ButtonIcon="bi bi-slash-circle" ButtonClass="btn-warning"
+                        OnConfirm="ConfirmDoNotFill" OnCancel="() => showDoNotFillModal = false" />
+
+    @* ── Restore Position Confirmation Modal ── *@
+    <ConfirmModal Visible="showRestoreModal" ItemName="@restoreItemName" IsSaving="isRestoring"
+                        ActionVerb="Restore" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
+                        OnConfirm="ConfirmRestore" OnCancel="() => showRestoreModal = false" />
+
+    @* ── Restore Assignment Confirmation Modal ── *@
+    <ConfirmModal Visible="showRestoreAssignmentModal" ItemName="@restoreAssignmentItemName" IsSaving="isRestoringAssignment"
+                        ActionVerb="Restore Assignment" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
+                        OnConfirm="ConfirmRestoreAssignment" OnCancel="() => showRestoreAssignmentModal = false" />
+
+    @* ── Assignment Notes Modal ── *@
+    <Modal Visible="showNotesModal"
+           Title="@notesModalTitle"
+           Icon="bi bi-journal-text"
+           OnClose="() => showNotesModal = false">
+        <BodyContent>
+            <EditForm Model="notesModel" OnValidSubmit="SaveNotes" id="notes-form">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Notes</label>
+                    <InputTextArea @bind-Value="notesModel.NoteText" class="form-control" rows="6" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => showNotesModal = false">Cancel</button>
+            <button type="submit" form="notes-form" class="btn btn-primary"
+                    disabled="@isSavingNotes">
+                @if (isSavingNotes)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-floppy me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Manage Positions Modal ── *@
+    <Modal Visible="showPositionsModal"
+           Title="@positionsModalTitle"
+           Icon="bi bi-people"
+           Size="lg"
+           OnClose="() => showPositionsModal = false">
+        <BodyContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <div class="d-flex align-items-end gap-2 mb-3">
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-semibold">Add Position</label>
+                        <select class="form-select form-select-sm" @bind="positionsSelectedCraftRole">
+                            <option value="">-- Select Craft/Role --</option>
+                            @if (positionsCraftRoles is not null)
+                            {
+                                @foreach (var role in positionsCraftRoles.OrderBy(r => r.Name))
+                                {
+                                    <option value="@role.Name">@role.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-success"
+                            disabled="@string.IsNullOrEmpty(positionsSelectedCraftRole)"
+                            @onclick="AddPosition">
+                        <span class="bi bi-plus-circle me-1"></span> Add
+                    </button>
+                </div>
+            }
+
+            @{ var craftGroups = positionsEditList
+                   .GroupBy(p => p.CraftRoleName)
+                   .OrderBy(g => g.Key)
+                   .ToList(); }
+
+            @if (craftGroups.Count == 0)
+            {
+                <p class="text-muted"><em>No positions on this assignment.</em></p>
+            }
+            else
+            {
+                @foreach (var craftGroup in craftGroups)
+                {
+                    <h6 class="mt-2 mb-1">@craftGroup.Key</h6>
+                    <table class="table table-sm table-hover mb-2">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Status</th>
+                                <th>Type</th>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <th style="width: 120px;" class="text-end">Actions</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in craftGroup.Where(p => !p.IsRemoved).OrderBy(p => p.DisplayOrder))
+                            {
+                                <tr class="@(item.IsNew ? "table-success" : "")">
+                                    <td>@item.DisplayOrder</td>
+                                    <td>
+                                        <span class="badge @(item.IsNew ? "bg-success" : "bg-secondary")">
+                                            @(item.IsNew ? "New" : item.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (item.IsAdHoc || item.IsNew)
+                                        {
+                                            <span class="badge bg-info">Ad-Hoc</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Template</span>
+                                        }
+                                    </td>
+                                    @if (!IsFeatureReadOnly)
+                                    {
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-secondary py-0"
+                                                        @onclick="() => MovePositionUp(item)" title="Move up">
+                                                    <span class="bi bi-arrow-up"></span>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary py-0"
+                                                        @onclick="() => MovePositionDown(item)" title="Move down">
+                                                    <span class="bi bi-arrow-down"></span>
+                                                </button>
+                                                @if (item.CanRemove)
+                                                {
+                                                    <button type="button" class="btn btn-outline-danger py-0"
+                                                            @onclick="() => RemovePosition(item)" title="Remove">
+                                                        <span class="bi bi-trash"></span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            @foreach (var item in craftGroup.Where(p => p.IsRemoved))
+                            {
+                                <tr class="table-danger text-decoration-line-through">
+                                    <td>@item.DisplayOrder</td>
+                                    <td><span class="badge bg-danger">Removed</span></td>
+                                    <td><span class="badge bg-info">Ad-Hoc</span></td>
+                                    @if (!IsFeatureReadOnly)
+                                    {
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                                                    @onclick="() => UndoRemovePosition(item)" title="Undo remove">
+                                                <span class="bi bi-arrow-counterclockwise"></span>
+                                            </button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => showPositionsModal = false">Cancel</button>
+            <button type="button" class="btn btn-primary"
+                    disabled="@(!HasPositionChanges || isSavingPositions)"
+                    @onclick="SavePositions">
+                @if (isSavingPositions)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-floppy me-1"></span> Save Changes
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -503,6 +790,7 @@ else
     private long selectedDepartmentCtrlNbr;
     private long activeShiftCtrlNbr;
     private bool useHorizontalLayout;
+    private bool showClosedShifts;
 
     private bool showGenerateModal;
     private bool isGenerating;
@@ -511,6 +799,52 @@ else
     private bool showCloseModal;
     private long closeShiftCtrlNbr;
     private string closeShiftName = "";
+    private bool isReopening;
+
+    // Annul modal state
+    private bool showAnnulModal;
+    private bool isAnnulling;
+    private string annulModalTitle = "";
+    private AnnulModel annulModel = new();
+
+    // Do Not Fill modal state
+    private bool showDoNotFillModal;
+    private bool isDoNotFilling;
+    private long doNotFillShiftCtrlNbr;
+    private long doNotFillSlotCtrlNbr;
+    private string doNotFillItemName = "";
+
+    // Restore modal state
+    private bool showRestoreModal;
+    private bool isRestoring;
+    private long restoreShiftCtrlNbr;
+    private long restoreSlotCtrlNbr;
+    private string restoreItemName = "";
+
+    // Restore Assignment modal state
+    private bool showRestoreAssignmentModal;
+    private bool isRestoringAssignment;
+    private long restoreAssignmentShiftCtrlNbr;
+    private long restoreAssignmentCtrlNbr;
+    private string restoreAssignmentItemName = "";
+
+    // Notes modal state
+    private bool showNotesModal;
+    private bool isSavingNotes;
+    private long notesShiftCtrlNbr;
+    private long notesAssignmentCtrlNbr;
+    private string notesModalTitle = "";
+    private NotesModel notesModel = new();
+
+    // Positions modal state
+    private bool showPositionsModal;
+    private bool isSavingPositions;
+    private long positionsShiftCtrlNbr;
+    private long positionsAssignmentCtrlNbr;
+    private string positionsModalTitle = "";
+    private string positionsSelectedCraftRole = "";
+    private List<PositionEditItem> positionsEditList = [];
+    private IReadOnlyList<CraftRoleResponse>? positionsCraftRoles;
 
     protected override async Task LoadDataAsync()
     {
@@ -526,6 +860,7 @@ else
         shifts = null;
         callSheetLoaded = false;
         availableShifts = null;
+        showClosedShifts = false;
 
         if (HasRailroad)
             await LoadWorkAreas();
@@ -600,7 +935,7 @@ else
         try
         {
             var response = await DailyOperationsClient.GetCallSheetAsync(
-                selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"));
+                selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"), showClosedShifts);
             shifts = response.Shifts;
             callSheetLoaded = true;
         }
@@ -652,6 +987,13 @@ else
         activeShiftCtrlNbr = 0;
         var dept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
         useHorizontalLayout = dept?.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private async Task OnShowClosedChanged(ChangeEventArgs e)
+    {
+        showClosedShifts = e.Value is true;
+        if (selectedWorkAreaCtrlNbr > 0)
+            await LoadCallSheet();
     }
 
     private void CloseGenerateModal() => showGenerateModal = false;
@@ -715,6 +1057,28 @@ else
         }
     }
 
+    private async Task ReopenShift(long shiftCtrlNbr)
+    {
+        isReopening = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.ReopenShiftInstanceAsync(shiftCtrlNbr);
+            successMessage = "Shift has been re-opened.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to re-open shift: {ex.Message}";
+        }
+        finally
+        {
+            isReopening = false;
+        }
+    }
+
     private static string GetStatusBadgeClass(string status) => status switch
     {
         "Active" => "bg-success",
@@ -774,22 +1138,394 @@ else
         _ => ""
     };
 
-    private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot) => slot.Status switch
+    private const int VacancyDisplayWidth = 15;
+
+    private static string GetSlotVacancyDisplay(DailyPositionSlotResponse slot)
     {
-        PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
-        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "***EXTRA BOARD***",
-        PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
-        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
-        _ => string.Empty
-    };
+        var text = slot.Status switch
+        {
+            PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
+            PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*",
+            PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
+            PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
+            PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
+            _ => string.Empty
+        };
+        return string.IsNullOrEmpty(text) ? text : text.PadRight(VacancyDisplayWidth);
+    }
 
     private static bool IsSlotActionable(DailyPositionSlotResponse slot) =>
         slot.Status is not PositionSlotStatusEnum.PositionSlotStatusSkipped;
+
+    private static bool IsAssignmentFullyAnnulled(IEnumerable<DailyPositionSlotResponse> slots) =>
+        slots.All(s => s.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled);
+
+    private void OpenAnnulModal(long shiftCtrlNbr, long slotCtrlNbr, long assignmentCtrlNbr, string itemName)
+    {
+        annulModel = new()
+        {
+            ShiftInstanceCtrlNbr = shiftCtrlNbr,
+            PositionSlotCtrlNbr = slotCtrlNbr,
+            AssignmentCtrlNbr = assignmentCtrlNbr,
+            AnnulmentDateTime = DateTime.Now
+        };
+        annulModalTitle = assignmentCtrlNbr > 0
+            ? $"Annul Assignment — {itemName}"
+            : $"Annul Position — {itemName}";
+        showAnnulModal = true;
+    }
+
+    private void CloseAnnulModal() => showAnnulModal = false;
+
+    private async Task ConfirmAnnul()
+    {
+        isAnnulling = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var annulmentUtc = DateTime.SpecifyKind(annulModel.AnnulmentDateTime, DateTimeKind.Utc);
+
+            if (annulModel.AssignmentCtrlNbr > 0)
+            {
+                await DailyOperationsClient.AnnulAssignmentAsync(
+                    annulModel.ShiftInstanceCtrlNbr,
+                    annulModel.AssignmentCtrlNbr,
+                    annulModel.Reason ?? "",
+                    annulmentUtc);
+                successMessage = "Assignment annulled successfully.";
+            }
+            else
+            {
+                await DailyOperationsClient.AnnulPositionAsync(
+                    annulModel.ShiftInstanceCtrlNbr,
+                    annulModel.PositionSlotCtrlNbr,
+                    annulModel.Reason ?? "",
+                    annulmentUtc);
+                successMessage = "Position annulled successfully.";
+            }
+
+            showAnnulModal = false;
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Annulment failed: {ex.Message}";
+        }
+        finally
+        {
+            isAnnulling = false;
+        }
+    }
+
+    private void OpenDoNotFillModal(long shiftCtrlNbr, long slotCtrlNbr, string itemName)
+    {
+        doNotFillShiftCtrlNbr = shiftCtrlNbr;
+        doNotFillSlotCtrlNbr = slotCtrlNbr;
+        doNotFillItemName = itemName;
+        showDoNotFillModal = true;
+    }
+
+    private async Task ConfirmDoNotFill()
+    {
+        isDoNotFilling = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.DoNotFillPositionAsync(doNotFillShiftCtrlNbr, doNotFillSlotCtrlNbr);
+            showDoNotFillModal = false;
+            successMessage = "Position marked as Do Not Fill.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to mark position: {ex.Message}";
+        }
+        finally
+        {
+            isDoNotFilling = false;
+        }
+    }
+
+    private void OpenRestoreModal(long shiftCtrlNbr, long slotCtrlNbr, string itemName)
+    {
+        restoreShiftCtrlNbr = shiftCtrlNbr;
+        restoreSlotCtrlNbr = slotCtrlNbr;
+        restoreItemName = itemName;
+        showRestoreModal = true;
+    }
+
+    private async Task ConfirmRestore()
+    {
+        isRestoring = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.RestorePositionAsync(restoreShiftCtrlNbr, restoreSlotCtrlNbr);
+            showRestoreModal = false;
+            successMessage = "Position restored successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to restore position: {ex.Message}";
+        }
+        finally
+        {
+            isRestoring = false;
+        }
+    }
+
+    private void OpenRestoreAssignmentModal(long shiftCtrlNbr, long assignmentCtrlNbr, string itemName)
+    {
+        restoreAssignmentShiftCtrlNbr = shiftCtrlNbr;
+        restoreAssignmentCtrlNbr = assignmentCtrlNbr;
+        restoreAssignmentItemName = itemName;
+        showRestoreAssignmentModal = true;
+    }
+
+    private async Task ConfirmRestoreAssignment()
+    {
+        isRestoringAssignment = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.RestoreAssignmentAsync(restoreAssignmentShiftCtrlNbr, restoreAssignmentCtrlNbr);
+            showRestoreAssignmentModal = false;
+            successMessage = "Assignment restored successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to restore assignment: {ex.Message}";
+        }
+        finally
+        {
+            isRestoringAssignment = false;
+        }
+    }
+
+    private static string GetAssignmentNote(DailyShiftInstanceResponse shift, long assignmentCtrlNbr) =>
+        shift.AssignmentNotes.FirstOrDefault(n => n.AssignmentCtrlNbr == assignmentCtrlNbr)?.NoteText ?? "";
+
+    private void OpenNotesModal(long shiftCtrlNbr, long assignmentCtrlNbr, string assignmentCode, string existingNote)
+    {
+        notesShiftCtrlNbr = shiftCtrlNbr;
+        notesAssignmentCtrlNbr = assignmentCtrlNbr;
+        notesModalTitle = $"Notes — {assignmentCode}";
+        notesModel = new NotesModel { NoteText = existingNote };
+        showNotesModal = true;
+    }
+
+    private async Task SaveNotes()
+    {
+        isSavingNotes = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.SaveAssignmentNoteAsync(notesShiftCtrlNbr, notesAssignmentCtrlNbr, notesModel.NoteText ?? "");
+            showNotesModal = false;
+            successMessage = "Notes saved successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save notes: {ex.Message}";
+        }
+        finally
+        {
+            isSavingNotes = false;
+        }
+    }
 
     private class GenerateShiftModel
     {
         public long ShiftDefinitionCtrlNbr { get; set; }
         public long DepartmentCtrlNbr { get; set; }
+    }
+
+    private class AnnulModel
+    {
+        public long ShiftInstanceCtrlNbr { get; set; }
+        public long PositionSlotCtrlNbr { get; set; }
+        public long AssignmentCtrlNbr { get; set; }
+        public string? Reason { get; set; }
+        public DateTime AnnulmentDateTime { get; set; } = DateTime.Now;
+    }
+
+    private class NotesModel
+    {
+        public string? NoteText { get; set; }
+    }
+
+    // ── Position Management ──
+
+    private async Task OpenPositionsModal(long shiftCtrlNbr, long assignmentCtrlNbr, string assignmentCode,
+        IEnumerable<DailyPositionSlotResponse> currentSlots)
+    {
+        positionsShiftCtrlNbr = shiftCtrlNbr;
+        positionsAssignmentCtrlNbr = assignmentCtrlNbr;
+        positionsModalTitle = $"Manage Positions — {assignmentCode}";
+        positionsSelectedCraftRole = "";
+
+        positionsEditList = currentSlots
+            .OrderBy(s => s.CraftRoleName)
+            .ThenBy(s => s.DisplayOrder)
+            .Select(s => new PositionEditItem
+            {
+                CtrlNbr = s.CtrlNbr,
+                CraftRoleName = s.CraftRoleName,
+                DisplayOrder = s.DisplayOrder,
+                Status = GetSlotDisplayStatus(s),
+                IsAdHoc = s.IsAdHoc,
+                IsOpen = s.Status == PositionSlotStatusEnum.PositionSlotStatusOpen,
+                IsNew = false,
+                IsRemoved = false
+            })
+            .ToList();
+
+        try
+        {
+            var response = await WorkManagementClient.GetCraftRolesAsync(railroadCtrlNbr: SelectedRailroadCtrlNbr!.Value);
+            positionsCraftRoles = response.Roles;
+        }
+        catch { positionsCraftRoles = []; }
+
+        showPositionsModal = true;
+    }
+
+    private void AddPosition()
+    {
+        if (string.IsNullOrEmpty(positionsSelectedCraftRole)) return;
+
+        var maxOrder = positionsEditList
+            .Where(p => p.CraftRoleName == positionsSelectedCraftRole && !p.IsRemoved)
+            .Select(p => p.DisplayOrder)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        positionsEditList.Add(new PositionEditItem
+        {
+            CtrlNbr = 0,
+            CraftRoleName = positionsSelectedCraftRole,
+            DisplayOrder = maxOrder + 1,
+            Status = "Vacancy",
+            IsAdHoc = true,
+            IsOpen = true,
+            IsNew = true,
+            IsRemoved = false
+        });
+
+        positionsSelectedCraftRole = "";
+    }
+
+    private void RemovePosition(PositionEditItem item)
+    {
+        if (item.IsNew)
+            positionsEditList.Remove(item);
+        else
+            item.IsRemoved = true;
+    }
+
+    private void UndoRemovePosition(PositionEditItem item)
+    {
+        item.IsRemoved = false;
+    }
+
+    private void MovePositionUp(PositionEditItem item)
+    {
+        var craftGroup = positionsEditList
+            .Where(p => p.CraftRoleName == item.CraftRoleName && !p.IsRemoved)
+            .OrderBy(p => p.DisplayOrder)
+            .ToList();
+        var idx = craftGroup.IndexOf(item);
+        if (idx <= 0) return;
+        (craftGroup[idx].DisplayOrder, craftGroup[idx - 1].DisplayOrder) =
+            (craftGroup[idx - 1].DisplayOrder, craftGroup[idx].DisplayOrder);
+    }
+
+    private void MovePositionDown(PositionEditItem item)
+    {
+        var craftGroup = positionsEditList
+            .Where(p => p.CraftRoleName == item.CraftRoleName && !p.IsRemoved)
+            .OrderBy(p => p.DisplayOrder)
+            .ToList();
+        var idx = craftGroup.IndexOf(item);
+        if (idx < 0 || idx >= craftGroup.Count - 1) return;
+        (craftGroup[idx].DisplayOrder, craftGroup[idx + 1].DisplayOrder) =
+            (craftGroup[idx + 1].DisplayOrder, craftGroup[idx].DisplayOrder);
+    }
+
+    private bool HasPositionChanges =>
+        positionsEditList.Any(p => p.IsNew || p.IsRemoved) ||
+        positionsEditList.Any(p => !p.IsNew && !p.IsRemoved && p.DisplayOrder != p.OriginalDisplayOrder);
+
+    private async Task SavePositions()
+    {
+        isSavingPositions = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var addedRoles = positionsEditList.Where(p => p.IsNew).Select(p => p.CraftRoleName);
+            var removedIds = positionsEditList.Where(p => p.IsRemoved && !p.IsNew).Select(p => p.CtrlNbr);
+            var orders = positionsEditList
+                .Where(p => !p.IsNew && !p.IsRemoved)
+                .Select(p => (p.CtrlNbr, p.DisplayOrder));
+
+            await DailyOperationsClient.ManageAssignmentPositionsAsync(
+                positionsShiftCtrlNbr,
+                positionsAssignmentCtrlNbr,
+                addedRoles,
+                removedIds,
+                orders);
+
+            showPositionsModal = false;
+            successMessage = "Positions updated successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update positions: {ex.Message}";
+        }
+        finally
+        {
+            isSavingPositions = false;
+        }
+    }
+
+    private class PositionEditItem
+    {
+        public long CtrlNbr { get; set; }
+        public string CraftRoleName { get; set; } = "";
+        private int _displayOrder;
+        public int DisplayOrder
+        {
+            get => _displayOrder;
+            set
+            {
+                if (!_initialized) { _originalDisplayOrder = value; _initialized = true; }
+                _displayOrder = value;
+            }
+        }
+        public int OriginalDisplayOrder => _originalDisplayOrder;
+        private int _originalDisplayOrder;
+        private bool _initialized;
+        public string Status { get; set; } = "";
+        public bool IsAdHoc { get; set; }
+        public bool IsOpen { get; set; }
+        public bool IsNew { get; set; }
+        public bool IsRemoved { get; set; }
+        public bool CanRemove => (IsAdHoc || IsNew) && IsOpen;
     }
 }

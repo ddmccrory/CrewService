@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewAssignment
+namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewAssignmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260406150030_AddAnnulmentDateTimeToPositionSlotInstance")]
+    partial class AddAnnulmentDateTimeToPositionSlotInstance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -4376,36 +4379,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.ToTable("AbolishmentRecords");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentNote", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("AssignmentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("NoteText")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("ShiftInstanceCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("ShiftInstanceCtrlNbr", "AssignmentCtrlNbr")
-                        .IsUnique();
-
-                    b.ToTable("AssignmentNote");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CraftRole", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -4546,7 +4519,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("CrewPositionCtrlNbr")
+                    b.Property<long>("CrewPositionCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -4570,9 +4543,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                         .HasDefaultValue("");
 
                     b.Property<long?>("IncumbentEmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsAdHoc")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsAnnulled")
@@ -13430,84 +13400,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentNote", b =>
-                {
-                    b.HasOne("CrewService.Domain.Modules.WorkManagement.ShiftInstance", null)
-                        .WithMany("AssignmentNotes")
-                        .HasForeignKey("ShiftInstanceCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("AssignmentNoteCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AssignmentNoteCtrlNbr");
-
-                            b1.ToTable("AssignmentNote");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AssignmentNoteCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("AssignmentNoteCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AssignmentNoteCtrlNbr");
-
-                            b1.ToTable("AssignmentNote");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AssignmentNoteCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("AssignmentNoteCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("AssignmentNoteCtrlNbr");
-
-                            b1.ToTable("AssignmentNote");
-
-                            b1.WithOwner()
-                                .HasForeignKey("AssignmentNoteCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CraftRole", b =>
                 {
                     b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
@@ -13757,7 +13649,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
                     b.HasOne("CrewService.Domain.Modules.Crews.CrewPosition", null)
                         .WithMany()
                         .HasForeignKey("CrewPositionCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
                         .WithMany()
@@ -14214,8 +14107,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftInstance", b =>
                 {
-                    b.Navigation("AssignmentNotes");
-
                     b.Navigation("PositionSlots");
                 });
 #pragma warning restore 612, 618

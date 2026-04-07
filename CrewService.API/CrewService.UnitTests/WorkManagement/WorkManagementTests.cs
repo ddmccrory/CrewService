@@ -70,11 +70,12 @@ public class PositionSlotInstanceTests
     {
         var slot = CreateSlot();
 
-        slot.Annul("Position abolished");
+        slot.Annul("Position abolished", DateTime.UtcNow);
 
         Assert.Equal(PositionSlotStatus.Annulled, slot.Status);
         Assert.True(slot.IsAnnulled);
         Assert.Equal("Position abolished", slot.AnnulmentReason);
+        Assert.NotNull(slot.AnnulmentDateTimeUtc);
     }
 
     [Fact]
@@ -99,6 +100,77 @@ public class PositionSlotInstanceTests
         Assert.True(slot.IsSkipped);
     }
 
+    [Fact]
+    public void Restore_FromAnnulled_ResetsToOpen()
+    {
+        var slot = CreateSlot();
+        slot.Annul("No work", DateTime.UtcNow);
+
+        slot.RestoreSlot();
+
+        Assert.Equal(PositionSlotStatus.Open, slot.Status);
+        Assert.False(slot.IsAnnulled);
+        Assert.Null(slot.AnnulmentReason);
+        Assert.Null(slot.AnnulmentDateTimeUtc);
+        Assert.False(slot.IsDoNotFill);
+    }
+
+    [Fact]
+    public void Restore_FromDoNotFill_ResetsToOpen()
+    {
+        var slot = CreateSlot();
+        slot.MarkDoNotFill();
+
+        slot.RestoreSlot();
+
+        Assert.Equal(PositionSlotStatus.Open, slot.Status);
+        Assert.False(slot.IsDoNotFill);
+    }
+
+    [Fact]
+    public void Restore_WithIncumbent_ResetsToFilled()
+    {
+        var shiftInstance = ShiftInstance.Create(
+            ControlNumber.Create(1), "DAY", "Day Shift");
+        var slot = shiftInstance.AddPositionSlot(ControlNumber.Create(10), ControlNumber.Create(200), 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+        slot.Annul("Temp annul", DateTime.UtcNow);
+
+        slot.RestoreSlot();
+
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
+        Assert.False(slot.IsAnnulled);
+        Assert.Equal(200, slot.IncumbentEmployeeCtrlNbr!.Value);
+    }
+
+    [Fact]
+    public void RestoreSlot_AllAnnulledSlots_RestoresEachToCorrectStatus()
+    {
+        var shift = ShiftInstance.Create(
+            ControlNumber.Create(1), "DAY", "Day Shift");
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        var vacant = shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            assignmentCtrlNbr, "TY-101", "Pool Turn 101", "Engineer", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+        var filled = shift.AddPositionSlot(ControlNumber.Create(11), ControlNumber.Create(200), 2,
+            assignmentCtrlNbr, "TY-101", "Pool Turn 101", "Foreman", "", "",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+
+        vacant.Annul("No work", DateTime.UtcNow);
+        filled.Annul("No work", DateTime.UtcNow);
+
+        foreach (var slot in shift.PositionSlots.Where(s => s.AssignmentCtrlNbr == assignmentCtrlNbr && s.IsAnnulled))
+            slot.RestoreSlot();
+
+        Assert.Equal(PositionSlotStatus.Open, vacant.Status);
+        Assert.False(vacant.IsAnnulled);
+        Assert.Equal(PositionSlotStatus.Filled, filled.Status);
+        Assert.False(filled.IsAnnulled);
+        Assert.Equal(200, filled.IncumbentEmployeeCtrlNbr!.Value);
+    }
+
     private static PositionSlotInstance CreateSlot()
     {
         var shiftInstance = ShiftInstance.Create(
@@ -108,6 +180,187 @@ public class PositionSlotInstanceTests
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
             new TimeOnly(7, 0), new TimeOnly(15, 0));
         return slot;
+    }
+}
+
+
+public class ShiftInstancePositionManagementTests
+{
+    [Fact]
+    public void AddAdHocPositionSlot_CreatesAdHocSlotWithCopiedMetadata()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Conductor");
+
+        Assert.True(adHoc.IsAdHoc);
+        Assert.Null(adHoc.CrewPositionCtrlNbr);
+        Assert.Equal(PositionSlotStatus.Open, adHoc.Status);
+        Assert.Equal("Conductor", adHoc.CraftRoleName);
+        Assert.Equal("TY-101", adHoc.AssignmentCode);
+        Assert.Equal("Pool Turn 101", adHoc.AssignmentName);
+    }
+
+    [Fact]
+    public void AddAdHocPositionSlot_CalculatesDisplayOrderPerCraft()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        // Existing Engineer slot has DisplayOrder = 1
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Engineer");
+
+        Assert.Equal(2, adHoc.DisplayOrder);
+    }
+
+    [Fact]
+    public void AddAdHocPositionSlot_NewCraftRole_StartsAtDisplayOrder1()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Brakeman");
+
+        Assert.Equal(1, adHoc.DisplayOrder);
+    }
+
+    [Fact]
+    public void AddAdHocPositionSlot_NoExistingAssignment_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.AddAdHocPositionSlot(ControlNumber.Create(999), "Engineer"));
+    }
+
+    [Fact]
+    public void RemovePositionSlot_AdHocOpen_Removes()
+    {
+        var shift = CreateShiftWithPositions();
+        var adHoc = shift.AddAdHocPositionSlot(ControlNumber.Create(50), "Conductor");
+        var initialCount = shift.PositionSlots.Count;
+
+        shift.RemovePositionSlot(adHoc.CtrlNbr);
+
+        Assert.Equal(initialCount - 1, shift.PositionSlots.Count);
+        Assert.DoesNotContain(adHoc, shift.PositionSlots);
+    }
+
+    [Fact]
+    public void RemovePositionSlot_TemplateSlot_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+        var templateSlot = shift.PositionSlots[0]; // Template slot from AddPositionSlot
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.RemovePositionSlot(templateSlot.CtrlNbr));
+    }
+
+    [Fact]
+    public void RemovePositionSlot_FilledAdHoc_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+        var adHoc = shift.AddAdHocPositionSlot(ControlNumber.Create(50), "Conductor");
+        adHoc.Fill(ControlNumber.Create(200));
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.RemovePositionSlot(adHoc.CtrlNbr));
+    }
+
+    [Fact]
+    public void RemovePositionSlot_NotFound_Throws()
+    {
+        var shift = CreateShiftWithPositions();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            shift.RemovePositionSlot(ControlNumber.Create(999)));
+    }
+
+    [Fact]
+    public void ReorderPositionSlots_UpdatesDisplayOrders()
+    {
+        var shift = CreateShiftWithPositions();
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+        var adHoc = shift.AddAdHocPositionSlot(assignmentCtrlNbr, "Engineer");
+
+        var original = shift.PositionSlots[0]; // DisplayOrder = 1
+        // adHoc has DisplayOrder = 2
+
+        shift.ReorderPositionSlots(
+        [
+            (original.CtrlNbr, 2),
+            (adHoc.CtrlNbr, 1)
+        ]);
+
+        Assert.Equal(2, original.DisplayOrder);
+        Assert.Equal(1, adHoc.DisplayOrder);
+    }
+
+    [Fact]
+    public void ReorderPositionSlots_IgnoresUnknownCtrlNbrs()
+    {
+        var shift = CreateShiftWithPositions();
+        var slot = shift.PositionSlots[0];
+
+        // Should not throw
+        shift.ReorderPositionSlots(
+        [
+            (slot.CtrlNbr, 5),
+            (ControlNumber.Create(999), 10)
+        ]);
+
+        Assert.Equal(5, slot.DisplayOrder);
+    }
+
+    private static ShiftInstance CreateShiftWithPositions()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        shift.AddPositionSlot(ControlNumber.Create(10), null, 1,
+            ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "Pool", "POOL",
+            new TimeOnly(7, 0), new TimeOnly(15, 0));
+        return shift;
+    }
+}
+
+
+public class ShiftInstanceNoteTests
+{
+    [Fact]
+    public void SetAssignmentNote_CreatesNewNote()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        shift.SetAssignmentNote(assignmentCtrlNbr, "Test note");
+
+        Assert.Single(shift.AssignmentNotes);
+        Assert.Equal(50, shift.AssignmentNotes[0].AssignmentCtrlNbr.Value);
+        Assert.Equal("Test note", shift.AssignmentNotes[0].NoteText);
+    }
+
+    [Fact]
+    public void SetAssignmentNote_UpdatesExistingNote()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+        var assignmentCtrlNbr = ControlNumber.Create(50);
+
+        shift.SetAssignmentNote(assignmentCtrlNbr, "Original");
+        shift.SetAssignmentNote(assignmentCtrlNbr, "Updated");
+
+        Assert.Single(shift.AssignmentNotes);
+        Assert.Equal("Updated", shift.AssignmentNotes[0].NoteText);
+    }
+
+    [Fact]
+    public void SetAssignmentNote_DifferentAssignments_CreatesSeparateNotes()
+    {
+        var shift = ShiftInstance.Create(ControlNumber.Create(1), "DAY", "Day Shift");
+
+        shift.SetAssignmentNote(ControlNumber.Create(50), "Note A");
+        shift.SetAssignmentNote(ControlNumber.Create(60), "Note B");
+
+        Assert.Equal(2, shift.AssignmentNotes.Count);
     }
 }
 
@@ -201,7 +454,7 @@ public class DepartmentTests
     {
         var dept = Department.Create(10, ControlNumber.Create(5), "Transportation");
 
-        dept.Update("Mechanical");
+        dept.Update("Mechanical", "horizontal");
 
         Assert.Equal("Mechanical", dept.Name);
         Assert.Equal(10, dept.ParentCtrlNbr);

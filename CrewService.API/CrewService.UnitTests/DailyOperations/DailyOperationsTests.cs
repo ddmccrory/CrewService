@@ -69,11 +69,12 @@ public class PositionSlotInstanceTests
             ControlNumber.Create(50), "TY-101", "Pool Turn 101", "Engineer", "", "",
             new TimeOnly(7, 0), new TimeOnly(15, 0));
 
-        slot.Annul("No work available");
+        slot.Annul("No work available", DateTime.UtcNow);
 
         Assert.Equal(PositionSlotStatus.Annulled, slot.Status);
         Assert.True(slot.IsAnnulled);
         Assert.Equal("No work available", slot.AnnulmentReason);
+        Assert.NotNull(slot.AnnulmentDateTimeUtc);
     }
 
     [Fact]
