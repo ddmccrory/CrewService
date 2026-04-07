@@ -9,6 +9,7 @@ public sealed class ShiftInstance : Entity
     private readonly List<AssignmentNote> _assignmentNotes = [];
 
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
+    public ControlNumber ShiftDefinitionCtrlNbr { get; private set; }
     public string ShiftCode { get; private set; } = string.Empty;
     public string ShiftDisplayName { get; private set; } = string.Empty;
     public ControlNumber? DepartmentCtrlNbr { get; private set; }
@@ -23,10 +24,12 @@ public sealed class ShiftInstance : Entity
     private ShiftInstance()
     {
         WorkInstanceCtrlNbr = null!;
+        ShiftDefinitionCtrlNbr = null!;
     }
 
     public static ShiftInstance Create(
         ControlNumber workInstanceCtrlNbr,
+        ControlNumber shiftDefinitionCtrlNbr,
         string shiftCode,
         string shiftDisplayName,
         ControlNumber? departmentCtrlNbr = null,
@@ -35,6 +38,7 @@ public sealed class ShiftInstance : Entity
         return new ShiftInstance
         {
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
+            ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
             ShiftCode = shiftCode,
             ShiftDisplayName = shiftDisplayName,
             DepartmentCtrlNbr = departmentCtrlNbr,
@@ -151,5 +155,76 @@ public sealed class ShiftInstance : Entity
             var slot = _positionSlots.SingleOrDefault(s => s.CtrlNbr == ctrlNbr);
             slot?.SetDisplayOrder(displayOrder);
         }
+    }
+
+    public void AddTemplateAssignment(
+        ControlNumber assignmentCtrlNbr,
+        string assignmentCode,
+        string assignmentName,
+        string groupName,
+        string groupCode,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime,
+        IReadOnlyList<(ControlNumber PositionCtrlNbr, ControlNumber? IncumbentEmployeeCtrlNbr, int DisplayOrder, string CraftRoleName)> positions)
+    {
+        if (_positionSlots.Any(s => s.AssignmentCtrlNbr == assignmentCtrlNbr))
+            throw new InvalidOperationException($"Assignment {assignmentCtrlNbr} is already on this shift.");
+
+        foreach (var pos in positions)
+        {
+            AddPositionSlot(
+                pos.PositionCtrlNbr, pos.IncumbentEmployeeCtrlNbr, pos.DisplayOrder,
+                assignmentCtrlNbr, assignmentCode, assignmentName,
+                pos.CraftRoleName, groupName, groupCode, onDutyTime, offDutyTime);
+        }
+    }
+
+    public void AddAdHocAssignment(
+        string assignmentCode,
+        string assignmentName,
+        string groupName,
+        string groupCode,
+        TimeOnly onDutyTime,
+        TimeOnly offDutyTime,
+        IReadOnlyList<string> craftRoleNames)
+    {
+        if (craftRoleNames.Count == 0)
+            throw new InvalidOperationException("At least one craft/role is required for an ad-hoc assignment.");
+
+        var syntheticCtrlNbr = ControlNumber.Create();
+
+        for (var i = 0; i < craftRoleNames.Count; i++)
+        {
+            var slot = PositionSlotInstance.CreateAdHoc(
+                CtrlNbr, i + 1,
+                syntheticCtrlNbr, assignmentCode, assignmentName,
+                craftRoleNames[i], groupName, groupCode, onDutyTime, offDutyTime);
+            _positionSlots.Add(slot);
+        }
+    }
+
+    public void RemoveAssignment(ControlNumber assignmentCtrlNbr)
+    {
+        var slots = _positionSlots.Where(s => s.AssignmentCtrlNbr == assignmentCtrlNbr).ToList();
+
+        if (slots.Count == 0)
+            throw new InvalidOperationException($"No positions found for assignment {assignmentCtrlNbr}.");
+
+        var activeStatuses = new[]
+        {
+            PositionSlotStatus.OnDuty,
+            PositionSlotStatus.OnDutyOvertime,
+            PositionSlotStatus.TiedUp
+        };
+
+        if (slots.Any(s => activeStatuses.Contains(s.Status)))
+            throw new InvalidOperationException("Cannot remove an assignment that has positions on duty or tied up.");
+
+        foreach (var slot in slots)
+            _positionSlots.Remove(slot);
+
+        var note = _assignmentNotes.SingleOrDefault(n => n.AssignmentCtrlNbr == assignmentCtrlNbr);
+        if (note is not null)
+            _assignmentNotes.Remove(note);
     }
 }

@@ -14,6 +14,7 @@ internal class ShiftInstanceConfiguration : IEntityTypeConfiguration<ShiftInstan
         builder.HasKey(s => s.CtrlNbr);
         builder.Property(s => s.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(s => s.WorkInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(s => s.ShiftDefinitionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(s => s.ShiftCode).HasMaxLength(20).IsRequired();
         builder.Property(s => s.ShiftDisplayName).HasMaxLength(100).IsRequired();
         builder.Property(s => s.DepartmentCtrlNbr).HasConversion(

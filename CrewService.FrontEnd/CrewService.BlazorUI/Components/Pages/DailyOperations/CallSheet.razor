@@ -11,8 +11,7 @@
 
 @inject DailyOperationsClient DailyOperationsClient
 @inject WorkManagementClient WorkManagementClient
-@inject TenantConfigClient TenantConfigClient
-@inject DepartmentClient DepartmentClient
+@inject RailroadReferenceDataService ReferenceData
 
 <PageTitle>Call Sheet</PageTitle>
 
@@ -169,17 +168,11 @@ else
                                 </button>
                                 @if (!IsFeatureReadOnly)
                                 {
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                                                data-bs-toggle="dropdown" aria-expanded="false"
-                                                title="Add an extra assignment to this shift">
-                                            <span class="bi bi-plus-circle"></span> Add Assignment
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li><button class="dropdown-item" disabled><span class="bi bi-clipboard-check me-2"></span>From Template</button></li>
-                                            <li><button class="dropdown-item" disabled><span class="bi bi-pencil-square me-2"></span>Ad-Hoc</button></li>
-                                        </ul>
-                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => OpenAddAssignmentModal(activeShift.CtrlNbr)"
+                                            title="Add an extra assignment to this shift">
+                                        <span class="bi bi-plus-circle"></span> Add Assignment
+                                    </button>
                                     <button class="btn btn-sm btn-outline-danger"
                                             @onclick="() => OpenCloseModal(activeShift)"
                                             title="Close this shift">
@@ -349,6 +342,8 @@ else
                                                                                                     <li><hr class="dropdown-divider" /></li>
                                                                                                     <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), hNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                                                                     <li><button class="dropdown-item" @onclick="() => OpenPositionsModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant(), group)"><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                                                                    <li><hr class="dropdown-divider" /></li>
+                                                                                                    <li><button class="dropdown-item text-danger" @onclick="() => OpenRemoveAssignmentModal(activeShift.CtrlNbr, group.Key.AssignmentCtrlNbr, group.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-trash me-2"></span>Remove Assignment</button></li>
                                                                             </ul>
                                                                         </div>
                                                                     </td>
@@ -400,6 +395,8 @@ else
                                                     <li><hr class="dropdown-divider" /></li>
                                                     <li><button class="dropdown-item" @onclick="() => OpenNotesModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), vNote)"><span class="bi bi-journal-text me-2"></span>Notes</button></li>
                                                     <li><button class="dropdown-item" @onclick="() => OpenPositionsModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant(), assignmentGroup)"><span class="bi bi-people me-2"></span>Positions</button></li>
+                                                    <li><hr class="dropdown-divider" /></li>
+                                                    <li><button class="dropdown-item text-danger" @onclick="() => OpenRemoveAssignmentModal(activeShift.CtrlNbr, assignmentGroup.Key.AssignmentCtrlNbr, assignmentGroup.Key.AssignmentCode.ToUpperInvariant())"><span class="bi bi-trash me-2"></span>Remove Assignment</button></li>
                                                 </ul>
                                             </div>
                                         }
@@ -613,6 +610,11 @@ else
                         ActionVerb="Restore Assignment" ButtonIcon="bi bi-arrow-counterclockwise" ButtonClass="btn-success"
                         OnConfirm="ConfirmRestoreAssignment" OnCancel="() => showRestoreAssignmentModal = false" />
 
+    @* ── Remove Assignment Confirmation Modal ── *@
+    <ConfirmModal Visible="showRemoveAssignmentModal" ItemName="@removeAssignmentItemName" IsSaving="isRemovingAssignment"
+                        ActionVerb="Remove" ButtonIcon="bi bi-trash" ButtonClass="btn-danger"
+                        OnConfirm="ConfirmRemoveAssignment" OnCancel="() => showRemoveAssignmentModal = false" />
+
     @* ── Assignment Notes Modal ── *@
     <Modal Visible="showNotesModal"
            Title="@notesModalTitle"
@@ -777,15 +779,141 @@ else
             </button>
         </Footer>
     </Modal>
+
+    @* ── Add Assignment Modal (unified) ── *@
+    <Modal Visible="showAddAssignmentModal"
+           Title="Add Assignment"
+           Icon="bi bi-plus-circle"
+           OnClose="() => showAddAssignmentModal = false">
+        <BodyContent>
+            @if (isLoadingTemplates)
+            {
+                <div class="text-center py-3">
+                    <span class="spinner-border spinner-border-sm me-1"></span> Loading templates…
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Seed from Template</label>
+                    <FilterSelect TItem="AvailableAssignmentResponse" TValue="long"
+                                  Value="addAssignmentSelectedTemplate"
+                                  ValueChanged="SeedFromTemplate"
+                                  Items="availableExtraAssignments"
+                                  ValueSelector="@(a => a.AssignmentCtrlNbr)"
+                                  TextSelector="@(a => $"{a.AssignmentCode.ToUpperInvariant()} — {a.AssignmentName} ({a.PositionCount} pos)")"
+                                  Placeholder="-- None (Ad-Hoc) --"
+                                  AlwaysShowPlaceholder="true"
+                                  class="form-select" />
+                </div>
+
+                <hr />
+
+                <EditForm Model="addAssignmentModel" OnValidSubmit="ConfirmAddAssignment" id="add-assignment-form">
+                    <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Code</label>
+                        <InputText @bind-Value="addAssignmentModel.Code" class="form-control" />
+                        <ValidationMessage For="() => addAssignmentModel.Code" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Name</label>
+                        <InputText @bind-Value="addAssignmentModel.Name" class="form-control" />
+                        <ValidationMessage For="() => addAssignmentModel.Name" />
+                    </div>
+                    <DutyTimePicker @bind-OnDutyTime="addAssignmentModel.OnDutyTime" @bind-OffDutyTime="addAssignmentModel.OffDutyTime" CssClass="mb-3" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Group</label>
+                        <SelectInput TItem="GroupResponse" TValue="long"
+                                     @bind-Value="addAssignmentModel.GroupCtrlNbr"
+                                     Items="allGroups"
+                                     ValueSelector="@(g => g.CtrlNbr)"
+                                     TextSelector="@(g => g.Name)"
+                                     Placeholder="-- Select Group --"
+                                     class="form-select" />
+                    </div>
+
+                    @if (addAssignmentSelectedTemplate == 0)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Craft/Roles</label>
+                            <div class="d-flex align-items-end gap-2 mb-2">
+                                <div class="flex-grow-1">
+                                    <FilterSelect TItem="CraftRoleResponse" TValue="string"
+                                                  @bind-Value="addAssignmentSelectedCraftRole"
+                                                  Items="craftRoles"
+                                                  ValueSelector="@(r => r.Name)"
+                                                  TextSelector="@(r => r.Name)"
+                                                  Placeholder="-- Select Craft/Role --"
+                                                  class="form-select form-select-sm" />
+                                </div>
+                                <button type="button" class="btn btn-sm btn-success"
+                                        disabled="@string.IsNullOrEmpty(addAssignmentSelectedCraftRole)"
+                                        @onclick="AddAssignmentCraftRole">
+                                    <span class="bi bi-plus-circle me-1"></span> Add
+                                </button>
+                            </div>
+                            @if (addAssignmentModel.CraftRoleNames.Count > 0)
+                            {
+                                <ul class="list-group list-group-flush">
+                                    @for (var i = 0; i < addAssignmentModel.CraftRoleNames.Count; i++)
+                                    {
+                                        var idx = i;
+                                        <li class="list-group-item d-flex justify-content-between align-items-center py-1">
+                                            @addAssignmentModel.CraftRoleNames[idx]
+                                            <button type="button" class="btn btn-sm btn-outline-danger py-0"
+                                                    @onclick="() => addAssignmentModel.CraftRoleNames.RemoveAt(idx)">
+                                                <span class="bi bi-trash"></span>
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <small class="text-muted">Add at least one craft/role.</small>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        var selectedTpl = availableExtraAssignments?.FirstOrDefault(a => a.AssignmentCtrlNbr == addAssignmentSelectedTemplate);
+                        if (selectedTpl is not null)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Positions</label>
+                                <div class="border rounded p-2 bg-body-secondary">
+                                    <span class="bi bi-people me-1"></span> @selectedTpl.PositionCount position(s) from template
+                                </div>
+                            </div>
+                        }
+                    }
+                </EditForm>
+            }
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => showAddAssignmentModal = false">Cancel</button>
+            <button type="submit" form="add-assignment-form" class="btn btn-primary"
+                    disabled="@(!CanSubmitAddAssignment || isAddingAssignment)">
+                @if (isAddingAssignment)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-plus-circle me-1"></span> Add Assignment
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
     protected override string? FeatureKey => "daily-operations/call-sheet";
 
     private IReadOnlyList<GroupResponse>? workAreas;
+    private IReadOnlyList<GroupResponse>? allGroups;
     private IReadOnlyList<DailyShiftInstanceResponse>? shifts;
     private IReadOnlyList<ShiftDefinitionResponse>? availableShifts;
     private IReadOnlyList<DepartmentResponse>? departments;
+    private IReadOnlyList<CraftRoleResponse>? craftRoles;
     private long selectedWorkAreaCtrlNbr;
     private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
     private bool callSheetLoaded;
@@ -830,6 +958,13 @@ else
     private long restoreAssignmentCtrlNbr;
     private string restoreAssignmentItemName = "";
 
+    // Remove Assignment modal state
+    private bool showRemoveAssignmentModal;
+    private bool isRemovingAssignment;
+    private long removeAssignmentShiftCtrlNbr;
+    private long removeAssignmentCtrlNbr;
+    private string removeAssignmentItemName = "";
+
     // Notes modal state
     private bool showNotesModal;
     private bool isSavingNotes;
@@ -848,10 +983,20 @@ else
     private List<PositionEditItem> positionsEditList = [];
     private IReadOnlyList<CraftRoleResponse>? positionsCraftRoles;
 
+    // Add Assignment modal state (unified)
+    private bool showAddAssignmentModal;
+    private bool isLoadingTemplates;
+    private bool isAddingAssignment;
+    private long addAssignmentShiftCtrlNbr;
+    private long addAssignmentSelectedTemplate;
+    private string addAssignmentSelectedCraftRole = "";
+    private IReadOnlyList<AvailableAssignmentResponse>? availableExtraAssignments;
+    private AddAssignmentModel addAssignmentModel = new();
+
     protected override async Task LoadDataAsync()
     {
         if (HasRailroad)
-            await LoadWorkAreas();
+            await LoadReferenceData();
     }
 
     protected override async Task OnAppContextChangedAsync()
@@ -865,29 +1010,23 @@ else
         showClosedShifts = false;
 
         if (HasRailroad)
-            await LoadWorkAreas();
+            await LoadReferenceData();
         else
         {
             workAreas = null;
+            allGroups = null;
             departments = null;
+            craftRoles = null;
         }
     }
 
-    private async Task LoadWorkAreas()
+    private async Task LoadReferenceData()
     {
-        try
-        {
-            var response = await TenantConfigClient.GetWorkAreasAsync(SelectedRailroadCtrlNbr!.Value);
-            workAreas = response.Groups.ToList();
-        }
-        catch { workAreas = []; }
-
-        try
-        {
-            var deptResponse = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
-            departments = deptResponse.Departments;
-        }
-        catch { departments = []; }
+        ReferenceData.Invalidate();
+        workAreas = await ReferenceData.GetWorkAreasAsync();
+        allGroups = await ReferenceData.GetGroupsAsync();
+        departments = await ReferenceData.GetDepartmentsAsync();
+        craftRoles = await ReferenceData.GetCraftRolesAsync();
 
         if (workAreas?.Count == 1)
         {
@@ -1314,6 +1453,39 @@ else
         }
     }
 
+    // ── Remove Assignment ──
+
+    private void OpenRemoveAssignmentModal(long shiftCtrlNbr, long assignmentCtrlNbr, string itemName)
+    {
+        removeAssignmentShiftCtrlNbr = shiftCtrlNbr;
+        removeAssignmentCtrlNbr = assignmentCtrlNbr;
+        removeAssignmentItemName = itemName;
+        showRemoveAssignmentModal = true;
+    }
+
+    private async Task ConfirmRemoveAssignment()
+    {
+        isRemovingAssignment = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.RemoveAssignmentAsync(removeAssignmentShiftCtrlNbr, removeAssignmentCtrlNbr);
+            showRemoveAssignmentModal = false;
+            successMessage = "Assignment removed successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to remove assignment: {ex.Message}";
+        }
+        finally
+        {
+            isRemovingAssignment = false;
+        }
+    }
+
     private static string GetAssignmentNote(DailyShiftInstanceResponse shift, long assignmentCtrlNbr) =>
         shift.AssignmentNotes.FirstOrDefault(n => n.AssignmentCtrlNbr == assignmentCtrlNbr)?.NoteText ?? "";
 
@@ -1395,12 +1567,7 @@ else
             })
             .ToList();
 
-        try
-        {
-            var response = await WorkManagementClient.GetCraftRolesAsync(railroadCtrlNbr: SelectedRailroadCtrlNbr!.Value);
-            positionsCraftRoles = response.Roles;
-        }
-        catch { positionsCraftRoles = []; }
+        positionsCraftRoles = craftRoles;
 
         showPositionsModal = true;
     }
@@ -1548,5 +1715,122 @@ else
         public bool IsNew { get; set; }
         public bool IsRemoved { get; set; }
         public bool CanRemove => (IsAdHoc || IsNew) && IsOpen;
+    }
+
+    // ── Add Assignment (unified) ──
+
+    private async Task OpenAddAssignmentModal(long shiftCtrlNbr)
+    {
+        addAssignmentShiftCtrlNbr = shiftCtrlNbr;
+        addAssignmentSelectedTemplate = 0;
+        addAssignmentSelectedCraftRole = "";
+        addAssignmentModel = new();
+        availableExtraAssignments = null;
+        isLoadingTemplates = true;
+        showAddAssignmentModal = true;
+
+        try
+        {
+            var response = await DailyOperationsClient.GetAvailableExtraAssignmentsAsync(shiftCtrlNbr);
+            availableExtraAssignments = response.Assignments.ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load available templates: {ex.Message}";
+            showAddAssignmentModal = false;
+        }
+        finally
+        {
+            isLoadingTemplates = false;
+        }
+    }
+
+    private void SeedFromTemplate(long templateCtrlNbr)
+    {
+        addAssignmentSelectedTemplate = templateCtrlNbr;
+        if (templateCtrlNbr == 0) return;
+
+        var tpl = availableExtraAssignments?.FirstOrDefault(a => a.AssignmentCtrlNbr == templateCtrlNbr);
+        if (tpl is null) return;
+
+        addAssignmentModel.Code = tpl.AssignmentCode;
+        addAssignmentModel.Name = tpl.AssignmentName;
+        addAssignmentModel.OnDutyTime = TimeOnly.TryParse(tpl.OnDutyTime, out var on) ? on : default;
+        addAssignmentModel.OffDutyTime = TimeOnly.TryParse(tpl.OffDutyTime, out var off) ? off : default;
+
+        var matchingGroup = allGroups?.FirstOrDefault(g =>
+            string.Equals(g.Name, tpl.GroupName, StringComparison.OrdinalIgnoreCase));
+        addAssignmentModel.GroupCtrlNbr = matchingGroup?.CtrlNbr ?? 0;
+
+        addAssignmentModel.CraftRoleNames.Clear();
+    }
+
+    private bool CanSubmitAddAssignment =>
+        addAssignmentSelectedTemplate > 0 || addAssignmentModel.CraftRoleNames.Count > 0;
+
+    private void AddAssignmentCraftRole()
+    {
+        if (string.IsNullOrEmpty(addAssignmentSelectedCraftRole)) return;
+        addAssignmentModel.CraftRoleNames.Add(addAssignmentSelectedCraftRole);
+        addAssignmentSelectedCraftRole = "";
+    }
+
+    private async Task ConfirmAddAssignment()
+    {
+        if (!CanSubmitAddAssignment) return;
+
+        isAddingAssignment = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            if (addAssignmentSelectedTemplate > 0)
+            {
+                await DailyOperationsClient.AddAssignmentFromTemplateAsync(
+                    addAssignmentShiftCtrlNbr, addAssignmentSelectedTemplate,
+                    addAssignmentModel.OnDutyTime.ToString("HH:mm"),
+                    addAssignmentModel.OffDutyTime.ToString("HH:mm"));
+            }
+            else
+            {
+                var selectedGroup = allGroups?.FirstOrDefault(g => g.CtrlNbr == addAssignmentModel.GroupCtrlNbr);
+                await DailyOperationsClient.AddAdHocAssignmentAsync(
+                    addAssignmentShiftCtrlNbr,
+                    addAssignmentModel.Code ?? "",
+                    addAssignmentModel.Name ?? "",
+                    selectedGroup?.Name ?? "",
+                    selectedGroup?.Code ?? "",
+                    addAssignmentModel.OnDutyTime.ToString("HH:mm"),
+                    addAssignmentModel.OffDutyTime.ToString("HH:mm"),
+                    addAssignmentModel.CraftRoleNames);
+            }
+
+            showAddAssignmentModal = false;
+            successMessage = addAssignmentSelectedTemplate > 0
+                ? "Assignment added from template successfully."
+                : "Ad-hoc assignment added successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add assignment: {ex.Message}";
+        }
+        finally
+        {
+            isAddingAssignment = false;
+        }
+    }
+
+    private class AddAssignmentModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string? Code { get; set; }
+        [System.ComponentModel.DataAnnotations.Required]
+        public string? Name { get; set; }
+        public TimeOnly OnDutyTime { get; set; }
+        public TimeOnly OffDutyTime { get; set; }
+        public long GroupCtrlNbr { get; set; }
+        public List<string> CraftRoleNames { get; set; } = [];
     }
 }

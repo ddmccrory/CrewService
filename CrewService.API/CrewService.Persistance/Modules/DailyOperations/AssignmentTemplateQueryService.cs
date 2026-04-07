@@ -161,4 +161,113 @@ internal sealed class AssignmentQueryService(CrewServiceDbContext dbContext) : I
 
         return result;
     }
+
+    public async Task<IReadOnlyList<AssignmentDto>> GetExtraAssignmentsForShiftAsync(
+        ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr, DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var dayBit = 1 << (int)targetDate.DayOfWeek;
+
+        var descendantCtrlNbrs = await GetWorkAreaAndDescendantCtrlNbrsAsync(workAreaGroupCtrlNbr, ct);
+        if (descendantCtrlNbrs.Count == 0) return [];
+
+        var schedules = await dbContext.Set<AssignmentSchedule>()
+            .Where(s => s.ShiftDefinitionCtrlNbr == shiftDefinitionCtrlNbr
+                        && (s.OperatingDaysMask & dayBit) != 0)
+            .Select(s => new { s.AssignmentCtrlNbr, s.OnDutyTime, s.OffDutyTime })
+            .ToListAsync(ct);
+
+        var scheduleLookup = schedules
+            .GroupBy(s => s.AssignmentCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var scheduledAssignmentCtrlNbrs = scheduleLookup.Keys.ToList();
+        if (scheduledAssignmentCtrlNbrs.Count == 0) return [];
+
+        var assignments = await dbContext.Set<Assignment>()
+            .Where(a => scheduledAssignmentCtrlNbrs.Contains(a.CtrlNbr)
+                        && descendantCtrlNbrs.Contains(a.GroupCtrlNbr)
+                        && a.IsActive
+                        && a.IsExtra
+                        && (departmentCtrlNbr == null || a.DepartmentCtrlNbr == departmentCtrlNbr))
+            .ToListAsync(ct);
+
+        if (assignments.Count == 0) return [];
+
+        var assignmentCtrlNbrs = assignments.Select(a => a.CtrlNbr).ToList();
+
+        // For extra assignment templates, find any crew linked to the assignment
+        // (regardless of date/day filters) so we can show the crew's position roster.
+        var crewAssignments = await dbContext.Set<CrewAssignment>()
+            .Where(ca => assignmentCtrlNbrs.Contains(ca.AssignmentCtrlNbr)
+                         && (ca.EndUtc == null || ca.EndUtc > now))
+            .ToListAsync(ct);
+
+        var crewCtrlNbrs = crewAssignments.Select(ca => ca.CrewCtrlNbr).Distinct().ToList();
+
+        var positions = await dbContext.Set<CrewPosition>()
+            .Where(p => crewCtrlNbrs.Contains(p.CrewCtrlNbr))
+            .OrderBy(p => p.DisplayOrder)
+            .ToListAsync(ct);
+
+        var positionCtrlNbrs = positions.Select(p => p.CtrlNbr).ToList();
+
+        var incumbencies = await dbContext.Set<CrewIncumbency>()
+            .Where(i => positionCtrlNbrs.Contains(i.CrewPositionCtrlNbr)
+                        && i.StartUtc <= now
+                        && (i.EndUtc == null || i.EndUtc > now))
+            .ToListAsync(ct);
+
+        var craftRoleCtrlNbrs = positions.Select(p => p.CraftRoleCtrlNbr).Distinct().ToList();
+        var craftRoles = await dbContext.Set<CraftRole>()
+            .Where(cr => craftRoleCtrlNbrs.Contains(cr.CtrlNbr))
+            .ToListAsync(ct);
+        var craftRoleLookup = craftRoles.ToDictionary(cr => cr.CtrlNbr, cr => cr.Name);
+
+        var groupCtrlNbrs = assignments.Select(a => a.GroupCtrlNbr).Distinct().ToList();
+        var groups = await dbContext.Set<DynamicGroup>()
+            .Where(g => groupCtrlNbrs.Contains(g.CtrlNbr))
+            .ToDictionaryAsync(g => g.CtrlNbr, ct);
+
+        var result = new List<AssignmentDto>();
+
+        foreach (var assignment in assignments)
+        {
+            var crewIds = crewAssignments
+                .Where(ca => ca.AssignmentCtrlNbr == assignment.CtrlNbr)
+                .Select(ca => ca.CrewCtrlNbr)
+                .ToHashSet();
+
+            var positionDtos = positions
+                .Where(p => crewIds.Contains(p.CrewCtrlNbr))
+                .Select(p =>
+                {
+                    var incumbent = incumbencies
+                        .FirstOrDefault(i => i.CrewPositionCtrlNbr == p.CtrlNbr);
+                    craftRoleLookup.TryGetValue(p.CraftRoleCtrlNbr, out var roleName);
+                    return new CrewPositionDto(
+                        p.CtrlNbr,
+                        incumbent?.EmployeeCtrlNbr,
+                        p.DisplayOrder,
+                        roleName ?? string.Empty);
+                })
+                .ToList();
+
+            var schedule = scheduleLookup[assignment.CtrlNbr];
+            groups.TryGetValue(assignment.GroupCtrlNbr, out var group);
+            result.Add(new AssignmentDto(
+                assignment.CtrlNbr,
+                assignment.GroupCtrlNbr,
+                assignment.DepartmentCtrlNbr,
+                assignment.Code,
+                assignment.Name,
+                schedule.OnDutyTime,
+                schedule.OffDutyTime,
+                group?.Name ?? string.Empty,
+                group?.Code ?? string.Empty,
+                positionDtos));
+        }
+
+        return result;
+    }
 }

@@ -15,6 +15,11 @@ public class CallSheetGenerationServiceTests
             ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr,
             DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default)
             => Task.FromResult(templates);
+
+        public Task<IReadOnlyList<AssignmentDto>> GetExtraAssignmentsForShiftAsync(
+            ControlNumber workAreaGroupCtrlNbr, ControlNumber shiftDefinitionCtrlNbr,
+            DateOnly targetDate, ControlNumber? departmentCtrlNbr = null, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<AssignmentDto>>([]);
     }
 
     private sealed class FakeShiftDefinitionRepository(ShiftDefinition? shiftDef) : FakeRepository<ShiftDefinition>, IShiftDefinitionRepository

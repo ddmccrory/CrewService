@@ -55,6 +55,7 @@ public sealed class CallSheetGenerationService(
         // Create the shift instance with snapshot data
         var shiftInstance = ShiftInstance.Create(
             workInstance.CtrlNbr,
+            shiftDefinitionCtrlNbr,
             shiftDef.ShiftCode,
             shiftDef.DisplayName,
             departmentCtrlNbr,
@@ -116,6 +117,7 @@ public sealed class CallSheetGenerationService(
             workInstance.WorkAreaGroupCtrlNbr, shiftDef.CtrlNbr, targetDate, existingShift.DepartmentCtrlNbr, ct);
         var newShift = ShiftInstance.Create(
             workInstance.CtrlNbr,
+            shiftDef.CtrlNbr,
             shiftDef.ShiftCode,
             shiftDef.DisplayName,
             existingShift.DepartmentCtrlNbr,

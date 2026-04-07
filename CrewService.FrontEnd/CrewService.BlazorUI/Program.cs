@@ -58,6 +58,7 @@ builder.Services.AddScoped<UserPermissionService>();
 builder.Services.AddScoped<BootstrapClient>();
 builder.Services.AddScoped<ContextOptionsService>();
 builder.Services.AddScoped<CircuitBootstrapService>();
+builder.Services.AddScoped<RailroadReferenceDataService>();
 
 var app = builder.Build();
 

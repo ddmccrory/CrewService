@@ -110,16 +110,7 @@ else
                                          class="form-select" />
                         </div>
                     }
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">On Duty Time</label>
-                            <TimePicker @bind-Value="scheduleOnDutyTime" />
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Off Duty Time</label>
-                            <TimePicker @bind-Value="scheduleOffDutyTime" />
-                        </div>
-                    </div>
+                    <DutyTimePicker @bind-OnDutyTime="scheduleOnDutyTime" @bind-OffDutyTime="scheduleOffDutyTime" CssClass="mb-3" />
                     <div class="mb-0">
                         <label class="form-label fw-semibold">Operating Days</label>
                         <div class="d-flex gap-2 flex-wrap">
