@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents.Boards;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -36,9 +37,10 @@ public sealed class RosterBoard : Entity
         return board;
     }
 
-    public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder)
+    public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder,
+        ControlNumber staffablePositionCtrlNbr)
     {
-        var position = RosterBoardPosition.Create(CtrlNbr, employeeCtrlNbr, positionOrder);
+        var position = RosterBoardPosition.Create(CtrlNbr, employeeCtrlNbr, positionOrder, staffablePositionCtrlNbr);
         _positions.Add(position);
         return position;
     }
@@ -53,6 +55,7 @@ public sealed class RosterBoardPosition : Entity
 {
     public ControlNumber RosterBoardCtrlNbr { get; private set; }
     public ControlNumber EmployeeCtrlNbr { get; private set; }
+    public ControlNumber StaffablePositionCtrlNbr { get; private set; }
     public int PositionOrder { get; private set; }
     public string HangoutStatus { get; private set; } = "Active";
     public DateTime? HangoutAtUtc { get; private set; }
@@ -61,15 +64,18 @@ public sealed class RosterBoardPosition : Entity
     {
         RosterBoardCtrlNbr = null!;
         EmployeeCtrlNbr = null!;
+        StaffablePositionCtrlNbr = null!;
     }
 
     internal static RosterBoardPosition Create(
-        ControlNumber rosterBoardCtrlNbr, ControlNumber employeeCtrlNbr, int positionOrder)
+        ControlNumber rosterBoardCtrlNbr, ControlNumber employeeCtrlNbr, int positionOrder,
+        ControlNumber staffablePositionCtrlNbr)
     {
         return new RosterBoardPosition
         {
             RosterBoardCtrlNbr = rosterBoardCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
+            StaffablePositionCtrlNbr = staffablePositionCtrlNbr,
             PositionOrder = positionOrder
         };
     }

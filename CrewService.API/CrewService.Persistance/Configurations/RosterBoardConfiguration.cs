@@ -1,6 +1,7 @@
-﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -37,8 +38,10 @@ internal class RosterBoardPositionConfiguration : IEntityTypeConfiguration<Roste
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.RosterBoardCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.StaffablePositionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(p => p.HangoutStatus).HasMaxLength(20).IsRequired();
 
+        builder.HasOne<StaffablePosition>().WithOne().HasForeignKey<RosterBoardPosition>(p => p.StaffablePositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
