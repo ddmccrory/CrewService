@@ -1178,6 +1178,7 @@ internal static class DevDataSeeder
         } // end railroad info guard
 
         // ?? Section 14: FRA Compliance � Duty Tours ??????????????????????????
+        var regStdRepo = sp.GetRequiredService<IRegulatoryStandardRepository>();
         var fraDutyTourRepo = sp.GetRequiredService<IFraDutyTourRepository>();
         var empList8 = await employeeRepo.GetAllAsync();
 
@@ -1185,9 +1186,25 @@ internal static class DevDataSeeder
         var searchResult = await fraDutyTourRepo.SearchAsync(new FraRecordSearchCriteria { EmployeeCtrlNbr = empList8[0].CtrlNbr });
         if (searchResult.Count == 0)
         {
-        // Completed duty tour for an engineer � create a dummy regulatory standard CtrlNbr
+        // Seed a default FRA regulatory standard (49 CFR Part 228)
+        var existingStandards = await regStdRepo.GetAllAsync();
+        if (existingStandards.Count == 0)
+        {
+            await regStdRepo.AddAsync(Domain.Modules.FraCompliance.RegulatoryStandard.Create(
+                "49CFR228", "Federal Hours of Service - 49 CFR Part 228",
+                maxOnDutyMinutes: 720, minRestMinutes: 600,
+                min8hRestInPreceding24h: true,
+                consecutiveDayLimit6: 6, consecutiveDayLimit7: 7,
+                restAfter6DaysMinutes: 2880, restAfter7DaysMinutes: 2880,
+                monthlyCapMinutes: 16800,
+                deadheadAfter12hMonthlyCapMinutes: 17520,
+                wreckReliefExtraMinutes: 240,
+                effectiveDate: new DateOnly(2009, 10, 16)));
+        }
+        var regStd = (await regStdRepo.GetAllAsync())[0];
+
         var tour = Domain.Modules.FraCompliance.FraDutyTour.Create(
-            empList8[0].CtrlNbr, Domain.ValueObjects.ControlNumber.Create(1),
+            empList8[0].CtrlNbr, regStd.CtrlNbr,
             DateTime.UtcNow.AddDays(-1).Date.AddHours(6),
             priorTimeOffMinutes: 720, consecutiveDays: 3);
         tour.Close(DateTime.UtcNow.AddDays(-1).Date.AddHours(16),

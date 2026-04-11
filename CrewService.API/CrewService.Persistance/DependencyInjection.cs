@@ -198,6 +198,7 @@ public static class DependencyInjection
 
         // FRA Compliance Repositories (B01)
         services.AddScoped<IFraDutyTourRepository, FraDutyTourRepository>();
+        services.AddScoped<IRegulatoryStandardRepository, RegulatoryStandardRepository>();
 
         // Daily Operations Repositories (B02)
         services.AddScoped<IShiftDefinitionRepository, ShiftDefinitionRepository>();

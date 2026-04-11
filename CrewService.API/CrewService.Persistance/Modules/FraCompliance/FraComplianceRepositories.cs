@@ -43,3 +43,8 @@ internal sealed class FraDutyTourRepository(CrewServiceDbContext dbContext, ICur
             .OrderByDescending(t => t.DutyTourStartUtc)
             .FirstOrDefaultAsync(ct);
 }
+
+internal sealed class RegulatoryStandardRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<RegulatoryStandard>(dbContext, currentUserService), IRegulatoryStandardRepository
+{
+}

@@ -30,3 +30,10 @@ public interface IFraDutyTourRepository
     Task AddAsync(FraDutyTour tour, CancellationToken ct = default);
     Task<FraDutyTour?> GetActiveTourForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
 }
+
+public interface IRegulatoryStandardRepository
+{
+    Task<List<RegulatoryStandard>> GetAllAsync(CancellationToken ct = default);
+    Task<RegulatoryStandard?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task AddAsync(RegulatoryStandard standard, CancellationToken ct = default);
+}
