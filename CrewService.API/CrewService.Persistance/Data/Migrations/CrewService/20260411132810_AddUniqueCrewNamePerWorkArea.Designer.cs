@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    [Migration("20260615000000_AddUniqueCrewNamePerWorkArea")]
+    [Migration("20260411132810_AddUniqueCrewNamePerWorkArea")]
     partial class AddUniqueCrewNamePerWorkArea
     {
         /// <inheritdoc />
@@ -1616,8 +1616,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("DepartmentCtrlNbr");
-
-                    b.HasIndex("WorkAreaCtrlNbr");
 
                     b.HasIndex("WorkAreaCtrlNbr", "Name")
                         .IsUnique()

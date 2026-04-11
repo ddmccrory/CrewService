@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,6 +10,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropIndex(
+                name: "IX_Crews_WorkAreaCtrlNbr",
+                table: "Crews");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Crews_WorkAreaCtrlNbr_Name",
                 table: "Crews",
@@ -24,6 +28,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
             migrationBuilder.DropIndex(
                 name: "IX_Crews_WorkAreaCtrlNbr_Name",
                 table: "Crews");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Crews_WorkAreaCtrlNbr",
+                table: "Crews",
+                column: "WorkAreaCtrlNbr");
         }
     }
 }

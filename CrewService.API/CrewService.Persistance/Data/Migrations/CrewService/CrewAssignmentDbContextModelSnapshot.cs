@@ -1614,8 +1614,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewAssignment
 
                     b.HasIndex("DepartmentCtrlNbr");
 
-                    b.HasIndex("WorkAreaCtrlNbr");
-
                     b.HasIndex("WorkAreaCtrlNbr", "Name")
                         .IsUnique()
                         .HasFilter("IsDeleted = 0");
