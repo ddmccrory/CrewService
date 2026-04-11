@@ -9,14 +9,14 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
 {
     // ── Crews ──
 
-    public async Task<GetAllCrewsResponse> GetAllCrewsAsync(long railroadCtrlNbr, long homeGroupCtrlNbr = 0, string? crewType = null)
+    public async Task<GetAllCrewsResponse> GetAllCrewsAsync(long railroadCtrlNbr, long workAreaCtrlNbr = 0, string? crewType = null)
     {
         try
         {
             return await _client.GetAllCrewsAsync(new GetAllCrewsRequest
             {
                 RailroadCtrlNbr = railroadCtrlNbr,
-                HomeGroupCtrlNbr = homeGroupCtrlNbr,
+                WorkAreaCtrlNbr = workAreaCtrlNbr,
                 CrewType = crewType ?? string.Empty
             });
         }
@@ -32,23 +32,25 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<CrewResponse> CreateCrewAsync(string crewType, long homeGroupCtrlNbr, string name, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<CrewResponse> CreateCrewAsync(string crewType, long workAreaCtrlNbr, string name, bool isActive, long departmentCtrlNbr = 0, string? effectiveDate = null, string? abolishedDate = null)
     {
         try
         {
             return await _client.CreateCrewAsync(new CreateCrewRequest
             {
                 CrewType = crewType,
-                HomeGroupCtrlNbr = homeGroupCtrlNbr,
+                WorkAreaCtrlNbr = workAreaCtrlNbr,
                 Name = name,
                 IsActive = isActive,
-                DepartmentCtrlNbr = departmentCtrlNbr
+                DepartmentCtrlNbr = departmentCtrlNbr,
+                EffectiveDate = effectiveDate ?? string.Empty,
+                AbolishedDate = abolishedDate ?? string.Empty
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<CrewResponse> UpdateCrewAsync(long ctrlNbr, string name, bool isActive, long departmentCtrlNbr = 0)
+    public async Task<CrewResponse> UpdateCrewAsync(long ctrlNbr, string name, bool isActive, long departmentCtrlNbr = 0, string? effectiveDate = null, string? abolishedDate = null, string? crewType = null)
     {
         try
         {
@@ -57,7 +59,10 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
                 CtrlNbr = ctrlNbr,
                 Name = name,
                 IsActive = isActive,
-                DepartmentCtrlNbr = departmentCtrlNbr
+                DepartmentCtrlNbr = departmentCtrlNbr,
+                EffectiveDate = effectiveDate ?? string.Empty,
+                AbolishedDate = abolishedDate ?? string.Empty,
+                CrewType = crewType ?? string.Empty
             });
         }
         catch (Exception ex) { LogException(ex); throw; }
@@ -162,6 +167,17 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         try
         {
             return await _client.DeleteCrewAssignmentAsync(new DeleteCrewAssignmentRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    // ── Crew Setup Wizard ──
+
+    public async Task<CrewSetupWizardResponse> CrewSetupWizardAsync(CrewSetupWizardRequest request)
+    {
+        try
+        {
+            return await _client.CrewSetupWizardAsync(request);
         }
         catch (Exception ex) { LogException(ex); throw; }
     }

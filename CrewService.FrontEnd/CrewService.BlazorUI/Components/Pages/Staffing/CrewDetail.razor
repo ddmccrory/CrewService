@@ -29,13 +29,24 @@ else
     <h1>@crew.Name</h1>
     <p class="text-muted mb-1">
         <span class="badge bg-secondary me-1">@crew.CrewType</span>
-        @if (crew.IsActive)
+        @if (!string.IsNullOrWhiteSpace(crew.AbolishedDate))
+        {
+            <span class="badge bg-danger">Abolished</span>
+        }
+        else if (crew.IsActive)
         {
             <span class="badge bg-success">Active</span>
         }
         else
         {
             <span class="badge bg-warning text-dark">Inactive</span>
+        }
+    </p>
+    <p class="text-muted small mb-1">
+        <strong>Effective:</strong> @FormatDate(crew.EffectiveDate)
+        @if (!string.IsNullOrWhiteSpace(crew.AbolishedDate))
+        {
+            <span class="ms-3"><strong>Abolished:</strong> @FormatDate(crew.AbolishedDate)</span>
         }
     </p>
 
@@ -126,7 +137,6 @@ else
         <Modal Visible="showAssignmentModal"
                Title="@(editAssignmentCtrlNbr > 0 ? "Edit Assignment" : "Add Assignment")"
                Icon="@(editAssignmentCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
-               Size="lg"
                OnClose="CloseAssignmentModal">
             <BodyContent>
                 <EditForm Model="assignmentModel" OnValidSubmit="OnSaveAssignment" id="save-assignment-form">
@@ -143,21 +153,7 @@ else
                                      class="form-select" />
                     </div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Operating Days</label>
-                        <div class="d-flex gap-2 flex-wrap">
-                            @foreach (var day in DayLabels)
-                            {
-                                var bit = 1 << day.Value;
-                                <div class="form-check form-switch form-check-reverse">
-                                    <input type="checkbox" class="form-check-input" id="day-@day.Value"
-                                           checked="@((assignmentModel.DaysOfWeekMask & bit) != 0)"
-                                           @onchange="@(e => ToggleDay(bit, (bool)e.Value!))" />
-                                    <label class="form-check-label" for="day-@day.Value">@day.Label</label>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <DayOfWeekPicker @bind-Value="assignmentModel.DaysOfWeekMask" CssClass="mb-3" />
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Start Date</label>
                         <InputDate @bind-Value="assignmentModel.StartDate" class="form-control" />
@@ -193,7 +189,7 @@ else
             </ToolbarContent>
             <RowContent Context="a">
                 <td>@GetAssignmentName(a.AssignmentCtrlNbr)</td>
-                <td>@FormatDays(a.DaysOfWeekMask)</td>
+                <td>@DayOfWeekPicker.FormatDays(a.DaysOfWeekMask)</td>
                 <td>@FormatDate(a.StartUtc)</td>
                 <td>@(string.IsNullOrEmpty(a.EndUtc) ? "—" : FormatDate(a.EndUtc))</td>
                 <td>
@@ -250,11 +246,6 @@ else
         new("Start", a => a.StartUtc),
         new("End", a => a.EndUtc),
         DataTableColumn<CrewAssignmentResponse>.Actions()
-    ];
-
-    private static readonly (string Label, int Value)[] DayLabels =
-    [
-        ("Sun", 0), ("Mon", 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6)
     ];
 
     // Positions state
@@ -323,7 +314,7 @@ else
         try
         {
             var response = await AssignmentClient.GetAllAsync(
-                workAreaGroupCtrlNbr: crew?.HomeGroupCtrlNbr ?? 0,
+                workAreaGroupCtrlNbr: crew?.WorkAreaCtrlNbr ?? 0,
                 departmentCtrlNbr: crew?.DepartmentCtrlNbr ?? 0);
             assignmentOptions = response.Assignments;
             assignmentNames = assignmentOptions.ToDictionary(a => a.CtrlNbr, a => a.Name);
@@ -493,36 +484,6 @@ else
             showDeleteAssignmentModal = false;
         }
         finally { isSaving = false; }
-    }
-
-    private void ToggleDay(int bit, bool isChecked)
-    {
-        if (isChecked)
-            assignmentModel.DaysOfWeekMask |= bit;
-        else
-            assignmentModel.DaysOfWeekMask &= ~bit;
-    }
-
-    private static string FormatDays(int mask)
-    {
-        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var active = new List<string>();
-        for (var i = 0; i < 7; i++)
-        {
-            if ((mask & (1 << i)) != 0) active.Add(days[i]);
-        }
-        return active.Count == 0 ? "None" : string.Join(", ", active);
-    }
-
-    private static string FormatOffDays(int mask)
-    {
-        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var off = new List<string>();
-        for (var i = 0; i < 7; i++)
-        {
-            if ((mask & (1 << i)) == 0) off.Add(days[i]);
-        }
-        return off.Count == 0 ? "None" : string.Join(", ", off);
     }
 
     // ── Input Models ──

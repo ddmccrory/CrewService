@@ -37,25 +37,27 @@ else
         <BodyContent>
             <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-crew-form">
                 <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Crew Type</label>
+                    <SelectInput TItem="CrewTypeOption" TValue="string"
+                                 @bind-Value="saveModel.CrewType"
+                                 Items="crewTypeOptions"
+                                 ValueSelector="@(ct => ct.Value)"
+                                 TextSelector="@(ct => ct.Label)"
+                                 class="form-select" />
+                    <ValidationMessage For="() => saveModel.CrewType" class="text-danger" />
+                </div>
                 @if (editCtrlNbr == 0)
                 {
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Crew Type</label>
-                    <InputSelect @bind-Value="saveModel.CrewType" class="form-select">
-                        <option value="REGULAR">Regular</option>
-                        <option value="EXTRA">Extra</option>
-                        <option value="RELIEF">Relief</option>
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Home Group</label>
+                    <label class="form-label fw-semibold">Work Area</label>
                     <SelectInput TItem="GroupResponse" TValue="long"
-                                 @bind-Value="saveModel.HomeGroupCtrlNbr"
+                                 @bind-Value="saveModel.WorkAreaCtrlNbr"
                                  Items="workAreas"
                                  ValueSelector="@(wa => wa.CtrlNbr)"
                                  TextSelector="@(wa => wa.Name)"
                                  class="form-select" />
-                    <ValidationMessage For="() => saveModel.HomeGroupCtrlNbr" class="text-danger" />
+                    <ValidationMessage For="() => saveModel.WorkAreaCtrlNbr" class="text-danger" />
                 </div>
                 }
                 <div class="mb-3">
@@ -73,11 +75,19 @@ else
                     <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Jax Turn Crew A" />
                     <ValidationMessage For="() => saveModel.Name" class="text-danger" />
                 </div>
-                <div class="mb-0">
+                <div class="mb-3">
                     <div class="form-check form-switch form-check-reverse">
                         <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="crew-active-switch" />
                         <label class="form-check-label" for="crew-active-switch">Active</label>
                     </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Effective Date</label>
+                    <InputDate @bind-Value="saveModel.EffectiveDate" class="form-control" />
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Abolish Date</label>
+                    <InputDate @bind-Value="saveModel.AbolishedDate" class="form-control" />
                 </div>
             </EditForm>
         </BodyContent>
@@ -91,6 +101,13 @@ else
 
     <ConfirmModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
                         OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
+
+    <CrewSetupWizard Visible="showWizard"
+                     OnClose="() => showWizard = false"
+                     OnComplete="OnWizardComplete"
+                     Departments="departments"
+                     ExistingCrews="crews"
+                     SelectedRailroadCtrlNbr="SelectedRailroadCtrlNbr" />
 
     @if (successMessage is not null)
     {
@@ -118,6 +135,9 @@ else
                 <button class="btn btn-primary" @onclick="OpenCreateModal">
                     <span class="bi bi-plus-circle"></span> Create Crew
                 </button>
+                <button class="btn btn-outline-primary" @onclick="() => showWizard = true">
+                    <span class="bi bi-magic"></span> Crew Setup Wizard
+                </button>
             }
         </ToolbarContent>
         <RowContent Context="crew">
@@ -127,10 +147,15 @@ else
             <td><span class="badge bg-secondary">@crew.CrewType</span></td>
             <td>@GetDepartmentName(crew.DepartmentCtrlNbr)</td>
             <td>@crew.PositionCount</td>
-            <td>@FormatDays(crew.WorkDaysMask)</td>
-            <td>@FormatOffDays(crew.WorkDaysMask)</td>
+            <td>@DayOfWeekPicker.FormatDays(crew.WorkDaysMask)</td>
+            <td>@DayOfWeekPicker.FormatOffDays(crew.WorkDaysMask)</td>
+            <td>@FormatDate(crew.EffectiveDate)</td>
             <td>
-                @if (crew.IsActive)
+                @if (!string.IsNullOrWhiteSpace(crew.AbolishedDate))
+                {
+                    <span class="badge bg-danger">Abolished</span>
+                }
+                else if (crew.IsActive)
                 {
                     <span class="badge bg-success">Active</span>
                 }
@@ -170,9 +195,10 @@ else
         new("Type", c => c.CrewType, width: "120px"),
         new("Department", c => GetDepartmentName(c.DepartmentCtrlNbr)),
         new("Positions", c => c.PositionCount, width: "100px"),
-        new("Work Days", c => FormatDays(c.WorkDaysMask)),
-        new("Off Days", c => FormatOffDays(c.WorkDaysMask)),
-        new("Status", c => c.IsActive ? "Active" : "Inactive", width: "100px"),
+        new("Work Days", c => DayOfWeekPicker.FormatDays(c.WorkDaysMask)),
+        new("Off Days", c => DayOfWeekPicker.FormatOffDays(c.WorkDaysMask)),
+        new("Effective", c => FormatDate(c.EffectiveDate), width: "120px"),
+        new("Status", c => GetStatusText(c), width: "120px"),
         DataTableColumn<CrewResponse>.Actions()
     ];
 
@@ -183,6 +209,8 @@ else
     private bool showDeleteModal;
     private long deleteCtrlNbr;
     private string deleteName = "";
+
+    private bool showWizard;
 
     protected override async Task LoadDataAsync()
     {
@@ -241,6 +269,9 @@ else
     private string GetDepartmentName(long ctrlNbr) =>
         ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var name) ? name : "—";
 
+    private static string GetStatusText(CrewResponse c) =>
+        !string.IsNullOrWhiteSpace(c.AbolishedDate) ? "Abolished" : c.IsActive ? "Active" : "Inactive";
+
     private async Task LoadCrews()
     {
         try
@@ -267,9 +298,12 @@ else
         editCtrlNbr = crew.CtrlNbr;
         saveModel = new()
         {
+            CrewType = crew.CrewType,
             Name = crew.Name,
             IsActive = crew.IsActive,
-            DepartmentCtrlNbr = crew.DepartmentCtrlNbr
+            DepartmentCtrlNbr = crew.DepartmentCtrlNbr,
+            EffectiveDate = DateTime.TryParse(crew.EffectiveDate, out var eff) ? DateOnly.FromDateTime(eff) : DateOnly.FromDateTime(DateTime.Today),
+            AbolishedDate = !string.IsNullOrWhiteSpace(crew.AbolishedDate) && DateTime.TryParse(crew.AbolishedDate, out var abol) ? DateOnly.FromDateTime(abol) : null
         };
         showSaveModal = true;
     }
@@ -279,6 +313,13 @@ else
         showSaveModal = false;
         editCtrlNbr = 0;
         saveModel = new();
+    }
+
+    private async Task OnWizardComplete()
+    {
+        showWizard = false;
+        successMessage = "Crew setup wizard completed successfully.";
+        await LoadCrews();
     }
 
     private void OpenDeleteModal(CrewResponse crew)
@@ -296,14 +337,17 @@ else
             errorMessage = null;
             successMessage = null;
 
+            var effDateStr = saveModel.EffectiveDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
+            var abolDateStr = saveModel.AbolishedDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
+
             if (editCtrlNbr > 0)
             {
-                await CrewClient.UpdateCrewAsync(editCtrlNbr, saveModel.Name!, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                await CrewClient.UpdateCrewAsync(editCtrlNbr, saveModel.Name!, saveModel.IsActive, saveModel.DepartmentCtrlNbr, effDateStr, abolDateStr, saveModel.CrewType);
                 successMessage = "Crew updated.";
             }
             else
             {
-                await CrewClient.CreateCrewAsync(saveModel.CrewType!, saveModel.HomeGroupCtrlNbr, saveModel.Name!, saveModel.IsActive, saveModel.DepartmentCtrlNbr);
+                await CrewClient.CreateCrewAsync(saveModel.CrewType!, saveModel.WorkAreaCtrlNbr, saveModel.Name!, saveModel.IsActive, saveModel.DepartmentCtrlNbr, effDateStr, abolDateStr);
                 successMessage = "Crew created.";
             }
 
@@ -338,35 +382,20 @@ else
         finally { isSaving = false; }
     }
 
-    private static string FormatDays(int mask)
-    {
-        if (mask == 0) return "None";
-        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var active = new List<string>();
-        for (var i = 0; i < 7; i++)
-        {
-            if ((mask & (1 << i)) != 0) active.Add(days[i]);
-        }
-        return string.Join(", ", active);
-    }
-
-    private static string FormatOffDays(int mask)
-    {
-        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var off = new List<string>();
-        for (var i = 0; i < 7; i++)
-        {
-            if ((mask & (1 << i)) == 0) off.Add(days[i]);
-        }
-        return off.Count == 0 ? "None" : string.Join(", ", off);
-    }
+    private sealed record CrewTypeOption(string Value, string Label);
+    private static readonly IReadOnlyList<CrewTypeOption> crewTypeOptions =
+    [
+        new("REGULAR", "Regular"),
+        new("EXTRA", "Extra"),
+        new("RELIEF", "Relief")
+    ];
 
     private sealed class CrewInputModel
     {
         [Required(ErrorMessage = "Crew type is required.")]
-        public string? CrewType { get; set; } = "REGULAR";
+        public string? CrewType { get; set; }
 
-        public long HomeGroupCtrlNbr { get; set; }
+        public long WorkAreaCtrlNbr { get; set; }
 
         [Range(1, long.MaxValue, ErrorMessage = "Department is required.")]
         public long DepartmentCtrlNbr { get; set; }
@@ -376,5 +405,8 @@ else
         public string? Name { get; set; }
 
         public bool IsActive { get; set; } = true;
+
+        public DateOnly EffectiveDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public DateOnly? AbolishedDate { get; set; }
     }
 }

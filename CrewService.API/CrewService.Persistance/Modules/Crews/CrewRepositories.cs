@@ -11,8 +11,8 @@ namespace CrewService.Persistance.Modules.Crews;
 internal sealed class CrewRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<Crew>(dbContext, currentUserService), ICrewRepository
 {
-    public async Task<List<Crew>> GetByHomeGroupAsync(ControlNumber homeGroupCtrlNbr) =>
-        await DbContext.Set<Crew>().Where(c => c.HomeGroupCtrlNbr == homeGroupCtrlNbr).OrderBy(c => c.Name).ToListAsync();
+    public async Task<List<Crew>> GetByWorkAreaAsync(ControlNumber workAreaCtrlNbr) =>
+        await DbContext.Set<Crew>().Where(c => c.WorkAreaCtrlNbr == workAreaCtrlNbr).OrderBy(c => c.Name).ToListAsync();
 
     public async Task<List<Crew>> GetByTypeAsync(string crewType) =>
         await DbContext.Set<Crew>().Where(c => c.CrewType == crewType).OrderBy(c => c.Name).ToListAsync();
@@ -25,7 +25,7 @@ internal sealed class CrewRepository(CrewServiceDbContext dbContext, ICurrentUse
             .ToListAsync();
 
         return await DbContext.Set<Crew>()
-            .Where(c => groupCtrlNbrs.Contains(c.HomeGroupCtrlNbr))
+            .Where(c => groupCtrlNbrs.Contains(c.WorkAreaCtrlNbr))
             .OrderBy(c => c.Name)
             .ToListAsync();
     }

@@ -8,32 +8,39 @@ namespace CrewService.Domain.Modules.Crews;
 public sealed class Crew : Entity
 {
     public string CrewType { get; private set; } = "REGULAR";
-    public ControlNumber HomeGroupCtrlNbr { get; private set; }
+    public ControlNumber WorkAreaCtrlNbr { get; private set; }
     public ControlNumber? DepartmentCtrlNbr { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
+    public DateTime EffectiveDate { get; private set; }
+    public DateTime? AbolishedDate { get; private set; }
 
-    private Crew() { HomeGroupCtrlNbr = null!; }
+    private Crew() { WorkAreaCtrlNbr = null!; }
 
-    public static Crew Create(string crewType, ControlNumber homeGroupCtrlNbr, string name, bool isActive = true, ControlNumber? departmentCtrlNbr = null)
+    public static Crew Create(string crewType, ControlNumber workAreaCtrlNbr, string name, bool isActive = true, ControlNumber? departmentCtrlNbr = null, DateTime? effectiveDate = null, DateTime? abolishedDate = null)
     {
         var crew = new Crew
         {
             CrewType = crewType,
-            HomeGroupCtrlNbr = homeGroupCtrlNbr,
+            WorkAreaCtrlNbr = workAreaCtrlNbr,
             DepartmentCtrlNbr = departmentCtrlNbr,
             Name = name,
-            IsActive = isActive
+            IsActive = isActive,
+            EffectiveDate = effectiveDate ?? DateTime.UtcNow,
+            AbolishedDate = abolishedDate
         };
         crew.Raise(new CrewCreatedDomainEvent(crew));
         return crew;
     }
 
-    public void Update(string name, bool isActive, ControlNumber? departmentCtrlNbr = null)
+    public void Update(string name, bool isActive, ControlNumber? departmentCtrlNbr = null, DateTime? effectiveDate = null, DateTime? abolishedDate = null, string? crewType = null)
     {
         Name = name;
         IsActive = isActive;
         DepartmentCtrlNbr = departmentCtrlNbr;
+        if (effectiveDate.HasValue) EffectiveDate = effectiveDate.Value;
+        AbolishedDate = abolishedDate;
+        if (!string.IsNullOrWhiteSpace(crewType)) CrewType = crewType;
         Raise(new CrewUpdatedDomainEvent(this));
     }
 }

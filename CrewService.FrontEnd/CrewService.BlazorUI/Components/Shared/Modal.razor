@@ -1,8 +1,8 @@
 @if (Visible)
 {
     <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block" tabindex="-1" @onclick="OnClose">
-        <div class="modal-dialog modal-dialog-centered @SizeClass" @onclick:stopPropagation>
+    <div class="modal fade show d-block" tabindex="-1" @onclick="OnBackdropClick">
+        <div class="modal-dialog modal-dialog-centered @ScrollableClass @SizeClass" @onclick:stopPropagation>
             <div class="modal-content border-primary">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -37,6 +37,12 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public string Size { get; set; } = "";
 
+    /// <summary>When true, clicking the backdrop does not close the modal. Defaults to true.</summary>
+    [Parameter] public bool StaticBackdrop { get; set; } = true;
+
+    /// <summary>When true, the modal body becomes scrollable when content exceeds viewport height.</summary>
+    [Parameter] public bool Scrollable { get; set; }
+
     private string SizeClass => Size switch
     {
         "sm" => "modal-sm",
@@ -44,4 +50,12 @@
         "xl" => "modal-xl",
         _ => ""
     };
+
+    private string ScrollableClass => Scrollable ? "modal-dialog-scrollable" : "";
+
+    private async Task OnBackdropClick()
+    {
+        if (!StaticBackdrop)
+            await OnClose.InvokeAsync();
+    }
 }

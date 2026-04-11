@@ -1,0 +1,443 @@
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+<Modal Visible="Visible" Title="@StepTitle" Icon="bi bi-magic" OnClose="CloseWizard" Size="xl"
+       Scrollable="true">
+    <BodyContent>
+        <div style="@(state.IsLoading ? "cursor: wait; pointer-events: none; opacity: 0.6;" : "")">
+        @if (state.ErrorMessage is not null)
+        {
+            <div class="alert alert-danger alert-dismissible">
+                @state.ErrorMessage
+                <button type="button" class="btn-close" @onclick="() => state.ErrorMessage = null"></button>
+            </div>
+        }
+
+        @* ── Step indicator ── *@
+        @if (state.CurrentStep <= 4)
+        {
+            <div class="d-flex justify-content-center mb-4">
+                @for (var s = 1; s <= 4; s++)
+                {
+                    var step = s;
+                    <div class="text-center mx-3">
+                        <span class="badge rounded-pill @(step == state.CurrentStep ? "bg-primary" : step < state.CurrentStep ? "bg-success" : "bg-secondary") fs-6">
+                            @step
+                        </span>
+                        <div class="small mt-1 @(step == state.CurrentStep ? "fw-bold" : "text-muted")">
+                            @(step switch { 1 => "Crew", 2 => "Assignments", 3 => "Crew Assignments", 4 => "Review", _ => "" })
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @* ── Step 1: Crew ── *@
+        @if (state.CurrentStep == 1)
+        {
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="wizard-use-existing-crew"
+                           checked="@state.UseExistingCrew" @onchange="e => state.UseExistingCrew = (bool)(e.Value ?? false)" />
+                    <label class="form-check-label" for="wizard-use-existing-crew">Use existing crew</label>
+                </div>
+            </div>
+
+            @if (state.UseExistingCrew)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Select Crew</label>
+                    <FilterSelect TItem="CrewResponse" TValue="long"
+                                  Value="state.SelectedCrewCtrlNbr"
+                                  ValueChanged="@(val => OnExistingCrewSelected(val))"
+                                  Items="ExistingCrews"
+                                  ValueSelector="@(c => c.CtrlNbr)"
+                                  TextSelector="@(c => c.Name)"
+                                  Placeholder="-- Select a crew --"
+                                  Searchable="true"
+                                  class="form-select" />
+                </div>
+
+                @if (state.SelectedCrewCtrlNbr > 0 && (state.AssignmentEntries.Any(a => a.UseExisting && a.ExistingAssignmentCtrlNbr > 0) || state.PositionEntries.Count > 0))
+                {
+                    <div class="alert alert-info small mb-0">
+                        <span class="bi bi-info-circle me-1"></span>
+                        Loaded @state.PositionEntries.Count position(s) and @state.AssignmentEntries.Count(a => a.UseExisting && a.ExistingAssignmentCtrlNbr > 0) assignment(s) from this crew.
+                        You can add more or modify them on the next steps.
+                    </div>
+                }
+
+                @if (state.SelectedCrewCtrlNbr > 0)
+                {
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Crew Type</label>
+                            <FilterSelect TItem="CrewTypeOption" TValue="string"
+                                          @bind-Value="state.ExistingCrewType"
+                                          Items="crewTypeOptions"
+                                          ValueSelector="@(ct => ct.Value)"
+                                          TextSelector="@(ct => ct.Label)"
+                                          class="form-select" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Effective Date</label>
+                            <input type="date" class="form-control" @bind="state.EffectiveDate" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Abolish Date</label>
+                            <input type="date" class="form-control" @bind="state.AbolishedDate" />
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Crew Type</label>
+                        <FilterSelect TItem="CrewTypeOption" TValue="string"
+                                      @bind-Value="state.NewCrewType"
+                                      Items="crewTypeOptions"
+                                      ValueSelector="@(ct => ct.Value)"
+                                      TextSelector="@(ct => ct.Label)"
+                                      class="form-select" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Work Area</label>
+                        <FilterSelect TItem="GroupResponse" TValue="long"
+                                      @bind-Value="state.NewWorkAreaCtrlNbr"
+                                      Items="workAreas"
+                                      ValueSelector="@(g => g.CtrlNbr)"
+                                      TextSelector="@(g => g.Name)"
+                                      Placeholder="-- Select --"
+                                      class="form-select" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Department</label>
+                        <FilterSelect TItem="DepartmentResponse" TValue="long"
+                                      @bind-Value="state.NewCrewDeptCtrlNbr"
+                                      Items="Departments"
+                                      ValueSelector="@(d => d.CtrlNbr)"
+                                      TextSelector="@(d => d.Name)"
+                                      Placeholder="-- Select --"
+                                      class="form-select" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Crew Name</label>
+                        <input type="text" class="form-control" @bind="state.NewCrewName" placeholder="e.g. Jax Turn Crew A" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Effective Date</label>
+                        <input type="date" class="form-control" @bind="state.EffectiveDate" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Abolish Date</label>
+                        <input type="date" class="form-control" @bind="state.AbolishedDate" />
+                    </div>
+                </div>
+            }
+
+            <hr class="my-4" />
+            <h6 class="fw-semibold">Crew Positions</h6>
+            <p class="text-muted small">Add craft role positions for this crew. Positions define which roles can be staffed.</p>
+
+            @for (var p = 0; p < state.PositionEntries.Count; p++)
+            {
+                var pos = state.PositionEntries[p];
+                var posIdx = p;
+                <div class="d-flex align-items-end gap-2 mb-2">
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-semibold">Craft Role</label>
+                        <FilterSelect TItem="CraftRoleResponse" TValue="long"
+                                      @bind-Value="pos.CraftRoleCtrlNbr"
+                                      Items="craftRoles"
+                                      ValueSelector="@(r => r.CtrlNbr)"
+                                      TextSelector="@(r => $"{r.Code.ToUpperInvariant()} — {r.Name}")"
+                                      Placeholder="-- Select craft role --"
+                                      class="form-select" />
+                    </div>
+                    <div style="width:80px">
+                        <label class="form-label fw-semibold">Order</label>
+                        <input type="number" class="form-control" @bind="pos.DisplayOrder" min="1" />
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger mb-0" style="height:38px" @onclick="() => RemovePositionEntry(pos)">
+                        <span class="bi bi-trash"></span>
+                    </button>
+                </div>
+            }
+
+            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddPositionEntry">
+                <span class="bi bi-plus-circle"></span> Add Position
+            </button>
+        }
+
+        @* ── Step 2: Assignments (select or create) ── *@
+        @if (state.CurrentStep == 2)
+        {
+            @for (var idx = 0; idx < state.AssignmentEntries.Count; idx++)
+            {
+                var entry = state.AssignmentEntries[idx];
+                var entryIndex = idx;
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Assignment @(entryIndex + 1)</strong>
+                        @if (state.AssignmentEntries.Count > 1)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveAssignmentEntry(entry)">
+                                <span class="bi bi-trash"></span>
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" id="@($"wizard-existing-asgn-{entryIndex}")"
+                                       checked="@entry.UseExisting" @onchange="e => entry.UseExisting = (bool)(e.Value ?? false)" />
+                                <label class="form-check-label" for="@($"wizard-existing-asgn-{entryIndex}")">Use existing assignment</label>
+                            </div>
+                        </div>
+
+                        @if (entry.UseExisting)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Select Assignment</label>
+                                <FilterSelect TItem="StaffingAssignmentResponse" TValue="long"
+                                              Value="entry.ExistingAssignmentCtrlNbr"
+                                              ValueChanged="@(val => OnExistingAssignmentSelected(entry, val))"
+                                              Items="existingAssignments"
+                                              ValueSelector="@(a => a.CtrlNbr)"
+                                              TextSelector="@(a => $"{a.Code.ToUpperInvariant()} — {a.Name}")"
+                                              Placeholder="-- Select an assignment --"
+                                              Searchable="true"
+                                              class="form-select" />
+                            </div>
+                        }
+
+                        @if (!entry.UseExisting || entry.ExistingAssignmentCtrlNbr > 0)
+                        {
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Group</label>
+                                    <FilterSelect TItem="GroupResponse" TValue="long"
+                                                  @bind-Value="entry.NewAssignment.GroupCtrlNbr"
+                                                  Items="allGroups"
+                                                  ValueSelector="@(g => g.CtrlNbr)"
+                                                  TextSelector="@(g => g.Name)"
+                                                  Placeholder="-- Select --"
+                                                  class="form-select" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Department</label>
+                                    <FilterSelect TItem="DepartmentResponse" TValue="long"
+                                                  @bind-Value="entry.NewAssignment.DepartmentCtrlNbr"
+                                                  Items="Departments"
+                                                  ValueSelector="@(d => d.CtrlNbr)"
+                                                  TextSelector="@(d => d.Name)"
+                                                  Placeholder="-- Select --"
+                                                  class="form-select" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Code</label>
+                                    <input type="text" class="form-control" @bind="entry.NewAssignment.Code" placeholder="e.g. JAX01" />
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-semibold">Name</label>
+                                    <input type="text" class="form-control" @bind="entry.NewAssignment.Name" placeholder="e.g. Jacksonville Turn" />
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="@($"wizard-extra-{entryIndex}")"
+                                               checked="@entry.NewAssignment.IsExtra" @onchange="e => entry.NewAssignment.IsExtra = (bool)(e.Value ?? false)" />
+                                        <label class="form-check-label" for="@($"wizard-extra-{entryIndex}")">Extra Board</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="fw-semibold">Schedule</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Shift Definition</label>
+                                    <FilterSelect TItem="ShiftDefinitionResponse" TValue="long"
+                                                  @bind-Value="entry.NewAssignment.ShiftDefinitionCtrlNbr"
+                                                  Items="shiftDefinitions"
+                                                  ValueSelector="@(s => s.CtrlNbr)"
+                                                  TextSelector="@(s => s.DisplayName)"
+                                                  Placeholder="-- Select shift --"
+                                                  class="form-select" />
+                                </div>
+                                <div class="col-md-8">
+                                    <DutyTimePicker @bind-OnDutyTime="entry.NewAssignment.OnDutyTime"
+                                                    @bind-OffDutyTime="entry.NewAssignment.OffDutyTime" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Assignment Operating Days</label>
+                                    <DayOfWeekPicker @bind-Value="entry.NewAssignment.OperatingDaysMask" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            <button type="button" class="btn btn-outline-primary" @onclick="AddAssignmentEntry">
+                <span class="bi bi-plus-circle"></span> Add Assignment
+            </button>
+        }
+
+        @* ── Step 3: Crew Assignments (work days + dates) ── *@
+        @if (state.CurrentStep == 3)
+        {
+            <p class="text-muted small mb-3">Set crew work days and effective dates for each assignment.</p>
+            @for (var idx = 0; idx < state.AssignmentEntries.Count; idx++)
+            {
+                var entry = state.AssignmentEntries[idx];
+                var entryIndex = idx;
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <strong>@entry.DisplayLabel</strong>
+                        @if (entry.UseExisting)
+                        {
+                            <span class="badge bg-secondary ms-2">Existing</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-primary ms-2">New</span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <h6 class="fw-semibold">Crew Work Days</h6>
+                        <DayOfWeekPicker @bind-Value="entry.CrewWorkDaysMask" />
+
+                        <hr />
+                        <h6 class="fw-semibold">Effective Dates</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Start Date</label>
+                                <input type="date" class="form-control" value="@entry.StartDate.ToString("yyyy-MM-dd")"
+                                       @onchange="e => { if (DateOnly.TryParse(e.Value?.ToString(), out var d)) { entry.StartDate = d; entry.HasUserSetStartDate = true; } }" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">End Date <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="date" class="form-control" @bind="entry.EndDate" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+
+        @* ── Step 4: Review ── *@
+        @if (state.CurrentStep == 4)
+        {
+            <h6 class="fw-semibold">Crew</h6>
+            @if (state.UseExistingCrew)
+            {
+                var crew = ExistingCrews?.FirstOrDefault(c => c.CtrlNbr == state.SelectedCrewCtrlNbr);
+                <p>Using existing crew: <strong>@(crew?.Name ?? "—")</strong></p>
+            }
+            else
+            {
+                <p>Creating new <strong>@state.NewCrewType</strong> crew: <strong>@state.NewCrewName</strong></p>
+            }
+            <p class="text-muted small">
+                <strong>Effective:</strong> @state.EffectiveDate.ToString("d")
+                @if (state.AbolishedDate.HasValue)
+                {
+                    <span class="ms-3"><strong>Abolished:</strong> @state.AbolishedDate.Value.ToString("d")</span>
+                }
+            </p>
+
+            @if (state.PositionEntries.Count > 0)
+            {
+                <h6 class="fw-semibold mt-3">Positions (@state.PositionEntries.Count)</h6>
+                <table class="table table-sm">
+                    <thead><tr><th>#</th><th>Craft Role</th></tr></thead>
+                    <tbody>
+                        @foreach (var pos in state.PositionEntries)
+                        {
+                            <tr>
+                                <td>@pos.DisplayOrder</td>
+                                <td>@GetCraftRoleDisplay(pos.CraftRoleCtrlNbr)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <h6 class="fw-semibold mt-3">Assignments (@state.AssignmentEntries.Count)</h6>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Assignment</th>
+                        <th>Group</th>
+                        <th>Shift</th>
+                        <th>Crew Days</th>
+                        <th>On Duty</th>
+                        <th>Start</th>
+                        <th>End</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in state.AssignmentEntries)
+                    {
+                        <tr>
+                            <td>@(entry.UseExisting ? "Existing" : "New")</td>
+                            <td>@entry.DisplayLabel</td>
+                            <td>@GetGroupName(entry.NewAssignment.GroupCtrlNbr)</td>
+                            <td>@GetShiftDisplay(entry.NewAssignment.ShiftDefinitionCtrlNbr)</td>
+                            <td>@DayOfWeekPicker.FormatDays(entry.CrewWorkDaysMask)</td>
+                            <td>@($"{entry.NewAssignment.OnDutyTime:HH:mm}")</td>
+                            <td>@entry.StartDate.ToString("d")</td>
+                            <td>@(entry.EndDate?.ToString("d") ?? "Open-ended")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @* ── Step 5: Success ── *@
+        @if (state.CurrentStep == 5)
+        {
+            <div class="alert alert-success">
+                <span class="bi bi-check-circle me-2"></span>@state.SuccessSummary
+            </div>
+        }
+        </div>
+    </BodyContent>
+    <Footer>
+        @if (state.CurrentStep <= 4)
+        {
+            <button type="button" class="btn btn-outline-secondary" disabled="@state.IsLoading" @onclick="CloseWizard">Cancel</button>
+        }
+        @if (state.CurrentStep > 1 && state.CurrentStep <= 4)
+        {
+            <button type="button" class="btn btn-outline-primary" disabled="@state.IsLoading" @onclick="GoBack">
+                <span class="bi bi-arrow-left"></span> Back
+            </button>
+        }
+        @if (state.CurrentStep < 4)
+        {
+            <button type="button" class="btn btn-primary" disabled="@(!CanGoNext || state.IsLoading)" @onclick="GoNext">
+                @if (state.IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                }
+                Next <span class="bi bi-arrow-right"></span>
+            </button>
+        }
+        @if (state.CurrentStep == 4)
+        {
+            <button type="button" class="btn btn-success" disabled="@(state.IsSaving || state.IsLoading)" @onclick="Submit">
+                @if (state.IsSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                }
+                <span class="bi bi-check-circle me-1"></span> Submit
+            </button>
+        }
+        @if (state.CurrentStep == 5)
+        {
+            <button type="button" class="btn btn-primary" @onclick="CloseWizard">Done</button>
+        }
+    </Footer>
+</Modal>

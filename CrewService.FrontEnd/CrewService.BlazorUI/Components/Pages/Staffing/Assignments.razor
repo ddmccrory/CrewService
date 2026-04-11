@@ -116,7 +116,8 @@ else
             <td>@a.Name</td>
             <td>@a.GroupName</td>
             <td>@GetDepartmentName(a.DepartmentCtrlNbr)</td>
-            <td>@FormatDays(a.WorkDaysMask)</td>
+            <td>@DayOfWeekPicker.FormatDays(a.WorkDaysMask)</td>
+            <td>@a.OnDutyTime</td>
             <td>
                 @if (a.IsActive) { <span class="badge bg-success">Active</span> }
                 else { <span class="badge bg-warning text-dark">Inactive</span> }
@@ -154,7 +155,8 @@ else
         new("Name", a => a.Name),
         new("Group", a => a.GroupName),
         new("Department", a => GetDepartmentName(a.DepartmentCtrlNbr)),
-        new("Work Days", a => FormatDays(a.WorkDaysMask)),
+        new("Work Days", a => DayOfWeekPicker.FormatDays(a.WorkDaysMask)),
+        new("On Duty", a => a.OnDutyTime, width: "100px"),
         new("Status", a => a.IsActive ? "Active" : "Inactive", width: "100px"),
         DataTableColumn<StaffingAssignmentResponse>.Actions()
     ];
@@ -207,18 +209,6 @@ else
 
     private string GetDepartmentName(long ctrlNbr) =>
         ctrlNbr > 0 && departmentNames.TryGetValue(ctrlNbr, out var n) ? n : "—";
-
-    private static string FormatDays(int mask)
-    {
-        if (mask == 0) return "None";
-        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var active = new List<string>();
-        for (var i = 0; i < 7; i++)
-        {
-            if ((mask & (1 << i)) != 0) active.Add(days[i]);
-        }
-        return string.Join(", ", active);
-    }
 
     private void OpenCreateModal()
     {

@@ -22,6 +22,7 @@ public sealed class RailroadReferenceDataService(
     private List<GroupResponse>? _workAreas;
     private IReadOnlyList<DepartmentResponse>? _departments;
     private IReadOnlyList<CraftRoleResponse>? _craftRoles;
+    private IReadOnlyList<ShiftDefinitionResponse>? _shiftDefinitions;
 
     /// <summary>All groups for the current railroad (full tree).</summary>
     public async Task<IReadOnlyList<GroupResponse>> GetGroupsAsync()
@@ -90,6 +91,23 @@ public sealed class RailroadReferenceDataService(
         return _craftRoles;
     }
 
+    /// <summary>Active shift definitions for the current railroad.</summary>
+    public async Task<IReadOnlyList<ShiftDefinitionResponse>> GetShiftDefinitionsAsync()
+    {
+        EnsureContextCurrent();
+        if (_shiftDefinitions is null)
+        {
+            try
+            {
+                var response = await workManagementClient.GetShiftDefinitionsAsync(
+                    appContext.SelectedRailroadCtrlNbr ?? 0);
+                _shiftDefinitions = response.ShiftDefinitions.Where(s => s.IsActive).ToList();
+            }
+            catch { _shiftDefinitions = []; }
+        }
+        return _shiftDefinitions;
+    }
+
     /// <summary>Clears all cached data so the next access re-fetches.</summary>
     public void Invalidate()
     {
@@ -99,6 +117,7 @@ public sealed class RailroadReferenceDataService(
         _workAreas = null;
         _departments = null;
         _craftRoles = null;
+        _shiftDefinitions = null;
     }
 
     private void EnsureContextCurrent()
@@ -111,6 +130,7 @@ public sealed class RailroadReferenceDataService(
             _workAreas = null;
             _departments = null;
             _craftRoles = null;
+            _shiftDefinitions = null;
             _loadedRailroad = rr;
             _loadedParent = parent;
         }
