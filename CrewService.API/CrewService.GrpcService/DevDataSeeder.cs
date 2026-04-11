@@ -679,9 +679,10 @@ internal static class DevDataSeeder
         var csxRailroadForCrews = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var crewTransDept = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == csxRailroadForCrews.CtrlNbr);
         // Regular crews
-        var crewA = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew A", departmentCtrlNbr: crewTransDept?.CtrlNbr);
-        var crewB = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew B", departmentCtrlNbr: crewTransDept?.CtrlNbr);
-        var extraCrew = Crew.Create("EXTRA", jaxSub2.CtrlNbr, "Jax Extra Board Crew", departmentCtrlNbr: crewTransDept?.CtrlNbr);
+        var crewEffective = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var crewA = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew A", departmentCtrlNbr: crewTransDept?.CtrlNbr, effectiveDate: crewEffective);
+        var crewB = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew B", departmentCtrlNbr: crewTransDept?.CtrlNbr, effectiveDate: crewEffective);
+        var extraCrew = Crew.Create("EXTRA", jaxSub2.CtrlNbr, "Jax Extra Board Crew", departmentCtrlNbr: crewTransDept?.CtrlNbr, effectiveDate: crewEffective);
 
         await using (var uow = await uowFactory.CreateAsync())
         {
@@ -851,18 +852,19 @@ internal static class DevDataSeeder
         }
 
         // ── PTRA Crews — 9 regular + 3 relief ───────────────────────────
-        var ptraCrew130 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "130", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew140 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "140", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew150 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "150", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew230 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "230", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew240 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "240", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew250 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "250", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew330 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "330", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew340 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "340", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrew350 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "350", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrewRlfA = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-A", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrewRlfB = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-B", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraCrewRlfC = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-C", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
+        var ptraCrewEffective = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var ptraCrew130 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "130", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew140 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "140", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew150 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "150", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew230 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "230", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew240 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "240", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew250 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "250", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew330 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "330", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew340 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "340", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrew350 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "350", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrewRlfA = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-A", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrewRlfB = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-B", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
+        var ptraCrewRlfC = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-C", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
 
         await using (var uow = await uowFactory.CreateAsync())
         {

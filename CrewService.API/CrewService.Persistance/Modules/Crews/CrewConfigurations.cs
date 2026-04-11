@@ -16,13 +16,15 @@ internal class CrewConfiguration : IEntityTypeConfiguration<Crew>
         builder.HasKey(c => c.CtrlNbr);
         builder.Property(c => c.CtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v));
         builder.Property(c => c.CrewType).HasMaxLength(20).IsRequired();
-        builder.Property(c => c.HomeGroupCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(c => c.WorkAreaCtrlNbr).HasConversion(cn => cn.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(c => c.Name).HasMaxLength(200).IsRequired();
         builder.Property(c => c.IsActive).IsRequired();
+        builder.Property(c => c.EffectiveDate).IsRequired();
+        builder.Property(c => c.AbolishedDate);
         builder.Property(c => c.DepartmentCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.HomeGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.WorkAreaCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Department>().WithMany().HasForeignKey(c => c.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsOne(c => c.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(c => c.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
