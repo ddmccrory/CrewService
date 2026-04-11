@@ -102,14 +102,21 @@ public class CrewAssignmentEntryTests
         var entry = new CrewSetupWizard.CrewAssignmentEntry
         {
             UseExisting = true,
-            ExistingAssignmentCtrlNbr = 42
+            ExistingAssignmentCtrlNbr = 42,
+            NewAssignment = new()
+            {
+                Code = "A001",
+                Name = "Test Assignment",
+                GroupCtrlNbr = 1,
+                ShiftDefinitionCtrlNbr = 100
+            }
         };
 
         Assert.True(entry.IsValid);
     }
 
     [Fact]
-    public void IsValid_ExistingEntry_IgnoresNewAssignmentFields()
+    public void IsValid_ExistingEntry_ReturnsFalse_WhenNewAssignmentFieldsEmpty()
     {
         var entry = new CrewSetupWizard.CrewAssignmentEntry
         {
@@ -124,7 +131,7 @@ public class CrewAssignmentEntryTests
             }
         };
 
-        Assert.True(entry.IsValid);
+        Assert.False(entry.IsValid);
     }
 
     [Fact]

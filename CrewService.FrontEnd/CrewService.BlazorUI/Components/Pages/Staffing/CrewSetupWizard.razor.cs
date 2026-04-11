@@ -29,37 +29,18 @@ public partial class CrewSetupWizard
 
     [Parameter] public long? SelectedRailroadCtrlNbr { get; set; }
 
+    // ── Reference data caches (loaded once, persist across wizard sessions) ──
+    private IReadOnlyList<GroupResponse>? workAreas;
     private IReadOnlyList<GroupResponse>? allGroups;
-    private IReadOnlyList<GroupResponse>? allGroupsForAssignments;
-
-    private int currentStep = 1;
-    private bool isSaving;
-    private bool isLoading;
-    private string? errorMessage;
-    private string? successSummary;
-
-    // ── Step 1: Crew ──
-    private bool useExistingCrew;
-    private long selectedCrewCtrlNbr;
-    private string? existingCrewType;
-    private string? newCrewType;
-    private long newWorkAreaCtrlNbr;
-    private long newCrewDeptCtrlNbr;
-    private string newCrewName = "";
-    private DateOnly effectiveDate = DateOnly.FromDateTime(DateTime.Today);
-    private DateOnly? abolishedDate;
-
-    // ── Step 2 & 3: Assignments ──
-    private List<CrewAssignmentEntry> assignmentEntries = [];
     private IReadOnlyList<StaffingAssignmentResponse>? existingAssignments;
     private IReadOnlyList<ShiftDefinitionResponse>? shiftDefinitions;
-
-    // ── Step 1b: Positions ──
-    private List<WizardPositionEntry> positionEntries = [];
     private IReadOnlyList<CraftRoleResponse>? craftRoles;
 
+    // ── Wizard form state (reset wholesale on close) ──
+    private WizardState state = new();
+
     // ── Step navigation ──
-    private string StepTitle => currentStep switch
+    private string StepTitle => state.CurrentStep switch
     {
         1 => "Crew Setup Wizard — Step 1: Crew",
         2 => "Crew Setup Wizard — Step 2: Assignments",
@@ -68,24 +49,25 @@ public partial class CrewSetupWizard
         _ => "Crew Setup Wizard"
     };
 
-    private bool CanGoNext => currentStep switch
+    private bool CanGoNext => state.CurrentStep switch
     {
-        1 => useExistingCrew
-            ? selectedCrewCtrlNbr > 0
-            : newWorkAreaCtrlNbr > 0
-              && !string.IsNullOrWhiteSpace(newCrewName)
-              && positionEntries.Any(p => p.CraftRoleCtrlNbr > 0),
-        2 => assignmentEntries.Count > 0 && assignmentEntries.All(a => a.IsAssignmentValid),
-        3 => assignmentEntries.Count > 0 && assignmentEntries.All(a => a.IsValid),
+        1 => state.UseExistingCrew
+            ? state.SelectedCrewCtrlNbr > 0
+            : state.NewWorkAreaCtrlNbr > 0
+              && !string.IsNullOrWhiteSpace(state.NewCrewType)
+              && !string.IsNullOrWhiteSpace(state.NewCrewName)
+              && state.PositionEntries.Any(p => p.CraftRoleCtrlNbr > 0),
+        2 => state.AssignmentEntries.Count > 0 && state.AssignmentEntries.All(a => a.IsAssignmentValid),
+        3 => state.AssignmentEntries.Count > 0 && state.AssignmentEntries.All(a => a.IsValid),
         _ => false
     };
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Visible && allGroups is null)
+        if (Visible && workAreas is null)
         {
-            allGroups = await ReferenceData.GetWorkAreasAsync();
-            allGroupsForAssignments = await ReferenceData.GetGroupsAsync();
+            workAreas = await ReferenceData.GetWorkAreasAsync();
+            allGroups = await ReferenceData.GetGroupsAsync();
             craftRoles = await ReferenceData.GetCraftRolesAsync();
             shiftDefinitions = await ReferenceData.GetShiftDefinitionsAsync();
         }
@@ -95,129 +77,136 @@ public partial class CrewSetupWizard
     {
         try
         {
-            isLoading = true;
-            if (currentStep == 1)
-            {
-                if (!useExistingCrew && string.IsNullOrWhiteSpace(newCrewType))
-                {
-                    errorMessage = "Please select a crew type.";
-                    return;
-                }
-
-                if (existingAssignments is null)
-                    await LoadExistingAssignments();
-
-                // Seed new assignment defaults from crew department
-                var (_, dept) = GetCrewGroupAndDepartment();
-
-                // Ensure at least one assignment card is open
-                if (assignmentEntries.Count == 0)
-                    assignmentEntries.Add(new CrewAssignmentEntry
-                    {
-                        NewAssignment = new NewAssignmentInfo { DepartmentCtrlNbr = dept },
-                        StartDate = effectiveDate
-                    });
-
-                foreach (var entry in assignmentEntries)
-                {
-                    if (!entry.UseExisting && entry.NewAssignment.DepartmentCtrlNbr == 0)
-                        entry.NewAssignment.DepartmentCtrlNbr = dept;
-                    if (!entry.UseExisting && string.IsNullOrWhiteSpace(entry.NewAssignment.Code) && newCrewType == "REGULAR")
-                        entry.NewAssignment.Code = newCrewName;
-                }
-            }
-            else if (currentStep == 2)
-            {
-                // Default crew assignment dates from crew effective date
-                foreach (var entry in assignmentEntries)
-                {
-                    if (entry.StartDate == DateOnly.FromDateTime(DateTime.Today) && effectiveDate != DateOnly.FromDateTime(DateTime.Today))
-                        entry.StartDate = effectiveDate;
-                }
-            }
-            currentStep++;
+            state.IsLoading = true;
+            if (state.CurrentStep == 1)
+                await PrepareStep2();
+            else if (state.CurrentStep == 2)
+                PrepareStep3();
+            state.CurrentStep++;
         }
-        finally { isLoading = false; }
+        finally { state.IsLoading = false; }
+    }
+
+    private async Task PrepareStep2()
+    {
+        if (existingAssignments is null)
+            await LoadExistingAssignments();
+
+        var (_, dept) = GetCrewGroupAndDepartment();
+
+        // Ensure at least one assignment card is open
+        if (state.AssignmentEntries.Count == 0)
+            state.AssignmentEntries.Add(new CrewAssignmentEntry
+            {
+                NewAssignment = new NewAssignmentInfo { DepartmentCtrlNbr = dept },
+                StartDate = state.EffectiveDate
+            });
+
+        foreach (var entry in state.AssignmentEntries)
+        {
+            if (!entry.UseExisting && entry.NewAssignment.DepartmentCtrlNbr == 0)
+                entry.NewAssignment.DepartmentCtrlNbr = dept;
+            if (!entry.UseExisting && string.IsNullOrWhiteSpace(entry.NewAssignment.Code) && state.NewCrewType == "REGULAR")
+                entry.NewAssignment.Code = state.NewCrewName;
+        }
+    }
+
+    private void PrepareStep3()
+    {
+        // Default crew assignment dates from crew effective date (only for entries the user hasn't manually edited)
+        foreach (var entry in state.AssignmentEntries)
+        {
+            if (!entry.HasUserSetStartDate && state.EffectiveDate != DateOnly.FromDateTime(DateTime.Today))
+                entry.StartDate = state.EffectiveDate;
+        }
     }
 
     private async Task OnExistingCrewSelected(long crewCtrlNbr)
     {
-        selectedCrewCtrlNbr = crewCtrlNbr;
-        positionEntries.Clear();
-        assignmentEntries.Clear();
-        effectiveDate = DateOnly.FromDateTime(DateTime.Today);
-        abolishedDate = null;
-        existingCrewType = null;
+        state.SelectedCrewCtrlNbr = crewCtrlNbr;
+        state.PositionEntries.Clear();
+        state.AssignmentEntries.Clear();
+        state.EffectiveDate = DateOnly.FromDateTime(DateTime.Today);
+        state.AbolishedDate = null;
+        state.ExistingCrewType = null;
 
         if (crewCtrlNbr <= 0) return;
 
-        // Pre-populate lifecycle dates and crew type from the selected crew
-        var selectedCrew = ExistingCrews?.FirstOrDefault(c => c.CtrlNbr == crewCtrlNbr);
-        if (selectedCrew is not null)
-        {
-            existingCrewType = selectedCrew.CrewType;
-            if (DateTime.TryParse(selectedCrew.EffectiveDate, out var eff))
-                effectiveDate = DateOnly.FromDateTime(eff);
-            if (!string.IsNullOrWhiteSpace(selectedCrew.AbolishedDate) && DateTime.TryParse(selectedCrew.AbolishedDate, out var abol))
-                abolishedDate = DateOnly.FromDateTime(abol);
-        }
+        LoadCrewMetadata(crewCtrlNbr);
 
-        isLoading = true;
+        state.IsLoading = true;
         StateHasChanged();
 
         if (existingAssignments is null)
             await LoadExistingAssignments();
 
-        try
+        try { await LoadCrewAssignmentsAsync(crewCtrlNbr); }
+        catch { /* best-effort */ }
+
+        try { await LoadCrewPositionsAsync(crewCtrlNbr); }
+        catch { /* best-effort */ }
+
+        state.IsLoading = false;
+    }
+
+    private void LoadCrewMetadata(long crewCtrlNbr)
+    {
+        var selectedCrew = ExistingCrews?.FirstOrDefault(c => c.CtrlNbr == crewCtrlNbr);
+        if (selectedCrew is null) return;
+
+        state.ExistingCrewType = selectedCrew.CrewType;
+        if (DateTime.TryParse(selectedCrew.EffectiveDate, out var eff))
+            state.EffectiveDate = DateOnly.FromDateTime(eff);
+        if (!string.IsNullOrWhiteSpace(selectedCrew.AbolishedDate) && DateTime.TryParse(selectedCrew.AbolishedDate, out var abol))
+            state.AbolishedDate = DateOnly.FromDateTime(abol);
+    }
+
+    private async Task LoadCrewAssignmentsAsync(long crewCtrlNbr)
+    {
+        var crewAssignmentsResponse = await CrewClient.GetCrewAssignmentsAsync(crewCtrlNbr);
+        foreach (var ca in crewAssignmentsResponse.Assignments)
         {
-            // Load crew assignments into unified entries
-            var crewAssignmentsResponse = await CrewClient.GetCrewAssignmentsAsync(crewCtrlNbr);
-            if (crewAssignmentsResponse.Assignments.Count > 0)
+            var entry = new CrewAssignmentEntry { UseExisting = true };
+            await PopulateExistingAssignmentInfo(entry, ca.AssignmentCtrlNbr);
+
+            entry.CrewWorkDaysMask = ca.DaysOfWeekMask;
+
+            if (DateTime.TryParse(ca.StartUtc, out var caStart))
             {
-                foreach (var ca in crewAssignmentsResponse.Assignments)
-                {
-                    var entry = new CrewAssignmentEntry { UseExisting = true };
-                    await PopulateExistingAssignmentInfo(entry, ca.AssignmentCtrlNbr);
-
-                    // Pre-populate crew work days from existing crew assignment
-                    entry.CrewWorkDaysMask = ca.DaysOfWeekMask;
-
-                    // Pre-populate dates from existing crew assignment
-                    if (DateTime.TryParse(ca.StartUtc, out var caStart))
-                        entry.StartDate = DateOnly.FromDateTime(caStart);
-                    if (!string.IsNullOrWhiteSpace(ca.EndUtc) && DateTime.TryParse(ca.EndUtc, out var caEnd))
-                        entry.EndDate = DateOnly.FromDateTime(caEnd);
-
-                    assignmentEntries.Add(entry);
-                }
+                entry.StartDate = DateOnly.FromDateTime(caStart);
+                entry.HasUserSetStartDate = true;
             }
+            if (!string.IsNullOrWhiteSpace(ca.EndUtc) && DateTime.TryParse(ca.EndUtc, out var caEnd))
+                entry.EndDate = DateOnly.FromDateTime(caEnd);
 
-            // Load crew positions
-            var positionsResponse = await CrewClient.GetCrewPositionsAsync(crewCtrlNbr);
-            foreach (var p in positionsResponse.Positions)
-            {
-                positionEntries.Add(new WizardPositionEntry
-                {
-                    CraftRoleCtrlNbr = p.CraftRoleCtrlNbr,
-                    DisplayOrder = p.DisplayOrder
-                });
-            }
+            state.AssignmentEntries.Add(entry);
         }
-        catch { /* best-effort loading */ }
-        finally { isLoading = false; }
+    }
+
+    private async Task LoadCrewPositionsAsync(long crewCtrlNbr)
+    {
+        var positionsResponse = await CrewClient.GetCrewPositionsAsync(crewCtrlNbr);
+        foreach (var p in positionsResponse.Positions)
+        {
+            state.PositionEntries.Add(new WizardPositionEntry
+            {
+                CraftRoleCtrlNbr = p.CraftRoleCtrlNbr,
+                DisplayOrder = p.DisplayOrder
+            });
+        }
     }
 
     private (long groupCtrlNbr, long departmentCtrlNbr) GetCrewGroupAndDepartment()
     {
-        if (useExistingCrew)
+        if (state.UseExistingCrew)
         {
-            var crew = ExistingCrews?.FirstOrDefault(c => c.CtrlNbr == selectedCrewCtrlNbr);
+            var crew = ExistingCrews?.FirstOrDefault(c => c.CtrlNbr == state.SelectedCrewCtrlNbr);
             return (crew?.WorkAreaCtrlNbr ?? 0, crew?.DepartmentCtrlNbr ?? 0);
         }
-        return (newWorkAreaCtrlNbr, newCrewDeptCtrlNbr);
+        return (state.NewWorkAreaCtrlNbr, state.NewCrewDeptCtrlNbr);
     }
 
-    private void GoBack() => currentStep = Math.Max(1, currentStep - 1);
+    private void GoBack() => state.CurrentStep = Math.Max(1, state.CurrentStep - 1);
 
     private async Task LoadExistingAssignments()
     {
@@ -233,17 +222,17 @@ public partial class CrewSetupWizard
     private void AddAssignmentEntry()
     {
         var (_, dept) = GetCrewGroupAndDepartment();
-        assignmentEntries.Add(new CrewAssignmentEntry
+        state.AssignmentEntries.Add(new CrewAssignmentEntry
         {
             NewAssignment = new NewAssignmentInfo { DepartmentCtrlNbr = dept },
-            StartDate = effectiveDate
+            StartDate = state.EffectiveDate
         });
     }
 
     private void RemoveAssignmentEntry(CrewAssignmentEntry entry)
     {
-        if (assignmentEntries.Count > 1)
-            assignmentEntries.Remove(entry);
+        if (state.AssignmentEntries.Count > 1)
+            state.AssignmentEntries.Remove(entry);
     }
 
     private async Task OnExistingAssignmentSelected(CrewAssignmentEntry entry, long assignmentCtrlNbr)
@@ -254,16 +243,34 @@ public partial class CrewSetupWizard
     private async Task PopulateExistingAssignmentInfo(CrewAssignmentEntry entry, long assignmentCtrlNbr)
     {
         entry.ExistingAssignmentCtrlNbr = assignmentCtrlNbr;
-        if (assignmentCtrlNbr <= 0) return;
+        entry.ExistingSummary = null;
+        if (assignmentCtrlNbr <= 0)
+        {
+            entry.NewAssignment = new();
+            return;
+        }
 
         var assignment = existingAssignments?.FirstOrDefault(a => a.CtrlNbr == assignmentCtrlNbr);
         if (assignment is null) return;
 
-        entry.ExistingCode = assignment.Code;
-        entry.ExistingName = assignment.Name;
-        entry.ExistingIsExtra = assignment.IsExtra;
-        entry.ExistingGroupName = assignment.GroupName;
-        entry.ExistingIsActive = assignment.IsActive;
+        // Populate the editable NewAssignment fields from the existing assignment
+        entry.NewAssignment = new NewAssignmentInfo
+        {
+            Code = assignment.Code,
+            Name = assignment.Name,
+            GroupCtrlNbr = assignment.GroupCtrlNbr,
+            DepartmentCtrlNbr = assignment.DepartmentCtrlNbr,
+            IsExtra = assignment.IsExtra
+        };
+
+        var summary = new ExistingAssignmentSummary
+        {
+            Code = assignment.Code,
+            Name = assignment.Name,
+            IsExtra = assignment.IsExtra,
+            GroupName = assignment.GroupName,
+            IsActive = assignment.IsActive
+        };
 
         try
         {
@@ -272,104 +279,99 @@ public partial class CrewSetupWizard
             if (schedule is not null)
             {
                 var shift = shiftDefinitions?.FirstOrDefault(s => s.CtrlNbr == schedule.ShiftDefinitionCtrlNbr);
-                entry.ExistingShiftDisplay = shift?.DisplayName ?? "—";
-                entry.ExistingDutyTimeDisplay = schedule.OnDutyTime;
-                entry.ExistingOperatingDaysMask = schedule.OperatingDaysMask;
+                summary.ShiftDisplay = shift?.DisplayName ?? "—";
+                summary.DutyTimeDisplay = schedule.OnDutyTime;
+                summary.OperatingDaysMask = schedule.OperatingDaysMask;
+
+                entry.NewAssignment.ShiftDefinitionCtrlNbr = schedule.ShiftDefinitionCtrlNbr;
+                entry.NewAssignment.OperatingDaysMask = schedule.OperatingDaysMask;
+                if (TimeOnly.TryParse(schedule.OnDutyTime, out var onDuty))
+                    entry.NewAssignment.OnDutyTime = onDuty;
+                if (TimeOnly.TryParse(schedule.OffDutyTime, out var offDuty))
+                    entry.NewAssignment.OffDutyTime = offDuty;
             }
         }
         catch { /* schedule load is best-effort */ }
+
+        entry.ExistingSummary = summary;
     }
 
     private async Task Submit()
     {
         try
         {
-            isSaving = true;
-            isLoading = true;
-            errorMessage = null;
+            state.IsSaving = true;
+            state.IsLoading = true;
+            state.ErrorMessage = null;
 
-            var request = new CrewSetupWizardRequest
-            {
-                ExistingCrewCtrlNbr = useExistingCrew ? selectedCrewCtrlNbr : 0,
-                CrewType = useExistingCrew ? existingCrewType ?? "" : newCrewType ?? "",
-                WorkAreaCtrlNbr = useExistingCrew ? 0 : newWorkAreaCtrlNbr,
-                CrewDepartmentCtrlNbr = useExistingCrew ? 0 : newCrewDeptCtrlNbr,
-                CrewName = useExistingCrew ? "" : newCrewName,
-                EffectiveDate = effectiveDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O"),
-                AbolishedDate = abolishedDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O") ?? ""
-            };
-
-            foreach (var entry in assignmentEntries)
-            {
-                var protoEntry = new CrewSetupWizardAssignmentEntry
-                {
-                    CrewWorkDaysMask = entry.CrewWorkDaysMask,
-                    StartDate = entry.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O"),
-                    EndDate = entry.EndDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O") ?? ""
-                };
-
-                if (entry.UseExisting)
-                {
-                    protoEntry.ExistingAssignmentCtrlNbr = entry.ExistingAssignmentCtrlNbr;
-                }
-                else
-                {
-                    protoEntry.GroupCtrlNbr = entry.NewAssignment.GroupCtrlNbr;
-                    protoEntry.DepartmentCtrlNbr = entry.NewAssignment.DepartmentCtrlNbr;
-                    protoEntry.Code = entry.NewAssignment.Code;
-                    protoEntry.Name = entry.NewAssignment.Name;
-                    protoEntry.IsExtra = entry.NewAssignment.IsExtra;
-                    protoEntry.ShiftDefinitionCtrlNbr = entry.NewAssignment.ShiftDefinitionCtrlNbr;
-                    protoEntry.AssignmentOperatingDaysMask = entry.NewAssignment.OperatingDaysMask;
-                    protoEntry.OnDutyTime = entry.NewAssignment.OnDutyTime.ToString("HH:mm");
-                    protoEntry.OffDutyTime = entry.NewAssignment.OffDutyTime.ToString("HH:mm");
-                }
-
-                request.Assignments.Add(protoEntry);
-            }
-
-            foreach (var pos in positionEntries)
-            {
-                if (pos.CraftRoleCtrlNbr > 0)
-                {
-                    request.Positions.Add(new CrewSetupWizardPositionEntry
-                    {
-                        CraftRoleCtrlNbr = pos.CraftRoleCtrlNbr,
-                        DisplayOrder = pos.DisplayOrder
-                    });
-                }
-            }
-
+            var request = BuildWizardRequest();
             var result = await CrewClient.CrewSetupWizardAsync(request);
-            successSummary = BuildSuccessSummary(result);
-            currentStep = 5; // show success
+            state.SuccessSummary = BuildSuccessSummary(result);
+            state.CurrentStep = 5;
         }
         catch (Exception ex)
         {
-            errorMessage = $"Wizard failed: {ex.Message}";
+            state.ErrorMessage = $"Wizard failed: {ex.Message}";
         }
-        finally { isSaving = false; isLoading = false; }
+        finally { state.IsSaving = false; state.IsLoading = false; }
+    }
+
+    private CrewSetupWizardRequest BuildWizardRequest()
+    {
+        var request = new CrewSetupWizardRequest
+        {
+            ExistingCrewCtrlNbr = state.UseExistingCrew ? state.SelectedCrewCtrlNbr : 0,
+            CrewType = state.UseExistingCrew ? state.ExistingCrewType ?? "" : state.NewCrewType ?? "",
+            WorkAreaCtrlNbr = state.UseExistingCrew ? 0 : state.NewWorkAreaCtrlNbr,
+            CrewDepartmentCtrlNbr = state.UseExistingCrew ? 0 : state.NewCrewDeptCtrlNbr,
+            CrewName = state.UseExistingCrew ? "" : state.NewCrewName,
+            EffectiveDate = state.EffectiveDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O"),
+            AbolishedDate = state.AbolishedDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O") ?? ""
+        };
+
+        foreach (var entry in state.AssignmentEntries)
+        {
+            var protoEntry = new CrewSetupWizardAssignmentEntry
+            {
+                ExistingAssignmentCtrlNbr = entry.UseExisting ? entry.ExistingAssignmentCtrlNbr : 0,
+                GroupCtrlNbr = entry.NewAssignment.GroupCtrlNbr,
+                DepartmentCtrlNbr = entry.NewAssignment.DepartmentCtrlNbr,
+                Code = entry.NewAssignment.Code,
+                Name = entry.NewAssignment.Name,
+                IsExtra = entry.NewAssignment.IsExtra,
+                ShiftDefinitionCtrlNbr = entry.NewAssignment.ShiftDefinitionCtrlNbr,
+                AssignmentOperatingDaysMask = entry.NewAssignment.OperatingDaysMask,
+                OnDutyTime = entry.NewAssignment.OnDutyTime.ToString("HH:mm"),
+                OffDutyTime = entry.NewAssignment.OffDutyTime.ToString("HH:mm"),
+                CrewWorkDaysMask = entry.CrewWorkDaysMask,
+                StartDate = entry.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O"),
+                EndDate = entry.EndDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O") ?? ""
+            };
+
+            request.Assignments.Add(protoEntry);
+        }
+
+        foreach (var pos in state.PositionEntries)
+        {
+            if (pos.CraftRoleCtrlNbr > 0)
+            {
+                request.Positions.Add(new CrewSetupWizardPositionEntry
+                {
+                    CraftRoleCtrlNbr = pos.CraftRoleCtrlNbr,
+                    DisplayOrder = pos.DisplayOrder
+                });
+            }
+        }
+
+        return request;
     }
 
     private async Task CloseWizard()
     {
-        if (currentStep == 5) await OnComplete.InvokeAsync();
-        currentStep = 1;
-        errorMessage = null;
-        successSummary = null;
-        useExistingCrew = false;
-        selectedCrewCtrlNbr = 0;
-        existingCrewType = null;
-        newCrewType = null;
-        newWorkAreaCtrlNbr = 0;
-        newCrewDeptCtrlNbr = 0;
-        newCrewName = "";
-        effectiveDate = DateOnly.FromDateTime(DateTime.Today);
-        abolishedDate = null;
-        assignmentEntries = [];
-        positionEntries = [];
+        if (state.CurrentStep == 5) await OnComplete.InvokeAsync();
+        state = new WizardState();
         craftRoles = null;
-        allGroups = null;
+        workAreas = null;
         await OnClose.InvokeAsync();
     }
 
@@ -417,14 +419,31 @@ public partial class CrewSetupWizard
     }
 
     // ── Position helpers ──
-    private void AddPositionEntry() => positionEntries.Add(new() { DisplayOrder = positionEntries.Count + 1 });
+    private void AddPositionEntry() => state.PositionEntries.Add(new() { DisplayOrder = state.PositionEntries.Count + 1 });
+
+    // ── Display helpers (keep LINQ out of .razor markup) ──
+    private string GetCraftRoleDisplay(long ctrlNbr)
+    {
+        var role = craftRoles?.FirstOrDefault(r => r.CtrlNbr == ctrlNbr);
+        return role is not null ? $"{role.Code.ToUpperInvariant()} — {role.Name}" : "—";
+    }
+
+    private string GetGroupName(long ctrlNbr)
+    {
+        return allGroups?.FirstOrDefault(g => g.CtrlNbr == ctrlNbr)?.Name ?? "—";
+    }
+
+    private string GetShiftDisplay(long ctrlNbr)
+    {
+        return shiftDefinitions?.FirstOrDefault(s => s.CtrlNbr == ctrlNbr)?.DisplayName ?? "—";
+    }
 
     private void RemovePositionEntry(WizardPositionEntry entry)
     {
-        positionEntries.Remove(entry);
+        state.PositionEntries.Remove(entry);
         // Re-number display order
-        for (var i = 0; i < positionEntries.Count; i++)
-            positionEntries[i].DisplayOrder = i + 1;
+        for (var i = 0; i < state.PositionEntries.Count; i++)
+            state.PositionEntries[i].DisplayOrder = i + 1;
     }
 
     // ── Entry models ──
@@ -456,6 +475,19 @@ public partial class CrewSetupWizard
             && ShiftDefinitionCtrlNbr > 0;
     }
 
+    /// <summary>Cached display info for an existing assignment selected in the wizard.</summary>
+    public sealed class ExistingAssignmentSummary
+    {
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string GroupName { get; set; } = "";
+        public bool IsActive { get; set; }
+        public bool IsExtra { get; set; }
+        public string ShiftDisplay { get; set; } = "";
+        public string DutyTimeDisplay { get; set; } = "";
+        public int OperatingDaysMask { get; set; }
+    }
+
     /// <summary>Unified entry: assignment selection/creation (Step 2) + crew link details (Step 3).</summary>
     public sealed class CrewAssignmentEntry
     {
@@ -464,27 +496,55 @@ public partial class CrewSetupWizard
         public long ExistingAssignmentCtrlNbr { get; set; }
         public NewAssignmentInfo NewAssignment { get; set; } = new();
 
-        // ── Display info for existing assignments ──
-        public string ExistingCode { get; set; } = "";
-        public string ExistingName { get; set; } = "";
-        public string ExistingGroupName { get; set; } = "";
-        public bool ExistingIsActive { get; set; }
-        public bool ExistingIsExtra { get; set; }
-        public string ExistingShiftDisplay { get; set; } = "";
-        public string ExistingDutyTimeDisplay { get; set; } = "";
-        public int ExistingOperatingDaysMask { get; set; }
+        /// <summary>Display cache populated when an existing assignment is selected.</summary>
+        public ExistingAssignmentSummary? ExistingSummary { get; set; }
 
         // ── Step 3: Crew assignment link fields ──
         public int CrewWorkDaysMask { get; set; }
         public DateOnly StartDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
         public DateOnly? EndDate { get; set; }
 
+        /// <summary>Tracks whether the user explicitly changed the start date (prevents auto-defaulting).</summary>
+        public bool HasUserSetStartDate { get; set; }
+
+        /// <summary>Human-readable label for this entry regardless of UseExisting.</summary>
+        public string DisplayLabel => UseExisting && ExistingAssignmentCtrlNbr <= 0
+            ? "—"
+            : $"{NewAssignment.Code.ToUpperInvariant()} — {NewAssignment.Name}";
+
         /// <summary>Step 2 validity: is the assignment itself properly defined?</summary>
         public bool IsAssignmentValid => UseExisting
-            ? ExistingAssignmentCtrlNbr > 0
+            ? ExistingAssignmentCtrlNbr > 0 && NewAssignment.IsValid
             : NewAssignment.IsValid;
 
         /// <summary>Full validity: assignment + crew link fields (for step 3 onwards).</summary>
         public bool IsValid => IsAssignmentValid;
+    }
+
+    /// <summary>All mutable wizard form state, resettable as a single unit.</summary>
+    public sealed class WizardState
+    {
+        public int CurrentStep { get; set; } = 1;
+        public bool IsSaving { get; set; }
+        public bool IsLoading { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string? SuccessSummary { get; set; }
+
+        // Step 1: Crew
+        public bool UseExistingCrew { get; set; }
+        public long SelectedCrewCtrlNbr { get; set; }
+        public string? ExistingCrewType { get; set; }
+        public string? NewCrewType { get; set; }
+        public long NewWorkAreaCtrlNbr { get; set; }
+        public long NewCrewDeptCtrlNbr { get; set; }
+        public string NewCrewName { get; set; } = "";
+        public DateOnly EffectiveDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public DateOnly? AbolishedDate { get; set; }
+
+        // Steps 2 & 3: Assignments
+        public List<CrewAssignmentEntry> AssignmentEntries { get; set; } = [];
+
+        // Step 1b: Positions
+        public List<WizardPositionEntry> PositionEntries { get; set; } = [];
     }
 }

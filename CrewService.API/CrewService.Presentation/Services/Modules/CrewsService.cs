@@ -12,6 +12,7 @@ public class CrewsService(
     ICrewIncumbencyRepository incumbencyRepository,
     ICrewAssignmentRepository assignmentRepository,
     IAssignmentRepository staffingAssignmentRepository,
+    IAssignmentScheduleRepository assignmentScheduleRepository,
     IOrchestrationUnitOfWorkFactory uowFactory) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
@@ -376,15 +377,19 @@ public class CrewsService(
             if (entry.ExistingAssignmentCtrlNbr > 0)
             {
                 assignment = await staffingAssignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(entry.ExistingAssignmentCtrlNbr))
-                    ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {entry.ExistingAssignmentCtrlNbr} not found."));
+                        ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {entry.ExistingAssignmentCtrlNbr} not found."));
 
-                // Activate if inactive
-                if (!assignment.IsActive)
-                {
-                    assignment.Update(isActive: true);
+                    // Apply any edits from the wizard to the existing assignment
+                    var deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
+                    assignment.Update(
+                        code: !string.IsNullOrWhiteSpace(entry.Code) ? entry.Code : null,
+                        name: !string.IsNullOrWhiteSpace(entry.Name) ? entry.Name : null,
+                        isExtra: entry.IsExtra,
+                        isActive: true,
+                        departmentCtrlNbr: deptCtrlNbr,
+                        groupCtrlNbr: entry.GroupCtrlNbr > 0 ? ControlNumber.Create(entry.GroupCtrlNbr) : null);
                     uow.Assignments.Update(assignment);
                     assignmentsUpdated++;
-                }
             }
             else
             {
@@ -403,21 +408,46 @@ public class CrewsService(
                 assignmentsCreated++;
             }
 
-            // Create schedule only for new assignments; existing assignments already have their own schedule
-            if (entry.ExistingAssignmentCtrlNbr == 0
-                && entry.ShiftDefinitionCtrlNbr > 0
-                && !string.IsNullOrWhiteSpace(entry.OnDutyTime))
+            // Create or update schedule
+            if (entry.ShiftDefinitionCtrlNbr > 0 && !string.IsNullOrWhiteSpace(entry.OnDutyTime))
             {
                 var onDuty = TimeOnly.Parse(entry.OnDutyTime);
                 var offDuty = !string.IsNullOrWhiteSpace(entry.OffDutyTime) ? TimeOnly.Parse(entry.OffDutyTime) : onDuty.AddHours(8);
-                var schedule = AssignmentSchedule.Create(
-                    assignment.CtrlNbr,
-                    ControlNumber.Create(entry.ShiftDefinitionCtrlNbr),
-                    entry.AssignmentOperatingDaysMask,
-                    onDuty,
-                    offDuty);
-                uow.AssignmentSchedules.Add(schedule);
-                schedulesCreated++;
+                var shiftCtrlNbr = ControlNumber.Create(entry.ShiftDefinitionCtrlNbr);
+
+                if (entry.ExistingAssignmentCtrlNbr > 0)
+                {
+                    var existingSchedules = await assignmentScheduleRepository.GetByAssignmentAsync(assignment.CtrlNbr);
+                    var existingSchedule = existingSchedules.FirstOrDefault();
+
+                    if (existingSchedule is not null)
+                    {
+                        if (existingSchedule.ShiftDefinitionCtrlNbr != shiftCtrlNbr)
+                        {
+                            uow.AssignmentSchedules.Remove(existingSchedule);
+                            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(
+                                assignment.CtrlNbr, shiftCtrlNbr, entry.AssignmentOperatingDaysMask, onDuty, offDuty));
+                        }
+                        else
+                        {
+                            existingSchedule.Update(entry.AssignmentOperatingDaysMask, onDuty, offDuty);
+                            uow.AssignmentSchedules.Update(existingSchedule);
+                        }
+                        schedulesUpdated++;
+                    }
+                    else
+                    {
+                        uow.AssignmentSchedules.Add(AssignmentSchedule.Create(
+                            assignment.CtrlNbr, shiftCtrlNbr, entry.AssignmentOperatingDaysMask, onDuty, offDuty));
+                        schedulesCreated++;
+                    }
+                }
+                else
+                {
+                    uow.AssignmentSchedules.Add(AssignmentSchedule.Create(
+                        assignment.CtrlNbr, shiftCtrlNbr, entry.AssignmentOperatingDaysMask, onDuty, offDuty));
+                    schedulesCreated++;
+                }
             }
 
             // Create or update crew assignment
