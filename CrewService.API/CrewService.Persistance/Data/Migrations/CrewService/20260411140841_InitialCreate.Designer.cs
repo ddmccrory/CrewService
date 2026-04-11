@@ -11,14 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    [Migration("20260313154842_PluralizeModuleTableNames")]
-    partial class PluralizeModuleTableNames
+    [Migration("20260411140841_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
 
             modelBuilder.Entity("CrewService.Domain.Models.ContactTypes.AddressType", b =>
                 {
@@ -153,6 +153,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("AddressTypeCtrlNbr");
+
                     b.HasIndex("EmployeeCtrlNbr");
 
                     b.ToTable("Addresses");
@@ -181,6 +183,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmailTypeCtrlNbr");
 
                     b.HasIndex("EmployeeCtrlNbr");
 
@@ -265,6 +269,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("EmployeeNumber")
                         .IsUnique();
 
+                    b.HasIndex("EmploymentStatusCtrlNbr");
+
                     b.HasIndex("SocialSecurityNumber")
                         .IsUnique();
 
@@ -295,6 +301,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
 
                     b.ToTable("EmployeePriorServiceCredits");
                 });
@@ -330,6 +338,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PhoneTypeCtrlNbr");
 
                     b.ToTable("PhoneNumbers");
                 });
@@ -393,6 +403,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("EmploymentStatusCtrlNbr");
+
                     b.ToTable("EmploymentStatusHistory");
                 });
 
@@ -445,40 +459,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("DynamicGroupCtrlNbr");
+
                     b.ToTable("PayrollTiers");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Models.Railroads.Railroad", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("RailroadMark")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.HasIndex("ParentCtrlNbr");
-
-                    b.ToTable("Railroads");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Craft", b =>
@@ -508,7 +491,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("DynamicGroupCtrlNbr")
+                    b.Property<long?>("DepartmentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("DynamicGroupCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("HoursofService")
@@ -524,6 +510,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("MaximumVacationDayTime")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("ProcessPayroll")
@@ -545,6 +534,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("DepartmentCtrlNbr");
+
+                    b.HasIndex("DynamicGroupCtrlNbr");
+
+                    b.HasIndex("RegulatoryStandardCtrlNbr");
 
                     b.ToTable("Crafts");
                 });
@@ -590,6 +585,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
                     b.ToTable("Rosters");
                 });
 
@@ -626,6 +623,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("RosterCtrlNbr");
 
                     b.ToTable("Seniority");
                 });
@@ -687,8 +688,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long>("ParentCtrlNbr")
+                    b.Property<long?>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
+
+                    b.Property<long?>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -698,6 +705,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("SupersededAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Token")
@@ -710,6 +720,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("Email");
 
                     b.HasIndex("ParentCtrlNbr");
+
+                    b.HasIndex("RailroadCtrlNbr");
 
                     b.HasIndex("Token")
                         .IsUnique();
@@ -733,6 +745,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -747,9 +762,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasIndex("ParentCtrlNbr");
 
+                    b.HasIndex("RailroadCtrlNbr");
+
                     b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "ParentCtrlNbr")
+                    b.HasIndex("UserId", "ParentCtrlNbr", "RailroadCtrlNbr")
                         .IsUnique();
 
                     b.ToTable("UserParentAssignments");
@@ -787,6 +804,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("AbsenceRequestCtrlNbr");
+
+                    b.HasIndex("ApprovalOfficerCtrlNbr");
 
                     b.ToTable("AbsenceApprovals");
                 });
@@ -864,6 +883,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
 
                     b.HasIndex("AbsenceCodeCtrlNbr", "CraftCtrlNbr")
                         .IsUnique();
@@ -952,6 +973,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("AbsenceCodeCtrlNbr");
+
+                    b.HasIndex("ApprovedByCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
+
                     b.ToTable("AbsenceRequests");
                 });
 
@@ -1014,7 +1043,122 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("AbsenceRequestCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
+
                     b.ToTable("VacancyImpacts");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Authorization.Feature", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Route")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("Features");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Authorization.Permission", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AccessLevel")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CraftCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("FeatureCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ParentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RoleCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("FeatureCtrlNbr");
+
+                    b.HasIndex("RoleCtrlNbr", "FeatureCtrlNbr", "ParentCtrlNbr", "CraftCtrlNbr")
+                        .IsUnique();
+
+                    b.ToTable("Permissions");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Authorization.Role", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.BoardCascadePolicy", b =>
@@ -1054,6 +1198,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
                     b.ToTable("BoardCascadePolicies");
                 });
 
@@ -1088,6 +1236,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("ExtraBoardCtrlNbr");
 
                     b.ToTable("BoardMembers");
                 });
@@ -1128,6 +1280,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("PlacedGroupCtrlNbr");
+
                     b.ToTable("ExtraBoards");
                 });
 
@@ -1157,6 +1313,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("RosterBoards");
                 });
@@ -1189,9 +1349,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("RosterBoardCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long>("StaffablePositionCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
                     b.HasIndex("RosterBoardCtrlNbr");
+
+                    b.HasIndex("StaffablePositionCtrlNbr")
+                        .IsUnique();
 
                     b.ToTable("RosterBoardPositions");
                 });
@@ -1233,6 +1401,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("AwardedEmployeeCtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("PositionVacancyCtrlNbr");
+
                     b.ToTable("Bulletins");
                 });
 
@@ -1268,6 +1442,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("BulletinCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
 
                     b.ToTable("BulletinBids");
                 });
@@ -1315,13 +1493,97 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("PreviousIncumbentCtrlNbr");
+
                     b.ToTable("PositionVacancies");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Crews.Assignment", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DepartmentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GroupCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsExtra")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("DepartmentCtrlNbr");
+
+                    b.HasIndex("GroupCtrlNbr");
+
+                    b.ToTable("Assignments");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Crews.AssignmentSchedule", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AssignmentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<TimeOnly>("OffDutyTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly>("OnDutyTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OperatingDaysMask")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ShiftDefinitionCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("AssignmentCtrlNbr");
+
+                    b.HasIndex("ShiftDefinitionCtrlNbr");
+
+                    b.ToTable("AssignmentSchedules");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.Crew", b =>
                 {
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("AbolishedDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("CrewType")
                         .IsRequired()
@@ -1331,8 +1593,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("HomeGroupCtrlNbr")
+                    b.Property<long?>("DepartmentCtrlNbr")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
@@ -1345,9 +1610,53 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("WorkAreaCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("DepartmentCtrlNbr");
+
+                    b.HasIndex("WorkAreaCtrlNbr", "Name")
+                        .IsUnique()
+                        .HasFilter("IsDeleted = 0");
+
                     b.ToTable("Crews");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAssignment", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AssignmentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CrewCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DaysOfWeekMask")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EndUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("AssignmentCtrlNbr");
+
+                    b.HasIndex("CrewCtrlNbr");
+
+                    b.ToTable("CrewAssignments");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAttachmentInstance", b =>
@@ -1375,35 +1684,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CrewCtrlNbr");
+
+                    b.HasIndex("WorkInstanceCtrlNbr");
+
                     b.ToTable("CrewAttachmentInstances");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAttachmentTemplate", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("AssignmentTemplateCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("CrewCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("EndUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("StartUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("CrewAttachmentTemplates");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewIncumbency", b =>
@@ -1431,12 +1716,19 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CrewPositionCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
                     b.ToTable("CrewIncumbencies");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewPosition", b =>
                 {
                     b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CraftRoleCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("CrewCtrlNbr")
@@ -1451,43 +1743,19 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long>("PositionRoleCtrlNbr")
+                    b.Property<long>("StaffablePositionCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftRoleCtrlNbr");
+
+                    b.HasIndex("CrewCtrlNbr");
+
+                    b.HasIndex("StaffablePositionCtrlNbr")
+                        .IsUnique();
 
                     b.ToTable("CrewPositions");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Crews.ReliefCoverageRule", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("AssignmentTemplateCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("DaysOfWeekMask")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("EndUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ReliefCrewCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("StartUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("ReliefCoverageRules");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.ChangeNotification", b =>
@@ -1527,6 +1795,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
                     b.ToTable("ChangeNotifications");
                 });
 
@@ -1560,6 +1830,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.HasIndex("EmployeeCtrlNbr", "RecordDate");
 
@@ -1599,6 +1871,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
+
+                    b.HasIndex("SelectedEmployeeCtrlNbr");
 
                     b.ToTable("DispatchDecisionLogs");
                 });
@@ -1647,6 +1923,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("ApprovedByCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
+
                     b.ToTable("DispatchOverrides");
                 });
 
@@ -1679,6 +1961,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("PositionSlotCtrlNbr");
+
+                    b.HasIndex("ProjectedEmployeeCtrlNbr");
+
                     b.ToTable("DispatchProjections");
                 });
 
@@ -1706,6 +1992,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
 
                     b.ToTable("EmployeeBookings");
                 });
@@ -1750,6 +2040,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("OnDutyRecordCtrlNbr");
+
                     b.ToTable("OffDutyRecords");
                 });
 
@@ -1791,6 +2085,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("OnDutyRecordCtrlNbr");
+
                     b.ToTable("OnDutyBillingRecords");
                 });
 
@@ -1823,6 +2119,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("OnDutyRecordCtrlNbr");
 
                     b.ToTable("OnDutyLocomotiveRecords");
                 });
@@ -1860,6 +2158,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("OnDutyRecordCtrlNbr");
 
                     b.ToTable("OnDutyMaterialRecords");
                 });
@@ -1913,6 +2213,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("BookingCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
+
                     b.ToTable("OnDutyRecords");
                 });
 
@@ -1951,6 +2257,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("ShiftInstanceCtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("VacancyResolutionRuns");
                 });
@@ -2054,6 +2364,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCertificationCtrlNbr");
+
+                    b.HasIndex("PresidingOfficerCtrlNbr");
+
                     b.ToTable("CertificationRevocationRecords");
                 });
 
@@ -2075,6 +2389,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("RegulatoryQualificationCtrlNbr");
 
                     b.HasIndex("CraftCtrlNbr", "RegulatoryQualificationCtrlNbr")
                         .IsUnique();
@@ -2112,6 +2428,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("TestRecordCtrlNbr");
 
                     b.ToTable("DrugAlcoholActions");
                 });
@@ -2157,6 +2477,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
 
                     b.ToTable("DrugAlcoholTestRecords");
                 });
@@ -2216,6 +2538,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("RegulatoryQualificationCtrlNbr");
+
                     b.ToTable("EmployeeCertifications");
                 });
 
@@ -2272,6 +2598,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("RegulatoryStandardCtrlNbr");
+
                     b.ToTable("FraDutyTours");
                 });
 
@@ -2319,6 +2649,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasIndex("DutyTourCtrlNbr");
 
+                    b.HasIndex("OnDutyRecordCtrlNbr");
+
                     b.ToTable("FraDutyTourSegments");
                 });
 
@@ -2358,6 +2690,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("DutyTourCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
 
                     b.ToTable("FraExcessServiceReports");
                 });
@@ -2639,6 +2975,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
                     b.ToTable("VoluntaryReferrals");
                 });
 
@@ -2725,6 +3063,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("WorkerScheduleCtrlNbr");
+
                     b.ToTable("WorkerExecutionLogs");
                 });
 
@@ -2765,6 +3105,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("WorkerSchedules");
                 });
@@ -2807,6 +3149,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
                     b.ToTable("NotificationProviderConfigs");
                 });
 
@@ -2848,6 +3192,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
 
                     b.ToTable("NotificationRequests");
                 });
@@ -2915,6 +3263,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("OfficerCtrlNbr");
+
+                    b.HasIndex("PayrollRecordCtrlNbr");
+
                     b.ToTable("EarningApprovals");
                 });
 
@@ -2953,6 +3305,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
                     b.ToTable("EarningCodeRules");
                 });
 
@@ -2982,6 +3336,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("Holidays");
                 });
@@ -3015,6 +3371,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("HolidayCtrlNbr");
+
+                    b.HasIndex("PayrollRecordCtrlNbr");
+
                     b.ToTable("HolidayPayrollRecords");
                 });
 
@@ -3047,6 +3409,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("HolidayCtrlNbr");
+
                     b.ToTable("HolidayQualificationRules");
                 });
 
@@ -3056,6 +3422,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("CraftCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CraftRoleCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -3075,12 +3444,92 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasPrecision(5, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("PositionRoleCtrlNbr")
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("CraftRoleCtrlNbr");
+
+                    b.ToTable("PayRates");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollExportBatch", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExportFormat")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("GeneratedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("PayrollRunCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RecordCount")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("PayRates");
+                    b.HasIndex("PayrollRunCtrlNbr");
+
+                    b.ToTable("PayrollExportBatches");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollImportRecord", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("EmployeeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ImportedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MatchStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("PayrollRecordCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceFile")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("PayrollRecordCtrlNbr");
+
+                    b.ToTable("PayrollImportRecords");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollRecord", b =>
@@ -3128,6 +3577,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("OnDutyRecordCtrlNbr");
+
+                    b.HasIndex("PayrollRunCtrlNbr");
 
                     b.ToTable("PayrollRecords");
                 });
@@ -3211,6 +3666,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("OriginalEntryCtrlNbr");
+
                     b.ToTable("TimeEntries");
                 });
 
@@ -3240,6 +3699,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
 
                     b.ToTable("BulletinPolicies");
                 });
@@ -3276,6 +3737,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("CraftCtrlNbr");
 
                     b.ToTable("CraftDisplacementPolicies");
                 });
@@ -3354,6 +3817,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
                     b.ToTable("DisplacementCases");
                 });
 
@@ -3390,6 +3857,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CaseCtrlNbr");
+
+                    b.HasIndex("TargetEmployeeCtrlNbr");
+
                     b.ToTable("DisplacementClaims");
                 });
 
@@ -3424,6 +3895,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.HasIndex("DisplacedEmployeeCtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
                     b.ToTable("SeniorityMoves");
                 });
 
@@ -3451,13 +3928,309 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftCtrlNbr");
+
                     b.ToTable("SeniorityMovePolicies");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.RailroadInfo.RailroadInformation", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InformationType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("WorkAreaGroupCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
+                    b.ToTable("RailroadInformations");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.RailroadInfo.RailroadInformationReadReceipt", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("EmployeeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InformationCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ReadAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("InformationCtrlNbr", "EmployeeCtrlNbr")
+                        .IsUnique();
+
+                    b.ToTable("RailroadInformationReadReceipts");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyCategory", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WorkAreaGroupCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
+                    b.ToTable("SafetyCategories");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservation", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AreaCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CategoryCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ObservedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ObserverEmployeeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SubdivisionCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("WorkAreaGroupCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("ObserverEmployeeCtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
+                    b.ToTable("SafetyObservations");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservationAction", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ActionDescription")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ObservationCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("TakenAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("TakenByCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("ObservationCtrlNbr");
+
+                    b.HasIndex("TakenByCtrlNbr");
+
+                    b.ToTable("SafetyObservationActions");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservationResolution", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ObservationCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ResolutionDescription")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ResolvedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ResolvedByCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("ObservationCtrlNbr")
+                        .IsUnique();
+
+                    b.HasIndex("ResolvedByCtrlNbr");
+
+                    b.ToTable("SafetyObservationResolutions");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Staffing.PositionAssignment", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("AssignedDateUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("AssignmentSourceCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AssignmentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("EmployeeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("StaffablePositionCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("EmployeeCtrlNbr");
+
+                    b.HasIndex("StaffablePositionCtrlNbr");
+
+                    b.ToTable("PositionAssignments");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Staffing.StaffablePosition", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PositionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.ToTable("StaffablePositions");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.DynamicGroup", b =>
                 {
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
@@ -3476,6 +4249,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("ParentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long?>("ParentGroupCtrlNbr")
                         .HasColumnType("INTEGER");
 
@@ -3483,7 +4259,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("GroupTypeCtrlNbr");
 
                     b.HasIndex("ParentGroupCtrlNbr", "Name");
 
@@ -3523,6 +4304,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("GroupTypeCtrlNbr");
+
                     b.ToTable("GroupAttributeDefinitions");
                 });
 
@@ -3548,6 +4331,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("AttributeDefinitionCtrlNbr");
+
+                    b.HasIndex("GroupCtrlNbr");
 
                     b.ToTable("GroupAttributeValues");
                 });
@@ -3579,41 +4366,21 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("ParentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ParentGroupTypeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("Name", "ParentCtrlNbr", "RailroadCtrlNbr")
                         .IsUnique();
 
                     b.ToTable("GroupTypes");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.RailroadGroupPlacement", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("GroupCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("GroupCtrlNbr");
-
-                    b.HasIndex("RailroadCtrlNbr");
-
-                    b.HasIndex("RailroadCtrlNbr", "GroupCtrlNbr")
-                        .IsUnique();
-
-                    b.ToTable("RailroadGroupPlacements");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.TeamsWebhookConfig", b =>
@@ -3647,6 +4414,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("RailroadCtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("TeamsWebhookConfigs");
                 });
@@ -3686,51 +4457,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.ToTable("AbolishmentRecords");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentTemplate", b =>
+            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentNote", b =>
                 {
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RecurrenceJson")
-                        .HasMaxLength(4000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("WorkAreaGroupCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.ToTable("AssignmentTemplates");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CrewOffDay", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("CrewPositionCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("DayOfWeek")
+                    b.Property<long>("AssignmentCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -3739,18 +4471,32 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("NoteText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ShiftInstanceCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("CrewOffDays");
+                    b.HasIndex("ShiftInstanceCtrlNbr", "AssignmentCtrlNbr")
+                        .IsUnique();
+
+                    b.ToTable("AssignmentNote");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionRole", b =>
+            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CraftRole", b =>
                 {
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AlternateName")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Code")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
@@ -3770,7 +4516,45 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
-                    b.ToTable("PositionRoles");
+                    b.HasIndex("CraftCtrlNbr");
+
+                    b.ToTable("CraftRoles");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.Department", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DefaultCallSheetView")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Vertical");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DynamicGroupCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ParentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("DynamicGroupCtrlNbr");
+
+                    b.ToTable("Department");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionSlot", b =>
@@ -3785,13 +4569,13 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long?>("BoundEmployeeCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long>("CraftRoleCtrlNbr")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("PositionRoleCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Status")
@@ -3804,6 +4588,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("BoundEmployeeCtrlNbr");
+
+                    b.HasIndex("CraftRoleCtrlNbr");
+
+                    b.HasIndex("WorkInstanceCtrlNbr");
+
                     b.ToTable("PositionSlots");
                 });
 
@@ -3812,12 +4602,47 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("AnnulmentDateTimeUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AnnulmentReason")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("CrewPositionCtrlNbr")
+                    b.Property<string>("AssignmentCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AssignmentCtrlNbr")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("AssignmentName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CraftRoleName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CrewName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<long?>("CrewPositionCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CrewType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
@@ -3825,7 +4650,24 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("GroupCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
                     b.Property<long?>("IncumbentEmployeeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsAdHoc")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsAnnulled")
@@ -3837,8 +4679,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDoNotFill")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsIncumbent")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsSkipped")
                         .HasColumnType("INTEGER");
+
+                    b.Property<TimeOnly>("OffDutyTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly>("OnDutyTime")
+                        .HasColumnType("TEXT");
 
                     b.Property<long>("ShiftInstanceCtrlNbr")
                         .HasColumnType("INTEGER");
@@ -3850,6 +4701,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CrewPositionCtrlNbr");
+
+                    b.HasIndex("IncumbentEmployeeCtrlNbr");
+
                     b.HasIndex("ShiftInstanceCtrlNbr");
 
                     b.ToTable("PositionSlotInstances");
@@ -3859,12 +4714,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 {
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
-
-                    b.Property<TimeOnly>("DefaultEndTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<TimeOnly>("DefaultStartTime")
-                        .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
@@ -3893,6 +4742,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
+
                     b.ToTable("ShiftDefinitions");
                 });
 
@@ -3907,6 +4758,13 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("DepartmentCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DepartmentName")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsComplete")
                         .HasColumnType("INTEGER");
 
@@ -3918,10 +4776,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("ShiftEndUtc")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("ShiftDefinitionCtrlNbr")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("ShiftStartUtc")
+                    b.Property<string>("ShiftDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
@@ -3934,12 +4794,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("WorkInstanceCtrlNbr");
+
                     b.ToTable("ShiftInstances");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.SlotRequirement", b =>
                 {
                     b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CraftRoleCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -3952,9 +4817,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("PositionRoleCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<long>("PositionSlotCtrlNbr")
                         .HasColumnType("INTEGER");
 
@@ -3966,6 +4828,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasKey("CtrlNbr");
 
+                    b.HasIndex("CraftRoleCtrlNbr");
+
+                    b.HasIndex("PositionSlotCtrlNbr");
+
+                    b.HasIndex("QualificationTypeCtrlNbr");
+
                     b.ToTable("SlotRequirements");
                 });
 
@@ -3974,7 +4842,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("AssignmentTemplateCtrlNbr")
+                    b.Property<long?>("AssignmentGroupCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("CallTimeUtc")
@@ -4001,6 +4869,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
+
+                    b.HasIndex("AssignmentGroupCtrlNbr");
+
+                    b.HasIndex("WorkAreaGroupCtrlNbr");
 
                     b.ToTable("WorkInstances");
                 });
@@ -4293,6 +5165,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.Address", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.ContactTypes.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
                         .WithMany("Addresses")
                         .HasForeignKey("EmployeeCtrlNbr")
@@ -4371,6 +5249,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.EmailAddress", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.ContactTypes.EmailAddressType", null)
+                        .WithMany()
+                        .HasForeignKey("EmailTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
                         .WithMany("EmailAddresses")
                         .HasForeignKey("EmployeeCtrlNbr")
@@ -4449,6 +5333,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.Employee", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employment.EmploymentStatus", null)
+                        .WithMany()
+                        .HasForeignKey("EmploymentStatusCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EmployeeCtrlNbr")
@@ -4521,6 +5411,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Employees.EmployeePriorServiceCredit", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EmployeePriorServiceCreditCtrlNbr")
@@ -4597,6 +5493,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .WithMany("PhoneNumbers")
                         .HasForeignKey("EmployeeCtrlNbr")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.ContactTypes.PhoneNumberType", null)
+                        .WithMany()
+                        .HasForeignKey("PhoneTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -4743,6 +5645,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Employment.EmploymentStatusHistory", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employment.EmploymentStatus", null)
+                        .WithMany()
+                        .HasForeignKey("EmploymentStatusCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EmploymentStatusHistoryCtrlNbr")
@@ -4887,87 +5801,15 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Railroads.PayrollTier", b =>
                 {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("PayrollTierCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PayrollTierCtrlNbr");
-
-                            b1.ToTable("PayrollTiers");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PayrollTierCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("PayrollTierCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PayrollTierCtrlNbr");
-
-                            b1.ToTable("PayrollTiers");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PayrollTierCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("PayrollTierCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PayrollTierCtrlNbr");
-
-                            b1.ToTable("PayrollTiers");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PayrollTierCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Models.Railroads.Railroad", b =>
-                {
-                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
-                        .WithMany("Railroads")
-                        .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("DynamicGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
-                            b1.Property<long>("RailroadCtrlNbr")
+                            b1.Property<long>("PayrollTierCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -4978,17 +5820,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("RailroadCtrlNbr");
+                            b1.HasKey("PayrollTierCtrlNbr");
 
-                            b1.ToTable("Railroads");
+                            b1.ToTable("PayrollTiers");
 
                             b1.WithOwner()
-                                .HasForeignKey("RailroadCtrlNbr");
+                                .HasForeignKey("PayrollTierCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
                         {
-                            b1.Property<long>("RailroadCtrlNbr")
+                            b1.Property<long>("PayrollTierCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -4999,17 +5841,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("RailroadCtrlNbr");
+                            b1.HasKey("PayrollTierCtrlNbr");
 
-                            b1.ToTable("Railroads");
+                            b1.ToTable("PayrollTiers");
 
                             b1.WithOwner()
-                                .HasForeignKey("RailroadCtrlNbr");
+                                .HasForeignKey("PayrollTierCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
                         {
-                            b1.Property<long>("RailroadCtrlNbr")
+                            b1.Property<long>("PayrollTierCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -5020,12 +5862,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("RailroadCtrlNbr");
+                            b1.HasKey("PayrollTierCtrlNbr");
 
-                            b1.ToTable("Railroads");
+                            b1.ToTable("PayrollTiers");
 
                             b1.WithOwner()
-                                .HasForeignKey("RailroadCtrlNbr");
+                                .HasForeignKey("PayrollTierCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -5037,6 +5879,21 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Craft", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("DynamicGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryStandard", null)
+                        .WithMany()
+                        .HasForeignKey("RegulatoryStandardCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CraftCtrlNbr")
@@ -5109,6 +5966,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Roster", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("RosterCtrlNbr")
@@ -5181,6 +6044,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Seniority", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Seniority.Roster", null)
+                        .WithMany()
+                        .HasForeignKey("RosterCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("SeniorityCtrlNbr")
@@ -5325,6 +6200,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.UserAccess.Invitation", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("InvitationCtrlNbr")
@@ -5397,6 +6282,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.UserAccess.UserParentAssignment", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("UserParentAssignmentCtrlNbr")
@@ -5473,6 +6369,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .WithMany("Approvals")
                         .HasForeignKey("AbsenceRequestCtrlNbr")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovalOfficerCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -5619,6 +6521,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCodeCraftOverride", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCode", null)
+                        .WithMany()
+                        .HasForeignKey("AbsenceCodeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("AbsenceCodeCraftOverrideCtrlNbr")
@@ -5769,6 +6683,27 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.AbsenceVacancy.AbsenceCode", null)
+                        .WithMany()
+                        .HasForeignKey("AbsenceCodeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovedByCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("AbsenceRequestCtrlNbr")
@@ -5841,6 +6776,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.CompensationBalance", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CompensationBalanceCtrlNbr")
@@ -5913,6 +6854,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.VacancyImpact", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", null)
+                        .WithMany()
+                        .HasForeignKey("AbsenceRequestCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("VacancyImpactCtrlNbr")
@@ -5983,8 +6936,253 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
+            modelBuilder.Entity("CrewService.Domain.Modules.Authorization.Feature", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("FeatureCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("FeatureCtrlNbr");
+
+                            b1.ToTable("Features");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeatureCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("FeatureCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("FeatureCtrlNbr");
+
+                            b1.ToTable("Features");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeatureCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("FeatureCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("FeatureCtrlNbr");
+
+                            b1.ToTable("Features");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeatureCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Authorization.Permission", b =>
+                {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.Authorization.Feature", null)
+                        .WithMany()
+                        .HasForeignKey("FeatureCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Authorization.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("PermissionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PermissionCtrlNbr");
+
+                            b1.ToTable("Permissions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PermissionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("PermissionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PermissionCtrlNbr");
+
+                            b1.ToTable("Permissions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PermissionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("PermissionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PermissionCtrlNbr");
+
+                            b1.ToTable("Permissions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PermissionCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Authorization.Role", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("RoleCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RoleCtrlNbr");
+
+                            b1.ToTable("Roles");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RoleCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("RoleCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RoleCtrlNbr");
+
+                            b1.ToTable("Roles");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RoleCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("RoleCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RoleCtrlNbr");
+
+                            b1.ToTable("Roles");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RoleCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.BoardCascadePolicy", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("BoardCascadePolicyCtrlNbr")
@@ -6057,6 +7255,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.BoardMember", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Boards.ExtraBoard", null)
+                        .WithMany()
+                        .HasForeignKey("ExtraBoardCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("BoardMemberCtrlNbr")
@@ -6129,6 +7339,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.ExtraBoard", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("PlacedGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("ExtraBoardCtrlNbr")
@@ -6201,6 +7423,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.RosterBoard", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("RosterBoardCtrlNbr")
@@ -6273,10 +7507,22 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Boards.RosterBoardPosition", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("CrewService.Domain.Modules.Boards.RosterBoard", null)
                         .WithMany("Positions")
                         .HasForeignKey("RosterBoardCtrlNbr")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Staffing.StaffablePosition", null)
+                        .WithOne()
+                        .HasForeignKey("CrewService.Domain.Modules.Boards.RosterBoardPosition", "StaffablePositionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
@@ -6351,6 +7597,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.Bulletin", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("AwardedEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Bulletins.PositionVacancy", null)
+                        .WithMany()
+                        .HasForeignKey("PositionVacancyCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("BulletinCtrlNbr")
@@ -6423,6 +7686,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.BulletinBid", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Bulletins.Bulletin", null)
+                        .WithMany()
+                        .HasForeignKey("BulletinCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("BulletinBidCtrlNbr")
@@ -6495,6 +7770,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.PositionVacancy", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousIncumbentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("PositionVacancyCtrlNbr")
@@ -6556,6 +7842,173 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionVacancyCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Crews.Assignment", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("AssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("AssignmentCtrlNbr");
+
+                            b1.ToTable("Assignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AssignmentCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("AssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("AssignmentCtrlNbr");
+
+                            b1.ToTable("Assignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AssignmentCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("AssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("AssignmentCtrlNbr");
+
+                            b1.ToTable("Assignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AssignmentCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Crews.AssignmentSchedule", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Crews.Assignment", null)
+                        .WithMany()
+                        .HasForeignKey("AssignmentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.ShiftDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("ShiftDefinitionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("AssignmentScheduleCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("AssignmentScheduleCtrlNbr");
+
+                            b1.ToTable("AssignmentSchedules");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AssignmentScheduleCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("AssignmentScheduleCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("AssignmentScheduleCtrlNbr");
+
+                            b1.ToTable("AssignmentSchedules");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AssignmentScheduleCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("AssignmentScheduleCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("AssignmentScheduleCtrlNbr");
+
+                            b1.ToTable("AssignmentSchedules");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AssignmentScheduleCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -6567,6 +8020,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.Crew", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CrewCtrlNbr")
@@ -6628,6 +8092,90 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAssignment", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Crews.Assignment", null)
+                        .WithMany()
+                        .HasForeignKey("AssignmentCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Crews.Crew", null)
+                        .WithMany()
+                        .HasForeignKey("CrewCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("CrewAssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("CrewAssignmentCtrlNbr");
+
+                            b1.ToTable("CrewAssignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CrewAssignmentCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("CrewAssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("CrewAssignmentCtrlNbr");
+
+                            b1.ToTable("CrewAssignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CrewAssignmentCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("CrewAssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("CrewAssignmentCtrlNbr");
+
+                            b1.ToTable("CrewAssignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CrewAssignmentCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -6639,6 +8187,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAttachmentInstance", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Crews.Crew", null)
+                        .WithMany()
+                        .HasForeignKey("CrewCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.WorkInstance", null)
+                        .WithMany()
+                        .HasForeignKey("WorkInstanceCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CrewAttachmentInstanceCtrlNbr")
@@ -6700,78 +8260,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewAttachmentInstanceCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewAttachmentTemplate", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("CrewAttachmentTemplateCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CrewAttachmentTemplateCtrlNbr");
-
-                            b1.ToTable("CrewAttachmentTemplates");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CrewAttachmentTemplateCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("CrewAttachmentTemplateCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CrewAttachmentTemplateCtrlNbr");
-
-                            b1.ToTable("CrewAttachmentTemplates");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CrewAttachmentTemplateCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("CrewAttachmentTemplateCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("CrewAttachmentTemplateCtrlNbr");
-
-                            b1.ToTable("CrewAttachmentTemplates");
-
-                            b1.WithOwner()
-                                .HasForeignKey("CrewAttachmentTemplateCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -6783,6 +8271,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewIncumbency", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Crews.CrewPosition", null)
+                        .WithMany()
+                        .HasForeignKey("CrewPositionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CrewIncumbencyCtrlNbr")
@@ -6855,6 +8355,24 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Crews.CrewPosition", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.CraftRole", null)
+                        .WithMany()
+                        .HasForeignKey("CraftRoleCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Crews.Crew", null)
+                        .WithMany()
+                        .HasForeignKey("CrewCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Staffing.StaffablePosition", null)
+                        .WithOne()
+                        .HasForeignKey("CrewService.Domain.Modules.Crews.CrewPosition", "StaffablePositionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CrewPositionCtrlNbr")
@@ -6916,78 +8434,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("CrewPositionCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Crews.ReliefCoverageRule", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("ReliefCoverageRuleCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("ReliefCoverageRuleCtrlNbr");
-
-                            b1.ToTable("ReliefCoverageRules");
-
-                            b1.WithOwner()
-                                .HasForeignKey("ReliefCoverageRuleCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("ReliefCoverageRuleCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("ReliefCoverageRuleCtrlNbr");
-
-                            b1.ToTable("ReliefCoverageRules");
-
-                            b1.WithOwner()
-                                .HasForeignKey("ReliefCoverageRuleCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("ReliefCoverageRuleCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("ReliefCoverageRuleCtrlNbr");
-
-                            b1.ToTable("ReliefCoverageRules");
-
-                            b1.WithOwner()
-                                .HasForeignKey("ReliefCoverageRuleCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -6999,6 +8445,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.ChangeNotification", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("ChangeNotificationCtrlNbr")
@@ -7071,6 +8523,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DailyEmployeeStatusRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DailyEmployeeStatusRecordCtrlNbr")
@@ -7143,6 +8607,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchDecisionLog", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("SelectedEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DispatchDecisionLogCtrlNbr")
@@ -7215,6 +8690,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchOverride", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovedByCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DispatchOverrideCtrlNbr")
@@ -7287,6 +8779,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchProjection", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectedEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DispatchProjectionCtrlNbr")
@@ -7359,6 +8862,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.EmployeeBooking", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EmployeeBookingCtrlNbr")
@@ -7431,6 +8945,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OffDutyRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.OnDutyRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnDutyRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("OffDutyRecordCtrlNbr")
@@ -7503,6 +9029,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyBillingRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.OnDutyRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnDutyRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("OnDutyBillingRecordCtrlNbr")
@@ -7575,6 +9107,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyLocomotiveRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.OnDutyRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnDutyRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("OnDutyLocomotiveRecordCtrlNbr")
@@ -7647,6 +9185,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyMaterialRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.OnDutyRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnDutyRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("OnDutyMaterialRecordCtrlNbr")
@@ -7719,6 +9263,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.OnDutyRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.EmployeeBooking", null)
+                        .WithMany()
+                        .HasForeignKey("BookingCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("OnDutyRecordCtrlNbr")
@@ -7791,6 +9352,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.VacancyResolutionRun", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.ShiftInstance", null)
+                        .WithMany()
+                        .HasForeignKey("ShiftInstanceCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("VacancyResolutionRunCtrlNbr")
@@ -7941,6 +9514,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CertificationRevocationRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.EmployeeCertification", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCertificationCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("PresidingOfficerCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CertificationRevocationRecordCtrlNbr")
@@ -8013,6 +9597,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.CraftRegulatoryQualification", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryQualification", null)
+                        .WithMany()
+                        .HasForeignKey("RegulatoryQualificationCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CraftRegulatoryQualificationCtrlNbr")
@@ -8085,6 +9681,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholAction", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.DrugAlcoholTestRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TestRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DrugAlcoholActionCtrlNbr")
@@ -8157,6 +9765,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.DrugAlcoholTestRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DrugAlcoholTestRecordCtrlNbr")
@@ -8229,6 +9843,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.EmployeeCertification", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryQualification", null)
+                        .WithMany()
+                        .HasForeignKey("RegulatoryQualificationCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EmployeeCertificationCtrlNbr")
@@ -8301,6 +9927,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraDutyTour", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryStandard", null)
+                        .WithMany()
+                        .HasForeignKey("RegulatoryStandardCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("FraDutyTourCtrlNbr")
@@ -8379,6 +10017,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.OnDutyRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnDutyRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("FraDutyTourSegmentCtrlNbr")
@@ -8451,6 +10095,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraExcessServiceReport", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.FraDutyTour", null)
+                        .WithMany()
+                        .HasForeignKey("DutyTourCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("FraExcessServiceReportCtrlNbr")
@@ -8523,6 +10179,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraMonthlyAccumulator", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("FraMonthlyAccumulatorCtrlNbr")
@@ -8895,6 +10557,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.VoluntaryReferral", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("VoluntaryReferralCtrlNbr")
@@ -8967,6 +10635,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.HolidayManagement.RailroadHolidaySelection", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("RailroadHolidaySelectionCtrlNbr")
@@ -9039,6 +10713,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Infrastructure.WorkerExecutionLog", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Infrastructure.WorkerSchedule", null)
+                        .WithMany()
+                        .HasForeignKey("WorkerScheduleCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("WorkerExecutionLogCtrlNbr")
@@ -9111,6 +10791,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Infrastructure.WorkerSchedule", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("WorkerScheduleCtrlNbr")
@@ -9183,6 +10869,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationProviderConfig", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("NotificationProviderConfigCtrlNbr")
@@ -9255,6 +10947,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Notifications.NotificationRequest", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("NotificationRequestCtrlNbr")
@@ -9405,6 +11109,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningApproval", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("OfficerCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.PayrollRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PayrollRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EarningApprovalCtrlNbr")
@@ -9477,6 +11193,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.EarningCodeRule", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("EarningCodeRuleCtrlNbr")
@@ -9549,6 +11271,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.Holiday", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("HolidayCtrlNbr")
@@ -9621,6 +11349,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayPayrollRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.Holiday", null)
+                        .WithMany()
+                        .HasForeignKey("HolidayCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.PayrollRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PayrollRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("HolidayPayrollRecordCtrlNbr")
@@ -9693,6 +11438,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.HolidayQualificationRule", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.Holiday", null)
+                        .WithMany()
+                        .HasForeignKey("HolidayCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("HolidayQualificationRuleCtrlNbr")
@@ -9765,6 +11521,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayRate", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.CraftRole", null)
+                        .WithMany()
+                        .HasForeignKey("CraftRoleCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("PayRateCtrlNbr")
@@ -9835,8 +11602,186 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
+            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollExportBatch", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Payroll.PayrollRun", null)
+                        .WithMany()
+                        .HasForeignKey("PayrollRunCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("PayrollExportBatchCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PayrollExportBatchCtrlNbr");
+
+                            b1.ToTable("PayrollExportBatches");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PayrollExportBatchCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("PayrollExportBatchCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PayrollExportBatchCtrlNbr");
+
+                            b1.ToTable("PayrollExportBatches");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PayrollExportBatchCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("PayrollExportBatchCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PayrollExportBatchCtrlNbr");
+
+                            b1.ToTable("PayrollExportBatches");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PayrollExportBatchCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollImportRecord", b =>
+                {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.PayrollRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PayrollRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("PayrollImportRecordCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PayrollImportRecordCtrlNbr");
+
+                            b1.ToTable("PayrollImportRecords");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PayrollImportRecordCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("PayrollImportRecordCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PayrollImportRecordCtrlNbr");
+
+                            b1.ToTable("PayrollImportRecords");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PayrollImportRecordCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("PayrollImportRecordCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PayrollImportRecordCtrlNbr");
+
+                            b1.ToTable("PayrollImportRecords");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PayrollImportRecordCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.PayrollRecord", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Dispatching.OnDutyRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnDutyRecordCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.PayrollRun", null)
+                        .WithMany()
+                        .HasForeignKey("PayrollRunCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("PayrollRecordCtrlNbr")
@@ -9981,6 +11926,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Payroll.TimeEntry", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Payroll.TimeEntry", null)
+                        .WithMany()
+                        .HasForeignKey("OriginalEntryCtrlNbr")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("TimeEntryCtrlNbr")
@@ -10053,6 +12009,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.BulletinPolicy", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("BulletinPolicyCtrlNbr")
@@ -10125,6 +12087,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.CraftDisplacementPolicy", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CraftDisplacementPolicyCtrlNbr")
@@ -10197,6 +12165,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.CraftOperationsPolicy", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("CraftOperationsPolicyCtrlNbr")
@@ -10269,6 +12243,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.DisplacementCase", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DisplacementCaseCtrlNbr")
@@ -10341,6 +12327,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.DisplacementClaim", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Policies.DisplacementCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("TargetEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DisplacementClaimCtrlNbr")
@@ -10413,6 +12411,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.SeniorityMove", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("DisplacedEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("SeniorityMoveCtrlNbr")
@@ -10485,6 +12500,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Policies.SeniorityMovePolicy", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("SeniorityMovePolicyCtrlNbr")
@@ -10555,8 +12576,667 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
+            modelBuilder.Entity("CrewService.Domain.Modules.RailroadInfo.RailroadInformation", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("RailroadInformationCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RailroadInformationCtrlNbr");
+
+                            b1.ToTable("RailroadInformations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RailroadInformationCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("RailroadInformationCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RailroadInformationCtrlNbr");
+
+                            b1.ToTable("RailroadInformations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RailroadInformationCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("RailroadInformationCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RailroadInformationCtrlNbr");
+
+                            b1.ToTable("RailroadInformations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RailroadInformationCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.RailroadInfo.RailroadInformationReadReceipt", b =>
+                {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.RailroadInfo.RailroadInformation", null)
+                        .WithMany()
+                        .HasForeignKey("InformationCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("RailroadInformationReadReceiptCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RailroadInformationReadReceiptCtrlNbr");
+
+                            b1.ToTable("RailroadInformationReadReceipts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RailroadInformationReadReceiptCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("RailroadInformationReadReceiptCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RailroadInformationReadReceiptCtrlNbr");
+
+                            b1.ToTable("RailroadInformationReadReceipts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RailroadInformationReadReceiptCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("RailroadInformationReadReceiptCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("RailroadInformationReadReceiptCtrlNbr");
+
+                            b1.ToTable("RailroadInformationReadReceipts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RailroadInformationReadReceiptCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyCategory", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyCategoryCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyCategoryCtrlNbr");
+
+                            b1.ToTable("SafetyCategories");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyCategoryCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyCategoryCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyCategoryCtrlNbr");
+
+                            b1.ToTable("SafetyCategories");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyCategoryCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyCategoryCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyCategoryCtrlNbr");
+
+                            b1.ToTable("SafetyCategories");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyCategoryCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservation", b =>
+                {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ObserverEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationCtrlNbr");
+
+                            b1.ToTable("SafetyObservations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationCtrlNbr");
+
+                            b1.ToTable("SafetyObservations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationCtrlNbr");
+
+                            b1.ToTable("SafetyObservations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservationAction", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Safety.SafetyObservation", null)
+                        .WithMany("Actions")
+                        .HasForeignKey("ObservationCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("TakenByCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationActionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationActionCtrlNbr");
+
+                            b1.ToTable("SafetyObservationActions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationActionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationActionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationActionCtrlNbr");
+
+                            b1.ToTable("SafetyObservationActions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationActionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationActionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationActionCtrlNbr");
+
+                            b1.ToTable("SafetyObservationActions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationActionCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservationResolution", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Safety.SafetyObservation", null)
+                        .WithMany()
+                        .HasForeignKey("ObservationCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedByCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationResolutionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationResolutionCtrlNbr");
+
+                            b1.ToTable("SafetyObservationResolutions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationResolutionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationResolutionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationResolutionCtrlNbr");
+
+                            b1.ToTable("SafetyObservationResolutions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationResolutionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("SafetyObservationResolutionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("SafetyObservationResolutionCtrlNbr");
+
+                            b1.ToTable("SafetyObservationResolutions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SafetyObservationResolutionCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Staffing.PositionAssignment", b =>
+                {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Staffing.StaffablePosition", null)
+                        .WithMany()
+                        .HasForeignKey("StaffablePositionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("PositionAssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PositionAssignmentCtrlNbr");
+
+                            b1.ToTable("PositionAssignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PositionAssignmentCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("PositionAssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PositionAssignmentCtrlNbr");
+
+                            b1.ToTable("PositionAssignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PositionAssignmentCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("PositionAssignmentCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PositionAssignmentCtrlNbr");
+
+                            b1.ToTable("PositionAssignments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PositionAssignmentCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Staffing.StaffablePosition", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("StaffablePositionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("StaffablePositionCtrlNbr");
+
+                            b1.ToTable("StaffablePositions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StaffablePositionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("StaffablePositionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("StaffablePositionCtrlNbr");
+
+                            b1.ToTable("StaffablePositions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StaffablePositionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("StaffablePositionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("StaffablePositionCtrlNbr");
+
+                            b1.ToTable("StaffablePositions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StaffablePositionCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.DynamicGroup", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.GroupType", null)
+                        .WithMany()
+                        .HasForeignKey("GroupTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("ParentGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("DynamicGroupCtrlNbr")
@@ -10629,6 +13309,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.GroupAttributeDefinition", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.GroupType", null)
+                        .WithMany()
+                        .HasForeignKey("GroupTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("GroupAttributeDefinitionCtrlNbr")
@@ -10701,6 +13387,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.GroupAttributeValue", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.GroupAttributeDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("AttributeDefinitionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("GroupAttributeValueCtrlNbr")
@@ -10843,80 +13541,19 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.RailroadGroupPlacement", b =>
-                {
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("RailroadGroupPlacementCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("RailroadGroupPlacementCtrlNbr");
-
-                            b1.ToTable("RailroadGroupPlacements");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RailroadGroupPlacementCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("RailroadGroupPlacementCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("RailroadGroupPlacementCtrlNbr");
-
-                            b1.ToTable("RailroadGroupPlacements");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RailroadGroupPlacementCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("RailroadGroupPlacementCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("RailroadGroupPlacementCtrlNbr");
-
-                            b1.ToTable("RailroadGroupPlacements");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RailroadGroupPlacementCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.TenantConfig.TeamsWebhookConfig", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("TeamsWebhookConfigCtrlNbr")
@@ -11059,11 +13696,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentTemplate", b =>
+            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.AssignmentNote", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.ShiftInstance", null)
+                        .WithMany("AssignmentNotes")
+                        .HasForeignKey("ShiftInstanceCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
-                            b1.Property<long>("AssignmentTemplateCtrlNbr")
+                            b1.Property<long>("AssignmentNoteCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11074,17 +13717,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("AssignmentTemplateCtrlNbr");
+                            b1.HasKey("AssignmentNoteCtrlNbr");
 
-                            b1.ToTable("AssignmentTemplates");
+                            b1.ToTable("AssignmentNote");
 
                             b1.WithOwner()
-                                .HasForeignKey("AssignmentTemplateCtrlNbr");
+                                .HasForeignKey("AssignmentNoteCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
                         {
-                            b1.Property<long>("AssignmentTemplateCtrlNbr")
+                            b1.Property<long>("AssignmentNoteCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11095,17 +13738,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("AssignmentTemplateCtrlNbr");
+                            b1.HasKey("AssignmentNoteCtrlNbr");
 
-                            b1.ToTable("AssignmentTemplates");
+                            b1.ToTable("AssignmentNote");
 
                             b1.WithOwner()
-                                .HasForeignKey("AssignmentTemplateCtrlNbr");
+                                .HasForeignKey("AssignmentNoteCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
                         {
-                            b1.Property<long>("AssignmentTemplateCtrlNbr")
+                            b1.Property<long>("AssignmentNoteCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11116,12 +13759,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("AssignmentTemplateCtrlNbr");
+                            b1.HasKey("AssignmentNoteCtrlNbr");
 
-                            b1.ToTable("AssignmentTemplates");
+                            b1.ToTable("AssignmentNote");
 
                             b1.WithOwner()
-                                .HasForeignKey("AssignmentTemplateCtrlNbr");
+                                .HasForeignKey("AssignmentNoteCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -11131,11 +13774,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CrewOffDay", b =>
+            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.CraftRole", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
+                        .WithMany()
+                        .HasForeignKey("CraftCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
-                            b1.Property<long>("CrewOffDayCtrlNbr")
+                            b1.Property<long>("CraftRoleCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11146,17 +13795,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("CrewOffDayCtrlNbr");
+                            b1.HasKey("CraftRoleCtrlNbr");
 
-                            b1.ToTable("CrewOffDays");
+                            b1.ToTable("CraftRoles");
 
                             b1.WithOwner()
-                                .HasForeignKey("CrewOffDayCtrlNbr");
+                                .HasForeignKey("CraftRoleCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
                         {
-                            b1.Property<long>("CrewOffDayCtrlNbr")
+                            b1.Property<long>("CraftRoleCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11167,17 +13816,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("CrewOffDayCtrlNbr");
+                            b1.HasKey("CraftRoleCtrlNbr");
 
-                            b1.ToTable("CrewOffDays");
+                            b1.ToTable("CraftRoles");
 
                             b1.WithOwner()
-                                .HasForeignKey("CrewOffDayCtrlNbr");
+                                .HasForeignKey("CraftRoleCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
                         {
-                            b1.Property<long>("CrewOffDayCtrlNbr")
+                            b1.Property<long>("CraftRoleCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11188,12 +13837,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("CrewOffDayCtrlNbr");
+                            b1.HasKey("CraftRoleCtrlNbr");
 
-                            b1.ToTable("CrewOffDays");
+                            b1.ToTable("CraftRoles");
 
                             b1.WithOwner()
-                                .HasForeignKey("CrewOffDayCtrlNbr");
+                                .HasForeignKey("CraftRoleCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -11203,11 +13852,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionRole", b =>
+            modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.Department", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("DynamicGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
-                            b1.Property<long>("PositionRoleCtrlNbr")
+                            b1.Property<long>("DepartmentCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11218,17 +13872,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("PositionRoleCtrlNbr");
+                            b1.HasKey("DepartmentCtrlNbr");
 
-                            b1.ToTable("PositionRoles");
+                            b1.ToTable("Department");
 
                             b1.WithOwner()
-                                .HasForeignKey("PositionRoleCtrlNbr");
+                                .HasForeignKey("DepartmentCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
                         {
-                            b1.Property<long>("PositionRoleCtrlNbr")
+                            b1.Property<long>("DepartmentCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11239,17 +13893,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("PositionRoleCtrlNbr");
+                            b1.HasKey("DepartmentCtrlNbr");
 
-                            b1.ToTable("PositionRoles");
+                            b1.ToTable("Department");
 
                             b1.WithOwner()
-                                .HasForeignKey("PositionRoleCtrlNbr");
+                                .HasForeignKey("DepartmentCtrlNbr");
                         });
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
                         {
-                            b1.Property<long>("PositionRoleCtrlNbr")
+                            b1.Property<long>("DepartmentCtrlNbr")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<DateTime>("AuditDateTime")
@@ -11260,12 +13914,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                                 .HasMaxLength(50)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("PositionRoleCtrlNbr");
+                            b1.HasKey("DepartmentCtrlNbr");
 
-                            b1.ToTable("PositionRoles");
+                            b1.ToTable("Department");
 
                             b1.WithOwner()
-                                .HasForeignKey("PositionRoleCtrlNbr");
+                                .HasForeignKey("DepartmentCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -11277,6 +13931,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionSlot", b =>
                 {
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("BoundEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.CraftRole", null)
+                        .WithMany()
+                        .HasForeignKey("CraftRoleCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.WorkInstance", null)
+                        .WithMany()
+                        .HasForeignKey("WorkInstanceCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("PositionSlotCtrlNbr")
@@ -11349,6 +14020,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.PositionSlotInstance", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.Crews.CrewPosition", null)
+                        .WithMany()
+                        .HasForeignKey("CrewPositionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("IncumbentEmployeeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CrewService.Domain.Modules.WorkManagement.ShiftInstance", null)
                         .WithMany("PositionSlots")
                         .HasForeignKey("ShiftInstanceCtrlNbr")
@@ -11427,6 +14108,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftDefinition", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("ShiftDefinitionCtrlNbr")
@@ -11499,6 +14186,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftInstance", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.WorkInstance", null)
+                        .WithMany()
+                        .HasForeignKey("WorkInstanceCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("ShiftInstanceCtrlNbr")
@@ -11571,6 +14264,22 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.SlotRequirement", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.CraftRole", null)
+                        .WithMany()
+                        .HasForeignKey("CraftRoleCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
+                        .WithMany()
+                        .HasForeignKey("PositionSlotCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryQualification", null)
+                        .WithMany()
+                        .HasForeignKey("QualificationTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("SlotRequirementCtrlNbr")
@@ -11643,6 +14352,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.WorkInstance", b =>
                 {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("AssignmentGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("WorkAreaGroupCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("WorkInstanceCtrlNbr")
@@ -11722,11 +14442,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("PhoneNumbers");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Models.Parents.Parent", b =>
-                {
-                    b.Navigation("Railroads");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Modules.AbsenceVacancy.AbsenceRequest", b =>
                 {
                     b.Navigation("Approvals");
@@ -11758,8 +14473,15 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("Responses");
                 });
 
+            modelBuilder.Entity("CrewService.Domain.Modules.Safety.SafetyObservation", b =>
+                {
+                    b.Navigation("Actions");
+                });
+
             modelBuilder.Entity("CrewService.Domain.Modules.WorkManagement.ShiftInstance", b =>
                 {
+                    b.Navigation("AssignmentNotes");
+
                     b.Navigation("PositionSlots");
                 });
 #pragma warning restore 612, 618
