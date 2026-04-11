@@ -83,13 +83,7 @@ else
         <ConfirmModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
                             OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
 
-        @if (successMessage is not null)
-        {
-            <div class="alert alert-success alert-dismissible" role="alert">
-                @successMessage
-                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-            </div>
-        }
+        <SuccessAlert @bind-Message="successMessage" />
 
         @if (errorMessage is not null)
         {

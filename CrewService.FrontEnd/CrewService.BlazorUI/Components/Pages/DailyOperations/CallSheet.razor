@@ -72,13 +72,7 @@ else
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible fade show">
-            @successMessage
-            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-        </div>
-    }
+    <SuccessAlert @bind-Message="successMessage" />
 
     @if (!string.IsNullOrEmpty(errorMessage))
     {
@@ -216,7 +210,6 @@ else
                                             <th>Assignment</th>
                                             <th>Location</th>
                                             <th>On Duty</th>
-                                            <th>Off Duty</th>
                                             @foreach (var role in craftRoleColumns)
                                             {
                                                 <th style="min-width: 15ch;">@role</th>
@@ -251,7 +244,6 @@ else
                                                 </td>
                                                 <td>@group.Key.GroupCode.ToUpperInvariant()</td>
                                                 <td class="text-nowrap">@group.Key.OnDutyTime</td>
-                                                <td class="text-nowrap">@group.Key.OffDutyTime</td>
                                                 @foreach (var role in craftRoleColumns)
                                                                 {
                                                                     @if (slotsByRole.TryGetValue(role, out var slots))
@@ -353,7 +345,7 @@ else
                                             @if (!string.IsNullOrEmpty(hNote))
                                             {
                                                 <tr class="border-0">
-                                                    <td colspan="@(4 + craftRoleColumns.Count + (isShiftReadOnly ? 0 : 1))" class="border-0 pt-0 pb-1 text-info fst-italic small ps-4">
+                                                    <td colspan="@(3 + craftRoleColumns.Count + (isShiftReadOnly ? 0 : 1))" class="border-0 pt-0 pb-1 text-info fst-italic small ps-4">
                                                         <span class="bi bi-journal-text me-1"></span>@hNote
                                                     </td>
                                                 </tr>
@@ -386,7 +378,7 @@ else
                                             }
                                         </div>
                                         <span class="text-muted" style="min-width: 160px;">@assignmentGroup.Key.GroupName</span>
-                                        <span class="text-muted small">@assignmentGroup.Key.OnDutyTime – @assignmentGroup.Key.OffDutyTime</span>
+                                        <span class="text-muted small">@assignmentGroup.Key.OnDutyTime</span>
                                         @if (!isShiftReadOnly)
                                         {
                                             <div class="dropdown ms-auto">

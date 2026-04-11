@@ -29,13 +29,7 @@ else
     {
         <span class="badge bg-success mb-2">Work Area</span>
     }
-    @if (successMessage is not null)
-    {
-        <div class="alert alert-success alert-dismissible" role="alert">
-            @successMessage
-            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-        </div>
-    }
+    <SuccessAlert @bind-Message="successMessage" />
 
     @if (errorMessage is not null)
     {

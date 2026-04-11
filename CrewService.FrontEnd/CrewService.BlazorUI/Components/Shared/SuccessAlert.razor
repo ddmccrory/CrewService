@@ -1,0 +1,59 @@
+@implements IDisposable
+
+@if (Message is not null)
+{
+    <div class="alert alert-success alert-dismissible @Class" role="alert">
+        @Message
+        <button type="button" class="btn-close" @onclick="Dismiss"></button>
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public EventCallback<string?> MessageChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Auto-dismiss delay in seconds. Set to 0 to disable auto-dismiss.</summary>
+    [Parameter] public int AutoDismissSeconds { get; set; } = 5;
+
+    private CancellationTokenSource? _cts;
+    private string? _lastMessage;
+
+    protected override void OnParametersSet()
+    {
+        if (Message != _lastMessage)
+        {
+            _lastMessage = Message;
+            _cts?.Cancel();
+
+            if (Message is not null && AutoDismissSeconds > 0)
+            {
+                _cts = new CancellationTokenSource();
+                _ = AutoDismissAsync(_cts.Token);
+            }
+        }
+    }
+
+    private async Task AutoDismissAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(AutoDismissSeconds * 1000, ct);
+            await Dismiss();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task Dismiss()
+    {
+        _cts?.Cancel();
+        _lastMessage = null;
+        await MessageChanged.InvokeAsync(null);
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}
