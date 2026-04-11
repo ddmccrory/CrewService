@@ -54,10 +54,15 @@ service CrewsSrvc {
   rpc GetCrewAssignmentsByAssignment(GetCrewAssignmentsByAssignmentRequest) returns (GetCrewAssignmentsResponse) {
     option (google.api.http) = { get: "/v1/crews/assignments/by-assignment/{assignment_ctrl_nbr}" };
   }
+
+  // Crew Setup Wizard
+  rpc CrewSetupWizard(CrewSetupWizardRequest) returns (CrewSetupWizardResponse) {
+    option (google.api.http) = { post: "/v1/crews/setup-wizard" body: "*" };
+  }
 }
 
 message GetAllCrewsRequest {
-  int64 home_group_ctrl_nbr = 1;
+  int64 work_area_ctrl_nbr = 1;
   string crew_type = 2;
   int32 page_number = 3;
   int32 page_size = 4;
@@ -70,27 +75,34 @@ message GetAllCrewsResponse {
 message GetCrewRequest { int64 ctrl_nbr = 1; }
 message CreateCrewRequest {
   string crew_type = 1;
-  int64 home_group_ctrl_nbr = 2;
+  int64 work_area_ctrl_nbr = 2;
   string name = 3;
   bool is_active = 4;
   int64 department_ctrl_nbr = 5;
+  string effective_date = 6;
+  string abolished_date = 7;
 }
 message UpdateCrewRequest {
   int64 ctrl_nbr = 1;
   string name = 2;
   bool is_active = 3;
   int64 department_ctrl_nbr = 4;
+  string effective_date = 5;
+  string abolished_date = 6;
+  string crew_type = 7;
 }
 message DeleteCrewRequest { int64 ctrl_nbr = 1; }
 message CrewResponse {
   int64 ctrl_nbr = 1;
   string crew_type = 2;
-  int64 home_group_ctrl_nbr = 3;
+  int64 work_area_ctrl_nbr = 3;
   string name = 4;
   bool is_active = 5;
   int64 department_ctrl_nbr = 6;
   int32 position_count = 7;
   int32 work_days_mask = 8;
+  string effective_date = 9;
+  string abolished_date = 10;
 }
 
 message GetCrewPositionsRequest { int64 crew_ctrl_nbr = 1; }
@@ -161,4 +173,68 @@ message CrewAssignmentResponse {
   string start_utc = 5;
   string end_utc = 6;
   string crew_name = 7;
+}
+
+// Crew Setup Wizard messages
+message CrewSetupWizardRequest {
+  // Crew: create new or use existing
+  int64 existing_crew_ctrl_nbr = 1;
+  string crew_type = 2;
+  int64 work_area_ctrl_nbr = 3;
+  int64 crew_department_ctrl_nbr = 4;
+  string crew_name = 5;
+
+  // Assignment entries
+  repeated CrewSetupWizardAssignmentEntry assignments = 6;
+
+  // Position entries (craft roles)
+  repeated CrewSetupWizardPositionEntry positions = 7;
+
+  // Crew lifecycle dates
+  string effective_date = 8;
+  string abolished_date = 9;
+}
+
+message CrewSetupWizardAssignmentEntry {
+  // Assignment: create new or use existing
+  int64 existing_assignment_ctrl_nbr = 1;
+  int64 group_ctrl_nbr = 2;
+  int64 department_ctrl_nbr = 3;
+  string code = 4;
+  string name = 5;
+  bool is_extra = 6;
+
+  // Schedule
+  int64 shift_definition_ctrl_nbr = 7;
+  int32 assignment_operating_days_mask = 8;
+  string on_duty_time = 9;
+  string off_duty_time = 10;
+
+  // Effective dates for this crew assignment link
+  string start_date = 11;
+  string end_date = 12;
+  int32 crew_work_days_mask = 13;
+}
+
+message CrewSetupWizardResponse {
+  int64 crew_ctrl_nbr = 1;
+  string crew_name = 2;
+  int32 assignments_created = 3;
+  int32 assignments_updated = 4;
+  int32 schedules_created = 5;
+  int32 crew_assignments_created = 6;
+  int32 positions_created = 7;
+  int32 positions_existing = 8;
+  int32 schedules_existing = 9;
+  int32 crew_assignments_existing = 10;
+  bool is_existing_crew = 11;
+  int32 schedules_updated = 12;
+  int32 positions_deleted = 13;
+  int32 crew_assignments_updated = 14;
+  int32 crew_assignments_deleted = 15;
+}
+
+message CrewSetupWizardPositionEntry {
+  int64 craft_role_ctrl_nbr = 1;
+  int32 display_order = 2;
 }
