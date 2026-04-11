@@ -1,19 +1,56 @@
 @typeparam TItem
 @typeparam TValue
 
-<select value="@FormatValue(Value)" @onchange="OnChanged" @attributes="AdditionalAttributes">
-    @if (AlwaysShowPlaceholder || Items is not { Count: 1 })
-    {
-        <option value="@FormatValue(default)">@Placeholder</option>
-    }
-    @if (Items is not null)
-    {
-        @foreach (var item in Items)
+@if (Searchable)
+{
+    <div class="position-relative">
+        <input type="text" class="@InputCssClass"
+               placeholder="@(HasSelection ? GetSelectedText() : Placeholder)"
+               value="@(isOpen ? searchText : (HasSelection ? GetSelectedText() : ""))"
+               @oninput="OnSearchInput"
+               @onfocusin="() => { isOpen = true; searchText = string.Empty; }"
+               @onkeydown="OnKeyDown" />
+        @if (isOpen)
         {
-            <option value="@FormatValue(ValueSelector(item))">@TextSelector(item)</option>
+            <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index:1049;" @onclick="CloseDropdown"></div>
+            <div class="list-group position-absolute w-100 shadow-sm border" style="z-index:1050; max-height:220px; overflow-y:auto;">
+                @{ var filtered = GetFilteredItems(); }
+                @if (!filtered.Any())
+                {
+                    <div class="list-group-item text-muted small">No matches</div>
+                }
+                else
+                {
+                    @foreach (var item in filtered)
+                    {
+                        var itemValue = ValueSelector(item);
+                        <button type="button"
+                                class="list-group-item list-group-item-action @(EqualityComparer<TValue>.Default.Equals(itemValue, Value) ? "active" : "")"
+                                @onclick="() => SelectSearchItem(item)">
+                            @TextSelector(item)
+                        </button>
+                    }
+                }
+            </div>
         }
-    }
-</select>
+    </div>
+}
+else
+{
+    <select value="@FormatValue(Value)" @onchange="OnChanged" @attributes="AdditionalAttributes">
+        @if (AlwaysShowPlaceholder || Items is not { Count: 1 })
+        {
+            <option value="@FormatValue(default)">@Placeholder</option>
+        }
+        @if (Items is not null)
+        {
+            @foreach (var item in Items)
+            {
+                <option value="@FormatValue(ValueSelector(item))">@TextSelector(item)</option>
+            }
+        }
+    </select>
+}
 
 @code {
     /// <summary>The list of items to render as options.</summary>
@@ -37,8 +74,70 @@
     /// <summary>When true, the placeholder option is always rendered even when exactly one item exists.</summary>
     [Parameter] public bool AlwaysShowPlaceholder { get; set; }
 
+    /// <summary>When true, renders a searchable text input with a filtered dropdown list instead of a native select.</summary>
+    [Parameter] public bool Searchable { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool isOpen;
+    private string searchText = string.Empty;
+
+    private bool HasSelection => !EqualityComparer<TValue>.Default.Equals(Value, default);
+
+    private string InputCssClass =>
+        AdditionalAttributes?.TryGetValue("class", out var cls) == true ? cls?.ToString() ?? "form-control" : "form-control";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!AlwaysShowPlaceholder
+            && Items is { Count: 1 }
+            && EqualityComparer<TValue>.Default.Equals(Value, default))
+        {
+            Value = ValueSelector(Items[0]);
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private string GetSelectedText()
+    {
+        if (Items is null) return "";
+        var selected = Items.FirstOrDefault(i => EqualityComparer<TValue>.Default.Equals(ValueSelector(i), Value));
+        return selected is not null ? TextSelector(selected) : "";
+    }
+
+    private IReadOnlyList<TItem> GetFilteredItems()
+    {
+        if (Items is null) return [];
+        if (string.IsNullOrWhiteSpace(searchText)) return Items;
+        return Items.Where(i => TextSelector(i).Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        isOpen = true;
+    }
+
+    private async Task SelectSearchItem(TItem item)
+    {
+        Value = ValueSelector(item);
+        searchText = string.Empty;
+        isOpen = false;
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private void CloseDropdown()
+    {
+        isOpen = false;
+        searchText = string.Empty;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            CloseDropdown();
+    }
 
     private async Task OnChanged(ChangeEventArgs e)
     {

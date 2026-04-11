@@ -1,0 +1,61 @@
+@*
+    Shared Day-of-Week bitmask picker — renders toggle buttons for each day of the week.
+    Bind to an int bitmask (bit 0 = Sun, bit 1 = Mon, …, bit 6 = Sat).
+*@
+
+<div class="@CssClass" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="form-label fw-semibold">@Label</label>
+    }
+    <div class="d-flex gap-2 flex-wrap">
+        @for (var d = 0; d < 7; d++)
+        {
+            var dayIdx = d;
+            <button type="button"
+                    class="@((Value & (1 << dayIdx)) != 0 ? (Disabled ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm") : "btn btn-outline-secondary btn-sm")"
+                    style="min-width:55px"
+                    disabled="@Disabled"
+                    @onclick="() => ToggleDay(dayIdx)">
+                @DayNames[dayIdx]
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Value { get; set; }
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private static readonly string[] DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    private async Task ToggleDay(int dayIndex)
+    {
+        if (Disabled) return;
+        Value ^= (1 << dayIndex);
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    public static string FormatDays(int mask)
+    {
+        if (mask == 0) return "None";
+        var active = new List<string>();
+        for (var i = 0; i < 7; i++)
+            if ((mask & (1 << i)) != 0) active.Add(DayNames[i]);
+        return string.Join(", ", active);
+    }
+
+    public static string FormatOffDays(int mask)
+    {
+        if (mask == 127) return "None";
+        var off = new List<string>();
+        for (var i = 0; i < 7; i++)
+            if ((mask & (1 << i)) == 0) off.Add(DayNames[i]);
+        return off.Count == 0 ? "None" : string.Join(", ", off);
+    }
+}
