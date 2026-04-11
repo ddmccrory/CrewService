@@ -8,6 +8,7 @@ public interface ICrewRepository : IRepository<Crew>
     Task<List<Crew>> GetByWorkAreaAsync(ControlNumber workAreaCtrlNbr);
     Task<List<Crew>> GetByTypeAsync(string crewType);
     Task<List<Crew>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
+    Task<bool> ExistsByNameInWorkAreaAsync(ControlNumber workAreaCtrlNbr, string name, ControlNumber? excludeCtrlNbr = null);
 }
 
 public interface ICrewPositionRepository : IRepository<CrewPosition>

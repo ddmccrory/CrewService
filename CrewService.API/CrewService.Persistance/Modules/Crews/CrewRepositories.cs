@@ -29,6 +29,17 @@ internal sealed class CrewRepository(CrewServiceDbContext dbContext, ICurrentUse
             .OrderBy(c => c.Name)
             .ToListAsync();
     }
+
+    public async Task<bool> ExistsByNameInWorkAreaAsync(ControlNumber workAreaCtrlNbr, string name, ControlNumber? excludeCtrlNbr = null)
+    {
+        var query = DbContext.Set<Crew>()
+            .Where(c => c.WorkAreaCtrlNbr == workAreaCtrlNbr && c.Name.ToUpper() == name.ToUpper());
+
+        if (excludeCtrlNbr is not null)
+            query = query.Where(c => c.CtrlNbr != excludeCtrlNbr);
+
+        return await query.AnyAsync();
+    }
 }
 
 internal sealed class CrewPositionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
