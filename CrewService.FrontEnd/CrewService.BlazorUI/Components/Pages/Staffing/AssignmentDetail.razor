@@ -75,7 +75,7 @@ else
                 <td>@(string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName)</td>
                 <td>@s.OnDutyTime</td>
                 <td>@s.OffDutyTime</td>
-                <td>@FormatDays(s.OperatingDaysMask)</td>
+                <td>@DayOfWeekPicker.FormatDays(s.OperatingDaysMask)</td>
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
@@ -95,7 +95,6 @@ else
         <Modal Visible="showScheduleModal"
                Title="@(editingScheduleCtrlNbr is null ? "Add Schedule" : "Edit Schedule")"
                Icon="bi bi-calendar-week"
-               Size="lg"
                OnClose="() => showScheduleModal = false">
             <BodyContent>
                 <EditForm Model="this" OnValidSubmit="OnSaveSchedule" id="save-schedule-form">
@@ -112,24 +111,11 @@ else
                         </div>
                     }
                     <DutyTimePicker @bind-OnDutyTime="scheduleOnDutyTime" @bind-OffDutyTime="scheduleOffDutyTime" CssClass="mb-3" />
-                    <div class="mb-0">
-                        <label class="form-label fw-semibold">Operating Days</label>
-                        <div class="d-flex gap-2 flex-wrap">
-                            @foreach (var day in DayLabels)
-                            {
-                                var bit = 1 << day.Value;
-                                <div class="form-check form-switch form-check-reverse">
-                                    <input type="checkbox" class="form-check-input" id="sched-day-@day.Value"
-                                           checked="@((scheduleOperatingDaysMask & bit) != 0)"
-                                           @onchange="@(e => ToggleDay(bit, (bool)e.Value!))" />
-                                    <label class="form-check-label" for="sched-day-@day.Value">@day.Label</label>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <DayOfWeekPicker @bind-Value="scheduleOperatingDaysMask" />
                 </EditForm>
             </BodyContent>
             <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => showScheduleModal = false">Cancel</button>
                 <button type="submit" form="save-schedule-form" class="btn btn-primary" disabled="@isSaving">Save</button>
             </Footer>
         </Modal>
@@ -147,9 +133,9 @@ else
                    DefaultSortColumn="Crew">
             <RowContent Context="a">
                 <td>@a.CrewName</td>
-                <td>@FormatDays(a.DaysOfWeekMask)</td>
+                <td>@DayOfWeekPicker.FormatDays(a.DaysOfWeekMask)</td>
                 <td>@FormatDate(a.StartUtc)</td>
-                <td>@(string.IsNullOrEmpty(a.EndUtc) ? "—" : FormatDate(a.EndUtc))</td>
+                <td>@FormatDate(a.EndUtc)</td>
             </RowContent>
         </DataTable>
     }
@@ -175,7 +161,7 @@ else
         new("Shift", s => string.IsNullOrEmpty(s.ShiftDisplayName) ? s.ShiftDefinitionCtrlNbr.ToString() : s.ShiftDisplayName),
         new("On Duty", s => (object)s.OnDutyTime),
         new("Off Duty", s => (object)s.OffDutyTime),
-        new("Operating Days", s => FormatDays(s.OperatingDaysMask)),
+        new("Operating Days", s => DayOfWeekPicker.FormatDays(s.OperatingDaysMask)),
         DataTableColumn<AssignmentScheduleResponse>.Actions()
     ];
 
@@ -185,11 +171,6 @@ else
         new("Work Days", a => a.DaysOfWeekMask),
         new("Start", a => a.StartUtc),
         new("End", a => a.EndUtc)
-    ];
-
-    private static readonly (string Label, int Value)[] DayLabels =
-    [
-        ("Sun", 0), ("Mon", 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6)
     ];
 
     protected override async Task LoadDataAsync()
@@ -268,13 +249,6 @@ else
         showScheduleModal = true;
     }
 
-    private void ToggleDay(int bit, bool on)
-    {
-        scheduleOperatingDaysMask = on
-            ? scheduleOperatingDaysMask | bit
-            : scheduleOperatingDaysMask & ~bit;
-    }
-
     private async Task OnSaveSchedule()
     {
         try
@@ -306,14 +280,4 @@ else
         finally { isSaving = false; }
     }
 
-    private static string FormatDays(int mask)
-    {
-        var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var active = new List<string>();
-        for (var i = 0; i < 7; i++)
-        {
-            if ((mask & (1 << i)) != 0) active.Add(days[i]);
-        }
-        return active.Count == 0 ? "None" : string.Join(", ", active);
     }
-}
