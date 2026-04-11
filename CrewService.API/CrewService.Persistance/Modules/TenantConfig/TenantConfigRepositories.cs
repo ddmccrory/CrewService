@@ -35,6 +35,14 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
             .ToListAsync();
     }
 
+    public async Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs)
+    {
+        var list = ctrlNbrs.ToList();
+        return await DbContext.Set<DynamicGroup>()
+            .Where(g => list.Contains(g.CtrlNbr))
+            .ToListAsync();
+    }
+
     public async Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name)
     {
         return await DbContext.Set<DynamicGroup>()

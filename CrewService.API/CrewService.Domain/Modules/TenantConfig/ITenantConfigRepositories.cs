@@ -12,6 +12,7 @@ public interface IGroupTypeRepository : IRepository<GroupType>
 public interface IDynamicGroupRepository : IRepository<DynamicGroup>
 {
     Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? parentGroupCtrlNbr);
+    Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs);
     Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name);
     Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? railroadCtrlNbr = null);
     Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync();

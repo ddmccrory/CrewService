@@ -33,10 +33,47 @@ public class AssignmentsService(
         var onDutyTimes = allSchedules.GroupBy(s => s.AssignmentCtrlNbr)
             .ToDictionary(g => g.Key, g => g.Min(s => s.OnDutyTime).ToString("HH:mm"));
 
+        // Batch-load all referenced groups in a single query to avoid N+1
+        var groupCtrlNbrs = assignments.Select(a => a.GroupCtrlNbr).Distinct().ToList();
+        var groups = await dynamicGroupRepository.GetByCtrlNbrsAsync(groupCtrlNbrs);
+        var groupLookup = groups.ToDictionary(g => g.CtrlNbr);
+
+        // Pre-resolve work area CtrlNbrs: for groups that are not work areas, walk ancestors via Path
+        var workAreaLookup = new Dictionary<ControlNumber, long>();
+        foreach (var g in groups)
+        {
+            if (g.IsWorkArea)
+                workAreaLookup[g.CtrlNbr] = g.CtrlNbr.Value;
+            else if (g.Path is not null)
+            {
+                // Path format: "root/parent/.../self" — find the work area ancestor from already-loaded groups
+                // or fall back to the per-item resolver only for non-work-area groups
+                var ancestors = await dynamicGroupRepository.GetAncestorsAsync(g.CtrlNbr);
+                var wa = ancestors.FirstOrDefault(a => a.IsWorkArea);
+                workAreaLookup[g.CtrlNbr] = wa?.CtrlNbr.Value ?? 0;
+            }
+        }
+
         var response = new GetAssignmentsResponse { TotalCount = assignments.Count };
         foreach (var a in assignments)
         {
-            var mapped = await MapAssignmentAsync(a);
+            groupLookup.TryGetValue(a.GroupCtrlNbr, out var group);
+            workAreaLookup.TryGetValue(a.GroupCtrlNbr, out var workAreaCtrlNbr);
+
+            var mapped = new StaffingAssignmentResponse
+            {
+                CtrlNbr = a.CtrlNbr.Value,
+                GroupCtrlNbr = a.GroupCtrlNbr.Value,
+                DepartmentCtrlNbr = a.DepartmentCtrlNbr?.Value ?? 0,
+                Code = a.Code,
+                Name = a.Name,
+                IsExtra = a.IsExtra,
+                IsActive = a.IsActive,
+                GroupName = group?.Name ?? string.Empty,
+                GroupCode = group?.Code ?? string.Empty,
+                WorkAreaGroupCtrlNbr = workAreaCtrlNbr
+            };
+
             daysMasks.TryGetValue(a.CtrlNbr, out var daysMask);
             mapped.WorkDaysMask = daysMask;
             if (onDutyTimes.TryGetValue(a.CtrlNbr, out var onDutyTime))
