@@ -1,6 +1,7 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
@@ -13,6 +14,7 @@ public class CrewsService(
     ICrewAssignmentRepository assignmentRepository,
     IAssignmentRepository staffingAssignmentRepository,
     IAssignmentScheduleRepository assignmentScheduleRepository,
+    IDynamicGroupRepository dynamicGroupRepository,
     IOrchestrationUnitOfWorkFactory uowFactory) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
@@ -61,6 +63,10 @@ public class CrewsService(
         var abolishedDate = !string.IsNullOrWhiteSpace(request.AbolishedDate)
             ? DateTime.Parse(request.AbolishedDate).ToUniversalTime()
             : (DateTime?)null;
+
+        if (await crewRepository.ExistsByNameInWorkAreaAsync(ControlNumber.Create(request.WorkAreaCtrlNbr), request.Name))
+            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Crew name '{request.Name}' already exists in this work area."));
+
         var crew = Crew.Create(request.CrewType, request.WorkAreaCtrlNbr, request.Name, request.IsActive, departmentCtrlNbr, effectiveDate, abolishedDate);
 
         await using var uow = await uowFactory.CreateAsync();
@@ -82,6 +88,10 @@ public class CrewsService(
             ? DateTime.Parse(request.AbolishedDate).ToUniversalTime()
             : (DateTime?)null;
         var crewType = !string.IsNullOrWhiteSpace(request.CrewType) ? request.CrewType : null;
+
+        if (await crewRepository.ExistsByNameInWorkAreaAsync(crew.WorkAreaCtrlNbr, request.Name, crew.CtrlNbr))
+            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Crew name '{request.Name}' already exists in this work area."));
+
         crew.Update(request.Name, request.IsActive, departmentCtrlNbr, effectiveDate, abolishedDate, crewType);
 
         await using var uow = await uowFactory.CreateAsync();
@@ -306,6 +316,9 @@ public class CrewsService(
             if (string.IsNullOrWhiteSpace(request.CrewName))
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Crew name is required when creating a new crew."));
 
+            if (await crewRepository.ExistsByNameInWorkAreaAsync(ControlNumber.Create(request.WorkAreaCtrlNbr), request.CrewName))
+                throw new RpcException(new Status(StatusCode.AlreadyExists, $"Crew name '{request.CrewName}' already exists in this work area."));
+
             var deptCtrlNbr = request.CrewDepartmentCtrlNbr > 0 ? ControlNumber.Create(request.CrewDepartmentCtrlNbr) : null;
             var effectiveDate = !string.IsNullOrWhiteSpace(request.EffectiveDate)
                 ? DateTime.Parse(request.EffectiveDate).ToUniversalTime()
@@ -379,6 +392,13 @@ public class CrewsService(
                 assignment = await staffingAssignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(entry.ExistingAssignmentCtrlNbr))
                         ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {entry.ExistingAssignmentCtrlNbr} not found."));
 
+                    // Validate code uniqueness when code is being changed
+                    var effectiveCode = !string.IsNullOrWhiteSpace(entry.Code) ? entry.Code : assignment.Code;
+                    var effectiveGroupCtrlNbr = entry.GroupCtrlNbr > 0 ? ControlNumber.Create(entry.GroupCtrlNbr) : assignment.GroupCtrlNbr;
+                    var waCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(effectiveGroupCtrlNbr);
+                    if (waCtrlNbr is not null && await staffingAssignmentRepository.ExistsByCodeInWorkAreaAsync(waCtrlNbr, effectiveCode, assignment.CtrlNbr))
+                        throw new RpcException(new Status(StatusCode.AlreadyExists, $"Assignment code '{effectiveCode.ToUpperInvariant()}' already exists in this work area."));
+
                     // Apply any edits from the wizard to the existing assignment
                     var deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
                     assignment.Update(
@@ -395,6 +415,10 @@ public class CrewsService(
             {
                 if (string.IsNullOrWhiteSpace(entry.Code) || string.IsNullOrWhiteSpace(entry.Name))
                     throw new RpcException(new Status(StatusCode.InvalidArgument, "Assignment code and name are required for new assignments."));
+
+                var waCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(ControlNumber.Create(entry.GroupCtrlNbr));
+                if (waCtrlNbr is not null && await staffingAssignmentRepository.ExistsByCodeInWorkAreaAsync(waCtrlNbr, entry.Code))
+                    throw new RpcException(new Status(StatusCode.AlreadyExists, $"Assignment code '{entry.Code.ToUpperInvariant()}' already exists in this work area."));
 
                 var deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
                 assignment = Assignment.Create(
@@ -522,5 +546,14 @@ public class CrewsService(
             CrewAssignmentsDeleted = crewAssignmentsDeleted,
             IsExistingCrew = request.ExistingCrewCtrlNbr > 0
         };
+    }
+
+    private async Task<ControlNumber?> ResolveWorkAreaCtrlNbrAsync(ControlNumber groupCtrlNbr)
+    {
+        var group = await dynamicGroupRepository.GetByCtrlNbrAsync(groupCtrlNbr);
+        if (group is null) return null;
+        if (group.IsWorkArea) return group.CtrlNbr;
+        var ancestors = await dynamicGroupRepository.GetAncestorsAsync(groupCtrlNbr);
+        return ancestors.FirstOrDefault(g => g.IsWorkArea)?.CtrlNbr;
     }
 }
