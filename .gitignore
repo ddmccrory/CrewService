@@ -10,3 +10,9 @@ CrewService.API/CrewService.Persistance/Data/*.db-wal
 
 # Misc
 *.pdf
+
+# Legacy NuGet packages folder
+**/packages/
+
+# Test results
+**/TestResults/
