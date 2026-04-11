@@ -260,7 +260,8 @@
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Shift Definition</label>
                                     <FilterSelect TItem="ShiftDefinitionResponse" TValue="long"
-                                                  @bind-Value="entry.NewAssignment.ShiftDefinitionCtrlNbr"
+                                                  Value="entry.NewAssignment.ShiftDefinitionCtrlNbr"
+                                                  ValueChanged="@(val => OnShiftDefinitionChanged(entry, val))"
                                                   Items="shiftDefinitions"
                                                   ValueSelector="@(s => s.CtrlNbr)"
                                                   TextSelector="@(s => s.DisplayName)"

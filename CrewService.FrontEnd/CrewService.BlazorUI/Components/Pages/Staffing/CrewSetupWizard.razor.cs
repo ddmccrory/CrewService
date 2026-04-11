@@ -372,6 +372,9 @@ public partial class CrewSetupWizard
         state = new WizardState();
         craftRoles = null;
         workAreas = null;
+        allGroups = null;
+        shiftDefinitions = null;
+        existingAssignments = null;
         await OnClose.InvokeAsync();
     }
 
@@ -441,6 +444,29 @@ public partial class CrewSetupWizard
     private string GetShiftDisplay(long ctrlNbr)
     {
         return shiftDefinitions?.FirstOrDefault(s => s.CtrlNbr == ctrlNbr)?.DisplayName ?? "—";
+    }
+
+    private void OnShiftDefinitionChanged(CrewAssignmentEntry entry, long shiftCtrlNbr)
+    {
+        entry.NewAssignment.ShiftDefinitionCtrlNbr = shiftCtrlNbr;
+
+        var shift = shiftDefinitions?.FirstOrDefault(s => s.CtrlNbr == shiftCtrlNbr);
+        if (shift is not null)
+        {
+            var onDuty = shift.DisplayOrder switch
+            {
+                1 => new TimeOnly(7, 0),   // 1st shift → 7:00 AM
+                2 => new TimeOnly(15, 0),   // 2nd shift → 3:00 PM
+                3 => new TimeOnly(23, 0),   // 3rd shift → 11:00 PM
+                _ => (TimeOnly?)null
+            };
+
+            if (onDuty is not null)
+            {
+                entry.NewAssignment.OnDutyTime = onDuty.Value;
+                entry.NewAssignment.OffDutyTime = onDuty.Value.AddHours(8);
+            }
+        }
     }
 
     private void RemovePositionEntry(WizardPositionEntry entry)
@@ -550,6 +576,10 @@ public partial class CrewSetupWizard
         public List<CrewAssignmentEntry> AssignmentEntries { get; set; } = [];
 
         // Step 1b: Positions
-        public List<WizardPositionEntry> PositionEntries { get; set; } = [];
+        public List<WizardPositionEntry> PositionEntries { get; set; } =
+        [
+            new() { DisplayOrder = 1 },
+            new() { DisplayOrder = 2 }
+        ];
     }
 }

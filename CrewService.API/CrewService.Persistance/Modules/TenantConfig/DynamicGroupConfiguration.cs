@@ -37,6 +37,8 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
             value => value == null ? null : ControlNumber.Create(value.Value));
 
         builder.HasIndex(g => new { g.ParentGroupCtrlNbr, g.Name });
+        builder.HasIndex(g => g.RailroadCtrlNbr);
+        builder.HasIndex(g => g.Path);
 
         builder.OwnsOne(g => g.CreatedBy, audit =>
         {

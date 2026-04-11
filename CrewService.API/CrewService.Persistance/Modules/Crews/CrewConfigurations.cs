@@ -48,6 +48,7 @@ internal class CrewPositionConfiguration : IEntityTypeConfiguration<CrewPosition
         builder.HasOne<StaffablePosition>().WithOne().HasForeignKey<CrewPosition>(p => p.StaffablePositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Crew>().WithMany().HasForeignKey(p => p.CrewCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<CraftRole>().WithMany().HasForeignKey(p => p.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => p.CrewCtrlNbr);
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -65,6 +66,8 @@ internal class CrewIncumbencyConfiguration : IEntityTypeConfiguration<CrewIncumb
         builder.Property(i => i.StartUtc).IsRequired();
         builder.HasOne<CrewPosition>().WithMany().HasForeignKey(i => i.CrewPositionCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Employee>().WithMany().HasForeignKey(i => i.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(i => i.CrewPositionCtrlNbr);
+        builder.HasIndex(i => i.EmployeeCtrlNbr);
         builder.OwnsOne(i => i.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(i => i.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(i => i.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -83,6 +86,8 @@ internal class CrewAssignmentConfiguration : IEntityTypeConfiguration<CrewAssign
         builder.Property(a => a.StartUtc).IsRequired();
         builder.HasOne<Assignment>().WithMany().HasForeignKey(a => a.AssignmentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Crew>().WithMany().HasForeignKey(a => a.CrewCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(a => a.CrewCtrlNbr);
+        builder.HasIndex(a => a.AssignmentCtrlNbr);
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.DeletedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
