@@ -44,6 +44,20 @@ internal sealed class AssignmentRepository(CrewServiceDbContext dbContext, ICurr
             .ToListAsync();
     }
 
+    public async Task<bool> ExistsByCodeInWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, string code, ControlNumber? excludeCtrlNbr = null)
+    {
+        var descendantCtrlNbrs = await GetWorkAreaAndDescendantCtrlNbrsAsync(workAreaGroupCtrlNbr);
+        var upperCode = code.ToUpperInvariant();
+
+        var query = DbContext.Set<Assignment>()
+            .Where(a => descendantCtrlNbrs.Contains(a.GroupCtrlNbr) && a.Code.ToUpper() == upperCode);
+
+        if (excludeCtrlNbr is not null)
+            query = query.Where(a => a.CtrlNbr != excludeCtrlNbr);
+
+        return await query.AnyAsync();
+    }
+
     private async Task<List<ControlNumber>> GetWorkAreaAndDescendantCtrlNbrsAsync(ControlNumber workAreaGroupCtrlNbr)
     {
         var workArea = await DbContext.Set<DynamicGroup>()

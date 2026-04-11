@@ -8,6 +8,7 @@ public interface IAssignmentRepository : IRepository<Assignment>
     Task<List<Assignment>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);
     Task<List<Assignment>> GetByWorkAreaAndDepartmentAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber departmentCtrlNbr);
     Task<List<Assignment>> GetAllByRailroadAsync(ControlNumber railroadCtrlNbr);
+    Task<bool> ExistsByCodeInWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, string code, ControlNumber? excludeCtrlNbr = null);
 }
 
 public interface IAssignmentScheduleRepository : IRepository<AssignmentSchedule>
