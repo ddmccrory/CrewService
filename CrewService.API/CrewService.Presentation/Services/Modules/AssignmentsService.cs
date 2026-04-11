@@ -56,6 +56,11 @@ public class AssignmentsService(
     public override async Task<StaffingAssignmentResponse> CreateAssignment(CreateStaffingAssignmentRequest request, ServerCallContext context)
     {
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+
+        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(ControlNumber.Create(request.GroupCtrlNbr));
+        if (workAreaCtrlNbr is not null && await assignmentRepository.ExistsByCodeInWorkAreaAsync(workAreaCtrlNbr, request.Code))
+            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Assignment code '{request.Code.ToUpperInvariant()}' already exists in this work area."));
+
         var assignment = Assignment.Create(
             ControlNumber.Create(request.GroupCtrlNbr),
             request.Code,
@@ -77,6 +82,13 @@ public class AssignmentsService(
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {request.CtrlNbr} not found."));
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
         var groupCtrlNbr = request.GroupCtrlNbr > 0 ? ControlNumber.Create(request.GroupCtrlNbr) : null;
+
+        var effectiveGroupCtrlNbr = groupCtrlNbr ?? assignment.GroupCtrlNbr;
+        var effectiveCode = !string.IsNullOrWhiteSpace(request.Code) ? request.Code : assignment.Code;
+        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(effectiveGroupCtrlNbr);
+        if (workAreaCtrlNbr is not null && await assignmentRepository.ExistsByCodeInWorkAreaAsync(workAreaCtrlNbr, effectiveCode, assignment.CtrlNbr))
+            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Assignment code '{effectiveCode.ToUpperInvariant()}' already exists in this work area."));
+
         assignment.Update(request.Code, request.Name, request.IsExtra, request.IsActive, departmentCtrlNbr, groupCtrlNbr);
 
         await using var uow = await uowFactory.CreateAsync();
