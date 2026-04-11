@@ -35,6 +35,7 @@
         @* ── Step 1: Crew ── *@
         @if (state.CurrentStep == 1)
         {
+            <h5 class="fw-semibold mb-3 text-center">Select or Create a Crew</h5>
             <div class="mb-3">
                 <div class="form-check form-switch">
                     <input type="checkbox" class="form-check-input" id="wizard-use-existing-crew"
@@ -174,6 +175,7 @@
         @* ── Step 2: Assignments (select or create) ── *@
         @if (state.CurrentStep == 2)
         {
+            <h5 class="fw-semibold mb-3 text-center">Select or Create Assignments for Crew <em>@CrewDisplayName</em></h5>
             @for (var idx = 0; idx < state.AssignmentEntries.Count; idx++)
             {
                 var entry = state.AssignmentEntries[idx];
@@ -286,6 +288,7 @@
         @* ── Step 3: Crew Assignments (work days + dates) ── *@
         @if (state.CurrentStep == 3)
         {
+            <h5 class="fw-semibold mb-3 text-center">Select Crew <em>@CrewDisplayName</em> Workdays</h5>
             <p class="text-muted small mb-3">Set crew work days and effective dates for each assignment.</p>
             @for (var idx = 0; idx < state.AssignmentEntries.Count; idx++)
             {
@@ -328,6 +331,7 @@
         @* ── Step 4: Review ── *@
         @if (state.CurrentStep == 4)
         {
+            <h5 class="fw-semibold mb-3 text-center">Review Crew <em>@CrewDisplayName</em> Selections</h5>
             <h6 class="fw-semibold">Crew</h6>
             @if (state.UseExistingCrew)
             {

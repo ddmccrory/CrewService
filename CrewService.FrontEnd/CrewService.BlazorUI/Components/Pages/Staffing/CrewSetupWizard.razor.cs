@@ -421,6 +421,11 @@ public partial class CrewSetupWizard
     // ── Position helpers ──
     private void AddPositionEntry() => state.PositionEntries.Add(new() { DisplayOrder = state.PositionEntries.Count + 1 });
 
+    private string CrewDisplayName =>
+        state.UseExistingCrew
+            ? ExistingCrews?.FirstOrDefault(c => c.CtrlNbr == state.SelectedCrewCtrlNbr)?.Name ?? "—"
+            : state.NewCrewName;
+
     // ── Display helpers (keep LINQ out of .razor markup) ──
     private string GetCraftRoleDisplay(long ctrlNbr)
     {
