@@ -134,6 +134,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("FraOtherServiceSegment", "FraDutyTour", DeleteBehavior.Cascade)]
     [InlineData("NotificationResponse", "NotificationRequest", DeleteBehavior.Cascade)]
     [InlineData("RosterBoardPosition", "RosterBoard", DeleteBehavior.Cascade)]
+    [InlineData("BoardSlotInstance", "ShiftInstance", DeleteBehavior.Cascade)]
     [InlineData("SafetyObservationAction", "SafetyObservation", DeleteBehavior.Cascade)]
     [InlineData("EarningApproval", "PayrollRecord", DeleteBehavior.Cascade)]
     public void AggregateChild_CascadesFromParent(
@@ -159,6 +160,9 @@ public class ForeignKeyIntegrityTests
     [InlineData("PositionSlot", "WorkInstance", DeleteBehavior.Restrict)]
     [InlineData("PositionSlot", "Employee", DeleteBehavior.Restrict)]
     [InlineData("PositionSlotInstance", "Employee", DeleteBehavior.Restrict)]
+    [InlineData("BoardSlotInstance", "RosterBoard", DeleteBehavior.Restrict)]
+    [InlineData("BoardSlotInstance", "RosterBoardPosition", DeleteBehavior.Restrict)]
+    [InlineData("BoardSlotInstance", "Employee", DeleteBehavior.Restrict)]
 
     [InlineData("FraDutyTour", "Employee", DeleteBehavior.Restrict)]
     [InlineData("FraDutyTour", "RegulatoryStandard", DeleteBehavior.Restrict)]

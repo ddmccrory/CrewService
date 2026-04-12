@@ -6,6 +6,7 @@ namespace CrewService.Domain.Modules.WorkManagement;
 public sealed class ShiftInstance : Entity
 {
     private readonly List<PositionSlotInstance> _positionSlots = [];
+    private readonly List<BoardSlotInstance> _boardSlots = [];
     private readonly List<AssignmentNote> _assignmentNotes = [];
 
     public ControlNumber WorkInstanceCtrlNbr { get; private set; }
@@ -19,6 +20,7 @@ public sealed class ShiftInstance : Entity
     public DateTime? CompletedAtUtc { get; private set; }
 
     public IReadOnlyList<PositionSlotInstance> PositionSlots => _positionSlots.AsReadOnly();
+    public IReadOnlyList<BoardSlotInstance> BoardSlots => _boardSlots.AsReadOnly();
     public IReadOnlyList<AssignmentNote> AssignmentNotes => _assignmentNotes.AsReadOnly();
 
     private ShiftInstance()
@@ -232,5 +234,27 @@ public sealed class ShiftInstance : Entity
         var note = _assignmentNotes.SingleOrDefault(n => n.AssignmentCtrlNbr == assignmentCtrlNbr);
         if (note is not null)
             _assignmentNotes.Remove(note);
+    }
+
+    public BoardSlotInstance AddBoardSlot(
+        ControlNumber rosterBoardCtrlNbr,
+        ControlNumber? rosterBoardPositionCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        int boardOrder,
+        long callSequence,
+        string boardName,
+        string employeeName,
+        string positionName = "",
+        int daysWorked = 0,
+        int consecutiveDays = 0,
+        DateTime? restAvailableAtUtc = null)
+    {
+        var slot = BoardSlotInstance.Create(
+            CtrlNbr, rosterBoardCtrlNbr, rosterBoardPositionCtrlNbr,
+            employeeCtrlNbr, boardOrder, callSequence,
+            boardName, employeeName, positionName,
+            daysWorked, consecutiveDays, restAvailableAtUtc);
+        _boardSlots.Add(slot);
+        return slot;
     }
 }

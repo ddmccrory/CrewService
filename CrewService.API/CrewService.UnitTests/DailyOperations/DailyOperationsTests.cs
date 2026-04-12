@@ -87,6 +87,106 @@ public class PositionSlotInstanceTests
     }
 }
 
+public class BoardSlotInstanceTests
+{
+    private static ShiftInstance CreateShift() =>
+        ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "1", "First Shift");
+
+    [Fact]
+    public void AddBoardSlot_AddsToCollection()
+    {
+        var shift = CreateShift();
+
+        var slot = shift.AddBoardSlot(
+            ControlNumber.Create(500), ControlNumber.Create(501),
+            ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
+
+        Assert.Single(shift.BoardSlots);
+        Assert.Equal(BoardSlotStatus.Available, slot.Status);
+        Assert.Equal(1, slot.BoardOrder);
+        Assert.Equal(100L, slot.CallSequence);
+        Assert.Equal("Extra Board", slot.BoardName);
+        Assert.Equal("John Doe", slot.EmployeeName);
+    }
+
+    [Fact]
+    public void Call_SetsCalledStatus()
+    {
+        var shift = CreateShift();
+        var slot = shift.AddBoardSlot(
+            ControlNumber.Create(500), null,
+            ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
+
+        slot.Call();
+
+        Assert.Equal(BoardSlotStatus.Called, slot.Status);
+    }
+
+    [Fact]
+    public void MarkTiedUp_UpdatesStatusAndCallSequence()
+    {
+        var shift = CreateShift();
+        var slot = shift.AddBoardSlot(
+            ControlNumber.Create(500), null,
+            ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
+        slot.Call();
+        slot.MarkOnDuty();
+
+        slot.MarkTiedUp(999L);
+
+        Assert.Equal(BoardSlotStatus.TiedUp, slot.Status);
+        Assert.Equal(999L, slot.CallSequence);
+    }
+
+    [Fact]
+    public void Reposition_UpdatesBoardOrderAndRestoresAvailable()
+    {
+        var shift = CreateShift();
+        var slot = shift.AddBoardSlot(
+            ControlNumber.Create(500), null,
+            ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
+        slot.Call();
+        slot.MarkOnDuty();
+        slot.MarkTiedUp(999L);
+
+        slot.Reposition(5);
+
+        Assert.Equal(5, slot.BoardOrder);
+        Assert.Equal(BoardSlotStatus.Available, slot.Status);
+    }
+
+    [Fact]
+    public void Hangout_And_Restore_CyclesStatus()
+    {
+        var shift = CreateShift();
+        var slot = shift.AddBoardSlot(
+            ControlNumber.Create(500), null,
+            ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
+
+        slot.Hangout();
+        Assert.Equal(BoardSlotStatus.HungOut, slot.Status);
+
+        slot.RestoreToAvailable();
+        Assert.Equal(BoardSlotStatus.Available, slot.Status);
+    }
+
+    [Fact]
+    public void UpdateOperationalTracking_SetsValues()
+    {
+        var shift = CreateShift();
+        var slot = shift.AddBoardSlot(
+            ControlNumber.Create(500), null,
+            ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
+        var restTime = DateTime.UtcNow.AddHours(24);
+
+        slot.UpdateOperationalTracking(5, 3, restTime);
+
+        Assert.Equal(5, slot.DaysWorked);
+        Assert.Equal(3, slot.ConsecutiveDays);
+        Assert.Equal(restTime, slot.RestAvailableAtUtc);
+    }
+}
+
 public class OnDutyRecordTests
 {
     [Fact]

@@ -1,4 +1,5 @@
 using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -24,6 +25,7 @@ internal class ShiftInstanceConfiguration : IEntityTypeConfiguration<ShiftInstan
         builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
 
         builder.HasMany(s => s.PositionSlots).WithOne().HasForeignKey(p => p.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(s => s.BoardSlots).WithOne().HasForeignKey(b => b.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(s => s.AssignmentNotes).WithOne().HasForeignKey(n => n.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne<WorkInstance>().WithMany().HasForeignKey(s => s.WorkInstanceCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -85,5 +87,33 @@ internal class AssignmentNoteConfiguration : IEntityTypeConfiguration<Assignment
         builder.OwnsOne(n => n.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(n => n.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(n => n.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class BoardSlotInstanceConfiguration : IEntityTypeConfiguration<BoardSlotInstance>
+{
+    public void Configure(EntityTypeBuilder<BoardSlotInstance> builder)
+    {
+        builder.HasKey(b => b.CtrlNbr);
+        builder.Property(b => b.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(b => b.ShiftInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(b => b.RosterBoardCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(b => b.RosterBoardPositionCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(b => b.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(b => b.Status).HasMaxLength(20).IsRequired()
+            .HasConversion(s => s.ToString(), v => Enum.Parse<BoardSlotStatus>(v));
+        builder.Property(b => b.BoardName).HasMaxLength(100).IsRequired();
+        builder.Property(b => b.EmployeeName).HasMaxLength(200).HasDefaultValue(string.Empty);
+        builder.Property(b => b.PositionName).HasMaxLength(100).HasDefaultValue(string.Empty);
+
+        builder.HasOne<RosterBoard>().WithMany().HasForeignKey(b => b.RosterBoardCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RosterBoardPosition>().WithMany().HasForeignKey(b => b.RosterBoardPositionCtrlNbr).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(b => b.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(b => b.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(b => b.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
