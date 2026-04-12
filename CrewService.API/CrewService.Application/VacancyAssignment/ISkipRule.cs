@@ -10,7 +10,7 @@ public interface ISkipRule
 
 public sealed record SkipRuleCandidate(
     ControlNumber EmployeeCtrlNbr,
-    ControlNumber BoardMemberCtrlNbr,
+    ControlNumber RosterBoardPositionCtrlNbr,
     int OrderIndex);
 
 public sealed record SkipRuleSlot(

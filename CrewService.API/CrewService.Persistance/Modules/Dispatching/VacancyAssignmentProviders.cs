@@ -32,24 +32,23 @@ internal sealed class BoardCandidateProvider(CrewServiceDbContext dbContext) : I
     public async Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(
         ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
     {
-        var now = DateTime.UtcNow;
-
-        var boardIds = await dbContext.Set<ExtraBoard>()
-            .Where(b => b.CraftCtrlNbr == craftCtrlNbr && b.IsActive)
-            .Select(b => b.CtrlNbr)
+        var boards = await dbContext.Set<RosterBoard>()
+            .Include(b => b.Positions)
+            .Where(b => b.CraftCtrlNbr == craftCtrlNbr
+                        && b.IsActive
+                        && b.BoardType == BoardType.ExtraBoard)
             .ToListAsync(ct);
 
-        if (boardIds.Count == 0) return [];
+        if (boards.Count == 0) return [];
 
-        var members = await dbContext.Set<BoardMember>()
-            .Where(m => boardIds.Contains(m.ExtraBoardCtrlNbr)
-                        && m.StartUtc <= now
-                        && (m.EndUtc == null || m.EndUtc > now))
-            .OrderBy(m => m.OrderIndex)
-            .ToListAsync(ct);
+        var positions = boards
+            .SelectMany(b => b.Positions)
+            .Where(p => p.HangoutStatus == "Active")
+            .OrderBy(p => p.PositionOrder)
+            .ToList();
 
-        return [.. members
-            .Select(m => new SkipRuleCandidate(m.EmployeeCtrlNbr, m.CtrlNbr, m.OrderIndex))];
+        return [.. positions
+            .Select(p => new SkipRuleCandidate(p.EmployeeCtrlNbr, p.CtrlNbr, p.PositionOrder))];
     }
 }
 

@@ -11,6 +11,8 @@ public class RosterBoardService()
         return Task.FromResult(new RosterBoardResponse
         {
             CtrlNbr = request.CtrlNbr,
+            BoardType = string.Empty,
+            RotationType = string.Empty,
         });
     }
 

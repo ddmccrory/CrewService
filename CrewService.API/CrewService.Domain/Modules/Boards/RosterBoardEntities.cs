@@ -11,7 +11,10 @@ public sealed class RosterBoard : Entity
 
     public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
     public ControlNumber CraftCtrlNbr { get; private set; }
+    public ControlNumber RosterCtrlNbr { get; private set; }
     public string Name { get; private set; } = string.Empty;
+    public BoardType BoardType { get; private set; }
+    public RotationType RotationType { get; private set; }
     public bool IsActive { get; private set; }
 
     public IReadOnlyList<RosterBoardPosition> Positions => _positions.AsReadOnly();
@@ -20,21 +23,36 @@ public sealed class RosterBoard : Entity
     {
         WorkAreaGroupCtrlNbr = null!;
         CraftCtrlNbr = null!;
+        RosterCtrlNbr = null!;
     }
 
     public static RosterBoard Create(
         ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr,
-        string name, bool isActive = true)
+        ControlNumber rosterCtrlNbr, string name,
+        BoardType boardType = BoardType.Regular,
+        RotationType rotationType = RotationType.StandardRotation,
+        bool isActive = true)
     {
         var board = new RosterBoard
         {
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
+            RosterCtrlNbr = rosterCtrlNbr,
             Name = name,
+            BoardType = boardType,
+            RotationType = rotationType,
             IsActive = isActive
         };
         board.Raise(new RosterBoardCreatedDomainEvent(board.CtrlNbr, name));
         return board;
+    }
+
+    public void Update(string name, BoardType boardType, RotationType rotationType, bool isActive)
+    {
+        Name = name;
+        BoardType = boardType;
+        RotationType = rotationType;
+        IsActive = isActive;
     }
 
     public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder,

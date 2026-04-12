@@ -12,7 +12,7 @@ public class RosterBoardTests
     public void Create_SetsActiveByDefault()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(2), "Yard Board");
+            ControlNumber.Create(1), ControlNumber.Create(2), ControlNumber.Create(100), "Yard Board");
         Assert.True(board.IsActive);
         Assert.Equal("Yard Board", board.Name);
     }
@@ -21,7 +21,7 @@ public class RosterBoardTests
     public void AddPosition_AddsToCollection()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(2), "Yard Board");
+            ControlNumber.Create(1), ControlNumber.Create(2), ControlNumber.Create(100), "Yard Board");
         board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         board.AddPosition(ControlNumber.Create(11), 2, StaffablePosition.Create("Board").CtrlNbr);
 
@@ -32,7 +32,7 @@ public class RosterBoardTests
     public void Deactivate_SetsInactive()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(2), "Yard Board");
+            ControlNumber.Create(1), ControlNumber.Create(2), ControlNumber.Create(100), "Yard Board");
         board.Deactivate();
         Assert.False(board.IsActive);
     }
@@ -44,7 +44,7 @@ public class RosterBoardPositionTests
     public void Hangout_SetsHungOutStatus()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(2), "Test");
+            ControlNumber.Create(1), ControlNumber.Create(2), ControlNumber.Create(100), "Test");
         var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
 
@@ -56,7 +56,7 @@ public class RosterBoardPositionTests
     public void MarkOff_SetsMarkedOffStatus()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(2), "Test");
+            ControlNumber.Create(1), ControlNumber.Create(2), ControlNumber.Create(100), "Test");
         var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.MarkOff();
 
@@ -67,7 +67,7 @@ public class RosterBoardPositionTests
     public void RestoreFromHangout_ResetsToActive()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(2), "Test");
+            ControlNumber.Create(1), ControlNumber.Create(2), ControlNumber.Create(100), "Test");
         var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
         pos.RestoreFromHangout();

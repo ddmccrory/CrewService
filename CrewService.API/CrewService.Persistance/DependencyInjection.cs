@@ -158,8 +158,6 @@ public static class DependencyInjection
         services.AddScoped<IAssignmentScheduleRepository, AssignmentScheduleRepository>();
         
         // Boards Module Repositories
-        services.AddScoped<IExtraBoardRepository, ExtraBoardRepository>();
-        services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
         services.AddScoped<IBoardCascadePolicyRepository, BoardCascadePolicyRepository>();
 
         // Policies Module Repositories

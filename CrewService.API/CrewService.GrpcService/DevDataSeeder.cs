@@ -19,6 +19,7 @@ using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Application.FraCompliance;
+using CrewService.Application.RosterBoardOps;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Domain.Interfaces;
 using CrewService.Presentation;
@@ -984,12 +985,11 @@ internal static class DevDataSeeder
 
         } // end crews guard
 
-        // ?? Section 7: Boards � Extra Boards, Members, Cascade Policies ??????
-        var boardRepo = sp.GetRequiredService<IExtraBoardRepository>();
-        var boardMemberRepo = sp.GetRequiredService<IBoardMemberRepository>();
+        // Section 7: Boards - Roster Boards, Positions, Cascade Policies
+        var rosterBoardRepo = sp.GetRequiredService<IRosterBoardRepository>();
         var cascadeRepo = sp.GetRequiredService<IBoardCascadePolicyRepository>();
 
-        var existingBoards = await boardRepo.GetAllAsync();
+        var existingBoards = await rosterBoardRepo.GetAllAsync();
         if (existingBoards.Count == 0)
         {
         var crafts2 = await craftRepo.GetAllAsync();
@@ -999,19 +999,25 @@ internal static class DevDataSeeder
         var engCraft2 = crafts2.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var condCraft2 = crafts2.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var empList3 = await employeeRepo.GetAllAsync();
-        var now2 = DateTime.UtcNow;
+        var allRosters = await rosterRepo.GetAllAsync();
+        var engRoster = allRosters.First(r => r.RosterName == "Engineer" && r.CraftCtrlNbr == engCraft2.CtrlNbr);
+        var condRoster = allRosters.First(r => r.RosterName == "Conductor" && r.CraftCtrlNbr == condCraft2.CtrlNbr);
 
-        var engBoard = ExtraBoard.Create(engCraft2.CtrlNbr, jaxSub3.CtrlNbr, "PRIMARY", "Jax Engineer Extra Board");
-        var condBoard = ExtraBoard.Create(condCraft2.CtrlNbr, jaxSub3.CtrlNbr, "PRIMARY", "Jax Conductor Extra Board");
-        await boardRepo.AddAsync(engBoard);
-        await boardRepo.AddAsync(condBoard);
+        var engBoard = RosterBoard.Create(jaxSub3.CtrlNbr, engCraft2.CtrlNbr, engRoster.CtrlNbr,
+            "Jax Engineer Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var condBoard = RosterBoard.Create(jaxSub3.CtrlNbr, condCraft2.CtrlNbr, condRoster.CtrlNbr,
+            "Jax Conductor Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        await rosterBoardRepo.AddAsync(engBoard);
+        await rosterBoardRepo.AddAsync(condBoard);
 
-        // Board Members � 5 engineers, 5 conductors
+        // Board Positions - 5 engineers, 5 conductors
         for (int i = 0; i < 5; i++)
         {
-            await boardMemberRepo.AddAsync(BoardMember.Create(engBoard.CtrlNbr, empList3[3 + i].CtrlNbr, i + 1, now2));
-            await boardMemberRepo.AddAsync(BoardMember.Create(condBoard.CtrlNbr, empList3[43 + i].CtrlNbr, i + 1, now2));
+            engBoard.AddPosition(empList3[3 + i].CtrlNbr, i + 1, StaffablePosition.Create("Board").CtrlNbr);
+            condBoard.AddPosition(empList3[43 + i].CtrlNbr, i + 1, StaffablePosition.Create("Board").CtrlNbr);
         }
+        await rosterBoardRepo.UpdateAsync(engBoard);
+        await rosterBoardRepo.UpdateAsync(condBoard);
 
         // Cascade Policies
         await cascadeRepo.AddAsync(BoardCascadePolicy.Create(jaxSub3.CtrlNbr, engCraft2.CtrlNbr,

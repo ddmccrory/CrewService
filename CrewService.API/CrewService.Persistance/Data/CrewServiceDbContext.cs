@@ -126,8 +126,6 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Boards Module
     public DbSet<Domain.Modules.Boards.RosterBoard> RosterBoards => Set<Domain.Modules.Boards.RosterBoard>();
     public DbSet<Domain.Modules.Boards.RosterBoardPosition> RosterBoardPositions => Set<Domain.Modules.Boards.RosterBoardPosition>();
-    public DbSet<Domain.Modules.Boards.ExtraBoard> ExtraBoards => Set<Domain.Modules.Boards.ExtraBoard>();
-    public DbSet<Domain.Modules.Boards.BoardMember> BoardMembers => Set<Domain.Modules.Boards.BoardMember>();
     public DbSet<Domain.Modules.Boards.BoardCascadePolicy> BoardCascadePolicies => Set<Domain.Modules.Boards.BoardCascadePolicy>();
 
     // Payroll Module

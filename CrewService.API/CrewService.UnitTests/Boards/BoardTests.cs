@@ -5,90 +5,66 @@ using Xunit;
 
 namespace CrewService.UnitTests.Boards;
 
-public class ExtraBoardTests
-{
-    [Fact]
-    public void Create_SetsProperties()
-    {
-        var board = ExtraBoard.Create(10, 1, "PRIMARY", "Main Board");
-
-        Assert.Equal("PRIMARY", board.BoardKind);
-        Assert.Equal("Main Board", board.Name);
-        Assert.True(board.IsActive);
-        Assert.Null(board.AuxBoardType);
-        Assert.True(board.DomainEvents.Count > 0);
-    }
-
-    [Fact]
-    public void Create_WithAuxBoardType_SetsValue()
-    {
-        var board = ExtraBoard.Create(10, 1, "AUXILIARY", "Aux Board",
-            auxBoardType: "RELIEF");
-
-        Assert.Equal("RELIEF", board.AuxBoardType);
-    }
-
-    [Fact]
-    public void Update_ChangesProperties()
-    {
-        var board = ExtraBoard.Create(10, 1, "PRIMARY", "Old Name");
-
-        board.Update("New Name", false, "RELIEF");
-
-        Assert.Equal("New Name", board.Name);
-        Assert.False(board.IsActive);
-        Assert.Equal("RELIEF", board.AuxBoardType);
-    }
-}
-
-public class BoardMemberTests
-{
-    [Fact]
-    public void Create_SetsProperties()
-    {
-        var start = DateTime.UtcNow;
-        var member = BoardMember.Create(1, 100, 3, start);
-
-        Assert.Equal(1, member.ExtraBoardCtrlNbr.Value);
-        Assert.Equal(100, member.EmployeeCtrlNbr.Value);
-        Assert.Equal(3, member.OrderIndex);
-        Assert.Equal(start, member.StartUtc);
-        Assert.Null(member.EndUtc);
-    }
-}
-
 public class RosterBoardTests
 {
     [Fact]
     public void Create_SetsProperties()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), "Main Roster");
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
         Assert.Equal("Main Roster", board.Name);
         Assert.True(board.IsActive);
+        Assert.Equal(BoardType.Regular, board.BoardType);
+        Assert.Equal(RotationType.StandardRotation, board.RotationType);
+        Assert.Equal(100, board.RosterCtrlNbr.Value);
         Assert.Empty(board.Positions);
         Assert.True(board.DomainEvents.Count > 0);
+    }
+
+    [Fact]
+    public void Create_WithBoardType_SetsValue()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100),
+            "Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+
+        Assert.Equal(BoardType.ExtraBoard, board.BoardType);
+        Assert.Equal(RotationType.FirstInFirstOut, board.RotationType);
     }
 
     [Fact]
     public void AddPosition_AddsToCollection()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), "Main Roster");
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
-        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         Assert.Single(board.Positions);
-        Assert.Equal(100, pos.EmployeeCtrlNbr.Value);
+        Assert.Equal(200, pos.EmployeeCtrlNbr.Value);
         Assert.Equal(1, pos.PositionOrder);
+    }
+
+    [Fact]
+    public void Update_ChangesProperties()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Old Name");
+
+        board.Update("New Name", BoardType.Training, RotationType.SeniorityBased, false);
+
+        Assert.Equal("New Name", board.Name);
+        Assert.Equal(BoardType.Training, board.BoardType);
+        Assert.Equal(RotationType.SeniorityBased, board.RotationType);
+        Assert.False(board.IsActive);
     }
 
     [Fact]
     public void Deactivate_SetsInactive()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), "Main Roster");
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
         board.Deactivate();
 
@@ -102,8 +78,8 @@ public class RosterBoardPositionTests
     public void Hangout_SetsHungOutStatus()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         pos.Hangout();
 
@@ -115,8 +91,8 @@ public class RosterBoardPositionTests
     public void MarkOff_SetsMarkedOffStatus()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         pos.MarkOff();
 
@@ -127,8 +103,8 @@ public class RosterBoardPositionTests
     public void RestoreFromHangout_ResetsToActive()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(100), 1, StaffablePosition.Create("Board").CtrlNbr);
+            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
 
         pos.RestoreFromHangout();

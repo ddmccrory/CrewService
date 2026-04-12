@@ -26,6 +26,11 @@ message RosterBoardResponse {
   string name = 2;
   bool is_active = 3;
   repeated RosterBoardPositionResponse positions = 4;
+  int64 work_area_group_ctrl_nbr = 5;
+  int64 craft_ctrl_nbr = 6;
+  int64 roster_ctrl_nbr = 7;
+  string board_type = 8;
+  string rotation_type = 9;
 }
 
 message RosterBoardPositionResponse {
