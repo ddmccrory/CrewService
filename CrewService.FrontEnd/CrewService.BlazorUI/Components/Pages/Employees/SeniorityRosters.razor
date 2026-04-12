@@ -1,6 +1,7 @@
 @page "/employees/seniority"
 @rendermode InteractiveServer
 
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models
@@ -13,11 +14,13 @@
 @inject RosterClient RosterClient
 @inject CraftClient CraftClient
 @inject SeniorityClient SeniorityClient
+@inject EmployeeClient EmployeeClient
+@inject SeniorityStateClient StateClient
 
 <PageTitle>Seniority Rosters</PageTitle>
 
 <h1>Seniority Rosters</h1>
-<p class="text-muted">View employees ranked on seniority rosters.</p>
+<p class="text-muted">Manage employees ranked on seniority rosters.</p>
 
 @if (!IsContextFullySelected)
 {
@@ -28,6 +31,95 @@
 }
 else
 {
+    <Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Seniority Entry" : "Add Employee to Roster")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-seniority-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Employee</label>
+                        <SelectInput TItem="GetEmployeeResponse" TValue="long"
+                                     Items="employees"
+                                     @bind-Value="saveModel.EmployeeCtrlNbr"
+                                     ValueSelector="@(e => e.CtrlNbr)"
+                                     TextSelector="@(e => $"{e.EmployeeNumber.ToUpperInvariant()} — {e.UserId}")"
+                                     Placeholder="— Select an employee —"
+                                     class="form-select" />
+                        <ValidationMessage For="() => saveModel.EmployeeCtrlNbr" class="text-danger" />
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Employee</label>
+                        <input type="text" class="form-control" value="@editEmployeeDisplay" disabled />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Rank</label>
+                    <InputNumber @bind-Value="saveModel.Rank" class="form-control" />
+                    <ValidationMessage For="() => saveModel.Rank" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Seniority Date</label>
+                    <InputDate @bind-Value="saveModel.RosterDate" class="form-control" />
+                    <ValidationMessage For="() => saveModel.RosterDate" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Seniority State</label>
+                    <SelectInput TItem="SeniorityStateResponse" TValue="long"
+                                 Items="seniorityStates"
+                                 @bind-Value="saveModel.SeniorityStateCtrlNbr"
+                                 ValueSelector="@(s => s.CtrlNbr)"
+                                 TextSelector="@(s => s.StateDescription)"
+                                 Placeholder="— Select a state —"
+                                 class="form-select" />
+                    <ValidationMessage For="() => saveModel.SeniorityStateCtrlNbr" class="text-danger" />
+                </div>
+                <div class="mb-3 form-check form-switch">
+                    <InputCheckbox @bind-Value="saveModel.CanTrain" class="form-check-input" id="canTrainCheck" />
+                    <label class="form-check-label" for="canTrainCheck">Can Train</label>
+                </div>
+                <div class="mb-3 form-check form-switch">
+                    <InputCheckbox @bind-Value="saveModel.LastActiveRoster" class="form-check-input" id="lastActiveCheck" />
+                    <label class="form-check-label" for="lastActiveCheck">Last Active Roster</label>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-seniority-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Add")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to remove <strong>@deleteEmployeeDisplay</strong> from this roster?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Remove
+            </button>
+        </Footer>
+    </Modal>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
     <div class="row mb-3">
         <div class="col-md-4">
             <label class="form-label fw-semibold">Craft</label>
@@ -54,14 +146,6 @@ else
         </div>
     </div>
 
-    @if (errorMessage is not null)
-    {
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            @errorMessage
-            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
-        </div>
-    }
-
     @if (selectedCraftCtrlNbr == 0)
     {
         <p class="text-muted">Select a craft above to view its rosters.</p>
@@ -81,16 +165,37 @@ else
                    SearchPlaceholder="Search employees..."
                    EmptyMessage="No employees found on this roster."
                    DefaultSortColumn="Rank">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Add Employee
+                    </button>
+                }
+            </ToolbarContent>
             <RowContent Context="entry">
                 <td>@entry.Rank</td>
                 <td>@entry.EmployeeNumber.ToUpperInvariant()</td>
                 <td>@entry.EmployeeUserId</td>
-                <td>@entry.RosterDate</td>
+                <td>@FormatDate(entry.RosterDate)</td>
                 <td>@entry.SeniorityStateName</td>
                 <td>
                     <div class="form-check form-switch">
                         <input type="checkbox" class="form-check-input" checked="@entry.CanTrain" disabled />
                     </div>
+                </td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(entry)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(entry)">
+                                <span class="bi bi-trash"></span> Remove
+                            </button>
+                        </div>
+                    }
                 </td>
             </RowContent>
         </DataTable>
@@ -107,15 +212,28 @@ else
     private long selectedCraftCtrlNbr;
     private long selectedRosterCtrlNbr;
 
+    private IReadOnlyList<GetEmployeeResponse>? employees;
+    private IReadOnlyList<SeniorityStateResponse>? seniorityStates;
+
     private IReadOnlyList<DataTableColumn<SeniorityResponse>> Columns =>
     [
-        new("Rank", s => s.Rank.ToString(), sortKey: "Rank"),
+        new("Rank", s => s.Rank, sortKey: "Rank"),
         new("Employee #", s => s.EmployeeNumber.ToUpperInvariant()),
         new("User ID", s => s.EmployeeUserId),
         new("Seniority Date", s => s.RosterDate),
         new("State", s => s.SeniorityStateName),
-        new("Can Train", s => s.CanTrain ? "Yes" : "No")
+        new("Can Train", s => s.CanTrain ? "Yes" : "No"),
+        DataTableColumn<SeniorityResponse>.Actions()
     ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private string editEmployeeDisplay = "";
+    private SeniorityInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteEmployeeDisplay = "";
 
     protected override async Task LoadDataAsync()
     {
@@ -128,6 +246,8 @@ else
         selectedRosterCtrlNbr = 0;
         rosters = null;
         seniorityEntries = null;
+        employees = null;
+        seniorityStates = null;
         await LoadCrafts();
     }
 
@@ -211,5 +331,147 @@ else
             errorMessage = $"Failed to load seniority data: {ex.Message}";
             seniorityEntries = [];
         }
+    }
+
+    private async Task EnsureModalDataLoaded()
+    {
+        if (employees is null)
+        {
+            var empResponse = await EmployeeClient.GetAllAsync();
+            employees = empResponse.Employees.ToList();
+        }
+
+        if (seniorityStates is null && SelectedParentCtrlNbr is long parentCtrlNbr)
+        {
+            var stateResponse = await StateClient.GetAllAsync(parentCtrlNbr);
+            seniorityStates = stateResponse.States.ToList();
+        }
+    }
+
+    private async Task OpenCreateModal()
+    {
+        await EnsureModalDataLoaded();
+        editCtrlNbr = 0;
+        editEmployeeDisplay = "";
+        saveModel = new() { RosterDate = DateTime.Today, LastActiveRoster = true };
+        showSaveModal = true;
+    }
+
+    private async Task OpenEditModal(SeniorityResponse entry)
+    {
+        await EnsureModalDataLoaded();
+        editCtrlNbr = entry.CtrlNbr;
+        editEmployeeDisplay = $"{entry.EmployeeNumber.ToUpperInvariant()} — {entry.EmployeeUserId}";
+        saveModel = new()
+        {
+            EmployeeCtrlNbr = entry.EmployeeCtrlNbr,
+            Rank = entry.Rank,
+            RosterDate = DateTime.TryParse(entry.RosterDate, out var dt) ? dt : DateTime.Today,
+            SeniorityStateCtrlNbr = entry.SeniorityStateCtrlNbr,
+            CanTrain = entry.CanTrain,
+            LastActiveRoster = entry.LastActiveRoster
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        editEmployeeDisplay = "";
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(SeniorityResponse entry)
+    {
+        deleteCtrlNbr = entry.CtrlNbr;
+        deleteEmployeeDisplay = $"{entry.EmployeeNumber.ToUpperInvariant()} — {entry.EmployeeUserId}";
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await SeniorityClient.UpdateAsync(new UpdateSeniorityRequest
+                {
+                    CtrlNbr = editCtrlNbr,
+                    Rank = saveModel.Rank,
+                    RosterDate = saveModel.RosterDate.ToString("yyyy-MM-dd"),
+                    SeniorityStateCtrlNbr = saveModel.SeniorityStateCtrlNbr,
+                    CanTrain = saveModel.CanTrain,
+                    LastActiveRoster = saveModel.LastActiveRoster
+                });
+                successMessage = "Seniority entry updated.";
+            }
+            else
+            {
+                await SeniorityClient.CreateAsync(new CreateSeniorityRequest
+                {
+                    RosterCtrlNbr = selectedRosterCtrlNbr,
+                    EmployeeCtrlNbr = saveModel.EmployeeCtrlNbr,
+                    Rank = saveModel.Rank,
+                    RosterDate = saveModel.RosterDate.ToString("yyyy-MM-dd"),
+                    SeniorityStateCtrlNbr = saveModel.SeniorityStateCtrlNbr,
+                    CanTrain = saveModel.CanTrain,
+                    LastActiveRoster = saveModel.LastActiveRoster
+                });
+                successMessage = "Employee added to roster.";
+            }
+
+            CloseSaveModal();
+            await LoadSeniorityEntries();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save seniority entry: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await SeniorityClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Employee removed from roster.";
+            showDeleteModal = false;
+            await LoadSeniorityEntries();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to remove employee: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    private sealed class SeniorityInputModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+
+        [Required(ErrorMessage = "Rank is required.")]
+        [Range(1, 9999, ErrorMessage = "Rank must be between 1 and 9999.")]
+        public int Rank { get; set; }
+
+        [Required(ErrorMessage = "Seniority date is required.")]
+        public DateTime RosterDate { get; set; } = DateTime.Today;
+
+        [Range(1, long.MaxValue, ErrorMessage = "Seniority state is required.")]
+        public long SeniorityStateCtrlNbr { get; set; }
+
+        public bool CanTrain { get; set; }
+        public bool LastActiveRoster { get; set; } = true;
     }
 }
