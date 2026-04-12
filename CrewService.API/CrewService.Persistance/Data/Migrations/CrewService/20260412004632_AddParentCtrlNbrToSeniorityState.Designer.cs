@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260412004632_AddParentCtrlNbrToSeniorityState")]
+    partial class AddParentCtrlNbrToSeniorityState
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -552,7 +555,13 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("ExtraBoard")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("OvertimeBoard")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("RailroadPayrollDepartmentCtrlNbr")
@@ -570,6 +579,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("Training")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
 
@@ -607,7 +619,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime>("RosterDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("SeniorityStateCtrlNbr")
+                    b.Property<int>("StateID")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("CtrlNbr");
@@ -615,8 +627,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("EmployeeCtrlNbr");
 
                     b.HasIndex("RosterCtrlNbr");
-
-                    b.HasIndex("SeniorityStateCtrlNbr");
 
                     b.ToTable("Seniority");
                 });
@@ -626,8 +636,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("CtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CutBack")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
@@ -640,14 +659,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("StateType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
                     b.HasKey("CtrlNbr");
-
-                    b.HasIndex("ParentCtrlNbr");
 
                     b.ToTable("SeniorityStates");
                 });
@@ -6051,12 +6063,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CrewService.Domain.Models.Seniority.SeniorityState", null)
-                        .WithMany()
-                        .HasForeignKey("SeniorityStateCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("SeniorityCtrlNbr")
@@ -6129,12 +6135,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.SeniorityState", b =>
                 {
-                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
-                        .WithMany()
-                        .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {
                             b1.Property<long>("SeniorityStateCtrlNbr")

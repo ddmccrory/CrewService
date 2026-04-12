@@ -114,4 +114,5 @@ public interface ISeniorityRepository : IRepository<Seniority>
 
 public interface ISeniorityStateRepository : IRepository<SeniorityState>
 {
+    Task<List<SeniorityState>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
 }

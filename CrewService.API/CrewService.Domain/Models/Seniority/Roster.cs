@@ -11,9 +11,6 @@ public sealed class Roster : Entity
     public string RosterName { get; private set; } = string.Empty;
     public string RosterPluralName { get; private set; } = string.Empty;
     public int RosterNumber { get; private set; }
-    public bool Training { get; private set; }
-    public bool ExtraBoard { get; private set; }
-    public bool OvertimeBoard { get; private set; }
 
     private Roster()
     {
@@ -26,19 +23,13 @@ public sealed class Roster : Entity
         ControlNumber railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
-        int rosterNumber,
-        bool training,
-        bool extraBoard,
-        bool overtimeBoard)
+        int rosterNumber)
     {
         CraftCtrlNbr = craftCtrlNbr;
         RailroadPayrollDepartmentCtrlNbr = railroadPayrollDepartmentCtrlNbr;
         RosterName = rosterName;
         RosterPluralName = rosterPluralName;
         RosterNumber = rosterNumber;
-        Training = training;
-        ExtraBoard = extraBoard;
-        OvertimeBoard = overtimeBoard;
     }
 
     public static Roster Create(
@@ -46,20 +37,14 @@ public sealed class Roster : Entity
         ControlNumber railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
-        int rosterNumber,
-        bool training,
-        bool extraBoard,
-        bool overtimeBoard)
+        int rosterNumber)
     {
         var entity = new Roster(
             craftCtrlNbr,
             railroadPayrollDepartmentCtrlNbr,
             rosterName,
             rosterPluralName,
-            rosterNumber,
-            training,
-            extraBoard,
-            overtimeBoard);
+            rosterNumber);
         entity.Raise(new RosterCreatedDomainEvent(entity.CtrlNbr));
         return entity;
     }
@@ -67,19 +52,13 @@ public sealed class Roster : Entity
     public Roster Update(
         string? rosterName = null,
         string? rosterPluralName = null,
-        int? rosterNumber = null,
-        bool? training = null,
-        bool? extraBoard = null,
-        bool? overtimeBoard = null)
+        int? rosterNumber = null)
     {
         var changes = new Dictionary<string, object?>();
 
         if (rosterName is not null) { RosterName = rosterName; changes["rosterName"] = rosterName; }
         if (rosterPluralName is not null) { RosterPluralName = rosterPluralName; changes["rosterPluralName"] = rosterPluralName; }
         if (rosterNumber is not null) { RosterNumber = rosterNumber.Value; changes["rosterNumber"] = rosterNumber.Value; }
-        if (training is not null) { Training = training.Value; changes["training"] = training.Value; }
-        if (extraBoard is not null) { ExtraBoard = extraBoard.Value; changes["extraBoard"] = extraBoard.Value; }
-        if (overtimeBoard is not null) { OvertimeBoard = overtimeBoard.Value; changes["overtimeBoard"] = overtimeBoard.Value; }
 
         if (changes.Count > 0)
         {

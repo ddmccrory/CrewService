@@ -14,7 +14,10 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
     public override async Task<GetAllRosterResponse> GetAllAsync(GetAllRosterRequest request, ServerCallContext context)
     {
         var response = new GetAllRosterResponse();
-        var rosters = await _rosterRepository.GetAllAsync();
+
+        var rosters = request.CraftCtrlNbr > 0
+            ? await _rosterRepository.GetByCraftCtrlNbrAsync(ControlNumber.Create(request.CraftCtrlNbr))
+            : await _rosterRepository.GetAllAsync();
 
         foreach (var roster in rosters)
         {
@@ -25,10 +28,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
                 RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
                 RosterName = roster.RosterName,
                 RosterPluralName = roster.RosterPluralName,
-                RosterNumber = roster.RosterNumber,
-                Training = roster.Training,
-                ExtraBoard = roster.ExtraBoard,
-                OvertimeBoard = roster.OvertimeBoard
+                RosterNumber = roster.RosterNumber
             });
         }
 
@@ -46,10 +46,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
             RailroadPayrollDepartmentCtrlNbr = roster?.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
             RosterName = roster?.RosterName ?? string.Empty,
             RosterPluralName = roster?.RosterPluralName ?? string.Empty,
-            RosterNumber = roster?.RosterNumber ?? 0,
-            Training = roster?.Training ?? false,
-            ExtraBoard = roster?.ExtraBoard ?? false,
-            OvertimeBoard = roster?.OvertimeBoard ?? false
+            RosterNumber = roster?.RosterNumber ?? 0
         });
     }
 
@@ -60,10 +57,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
             request.RailroadPayrollDepartmentCtrlNbr,
             request.RosterName,
             request.RosterPluralName,
-            request.RosterNumber,
-            request.Training,
-            request.ExtraBoard,
-            request.OvertimeBoard);
+            request.RosterNumber);
 
         await _rosterRepository.AddAsync(roster);
 
@@ -74,10 +68,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
             RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
             RosterName = roster.RosterName,
             RosterPluralName = roster.RosterPluralName,
-            RosterNumber = roster.RosterNumber,
-            Training = roster.Training,
-            ExtraBoard = roster.ExtraBoard,
-            OvertimeBoard = roster.OvertimeBoard
+            RosterNumber = roster.RosterNumber
         });
     }
 
@@ -89,10 +80,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
         roster.Update(
             request.RosterName,
             request.RosterPluralName,
-            request.RosterNumber,
-            request.Training,
-            request.ExtraBoard,
-            request.OvertimeBoard);
+            request.RosterNumber);
 
         await _rosterRepository.UpdateAsync(roster);
 
@@ -103,10 +91,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
             RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
             RosterName = roster.RosterName,
             RosterPluralName = roster.RosterPluralName,
-            RosterNumber = roster.RosterNumber,
-            Training = roster.Training,
-            ExtraBoard = roster.ExtraBoard,
-            OvertimeBoard = roster.OvertimeBoard
+            RosterNumber = roster.RosterNumber
         });
     }
 

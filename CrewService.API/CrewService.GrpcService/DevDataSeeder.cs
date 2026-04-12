@@ -182,6 +182,31 @@ internal static class DevDataSeeder
                 await groupTypeRepo.AddAsync(GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: pCtrl));
         }
 
+        // Backfill seniority states for pre-existing parents that may be missing states
+        var seniorityStateRepo = sp.GetRequiredService<ISeniorityStateRepository>();
+        var defaultStates = new (string Description, StateType Type)[]
+        {
+            ("Active", StateType.Active),
+            ("Cut Back", StateType.CutBack),
+            ("Inactive", StateType.Inactive),
+            ("Terminated", StateType.Inactive),
+            ("Dismissed", StateType.Inactive),
+            ("Leave of Absence", StateType.Inactive),
+            ("Medical Leave", StateType.Inactive),
+            ("Retired", StateType.Inactive)
+        };
+
+        foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
+        {
+            var pCtrl = parentCore.CtrlNbr.Value;
+            var existingStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(parentCore.CtrlNbr);
+            foreach (var (desc, type) in defaultStates)
+            {
+                if (!existingStates.Any(s => s.StateDescription == desc))
+                    await seniorityStateRepo.AddAsync(SeniorityState.Create(desc, type, pCtrl));
+            }
+        }
+
         // Backfill group types scoped to CSX Corporation
         groupTypesBackfill = await groupTypeRepo.GetAllAsync();
         var csxParentCtrlNbr = csxParentCore.CtrlNbr.Value;
@@ -532,21 +557,21 @@ internal static class DevDataSeeder
         var csxRailroadsForRoster = await groupRepo.GetByGroupTypeNameAsync("Railroad");
         var csxRailroad = csxRailroadsForRoster.First(rr => rr.Code == "CSX");
 
-        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxRailroad.CtrlNbr, "Engineer Roster", "Engineer Rosters", 1,
-            training: false, extraBoard: false, overtimeBoard: false);
+        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxRailroad.CtrlNbr, "Engineer Roster", "Engineer Rosters", 1);
         await rosterRepo.AddAsync(csxEngRoster);
 
-        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxRailroad.CtrlNbr, "Conductor Roster", "Conductor Rosters", 2,
-            training: false, extraBoard: false, overtimeBoard: false);
+        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxRailroad.CtrlNbr, "Conductor Roster", "Conductor Rosters", 2);
         await rosterRepo.AddAsync(csxCondRoster);
 
-        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxRailroad.CtrlNbr, "Clerical Roster", "Clerical Rosters", 3,
-            training: false, extraBoard: false, overtimeBoard: false);
+        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxRailroad.CtrlNbr, "Clerical Roster", "Clerical Rosters", 3);
         await rosterRepo.AddAsync(csxClericalRoster);
 
         // Seniority entries � split 100 employees: 40 Engineer, 50 Conductor, 10 Clerical
         var empList = await employeeRepo.GetAllAsync();
         var rosterDate = new DateTime(2015, 1, 1);
+
+        var csxStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(csxParentCore.CtrlNbr);
+        var activeState = csxStates.First(s => s.StateDescription == "Active");
 
         for (int i = 0; i < empList.Count; i++)
         {
@@ -560,7 +585,7 @@ internal static class DevDataSeeder
                 lastActiveRoster: true,
                 rosterDate: rosterDate.AddDays(i * 12),
                 rank: i + 1,
-                stateID: 1,
+                seniorityStateCtrlNbr: activeState.CtrlNbr,
                 canTrain: i % 5 == 0);
             await seniorityRepo.AddAsync(seniority);
         }

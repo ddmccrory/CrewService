@@ -31,7 +31,7 @@ public class SeniorityService(
                 LastActiveRoster = seniority.LastActiveRoster,
                 RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
                 Rank = seniority.Rank,
-                StateId = seniority.StateID,
+                SeniorityStateCtrlNbr = seniority.SeniorityStateCtrlNbr.Value,
                 CanTrain = seniority.CanTrain
             });
         }
@@ -52,7 +52,7 @@ public class SeniorityService(
             LastActiveRoster = seniority.LastActiveRoster,
             RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
             Rank = seniority.Rank,
-            StateId = seniority.StateID,
+            SeniorityStateCtrlNbr = seniority.SeniorityStateCtrlNbr.Value,
             CanTrain = seniority.CanTrain
         });
     }
@@ -65,7 +65,7 @@ public class SeniorityService(
             request.LastActiveRoster,
             DateTime.Parse(request.RosterDate),
             request.Rank,
-            request.StateId,
+            ControlNumber.Create(request.SeniorityStateCtrlNbr),
             request.CanTrain);
 
         await _seniorityRepository.AddAsync(seniority);
@@ -78,7 +78,7 @@ public class SeniorityService(
             LastActiveRoster = seniority.LastActiveRoster,
             RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
             Rank = seniority.Rank,
-            StateId = seniority.StateID,
+            SeniorityStateCtrlNbr = seniority.SeniorityStateCtrlNbr.Value,
             CanTrain = seniority.CanTrain
         });
     }
@@ -92,7 +92,7 @@ public class SeniorityService(
             request.LastActiveRoster,
             DateTime.Parse(request.RosterDate),
             request.Rank,
-            request.StateId,
+            ControlNumber.Create(request.SeniorityStateCtrlNbr),
             request.CanTrain);
 
         await _seniorityRepository.UpdateAsync(seniority);
@@ -105,7 +105,7 @@ public class SeniorityService(
             LastActiveRoster = seniority.LastActiveRoster,
             RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
             Rank = seniority.Rank,
-            StateId = seniority.StateID,
+            SeniorityStateCtrlNbr = seniority.SeniorityStateCtrlNbr.Value,
             CanTrain = seniority.CanTrain
         });
     }

@@ -1,0 +1,282 @@
+@page "/employees/seniority-states"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject SeniorityStateClient StateClient
+
+<PageTitle>Seniority States</PageTitle>
+
+<h1>Seniority States</h1>
+<p class="text-muted">Manage seniority states for employees (e.g., Active, Cut Back, Terminated, Retired).</p>
+
+@if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage seniority states.
+    </div>
+}
+else
+{
+    <Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Seniority State" : "Create Seniority State")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-senioritystate-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Description</label>
+                    <InputText @bind-Value="saveModel.StateDescription" class="form-control" placeholder="e.g. Active, Terminated, Retired" />
+                    <ValidationMessage For="() => saveModel.StateDescription" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">State Type</label>
+                    <InputSelect @bind-Value="saveModel.StateType" class="form-select">
+                        <option value="">— Select a state type —</option>
+                        <option value="Active">Active</option>
+                        <option value="CutBack">Cut Back</option>
+                        <option value="Inactive">Inactive</option>
+                    </InputSelect>
+                    <ValidationMessage For="() => saveModel.StateType" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-senioritystate-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteStateName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (states is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <DataTable TItem="SeniorityStateResponse" Items="states" Columns="Columns"
+                   SearchFilter="@((s, term) => s.StateDescription.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search states..."
+                   EmptyMessage="No seniority states defined yet."
+                   DefaultSortColumn="Description">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Create State
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="state">
+                <td>@state.StateDescription</td>
+                <td>@FormatStateType(state.StateType)</td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(state)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(state)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "employees/seniority-states";
+
+    private IReadOnlyList<SeniorityStateResponse>? states;
+
+    private IReadOnlyList<DataTableColumn<SeniorityStateResponse>> Columns =>
+    [
+        new("Description", s => s.StateDescription),
+        new("State Type", s => FormatStateType(s.StateType)),
+        DataTableColumn<SeniorityStateResponse>.Actions()
+    ];
+
+    private static string FormatStateType(string type) => type switch
+    {
+        "Active" => "Active",
+        "CutBack" => "Cut Back",
+        "Inactive" => "Inactive",
+        _ => type
+    };
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private SeniorityStateInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteStateName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadStates();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadStates();
+    }
+
+    private async Task LoadStates()
+    {
+        try
+        {
+            if (SelectedParentCtrlNbr is not long parentCtrlNbr)
+            {
+                states = [];
+                return;
+            }
+
+            var response = await StateClient.GetAllAsync(parentCtrlNbr);
+            states = response.States.ToList();
+        }
+        catch
+        {
+            states = [];
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new();
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(SeniorityStateResponse state)
+    {
+        editCtrlNbr = state.CtrlNbr;
+        saveModel = new()
+        {
+            StateDescription = state.StateDescription,
+            StateType = state.StateType ?? string.Empty
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(SeniorityStateResponse state)
+    {
+        deleteCtrlNbr = state.CtrlNbr;
+        deleteStateName = state.StateDescription;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await StateClient.UpdateAsync(new UpdateSeniorityStateRequest
+                {
+                    CtrlNbr = editCtrlNbr,
+                    StateDescription = saveModel.StateDescription ?? string.Empty,
+                    StateType = saveModel.StateType ?? string.Empty
+                });
+                successMessage = "Seniority state updated.";
+            }
+            else
+            {
+                await StateClient.CreateAsync(new CreateSeniorityStateRequest
+                {
+                    StateDescription = saveModel.StateDescription ?? string.Empty,
+                    StateType = saveModel.StateType ?? string.Empty,
+                    ParentCtrlNbr = SelectedParentCtrlNbr ?? 0
+                });
+                successMessage = "Seniority state created.";
+            }
+
+            CloseSaveModal();
+            await LoadStates();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save seniority state: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await StateClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Seniority state deleted.";
+            showDeleteModal = false;
+            await LoadStates();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete seniority state: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    private sealed class SeniorityStateInputModel
+    {
+        [Required(ErrorMessage = "Description is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? StateDescription { get; set; }
+
+        [Required(ErrorMessage = "State type is required.")]
+        public string? StateType { get; set; }
+    }
+}

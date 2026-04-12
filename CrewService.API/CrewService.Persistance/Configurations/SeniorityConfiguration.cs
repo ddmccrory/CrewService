@@ -24,14 +24,19 @@ internal class SeniorityConfiguration : IEntityTypeConfiguration<Seniority>
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
+        builder.Property(s => s.SeniorityStateCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr.Value,
+            value => ControlNumber.Create(value));
+
         builder.Property(s => s.LastActiveRoster).IsRequired();
         builder.Property(s => s.RosterDate).IsRequired();
         builder.Property(s => s.Rank).IsRequired();
-        builder.Property(s => s.StateID).IsRequired();
+        builder.Property(s => s.SeniorityStateCtrlNbr).IsRequired();
         builder.Property(s => s.CanTrain).IsRequired();
 
         builder.HasOne<Roster>().WithMany().HasForeignKey(s => s.RosterCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(s => s.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<SeniorityState>().WithMany().HasForeignKey(s => s.SeniorityStateCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(s => s.CreatedBy, audit =>
         {

@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,9 +17,18 @@ internal class SeniorityStateConfiguration : IEntityTypeConfiguration<SeniorityS
             value => ControlNumber.Create(value));
 
         builder.Property(s => s.StateDescription).HasMaxLength(100).IsRequired();
-        builder.Property(s => s.Active).IsRequired();
-        builder.Property(s => s.CutBack).IsRequired();
-        builder.Property(s => s.Inactive).IsRequired();
+        builder.Property(s => s.StateType)
+            .HasConversion(
+                t => t.ToString(),
+                s => Enum.Parse<StateType>(s))
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(s => s.ParentCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr.Value,
+            value => ControlNumber.Create(value));
+
+        builder.HasOne<Parent>().WithMany().HasForeignKey(s => s.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(s => s.CreatedBy, audit =>
         {

@@ -2,6 +2,7 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
@@ -98,6 +99,25 @@ public class ParentService(IParentRepository parentRepository, IDynamicGroupRepo
                 isWorkArea: false,
                 parentCtrlNbr: parent.CtrlNbr.Value);
             uow.GroupTypes.Add(systemType);
+        }
+
+        // Auto-seed default SeniorityStates for the new parent
+        var defaultStates = new (string Description, StateType Type)[]
+        {
+            ("Active", StateType.Active),
+            ("Cut Back", StateType.CutBack),
+            ("Inactive", StateType.Inactive),
+            ("Terminated", StateType.Inactive),
+            ("Dismissed", StateType.Inactive),
+            ("Leave of Absence", StateType.Inactive),
+            ("Medical Leave", StateType.Inactive),
+            ("Retired", StateType.Inactive)
+        };
+
+        foreach (var (desc, type) in defaultStates)
+        {
+            var seniorityState = SeniorityState.Create(desc, type, parent.CtrlNbr.Value);
+            uow.SeniorityStates.Add(seniorityState);
         }
 
         await uow.CommitAsync();

@@ -1,52 +1,46 @@
 using CrewService.Domain.DomainEvents.Seniority;
 using CrewService.Domain.Primitives;
+using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Models.Seniority;
 
 public sealed class SeniorityState : Entity
 {
     public string StateDescription { get; private set; } = string.Empty;
-    public bool Active { get; private set; }
-    public bool CutBack { get; private set; }
-    public bool Inactive { get; private set; }
+    public StateType StateType { get; private set; }
+    public ControlNumber ParentCtrlNbr { get; private set; } = null!;
 
     private SeniorityState() { }
 
     private SeniorityState(
         string stateDescription,
-        bool active,
-        bool cutBack,
-        bool inactive)
+        StateType stateType,
+        ControlNumber parentCtrlNbr)
     {
         StateDescription = stateDescription;
-        Active = active;
-        CutBack = cutBack;
-        Inactive = inactive;
+        StateType = stateType;
+        ParentCtrlNbr = parentCtrlNbr;
     }
 
     public static SeniorityState Create(
         string stateDescription,
-        bool active,
-        bool cutBack,
-        bool inactive)
+        StateType stateType,
+        long parentCtrlNbr)
     {
         var entity = new SeniorityState(
             stateDescription,
-            active,
-            cutBack,
-            inactive);
+            stateType,
+            parentCtrlNbr);
         entity.Raise(new SeniorityStateCreatedDomainEvent(entity.CtrlNbr));
         return entity;
     }
 
-    public void Update(string stateDescription, bool active, bool cutBack, bool inactive)
+    public void Update(string stateDescription, StateType stateType)
     {
         var changes = new Dictionary<string, object?>();
 
         if (StateDescription != stateDescription) { StateDescription = stateDescription; changes["stateDescription"] = stateDescription; }
-        if (Active != active) { Active = active; changes["active"] = active; }
-        if (CutBack != cutBack) { CutBack = cutBack; changes["cutBack"] = cutBack; }
-        if (Inactive != inactive) { Inactive = inactive; changes["inactive"] = inactive; }
+        if (StateType != stateType) { StateType = stateType; changes["stateType"] = stateType; }
 
         if (changes.Count > 0)
         {

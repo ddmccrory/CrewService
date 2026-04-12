@@ -277,13 +277,13 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/seniority-states", "employees/prior-service", "admin/invitations"))
                 {
                     <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
                         @if (Permissions.HasAccess("employees"))
                         {
                             <div class="nav-item">
-                                <NavLink class="nav-link" href="employees">
+                                <NavLink class="nav-link" href="employees" Match="NavLinkMatch.All">
                                     <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Employees
                                 </NavLink>
                             </div>
@@ -293,6 +293,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/seniority">
                                     <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("employees/seniority-states"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/seniority-states">
+                                    <span class="bi bi-diagram-2" aria-hidden="true"></span> Seniority States
                                 </NavLink>
                             </div>
                         }
