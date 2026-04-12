@@ -1,7 +1,6 @@
 @page "/employees/seniority"
 @rendermode InteractiveServer
 
-@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models
@@ -13,17 +12,18 @@
 
 @inject RosterClient RosterClient
 @inject CraftClient CraftClient
+@inject SeniorityClient SeniorityClient
 
 <PageTitle>Seniority Rosters</PageTitle>
 
 <h1>Seniority Rosters</h1>
-<p class="text-muted">Manage seniority rosters for each craft.</p>
+<p class="text-muted">View employees ranked on seniority rosters.</p>
 
 @if (!IsContextFullySelected)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>
-        Please select a parent and railroad in the context switcher to manage seniority rosters.
+        Please select a parent and railroad in the context switcher to view seniority rosters.
     </div>
 }
 else
@@ -40,57 +40,19 @@ else
                           Placeholder="— Select a craft —"
                           class="form-select" />
         </div>
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Roster</label>
+            <FilterSelect TItem="RosterResponse" TValue="long"
+                          Items="rosters"
+                          Value="selectedRosterCtrlNbr"
+                          ValueChanged="OnRosterChanged"
+                          ValueSelector="@(r => r.CtrlNbr)"
+                          TextSelector="@(r => r.RosterName)"
+                          Placeholder="— Select a roster —"
+                          disabled="@(selectedCraftCtrlNbr == 0)"
+                          class="form-select" />
+        </div>
     </div>
-
-    <Modal Visible="showSaveModal"
-           Title="@(editCtrlNbr > 0 ? "Edit Roster" : "Create Roster")"
-           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
-           OnClose="CloseSaveModal"
-           Size="lg">
-        <BodyContent>
-            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-roster-form">
-                <DataAnnotationsValidator />
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Roster Name</label>
-                        <InputText @bind-Value="saveModel.RosterName" class="form-control" placeholder="e.g. Engineer Roster" />
-                        <ValidationMessage For="() => saveModel.RosterName" class="text-danger" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Plural Name</label>
-                        <InputText @bind-Value="saveModel.RosterPluralName" class="form-control" placeholder="e.g. Engineer Rosters" />
-                        <ValidationMessage For="() => saveModel.RosterPluralName" class="text-danger" />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Roster Number</label>
-                        <InputNumber @bind-Value="saveModel.RosterNumber" class="form-control" />
-                        <ValidationMessage For="() => saveModel.RosterNumber" class="text-danger" />
-                    </div>
-                </div>
-            </EditForm>
-        </BodyContent>
-        <Footer>
-            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
-            <button type="submit" form="save-roster-form" class="btn btn-primary" disabled="@isSaving">
-                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
-            </button>
-        </Footer>
-    </Modal>
-
-    <Modal Visible="showDeleteModal"
-           OnClose="() => showDeleteModal = false" Size="sm">
-        <BodyContent>
-            <p>Are you sure you want to delete <strong>@deleteRosterName</strong>?</p>
-        </BodyContent>
-        <Footer>
-            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
-            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
-                <span class="bi bi-trash me-1"></span> Delete
-            </button>
-        </Footer>
-    </Modal>
-
-    <SuccessAlert @bind-Message="successMessage" />
 
     @if (errorMessage is not null)
     {
@@ -104,41 +66,31 @@ else
     {
         <p class="text-muted">Select a craft above to view its rosters.</p>
     }
-    else if (rosters is null)
+    else if (selectedRosterCtrlNbr == 0)
+    {
+        <p class="text-muted">Select a roster above to view employees.</p>
+    }
+    else if (seniorityEntries is null)
     {
         <p><em>Loading...</em></p>
     }
     else
     {
-        <DataTable TItem="RosterResponse" Items="rosters" Columns="Columns"
-                   SearchFilter="@((r, term) => r.RosterName.Contains(term, StringComparison.OrdinalIgnoreCase) || r.RosterPluralName.Contains(term, StringComparison.OrdinalIgnoreCase))"
-                   SearchPlaceholder="Search rosters..."
-                   EmptyMessage="No rosters found for this craft."
-                   DefaultSortColumn="Number">
-            <ToolbarContent>
-                @if (!IsFeatureReadOnly)
-                {
-                    <button class="btn btn-primary" @onclick="OpenCreateModal">
-                        <span class="bi bi-plus-circle"></span> Create Roster
-                    </button>
-                }
-            </ToolbarContent>
-            <RowContent Context="roster">
-                <td>@roster.RosterNumber</td>
-                <td>@roster.RosterName</td>
-                <td>@roster.RosterPluralName</td>
+        <DataTable TItem="SeniorityResponse" Items="seniorityEntries" Columns="Columns"
+                   SearchFilter="@((s, term) => s.EmployeeNumber.Contains(term, StringComparison.OrdinalIgnoreCase) || s.EmployeeUserId.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search employees..."
+                   EmptyMessage="No employees found on this roster."
+                   DefaultSortColumn="Rank">
+            <RowContent Context="entry">
+                <td>@entry.Rank</td>
+                <td>@entry.EmployeeNumber.ToUpperInvariant()</td>
+                <td>@entry.EmployeeUserId</td>
+                <td>@entry.RosterDate</td>
+                <td>@entry.SeniorityStateName</td>
                 <td>
-                    @if (!IsFeatureReadOnly)
-                    {
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(roster)">
-                                <span class="bi bi-pencil"></span> Edit
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(roster)">
-                                <span class="bi bi-trash"></span> Delete
-                            </button>
-                        </div>
-                    }
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" checked="@entry.CanTrain" disabled />
+                    </div>
                 </td>
             </RowContent>
         </DataTable>
@@ -150,23 +102,20 @@ else
 
     private IReadOnlyList<CraftResponse>? crafts;
     private IReadOnlyList<RosterResponse>? rosters;
+    private IReadOnlyList<SeniorityResponse>? seniorityEntries;
+
     private long selectedCraftCtrlNbr;
+    private long selectedRosterCtrlNbr;
 
-    private IReadOnlyList<DataTableColumn<RosterResponse>> Columns =>
+    private IReadOnlyList<DataTableColumn<SeniorityResponse>> Columns =>
     [
-        new("Number", r => r.RosterNumber.ToString(), sortKey: "Number"),
-        new("Name", r => r.RosterName),
-        new("Plural Name", r => r.RosterPluralName),
-        DataTableColumn<RosterResponse>.Actions()
+        new("Rank", s => s.Rank.ToString(), sortKey: "Rank"),
+        new("Employee #", s => s.EmployeeNumber.ToUpperInvariant()),
+        new("User ID", s => s.EmployeeUserId),
+        new("Seniority Date", s => s.RosterDate),
+        new("State", s => s.SeniorityStateName),
+        new("Can Train", s => s.CanTrain ? "Yes" : "No")
     ];
-
-    private bool showSaveModal;
-    private long editCtrlNbr;
-    private RosterInputModel saveModel = new();
-
-    private bool showDeleteModal;
-    private long deleteCtrlNbr;
-    private string deleteRosterName = "";
 
     protected override async Task LoadDataAsync()
     {
@@ -176,7 +125,9 @@ else
     protected override async Task OnAppContextChangedAsync()
     {
         selectedCraftCtrlNbr = 0;
+        selectedRosterCtrlNbr = 0;
         rosters = null;
+        seniorityEntries = null;
         await LoadCrafts();
     }
 
@@ -202,7 +153,9 @@ else
     private async Task OnCraftChanged(long craftCtrlNbr)
     {
         selectedCraftCtrlNbr = craftCtrlNbr;
+        selectedRosterCtrlNbr = 0;
         rosters = null;
+        seniorityEntries = null;
 
         if (craftCtrlNbr > 0)
         {
@@ -229,112 +182,34 @@ else
         }
     }
 
-    private void OpenCreateModal()
+    private async Task OnRosterChanged(long rosterCtrlNbr)
     {
-        editCtrlNbr = 0;
-        saveModel = new();
-        showSaveModal = true;
-    }
+        selectedRosterCtrlNbr = rosterCtrlNbr;
+        seniorityEntries = null;
 
-    private void OpenEditModal(RosterResponse roster)
-    {
-        editCtrlNbr = roster.CtrlNbr;
-        saveModel = new()
+        if (rosterCtrlNbr > 0)
         {
-            RosterName = roster.RosterName,
-            RosterPluralName = roster.RosterPluralName,
-            RosterNumber = roster.RosterNumber
-        };
-        showSaveModal = true;
+            await LoadSeniorityEntries();
+        }
     }
 
-    private void CloseSaveModal()
-    {
-        showSaveModal = false;
-        editCtrlNbr = 0;
-        saveModel = new();
-    }
-
-    private void OpenDeleteModal(RosterResponse roster)
-    {
-        deleteCtrlNbr = roster.CtrlNbr;
-        deleteRosterName = roster.RosterName;
-        showDeleteModal = true;
-    }
-
-    private async Task OnSave()
+    private async Task LoadSeniorityEntries()
     {
         try
         {
-            isSaving = true;
-            errorMessage = null;
-            successMessage = null;
-
-            if (editCtrlNbr > 0)
+            if (selectedRosterCtrlNbr == 0)
             {
-                await RosterClient.UpdateAsync(new UpdateRosterRequest
-                {
-                    CtrlNbr = editCtrlNbr,
-                    RosterName = saveModel.RosterName ?? string.Empty,
-                    RosterPluralName = saveModel.RosterPluralName ?? string.Empty,
-                    RosterNumber = saveModel.RosterNumber
-                });
-                successMessage = "Roster updated.";
-            }
-            else
-            {
-                await RosterClient.CreateAsync(new CreateRosterRequest
-                {
-                    CraftCtrlNbr = selectedCraftCtrlNbr,
-                    RosterName = saveModel.RosterName ?? string.Empty,
-                    RosterPluralName = saveModel.RosterPluralName ?? string.Empty,
-                    RosterNumber = saveModel.RosterNumber
-                });
-                successMessage = "Roster created.";
+                seniorityEntries = [];
+                return;
             }
 
-            CloseSaveModal();
-            await LoadRosters();
+            var response = await SeniorityClient.GetAllByRosterAsync(selectedRosterCtrlNbr);
+            seniorityEntries = response.Seniority.ToList();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to save roster: {ex.Message}";
+            errorMessage = $"Failed to load seniority data: {ex.Message}";
+            seniorityEntries = [];
         }
-        finally { isSaving = false; }
-    }
-
-    private async Task ConfirmDelete()
-    {
-        try
-        {
-            isSaving = true;
-            errorMessage = null;
-            successMessage = null;
-
-            await RosterClient.DeleteAsync(deleteCtrlNbr);
-            successMessage = "Roster deleted.";
-            showDeleteModal = false;
-            await LoadRosters();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to delete roster: {ex.Message}";
-            showDeleteModal = false;
-        }
-        finally { isSaving = false; }
-    }
-
-    private sealed class RosterInputModel
-    {
-        [Required(ErrorMessage = "Roster name is required.")]
-        [StringLength(100, MinimumLength = 1)]
-        public string? RosterName { get; set; }
-
-        [Required(ErrorMessage = "Plural name is required.")]
-        [StringLength(100, MinimumLength = 1)]
-        public string? RosterPluralName { get; set; }
-
-        [Range(1, int.MaxValue, ErrorMessage = "Roster number must be at least 1.")]
-        public int RosterNumber { get; set; } = 1;
     }
 }

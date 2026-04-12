@@ -10,19 +10,45 @@ namespace CrewService.Presentation.Services;
 public class SeniorityService(
     ISeniorityRepository seniorityRepository,
     IRosterRepository rosterRepository,
-    ICraftRepository craftRepository) : SenioritySrvc.SenioritySrvcBase
+    ICraftRepository craftRepository,
+    IEmployeeRepository employeeRepository,
+    ISeniorityStateRepository seniorityStateRepository) : SenioritySrvc.SenioritySrvcBase
 {
     private readonly ISeniorityRepository _seniorityRepository = seniorityRepository;
     private readonly IRosterRepository _rosterRepository = rosterRepository;
     private readonly ICraftRepository _craftRepository = craftRepository;
+    private readonly IEmployeeRepository _employeeRepository = employeeRepository;
+    private readonly ISeniorityStateRepository _seniorityStateRepository = seniorityStateRepository;
 
     public override async Task<GetAllSeniorityResponse> GetAllAsync(GetAllSeniorityRequest request, ServerCallContext context)
     {
         var response = new GetAllSeniorityResponse();
-        var seniorities = await _seniorityRepository.GetAllAsync();
+
+        var seniorities = request.RosterCtrlNbr > 0
+            ? await _seniorityRepository.GetByRosterCtrlNbrAsync(ControlNumber.Create(request.RosterCtrlNbr))
+            : await _seniorityRepository.GetAllAsync();
+
+        var employeeCache = new Dictionary<long, (string Number, string UserId)>();
+        var stateCache = new Dictionary<long, string>();
 
         foreach (var seniority in seniorities)
         {
+            if (!employeeCache.TryGetValue(seniority.EmployeeCtrlNbr.Value, out var empInfo))
+            {
+                var employee = await _employeeRepository.GetByCtrlNbrAsync(seniority.EmployeeCtrlNbr);
+                empInfo = employee is not null
+                    ? (employee.EmployeeNumber, employee.UserId)
+                    : (string.Empty, string.Empty);
+                employeeCache[seniority.EmployeeCtrlNbr.Value] = empInfo;
+            }
+
+            if (!stateCache.TryGetValue(seniority.SeniorityStateCtrlNbr.Value, out var stateName))
+            {
+                var state = await _seniorityStateRepository.GetByCtrlNbrAsync(seniority.SeniorityStateCtrlNbr);
+                stateName = state?.StateDescription ?? string.Empty;
+                stateCache[seniority.SeniorityStateCtrlNbr.Value] = stateName;
+            }
+
             response.Seniority.Add(new SeniorityResponse
             {
                 CtrlNbr = seniority.CtrlNbr.Value,
@@ -32,11 +58,15 @@ public class SeniorityService(
                 RosterDate = seniority.RosterDate.ToString("yyyy-MM-dd"),
                 Rank = seniority.Rank,
                 SeniorityStateCtrlNbr = seniority.SeniorityStateCtrlNbr.Value,
-                CanTrain = seniority.CanTrain
+                CanTrain = seniority.CanTrain,
+                EmployeeNumber = empInfo.Number,
+                EmployeeUserId = empInfo.UserId,
+                SeniorityStateName = stateName
             });
         }
 
-        return await Task.FromResult(response);
+        response.TotalCount = response.Seniority.Count;
+        return response;
     }
 
     public override async Task<SeniorityResponse> GetAsync(GetSeniorityRequest request, ServerCallContext context)

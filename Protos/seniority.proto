@@ -74,6 +74,9 @@ message SeniorityResponse {
   bool can_train = 8;
   bool success = 9;
   repeated string messages = 10;
+  string employee_number = 11;
+  string employee_user_id = 12;
+  string seniority_state_name = 13;
 }
 message GetActiveCraftRequest {
   int64 employee_ctrl_nbr = 1;
