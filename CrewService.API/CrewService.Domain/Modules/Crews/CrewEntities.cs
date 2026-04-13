@@ -57,13 +57,15 @@ public sealed class CrewPosition : Entity
     public static CrewPosition Create(ControlNumber crewCtrlNbr, ControlNumber craftRoleCtrlNbr, int displayOrder,
         ControlNumber staffablePositionCtrlNbr)
     {
-        return new CrewPosition
+        var position = new CrewPosition
         {
             CrewCtrlNbr = crewCtrlNbr,
             CraftRoleCtrlNbr = craftRoleCtrlNbr,
             StaffablePositionCtrlNbr = staffablePositionCtrlNbr,
             DisplayOrder = displayOrder
         };
+        position.Raise(new CrewPositionCreatedDomainEvent(position));
+        return position;
     }
 }
 
@@ -78,13 +80,15 @@ public sealed class CrewIncumbency : Entity
 
     public static CrewIncumbency Create(ControlNumber crewPositionCtrlNbr, ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
     {
-        return new CrewIncumbency
+        var incumbency = new CrewIncumbency
         {
             CrewPositionCtrlNbr = crewPositionCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
+        incumbency.Raise(new CrewIncumbencyCreatedDomainEvent(incumbency));
+        return incumbency;
     }
 }
 
@@ -99,13 +103,15 @@ public sealed class CrewAttachmentInstance : Entity
 
     public static CrewAttachmentInstance Create(ControlNumber workInstanceCtrlNbr, ControlNumber crewCtrlNbr, DateTime startUtc, DateTime? endUtc = null)
     {
-        return new CrewAttachmentInstance
+        var attachment = new CrewAttachmentInstance
         {
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
             CrewCtrlNbr = crewCtrlNbr,
             StartUtc = startUtc,
             EndUtc = endUtc
         };
+        attachment.Raise(new CrewAttachmentInstanceCreatedDomainEvent(attachment));
+        return attachment;
     }
 }
 
@@ -122,7 +128,7 @@ public sealed class CrewAssignment : Entity
     public static CrewAssignment Create(ControlNumber crewCtrlNbr, ControlNumber assignmentCtrlNbr,
         int daysOfWeekMask, DateTime startUtc, DateTime? endUtc = null)
     {
-        return new CrewAssignment
+        var ca = new CrewAssignment
         {
             CrewCtrlNbr = crewCtrlNbr,
             AssignmentCtrlNbr = assignmentCtrlNbr,
@@ -130,6 +136,8 @@ public sealed class CrewAssignment : Entity
             StartUtc = startUtc,
             EndUtc = endUtc
         };
+        ca.Raise(new CrewAssignmentCreatedDomainEvent(ca));
+        return ca;
     }
 
     public void Update(int daysOfWeekMask, DateTime startUtc, DateTime? endUtc)
@@ -153,8 +161,32 @@ public sealed record CrewUpdatedDomainEvent : DomainEvent
         : base(nameof(Crew), c.CtrlNbr.Value, new { c.Name, c.IsActive }) { }
 }
 
+public sealed record CrewPositionCreatedDomainEvent : DomainEvent
+{
+    public CrewPositionCreatedDomainEvent(CrewPosition p)
+        : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, CraftRoleCtrlNbr = p.CraftRoleCtrlNbr.Value, p.DisplayOrder }) { }
+}
+
 public sealed record CrewPositionVacatedDomainEvent : DomainEvent
 {
     public CrewPositionVacatedDomainEvent(CrewPosition p, ControlNumber? previousIncumbentCtrlNbr, string vacancyReasonCode)
         : base(nameof(CrewPosition), p.CtrlNbr.Value, new { CrewCtrlNbr = p.CrewCtrlNbr.Value, CraftRoleCtrlNbr = p.CraftRoleCtrlNbr.Value, PreviousIncumbentCtrlNbr = previousIncumbentCtrlNbr, VacancyReasonCode = vacancyReasonCode }) { }
+}
+
+public sealed record CrewIncumbencyCreatedDomainEvent : DomainEvent
+{
+    public CrewIncumbencyCreatedDomainEvent(CrewIncumbency i)
+        : base(nameof(CrewIncumbency), i.CtrlNbr.Value, new { CrewPositionCtrlNbr = i.CrewPositionCtrlNbr.Value, EmployeeCtrlNbr = i.EmployeeCtrlNbr.Value }) { }
+}
+
+public sealed record CrewAttachmentInstanceCreatedDomainEvent : DomainEvent
+{
+    public CrewAttachmentInstanceCreatedDomainEvent(CrewAttachmentInstance a)
+        : base(nameof(CrewAttachmentInstance), a.CtrlNbr.Value, new { WorkInstanceCtrlNbr = a.WorkInstanceCtrlNbr.Value, CrewCtrlNbr = a.CrewCtrlNbr.Value }) { }
+}
+
+public sealed record CrewAssignmentCreatedDomainEvent : DomainEvent
+{
+    public CrewAssignmentCreatedDomainEvent(CrewAssignment ca)
+        : base(nameof(CrewAssignment), ca.CtrlNbr.Value, new { CrewCtrlNbr = ca.CrewCtrlNbr.Value, AssignmentCtrlNbr = ca.AssignmentCtrlNbr.Value, ca.DaysOfWeekMask }) { }
 }

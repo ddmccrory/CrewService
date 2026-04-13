@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -23,7 +24,7 @@ public sealed class ShiftDefinition : Entity
         int displayOrder,
         bool isActive)
     {
-        return new ShiftDefinition
+        var def = new ShiftDefinition
         {
             WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             ShiftCode = shiftCode,
@@ -31,6 +32,8 @@ public sealed class ShiftDefinition : Entity
             DisplayOrder = displayOrder,
             IsActive = isActive
         };
+        def.Raise(new ShiftDefinitionCreatedDomainEvent(def));
+        return def;
     }
 
     public void Update(
@@ -44,4 +47,10 @@ public sealed class ShiftDefinition : Entity
         if (displayOrder.HasValue) DisplayOrder = displayOrder.Value;
         if (isActive.HasValue) IsActive = isActive.Value;
     }
+}
+
+public sealed record ShiftDefinitionCreatedDomainEvent : DomainEvent
+{
+    public ShiftDefinitionCreatedDomainEvent(ShiftDefinition d)
+        : base(nameof(ShiftDefinition), d.CtrlNbr.Value, new { d.ShiftCode, d.DisplayName, WorkAreaGroupCtrlNbr = d.WorkAreaGroupCtrlNbr.Value }) { }
 }

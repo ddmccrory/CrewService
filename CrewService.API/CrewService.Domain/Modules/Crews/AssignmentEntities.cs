@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -22,7 +23,7 @@ public sealed class Assignment : Entity
         bool isActive = true,
         ControlNumber? departmentCtrlNbr = null)
     {
-        return new Assignment
+        var assignment = new Assignment
         {
             GroupCtrlNbr = groupCtrlNbr,
             DepartmentCtrlNbr = departmentCtrlNbr,
@@ -31,6 +32,8 @@ public sealed class Assignment : Entity
             IsExtra = isExtra,
             IsActive = isActive
         };
+        assignment.Raise(new AssignmentCreatedDomainEvent(assignment));
+        return assignment;
     }
 
     public void Update(
@@ -67,7 +70,7 @@ public sealed class AssignmentSchedule : Entity
         TimeOnly onDutyTime,
         TimeOnly offDutyTime)
     {
-        return new AssignmentSchedule
+        var schedule = new AssignmentSchedule
         {
             AssignmentCtrlNbr = assignmentCtrlNbr,
             ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
@@ -75,6 +78,8 @@ public sealed class AssignmentSchedule : Entity
             OnDutyTime = onDutyTime,
             OffDutyTime = offDutyTime
         };
+        schedule.Raise(new AssignmentScheduleCreatedDomainEvent(schedule));
+        return schedule;
     }
 
     public void Update(
@@ -86,4 +91,17 @@ public sealed class AssignmentSchedule : Entity
         OnDutyTime = onDutyTime;
         OffDutyTime = offDutyTime;
     }
+}
+
+// Domain Events
+public sealed record AssignmentCreatedDomainEvent : DomainEvent
+{
+    public AssignmentCreatedDomainEvent(Assignment a)
+        : base(nameof(Assignment), a.CtrlNbr.Value, new { a.Code, a.Name, a.IsExtra, GroupCtrlNbr = a.GroupCtrlNbr.Value }) { }
+}
+
+public sealed record AssignmentScheduleCreatedDomainEvent : DomainEvent
+{
+    public AssignmentScheduleCreatedDomainEvent(AssignmentSchedule s)
+        : base(nameof(AssignmentSchedule), s.CtrlNbr.Value, new { AssignmentCtrlNbr = s.AssignmentCtrlNbr.Value, s.OperatingDaysMask }) { }
 }

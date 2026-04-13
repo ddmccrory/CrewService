@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -37,7 +38,7 @@ public sealed class ShiftInstance : Entity
         ControlNumber? departmentCtrlNbr = null,
         string? departmentName = null)
     {
-        return new ShiftInstance
+        var instance = new ShiftInstance
         {
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
             ShiftDefinitionCtrlNbr = shiftDefinitionCtrlNbr,
@@ -47,6 +48,8 @@ public sealed class ShiftInstance : Entity
             DepartmentName = departmentName,
             Status = "Planned"
         };
+        instance.Raise(new ShiftInstanceCreatedDomainEvent(instance));
+        return instance;
     }
 
     public PositionSlotInstance AddPositionSlot(
@@ -257,4 +260,10 @@ public sealed class ShiftInstance : Entity
         _boardSlots.Add(slot);
         return slot;
     }
+}
+
+public sealed record ShiftInstanceCreatedDomainEvent : DomainEvent
+{
+    public ShiftInstanceCreatedDomainEvent(ShiftInstance s)
+        : base(nameof(ShiftInstance), s.CtrlNbr.Value, new { s.ShiftCode, s.ShiftDisplayName, WorkInstanceCtrlNbr = s.WorkInstanceCtrlNbr.Value }) { }
 }
