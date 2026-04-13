@@ -4,10 +4,26 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<EmployeeClient> logger)
-: BaseGrpcClient<EmployeeSrvc.EmployeeSrvcClient>(channelProvider, tokenProvider, callInvoker => new EmployeeSrvc.EmployeeSrvcClient(callInvoker), logger)
+public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<EmployeeClient> logger)
+: BaseGrpcClient<EmployeeSrvc.EmployeeSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new EmployeeSrvc.EmployeeSrvcClient(callInvoker), logger)
 {
     #region Employee
+
+    public async Task<GetAllEmployeesResponse> GetAllAsync()
+    {
+        try
+        {
+            return await _client.GetAllEmployeesAsyncAsync(new GetAllEmployeesRequest
+            {
+                PageSize = 1000
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 
     public async Task<GetEmployeeResponse> GetByNumberAsync(string employeeNumber)
     {

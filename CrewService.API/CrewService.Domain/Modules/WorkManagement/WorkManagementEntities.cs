@@ -57,13 +57,15 @@ public sealed class Department : Entity
 
     public static Department Create(ControlNumber? parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr, string name, string defaultCallSheetView = "Vertical")
     {
-        return new Department
+        var dept = new Department
         {
             ParentCtrlNbr = parentCtrlNbr,
             DynamicGroupCtrlNbr = dynamicGroupCtrlNbr,
             Name = name,
             DefaultCallSheetView = defaultCallSheetView
         };
+        dept.Raise(new DepartmentCreatedDomainEvent(dept));
+        return dept;
     }
 
     public void Update(string name, string defaultCallSheetView)
@@ -83,13 +85,15 @@ public sealed class CraftRole : Entity
 
     public static CraftRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null)
     {
-        return new CraftRole
+        var role = new CraftRole
         {
             CraftCtrlNbr = craftCtrlNbr,
             Code = code,
             Name = name,
             AlternateName = alternateName
         };
+        role.Raise(new CraftRoleCreatedDomainEvent(role));
+        return role;
     }
 
     public void Update(string? code, string name, string? alternateName)
@@ -112,12 +116,14 @@ public sealed class PositionSlot : Entity
 
     public static PositionSlot Create(ControlNumber workInstanceCtrlNbr, ControlNumber craftRoleCtrlNbr)
     {
-        return new PositionSlot
+        var slot = new PositionSlot
         {
             WorkInstanceCtrlNbr = workInstanceCtrlNbr,
             CraftRoleCtrlNbr = craftRoleCtrlNbr,
             Status = "Created"
         };
+        slot.Raise(new PositionSlotCreatedDomainEvent(slot));
+        return slot;
     }
 
     public void Bind(ControlNumber employeeCtrlNbr, string source)
@@ -150,7 +156,7 @@ public sealed class SlotRequirement : Entity
     public static SlotRequirement Create(ControlNumber positionSlotCtrlNbr, int priority,
         ControlNumber? craftRoleCtrlNbr = null, ControlNumber? qualificationTypeCtrlNbr = null, string? notes = null)
     {
-        return new SlotRequirement
+        var req = new SlotRequirement
         {
             PositionSlotCtrlNbr = positionSlotCtrlNbr,
             Priority = priority,
@@ -158,6 +164,8 @@ public sealed class SlotRequirement : Entity
             QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
             Notes = notes
         };
+        req.Raise(new SlotRequirementCreatedDomainEvent(req));
+        return req;
     }
 }
 
@@ -175,6 +183,24 @@ public sealed record WorkInstanceUpdatedDomainEvent : DomainEvent
         : base(nameof(WorkInstance), w.CtrlNbr.Value, new { w.Status }) { }
 }
 
+public sealed record DepartmentCreatedDomainEvent : DomainEvent
+{
+    public DepartmentCreatedDomainEvent(Department d)
+        : base(nameof(Department), d.CtrlNbr.Value, new { d.Name, d.DefaultCallSheetView }) { }
+}
+
+public sealed record CraftRoleCreatedDomainEvent : DomainEvent
+{
+    public CraftRoleCreatedDomainEvent(CraftRole r)
+        : base(nameof(CraftRole), r.CtrlNbr.Value, new { CraftCtrlNbr = r.CraftCtrlNbr.Value, r.Code, r.Name }) { }
+}
+
+public sealed record PositionSlotCreatedDomainEvent : DomainEvent
+{
+    public PositionSlotCreatedDomainEvent(PositionSlot s)
+        : base(nameof(PositionSlot), s.CtrlNbr.Value, new { WorkInstanceCtrlNbr = s.WorkInstanceCtrlNbr.Value, CraftRoleCtrlNbr = s.CraftRoleCtrlNbr.Value }) { }
+}
+
 public sealed record PositionSlotBoundDomainEvent : DomainEvent
 {
     public PositionSlotBoundDomainEvent(PositionSlot s)
@@ -185,4 +211,10 @@ public sealed record PositionSlotUnboundDomainEvent : DomainEvent
 {
     public PositionSlotUnboundDomainEvent(PositionSlot s)
         : base(nameof(PositionSlot), s.CtrlNbr.Value) { }
+}
+
+public sealed record SlotRequirementCreatedDomainEvent : DomainEvent
+{
+    public SlotRequirementCreatedDomainEvent(SlotRequirement r)
+        : base(nameof(SlotRequirement), r.CtrlNbr.Value, new { PositionSlotCtrlNbr = r.PositionSlotCtrlNbr.Value, r.Priority }) { }
 }

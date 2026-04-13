@@ -50,6 +50,8 @@
     <Protobuf Include="..\..\Protos\modules\crews.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\assignments.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\boards.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\roster_board.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\audit_log.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\bulletins.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\policies.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\dispatching.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />

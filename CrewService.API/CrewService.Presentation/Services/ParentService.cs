@@ -2,14 +2,16 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.AspNetCore.Http;
 
 namespace CrewService.Presentation.Services;
 
-public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IGroupTypeRepository groupTypeRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
+public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IGroupTypeRepository groupTypeRepository, IOrchestrationUnitOfWorkFactory uowFactory, IHttpContextAccessor httpContextAccessor) : ParentSrvc.ParentSrvcBase
 {
     private readonly IParentRepository _parentRepository = parentRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
@@ -80,6 +82,11 @@ public class ParentService(IParentRepository parentRepository, IDynamicGroupRepo
 
         var parent = Parent.Create(request.Name);
 
+        // Tag domain events with the new parent's CtrlNbr so audit log
+        // records are attributed to the correct parent.
+        httpContextAccessor.HttpContext?.Request.Headers["x-parent-ctrl-nbr"] =
+            parent.CtrlNbr.Value.ToString();
+
         await using var uow = await _uowFactory.CreateAsync();
         uow.Parents.Add(parent);
 
@@ -98,6 +105,25 @@ public class ParentService(IParentRepository parentRepository, IDynamicGroupRepo
                 isWorkArea: false,
                 parentCtrlNbr: parent.CtrlNbr.Value);
             uow.GroupTypes.Add(systemType);
+        }
+
+        // Auto-seed default SeniorityStates for the new parent
+        var defaultStates = new (string Description, StateType Type)[]
+        {
+            ("Active", StateType.Active),
+            ("Cut Back", StateType.CutBack),
+            ("Inactive", StateType.Inactive),
+            ("Terminated", StateType.Inactive),
+            ("Dismissed", StateType.Inactive),
+            ("Leave of Absence", StateType.Inactive),
+            ("Medical Leave", StateType.Inactive),
+            ("Retired", StateType.Inactive)
+        };
+
+        foreach (var (desc, type) in defaultStates)
+        {
+            var seniorityState = SeniorityState.Create(desc, type, parent.CtrlNbr.Value);
+            uow.SeniorityStates.Add(seniorityState);
         }
 
         await uow.CommitAsync();

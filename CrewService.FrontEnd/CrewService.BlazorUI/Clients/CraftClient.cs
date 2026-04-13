@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class CraftClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<CraftClient> logger)
-    : BaseGrpcClient<CraftSrvc.CraftSrvcClient>(channelProvider, tokenProvider, callInvoker => new CraftSrvc.CraftSrvcClient(callInvoker), logger)
+public sealed class CraftClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<CraftClient> logger)
+    : BaseGrpcClient<CraftSrvc.CraftSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new CraftSrvc.CraftSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllCraftResponse> GetAllCraftsAsync(long parentCtrlNbr, long railroadCtrlNbr = 0)
     {

@@ -69,6 +69,7 @@ internal static class BaselineSeeder
         // Employee Management
         ("employees", "Employees", "Employee Management", "/employees"),
         ("employees/seniority", "Seniority Rosters", "Employee Management", "/employees/seniority"),
+        ("employees/seniority-states", "Seniority States", "Employee Management", "/employees/seniority-states"),
         ("employees/prior-service", "Prior Service Credits", "Employee Management", "/employees/prior-service"),
         ("admin/invitations", "Invitations", "Employee Management", "/admin/invitations"),
 
@@ -83,7 +84,8 @@ internal static class BaselineSeeder
         ("admin/notifications", "Notification Config", "Administration", "/admin/notifications"),
         ("admin/jobs", "Background Jobs", "Administration", "/admin/jobs"),
         ("admin/roles", "Roles", "Administration", "/admin/roles"),
-        ("admin/permissions", "Permissions", "Administration", "/admin/permissions")
+        ("admin/permissions", "Permissions", "Administration", "/admin/permissions"),
+        ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log")
     ];
 
     // -- Default permission mapping --------------------------------------
@@ -128,6 +130,7 @@ internal static class BaselineSeeder
         // Employee Management
         ["employees"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["employees/seniority"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["employees/seniority-states"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["employees/prior-service"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/invitations"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
 
@@ -142,7 +145,8 @@ internal static class BaselineSeeder
         ["admin/notifications"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/jobs"] = ["SystemAdmin"],
         ["admin/roles"] = ["SystemAdmin"],
-        ["admin/permissions"] = ["SystemAdmin"]
+        ["admin/permissions"] = ["SystemAdmin"],
+        ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
     };
 
     public static async Task SeedAsync(IServiceProvider services)

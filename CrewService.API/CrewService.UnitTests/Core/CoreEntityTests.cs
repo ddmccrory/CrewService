@@ -105,13 +105,10 @@ public class RosterTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var roster = Roster.Create(1, 10, "Main Roster", "Main Rosters", 1,
-            false, true, false);
+        var roster = Roster.Create(1, 10, "Main Roster", "Main Rosters", 1);
 
         Assert.Equal("Main Roster", roster.RosterName);
         Assert.Equal(1, roster.RosterNumber);
-        Assert.True(roster.ExtraBoard);
-        Assert.False(roster.Training);
         Assert.True(roster.DomainEvents.Count > 0);
     }
 }
@@ -150,36 +147,33 @@ public class SeniorityStateTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var state = SeniorityState.Create("Active Duty", true, false, false);
+        var state = SeniorityState.Create("Active Duty", StateType.Active, 1234567890);
 
         Assert.Equal("Active Duty", state.StateDescription);
-        Assert.True(state.Active);
-        Assert.False(state.CutBack);
-        Assert.False(state.Inactive);
+        Assert.Equal(StateType.Active, state.StateType);
         Assert.True(state.DomainEvents.Count > 0);
     }
 
     [Fact]
     public void Update_ChangesFields_RaisesEvent()
     {
-        var state = SeniorityState.Create("Active Duty", true, false, false);
+        var state = SeniorityState.Create("Active Duty", StateType.Active, 1234567890);
         var eventsBefore = state.DomainEvents.Count;
 
-        state.Update("Cut Back", false, true, false);
+        state.Update("Cut Back", StateType.CutBack);
 
         Assert.Equal("Cut Back", state.StateDescription);
-        Assert.False(state.Active);
-        Assert.True(state.CutBack);
+        Assert.Equal(StateType.CutBack, state.StateType);
         Assert.True(state.DomainEvents.Count > eventsBefore);
     }
 
     [Fact]
     public void Update_NoChanges_DoesNotRaiseEvent()
     {
-        var state = SeniorityState.Create("Active Duty", true, false, false);
+        var state = SeniorityState.Create("Active Duty", StateType.Active, 1234567890);
         var eventsBefore = state.DomainEvents.Count;
 
-        state.Update("Active Duty", true, false, false);
+        state.Update("Active Duty", StateType.Active);
 
         Assert.Equal(eventsBefore, state.DomainEvents.Count);
     }

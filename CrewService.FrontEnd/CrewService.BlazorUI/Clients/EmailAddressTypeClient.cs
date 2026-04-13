@@ -3,8 +3,8 @@ using CrewService.Presentation;
 
 namespace CrewService.BlazorUI.Clients;
 
-internal sealed class EmailAddressTypeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<EmailAddressTypeClient> logger)
-    : BaseGrpcClient<EmailAddressTypeSrvc.EmailAddressTypeSrvcClient>(channelProvider, tokenProvider, callInvoker => new EmailAddressTypeSrvc.EmailAddressTypeSrvcClient(callInvoker), logger)
+internal sealed class EmailAddressTypeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<EmailAddressTypeClient> logger)
+    : BaseGrpcClient<EmailAddressTypeSrvc.EmailAddressTypeSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new EmailAddressTypeSrvc.EmailAddressTypeSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllEmailAddressTypeResponse> GetAllAsync(long clientCtrlNbr)
     {

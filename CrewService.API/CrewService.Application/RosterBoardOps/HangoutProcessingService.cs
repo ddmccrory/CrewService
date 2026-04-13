@@ -1,11 +1,11 @@
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.RosterBoardOps;
 
-public interface IRosterBoardRepository
+public interface IRosterBoardRepository : IRepository<RosterBoard>
 {
-    Task<RosterBoard?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
     Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
 }
 

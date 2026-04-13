@@ -12,9 +12,11 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
 
     public override async Task<GetAllSeniorityStateResponse> GetAllAsync(GetAllSeniorityStateRequest request, ServerCallContext context)
     {
-        var states = request.PageSize > 0
-            ? await _repository.GetAllAsync(request.PageNumber, request.PageSize)
-            : await _repository.GetAllAsync();
+        var states = request.ParentCtrlNbr > 0
+            ? await _repository.GetByParentCtrlNbrAsync(ControlNumber.Create(request.ParentCtrlNbr))
+            : request.PageSize > 0
+                ? await _repository.GetAllAsync(request.PageNumber, request.PageSize)
+                : await _repository.GetAllAsync();
 
         var response = new GetAllSeniorityStateResponse { TotalCount = states.Count };
 
@@ -38,9 +40,8 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
     {
         var state = SeniorityState.Create(
             request.StateDescription,
-            request.Active,
-            request.CutBack,
-            request.Inactive);
+            Enum.Parse<StateType>(request.StateType),
+            request.ParentCtrlNbr);
 
         _repository.Add(state);
 
@@ -52,7 +53,7 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
         var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
 
-        state.Update(request.StateDescription, request.Active, request.CutBack, request.Inactive);
+        state.Update(request.StateDescription, Enum.Parse<StateType>(request.StateType));
 
         _repository.Update(state);
 
@@ -75,9 +76,7 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
         {
             CtrlNbr = state.CtrlNbr.Value,
             StateDescription = state.StateDescription,
-            Active = state.Active,
-            CutBack = state.CutBack,
-            Inactive = state.Inactive,
+            StateType = state.StateType.ToString(),
             Success = success
         };
 

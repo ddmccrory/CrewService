@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<WorkManagementClient> logger)
-    : BaseGrpcClient<WorkManagementSrvc.WorkManagementSrvcClient>(channelProvider, tokenProvider, callInvoker => new WorkManagementSrvc.WorkManagementSrvcClient(callInvoker), logger)
+public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<WorkManagementClient> logger)
+    : BaseGrpcClient<WorkManagementSrvc.WorkManagementSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new WorkManagementSrvc.WorkManagementSrvcClient(callInvoker), logger)
 {
 
 

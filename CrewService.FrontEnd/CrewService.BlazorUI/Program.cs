@@ -26,13 +26,17 @@ builder.Services.AddScoped<InvitationsClient>();
 builder.Services.AddScoped<InvitationTokenClient>();
 builder.Services.AddScoped<ParentsClient>();
 builder.Services.AddScoped<PhoneNumberTypeClient>();
+builder.Services.AddScoped<RosterClient>();
+builder.Services.AddScoped<RosterBoardClient>();
 builder.Services.AddScoped<SeniorityClient>();
+builder.Services.AddScoped<SeniorityStateClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 builder.Services.AddScoped<DepartmentClient>();
 builder.Services.AddScoped<CrewClient>();
 builder.Services.AddScoped<AssignmentClient>();
 builder.Services.AddScoped<WorkManagementClient>();
 builder.Services.AddScoped<DailyOperationsClient>();
+builder.Services.AddScoped<AuditLogClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 

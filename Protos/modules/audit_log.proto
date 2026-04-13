@@ -1,0 +1,34 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package audit_log;
+
+service AuditLogSrvc {
+  rpc GetAllAuditLogsAsync(GetAllAuditLogsRequest) returns (GetAllAuditLogsResponse) {
+    option (google.api.http) = { get: "/v1/audit-logs" };
+  }
+}
+
+message GetAllAuditLogsRequest {
+  int32 page_number = 1;
+  int32 page_size = 2;
+  string search_text = 3;
+  string date_from = 4;
+  string date_to = 5;
+}
+
+message GetAllAuditLogsResponse {
+  repeated AuditLogEntry entries = 1;
+  int32 total_count = 2;
+}
+
+message AuditLogEntry {
+  string event_id = 1;
+  string event_type = 2;
+  string aggregate_type = 3;
+  int64 aggregate_id = 4;
+  string occurred_at = 5;
+  string payload_json = 6;
+  string performed_by = 7;
+  string logged_at_utc = 8;
+}

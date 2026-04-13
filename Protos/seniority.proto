@@ -46,7 +46,7 @@ message CreateSeniorityRequest {
   bool last_active_roster = 3;
   string roster_date = 4;
   int32 rank = 5;
-  int32 state_id = 6;
+  int64 seniority_state_ctrl_nbr = 6;
   bool can_train = 7;
 }
 
@@ -55,7 +55,7 @@ message UpdateSeniorityRequest {
   bool last_active_roster = 2;
   string roster_date = 3;
   int32 rank = 4;
-  int32 state_id = 5;
+  int64 seniority_state_ctrl_nbr = 5;
   bool can_train = 6;
 }
 
@@ -70,10 +70,13 @@ message SeniorityResponse {
   bool last_active_roster = 4;
   string roster_date = 5;
   int32 rank = 6;
-  int32 state_id = 7;
+  int64 seniority_state_ctrl_nbr = 7;
   bool can_train = 8;
   bool success = 9;
   repeated string messages = 10;
+  string employee_number = 11;
+  string employee_user_id = 12;
+  string seniority_state_name = 13;
 }
 message GetActiveCraftRequest {
   int64 employee_ctrl_nbr = 1;

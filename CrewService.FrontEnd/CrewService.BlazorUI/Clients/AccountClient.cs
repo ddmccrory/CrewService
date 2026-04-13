@@ -1,11 +1,11 @@
-﻿using CrewService.BlazorUI.Services;
+using CrewService.BlazorUI.Services;
 using CrewService.Presentation;
 using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-internal sealed class AccountClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<AccountClient> logger) 
-: BaseGrpcClient<AccountSrvc.AccountSrvcClient>(channelProvider, tokenProvider, callInvoker => new AccountSrvc.AccountSrvcClient(callInvoker), logger)
+internal sealed class AccountClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<AccountClient> logger) 
+: BaseGrpcClient<AccountSrvc.AccountSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new AccountSrvc.AccountSrvcClient(callInvoker), logger)
 {
     #region Methods
 

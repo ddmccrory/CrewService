@@ -25,6 +25,7 @@ service SeniorityStateSrvc {
 message GetAllSeniorityStateRequest {
   int32 page_number = 1;
   int32 page_size = 2;
+  int64 parent_ctrl_nbr = 3;
 }
 
 message GetAllSeniorityStateResponse {
@@ -38,17 +39,14 @@ message GetSeniorityStateRequest {
 
 message CreateSeniorityStateRequest {
   string state_description = 1;
-  bool active = 2;
-  bool cut_back = 3;
-  bool inactive = 4;
+  string state_type = 2;
+  int64 parent_ctrl_nbr = 3;
 }
 
 message UpdateSeniorityStateRequest {
   int64 ctrl_nbr = 1;
   string state_description = 2;
-  bool active = 3;
-  bool cut_back = 4;
-  bool inactive = 5;
+  string state_type = 3;
 }
 
 message DeleteSeniorityStateRequest {
@@ -58,9 +56,7 @@ message DeleteSeniorityStateRequest {
 message SeniorityStateResponse {
   int64 ctrl_nbr = 1;
   string state_description = 2;
-  bool active = 3;
-  bool cut_back = 4;
-  bool inactive = 5;
-  bool success = 6;
-  repeated string messages = 7;
+  string state_type = 3;
+  bool success = 4;
+  repeated string messages = 5;
 }

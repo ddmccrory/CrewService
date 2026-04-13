@@ -52,6 +52,9 @@ internal static class DevDataSeeder
                 [new Claim(ClaimTypes.Name, "SYSTEM")], "Seed"))
         };
 
+        void SetParent(long ctrlNbr) =>
+            httpContextAccessor.HttpContext!.Request.Headers["x-parent-ctrl-nbr"] = ctrlNbr.ToString();
+
         var parentService = sp.GetRequiredService<ParentService>();
         var groupTypeRepo = sp.GetRequiredService<IGroupTypeRepository>();
         var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
@@ -75,12 +78,15 @@ internal static class DevDataSeeder
         var csxRailroadType = autoCreatedTypes.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == holdingCorpResp.CtrlNbr);
 
         // Railroads (as DynamicGroups)
+        SetParent(simpleCorpResp.CtrlNbr);
         var simpleRR = DynamicGroup.Create(simpleRailroadType.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL", parentCtrlNbr: simpleCorpResp.CtrlNbr);
         await groupRepo.AddAsync(simpleRR);
 
+        SetParent(ptraCorpResp.CtrlNbr);
         var ptraRR = DynamicGroup.Create(ptraRailroadType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraCorpResp.CtrlNbr);
         await groupRepo.AddAsync(ptraRR);
 
+        SetParent(holdingCorpResp.CtrlNbr);
         var csxRR = DynamicGroup.Create(csxRailroadType.CtrlNbr.Value, "CSX Transportation", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSX", parentCtrlNbr: holdingCorpResp.CtrlNbr);
         await groupRepo.AddAsync(csxRR);
 
@@ -107,6 +113,7 @@ internal static class DevDataSeeder
 
         // ?? Scenario 2: PTRA (Legacy Railroad) ??????????????????????
         // Railroad is the work area; hierarchy: Railroad -> Location
+        SetParent(ptraCorpResp.CtrlNbr);
         var ptraLocationType = GroupType.Create("Location", "On duty locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
         await groupTypeRepo.AddAsync(ptraLocationType);
 
@@ -121,6 +128,7 @@ internal static class DevDataSeeder
 
         // ?? Scenario 3: Holding Company (CSX) ????????????????????????
         // Parent -> Region -> Subdivision (user will add work areas)
+        SetParent(holdingCorpResp.CtrlNbr);
         var southeast = DynamicGroup.Create(
             regionType.CtrlNbr.Value,
             "Southeast Region",
@@ -177,12 +185,40 @@ internal static class DevDataSeeder
 
         foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
         {
+            SetParent(parentCore.CtrlNbr.Value);
             var pCtrl = parentCore.CtrlNbr.Value;
             if (!groupTypesBackfill.Any(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == pCtrl))
                 await groupTypeRepo.AddAsync(GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: pCtrl));
         }
 
+        // Backfill seniority states for pre-existing parents that may be missing states
+        var seniorityStateRepo = sp.GetRequiredService<ISeniorityStateRepository>();
+        var defaultStates = new (string Description, StateType Type)[]
+        {
+            ("Active", StateType.Active),
+            ("Cut Back", StateType.CutBack),
+            ("Inactive", StateType.Inactive),
+            ("Terminated", StateType.Inactive),
+            ("Dismissed", StateType.Inactive),
+            ("Leave of Absence", StateType.Inactive),
+            ("Medical Leave", StateType.Inactive),
+            ("Retired", StateType.Inactive)
+        };
+
+        foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
+        {
+            SetParent(parentCore.CtrlNbr.Value);
+            var pCtrl = parentCore.CtrlNbr.Value;
+            var existingStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(parentCore.CtrlNbr);
+            foreach (var (desc, type) in defaultStates)
+            {
+                if (!existingStates.Any(s => s.StateDescription == desc))
+                    await seniorityStateRepo.AddAsync(SeniorityState.Create(desc, type, pCtrl));
+            }
+        }
+
         // Backfill group types scoped to CSX Corporation
+        SetParent(csxParentCore.CtrlNbr.Value);
         groupTypesBackfill = await groupTypeRepo.GetAllAsync();
         var csxParentCtrlNbr = csxParentCore.CtrlNbr.Value;
 
@@ -219,18 +255,21 @@ internal static class DevDataSeeder
         var allTypesForRR = await groupTypeRepo.GetAllAsync();
         var allGroupsForRR = await groupRepo.GetAllAsync();
 
+        SetParent(simpleCorpCore.CtrlNbr.Value);
         if (allGroupsForRR.All(g => g.Code != "SMPL"))
         {
             var smplRRType = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == simpleCorpCore.CtrlNbr.Value);
             await groupRepo.AddAsync(DynamicGroup.Create(smplRRType.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL", parentCtrlNbr: simpleCorpCore.CtrlNbr.Value));
         }
 
+        SetParent(ptraParentCore.CtrlNbr.Value);
         if (allGroupsForRR.All(g => g.Code != "PTRA"))
         {
             var ptraRRType = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
             await groupRepo.AddAsync(DynamicGroup.Create(ptraRRType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraParentCore.CtrlNbr.Value));
         }
 
+        SetParent(csxParentCore.CtrlNbr.Value);
         if (allGroupsForRR.All(g => g.Code != "CSX"))
         {
             var csxRRType = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == csxParentCore.CtrlNbr.Value);
@@ -294,6 +333,7 @@ internal static class DevDataSeeder
 
         // Reuse ensured baseline parent.
         var csxParent = csxParentCore;
+        SetParent(csxParent.CtrlNbr.Value);
 
         // Reference data
         var activeStatus = EmploymentStatus.Create(csxParent.CtrlNbr.Value, "A", "Active", 1, "FT");
@@ -466,9 +506,11 @@ internal static class DevDataSeeder
         var csxTransportation = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Transportation");
         var csxClerical = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Clerical");
         var ptraTransportation = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Transportation");
+        SetParent(csxParentCtrlNbr);
         await departmentRepo.AddAsync(csxTransportation);
         await departmentRepo.AddAsync(csxClerical);
         var ptraClerical = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Clerical");
+        SetParent(ptraParentCore.CtrlNbr.Value);
         await departmentRepo.AddAsync(ptraTransportation);
         await departmentRepo.AddAsync(ptraClerical);
         } // end departments guard
@@ -491,6 +533,7 @@ internal static class DevDataSeeder
         var ptraClericalDept = allDepts.First(d => d.Name == "Clerical" && d.ParentCtrlNbr == ptraParentCore.CtrlNbr);
 
         // CSX Crafts (owned by CSX railroad under CSX Corporation parent)
+        SetParent(csxParentCtrlNbr);
         var csxEngineer = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
@@ -510,6 +553,7 @@ internal static class DevDataSeeder
         await craftRepo.AddAsync(csxClerical);
 
         // PTRA Crafts (owned by PTRA railroad under PTRA parent)
+        SetParent(ptraParentCore.CtrlNbr.Value);
         var ptraEngineer = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
@@ -529,24 +573,25 @@ internal static class DevDataSeeder
         await craftRepo.AddAsync(ptraClerical);
 
         // Rosters -- one per craft per railroad
+        SetParent(csxParentCtrlNbr);
         var csxRailroadsForRoster = await groupRepo.GetByGroupTypeNameAsync("Railroad");
         var csxRailroad = csxRailroadsForRoster.First(rr => rr.Code == "CSX");
 
-        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxRailroad.CtrlNbr, "Engineer Roster", "Engineer Rosters", 1,
-            training: false, extraBoard: false, overtimeBoard: false);
+        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxRailroad.CtrlNbr, "Engineer Roster", "Engineer Rosters", 1);
         await rosterRepo.AddAsync(csxEngRoster);
 
-        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxRailroad.CtrlNbr, "Conductor Roster", "Conductor Rosters", 2,
-            training: false, extraBoard: false, overtimeBoard: false);
+        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxRailroad.CtrlNbr, "Conductor Roster", "Conductor Rosters", 2);
         await rosterRepo.AddAsync(csxCondRoster);
 
-        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxRailroad.CtrlNbr, "Clerical Roster", "Clerical Rosters", 3,
-            training: false, extraBoard: false, overtimeBoard: false);
+        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxRailroad.CtrlNbr, "Clerical Roster", "Clerical Rosters", 3);
         await rosterRepo.AddAsync(csxClericalRoster);
 
         // Seniority entries � split 100 employees: 40 Engineer, 50 Conductor, 10 Clerical
         var empList = await employeeRepo.GetAllAsync();
         var rosterDate = new DateTime(2015, 1, 1);
+
+        var csxStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(csxParentCore.CtrlNbr);
+        var activeState = csxStates.First(s => s.StateDescription == "Active");
 
         for (int i = 0; i < empList.Count; i++)
         {
@@ -560,7 +605,7 @@ internal static class DevDataSeeder
                 lastActiveRoster: true,
                 rosterDate: rosterDate.AddDays(i * 12),
                 rank: i + 1,
-                stateID: 1,
+                seniorityStateCtrlNbr: activeState.CtrlNbr,
                 canTrain: i % 5 == 0);
             await seniorityRepo.AddAsync(seniority);
         }
@@ -575,6 +620,7 @@ internal static class DevDataSeeder
         var existingRoles = await craftRoleRepo.GetAllAsync();
         if (existingRoles.Count == 0)
         {
+        SetParent(csxParentCtrlNbr);
         // Re-lookup crafts and work areas for FK references
         var crafts = await craftRepo.GetAllAsync();
         var csxRailroadWM = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
@@ -602,6 +648,7 @@ internal static class DevDataSeeder
         await craftRoleRepo.AddAsync(crewDispatcher);
 
         // Craft Roles - PTRA Engineer craft
+        SetParent(ptraParentCore.CtrlNbr.Value);
         var ptraRailroadWM = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var ptraEngCraft = crafts.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
         var ptraCondCraft = crafts.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
@@ -615,7 +662,8 @@ internal static class DevDataSeeder
         await craftRoleRepo.AddAsync(ptraHelper);
 
 
-        // Work Instances � 2 per template (today + tomorrow)
+        SetParent(csxParentCtrlNbr);
+        // Work Instances
         var today = DateTime.UtcNow.Date;
         var tomorrow = today.AddDays(1);
 
@@ -669,6 +717,7 @@ internal static class DevDataSeeder
         var existingCrews = await crewRepo.GetAllAsync();
         if (existingCrews.Count == 0)
         {
+        SetParent(csxParentCtrlNbr);
         var allGroups2 = await groupRepo.GetAllAsync();
         var jaxSub2 = allGroups2.First(g => g.Name == "Jacksonville Sub");
         var allRoles = await craftRoleRepo.GetAllAsync();
@@ -768,6 +817,7 @@ internal static class DevDataSeeder
         }
 
         // Shift Definitions for PTRA
+        SetParent(ptraParentCore.CtrlNbr.Value);
         var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
         ShiftDefinition ptraShift1, ptraShift2, ptraShift3;
@@ -792,6 +842,7 @@ internal static class DevDataSeeder
         }
 
         // Assignments
+        SetParent(csxParentCtrlNbr);
         var asgn1 = Assignment.Create(jaxSub2.CtrlNbr, "JAX-101", "Jax Turn 101", departmentCtrlNbr: crewTransDept?.CtrlNbr);
         var asgn2 = Assignment.Create(jaxSub2.CtrlNbr, "JAX-102", "Jax Turn 102", departmentCtrlNbr: crewTransDept?.CtrlNbr);
         var asgnExtra = Assignment.Create(jaxSub2.CtrlNbr, "JAX-XB", "Jax Extra Board", isExtra: true, departmentCtrlNbr: crewTransDept?.CtrlNbr);
@@ -818,6 +869,7 @@ internal static class DevDataSeeder
         }
 
         // ── PTRA Assignments ────────────────────────────────────────────
+        SetParent(ptraParentCore.CtrlNbr.Value);
         var ptraLocNOYD = allGroups2.First(g => g.Code == "NOYD");
         var ptraLocMCYD = allGroups2.First(g => g.Code == "MCYD");
         var ptraLocPSYD = allGroups2.First(g => g.Code == "PSYD");
@@ -959,12 +1011,13 @@ internal static class DevDataSeeder
 
         } // end crews guard
 
-        // ?? Section 7: Boards � Extra Boards, Members, Cascade Policies ??????
-        var boardRepo = sp.GetRequiredService<IExtraBoardRepository>();
-        var boardMemberRepo = sp.GetRequiredService<IBoardMemberRepository>();
+        // Section 7: Boards - Roster Boards, Positions, Cascade Policies
+        SetParent(csxParentCtrlNbr);
+        var rosterBoardRepo = sp.GetRequiredService<IRosterBoardRepository>();
         var cascadeRepo = sp.GetRequiredService<IBoardCascadePolicyRepository>();
+        var staffPosRepo = sp.GetRequiredService<IStaffablePositionRepository>();
 
-        var existingBoards = await boardRepo.GetAllAsync();
+        var existingBoards = await rosterBoardRepo.GetAllAsync();
         if (existingBoards.Count == 0)
         {
         var crafts2 = await craftRepo.GetAllAsync();
@@ -974,19 +1027,30 @@ internal static class DevDataSeeder
         var engCraft2 = crafts2.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var condCraft2 = crafts2.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var empList3 = await employeeRepo.GetAllAsync();
-        var now2 = DateTime.UtcNow;
+        var allRosters = await rosterRepo.GetAllAsync();
+        var engRoster = allRosters.First(r => r.RosterName == "Engineer Roster" && r.CraftCtrlNbr == engCraft2.CtrlNbr);
+        var condRoster = allRosters.First(r => r.RosterName == "Conductor Roster" && r.CraftCtrlNbr == condCraft2.CtrlNbr);
 
-        var engBoard = ExtraBoard.Create(engCraft2.CtrlNbr, jaxSub3.CtrlNbr, "PRIMARY", "Jax Engineer Extra Board");
-        var condBoard = ExtraBoard.Create(condCraft2.CtrlNbr, jaxSub3.CtrlNbr, "PRIMARY", "Jax Conductor Extra Board");
-        await boardRepo.AddAsync(engBoard);
-        await boardRepo.AddAsync(condBoard);
+        var engBoard = RosterBoard.Create(jaxSub3.CtrlNbr, engCraft2.CtrlNbr, engRoster.CtrlNbr,
+            "Jax Engineer Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var condBoard = RosterBoard.Create(jaxSub3.CtrlNbr, condCraft2.CtrlNbr, condRoster.CtrlNbr,
+            "Jax Conductor Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        await rosterBoardRepo.AddAsync(engBoard);
+        await rosterBoardRepo.AddAsync(condBoard);
 
-        // Board Members � 5 engineers, 5 conductors
+        // Board Positions - 5 engineers, 5 conductors
         for (int i = 0; i < 5; i++)
         {
-            await boardMemberRepo.AddAsync(BoardMember.Create(engBoard.CtrlNbr, empList3[3 + i].CtrlNbr, i + 1, now2));
-            await boardMemberRepo.AddAsync(BoardMember.Create(condBoard.CtrlNbr, empList3[43 + i].CtrlNbr, i + 1, now2));
+            var engPos = StaffablePosition.Create("Board");
+            await staffPosRepo.AddAsync(engPos);
+            engBoard.AddPosition(empList3[3 + i].CtrlNbr, i + 1, engPos.CtrlNbr);
+
+            var condPos = StaffablePosition.Create("Board");
+            await staffPosRepo.AddAsync(condPos);
+            condBoard.AddPosition(empList3[43 + i].CtrlNbr, i + 1, condPos.CtrlNbr);
         }
+        await rosterBoardRepo.UpdateAsync(engBoard);
+        await rosterBoardRepo.UpdateAsync(condBoard);
 
         // Cascade Policies
         await cascadeRepo.AddAsync(BoardCascadePolicy.Create(jaxSub3.CtrlNbr, engCraft2.CtrlNbr,

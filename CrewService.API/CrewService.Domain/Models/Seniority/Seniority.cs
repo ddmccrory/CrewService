@@ -11,13 +11,14 @@ public sealed class Seniority : Entity
     public bool LastActiveRoster { get; private set; }
     public DateTime RosterDate { get; private set; }
     public int Rank { get; private set; }
-    public int StateID { get; private set; }
+    public ControlNumber SeniorityStateCtrlNbr { get; private set; }
     public bool CanTrain { get; private set; }
 
     private Seniority()
     {
         RosterCtrlNbr = null!;
         EmployeeCtrlNbr = null!;
+        SeniorityStateCtrlNbr = null!;
     }
 
     private Seniority(
@@ -26,7 +27,7 @@ public sealed class Seniority : Entity
         bool lastActiveRoster,
         DateTime rosterDate,
         int rank,
-        int stateID,
+        ControlNumber seniorityStateCtrlNbr,
         bool canTrain)
     {
         RosterCtrlNbr = rosterCtrlNbr;
@@ -34,7 +35,7 @@ public sealed class Seniority : Entity
         LastActiveRoster = lastActiveRoster;
         RosterDate = rosterDate;
         Rank = rank;
-        StateID = stateID;
+        SeniorityStateCtrlNbr = seniorityStateCtrlNbr;
         CanTrain = canTrain;
     }
 
@@ -44,7 +45,7 @@ public sealed class Seniority : Entity
         bool lastActiveRoster,
         DateTime rosterDate,
         int rank,
-        int stateID,
+        ControlNumber seniorityStateCtrlNbr,
         bool canTrain)
     {
         var entity = new Seniority(
@@ -53,7 +54,7 @@ public sealed class Seniority : Entity
             lastActiveRoster,
             rosterDate,
             rank,
-            stateID,
+            seniorityStateCtrlNbr,
             canTrain);
         entity.Raise(new SeniorityCreatedDomainEvent(entity.CtrlNbr));
         return entity;
@@ -63,7 +64,7 @@ public sealed class Seniority : Entity
         bool? lastActiveRoster = null,
         DateTime? rosterDate = null,
         int? rank = null,
-        int? stateID = null,
+        ControlNumber? seniorityStateCtrlNbr = null,
         bool? canTrain = null)
     {
         var changes = new Dictionary<string, object?>();
@@ -71,7 +72,7 @@ public sealed class Seniority : Entity
         if (lastActiveRoster is not null) { LastActiveRoster = lastActiveRoster.Value; changes["lastActiveRoster"] = lastActiveRoster.Value; }
         if (rosterDate is not null) { RosterDate = rosterDate.Value; changes["rosterDate"] = rosterDate.Value; }
         if (rank is not null) { Rank = rank.Value; changes["rank"] = rank.Value; }
-        if (stateID is not null) { StateID = stateID.Value; changes["stateID"] = stateID.Value; }
+        if (seniorityStateCtrlNbr is not null) { SeniorityStateCtrlNbr = seniorityStateCtrlNbr; changes["seniorityStateCtrlNbr"] = seniorityStateCtrlNbr.Value; }
         if (canTrain is not null) { CanTrain = canTrain.Value; changes["canTrain"] = canTrain.Value; }
 
         if (changes.Count > 0)
