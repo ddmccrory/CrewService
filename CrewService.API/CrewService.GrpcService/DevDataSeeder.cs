@@ -519,6 +519,7 @@ internal static class DevDataSeeder
         var craftRepo = sp.GetRequiredService<ICraftRepository>();
         var rosterRepo = sp.GetRequiredService<IRosterRepository>();
         var seniorityRepo = sp.GetRequiredService<ISeniorityRepository>();
+        var uowFactory = sp.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
 
         var existingCrafts = await craftRepo.GetAllAsync();
         if (existingCrafts.Count == 0)
@@ -538,19 +539,37 @@ internal static class DevDataSeeder
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
-        await craftRepo.AddAsync(csxEngineer);
+        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, null, csxEngineer.CraftName, csxEngineer.CraftPluralName, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crafts.Add(csxEngineer);
+            uow.Rosters.Add(csxEngRoster);
+            await uow.CommitAsync();
+        }
 
-        var csxConductor = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Conductor", "Conductors", 2,
+        var csxConductor = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Trainman", "Trainmen", 2,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
-        await craftRepo.AddAsync(csxConductor);
+        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, null, csxConductor.CraftName, csxConductor.CraftPluralName, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crafts.Add(csxConductor);
+            uow.Rosters.Add(csxCondRoster);
+            await uow.CommitAsync();
+        }
 
         var csxClerical = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: csxClericalDept.CtrlNbr);
-        await craftRepo.AddAsync(csxClerical);
+        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, null, csxClerical.CraftName, csxClerical.CraftPluralName, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crafts.Add(csxClerical);
+            uow.Rosters.Add(csxClericalRoster);
+            await uow.CommitAsync();
+        }
 
         // PTRA Crafts (owned by PTRA railroad under PTRA parent)
         SetParent(ptraParentCore.CtrlNbr.Value);
@@ -558,56 +577,100 @@ internal static class DevDataSeeder
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
-        await craftRepo.AddAsync(ptraEngineer);
+        var ptraEngRoster = Roster.Create(ptraEngineer.CtrlNbr, null, ptraEngineer.CraftName, ptraEngineer.CraftPluralName, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crafts.Add(ptraEngineer);
+            uow.Rosters.Add(ptraEngRoster);
+            await uow.CommitAsync();
+        }
 
-        var ptraConductor = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Conductor", "Conductors", 2,
+        var ptraConductor = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Trainman", "Trainmen", 2,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
-        await craftRepo.AddAsync(ptraConductor);
+        var ptraCondRoster = Roster.Create(ptraConductor.CtrlNbr, null, ptraConductor.CraftName, ptraConductor.CraftPluralName, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crafts.Add(ptraConductor);
+            uow.Rosters.Add(ptraCondRoster);
+            await uow.CommitAsync();
+        }
 
         var ptraClerical = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: ptraClericalDept.CtrlNbr);
-        await craftRepo.AddAsync(ptraClerical);
+        var ptraClericalRoster = Roster.Create(ptraClerical.CtrlNbr, null, ptraClerical.CraftName, ptraClerical.CraftPluralName, 1);
+        await using (var uow = await uowFactory.CreateAsync())
+        {
+            uow.Crafts.Add(ptraClerical);
+            uow.Rosters.Add(ptraClericalRoster);
+            await uow.CommitAsync();
+        }
 
-        // Rosters -- one per craft per railroad
         SetParent(csxParentCtrlNbr);
-        var csxRailroadsForRoster = await groupRepo.GetByGroupTypeNameAsync("Railroad");
-        var csxRailroad = csxRailroadsForRoster.First(rr => rr.Code == "CSX");
-
-        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxRailroad.CtrlNbr, "Engineer Roster", "Engineer Rosters", 1);
-        await rosterRepo.AddAsync(csxEngRoster);
-
-        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxRailroad.CtrlNbr, "Conductor Roster", "Conductor Rosters", 2);
-        await rosterRepo.AddAsync(csxCondRoster);
-
-        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxRailroad.CtrlNbr, "Clerical Roster", "Clerical Rosters", 3);
-        await rosterRepo.AddAsync(csxClericalRoster);
-
-        // Seniority entries � split 100 employees: 40 Engineer, 50 Conductor, 10 Clerical
+        // Seniority entries: 40 Engineer, 50 Trainman, 10 Clerical
+        // Employees are hired in groups sharing the same seniority date.
+        // Rank is a tiebreaker within each hire date (1 if sole hire, 1..N for group hires).
         var empList = await employeeRepo.GetAllAsync();
-        var rosterDate = new DateTime(2015, 1, 1);
 
         var csxStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(csxParentCore.CtrlNbr);
         var activeState = csxStates.First(s => s.StateDescription == "Active");
 
-        for (int i = 0; i < empList.Count; i++)
-        {
-            Roster targetRoster;
-            if (i < 40) targetRoster = csxEngRoster;
-            else if (i < 90) targetRoster = csxCondRoster;
-            else targetRoster = csxClericalRoster;
+        // Hire group sizes per craft (each number = employees sharing one seniority date)
+        int[] engGroups = [5, 3, 1, 4, 5, 3, 4, 1, 5, 4, 3, 2]; // 40 Engineers
+        int[] trnGroups = [4, 5, 1, 3, 5, 4, 1, 5, 3, 4, 5, 3, 4, 3]; // 50 Trainmen
+        int[] clrGroups = [3, 1, 2, 1, 3]; // 10 Clerical
 
-            var seniority = Seniority.Create(
-                targetRoster.CtrlNbr, empList[i].CtrlNbr,
-                lastActiveRoster: true,
-                rosterDate: rosterDate.AddDays(i * 12),
-                rank: i + 1,
-                seniorityStateCtrlNbr: activeState.CtrlNbr,
-                canTrain: i % 5 == 0);
-            await seniorityRepo.AddAsync(seniority);
+        int empIdx = 0;
+
+        // Engineer roster: hire dates starting 2015-01-01, ~45 days apart
+        var engDate = new DateTime(2015, 1, 1);
+        foreach (var groupSize in engGroups)
+        {
+            for (int r = 0; r < groupSize; r++)
+            {
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    csxEngRoster.CtrlNbr, empList[empIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: engDate,
+                    rank: r + 1, seniorityStateCtrlNbr: activeState.CtrlNbr,
+                    canTrain: empIdx % 5 == 0));
+                empIdx++;
+            }
+            engDate = engDate.AddDays(45);
+        }
+
+        // Trainman roster: hire dates starting 2015-02-01, ~35 days apart
+        var trnDate = new DateTime(2015, 2, 1);
+        foreach (var groupSize in trnGroups)
+        {
+            for (int r = 0; r < groupSize; r++)
+            {
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    csxCondRoster.CtrlNbr, empList[empIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: trnDate,
+                    rank: r + 1, seniorityStateCtrlNbr: activeState.CtrlNbr,
+                    canTrain: empIdx % 5 == 0));
+                empIdx++;
+            }
+            trnDate = trnDate.AddDays(35);
+        }
+
+        // Clerical roster: hire dates starting 2015-06-01, ~60 days apart
+        var clrDate = new DateTime(2015, 6, 1);
+        foreach (var groupSize in clrGroups)
+        {
+            for (int r = 0; r < groupSize; r++)
+            {
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    csxClericalRoster.CtrlNbr, empList[empIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: clrDate,
+                    rank: r + 1, seniorityStateCtrlNbr: activeState.CtrlNbr,
+                    canTrain: empIdx % 5 == 0));
+                empIdx++;
+            }
+            clrDate = clrDate.AddDays(60);
         }
 
         } // end seniority guard
@@ -626,10 +689,10 @@ internal static class DevDataSeeder
         var csxRailroadWM = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var jaxSubWM = (await groupRepo.GetAllAsync()).First(g => g.Name == "Jacksonville Sub");
         var engCraft = crafts.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
-        var condCraft = crafts.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
+        var condCraft = crafts.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
         var clerCraft = crafts.First(c => c.CraftName == "Clerical" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
 
-        // Craft Roles � Conductor craft
+        // Craft Roles � Trainman craft
         var studentTrainman = CraftRole.Create(condCraft.CtrlNbr, "STRN", "Student Trainman");
         var trainman = CraftRole.Create(condCraft.CtrlNbr, "TRMN", "Trainman");
         var conductor = CraftRole.Create(condCraft.CtrlNbr, "COND", "Conductor");
@@ -651,11 +714,11 @@ internal static class DevDataSeeder
         SetParent(ptraParentCore.CtrlNbr.Value);
         var ptraRailroadWM = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var ptraEngCraft = crafts.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
-        var ptraCondCraft = crafts.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
+        var ptraCondCraft = crafts.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
         var ptraEngineerRole = CraftRole.Create(ptraEngCraft.CtrlNbr, "E", "Engineer");
         await craftRoleRepo.AddAsync(ptraEngineerRole);
 
-        // Craft Roles - PTRA Conductor craft
+        // Craft Roles - PTRA Trainman craft
         var ptraForeman = CraftRole.Create(ptraCondCraft.CtrlNbr, "F", "Foreman");
         var ptraHelper = CraftRole.Create(ptraCondCraft.CtrlNbr, "H", "Helper");
         await craftRoleRepo.AddAsync(ptraForeman);
@@ -680,7 +743,7 @@ internal static class DevDataSeeder
         await workInstanceRepo.AddAsync(wi303Today);
         await workInstanceRepo.AddAsync(wi303Tomorrow);
 
-        // Position Slots � each work instance gets a Conductor + Engineer slot
+        // Position Slots � each work instance gets a Trainman + Engineer slot
         var slots = new List<PositionSlot>();
         foreach (var wi in new[] { wi101Today, wi101Tomorrow, wi202Today, wi202Tomorrow, wi303Today, wi303Tomorrow })
         {
@@ -694,9 +757,9 @@ internal static class DevDataSeeder
 
         // Bind a few today slots to employees
         var empList = await employeeRepo.GetAllAsync();
-        slots[0].Bind(empList[40].CtrlNbr, "DISPATCH");  // Job 101 today � Conductor
+        slots[0].Bind(empList[40].CtrlNbr, "DISPATCH");  // Job 101 today � Trainman
         slots[1].Bind(empList[0].CtrlNbr, "DISPATCH");    // Job 101 today � Engineer
-        slots[4].Bind(empList[41].CtrlNbr, "DISPATCH");   // Job 202 today � Conductor
+        slots[4].Bind(empList[41].CtrlNbr, "DISPATCH");   // Job 202 today � Trainman
         slots[5].Bind(empList[1].CtrlNbr, "DISPATCH");    // Job 202 today � Engineer
         await positionSlotRepo.UpdateAsync(slots[0]);
         await positionSlotRepo.UpdateAsync(slots[1]);
@@ -712,7 +775,6 @@ internal static class DevDataSeeder
         var crewAssignmentRepo = sp.GetRequiredService<ICrewAssignmentRepository>();
         var assignmentRepo2 = sp.GetRequiredService<IAssignmentRepository>();
         var assignmentScheduleRepo = sp.GetRequiredService<IAssignmentScheduleRepository>();
-        var uowFactory = sp.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
 
         var existingCrews = await crewRepo.GetAllAsync();
         if (existingCrews.Count == 0)
@@ -760,7 +822,7 @@ internal static class DevDataSeeder
             await uow.CommitAsync();
         }
 
-        // Crew Positions — 2 per crew (Conductor + Engineer)
+        // Crew Positions — 2 per crew (Trainman + Engineer)
         var crewAPos1 = CrewPosition.Create(crewA.CtrlNbr, condRole.CtrlNbr, 1, sp1.CtrlNbr);
         var crewAPos2 = CrewPosition.Create(crewA.CtrlNbr, engRole.CtrlNbr, 2, sp2.CtrlNbr);
         var crewBPos1 = CrewPosition.Create(crewB.CtrlNbr, condRole.CtrlNbr, 1, sp3.CtrlNbr);
@@ -1025,20 +1087,20 @@ internal static class DevDataSeeder
         var jaxSub3 = groups2.First(g => g.Name == "Jacksonville Sub");
         var csxRailroad3 = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var engCraft2 = crafts2.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
-        var condCraft2 = crafts2.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
+        var condCraft2 = crafts2.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var empList3 = await employeeRepo.GetAllAsync();
         var allRosters = await rosterRepo.GetAllAsync();
-        var engRoster = allRosters.First(r => r.RosterName == "Engineer Roster" && r.CraftCtrlNbr == engCraft2.CtrlNbr);
-        var condRoster = allRosters.First(r => r.RosterName == "Conductor Roster" && r.CraftCtrlNbr == condCraft2.CtrlNbr);
+        var engRoster = allRosters.First(r => r.RosterName == "Engineer" && r.CraftCtrlNbr == engCraft2.CtrlNbr);
+        var condRoster = allRosters.First(r => r.RosterName == "Trainman" && r.CraftCtrlNbr == condCraft2.CtrlNbr);
 
         var engBoard = RosterBoard.Create(jaxSub3.CtrlNbr, engCraft2.CtrlNbr, engRoster.CtrlNbr,
             "Jax Engineer Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var condBoard = RosterBoard.Create(jaxSub3.CtrlNbr, condCraft2.CtrlNbr, condRoster.CtrlNbr,
-            "Jax Conductor Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+            "Jax Trainman Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         await rosterBoardRepo.AddAsync(engBoard);
         await rosterBoardRepo.AddAsync(condBoard);
 
-        // Board Positions - 5 engineers, 5 conductors
+        // Board Positions - 5 engineers, 5 trainmen
         for (int i = 0; i < 5; i++)
         {
             var engPos = StaffablePosition.Create("Board");
@@ -1071,7 +1133,7 @@ internal static class DevDataSeeder
         var crafts3 = await craftRepo.GetAllAsync();
         var csxRailroad4 = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var engCraft3 = crafts3.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad4.CtrlNbr);
-        var condCraft3 = crafts3.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroad4.CtrlNbr);
+        var condCraft3 = crafts3.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroad4.CtrlNbr);
         var empList4 = await employeeRepo.GetAllAsync();
         var allSlots = await positionSlotRepo.GetAllAsync();
         var now3 = DateTime.UtcNow;
@@ -1151,7 +1213,7 @@ internal static class DevDataSeeder
         var crafts4 = await craftRepo.GetAllAsync();
         var csxRailroad5 = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var engCraft4 = crafts4.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad5.CtrlNbr);
-        var condCraft4 = crafts4.First(c => c.CraftName == "Conductor" && c.DynamicGroupCtrlNbr == csxRailroad5.CtrlNbr);
+        var condCraft4 = crafts4.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroad5.CtrlNbr);
 
         await displacementPolicyRepo.AddAsync(CraftDisplacementPolicy.Create(engCraft4.CtrlNbr, 72, "ROSTER_DATE", "EXTRA_BOARD"));
         await displacementPolicyRepo.AddAsync(CraftDisplacementPolicy.Create(condCraft4.CtrlNbr, 72, "ROSTER_DATE", "EXTRA_BOARD"));

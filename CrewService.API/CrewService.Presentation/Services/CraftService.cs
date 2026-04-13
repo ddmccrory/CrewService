@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
@@ -5,7 +6,9 @@ using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrvcBase
+public class CraftService(
+    ICraftRepository craftRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory) : CraftSrvc.CraftSrvcBase
 {
     private readonly ICraftRepository _craftRepository = craftRepository;
 
@@ -21,30 +24,10 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
         foreach (var craft in crafts)
         {
-            response.Crafts.Add(new CraftResponse
-            {
-                CtrlNbr = craft.CtrlNbr.Value,
-                ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
-                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
-                CraftName = craft.CraftName,
-                CraftPluralName = craft.CraftPluralName,
-                CraftNumber = craft.CraftNumber,
-                AutoMarkUp = craft.AutoMarkUp,
-                ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
-                MarkOffHours = craft.MarkOffHours,
-                MarkUpHours = craft.MarkUpHours,
-                RequiredRestHours = craft.RequiredRestHours,
-                MaximumVacationDayTime = craft.MaximumVacationDayTime,
-                UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
-                HoursofService = craft.HoursofService,
-                ProcessPayroll = craft.ProcessPayroll,
-                ShowNotifications = craft.ShowNotifications,
-                VacationAssignmentType = craft.VacationAssignmentType,
-                DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
-            });
+            response.Crafts.Add(MapToResponse(craft));
         }
 
-        return await Task.FromResult(response);
+        return response;
     }
 
     public override async Task<CraftResponse> GetAsync(GetCraftRequest request, ServerCallContext context)
@@ -52,27 +35,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
         var craft = await _craftRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Craft, with control number {request.CtrlNbr}, was not found."));
 
-        return await Task.FromResult(new CraftResponse
-        {
-            CtrlNbr = craft.CtrlNbr.Value,
-            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
-                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
-            CraftName = craft.CraftName,
-            CraftPluralName = craft.CraftPluralName,
-            CraftNumber = craft.CraftNumber,
-            AutoMarkUp = craft.AutoMarkUp,
-            ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
-            MarkOffHours = craft.MarkOffHours,
-            MarkUpHours = craft.MarkUpHours,
-            RequiredRestHours = craft.RequiredRestHours,
-            MaximumVacationDayTime = craft.MaximumVacationDayTime,
-            UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
-            HoursofService = craft.HoursofService,
-            ProcessPayroll = craft.ProcessPayroll,
-            ShowNotifications = craft.ShowNotifications,
-            VacationAssignmentType = craft.VacationAssignmentType,
-            DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
-        });
+        return MapToResponse(craft);
     }
 
     public override async Task<CraftResponse> CreateAsync(CreateCraftRequest request, ServerCallContext context)
@@ -96,29 +59,19 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             request.VacationAssignmentType,
             request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
 
-        await _craftRepository.AddAsync(craft);
+        var defaultRoster = Roster.Create(
+            craft.CtrlNbr,
+            railroadPayrollDepartmentCtrlNbr: null,
+            craft.CraftName,
+            craft.CraftPluralName,
+            rosterNumber: 1);
 
-        return await Task.FromResult(new CraftResponse
-        {
-            CtrlNbr = craft.CtrlNbr.Value,
-            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
-                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
-            CraftName = craft.CraftName,
-            CraftPluralName = craft.CraftPluralName,
-            CraftNumber = craft.CraftNumber,
-            AutoMarkUp = craft.AutoMarkUp,
-            ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
-            MarkOffHours = craft.MarkOffHours,
-            MarkUpHours = craft.MarkUpHours,
-            RequiredRestHours = craft.RequiredRestHours,
-            MaximumVacationDayTime = craft.MaximumVacationDayTime,
-            UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
-            HoursofService = craft.HoursofService,
-            ProcessPayroll = craft.ProcessPayroll,
-            ShowNotifications = craft.ShowNotifications,
-            VacationAssignmentType = craft.VacationAssignmentType,
-            DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
-        });
+        await using var uow = await uowFactory.CreateAsync();
+        uow.Crafts.Add(craft);
+        uow.Rosters.Add(defaultRoster);
+        await uow.CommitAsync();
+
+        return MapToResponse(craft);
     }
 
     public override async Task<CraftResponse> UpdateAsync(UpdateCraftRequest request, ServerCallContext context)
@@ -144,28 +97,7 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
             departmentCtrlNbr: request.DepartmentCtrlNbr);
 
         await _craftRepository.UpdateAsync(craft);
-
-        return await Task.FromResult(new CraftResponse
-        {
-            CtrlNbr = craft.CtrlNbr.Value,
-            ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
-                DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
-            CraftName = craft.CraftName,
-            CraftPluralName = craft.CraftPluralName,
-            CraftNumber = craft.CraftNumber,
-            AutoMarkUp = craft.AutoMarkUp,
-            ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
-            MarkOffHours = craft.MarkOffHours,
-            MarkUpHours = craft.MarkUpHours,
-            RequiredRestHours = craft.RequiredRestHours,
-            MaximumVacationDayTime = craft.MaximumVacationDayTime,
-            UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
-            HoursofService = craft.HoursofService,
-            ProcessPayroll = craft.ProcessPayroll,
-            ShowNotifications = craft.ShowNotifications,
-            VacationAssignmentType = craft.VacationAssignmentType,
-            DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
-        });
+        return MapToResponse(craft);
     }
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteCraftRequest request, ServerCallContext context)
@@ -175,10 +107,32 @@ public class CraftService(ICraftRepository craftRepository) : CraftSrvc.CraftSrv
 
         await _craftRepository.DeleteAsync(craft.CtrlNbr);
 
-        return await Task.FromResult(new DeleteResponse
+        return new DeleteResponse
         {
             Success = true,
             Messages = { $"Craft {craft.CtrlNbr.Value} deleted." }
-        });
+        };
     }
+
+    private static CraftResponse MapToResponse(Craft craft) => new()
+    {
+        CtrlNbr = craft.CtrlNbr.Value,
+        ParentCtrlNbr = craft.ParentCtrlNbr?.Value ?? 0,
+        DynamicGroupCtrlNbr = craft.DynamicGroupCtrlNbr?.Value ?? 0,
+        CraftName = craft.CraftName,
+        CraftPluralName = craft.CraftPluralName,
+        CraftNumber = craft.CraftNumber,
+        AutoMarkUp = craft.AutoMarkUp,
+        ApproveAllMarkOffs = craft.ApproveAllMarkOffs,
+        MarkOffHours = craft.MarkOffHours,
+        MarkUpHours = craft.MarkUpHours,
+        RequiredRestHours = craft.RequiredRestHours,
+        MaximumVacationDayTime = craft.MaximumVacationDayTime,
+        UnpaidMealPeriodMinutes = craft.UnpaidMealPeriodMinutes,
+        HoursofService = craft.HoursofService,
+        ProcessPayroll = craft.ProcessPayroll,
+        ShowNotifications = craft.ShowNotifications,
+        VacationAssignmentType = craft.VacationAssignmentType,
+        DepartmentCtrlNbr = craft.DepartmentCtrlNbr?.Value ?? 0
+    };
 }

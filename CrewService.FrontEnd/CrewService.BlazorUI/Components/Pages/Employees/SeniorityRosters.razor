@@ -42,10 +42,10 @@ else
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Employee</label>
                         <SelectInput TItem="GetEmployeeResponse" TValue="long"
-                                     Items="employees"
+                                     Items="AvailableEmployees"
                                      @bind-Value="saveModel.EmployeeCtrlNbr"
                                      ValueSelector="@(e => e.CtrlNbr)"
-                                     TextSelector="@(e => $"{e.EmployeeNumber.ToUpperInvariant()} — {e.UserId}")"
+                                     TextSelector="@(e => $"{e.EmployeeNumber.ToUpperInvariant()} — {FormatEmployeeName(e)}")"
                                      Placeholder="— Select an employee —"
                                      class="form-select" />
                         <ValidationMessage For="() => saveModel.EmployeeCtrlNbr" class="text-danger" />
@@ -110,6 +110,37 @@ else
         </Footer>
     </Modal>
 
+    <Modal Visible="showRosterModal" Title="Create Roster"
+           Icon="bi bi-plus-circle"
+           OnClose="CloseRosterModal">
+        <BodyContent>
+            <EditForm Model="rosterModel" OnValidSubmit="OnSaveRoster" id="save-roster-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Roster Name</label>
+                    <InputText @bind-Value="rosterModel.RosterName" class="form-control" placeholder="e.g. Engineer Roster" />
+                    <ValidationMessage For="() => rosterModel.RosterName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Plural Name</label>
+                    <InputText @bind-Value="rosterModel.RosterPluralName" class="form-control" placeholder="e.g. Engineer Rosters" />
+                    <ValidationMessage For="() => rosterModel.RosterPluralName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Roster Number</label>
+                    <InputNumber @bind-Value="rosterModel.RosterNumber" class="form-control" />
+                    <ValidationMessage For="() => rosterModel.RosterNumber" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseRosterModal">Cancel</button>
+            <button type="submit" form="save-roster-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Create
+            </button>
+        </Footer>
+    </Modal>
+
     <SuccessAlert @bind-Message="successMessage" />
 
     @if (errorMessage is not null)
@@ -134,15 +165,23 @@ else
         </div>
         <div class="col-md-4">
             <label class="form-label fw-semibold">Roster</label>
-            <FilterSelect TItem="RosterResponse" TValue="long"
-                          Items="rosters"
-                          Value="selectedRosterCtrlNbr"
-                          ValueChanged="OnRosterChanged"
-                          ValueSelector="@(r => r.CtrlNbr)"
-                          TextSelector="@(r => r.RosterName)"
-                          Placeholder="— Select a roster —"
-                          disabled="@(selectedCraftCtrlNbr == 0)"
-                          class="form-select" />
+            <div class="d-flex gap-2">
+                <FilterSelect TItem="RosterResponse" TValue="long"
+                              Items="rosters"
+                              Value="selectedRosterCtrlNbr"
+                              ValueChanged="OnRosterChanged"
+                              ValueSelector="@(r => r.CtrlNbr)"
+                              TextSelector="@(r => r.RosterName)"
+                              Placeholder="— Select a roster —"
+                              disabled="@(selectedCraftCtrlNbr == 0)"
+                              class="form-select" />
+                @if (selectedCraftCtrlNbr > 0 && !IsFeatureReadOnly)
+                {
+                    <button class="btn btn-outline-primary" title="Create Roster" disabled="@isLoading" @onclick="OpenRosterModal">
+                        <span class="bi bi-plus-lg"></span>
+                    </button>
+                }
+            </div>
         </div>
     </div>
 
@@ -161,23 +200,31 @@ else
     else
     {
         <DataTable TItem="SeniorityResponse" Items="seniorityEntries" Columns="Columns"
-                   SearchFilter="@((s, term) => s.EmployeeNumber.Contains(term, StringComparison.OrdinalIgnoreCase) || s.EmployeeUserId.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchFilter="@((s, term) => s.EmployeeNumber.Contains(term, StringComparison.OrdinalIgnoreCase) || s.EmployeeFullNameLnf.Contains(term, StringComparison.OrdinalIgnoreCase))"
                    SearchPlaceholder="Search employees..."
                    EmptyMessage="No employees found on this roster."
-                   DefaultSortColumn="Rank">
+                   DefaultSortColumn="Seniority Date">
             <ToolbarContent>
                 @if (!IsFeatureReadOnly)
                 {
-                    <button class="btn btn-primary" @onclick="OpenCreateModal">
-                        <span class="bi bi-plus-circle"></span> Add Employee
+                    <button class="btn btn-primary" disabled="@isLoading" @onclick="OpenCreateModal">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <span class="bi bi-plus-circle"></span>
+                        }
+                        Add Employee
                     </button>
                 }
             </ToolbarContent>
             <RowContent Context="entry">
-                <td>@entry.Rank</td>
                 <td>@entry.EmployeeNumber.ToUpperInvariant()</td>
-                <td>@entry.EmployeeUserId</td>
+                <td>@entry.EmployeeFullNameLnf</td>
                 <td>@FormatDate(entry.RosterDate)</td>
+                <td>@entry.Rank</td>
                 <td>@entry.SeniorityStateName</td>
                 <td>
                     <div class="form-check form-switch">
@@ -188,10 +235,10 @@ else
                     @if (!IsFeatureReadOnly)
                     {
                         <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(entry)">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" disabled="@isLoading" @onclick="() => OpenEditModal(entry)">
                                 <span class="bi bi-pencil"></span> Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(entry)">
+                            <button class="btn btn-sm btn-outline-danger flex-fill" disabled="@isLoading" @onclick="() => OpenDeleteModal(entry)">
                                 <span class="bi bi-trash"></span> Remove
                             </button>
                         </div>
@@ -217,15 +264,16 @@ else
 
     private IReadOnlyList<DataTableColumn<SeniorityResponse>> Columns =>
     [
-        new("Rank", s => s.Rank, sortKey: "Rank"),
         new("Employee #", s => s.EmployeeNumber.ToUpperInvariant()),
-        new("User ID", s => s.EmployeeUserId),
+        new("Name", s => s.EmployeeFullNameLnf),
         new("Seniority Date", s => s.RosterDate),
+        new("Rank", s => s.Rank, sortKey: "Rank"),
         new("State", s => s.SeniorityStateName),
         new("Can Train", s => s.CanTrain ? "Yes" : "No"),
         DataTableColumn<SeniorityResponse>.Actions()
     ];
 
+    private bool isLoading;
     private bool showSaveModal;
     private long editCtrlNbr;
     private string editEmployeeDisplay = "";
@@ -234,6 +282,9 @@ else
     private bool showDeleteModal;
     private long deleteCtrlNbr;
     private string deleteEmployeeDisplay = "";
+
+    private bool showRosterModal;
+    private RosterInputModel rosterModel = new();
 
     protected override async Task LoadDataAsync()
     {
@@ -333,14 +384,8 @@ else
         }
     }
 
-    private async Task EnsureModalDataLoaded()
+    private async Task EnsureSeniorityStatesLoaded()
     {
-        if (employees is null)
-        {
-            var empResponse = await EmployeeClient.GetAllAsync();
-            employees = empResponse.Employees.ToList();
-        }
-
         if (seniorityStates is null && SelectedParentCtrlNbr is long parentCtrlNbr)
         {
             var stateResponse = await StateClient.GetAllAsync(parentCtrlNbr);
@@ -348,30 +393,57 @@ else
         }
     }
 
+    private IReadOnlyList<GetEmployeeResponse> AvailableEmployees
+    {
+        get
+        {
+            if (employees is null) return [];
+            if (seniorityEntries is null or { Count: 0 }) return employees;
+            var onRoster = new HashSet<long>(seniorityEntries.Select(s => s.EmployeeCtrlNbr));
+            return employees.Where(e => !onRoster.Contains(e.CtrlNbr)).ToList();
+        }
+    }
+
     private async Task OpenCreateModal()
     {
-        await EnsureModalDataLoaded();
-        editCtrlNbr = 0;
-        editEmployeeDisplay = "";
-        saveModel = new() { RosterDate = DateTime.Today, LastActiveRoster = true };
-        showSaveModal = true;
+        isLoading = true;
+        try
+        {
+            if (employees is null)
+            {
+                var empResponse = await EmployeeClient.GetAllAsync();
+                employees = empResponse.Employees.ToList();
+            }
+
+            await EnsureSeniorityStatesLoaded();
+            editCtrlNbr = 0;
+            editEmployeeDisplay = "";
+            saveModel = new() { RosterDate = DateTime.Today, LastActiveRoster = true };
+            showSaveModal = true;
+        }
+        finally { isLoading = false; }
     }
 
     private async Task OpenEditModal(SeniorityResponse entry)
     {
-        await EnsureModalDataLoaded();
-        editCtrlNbr = entry.CtrlNbr;
-        editEmployeeDisplay = $"{entry.EmployeeNumber.ToUpperInvariant()} — {entry.EmployeeUserId}";
-        saveModel = new()
+        isLoading = true;
+        try
         {
-            EmployeeCtrlNbr = entry.EmployeeCtrlNbr,
-            Rank = entry.Rank,
-            RosterDate = DateTime.TryParse(entry.RosterDate, out var dt) ? dt : DateTime.Today,
-            SeniorityStateCtrlNbr = entry.SeniorityStateCtrlNbr,
-            CanTrain = entry.CanTrain,
-            LastActiveRoster = entry.LastActiveRoster
-        };
-        showSaveModal = true;
+            await EnsureSeniorityStatesLoaded();
+            editCtrlNbr = entry.CtrlNbr;
+            editEmployeeDisplay = $"{entry.EmployeeNumber.ToUpperInvariant()} — {entry.EmployeeFullNameLnf}";
+            saveModel = new()
+            {
+                EmployeeCtrlNbr = entry.EmployeeCtrlNbr,
+                Rank = entry.Rank,
+                RosterDate = DateTime.TryParse(entry.RosterDate, out var dt) ? dt : DateTime.Today,
+                SeniorityStateCtrlNbr = entry.SeniorityStateCtrlNbr,
+                CanTrain = entry.CanTrain,
+                LastActiveRoster = entry.LastActiveRoster
+            };
+            showSaveModal = true;
+        }
+        finally { isLoading = false; }
     }
 
     private void CloseSaveModal()
@@ -385,7 +457,7 @@ else
     private void OpenDeleteModal(SeniorityResponse entry)
     {
         deleteCtrlNbr = entry.CtrlNbr;
-        deleteEmployeeDisplay = $"{entry.EmployeeNumber.ToUpperInvariant()} — {entry.EmployeeUserId}";
+        deleteEmployeeDisplay = $"{entry.EmployeeNumber.ToUpperInvariant()} — {entry.EmployeeFullNameLnf}";
         showDeleteModal = true;
     }
 
@@ -474,4 +546,65 @@ else
         public bool CanTrain { get; set; }
         public bool LastActiveRoster { get; set; } = true;
     }
+
+    // ── Roster quick-create ─────────────────────────────────────────────
+
+    private void OpenRosterModal()
+    {
+        rosterModel = new();
+        showRosterModal = true;
+    }
+
+    private void CloseRosterModal()
+    {
+        showRosterModal = false;
+        rosterModel = new();
+    }
+
+    private async Task OnSaveRoster()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            var response = await RosterClient.CreateAsync(new CreateRosterRequest
+            {
+                CraftCtrlNbr = selectedCraftCtrlNbr,
+                RosterName = rosterModel.RosterName ?? string.Empty,
+                RosterPluralName = rosterModel.RosterPluralName ?? string.Empty,
+                RosterNumber = rosterModel.RosterNumber
+            });
+
+            CloseRosterModal();
+            await LoadRosters();
+            selectedRosterCtrlNbr = response.CtrlNbr;
+            await LoadSeniorityEntries();
+            successMessage = "Roster created.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to create roster: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private sealed class RosterInputModel
+    {
+        [Required(ErrorMessage = "Roster name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? RosterName { get; set; }
+
+        [Required(ErrorMessage = "Plural name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? RosterPluralName { get; set; }
+
+        [Required(ErrorMessage = "Roster number is required.")]
+        [Range(1, 999, ErrorMessage = "Roster number must be between 1 and 999.")]
+        public int RosterNumber { get; set; }
+    }
+
+    private static string FormatEmployeeName(GetEmployeeResponse e)
+        => !string.IsNullOrEmpty(e.FullNameLnf) ? e.FullNameLnf : e.UserId;
 }

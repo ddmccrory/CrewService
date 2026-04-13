@@ -1,4 +1,4 @@
-@page "/config/group-types/{CtrlNbr:long}"
+@page "/work-management/group-types/{CtrlNbr:long}"
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
@@ -295,7 +295,7 @@ else
 }
 
 @code {
-    protected override string? FeatureKey => "config/group-types";
+    protected override string? FeatureKey => "work-management/group-types";
 
     [Parameter]
     public long CtrlNbr { get; set; }
@@ -335,7 +335,7 @@ else
         DataTableColumn<AttributeDefinitionResponse>.Actions()
     ];
 
-    private void NavigateBack() => NavigationManager.NavigateTo("/config/group-types");
+    private void NavigateBack() => NavigationManager.NavigateTo("/work-management/group-types");
 
     // ?? Groups CRUD ??
     private bool showGroupSaveModal;

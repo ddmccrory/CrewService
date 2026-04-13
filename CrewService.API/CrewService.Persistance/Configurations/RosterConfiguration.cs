@@ -20,8 +20,8 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
             value => ControlNumber.Create(value));
 
         builder.Property(r => r.RailroadPayrollDepartmentCtrlNbr).HasConversion(
-            ctrlNbr => ctrlNbr.Value,
-            value => ControlNumber.Create(value));
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
 
         builder.Property(r => r.RosterName).HasMaxLength(100).IsRequired();
         builder.Property(r => r.RosterPluralName).HasMaxLength(100).IsRequired();

@@ -3,7 +3,9 @@ using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
+using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
+using Microsoft.AspNetCore.Identity;
 
 namespace CrewService.Presentation.Services;
 
@@ -12,13 +14,15 @@ public class SeniorityService(
     IRosterRepository rosterRepository,
     ICraftRepository craftRepository,
     IEmployeeRepository employeeRepository,
-    ISeniorityStateRepository seniorityStateRepository) : SenioritySrvc.SenioritySrvcBase
+    ISeniorityStateRepository seniorityStateRepository,
+    UserManager<User> userManager) : SenioritySrvc.SenioritySrvcBase
 {
     private readonly ISeniorityRepository _seniorityRepository = seniorityRepository;
     private readonly IRosterRepository _rosterRepository = rosterRepository;
     private readonly ICraftRepository _craftRepository = craftRepository;
     private readonly IEmployeeRepository _employeeRepository = employeeRepository;
     private readonly ISeniorityStateRepository _seniorityStateRepository = seniorityStateRepository;
+    private readonly UserManager<User> _userManager = userManager;
 
     public override async Task<GetAllSeniorityResponse> GetAllAsync(GetAllSeniorityRequest request, ServerCallContext context)
     {
@@ -28,7 +32,7 @@ public class SeniorityService(
             ? await _seniorityRepository.GetByRosterCtrlNbrAsync(ControlNumber.Create(request.RosterCtrlNbr))
             : await _seniorityRepository.GetAllAsync();
 
-        var employeeCache = new Dictionary<long, (string Number, string UserId)>();
+        var employeeCache = new Dictionary<long, (string Number, string UserId, string FullNameLnf)>();
         var stateCache = new Dictionary<long, string>();
 
         foreach (var seniority in seniorities)
@@ -36,9 +40,15 @@ public class SeniorityService(
             if (!employeeCache.TryGetValue(seniority.EmployeeCtrlNbr.Value, out var empInfo))
             {
                 var employee = await _employeeRepository.GetByCtrlNbrAsync(seniority.EmployeeCtrlNbr);
+                var fullNameLnf = string.Empty;
+                if (employee is not null && !string.IsNullOrEmpty(employee.UserId))
+                {
+                    var user = await _userManager.FindByIdAsync(employee.UserId);
+                    fullNameLnf = user?.FullNameLNF ?? string.Empty;
+                }
                 empInfo = employee is not null
-                    ? (employee.EmployeeNumber, employee.UserId)
-                    : (string.Empty, string.Empty);
+                    ? (employee.EmployeeNumber, employee.UserId, fullNameLnf)
+                    : (string.Empty, string.Empty, string.Empty);
                 employeeCache[seniority.EmployeeCtrlNbr.Value] = empInfo;
             }
 
@@ -61,7 +71,8 @@ public class SeniorityService(
                 CanTrain = seniority.CanTrain,
                 EmployeeNumber = empInfo.Number,
                 EmployeeUserId = empInfo.UserId,
-                SeniorityStateName = stateName
+                SeniorityStateName = stateName,
+                EmployeeFullNameLnf = empInfo.FullNameLnf
             });
         }
 

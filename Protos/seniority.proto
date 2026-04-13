@@ -77,6 +77,7 @@ message SeniorityResponse {
   string employee_number = 11;
   string employee_user_id = 12;
   string seniority_state_name = 13;
+  string employee_full_name_lnf = 14;
 }
 message GetActiveCraftRequest {
   int64 employee_ctrl_nbr = 1;
