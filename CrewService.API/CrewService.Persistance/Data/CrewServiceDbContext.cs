@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
@@ -14,6 +15,7 @@ using CrewService.Persistance.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System.Linq.Expressions;
+using System.Text.Json;
 
 namespace CrewService.Persistance.Data;
 
@@ -22,6 +24,9 @@ DbContextOptions<CrewServiceDbContext> options,
 ICurrentUserService currentUserService,
 IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 {
+    private static readonly JsonSerializerOptions s_camelCase = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly string[] s_auditPrefixes = ["CreatedBy", "ModifiedBy", "DeletedBy", "IsDeleted", "DeletedAt"];
+
     // Legacy Employees
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<AddressType> AddressTypes => Set<AddressType>();
@@ -129,6 +134,9 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Boards.RosterBoardPosition> RosterBoardPositions => Set<Domain.Modules.Boards.RosterBoardPosition>();
     public DbSet<Domain.Modules.Boards.BoardCascadePolicy> BoardCascadePolicies => Set<Domain.Modules.Boards.BoardCascadePolicy>();
 
+    // Audit
+    public DbSet<DomainEventLog> DomainEventLogs => Set<DomainEventLog>();
+
     // Payroll Module
     public DbSet<Domain.Modules.Payroll.EarningCodeRule> EarningCodeRules => Set<Domain.Modules.Payroll.EarningCodeRule>();
     public DbSet<Domain.Modules.Payroll.PayRate> PayRates => Set<Domain.Modules.Payroll.PayRate>();
@@ -209,8 +217,108 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditableEntities();
+        CollectDomainEventLogs();
         await CascadeSoftDeletesAsync(cancellationToken);
         return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Collects domain events from all tracked entities, creates permanent
+    /// <see cref="DomainEventLog"/> audit records, and clears the events from entities.
+    /// For entities that do not raise explicit events, auto-generates audit entries
+    /// from the EF change tracker (Added / Modified / soft-Deleted).
+    /// </summary>
+    private void CollectDomainEventLogs()
+    {
+        var trackedEntries = ChangeTracker.Entries<Entity>().ToList();
+
+        var performedBy = currentUserService.GetUserName();
+        var parentCtrlNbr = currentUserService.GetParentCtrlNbr();
+
+        foreach (var entry in trackedEntries)
+        {
+            var entity = entry.Entity;
+            var events = entity.DomainEvents;
+
+            // ── Explicit domain events (richer payloads) ──
+            if (events.Count > 0)
+            {
+                foreach (var domainEvent in events.OfType<DomainEvent>())
+                {
+                    var log = DomainEventLog.Create(
+                        domainEvent.EventId,
+                        domainEvent.EventType,
+                        domainEvent.AggregateType,
+                        domainEvent.AggregateId,
+                        domainEvent.OccurredAt,
+                        domainEvent.PayloadJson,
+                        performedBy,
+                        parentCtrlNbr);
+                    DomainEventLogs.Add(log);
+                }
+                entity.ClearDomainEvents();
+                continue;
+            }
+
+            // ── Auto-generate audit entry from change tracker ──
+            var aggregateType = entity.GetType().Name;
+            var aggregateId = entity.CtrlNbr.Value;
+            string? eventType = null;
+            string? payloadJson = null;
+
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    eventType = $"{aggregateType}Created";
+                    break;
+
+                case EntityState.Deleted:
+                    eventType = $"{aggregateType}Deleted";
+                    break;
+
+                case EntityState.Modified:
+                    // Detect soft-delete transition
+                    var wasDeleted = entry.OriginalValues.GetValue<bool>(nameof(Entity.IsDeleted));
+                    if (entity.IsDeleted && !wasDeleted)
+                    {
+                        eventType = $"{aggregateType}Deleted";
+                    }
+                    else
+                    {
+                        var changes = new Dictionary<string, object?>();
+                        foreach (var prop in entry.Properties)
+                        {
+                            if (!prop.IsModified) continue;
+                            if (s_auditPrefixes.Any(p => prop.Metadata.Name.StartsWith(p))) continue;
+
+                            var value = prop.CurrentValue;
+                            if (value is ControlNumber cn)
+                                value = cn.Value;
+
+                            changes[prop.Metadata.Name] = value;
+                        }
+
+                        if (changes.Count == 0) continue;
+
+                        eventType = $"{aggregateType}Updated";
+                        payloadJson = JsonSerializer.Serialize(changes, s_camelCase);
+                    }
+                    break;
+            }
+
+            if (eventType is null) continue;
+
+            var autoLog = DomainEventLog.Create(
+                Guid.NewGuid(),
+                eventType,
+                aggregateType,
+                aggregateId,
+                DateTime.UtcNow,
+                payloadJson,
+                performedBy,
+                parentCtrlNbr);
+            DomainEventLogs.Add(autoLog);
+        }
     }
 
     /// <summary>

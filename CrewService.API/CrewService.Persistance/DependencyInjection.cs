@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
@@ -27,6 +28,7 @@ using HolidayPayrollInterfaces = CrewService.Application.Payroll;
 using PayrollEngineInterfaces = CrewService.Application.Payroll;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Modules.Authorization;
 using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Modules.WorkManagement;
@@ -45,7 +47,6 @@ using CrewService.Persistance.Modules.Notifications;
 using CrewService.Persistance.Modules.RailroadInfo;
 using CrewService.Persistance.Modules.Safety;
 using CrewService.Persistance.Encryption;
-using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
 using Microsoft.AspNetCore.Identity;
@@ -243,6 +244,9 @@ public static class DependencyInjection
         services.AddScoped<ISafetyObservationRepository, SafetyObservationRepository>();
         services.AddScoped<ISafetyObservationResolutionRepository, SafetyObservationResolutionRepository>();
         services.AddScoped<ISafetyCategoryRepository, SafetyCategoryRepository>();
+
+        // Audit Log Query
+        services.AddScoped<IAuditLogQuery, AuditLogQuery>();
 
         // Contact Repositories (Core)
         services.AddScoped<IAddressRepository, AddressRepository>();

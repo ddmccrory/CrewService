@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260413004933_AddDomainEventLog")]
+    partial class AddDomainEventLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -41,9 +44,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("PayloadJson")
                         .HasColumnType("TEXT");
 
@@ -61,8 +61,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("EventType");
 
                     b.HasIndex("OccurredAt");
-
-                    b.HasIndex("ParentCtrlNbr");
 
                     b.ToTable("DomainEventLogs", (string)null);
                 });

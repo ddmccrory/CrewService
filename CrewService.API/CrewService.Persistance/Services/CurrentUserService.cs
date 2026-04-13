@@ -38,6 +38,14 @@ namespace CrewService.Persistance.Services
                 ?? string.Empty;
         }
 
+        public long? GetParentCtrlNbr()
+        {
+            var header = _httpContextAccessor.HttpContext?.Request.Headers["x-parent-ctrl-nbr"].FirstOrDefault();
+            if (long.TryParse(header, out var parentCtrlNbr) && parentCtrlNbr > 0)
+                return parentCtrlNbr;
+            return null;
+        }
+
         public void SetAuditOverride(string name)
         {
             _auditOverride = name;
