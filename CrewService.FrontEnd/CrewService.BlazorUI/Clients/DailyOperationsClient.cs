@@ -3,8 +3,8 @@ using CrewService.Presentation;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<DailyOperationsClient> logger)
-    : BaseGrpcClient<DailyOperationsSrvc.DailyOperationsSrvcClient>(channelProvider, tokenProvider, callInvoker => new DailyOperationsSrvc.DailyOperationsSrvcClient(callInvoker), logger)
+public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<DailyOperationsClient> logger)
+    : BaseGrpcClient<DailyOperationsSrvc.DailyOperationsSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new DailyOperationsSrvc.DailyOperationsSrvcClient(callInvoker), logger)
 {
     public async Task<GetCallSheetResponse> GetCallSheetAsync(long workAreaGroupCtrlNbr, string targetDate, bool includeClosed = false)
     {

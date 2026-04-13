@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class DepartmentClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<DepartmentClient> logger)
-    : BaseGrpcClient<DepartmentSrvc.DepartmentSrvcClient>(channelProvider, tokenProvider, callInvoker => new DepartmentSrvc.DepartmentSrvcClient(callInvoker), logger)
+public sealed class DepartmentClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<DepartmentClient> logger)
+    : BaseGrpcClient<DepartmentSrvc.DepartmentSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new DepartmentSrvc.DepartmentSrvcClient(callInvoker), logger)
 {
     public async Task<GetDepartmentsResponse> GetAllAsync(long parentCtrlNbr, long railroadCtrlNbr)
     {

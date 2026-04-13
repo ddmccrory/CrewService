@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class RosterClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<RosterClient> logger)
-    : BaseGrpcClient<RosterSrvc.RosterSrvcClient>(channelProvider, tokenProvider, callInvoker => new RosterSrvc.RosterSrvcClient(callInvoker), logger)
+public sealed class RosterClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<RosterClient> logger)
+    : BaseGrpcClient<RosterSrvc.RosterSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new RosterSrvc.RosterSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllRosterResponse> GetAllAsync(long craftCtrlNbr)
     {

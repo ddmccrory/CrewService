@@ -3,8 +3,8 @@ using CrewService.Presentation;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class AssignmentClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<AssignmentClient> logger)
-    : BaseGrpcClient<AssignmentsSrvc.AssignmentsSrvcClient>(channelProvider, tokenProvider, callInvoker => new AssignmentsSrvc.AssignmentsSrvcClient(callInvoker), logger)
+public sealed class AssignmentClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<AssignmentClient> logger)
+    : BaseGrpcClient<AssignmentsSrvc.AssignmentsSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new AssignmentsSrvc.AssignmentsSrvcClient(callInvoker), logger)
 {
     // ── Assignments ──
 

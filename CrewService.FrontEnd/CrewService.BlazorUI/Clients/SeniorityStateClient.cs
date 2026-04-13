@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class SeniorityStateClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<SeniorityStateClient> logger)
-    : BaseGrpcClient<SeniorityStateSrvc.SeniorityStateSrvcClient>(channelProvider, tokenProvider, callInvoker => new SeniorityStateSrvc.SeniorityStateSrvcClient(callInvoker), logger)
+public sealed class SeniorityStateClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<SeniorityStateClient> logger)
+    : BaseGrpcClient<SeniorityStateSrvc.SeniorityStateSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new SeniorityStateSrvc.SeniorityStateSrvcClient(callInvoker), logger)
 {
     public async Task<GetAllSeniorityStateResponse> GetAllAsync(long parentCtrlNbr)
     {

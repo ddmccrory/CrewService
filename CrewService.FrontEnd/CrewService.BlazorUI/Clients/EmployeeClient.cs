@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<EmployeeClient> logger)
-: BaseGrpcClient<EmployeeSrvc.EmployeeSrvcClient>(channelProvider, tokenProvider, callInvoker => new EmployeeSrvc.EmployeeSrvcClient(callInvoker), logger)
+public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<EmployeeClient> logger)
+: BaseGrpcClient<EmployeeSrvc.EmployeeSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new EmployeeSrvc.EmployeeSrvcClient(callInvoker), logger)
 {
     #region Employee
 

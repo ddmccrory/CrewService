@@ -10,12 +10,12 @@ public abstract class BaseGrpcClient<TClient>
     protected readonly TClient _client;
     protected readonly ILogger _logger;
 
-    protected BaseGrpcClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, Func<CallInvoker, TClient> clientFactory, ILogger logger, bool addAuthHeader = true)
+    protected BaseGrpcClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, Func<CallInvoker, TClient> clientFactory, ILogger logger, bool addAuthHeader = true)
     {
         var channel = channelProvider.Channel;
 
         CallInvoker callInvoker = addAuthHeader
-            ? channel.Intercept(new PerCallAuthInterceptor(tokenProvider))
+            ? channel.Intercept(new PerCallAuthInterceptor(tokenProvider, appContext))
             : channel.CreateCallInvoker();
 
         _client = clientFactory(callInvoker);

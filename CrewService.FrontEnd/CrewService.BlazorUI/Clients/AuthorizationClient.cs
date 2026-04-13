@@ -4,8 +4,8 @@ using Grpc.Core;
 
 namespace CrewService.BlazorUI.Clients;
 
-public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, ILogger<AuthorizationClient> logger)
-    : BaseGrpcClient<AuthorizationSrvc.AuthorizationSrvcClient>(channelProvider, tokenProvider, callInvoker => new AuthorizationSrvc.AuthorizationSrvcClient(callInvoker), logger)
+public sealed class AuthorizationClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<AuthorizationClient> logger)
+    : BaseGrpcClient<AuthorizationSrvc.AuthorizationSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new AuthorizationSrvc.AuthorizationSrvcClient(callInvoker), logger)
 {
     // ── Roles ───────────────────────────────────────────────────────────
 
