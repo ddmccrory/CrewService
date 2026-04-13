@@ -1,5 +1,3 @@
-using CrewService.Domain.Exceptions;
-using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
@@ -21,55 +19,30 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
         foreach (var roster in rosters)
         {
-            response.Rosters.Add(new RosterResponse
-            {
-                CtrlNbr = roster.CtrlNbr?.Value ?? 0,
-                CraftCtrlNbr = roster.CraftCtrlNbr?.Value ?? 0,
-                RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
-                RosterName = roster.RosterName,
-                RosterPluralName = roster.RosterPluralName,
-                RosterNumber = roster.RosterNumber
-            });
+            response.Rosters.Add(MapToResponse(roster));
         }
 
-        return await Task.FromResult(response);
+        return response;
     }
 
     public override async Task<RosterResponse> GetAsync(GetRosterRequest request, ServerCallContext context)
     {
         var roster = await _rosterRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
-
-        return await Task.FromResult(new RosterResponse
-        {
-            CtrlNbr = roster?.CtrlNbr?.Value ?? 0,
-            CraftCtrlNbr = roster?.CraftCtrlNbr?.Value ?? 0,
-            RailroadPayrollDepartmentCtrlNbr = roster?.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
-            RosterName = roster?.RosterName ?? string.Empty,
-            RosterPluralName = roster?.RosterPluralName ?? string.Empty,
-            RosterNumber = roster?.RosterNumber ?? 0
-        });
+        if (roster is null) return new RosterResponse();
+        return MapToResponse(roster);
     }
 
     public override async Task<RosterResponse> CreateAsync(CreateRosterRequest request, ServerCallContext context)
     {
         var roster = Roster.Create(
             request.CraftCtrlNbr,
-            request.RailroadPayrollDepartmentCtrlNbr,
+            request.RailroadPayrollDepartmentCtrlNbr > 0 ? ControlNumber.Create(request.RailroadPayrollDepartmentCtrlNbr) : null,
             request.RosterName,
             request.RosterPluralName,
             request.RosterNumber);
 
         await _rosterRepository.AddAsync(roster);
-
-        return await Task.FromResult(new RosterResponse
-        {
-            CtrlNbr = roster.CtrlNbr?.Value ?? 0,
-            CraftCtrlNbr = roster.CraftCtrlNbr?.Value ?? 0,
-            RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
-            RosterName = roster.RosterName,
-            RosterPluralName = roster.RosterPluralName,
-            RosterNumber = roster.RosterNumber
-        });
+        return MapToResponse(roster);
     }
 
     public override async Task<RosterResponse> UpdateAsync(UpdateRosterRequest request, ServerCallContext context)
@@ -83,16 +56,7 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
             request.RosterNumber);
 
         await _rosterRepository.UpdateAsync(roster);
-
-        return await Task.FromResult(new RosterResponse
-        {
-            CtrlNbr = roster.CtrlNbr?.Value ?? 0,
-            CraftCtrlNbr = roster.CraftCtrlNbr?.Value ?? 0,
-            RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
-            RosterName = roster.RosterName,
-            RosterPluralName = roster.RosterPluralName,
-            RosterNumber = roster.RosterNumber
-        });
+        return MapToResponse(roster);
     }
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteRosterRequest request, ServerCallContext context)
@@ -102,10 +66,20 @@ public class RosterService(IRosterRepository rosterRepository) : RosterSrvc.Rost
 
         await _rosterRepository.DeleteAsync(roster.CtrlNbr);
 
-        return await Task.FromResult(new DeleteResponse
+        return new DeleteResponse
         {
             Success = true,
-            Messages = { $"Roster {roster.CtrlNbr?.Value ?? 0} deleted." }
-        });
+            Messages = { $"Roster {roster.CtrlNbr.Value} deleted." }
+        };
     }
+
+    private static RosterResponse MapToResponse(Roster roster) => new()
+    {
+        CtrlNbr = roster.CtrlNbr.Value,
+        CraftCtrlNbr = roster.CraftCtrlNbr.Value,
+        RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
+        RosterName = roster.RosterName,
+        RosterPluralName = roster.RosterPluralName,
+        RosterNumber = roster.RosterNumber
+    };
 }
