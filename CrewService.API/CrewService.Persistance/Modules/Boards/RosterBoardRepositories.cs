@@ -1,5 +1,6 @@
 using CrewService.Application.RosterBoardOps;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.ValueObjects;
@@ -19,10 +20,28 @@ internal sealed class RosterBoardRepository(CrewServiceDbContext dbContext, ICur
 
     public async Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(
         ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default) =>
+        await (from b in DbContext.Set<RosterBoard>().Include(b => b.Positions)
+               join r in DbContext.Set<Roster>() on b.RosterCtrlNbr equals r.CtrlNbr
+               where r.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && b.IsActive
+               select b)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrAsync(
+        ControlNumber craftCtrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<RosterBoard>()
             .Include(b => b.Positions)
-            .Where(b => b.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && b.IsActive)
+            .Where(b => b.CraftCtrlNbr == craftCtrlNbr)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrsAsync(
+        IEnumerable<ControlNumber> craftCtrlNbrs, CancellationToken ct = default)
+    {
+        var ctrlNbrs = craftCtrlNbrs.ToList();
+        return await DbContext.Set<RosterBoard>()
+            .Include(b => b.Positions)
+            .Where(b => ctrlNbrs.Contains(b.CraftCtrlNbr))
+            .ToListAsync(ct);
+    }
 }
 
 internal sealed class DailyEmployeeStatusRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
