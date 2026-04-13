@@ -108,7 +108,7 @@
                 }
 
                 @* ── Crew Staffing ── *@
-                @if (Permissions.HasAccessToAny("staffing/crews", "staffing/extra-boards", "staffing/bulletins", "staffing/roster-boards"))
+                @if (Permissions.HasAccessToAny("staffing/crews", "staffing/bulletins", "staffing/roster-boards"))
                 {
                     <NavMenuGroup Title="Crew Staffing" Icon="bi-people-fill" IsInitiallyExpanded="@IsCurrentPath("staffing")">
                         @if (Permissions.HasAccess("staffing/crews"))
@@ -116,14 +116,6 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="staffing/crews">
                                     <span class="bi bi-people" aria-hidden="true"></span> Crews
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("staffing/extra-boards"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="staffing/extra-boards">
-                                    <span class="bi bi-list-ol" aria-hidden="true"></span> Extra Boards
                                 </NavLink>
                             </div>
                         }
@@ -355,9 +347,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "config/group-types", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions"))
+                @if (Permissions.HasAccessToAny("parents", "config/group-types", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "parents", "config/group-types", "config/groups")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "config/group-types", "config/groups")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -411,6 +403,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/permissions">
                                     <span class="bi bi-key" aria-hidden="true"></span> Permissions
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/audit-log"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/audit-log">
+                                    <span class="bi bi-journal-text" aria-hidden="true"></span> Audit Log
                                 </NavLink>
                             </div>
                         }
