@@ -72,6 +72,7 @@
     <Protobuf Include="..\..\Protos\modules\electronic_calling.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\background_services.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\roster_board.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\audit_log.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\holiday_payroll.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\holiday_management.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\reporting_exports.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />

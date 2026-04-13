@@ -7,10 +7,11 @@ using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.AspNetCore.Http;
 
 namespace CrewService.Presentation.Services;
 
-public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IGroupTypeRepository groupTypeRepository, IOrchestrationUnitOfWorkFactory uowFactory) : ParentSrvc.ParentSrvcBase
+public class ParentService(IParentRepository parentRepository, IDynamicGroupRepository dynamicGroupRepository, IGroupTypeRepository groupTypeRepository, IOrchestrationUnitOfWorkFactory uowFactory, IHttpContextAccessor httpContextAccessor) : ParentSrvc.ParentSrvcBase
 {
     private readonly IParentRepository _parentRepository = parentRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
@@ -80,6 +81,11 @@ public class ParentService(IParentRepository parentRepository, IDynamicGroupRepo
             throw new ValidationException("Name", "Required");
 
         var parent = Parent.Create(request.Name);
+
+        // Tag domain events with the new parent's CtrlNbr so audit log
+        // records are attributed to the correct parent.
+        httpContextAccessor.HttpContext?.Request.Headers["x-parent-ctrl-nbr"] =
+            parent.CtrlNbr.Value.ToString();
 
         await using var uow = await _uowFactory.CreateAsync();
         uow.Parents.Add(parent);
