@@ -344,7 +344,7 @@ else
                 return;
             }
 
-            var response = await RosterClient.GetAllAsync(selectedCraftCtrlNbr);
+            var response = await RosterClient.GetAllAsync(0, craftCtrlNbr: selectedCraftCtrlNbr);
             rosters = response.Rosters.ToList();
         }
         catch
@@ -411,7 +411,7 @@ else
         {
             if (employees is null)
             {
-                var empResponse = await EmployeeClient.GetAllAsync();
+                var empResponse = await EmployeeClient.GetAllAsync(SelectedParentCtrlNbr ?? 0);
                 employees = empResponse.Employees.ToList();
             }
 

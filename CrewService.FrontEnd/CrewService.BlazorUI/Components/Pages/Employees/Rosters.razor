@@ -17,7 +17,7 @@
 <PageTitle>Rosters</PageTitle>
 
 <h1>Rosters</h1>
-<p class="text-muted">Manage seniority roster definitions by craft.</p>
+<p class="text-muted">Manage seniority roster definitions.</p>
 
 @if (!IsContextFullySelected)
 {
@@ -34,6 +34,20 @@ else
         <BodyContent>
             <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-roster-form">
                 <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Craft</label>
+                        <SelectInput TItem="CraftResponse" TValue="long"
+                                     Items="crafts ?? []"
+                                     @bind-Value="saveModel.CraftCtrlNbr"
+                                     ValueSelector="@(c => c.CtrlNbr)"
+                                     TextSelector="@(c => c.CraftName)"
+                                     Placeholder="— Select a craft —"
+                                     class="form-select" />
+                        <ValidationMessage For="() => saveModel.CraftCtrlNbr" class="text-danger" />
+                    </div>
+                }
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Roster Name</label>
                     <InputText @bind-Value="saveModel.RosterName" class="form-control" placeholder="e.g. Engineer Roster" />
@@ -82,34 +96,16 @@ else
         </div>
     }
 
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <label class="form-label fw-semibold">Craft</label>
-            <FilterSelect TItem="CraftResponse" TValue="long"
-                          Items="crafts"
-                          Value="selectedCraftCtrlNbr"
-                          ValueChanged="OnCraftChanged"
-                          ValueSelector="@(c => c.CtrlNbr)"
-                          TextSelector="@(c => c.CraftName)"
-                          Placeholder="— Select a craft —"
-                          class="form-select" />
-        </div>
-    </div>
-
-    @if (selectedCraftCtrlNbr == 0)
-    {
-        <p class="text-muted">Select a craft above to manage its rosters.</p>
-    }
-    else if (rosters is null)
+    @if (rosters is null)
     {
         <p><em>Loading...</em></p>
     }
     else
     {
         <DataTable TItem="RosterResponse" Items="rosters" Columns="Columns"
-                   SearchFilter="@((r, term) => r.RosterName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchFilter="@((r, term) => r.RosterName.Contains(term, StringComparison.OrdinalIgnoreCase) || r.CraftName.Contains(term, StringComparison.OrdinalIgnoreCase))"
                    SearchPlaceholder="Search rosters..."
-                   EmptyMessage="No rosters defined for this craft."
+                   EmptyMessage="No rosters defined."
                    DefaultSortColumn="Roster #">
             <ToolbarContent>
                 @if (!IsFeatureReadOnly)
@@ -123,6 +119,8 @@ else
                 <td>@roster.RosterNumber</td>
                 <td>@roster.RosterName</td>
                 <td>@roster.RosterPluralName</td>
+                <td>@roster.CraftName</td>
+                <td>@roster.WorkAreaName</td>
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
@@ -146,13 +144,14 @@ else
 
     private IReadOnlyList<CraftResponse>? crafts;
     private IReadOnlyList<RosterResponse>? rosters;
-    private long selectedCraftCtrlNbr;
 
     private IReadOnlyList<DataTableColumn<RosterResponse>> Columns =>
     [
         new("Roster #", r => r.RosterNumber, sortKey: "Roster #"),
         new("Roster Name", r => r.RosterName),
         new("Plural Name", r => r.RosterPluralName),
+        new("Craft", r => r.CraftName),
+        new("Work Area", r => r.WorkAreaName),
         DataTableColumn<RosterResponse>.Actions()
     ];
 
@@ -167,13 +166,14 @@ else
     protected override async Task LoadDataAsync()
     {
         await LoadCrafts();
+        await LoadRosters();
     }
 
     protected override async Task OnAppContextChangedAsync()
     {
-        selectedCraftCtrlNbr = 0;
         rosters = null;
         await LoadCrafts();
+        await LoadRosters();
     }
 
     private async Task LoadCrafts()
@@ -195,28 +195,17 @@ else
         }
     }
 
-    private async Task OnCraftChanged(long craftCtrlNbr)
-    {
-        selectedCraftCtrlNbr = craftCtrlNbr;
-        rosters = null;
-
-        if (craftCtrlNbr > 0)
-        {
-            await LoadRosters();
-        }
-    }
-
     private async Task LoadRosters()
     {
         try
         {
-            if (selectedCraftCtrlNbr == 0)
+            if (SelectedParentCtrlNbr is not long parentCtrlNbr)
             {
                 rosters = [];
                 return;
             }
 
-            var response = await RosterClient.GetAllAsync(selectedCraftCtrlNbr);
+            var response = await RosterClient.GetAllAsync(parentCtrlNbr, SelectedRailroadCtrlNbr ?? 0);
             rosters = response.Rosters.ToList();
         }
         catch
@@ -281,7 +270,7 @@ else
             {
                 await RosterClient.CreateAsync(new CreateRosterRequest
                 {
-                    CraftCtrlNbr = selectedCraftCtrlNbr,
+                    CraftCtrlNbr = saveModel.CraftCtrlNbr,
                     RosterName = saveModel.RosterName ?? string.Empty,
                     RosterPluralName = saveModel.RosterPluralName ?? string.Empty,
                     RosterNumber = saveModel.RosterNumber
@@ -322,6 +311,9 @@ else
 
     private sealed class RosterInputModel
     {
+        [Range(1, long.MaxValue, ErrorMessage = "Craft is required.")]
+        public long CraftCtrlNbr { get; set; }
+
         [Required(ErrorMessage = "Roster name is required.")]
         [StringLength(100, MinimumLength = 1)]
         public string? RosterName { get; set; }

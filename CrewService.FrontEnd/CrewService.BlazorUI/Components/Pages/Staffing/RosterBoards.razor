@@ -1,0 +1,469 @@
+@page "/staffing/roster-boards"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject RosterBoardClient RosterBoardClient
+@inject CraftClient CraftClient
+@inject RosterClient RosterClient
+@inject NavigationManager Nav
+
+<PageTitle>Roster Boards</PageTitle>
+
+<h1>Roster Boards</h1>
+<p class="text-muted">Manage roster board definitions.</p>
+
+@if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage roster boards.
+    </div>
+}
+else
+{
+    <Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Roster Board" : "Create Roster Board")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-board-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Craft</label>
+                        <SelectInput TItem="CraftResponse" TValue="long"
+                                     Items="crafts ?? []"
+                                     Value="saveModel.CraftCtrlNbr"
+                                     ValueChanged="OnModalCraftChanged"
+                                     ValueSelector="@(c => c.CtrlNbr)"
+                                     TextSelector="@(c => c.CraftName)"
+                                     Placeholder="— Select a craft —"
+                                     class="form-select" />
+                        <ValidationMessage For="() => saveModel.CraftCtrlNbr" class="text-danger" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Board Name</label>
+                    <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Engineer Extra Board" />
+                    <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Board Type</label>
+                    <SelectInput TItem="EnumOption" TValue="string"
+                                 Value="saveModel.BoardType"
+                                 ValueChanged="OnBoardTypeChanged"
+                                 Items="boardTypeOptions"
+                                 ValueSelector="@(o => o.Value)"
+                                 TextSelector="@(o => o.Label)"
+                                 class="form-select" />
+                    <ValidationMessage For="() => saveModel.BoardType" class="text-danger" />
+                </div>
+                @if (BoardTypeHasRotation)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Rotation Type</label>
+                        <SelectInput TItem="EnumOption" TValue="string"
+                                     @bind-Value="saveModel.RotationType"
+                                     Items="rotationTypeOptions"
+                                     ValueSelector="@(o => o.Value)"
+                                     TextSelector="@(o => o.Label)"
+                                     class="form-select" />
+                        <ValidationMessage For="() => saveModel.RotationType" class="text-danger" />
+                    </div>
+                }
+                @if (editCtrlNbr > 0 || saveModel.CraftCtrlNbr > 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Roster</label>
+                        <SelectInput TItem="RosterResponse" TValue="long"
+                                     @bind-Value="saveModel.RosterCtrlNbr"
+                                     Items="rostersForCraft"
+                                     ValueSelector="@(r => r.CtrlNbr)"
+                                     TextSelector="@(r => r.RosterName)"
+                                     class="form-select" />
+                        <ValidationMessage For="() => saveModel.RosterCtrlNbr" class="text-danger" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="board-active-switch" />
+                        <label class="form-check-label" for="board-active-switch">Active</label>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-board-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteBoardName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (boards is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <DataTable TItem="RosterBoardResponse" Items="boards" Columns="Columns"
+                   SearchFilter="@((b, term) => b.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || b.CraftName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search boards..."
+                   EmptyMessage="No roster boards defined."
+                   DefaultSortColumn="Name">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Create Board
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="board">
+                <td>
+                    <a href="staffing/roster-boards/@board.CtrlNbr" class="text-decoration-none fw-semibold">@board.Name</a>
+                </td>
+                <td>@board.CraftName</td>
+                <td>@FormatBoardType(board.BoardType)</td>
+                <td>@FormatRotationType(board.RotationType)</td>
+                <td>@board.WorkAreaName</td>
+                <td>@board.RosterName</td>
+                <td>
+                    @if (board.IsActive)
+                    {
+                        <span class="badge bg-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Inactive</span>
+                    }
+                </td>
+                <td>@board.Positions.Count</td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(board)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(board)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "staffing/roster-boards";
+
+    private IReadOnlyList<CraftResponse>? crafts;
+    private IReadOnlyList<RosterResponse>? rostersForCraft;
+    private IReadOnlyList<RosterBoardResponse>? boards;
+
+    private IReadOnlyList<DataTableColumn<RosterBoardResponse>> Columns =>
+    [
+        new("Name", b => b.Name, sortKey: "Name"),
+        new("Craft", b => b.CraftName),
+        new("Board Type", b => FormatBoardType(b.BoardType), width: "140px"),
+        new("Rotation", b => FormatRotationType(b.RotationType), width: "180px"),
+        new("Work Area", b => b.WorkAreaName),
+        new("Roster", b => b.RosterName),
+        new("Status", b => b.IsActive ? "Active" : "Inactive", width: "100px"),
+        new("Positions", b => b.Positions.Count, width: "100px"),
+        DataTableColumn<RosterBoardResponse>.Actions()
+    ];
+
+    private static readonly IReadOnlyList<EnumOption> boardTypeOptions =
+    [
+        new("ExtraBoard", "Extra Board"),
+        new("Hangout", "Hangout"),
+        new("ExtendedAbsence", "Extended Absence"),
+        new("Training", "Training")
+    ];
+
+    private static readonly IReadOnlyList<EnumOption> rotationTypeOptions =
+    [
+        new("StandardRotation", "Standard Rotation"),
+        new("FirstInFirstOut", "First In First Out"),
+        new("FirstInFirstOutByTieUp", "FIFO by Tie-Up"),
+        new("SeniorityBased", "Seniority Based")
+    ];
+
+    private bool BoardTypeHasRotation =>
+        saveModel.BoardType is not ("Hangout" or "ExtendedAbsence");
+
+    private void OnBoardTypeChanged(string boardType)
+    {
+        saveModel.BoardType = boardType;
+        if (boardType is "Hangout" or "ExtendedAbsence")
+            saveModel.RotationType = "None";
+        else if (saveModel.RotationType is "None" or null)
+            saveModel.RotationType = "StandardRotation";
+    }
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private BoardInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteBoardName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadCrafts();
+        await LoadBoards();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        boards = null;
+        rostersForCraft = null;
+        await LoadCrafts();
+        await LoadBoards();
+    }
+
+    private async Task LoadCrafts()
+    {
+        try
+        {
+            if (SelectedParentCtrlNbr is not long parentCtrlNbr)
+            {
+                crafts = [];
+                return;
+            }
+
+            var response = await CraftClient.GetAllCraftsAsync(parentCtrlNbr, SelectedRailroadCtrlNbr ?? 0);
+            crafts = response.Crafts.ToList();
+        }
+        catch
+        {
+            crafts = [];
+        }
+    }
+
+    private async Task LoadBoards()
+    {
+        try
+        {
+            if (SelectedParentCtrlNbr is not long parentCtrlNbr)
+            {
+                boards = [];
+                return;
+            }
+
+            var response = await RosterBoardClient.GetAllAsync(parentCtrlNbr, SelectedRailroadCtrlNbr ?? 0);
+            boards = response.Boards.ToList();
+        }
+        catch
+        {
+            boards = [];
+        }
+    }
+
+    private async Task OnModalCraftChanged(long craftCtrlNbr)
+    {
+        saveModel.CraftCtrlNbr = craftCtrlNbr;
+        saveModel.RosterCtrlNbr = 0;
+        rostersForCraft = null;
+
+        if (craftCtrlNbr > 0)
+        {
+            try
+            {
+                var rosterResponse = await RosterClient.GetAllAsync(0, craftCtrlNbr: craftCtrlNbr);
+                rostersForCraft = rosterResponse.Rosters.ToList();
+            }
+            catch { rostersForCraft = []; }
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        rostersForCraft = null;
+        saveModel = new() { IsActive = true, BoardType = "ExtraBoard", RotationType = "StandardRotation" };
+        showSaveModal = true;
+    }
+
+    private async Task OpenEditModal(RosterBoardResponse board)
+    {
+        rostersForCraft = null;
+        if (board.CraftCtrlNbr > 0)
+        {
+            try
+            {
+                var rosterResponse = await RosterClient.GetAllAsync(0, craftCtrlNbr: board.CraftCtrlNbr);
+                rostersForCraft = rosterResponse.Rosters.ToList();
+            }
+            catch { rostersForCraft = []; }
+        }
+
+        editCtrlNbr = board.CtrlNbr;
+        saveModel = new()
+        {
+            Name = board.Name,
+            BoardType = board.BoardType,
+            RotationType = board.RotationType,
+            RosterCtrlNbr = board.RosterCtrlNbr,
+            IsActive = board.IsActive
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(RosterBoardResponse board)
+    {
+        deleteCtrlNbr = board.CtrlNbr;
+        deleteBoardName = board.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await RosterBoardClient.UpdateAsync(new UpdateRosterBoardRequest
+                {
+                    CtrlNbr = editCtrlNbr,
+                    Name = saveModel.Name ?? string.Empty,
+                    BoardType = saveModel.BoardType ?? "ExtraBoard",
+                    RotationType = saveModel.RotationType ?? "StandardRotation",
+                    IsActive = saveModel.IsActive
+                });
+                successMessage = "Roster board updated.";
+            }
+            else
+            {
+                await RosterBoardClient.CreateAsync(new CreateRosterBoardRequest
+                {
+                    CraftCtrlNbr = saveModel.CraftCtrlNbr,
+                    RosterCtrlNbr = saveModel.RosterCtrlNbr,
+                    Name = saveModel.Name ?? string.Empty,
+                    BoardType = saveModel.BoardType ?? "ExtraBoard",
+                    RotationType = saveModel.RotationType ?? "StandardRotation",
+                    IsActive = saveModel.IsActive
+                });
+                successMessage = "Roster board created.";
+            }
+
+            CloseSaveModal();
+            await LoadBoards();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save roster board: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await RosterBoardClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Roster board deleted.";
+            showDeleteModal = false;
+            await LoadBoards();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete roster board: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    private static string FormatBoardType(string boardType) => boardType switch
+    {
+        "ExtraBoard" => "Extra Board",
+        "Hangout" => "Hangout",
+        "ExtendedAbsence" => "Extended Absence",
+        _ => boardType
+    };
+
+    private static string FormatRotationType(string rotationType) => rotationType switch
+    {
+        "None" => "—",
+        "StandardRotation" => "Standard Rotation",
+        "FirstInFirstOut" => "First In First Out",
+        "FirstInFirstOutByTieUp" => "FIFO by Tie-Up",
+        "SeniorityBased" => "Seniority Based",
+        _ => rotationType
+    };
+
+    private sealed record EnumOption(string Value, string Label);
+
+    private sealed class BoardInputModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Craft is required.")]
+        public long CraftCtrlNbr { get; set; }
+
+        [Required(ErrorMessage = "Board name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+
+        [Required(ErrorMessage = "Board type is required.")]
+        public string? BoardType { get; set; }
+
+        [Required(ErrorMessage = "Rotation type is required.")]
+        public string? RotationType { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Roster is required.")]
+        public long RosterCtrlNbr { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+}

@@ -9,13 +9,14 @@ public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitT
 {
     #region Employee
 
-    public async Task<GetAllEmployeesResponse> GetAllAsync()
+    public async Task<GetAllEmployeesResponse> GetAllAsync(long clientCtrlNbr = 0)
     {
         try
         {
             return await _client.GetAllEmployeesAsyncAsync(new GetAllEmployeesRequest
             {
-                PageSize = 1000
+                PageSize = 1000,
+                ClientCtrlNbr = clientCtrlNbr
             });
         }
         catch (Exception ex)

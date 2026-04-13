@@ -7,12 +7,14 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class RosterClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<RosterClient> logger)
     : BaseGrpcClient<RosterSrvc.RosterSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new RosterSrvc.RosterSrvcClient(callInvoker), logger)
 {
-    public async Task<GetAllRosterResponse> GetAllAsync(long craftCtrlNbr)
+    public async Task<GetAllRosterResponse> GetAllAsync(long parentCtrlNbr, long railroadCtrlNbr = 0, long craftCtrlNbr = 0)
     {
         try
         {
             return await _client.GetAllAsyncAsync(new GetAllRosterRequest
             {
+                ParentCtrlNbr = parentCtrlNbr,
+                DynamicGroupCtrlNbr = railroadCtrlNbr,
                 CraftCtrlNbr = craftCtrlNbr,
                 PageSize = 1000
             });
