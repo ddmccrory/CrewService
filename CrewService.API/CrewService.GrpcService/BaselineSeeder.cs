@@ -84,7 +84,8 @@ internal static class BaselineSeeder
         ("admin/notifications", "Notification Config", "Administration", "/admin/notifications"),
         ("admin/jobs", "Background Jobs", "Administration", "/admin/jobs"),
         ("admin/roles", "Roles", "Administration", "/admin/roles"),
-        ("admin/permissions", "Permissions", "Administration", "/admin/permissions")
+        ("admin/permissions", "Permissions", "Administration", "/admin/permissions"),
+        ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log")
     ];
 
     // -- Default permission mapping --------------------------------------
@@ -144,7 +145,8 @@ internal static class BaselineSeeder
         ["admin/notifications"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/jobs"] = ["SystemAdmin"],
         ["admin/roles"] = ["SystemAdmin"],
-        ["admin/permissions"] = ["SystemAdmin"]
+        ["admin/permissions"] = ["SystemAdmin"],
+        ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
     };
 
     public static async Task SeedAsync(IServiceProvider services)
