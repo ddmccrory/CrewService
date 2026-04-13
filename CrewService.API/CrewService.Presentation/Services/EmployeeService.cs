@@ -5,14 +5,17 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
+using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
+using Microsoft.AspNetCore.Identity;
 
 namespace CrewService.Presentation.Services;
 
-public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrationUnitOfWorkFactory uowFactory) : EmployeeSrvc.EmployeeSrvcBase
+public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrationUnitOfWorkFactory uowFactory, UserManager<User> userManager) : EmployeeSrvc.EmployeeSrvcBase
 {
     private readonly IEmployeeRepository _employeeRepository = employeeRepository;
     private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
+    private readonly UserManager<User> _userManager = userManager;
 
     #region Employee Operations
 
@@ -26,7 +29,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
 
         foreach (var employee in employees)
         {
-            response.Employees.Add(MapToEmployeeResponse(employee));
+            var mapped = MapToEmployeeResponse(employee);
+            await EnrichWithUserNameAsync(mapped, employee.UserId);
+            response.Employees.Add(mapped);
         }
 
         response.TotalCount = employees.Count;
@@ -39,7 +44,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
         var employee = await _employeeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with control number {request.CtrlNbr} was not found."));
 
-        return MapToEmployeeResponse(employee);
+        var resp = MapToEmployeeResponse(employee);
+        await EnrichWithUserNameAsync(resp, employee.UserId);
+        return resp;
     }
 
     public override async Task<GetEmployeeResponse> GetEmployeeByNumberAsync(GetEmployeeByNumberRequest request, ServerCallContext context)
@@ -50,7 +57,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
         var employee = await _employeeRepository.GetByEmployeeNumberAsync(request.EmployeeNumber)
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee with number {request.EmployeeNumber} was not found."));
 
-        return MapToEmployeeResponse(employee);
+        var resp = MapToEmployeeResponse(employee);
+        await EnrichWithUserNameAsync(resp, employee.UserId);
+        return resp;
     }
 
     public override async Task<CreateEmployeeResponse> CreateEmployeeAsync(CreateEmployeeRequest request, ServerCallContext context)
@@ -448,6 +457,15 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
         }
 
         return response;
+    }
+
+    private async Task EnrichWithUserNameAsync(GetEmployeeResponse response, string userId)
+    {
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            response.FullNameLnf = user?.FullNameLNF ?? string.Empty;
+        }
     }
 
     private static void ValidateCreateRequest(CreateEmployeeRequest request)

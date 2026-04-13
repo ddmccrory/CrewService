@@ -92,6 +92,7 @@ message GetEmployeeResponse {
   repeated AddressResponse addresses = 18;
   repeated PhoneNumberResponse phone_numbers = 19;
   repeated EmailAddressResponse email_addresses = 20;
+  string full_name_lnf = 21;
 }
 
 message CreateEmployeeRequest {
