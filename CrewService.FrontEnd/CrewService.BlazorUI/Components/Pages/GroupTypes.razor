@@ -12,6 +12,7 @@
 @attribute [Authorize]
 
 @inject TenantConfigClient ConfigClient
+@inject ParentsClient ParentsClient
 
 <PageTitle>Group Types</PageTitle>
 
@@ -47,8 +48,19 @@
                 <label class="form-label fw-semibold">Description</label>
                 <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Description" />
             </div>
-            <div class="form-check form-switch form-check-reverse mb-3">
-                <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" />
+<div class="mb-3">
+    <label class="form-label fw-semibold">Scope</label>
+    <InputSelect @bind-Value="saveModel.RailroadCtrlNbr" class="form-select">
+        <option value="0">@(SelectedParentName ?? "Parent") (All Railroads)</option>
+        @foreach (var rr in railroadOptions)
+        {
+            <option value="@rr.CtrlNbr">@rr.DisplayName</option>
+        }
+    </InputSelect>
+    <div class="form-text">Parent-wide types are visible to all railroads. Railroad-specific types only appear when that railroad is selected.</div>
+</div>
+<div class="form-check form-switch form-check-reverse mb-3">
+    <InputCheckbox @bind-Value="saveModel.IsWorkArea" class="form-check-input" id="isWorkArea" disabled="@isEditingSystemType" />
                 <label class="form-check-label" for="isWorkArea">Work Area</label>
             </div>
             <div class="mb-3">
@@ -112,30 +124,30 @@ else
 
     @if (activeTab == "types")
     {
-        <DataTable TItem="GroupTypeResponse" Items="groupTypes" Columns="GroupTypeColumns"
-                   SearchFilter="@((gt, term) => gt.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || (!string.IsNullOrEmpty(gt.Description) && gt.Description.Contains(term, StringComparison.OrdinalIgnoreCase)))"
-                   SearchPlaceholder="Search by name or description..."
-                   EmptyMessage="No group types match the current filter."
-                   DefaultSortColumn="Name">
-            <RowContent Context="gt">
-                <td>
-                    <a href="/work-management/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
-                </td>
-                <td>@gt.Description</td>
-                <td>
-                    @if (gt.ParentGroupTypeCtrlNbr > 0)
-                    {
-                        var parentGtName = groupTypes?.FirstOrDefault(x => x.CtrlNbr == gt.ParentGroupTypeCtrlNbr)?.Name ?? gt.ParentGroupTypeCtrlNbr.ToString();
-                        @parentGtName
-                    }
-                    else
-                    {
-                        <span class="text-muted">—</span>
-                    }
-                </td>
-                <td>
-                    <div class="d-flex gap-1">
-                        @if (gt.IsSystemType)
+<DataTable TItem="GroupTypeResponse" Items="groupTypes" Columns="GroupTypeColumns"
+           SearchFilter="@((gt, term) => gt.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || (!string.IsNullOrEmpty(gt.Description) && gt.Description.Contains(term, StringComparison.OrdinalIgnoreCase)))"
+           SearchPlaceholder="Search by name or description..."
+           EmptyMessage="No group types match the current filter."
+           DefaultSortColumn="Name">
+    <RowContent Context="gt">
+        <td>
+            <a href="/work-management/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
+        </td>
+        <td>@gt.Description</td>
+        <td>
+            @if (gt.ParentGroupTypeCtrlNbr > 0)
+            {
+                var parentGtName = groupTypes?.FirstOrDefault(x => x.CtrlNbr == gt.ParentGroupTypeCtrlNbr)?.Name ?? gt.ParentGroupTypeCtrlNbr.ToString();
+                @parentGtName
+            }
+            else
+            {
+                <span class="text-muted">—</span>
+            }
+        </td>
+        <td>
+            <div class="d-flex gap-1">
+                @if (gt.IsSystemType)
                         {
                             <span class="badge bg-info">System</span>
                         }
@@ -179,6 +191,7 @@ else
     protected override string? FeatureKey => "work-management/group-types";
 
     private IReadOnlyList<GroupTypeResponse>? groupTypes;
+    private List<RailroadScopeOption> railroadOptions = [];
 
     private IReadOnlyList<DataTableColumn<GroupTypeResponse>> GroupTypeColumns =>
     [
@@ -221,11 +234,13 @@ else
 
     protected override async Task LoadDataAsync()
     {
+        await LoadRailroadOptions();
         await LoadGroupTypes();
     }
 
     protected override async Task OnAppContextChangedAsync()
     {
+        await LoadRailroadOptions();
         await LoadGroupTypes();
     }
 
@@ -256,6 +271,28 @@ else
         catch
         {
             groupTypes = [];
+        }
+    }
+
+    private async Task LoadRailroadOptions()
+    {
+        if (SelectedParentCtrlNbr is not long parentCtrlNbr)
+        {
+            railroadOptions = [];
+            return;
+        }
+
+        try
+        {
+            var parent = await ParentsClient.GetByCtrlNbrAsync(parentCtrlNbr);
+            railroadOptions = parent.Railroads
+                .Select(r => new RailroadScopeOption(r.CtrlNbr, string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}"))
+                .OrderBy(r => r.DisplayName)
+                .ToList();
+        }
+        catch
+        {
+            railroadOptions = [];
         }
     }
 
@@ -303,7 +340,7 @@ else
     {
         editCtrlNbr = gt.CtrlNbr;
         isEditingSystemType = gt.IsSystemType;
-        saveModel = new() { Name = gt.Name, Description = gt.Description, IsWorkArea = gt.IsWorkArea, ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr };
+        saveModel = new() { Name = gt.Name, Description = gt.Description, IsWorkArea = gt.IsWorkArea, RailroadCtrlNbr = gt.RailroadCtrlNbr, ParentGroupTypeCtrlNbr = gt.ParentGroupTypeCtrlNbr };
         showSaveModal = true;
     }
 
@@ -331,16 +368,15 @@ else
             successMessage = null;
 
             var parentScope = SelectedParentCtrlNbr ?? 0;
-            var railroadScope = SelectedRailroadCtrlNbr ?? 0;
 
             if (editCtrlNbr > 0)
             {
-                await ConfigClient.UpdateGroupTypeAsync(editCtrlNbr, saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.IsWorkArea, parentCtrlNbr: parentScope, railroadCtrlNbr: railroadScope, parentGroupTypeCtrlNbr: saveModel.ParentGroupTypeCtrlNbr);
+                await ConfigClient.UpdateGroupTypeAsync(editCtrlNbr, saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.IsWorkArea, parentCtrlNbr: parentScope, railroadCtrlNbr: saveModel.RailroadCtrlNbr, parentGroupTypeCtrlNbr: saveModel.ParentGroupTypeCtrlNbr);
                 successMessage = "Group type updated.";
             }
             else
             {
-                await ConfigClient.CreateGroupTypeAsync(saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.IsWorkArea, parentCtrlNbr: parentScope, railroadCtrlNbr: railroadScope, parentGroupTypeCtrlNbr: saveModel.ParentGroupTypeCtrlNbr);
+                await ConfigClient.CreateGroupTypeAsync(saveModel.Name ?? string.Empty, saveModel.Description ?? string.Empty, saveModel.IsWorkArea, parentCtrlNbr: parentScope, railroadCtrlNbr: saveModel.RailroadCtrlNbr, parentGroupTypeCtrlNbr: saveModel.ParentGroupTypeCtrlNbr);
                 successMessage = "Group type created.";
             }
 
@@ -383,6 +419,9 @@ else
 
         public string? Description { get; set; }
         public bool IsWorkArea { get; set; }
+        public long RailroadCtrlNbr { get; set; }
         public long ParentGroupTypeCtrlNbr { get; set; }
     }
+
+    private sealed record RailroadScopeOption(long CtrlNbr, string DisplayName);
 }
