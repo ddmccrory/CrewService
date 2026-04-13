@@ -23,9 +23,11 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
     {
         var response = new GetAllEmployeesResponse();
 
-        var employees = request.PageSize > 0
-            ? await _employeeRepository.GetAllAsync(request.PageNumber, request.PageSize)
-            : await _employeeRepository.GetAllAsync();
+        var employees = request.ClientCtrlNbr > 0
+            ? await _employeeRepository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr))
+            : request.PageSize > 0
+                ? await _employeeRepository.GetAllAsync(request.PageNumber, request.PageSize)
+                : await _employeeRepository.GetAllAsync();
 
         foreach (var employee in employees)
         {

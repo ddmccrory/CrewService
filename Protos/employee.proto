@@ -56,6 +56,7 @@ service EmployeeSrvc {
 message GetAllEmployeesRequest {
   int32 page_number = 1;
   int32 page_size = 2;
+  int64 client_ctrl_nbr = 3;
 }
 
 message GetAllEmployeesResponse {

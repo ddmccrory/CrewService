@@ -144,7 +144,7 @@ internal static class DevDataSeeder
             "Jacksonville Sub",
             parentGroupCtrlNbr: southeast.CtrlNbr.Value,
             path: "/southeast/jax",
-            isWorkArea: false,
+            isWorkArea: true,
             parentCtrlNbr: holdingCorpResp.CtrlNbr,
             railroadCtrlNbr: csxRR.CtrlNbr.Value);
         await groupRepo.AddAsync(jaxSub);
@@ -310,7 +310,7 @@ internal static class DevDataSeeder
                 "Jacksonville Sub",
                 parentGroupCtrlNbr: southeastCore.CtrlNbr.Value,
                 path: "/southeast/jax",
-                isWorkArea: false,
+                isWorkArea: true,
                 parentCtrlNbr: csxParentCore.CtrlNbr.Value,
                 railroadCtrlNbr: csxRailroadCore.CtrlNbr.Value);
             await groupRepo.AddAsync(jaxSubCore);
@@ -532,6 +532,8 @@ internal static class DevDataSeeder
         var csxClericalDept = allDepts.First(d => d.Name == "Clerical" && d.ParentCtrlNbr == csxParentCtrlNbr);
         var ptraTransDept = allDepts.First(d => d.Name == "Transportation" && d.ParentCtrlNbr == ptraParentCore.CtrlNbr);
         var ptraClericalDept = allDepts.First(d => d.Name == "Clerical" && d.ParentCtrlNbr == ptraParentCore.CtrlNbr);
+        var csxWorkArea = (await groupRepo.GetAllAsync()).First(g => g.Name == "Jacksonville Sub");
+        var ptraWorkArea = ptraRailroadForCraft; // PTRA railroad is itself a work area
 
         // CSX Crafts (owned by CSX railroad under CSX Corporation parent)
         SetParent(csxParentCtrlNbr);
@@ -539,11 +541,15 @@ internal static class DevDataSeeder
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
-        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, null, csxEngineer.CraftName, csxEngineer.CraftPluralName, 1);
+        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxWorkArea.CtrlNbr, null, csxEngineer.CraftName, csxEngineer.CraftPluralName, 1);
+        var csxEngExtraBoard = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var csxEngHangout = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Hangout", BoardType.Hangout);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(csxEngineer);
             uow.Rosters.Add(csxEngRoster);
+            uow.RosterBoards.Add(csxEngExtraBoard);
+            uow.RosterBoards.Add(csxEngHangout);
             await uow.CommitAsync();
         }
 
@@ -551,11 +557,15 @@ internal static class DevDataSeeder
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
-        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, null, csxConductor.CraftName, csxConductor.CraftPluralName, 1);
+        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxWorkArea.CtrlNbr, null, csxConductor.CraftName, csxConductor.CraftPluralName, 1);
+        var csxCondExtraBoard = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var csxCondHangout = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Hangout", BoardType.Hangout);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(csxConductor);
             uow.Rosters.Add(csxCondRoster);
+            uow.RosterBoards.Add(csxCondExtraBoard);
+            uow.RosterBoards.Add(csxCondHangout);
             await uow.CommitAsync();
         }
 
@@ -563,11 +573,15 @@ internal static class DevDataSeeder
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: csxClericalDept.CtrlNbr);
-        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, null, csxClerical.CraftName, csxClerical.CraftPluralName, 1);
+        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxWorkArea.CtrlNbr, null, csxClerical.CraftName, csxClerical.CraftPluralName, 1);
+        var csxClericalExtraBoard = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var csxClericalHangout = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Hangout", BoardType.Hangout);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(csxClerical);
             uow.Rosters.Add(csxClericalRoster);
+            uow.RosterBoards.Add(csxClericalExtraBoard);
+            uow.RosterBoards.Add(csxClericalHangout);
             await uow.CommitAsync();
         }
 
@@ -577,11 +591,15 @@ internal static class DevDataSeeder
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
-        var ptraEngRoster = Roster.Create(ptraEngineer.CtrlNbr, null, ptraEngineer.CraftName, ptraEngineer.CraftPluralName, 1);
+        var ptraEngRoster = Roster.Create(ptraEngineer.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraEngineer.CraftName, ptraEngineer.CraftPluralName, 1);
+        var ptraEngExtraBoard = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var ptraEngHangout = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Hangout", BoardType.Hangout);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(ptraEngineer);
             uow.Rosters.Add(ptraEngRoster);
+            uow.RosterBoards.Add(ptraEngExtraBoard);
+            uow.RosterBoards.Add(ptraEngHangout);
             await uow.CommitAsync();
         }
 
@@ -589,11 +607,15 @@ internal static class DevDataSeeder
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
             hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
-        var ptraCondRoster = Roster.Create(ptraConductor.CtrlNbr, null, ptraConductor.CraftName, ptraConductor.CraftPluralName, 1);
+        var ptraCondRoster = Roster.Create(ptraConductor.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraConductor.CraftName, ptraConductor.CraftPluralName, 1);
+        var ptraCondExtraBoard = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var ptraCondHangout = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Hangout", BoardType.Hangout);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(ptraConductor);
             uow.Rosters.Add(ptraCondRoster);
+            uow.RosterBoards.Add(ptraCondExtraBoard);
+            uow.RosterBoards.Add(ptraCondHangout);
             await uow.CommitAsync();
         }
 
@@ -601,11 +623,15 @@ internal static class DevDataSeeder
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: ptraClericalDept.CtrlNbr);
-        var ptraClericalRoster = Roster.Create(ptraClerical.CtrlNbr, null, ptraClerical.CraftName, ptraClerical.CraftPluralName, 1);
+        var ptraClericalRoster = Roster.Create(ptraClerical.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraClerical.CraftName, ptraClerical.CraftPluralName, 1);
+        var ptraClericalExtraBoard = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
+        var ptraClericalHangout = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Hangout", BoardType.Hangout);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(ptraClerical);
             uow.Rosters.Add(ptraClericalRoster);
+            uow.RosterBoards.Add(ptraClericalExtraBoard);
+            uow.RosterBoards.Add(ptraClericalHangout);
             await uow.CommitAsync();
         }
 
@@ -1080,7 +1106,8 @@ internal static class DevDataSeeder
         var staffPosRepo = sp.GetRequiredService<IStaffablePositionRepository>();
 
         var existingBoards = await rosterBoardRepo.GetAllAsync();
-        if (existingBoards.Count == 0)
+        var boardsNeedPositions = existingBoards.Count > 0 && existingBoards.All(b => b.Positions.Count == 0);
+        if (boardsNeedPositions)
         {
         var crafts2 = await craftRepo.GetAllAsync();
         var groups2 = await groupRepo.GetAllAsync();
@@ -1089,16 +1116,10 @@ internal static class DevDataSeeder
         var engCraft2 = crafts2.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var condCraft2 = crafts2.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroad3.CtrlNbr);
         var empList3 = await employeeRepo.GetAllAsync();
-        var allRosters = await rosterRepo.GetAllAsync();
-        var engRoster = allRosters.First(r => r.RosterName == "Engineer" && r.CraftCtrlNbr == engCraft2.CtrlNbr);
-        var condRoster = allRosters.First(r => r.RosterName == "Trainman" && r.CraftCtrlNbr == condCraft2.CtrlNbr);
 
-        var engBoard = RosterBoard.Create(jaxSub3.CtrlNbr, engCraft2.CtrlNbr, engRoster.CtrlNbr,
-            "Jax Engineer Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var condBoard = RosterBoard.Create(jaxSub3.CtrlNbr, condCraft2.CtrlNbr, condRoster.CtrlNbr,
-            "Jax Trainman Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        await rosterBoardRepo.AddAsync(engBoard);
-        await rosterBoardRepo.AddAsync(condBoard);
+        // Find ExtraBoard boards and add positions
+        var engBoard = existingBoards.First(b => b.CraftCtrlNbr == engCraft2.CtrlNbr && b.BoardType == BoardType.ExtraBoard);
+        var condBoard = existingBoards.First(b => b.CraftCtrlNbr == condCraft2.CtrlNbr && b.BoardType == BoardType.ExtraBoard);
 
         // Board Positions - 5 engineers, 5 trainmen
         for (int i = 0; i < 5; i++)

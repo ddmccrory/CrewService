@@ -1,4 +1,6 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
@@ -198,6 +200,33 @@ public class TenantConfigService(
 
         await using var uow2 = await _uowFactory.CreateAsync();
         uow2.DynamicGroups.Add(group);
+
+        // Auto-create seniority rosters + boards for each craft when a work area is created
+        if (group.IsWorkArea && group.RailroadCtrlNbr is not null)
+        {
+            var crafts = await uow2.Crafts.GetByParentAndRailroadAsync(null, group.RailroadCtrlNbr);
+            foreach (var craft in crafts)
+            {
+                var roster = Roster.Create(
+                    craft.CtrlNbr, group.CtrlNbr,
+                    railroadPayrollDepartmentCtrlNbr: null,
+                    craft.CraftName,
+                    craft.CraftPluralName,
+                    rosterNumber: 1);
+                uow2.Rosters.Add(roster);
+
+                uow2.RosterBoards.Add(RosterBoard.Create(
+                    craft.CtrlNbr, roster.CtrlNbr,
+                    $"{craft.CraftName} Extra Board",
+                    BoardType.ExtraBoard, RotationType.FirstInFirstOut));
+
+                uow2.RosterBoards.Add(RosterBoard.Create(
+                    craft.CtrlNbr, roster.CtrlNbr,
+                    $"{craft.CraftName} Hangout",
+                    BoardType.Hangout));
+            }
+        }
+
         await uow2.CommitAsync();
 
         return MapGroup(group);
