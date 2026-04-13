@@ -105,7 +105,7 @@ public class RosterTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var roster = Roster.Create(1, 10, "Main Roster", "Main Rosters", 1);
+        var roster = Roster.Create(1, 10, null, "Main Roster", "Main Rosters", 1);
 
         Assert.Equal("Main Roster", roster.RosterName);
         Assert.Equal(1, roster.RosterNumber);

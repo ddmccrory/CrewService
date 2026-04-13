@@ -206,9 +206,13 @@ public sealed class UserParentAssignmentTests : IDisposable
         // Assert
         Assert.NotNull(updated);
         Assert.Equal(Roles.ParentAdmin, updated.Role);
-        // Created event + Updated event
-        Assert.Equal(2, assignment.DomainEvents.Count);
-        Assert.IsType<CrewService.Domain.DomainEvents.UserAccess.UserParentAssignmentUpdatedDomainEvent>(assignment.DomainEvents[1]);
+        // Domain events are collected into DomainEventLog and cleared from entity on save
+        Assert.Empty(assignment.DomainEvents);
+        var auditLogs = await ctx.DomainEventLogs
+            .Where(l => l.AggregateId == assignment.CtrlNbr.Value
+                && l.EventType == nameof(UserParentAssignmentUpdatedDomainEvent))
+            .ToListAsync(TestContext.Current.CancellationToken);
+        Assert.Single(auditLogs);
     }
 
     /// <summary>
