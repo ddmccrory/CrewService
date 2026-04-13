@@ -225,7 +225,7 @@
                 }
 
                 @* ── Work Management ── *@
-                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles", "work-management/shift-definitions"))
+                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles", "work-management/shift-definitions", "work-management/rosters", "work-management/seniority-states", "work-management/group-types"))
                 {
                     <NavMenuGroup Title="Work Management" Icon="bi-briefcase-fill" IsInitiallyExpanded="@IsCurrentPath("work-management")">
                         @if (Permissions.HasAccess("work-management/departments"))
@@ -260,6 +260,30 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (Permissions.HasAccess("work-management/rosters"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/rosters">
+                                    <span class="bi bi-journal-richtext" aria-hidden="true"></span> Rosters
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("work-management/seniority-states"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/seniority-states">
+                                    <span class="bi bi-diagram-2" aria-hidden="true"></span> Seniority States
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("work-management/group-types"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/group-types">
+                                    <span class="bi bi-collection" aria-hidden="true"></span> Group Types
+                                </NavLink>
+                            </div>
+                        }
                     </NavMenuGroup>
                 }
                 } @* end railroad-scoped *@
@@ -269,7 +293,7 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/rosters", "employees/seniority", "employees/seniority-states", "employees/prior-service", "admin/invitations"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations"))
                 {
                     <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
                         @if (Permissions.HasAccess("employees"))
@@ -280,27 +304,11 @@
                                 </NavLink>
                             </div>
                         }
-                        @if (Permissions.HasAccess("employees/rosters"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/rosters">
-                                    <span class="bi bi-journal-richtext" aria-hidden="true"></span> Rosters
-                                </NavLink>
-                            </div>
-                        }
                         @if (Permissions.HasAccess("employees/seniority"))
                         {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/seniority">
                                     <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("employees/seniority-states"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/seniority-states">
-                                    <span class="bi bi-diagram-2" aria-hidden="true"></span> Seniority States
                                 </NavLink>
                             </div>
                         }
@@ -347,22 +355,14 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "config/group-types", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "config/group-types", "config/groups")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="parents">
                                     <span class="bi bi-diagram-3" aria-hidden="true"></span> Parents
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("config/group-types"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="config/group-types">
-                                    <span class="bi bi-collection" aria-hidden="true"></span> Group Types
                                 </NavLink>
                             </div>
                         }

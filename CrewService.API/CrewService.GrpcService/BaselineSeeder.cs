@@ -65,6 +65,9 @@ internal static class BaselineSeeder
         ("work-management/assignment-templates", "Assignment Templates", "Work Management", "/work-management/assignment-templates"),
         ("work-management/craft-roles", "Craft Roles", "Work Management", "/work-management/craft-roles"),
         ("work-management/shift-definitions", "Shift Definitions", "Work Management", "/work-management/shift-definitions"),
+        ("work-management/rosters", "Rosters", "Work Management", "/work-management/rosters"),
+        ("work-management/seniority-states", "Seniority States", "Work Management", "/work-management/seniority-states"),
+        ("work-management/group-types", "Group Types", "Work Management", "/work-management/group-types"),
 
         // Employee Management
         ("employees", "Employees", "Employee Management", "/employees"),
@@ -79,7 +82,6 @@ internal static class BaselineSeeder
 
         // Administration
         ("parents", "Parents", "Administration", "/parents"),
-        ("config/group-types", "Group Types", "Administration", "/config/group-types"),
         ("admin/users", "User Assignments", "Administration", "/admin/users"),
         ("admin/notifications", "Notification Config", "Administration", "/admin/notifications"),
         ("admin/jobs", "Background Jobs", "Administration", "/admin/jobs"),
@@ -126,6 +128,9 @@ internal static class BaselineSeeder
         ["work-management/assignment-templates"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager"],
         ["work-management/craft-roles"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["work-management/shift-definitions"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["work-management/rosters"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["work-management/seniority-states"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["work-management/group-types"] = ["SystemAdmin", "ParentAdmin"],
 
         // Employee Management
         ["employees"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
@@ -140,7 +145,6 @@ internal static class BaselineSeeder
 
         // Administration
         ["parents"] = ["SystemAdmin"],
-        ["config/group-types"] = ["SystemAdmin", "ParentAdmin"],
         ["admin/users"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/notifications"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/jobs"] = ["SystemAdmin"],
@@ -189,7 +193,6 @@ internal static class BaselineSeeder
             await userMgr.CreateAsync(adminUser, "Admin@123");
         }
     }
-
 
     private static async Task BackfillGroupPathsAsync(IServiceProvider sp)
     {

@@ -1,4 +1,4 @@
-@page "/config/group-types"
+@page "/work-management/group-types"
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
@@ -119,7 +119,7 @@ else
                    DefaultSortColumn="Name">
             <RowContent Context="gt">
                 <td>
-                    <a href="/config/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
+                    <a href="/work-management/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
                 </td>
                 <td>@gt.Description</td>
                 <td>
@@ -176,7 +176,7 @@ else
 }
 
 @code {
-    protected override string? FeatureKey => "config/group-types";
+    protected override string? FeatureKey => "work-management/group-types";
 
     private IReadOnlyList<GroupTypeResponse>? groupTypes;
 

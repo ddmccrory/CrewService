@@ -1,4 +1,4 @@
-@page "/employees/rosters"
+@page "/work-management/rosters"
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
@@ -142,7 +142,7 @@ else
 }
 
 @code {
-    protected override string? FeatureKey => "employees/rosters";
+    protected override string? FeatureKey => "work-management/rosters";
 
     private IReadOnlyList<CraftResponse>? crafts;
     private IReadOnlyList<RosterResponse>? rosters;
@@ -282,7 +282,6 @@ else
                 await RosterClient.CreateAsync(new CreateRosterRequest
                 {
                     CraftCtrlNbr = selectedCraftCtrlNbr,
-                    RailroadPayrollDepartmentCtrlNbr = SelectedRailroadCtrlNbr ?? 0,
                     RosterName = saveModel.RosterName ?? string.Empty,
                     RosterPluralName = saveModel.RosterPluralName ?? string.Empty,
                     RosterNumber = saveModel.RosterNumber

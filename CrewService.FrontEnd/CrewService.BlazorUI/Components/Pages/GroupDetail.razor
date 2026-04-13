@@ -1,4 +1,4 @@
-@page "/config/groups/{CtrlNbr:long}"
+@page "/work-management/groups/{CtrlNbr:long}"
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -56,7 +56,7 @@ else
                 @foreach (var child in DirectChildren)
                 {
                     <tr>
-                        <td><a href="/config/groups/@child.CtrlNbr">@child.Name</a></td>
+                        <td><a href="/work-management/groups/@child.CtrlNbr">@child.Name</a></td>
                         <td>
                             @if (child.IsWorkArea)
                             {
@@ -89,7 +89,7 @@ else
 }
 
 @code {
-    protected override string? FeatureKey => "config/group-types";
+    protected override string? FeatureKey => "work-management/group-types";
 
     [Parameter]
     public long CtrlNbr { get; set; }
@@ -105,7 +105,7 @@ else
         new("hierarchy", "Hierarchy", "bi bi-diagram-3")
     ];
 
-    private void NavigateBack() => NavigationManager.NavigateTo($"/config/group-types/{group?.GroupTypeCtrlNbr}");
+    private void NavigateBack() => NavigationManager.NavigateTo($"/work-management/group-types/{group?.GroupTypeCtrlNbr}");
     private IReadOnlyList<GroupResponse>? descendants;
     private IReadOnlyList<GroupResponse>? ancestors;
     private Dictionary<long, string> groupTypeNames = new();
@@ -125,7 +125,7 @@ else
     {
         if (groupType is not null && !IsGroupTypeInScope(groupType))
         {
-            NavigationManager.NavigateTo("/config/group-types");
+            NavigationManager.NavigateTo("/work-management/group-types");
             return;
         }
 
