@@ -1,13 +1,7 @@
-using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.RosterBoardOps;
-
-public interface IRosterBoardRepository : IRepository<RosterBoard>
-{
-    Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-}
 
 public sealed class HangoutProcessingService(IRosterBoardRepository boardRepo)
 {

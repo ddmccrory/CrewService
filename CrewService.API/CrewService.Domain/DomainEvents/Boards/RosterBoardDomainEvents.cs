@@ -29,3 +29,10 @@ public sealed record PositionRestoredDomainEvent : DomainEvent
         : base("RosterBoardPosition", positionCtrlNbr.Value,
             payload: new { PositionCtrlNbr = positionCtrlNbr.Value, EmployeeCtrlNbr = employeeCtrlNbr.Value }) { }
 }
+
+public sealed record PositionsReorderedDomainEvent : DomainEvent
+{
+    public PositionsReorderedDomainEvent(ControlNumber boardCtrlNbr, object changes)
+        : base("RosterBoard", boardCtrlNbr.Value,
+            payload: new { BoardCtrlNbr = boardCtrlNbr.Value, Changes = changes }) { }
+}

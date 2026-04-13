@@ -7,6 +7,7 @@ namespace CrewService.Domain.Models.Seniority;
 public sealed class Roster : Entity
 {
     public ControlNumber CraftCtrlNbr { get; private set; }
+    public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
     public ControlNumber? RailroadPayrollDepartmentCtrlNbr { get; private set; }
     public string RosterName { get; private set; } = string.Empty;
     public string RosterPluralName { get; private set; } = string.Empty;
@@ -15,16 +16,19 @@ public sealed class Roster : Entity
     private Roster()
     {
         CraftCtrlNbr = null!;
+        WorkAreaGroupCtrlNbr = null!;
     }
 
     private Roster(
         ControlNumber craftCtrlNbr,
+        ControlNumber workAreaGroupCtrlNbr,
         ControlNumber? railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
         int rosterNumber)
     {
         CraftCtrlNbr = craftCtrlNbr;
+        WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr;
         RailroadPayrollDepartmentCtrlNbr = railroadPayrollDepartmentCtrlNbr;
         RosterName = rosterName;
         RosterPluralName = rosterPluralName;
@@ -33,6 +37,7 @@ public sealed class Roster : Entity
 
     public static Roster Create(
         ControlNumber craftCtrlNbr,
+        ControlNumber workAreaGroupCtrlNbr,
         ControlNumber? railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
@@ -40,6 +45,7 @@ public sealed class Roster : Entity
     {
         var entity = new Roster(
             craftCtrlNbr,
+            workAreaGroupCtrlNbr,
             railroadPayrollDepartmentCtrlNbr,
             rosterName,
             rosterPluralName,
