@@ -24,15 +24,31 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
         var response = new GetAllEmployeesResponse();
 
         var employees = request.ClientCtrlNbr > 0
-            ? await _employeeRepository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr))
+            ? await _employeeRepository.GetListByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr))
             : request.PageSize > 0
                 ? await _employeeRepository.GetAllAsync(request.PageNumber, request.PageSize)
                 : await _employeeRepository.GetAllAsync();
 
+        // Batch-load user names to avoid N+1 lookups
+        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+        var userMap = new Dictionary<string, User>();
+        foreach (var uid in userIds)
+        {
+            var user = await _userManager.FindByIdAsync(uid);
+            if (user is not null)
+                userMap[uid] = user;
+        }
+
         foreach (var employee in employees)
         {
             var mapped = MapToEmployeeResponse(employee);
-            await EnrichWithUserNameAsync(mapped, employee.UserId);
+            if (!string.IsNullOrEmpty(employee.UserId) && userMap.TryGetValue(employee.UserId, out var user))
+            {
+                mapped.FullNameLnf = user.FullNameLNF ?? string.Empty;
+                mapped.FirstName = user.FirstName ?? string.Empty;
+                mapped.MiddleName = user.MiddleName ?? string.Empty;
+                mapped.LastName = user.LastName ?? string.Empty;
+            }
             response.Employees.Add(mapped);
         }
 
@@ -123,6 +139,21 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
 
         uow.Employees.Update(employee);
         await uow.CommitAsync();
+
+        // Update user name fields if provided
+        if (!string.IsNullOrEmpty(employee.UserId))
+        {
+            var user = await _userManager.FindByIdAsync(employee.UserId);
+            if (user is not null)
+            {
+                user.FirstName = request.FirstName;
+                user.MiddleName = request.MiddleName;
+                user.LastName = request.LastName;
+                user.FullName = FormatFullName(request.FirstName, request.MiddleName, request.LastName, lnf: false);
+                user.FullNameLNF = FormatFullName(request.FirstName, request.MiddleName, request.LastName, lnf: true);
+                await _userManager.UpdateAsync(user);
+            }
+        }
 
         return new UpdateEmployeeResponse
         {
@@ -466,7 +497,13 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
         if (!string.IsNullOrEmpty(userId))
         {
             var user = await _userManager.FindByIdAsync(userId);
-            response.FullNameLnf = user?.FullNameLNF ?? string.Empty;
+            if (user is not null)
+            {
+                response.FullNameLnf = user.FullNameLNF ?? string.Empty;
+                response.FirstName = user.FirstName ?? string.Empty;
+                response.MiddleName = user.MiddleName ?? string.Empty;
+                response.LastName = user.LastName ?? string.Empty;
+            }
         }
     }
 
@@ -491,6 +528,34 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
 
         if (errors.Count > 0)
             throw new ValidationException(errors);
+    }
+
+    private static string FormatFullName(string fname, string mname, string lname, bool lnf)
+    {
+        if (lnf)
+            return $"{lname}, {FormatFirstName(fname)} {FormatMiddleName(mname)}".Trim(',', ' ');
+
+        return $"{FormatFirstName(fname)} {FormatMiddleName(mname)} {lname}".Trim();
+    }
+
+    private static string FormatFirstName(string fname)
+    {
+        fname = fname.Trim('.');
+
+        if (!string.IsNullOrEmpty(fname) && fname.Length is 1)
+            fname = $"{fname}.";
+
+        return fname;
+    }
+
+    private static string FormatMiddleName(string mname)
+    {
+        mname = mname.Trim('.');
+
+        if (!string.IsNullOrEmpty(mname))
+            mname = $"{mname[..1]}.";
+
+        return mname;
     }
 
     #endregion
