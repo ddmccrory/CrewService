@@ -432,6 +432,131 @@ internal static class DevDataSeeder
 
         } // end employee guard
 
+        // ?? PTRA Employees with Addresses, Phone Numbers, Email Addresses ????
+        var ptraExistingEmployees = await employeeRepo.GetByClientCtrlNbrAsync(ptraParentCore.CtrlNbr);
+        if (ptraExistingEmployees.Count == 0)
+        {
+
+        SetParent(ptraParentCore.CtrlNbr.Value);
+
+        var ptraEmploymentStatusRepo = sp.GetRequiredService<IEmploymentStatusRepository>();
+        var ptraAddressTypeRepo = sp.GetRequiredService<IAddressTypeRepository>();
+        var ptraPhoneNumberTypeRepo = sp.GetRequiredService<IPhoneNumberTypeRepository>();
+        var ptraEmailAddressTypeRepo = sp.GetRequiredService<IEmailAddressTypeRepository>();
+
+        var ptraRailroadForEmp = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
+
+        var ptraActiveStatus = EmploymentStatus.Create(ptraParentCore.CtrlNbr.Value, "A", "Active", 1, "FT");
+        await ptraEmploymentStatusRepo.AddAsync(ptraActiveStatus);
+
+        var ptraHomeAddressType = AddressType.Create(ptraParentCore.CtrlNbr.Value, "Home", 1, emergencyType: false);
+        await ptraAddressTypeRepo.AddAsync(ptraHomeAddressType);
+
+        var ptraCellPhoneType = PhoneNumberType.Create(ptraParentCore.CtrlNbr.Value, "Cell", 1, emergencyType: false);
+        await ptraPhoneNumberTypeRepo.AddAsync(ptraCellPhoneType);
+
+        var ptraWorkEmailType = EmailAddressType.Create(ptraParentCore.CtrlNbr.Value, "Work", 1, emergencyType: false);
+        await ptraEmailAddressTypeRepo.AddAsync(ptraWorkEmailType);
+
+        string[] ptraFirstNames = ["Antonio", "Brianna", "Carlos", "Destiny", "Eduardo",
+                                   "Felicia", "Giovanni", "Hazel", "Isaiah", "Jasmine"];
+        string[] ptraLastNames  =
+        [
+            "Abernathy",    "Beaumont",     "Castellano",   "Delacroix",    "Espinoza",
+            "Fontaine",     "Gallagher",    "Hargrove",     "Ibarra",       "Joubert",
+            "Kowalski",     "Langford",     "Montoya",      "Nakamura",     "Oberlin",
+            "Petrov",       "Quintero",     "Rafferty",     "Sandoval",     "Thibodeaux",
+            "Underwood",    "Volkov",       "Whitaker",     "Ximenez",      "Yamamoto",
+            "Zachariadis",  "Aldridge",     "Blackwood",    "Cervantes",    "Donnelly",
+            "Eckhardt",     "Fairbanks",    "Gutierrez",    "Holloway",     "Ishikawa",
+            "Jablonski",    "Kendrick",     "LaFleur",      "Matsumoto",    "Navarro",
+            "Olszewski",    "Pemberton",    "Quinlan",      "Rosenberg",    "Stefanovic",
+            "Trujillo",     "Urbaniak",     "Villanueva",   "Wainwright",   "Xu",
+            "Yoshida",      "Zamora",       "Ashford",      "Belanger",     "Costello",
+            "Driscoll",     "Evangelista",  "Fitzpatrick",  "Grimaldi",     "Henriksen",
+            "Ivanenko",     "Jorgensen",    "Kovalenko",    "Lombardi",     "McAllister",
+            "Nishimura",    "Ostrowski",    "Palomino",     "Quevedo",      "Rutherford",
+            "Strickland",   "Tanaka",       "Uribe",        "Vandenberg",   "Wojciechowski",
+            "Xander",       "Yamazaki",     "Zimmerman",    "Archibald",    "Brennan",
+            "Calloway",     "DeSilva",      "Eriksson",     "Fernandez",    "Grayson",
+            "Hutchinson",   "Inoue",        "Jankovic",     "Kavanaugh",    "Lindqvist",
+            "Moreau",       "Nakagawa",     "Ochoa",        "Prescott",     "Rasmussen",
+            "Sullivan",     "Takahashi",    "Upton",        "Varga",        "Wellington"
+        ];
+        string[] ptraStreets    = ["Bayou Bend Dr", "Ship Channel Blvd", "Turning Basin St", "Harrisburg Ave", "Navigation Blvd",
+                                   "Wayside Dr", "Lawndale Ave", "Broadway St", "Center St", "Pasadena Blvd"];
+        string[] ptraCities     = ["Houston", "Pasadena", "Deer Park", "La Porte", "Baytown",
+                                   "Channelview", "Galena Park", "Jacinto City", "Seabrook", "Texas City"];
+        string[] ptraZips       = ["77001", "77502", "77536", "77571", "77520",
+                                   "77530", "77547", "77029", "77586", "77590"];
+        Gender[] ptraGenders    = [Gender.Male, Gender.Female];
+        Race[] ptraRaces        = [Race.White, Race.BlackOrAfricanAmerican, Race.Hispanic, Race.Asian, Race.Other];
+
+        for (int i = 0; i < 100; i++)
+        {
+            var firstName = ptraFirstNames[i % ptraFirstNames.Length];
+            var lastName  = ptraLastNames[i];
+            var empNumber = $"PTRA{i + 1:D4}";
+            var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@ptra.example.com";
+
+            var invitation = Invitation.Create(
+                email,
+                ptraParentCore.CtrlNbr.Value,
+                Roles.Employee,
+                "SYSTEM",
+                railroadCtrlNbr: ptraRailroadForEmp.CtrlNbr);
+            invitation.Accept();
+            await invitationRepo.AddAsync(invitation);
+
+            var user = new User
+            {
+                UserName       = email,
+                Email          = email,
+                EmailConfirmed = true,
+                FirstName      = firstName,
+                LastName       = lastName,
+                FullName       = $"{firstName} {lastName}",
+                FullNameLNF    = $"{lastName}, {firstName}",
+                EmployeeNumber = empNumber
+            };
+            await userMgr.CreateAsync(user, "Seed@123");
+
+            var assignment = UserParentAssignment.Create(user.Id, ptraParentCore.CtrlNbr.Value, invitation.Role, ptraRailroadForEmp.CtrlNbr);
+            await assignmentRepo.AddAsync(assignment);
+
+            var employee = Employee.Create(
+                ptraParentCore.CtrlNbr.Value,
+                userId: user.Id,
+                employeeNumber: empNumber,
+                ssn: $"{200 + i:D3}-{50 + i % 100:D2}-{2000 + i:D4}",
+                gender: ptraGenders[i % ptraGenders.Length],
+                race: ptraRaces[i % ptraRaces.Length],
+                birthDate: new DateTime(1968, 1, 1).AddDays(i * 73),
+                employmentDate: new DateTime(2016, 1, 1).AddDays(i * 12),
+                ptraActiveStatus.CtrlNbr.Value);
+
+            employee.AddAddress(
+                $"{200 + i} {ptraStreets[i % ptraStreets.Length]}",
+                ptraCities[i % ptraCities.Length],
+                "TX",
+                ptraZips[i % ptraZips.Length],
+                ptraHomeAddressType.CtrlNbr.Value);
+
+            employee.AddPhoneNumber(
+                $"713-{200 + i:D3}-{2000 + i:D4}",
+                callingOrder: 1,
+                dialOne: true,
+                ptraCellPhoneType.CtrlNbr.Value);
+
+            employee.AddEmailAddress(
+                email,
+                ptraWorkEmailType.CtrlNbr.Value);
+
+            await employeeRepo.AddAsync(employee);
+        }
+
+        } // end PTRA employee guard
+
         // ?? Upgrade specific employee assignments via invitation flow ????
         var csxCorp = csxParentCore;
         var allEmployees = await employeeRepo.GetAllAsync();
@@ -698,6 +823,72 @@ internal static class DevDataSeeder
             }
             clrDate = clrDate.AddDays(60);
         }
+
+        // PTRA Seniority: 30 Engineer, 60 Trainman, 10 Clerical
+        SetParent(ptraParentCore.CtrlNbr.Value);
+        var ptraEmpList = await employeeRepo.GetByClientCtrlNbrAsync(ptraParentCore.CtrlNbr);
+
+        if (ptraEmpList.Count > 0)
+        {
+        var ptraSenStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(ptraParentCore.CtrlNbr);
+        var ptraActiveSenState = ptraSenStates.First(s => s.StateDescription == "Active");
+
+        // Hire group sizes per craft (each number = employees sharing one seniority date)
+        int[] ptraEngGroups = [4, 3, 2, 5, 3, 4, 2, 3, 2, 2]; // 30 Engineers
+        int[] ptraTrnGroups = [5, 4, 3, 6, 4, 5, 3, 4, 5, 3, 6, 4, 3, 5]; // 60 Trainmen
+        int[] ptraClrGroups = [3, 2, 1, 2, 2]; // 10 Clerical
+
+        int ptraEmpIdx = 0;
+
+        // Engineer roster: hire dates starting 2016-01-01, ~50 days apart
+        var ptraEngDate = new DateTime(2016, 1, 1);
+        foreach (var groupSize in ptraEngGroups)
+        {
+            for (int r = 0; r < groupSize; r++)
+            {
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    ptraEngRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: ptraEngDate,
+                    rank: r + 1, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    canTrain: ptraEmpIdx % 5 == 0));
+                ptraEmpIdx++;
+            }
+            ptraEngDate = ptraEngDate.AddDays(50);
+        }
+
+        // Trainman roster: hire dates starting 2016-02-01, ~30 days apart
+        var ptraTrnDate = new DateTime(2016, 2, 1);
+        foreach (var groupSize in ptraTrnGroups)
+        {
+            for (int r = 0; r < groupSize; r++)
+            {
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    ptraCondRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: ptraTrnDate,
+                    rank: r + 1, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    canTrain: ptraEmpIdx % 5 == 0));
+                ptraEmpIdx++;
+            }
+            ptraTrnDate = ptraTrnDate.AddDays(30);
+        }
+
+        // Clerical roster: hire dates starting 2016-06-01, ~60 days apart
+        var ptraClrDate = new DateTime(2016, 6, 1);
+        foreach (var groupSize in ptraClrGroups)
+        {
+            for (int r = 0; r < groupSize; r++)
+            {
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    ptraClericalRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: ptraClrDate,
+                    rank: r + 1, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    canTrain: ptraEmpIdx % 5 == 0));
+                ptraEmpIdx++;
+            }
+            ptraClrDate = ptraClrDate.AddDays(60);
+        }
+
+        } // end PTRA seniority guard
 
         } // end seniority guard
 
