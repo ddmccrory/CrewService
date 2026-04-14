@@ -4,10 +4,12 @@
 
 @using System.ComponentModel.DataAnnotations
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.BlazorUI.Services
 @using CrewService.Presentation
 
-@inject EmployeeClient EmployeeClient
 @inject AddressTypeClient AddressTypeClient
+@inject EmployeeProfileService ProfileService
 
 <PageTitle>Addresses</PageTitle>
 
@@ -28,13 +30,14 @@
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Type</label>
-                    <InputSelect @bind-Value="saveModel.AddressTypeCtrlNbr" class="form-select" disabled="@(editCtrlNbr > 0)">
-                        <option value="0">-- Select Type --</option>
-                        @foreach (var t in addressTypes)
-                        {
-                            <option value="@t.CtrlNbr">@t.Name</option>
-                        }
-                    </InputSelect>
+                    <SelectInput TItem="AddressTypeResponse" TValue="long"
+                                 Items="addressTypes"
+                                 ValueSelector="t => t.CtrlNbr"
+                                 TextSelector="t => t.Name"
+                                 @bind-Value="saveModel.AddressTypeCtrlNbr"
+                                 Placeholder="-- Select Type --"
+                                 class="form-select"
+                                 disabled="@(editCtrlNbr > 0)" />
                     <ValidationMessage For="() => saveModel.AddressTypeCtrlNbr" class="text-danger" />
                 </div>
                 <div class="col-md-6">
@@ -163,6 +166,7 @@ else
         {
             try
             {
+                await CurrentUser.ReloadEmployeeAsync();
                 var typesResponse = await AddressTypeClient.GetAllAsync(employee!.ClientCtrlNbr);
                 addressTypes = [.. typesResponse.AddressTypeList];
             }
@@ -184,15 +188,7 @@ else
     private void OpenEditModal(AddressResponse addr)
     {
         editCtrlNbr = addr.CtrlNbr;
-        saveModel = new()
-        {
-            AddressTypeCtrlNbr = addr.AddressTypeCtrlNbr,
-            Address1 = addr.Address1,
-            Address2 = addr.Address2,
-            City = addr.City,
-            State = addr.State,
-            ZipCode = addr.ZipCode
-        };
+        saveModel = EmployeeProfileService.CreateAddressModel(addr);
         showSaveModal = true;
     }
 
@@ -219,34 +215,7 @@ else
             errorMessage = null;
             successMessage = null;
 
-            if (editCtrlNbr > 0)
-            {
-                await EmployeeClient.UpdateAddressAsync(new UpdateAddressRequest
-                {
-                    EmployeeCtrlNbr = employee.CtrlNbr,
-                    CtrlNbr = editCtrlNbr,
-                    Address1 = saveModel.Address1 ?? string.Empty,
-                    Address2 = saveModel.Address2 ?? string.Empty,
-                    City = saveModel.City ?? string.Empty,
-                    State = saveModel.State ?? string.Empty,
-                    ZipCode = saveModel.ZipCode ?? string.Empty
-                });
-                successMessage = "Address updated.";
-            }
-            else
-            {
-                await EmployeeClient.AddAddressAsync(new AddAddressRequest
-                {
-                    EmployeeCtrlNbr = employee.CtrlNbr,
-                    AddressTypeCtrlNbr = saveModel.AddressTypeCtrlNbr,
-                    Address1 = saveModel.Address1 ?? string.Empty,
-                    Address2 = saveModel.Address2 ?? string.Empty,
-                    City = saveModel.City ?? string.Empty,
-                    State = saveModel.State ?? string.Empty,
-                    ZipCode = saveModel.ZipCode ?? string.Empty
-                });
-                successMessage = "Address added.";
-            }
+            successMessage = await ProfileService.SaveAddressAsync(employee.CtrlNbr, editCtrlNbr, saveModel);
 
             CloseSaveModal();
             await ReloadEmployee();
@@ -266,7 +235,7 @@ else
             errorMessage = null;
             successMessage = null;
 
-            await EmployeeClient.DeleteAddressAsync(employee.CtrlNbr, deleteCtrlNbr);
+            await ProfileService.DeleteAddressAsync(employee.CtrlNbr, deleteCtrlNbr);
             successMessage = "Address removed.";
             showDeleteModal = false;
             await ReloadEmployee();
@@ -276,26 +245,5 @@ else
             errorMessage = $"Failed to delete address: {ex.Message}";
             showDeleteModal = false;
         }
-    }
-
-    private sealed class AddressInputModel
-    {
-        [Required, Display(Name = "Address 1")]
-        public string? Address1 { get; set; }
-
-        [Display(Name = "Address 2")]
-        public string? Address2 { get; set; }
-
-        [Required]
-        public string? City { get; set; }
-
-        [Required]
-        public string? State { get; set; }
-
-        [Required, Display(Name = "Zip Code")]
-        public string? ZipCode { get; set; }
-
-        [Range(1, long.MaxValue, ErrorMessage = "Please select an address type.")]
-        public long AddressTypeCtrlNbr { get; set; }
     }
 }

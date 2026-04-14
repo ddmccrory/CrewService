@@ -1,0 +1,416 @@
+@page "/employees"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.BlazorUI.Services
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject EmployeeClient EmployeeClient
+@inject EmployeeProfileService ProfileService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Employees</PageTitle>
+
+<h1>Employees</h1>
+
+@if (!HasParent)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent in the context switcher to manage employees.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing employees for <strong>@SelectedParentName</strong></p>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Employee" : "Create Employee")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal"
+           Size="lg">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-employee-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Employee Number</label>
+                        <InputText @bind-Value="createModel!.EmployeeNumber" class="form-control" placeholder="Employee Number" />
+                        <ValidationMessage For="() => createModel!.EmployeeNumber" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Social Security Number</label>
+                        <InputText @bind-Value="createModel!.SocialSecurityNumber" class="form-control" placeholder="SSN" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Birth Date</label>
+                        <InputDate @bind-Value="createModel!.BirthDate" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Employment Date</label>
+                        <InputDate @bind-Value="createModel!.EmploymentDate" class="form-control" />
+                        <ValidationMessage For="() => createModel!.EmploymentDate" class="text-danger" />
+                    </div>
+                </div>
+                <hr class="my-3" />
+                }
+                else
+                {
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Employee Number</label>
+                        <input type="text" value="@editEmployeeNumber" class="form-control" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Social Security Number</label>
+                        <input type="text" value="@editSsnDisplay" class="form-control" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Birth Date</label>
+                        <input type="text" value="@editBirthDate" class="form-control" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Employment Date</label>
+                        <input type="text" value="@editEmploymentDate" class="form-control" disabled />
+                    </div>
+                </div>
+                <hr class="my-3" />
+                }
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">First Name</label>
+                        <InputText @bind-Value="saveModel.FirstName" class="form-control" placeholder="First Name" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Middle Name</label>
+                        <InputText @bind-Value="saveModel.MiddleName" class="form-control" placeholder="Middle Name" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Last Name</label>
+                        <InputText @bind-Value="saveModel.LastName" class="form-control" placeholder="Last Name" />
+                    </div>
+                </div>
+                <hr class="my-3" />
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Gender</label>
+                        <InputSelect @bind-Value="saveModel.Gender" class="form-select">
+                            <option value="">-- Select --</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="NonBinary">Non-Binary</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Race</label>
+                        <InputSelect @bind-Value="saveModel.Race" class="form-select">
+                            <option value="">-- Select --</option>
+                            <option value="White">White</option>
+                            <option value="BlackOrAfricanAmerican">Black or African American</option>
+                            <option value="Hispanic">Hispanic</option>
+                            <option value="Asian">Asian</option>
+                            <option value="AmericanIndianOrAlaskaNative">American Indian or Alaska Native</option>
+                            <option value="NativeHawaiianOrPacificIslander">Native Hawaiian or Pacific Islander</option>
+                            <option value="TwoOrMoreRaces">Two or More Races</option>
+                            <option value="Other">Other</option>
+                            <option value="PreferNotToSay">Prefer Not to Say</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Marital Status</label>
+                        <InputSelect @bind-Value="saveModel.MaritalStatus" class="form-select">
+                            <option value="">-- Select --</option>
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Divorced">Divorced</option>
+                            <option value="Widowed">Widowed</option>
+                            <option value="Separated">Separated</option>
+                            <option value="DomesticPartnership">Domestic Partnership</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Driver's License Number</label>
+                        <InputText @bind-Value="saveModel.DriversLicenseNumber" class="form-control" placeholder="License #" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Issuing State</label>
+                        <InputText @bind-Value="saveModel.IssuingState" class="form-control" placeholder="State" />
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <h6 class="text-muted mb-3">Options</h6>
+                <div class="row g-3">
+                    @if (CurrentUser.IsAdmin)
+                    {
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.AllowFmlaMarkOff" class="form-check-input" id="chkFmla" />
+                            <label class="form-check-label" for="chkFmla">Allow FMLA Mark Off</label>
+                        </div>
+                    </div>
+                    }
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.CallForOvertime" class="form-check-input" id="chkOvertime" />
+                            <label class="form-check-label" for="chkOvertime">Call For Overtime</label>
+                        </div>
+                    </div>
+                    @if (CurrentUser.IsAdmin)
+                    {
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.ProcessPayroll" class="form-check-input" id="chkPayroll" />
+                            <label class="form-check-label" for="chkPayroll">Process Payroll</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <InputCheckbox @bind-Value="saveModel.TieUpOffProperty" class="form-check-input" id="chkTieUp" />
+                            <label class="form-check-label" for="chkTieUp">Tie Up Off Property</label>
+                        </div>
+                    </div>
+                    }
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-employee-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <ConfirmModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
+                  OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="GetEmployeeResponse" Items="employees" Columns="columns"
+               SearchFilter="@((e, term) => (e.EmployeeNumber?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) || (e.FullNameLnf?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))"
+               SearchPlaceholder="Search employees..."
+               EmptyMessage="No employees found."
+               DefaultSortColumn="Employee #">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <span class="bi bi-plus-circle"></span> Create Employee
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="emp">
+            <td>
+                <a href="employees/@emp.CtrlNbr" class="text-decoration-none fw-semibold">@emp.EmployeeNumber</a>
+            </td>
+            <td>@emp.FullNameLnf</td>
+            <td>@(emp.EmploymentDate is not null ? FormatDate(emp.EmploymentDate.ToDateTime().ToString("o")) : "\u2014")</td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(emp)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(emp)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "employees";
+
+    private IReadOnlyList<GetEmployeeResponse>? employees;
+
+    private static readonly IReadOnlyList<DataTableColumn<GetEmployeeResponse>> columns =
+    [
+        new("Employee #", e => e.EmployeeNumber),
+        new("Name", e => e.FullNameLnf),
+        new("Employment Date", e => e.EmploymentDate is not null ? e.EmploymentDate.ToDateTime().ToString("yyyy-MM-dd") : ""),
+        DataTableColumn<GetEmployeeResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private EmployeeProfileModel saveModel = new();
+    private EmployeeCreateModel? createModel;
+    private GetEmployeeResponse? editEmployee;
+    private string editEmployeeNumber = "";
+    private string editSsnDisplay = "";
+    private string editBirthDate = "";
+    private string editEmploymentDate = "";
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasParent)
+            await LoadEmployees();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (HasParent)
+            await LoadEmployees();
+        else
+            employees = null;
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await EmployeeClient.GetAllAsync(SelectedParentCtrlNbr!.Value);
+            employees = response.Employees;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load employees: {ex.Message}";
+        }
+    }
+
+    private void NavigateToDetail(long ctrlNbr) => NavigationManager.NavigateTo($"/employees/{ctrlNbr}");
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        createModel = new EmployeeCreateModel();
+        saveModel = createModel;
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(GetEmployeeResponse emp)
+    {
+        editCtrlNbr = emp.CtrlNbr;
+        editEmployee = emp;
+        editEmployeeNumber = emp.EmployeeNumber;
+        editSsnDisplay = EmployeeProfileService.MaskSsn(emp.SocialSecurityNumber);
+        editBirthDate = emp.BirthDate is not null ? emp.BirthDate.ToDateTime().ToString("MM/dd/yyyy") : "\u2014";
+        editEmploymentDate = emp.EmploymentDate is not null ? emp.EmploymentDate.ToDateTime().ToString("MM/dd/yyyy") : "\u2014";
+        saveModel = EmployeeProfileService.CreateFromEmployee(emp);
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        editEmployee = null;
+        createModel = null;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(GetEmployeeResponse emp)
+    {
+        deleteCtrlNbr = emp.CtrlNbr;
+        deleteName = string.IsNullOrWhiteSpace(emp.FullNameLnf) ? emp.EmployeeNumber : emp.FullNameLnf;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await ProfileService.SaveAsync(editCtrlNbr, saveModel, editEmployee, CurrentUser.IsAdmin);
+                successMessage = "Employee updated.";
+            }
+            else
+            {
+                var request = new CreateEmployeeRequest
+                {
+                    ClientCtrlNbr = SelectedParentCtrlNbr!.Value,
+                    EmployeeNumber = createModel!.EmployeeNumber ?? string.Empty,
+                    SocialSecurityNumber = createModel.SocialSecurityNumber ?? string.Empty,
+                    Gender = saveModel.Gender ?? string.Empty,
+                    Race = saveModel.Race ?? string.Empty,
+                    MaritalStatus = saveModel.MaritalStatus ?? string.Empty,
+                    DriversLicenseNumber = saveModel.DriversLicenseNumber ?? string.Empty,
+                    IssuingState = saveModel.IssuingState ?? string.Empty
+                };
+
+                if (createModel.BirthDate.HasValue)
+                    request.BirthDate = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(createModel.BirthDate.Value, DateTimeKind.Utc));
+
+                if (createModel.EmploymentDate.HasValue)
+                    request.EmploymentDate = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(createModel.EmploymentDate.Value, DateTimeKind.Utc));
+
+                await EmployeeClient.CreateAsync(request);
+                successMessage = "Employee created.";
+            }
+
+            CloseSaveModal();
+            await LoadEmployees();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save employee: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await EmployeeClient.DeleteAsync(deleteCtrlNbr);
+            successMessage = "Employee deleted.";
+            showDeleteModal = false;
+            await LoadEmployees();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete employee: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    private sealed class EmployeeCreateModel : EmployeeProfileModel
+    {
+        [Required(ErrorMessage = "Employee Number is required.")]
+        [StringLength(50)]
+        public string? EmployeeNumber { get; set; }
+
+        public string? SocialSecurityNumber { get; set; }
+        public DateTime? BirthDate { get; set; }
+
+        [Required(ErrorMessage = "Employment Date is required.")]
+        public DateTime? EmploymentDate { get; set; }
+    }
+}

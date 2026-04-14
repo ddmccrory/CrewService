@@ -4,10 +4,12 @@
 
 @using System.ComponentModel.DataAnnotations
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.BlazorUI.Services
 @using CrewService.Presentation
 
-@inject EmployeeClient EmployeeClient
 @inject PhoneNumberTypeClient PhoneNumberTypeClient
+@inject EmployeeProfileService ProfileService
 
 <PageTitle>Phone Numbers</PageTitle>
 
@@ -28,13 +30,14 @@
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Type</label>
-                    <InputSelect @bind-Value="saveModel.PhoneTypeCtrlNbr" class="form-select" disabled="@(editCtrlNbr > 0)">
-                        <option value="0">-- Select Type --</option>
-                        @foreach (var t in phoneTypes)
-                        {
-                            <option value="@t.CtrlNbr">@t.Name</option>
-                        }
-                    </InputSelect>
+                    <SelectInput TItem="PhoneNumberTypeResponse" TValue="long"
+                                 Items="phoneTypes"
+                                 ValueSelector="t => t.CtrlNbr"
+                                 TextSelector="t => t.Name"
+                                 @bind-Value="saveModel.PhoneTypeCtrlNbr"
+                                 Placeholder="-- Select Type --"
+                                 class="form-select"
+                                 disabled="@(editCtrlNbr > 0)" />
                     <ValidationMessage For="() => saveModel.PhoneTypeCtrlNbr" class="text-danger" />
                 </div>
                 <div class="col-md-6">
@@ -140,6 +143,7 @@ else
         {
             try
             {
+                await CurrentUser.ReloadEmployeeAsync();
                 var typesResponse = await PhoneNumberTypeClient.GetAllAsync(employee!.ClientCtrlNbr);
                 phoneTypes = [.. typesResponse.PhoneNumberTypeList];
             }
@@ -161,13 +165,7 @@ else
     private void OpenEditModal(PhoneNumberResponse phone)
     {
         editCtrlNbr = phone.CtrlNbr;
-        saveModel = new()
-        {
-            PhoneTypeCtrlNbr = phone.PhoneTypeCtrlNbr,
-            Number = phone.Number,
-            CallingOrder = phone.CallingOrder,
-            DialOne = phone.DialOne
-        };
+        saveModel = EmployeeProfileService.CreatePhoneModel(phone);
         showSaveModal = true;
     }
 
@@ -194,30 +192,7 @@ else
             errorMessage = null;
             successMessage = null;
 
-            if (editCtrlNbr > 0)
-            {
-                await EmployeeClient.UpdatePhoneNumberAsync(new UpdatePhoneNumberRequest
-                {
-                    EmployeeCtrlNbr = employee.CtrlNbr,
-                    CtrlNbr = editCtrlNbr,
-                    Number = saveModel.Number ?? string.Empty,
-                    CallingOrder = saveModel.CallingOrder,
-                    DialOne = saveModel.DialOne
-                });
-                successMessage = "Phone number updated.";
-            }
-            else
-            {
-                await EmployeeClient.AddPhoneNumberAsync(new AddPhoneNumberRequest
-                {
-                    EmployeeCtrlNbr = employee.CtrlNbr,
-                    PhoneTypeCtrlNbr = saveModel.PhoneTypeCtrlNbr,
-                    Number = saveModel.Number ?? string.Empty,
-                    CallingOrder = saveModel.CallingOrder,
-                    DialOne = saveModel.DialOne
-                });
-                successMessage = "Phone number added.";
-            }
+            successMessage = await ProfileService.SavePhoneAsync(employee.CtrlNbr, editCtrlNbr, saveModel);
 
             CloseSaveModal();
             await ReloadEmployee();
@@ -237,7 +212,7 @@ else
             errorMessage = null;
             successMessage = null;
 
-            await EmployeeClient.DeletePhoneNumberAsync(employee.CtrlNbr, deleteCtrlNbr);
+            await ProfileService.DeletePhoneAsync(employee.CtrlNbr, deleteCtrlNbr);
             successMessage = "Phone number removed.";
             showDeleteModal = false;
             await ReloadEmployee();
@@ -247,20 +222,5 @@ else
             errorMessage = $"Failed to delete phone number: {ex.Message}";
             showDeleteModal = false;
         }
-    }
-
-    private sealed class PhoneInputModel
-    {
-        [Required, Display(Name = "Phone Number")]
-        public string? Number { get; set; }
-
-        [Display(Name = "Calling Order")]
-        public int CallingOrder { get; set; } = 1;
-
-        [Display(Name = "Dial One")]
-        public bool DialOne { get; set; }
-
-        [Range(1, long.MaxValue, ErrorMessage = "Please select a phone type.")]
-        public long PhoneTypeCtrlNbr { get; set; }
     }
 }

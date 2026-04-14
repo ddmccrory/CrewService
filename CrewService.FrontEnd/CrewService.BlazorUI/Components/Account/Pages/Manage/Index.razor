@@ -1,14 +1,15 @@
 @page "/Account/Manage"
 @rendermode InteractiveServer
 
-@using System.ComponentModel.DataAnnotations
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.BlazorUI.Services
 @using CrewService.Presentation
 
 @inherits AppComponentBase
 
 @inject AccountClient AccountClient
-@inject EmployeeClient EmployeeClient
+@inject EmployeeProfileService ProfileService
 
 <PageTitle>Profile</PageTitle>
 
@@ -157,41 +158,41 @@
 </EditForm>
 
 @code {
-    private GetEmployeeResponse? employee => CurrentUser.Employee;
+    private GetEmployeeResponse? employee;
     private bool showFullSsn;
     private string ssnDisplay = string.Empty;
 
-    private InputModel Input { get; set; } = new();
+    private EmployeeProfileModel Input { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
 
-        try
+        if (CurrentUser.IsEmployee && CurrentUser.Employee is not null)
         {
-            var profile = await AccountClient.GetProfileAsync(CurrentUser.Username ?? string.Empty);
-            Input.FirstName = profile.FirstName;
-            Input.MiddleName = profile.MiddleName;
-            Input.LastName = profile.LastName;
+            try
+            {
+                await CurrentUser.ReloadEmployeeAsync();
+                employee = CurrentUser.Employee;
+                ssnDisplay = EmployeeProfileService.MaskSsn(employee!.SocialSecurityNumber);
+                Input = EmployeeProfileService.CreateFromEmployee(employee);
+            }
+            catch
+            {
+            }
         }
-        catch
+        else
         {
-        }
-
-        if (CurrentUser.IsEmployee && employee is not null)
-        {
-            var ssn = employee.SocialSecurityNumber;
-            ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
-
-            Input.Gender = employee.Gender;
-            Input.Race = employee.Race;
-            Input.DriversLicenseNumber = employee.DriversLicenseNumber;
-            Input.IssuingState = employee.IssuingState;
-            Input.MaritalStatus = employee.MaritalStatus;
-            Input.AllowFmlaMarkOff = employee.AllowFmlaMarkOff;
-            Input.CallForOvertime = employee.CallForOvertime;
-            Input.ProcessPayroll = employee.ProcessPayroll;
-            Input.TieUpOffProperty = employee.TieUpOffProperty;
+            try
+            {
+                var profile = await AccountClient.GetProfileAsync(CurrentUser.Username ?? string.Empty);
+                Input.FirstName = profile.FirstName;
+                Input.MiddleName = profile.MiddleName;
+                Input.LastName = profile.LastName;
+            }
+            catch
+            {
+            }
         }
     }
 
@@ -206,8 +207,7 @@
     {
         if (employee is null) return;
         showFullSsn = false;
-        var ssn = employee.SocialSecurityNumber;
-        ssnDisplay = ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
+        ssnDisplay = EmployeeProfileService.MaskSsn(employee.SocialSecurityNumber);
     }
 
     private async Task OnSaveAsync()
@@ -230,19 +230,8 @@
 
         if (CurrentUser.IsEmployee && employee is not null)
         {
-            var employeeResponse = await EmployeeClient.UpdateAsync(new UpdateEmployeeRequest
-            {
-                CtrlNbr = employee.CtrlNbr,
-                Gender = Input.Gender ?? string.Empty,
-                Race = Input.Race ?? string.Empty,
-                DriversLicenseNumber = Input.DriversLicenseNumber ?? string.Empty,
-                IssuingState = Input.IssuingState ?? string.Empty,
-                MaritalStatus = Input.MaritalStatus ?? string.Empty,
-                AllowFmlaMarkOff = CurrentUser.IsAdmin ? Input.AllowFmlaMarkOff : employee.AllowFmlaMarkOff,
-                CallForOvertime = Input.CallForOvertime,
-                ProcessPayroll = CurrentUser.IsAdmin ? Input.ProcessPayroll : employee.ProcessPayroll,
-                TieUpOffProperty = CurrentUser.IsAdmin ? Input.TieUpOffProperty : employee.TieUpOffProperty
-            });
+            var employeeResponse = await ProfileService.SaveAsync(
+                employee.CtrlNbr, Input, employee, CurrentUser.IsAdmin);
 
             if (!employeeResponse.Success)
             {
@@ -263,32 +252,5 @@
 
             successMessage = "Your profile has been updated.";
         }
-    }
-
-    private sealed class InputModel
-    {
-        [Display(Name = "First Name")]
-        public string? FirstName { get; set; }
-
-        [Display(Name = "Middle Name")]
-        public string? MiddleName { get; set; }
-
-        [Display(Name = "Last Name")]
-        public string? LastName { get; set; }
-
-        public string? Gender { get; set; }
-        public string? Race { get; set; }
-
-        [Display(Name = "Driver's License")]
-        public string? DriversLicenseNumber { get; set; }
-
-        [Display(Name = "Issuing State")]
-        public string? IssuingState { get; set; }
-
-        public string? MaritalStatus { get; set; }
-        public bool AllowFmlaMarkOff { get; set; }
-        public bool CallForOvertime { get; set; }
-        public bool ProcessPayroll { get; set; }
-        public bool TieUpOffProperty { get; set; }
     }
 }
