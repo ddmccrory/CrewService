@@ -108,7 +108,36 @@ else
         </table>
     </div>
 
-    <p class="text-muted small">Showing @entries.Count of @totalCount entries.</p>
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <p class="text-muted small mb-0">Showing @((currentPage - 1) * pageSize + 1)–@((currentPage - 1) * pageSize + entries.Count) of @totalCount entries.</p>
+
+        @if (totalPages > 1)
+        {
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoToPageAsync(currentPage - 1)" disabled="@(currentPage <= 1)">Previous</button>
+                    </li>
+                    @foreach (var p in GetVisiblePages())
+                    {
+                        @if (p == -1)
+                        {
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                        }
+                        else
+                        {
+                            <li class="page-item @(p == currentPage ? "active" : "")">
+                                <button class="page-link" @onclick="() => GoToPageAsync(p)">@p</button>
+                            </li>
+                        }
+                    }
+                    <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoToPageAsync(currentPage + 1)" disabled="@(currentPage >= totalPages)">Next</button>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
 }
 
 @code {
@@ -116,6 +145,9 @@ else
 
     private IReadOnlyList<AuditLogEntry>? entries;
     private int totalCount;
+    private int currentPage = 1;
+    private const int pageSize = 250;
+    private int totalPages => totalCount > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
     private readonly HashSet<string> expandedPayloads = new();
 
     private string? searchText;
@@ -133,8 +165,8 @@ else
         try
         {
             var response = await AuditLogClient.GetAllAsync(
-                pageNumber: 1,
-                pageSize: 500,
+                pageNumber: currentPage,
+                pageSize: pageSize,
                 searchText: searchText,
                 dateFrom: dateFrom?.ToString("O"),
                 dateTo: dateTo?.Date.AddDays(1).AddTicks(-1).ToString("O"));
@@ -149,6 +181,7 @@ else
 
     private async Task ApplySearch()
     {
+        currentPage = 1;
         entries = null;
         await LoadEntriesAsync();
     }
@@ -158,6 +191,7 @@ else
         searchText = null;
         dateFrom = null;
         dateTo = null;
+        currentPage = 1;
         entries = null;
         await LoadEntriesAsync();
     }
@@ -183,6 +217,40 @@ else
         if (eventType.EndsWith(suffix, StringComparison.Ordinal))
             return eventType[..^suffix.Length];
         return eventType;
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > totalPages || page == currentPage)
+            return;
+        currentPage = page;
+        entries = null;
+        await LoadEntriesAsync();
+    }
+
+    private List<int> GetVisiblePages()
+    {
+        var pages = new List<int>();
+        const int wing = 2; // pages shown around current
+
+        pages.Add(1);
+
+        var start = Math.Max(2, currentPage - wing);
+        var end = Math.Min(totalPages - 1, currentPage + wing);
+
+        if (start > 2)
+            pages.Add(-1); // ellipsis
+
+        for (var i = start; i <= end; i++)
+            pages.Add(i);
+
+        if (end < totalPages - 1)
+            pages.Add(-1); // ellipsis
+
+        if (totalPages > 1)
+            pages.Add(totalPages);
+
+        return pages;
     }
 
     private static string FormatTimestamp(string isoUtc)
