@@ -39,11 +39,50 @@ public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitT
         }
     }
 
+    public async Task<GetEmployeeResponse> GetByCtrlNbrAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.GetEmployeeAsyncAsync(new GetEmployeeRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<CreateEmployeeResponse> CreateAsync(CreateEmployeeRequest request)
+    {
+        try
+        {
+            return await _client.CreateEmployeeAsyncAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<UpdateEmployeeResponse> UpdateAsync(UpdateEmployeeRequest request)
     {
         try
         {
             return await _client.UpdateEmployeeAsyncAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<DeleteEmployeeResponse> DeleteAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.DeleteEmployeeAsyncAsync(new DeleteEmployeeRequest { CtrlNbr = ctrlNbr });
         }
         catch (Exception ex)
         {
