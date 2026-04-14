@@ -9,7 +9,6 @@ public sealed class RosterBoard : Entity
 {
     private readonly List<RosterBoardPosition> _positions = [];
 
-    public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
     public ControlNumber CraftCtrlNbr { get; private set; }
     public ControlNumber RosterCtrlNbr { get; private set; }
     public string Name { get; private set; } = string.Empty;
@@ -21,21 +20,23 @@ public sealed class RosterBoard : Entity
 
     private RosterBoard()
     {
-        WorkAreaGroupCtrlNbr = null!;
         CraftCtrlNbr = null!;
         RosterCtrlNbr = null!;
     }
 
     public static RosterBoard Create(
-        ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr,
+        ControlNumber craftCtrlNbr,
         ControlNumber rosterCtrlNbr, string name,
-        BoardType boardType = BoardType.Regular,
+        BoardType boardType = BoardType.ExtraBoard,
         RotationType rotationType = RotationType.StandardRotation,
         bool isActive = true)
     {
+        // Hangout and ExtendedAbsence boards have no rotation
+        if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence)
+            rotationType = RotationType.None;
+
         var board = new RosterBoard
         {
-            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
             RosterCtrlNbr = rosterCtrlNbr,
             Name = name,
@@ -49,11 +50,16 @@ public sealed class RosterBoard : Entity
 
     public void Update(string name, BoardType boardType, RotationType rotationType, bool isActive)
     {
+        // Hangout and ExtendedAbsence boards have no rotation
+        if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence)
+            rotationType = RotationType.None;
+
         Name = name;
         BoardType = boardType;
         RotationType = rotationType;
         IsActive = isActive;
     }
+
 
     public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder,
         ControlNumber staffablePositionCtrlNbr)
@@ -61,6 +67,40 @@ public sealed class RosterBoard : Entity
         var position = RosterBoardPosition.Create(CtrlNbr, employeeCtrlNbr, positionOrder, staffablePositionCtrlNbr);
         _positions.Add(position);
         return position;
+    }
+
+    public void RemovePosition(RosterBoardPosition position)
+    {
+        _positions.Remove(position);
+    }
+
+    public void ReorderPositions(IReadOnlyList<(ControlNumber PositionCtrlNbr, int NewOrder)> ordering)
+    {
+        var beforeState = _positions
+            .ToDictionary(p => p.CtrlNbr.Value, p => new { p.EmployeeCtrlNbr, PreviousOrder = p.PositionOrder });
+
+        foreach (var (positionCtrlNbr, newOrder) in ordering)
+        {
+            var position = _positions.FirstOrDefault(p => p.CtrlNbr == positionCtrlNbr)
+                ?? throw new InvalidOperationException($"Position {positionCtrlNbr} not found on board {CtrlNbr}.");
+            position.UpdateOrder(newOrder);
+        }
+
+        var changes = _positions
+            .Where(p => beforeState.TryGetValue(p.CtrlNbr.Value, out var prev) && prev.PreviousOrder != p.PositionOrder)
+            .Select(p => new
+            {
+                PositionCtrlNbr = p.CtrlNbr.Value,
+                EmployeeCtrlNbr = beforeState[p.CtrlNbr.Value].EmployeeCtrlNbr.Value,
+                PreviousOrder = beforeState[p.CtrlNbr.Value].PreviousOrder,
+                NewOrder = p.PositionOrder
+            })
+            .ToList();
+
+        if (changes.Count > 0)
+        {
+            Raise(new PositionsReorderedDomainEvent(CtrlNbr, changes));
+        }
     }
 
     public void Deactivate()
@@ -116,5 +156,10 @@ public sealed class RosterBoardPosition : Entity
         HangoutStatus = "Active";
         HangoutAtUtc = null;
         Raise(new PositionRestoredDomainEvent(CtrlNbr, EmployeeCtrlNbr));
+    }
+
+    internal void UpdateOrder(int newOrder)
+    {
+        PositionOrder = newOrder;
     }
 }

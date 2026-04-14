@@ -1,4 +1,5 @@
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Employees;
@@ -66,6 +67,11 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ──────────────────────────────────────────────────────────────────
     IStaffablePositionRepository StaffablePositions { get; }
     IPositionAssignmentRepository PositionAssignments { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Boards
+    // ──────────────────────────────────────────────────────────────────
+    IRosterBoardRepository RosterBoards { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // Crews

@@ -15,7 +15,6 @@ internal class RosterBoardConfiguration : IEntityTypeConfiguration<RosterBoard>
     {
         builder.HasKey(r => r.CtrlNbr);
         builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(r => r.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.RosterCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.Name).HasMaxLength(100).IsRequired();
@@ -24,7 +23,6 @@ internal class RosterBoardConfiguration : IEntityTypeConfiguration<RosterBoard>
 
         builder.HasMany(r => r.Positions).WithOne().HasForeignKey(p => p.RosterBoardCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(r => r.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Roster>().WithMany().HasForeignKey(r => r.RosterCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

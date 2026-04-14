@@ -1,4 +1,5 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
@@ -59,16 +60,35 @@ public class CraftService(
             request.VacationAssignmentType,
             request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
 
-        var defaultRoster = Roster.Create(
-            craft.CtrlNbr,
-            railroadPayrollDepartmentCtrlNbr: null,
-            craft.CraftName,
-            craft.CraftPluralName,
-            rosterNumber: 1);
-
         await using var uow = await uowFactory.CreateAsync();
         uow.Crafts.Add(craft);
-        uow.Rosters.Add(defaultRoster);
+
+        // Auto-create roster + boards for each existing work area under this railroad
+        if (craft.DynamicGroupCtrlNbr is not null)
+        {
+            var workAreas = await uow.DynamicGroups.GetWorkAreasAsync(craft.DynamicGroupCtrlNbr);
+            foreach (var wa in workAreas)
+            {
+                var roster = Roster.Create(
+                    craft.CtrlNbr, wa.CtrlNbr,
+                    railroadPayrollDepartmentCtrlNbr: null,
+                    craft.CraftName,
+                    craft.CraftPluralName,
+                    rosterNumber: 1);
+                uow.Rosters.Add(roster);
+
+                uow.RosterBoards.Add(RosterBoard.Create(
+                    craft.CtrlNbr, roster.CtrlNbr,
+                    $"{craft.CraftName} Extra Board",
+                    BoardType.ExtraBoard, RotationType.FirstInFirstOut));
+
+                uow.RosterBoards.Add(RosterBoard.Create(
+                    craft.CtrlNbr, roster.CtrlNbr,
+                    $"{craft.CraftName} Hangout",
+                    BoardType.Hangout));
+            }
+        }
+
         await uow.CommitAsync();
 
         return MapToResponse(craft);

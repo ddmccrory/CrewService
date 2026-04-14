@@ -26,6 +26,8 @@ message GetAllRosterRequest {
   int64 craft_ctrl_nbr = 1;
   int32 page_number = 2;
   int32 page_size = 3;
+  int64 parent_ctrl_nbr = 4;
+  int64 dynamic_group_ctrl_nbr = 5;
 }
 
 message GetAllRosterResponse {
@@ -39,10 +41,11 @@ message GetRosterRequest {
 
 message CreateRosterRequest {
   int64 craft_ctrl_nbr = 1;
-  int64 railroad_payroll_department_ctrl_nbr = 2;
-  string roster_name = 3;
-  string roster_plural_name = 4;
-  int32 roster_number = 5;
+  int64 work_area_group_ctrl_nbr = 2;
+  int64 railroad_payroll_department_ctrl_nbr = 3;
+  string roster_name = 4;
+  string roster_plural_name = 5;
+  int32 roster_number = 6;
 }
 
 message UpdateRosterRequest {
@@ -63,6 +66,9 @@ message RosterResponse {
   string roster_name = 4;
   string roster_plural_name = 5;
   int32 roster_number = 6;
+  int64 work_area_group_ctrl_nbr = 7;
+  string work_area_name = 8;
+  string craft_name = 9;
   bool success = 10;
   repeated string messages = 11;
 }

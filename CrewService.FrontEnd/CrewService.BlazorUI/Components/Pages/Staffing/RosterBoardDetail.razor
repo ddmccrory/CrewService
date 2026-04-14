@@ -1,0 +1,409 @@
+@page "/staffing/roster-boards/{CtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject RosterBoardClient RosterBoardClient
+@inject EmployeeClient EmployeeClient
+@inject NavigationManager Nav
+
+<PageTitle>Roster Board Detail</PageTitle>
+
+@if (board is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="Roster Boards" OnClick="@(() => Nav.NavigateTo("staffing/roster-boards"))" />
+
+    <h1>@board.Name</h1>
+    <p class="text-muted mb-1">
+        <span class="badge bg-secondary me-1">@FormatBoardType(board.BoardType)</span>
+        <span class="badge bg-info text-dark me-1">@FormatRotationType(board.RotationType)</span>
+        @if (board.IsActive)
+        {
+            <span class="badge bg-success">Active</span>
+        }
+        else
+        {
+            <span class="badge bg-secondary">Inactive</span>
+        }
+    </p>
+    <p class="text-muted small mb-1">
+        <strong>Work Area:</strong> @board.WorkAreaName
+        <span class="ms-3"><strong>Roster:</strong> @board.RosterName</span>
+    </p>
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <DataTable TItem="RosterBoardPositionResponse" Items="positions" Columns="positionColumns"
+               EmptyMessage="No positions on this board."
+               DefaultSortColumn="Order">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenAddPositionModal" disabled="@isLoadingModal">
+                    @if (isLoadingModal)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-plus-circle"></span>
+                    }
+                    Add Position
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="pos">
+            <td>@pos.PositionOrder</td>
+            <td>@pos.EmployeeNumber.ToUpperInvariant()</td>
+            <td>@pos.EmployeeFullNameLnf</td>
+            <td>
+                @if (pos.HangoutStatus == "Active")
+                {
+                    <span class="badge bg-success">Active</span>
+                }
+                else
+                {
+                    <span class="badge bg-warning text-dark">Hangout</span>
+                }
+            </td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-secondary" disabled="@(IsFirstPosition(pos))" @onclick="() => MoveUp(pos)" title="Move up">
+                            <span class="bi bi-arrow-up"></span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" disabled="@(IsLastPosition(pos))" @onclick="() => MoveDown(pos)" title="Move down">
+                            <span class="bi bi-arrow-down"></span>
+                        </button>
+                        @if (pos.HangoutStatus == "Active")
+                        {
+                            <button class="btn btn-sm btn-outline-warning flex-fill" @onclick="() => HangoutPosition(pos)">
+                                <span class="bi bi-pause-circle"></span> Hangout
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-success flex-fill" @onclick="() => RestorePosition(pos)">
+                                <span class="bi bi-play-circle"></span> Restore
+                            </button>
+                        }
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenRemoveModal(pos)">
+                            <span class="bi bi-trash"></span> Remove
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+
+    <Modal Visible="showAddModal" Title="Add Position" Icon="bi bi-plus-circle"
+           OnClose="() => showAddModal = false">
+        <BodyContent>
+            <EditForm Model="addModel" OnValidSubmit="OnAddPosition" id="add-position-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Employee</label>
+                    <SelectInput TItem="GetEmployeeResponse" TValue="long"
+                                 Items="employees"
+                                 @bind-Value="addModel.EmployeeCtrlNbr"
+                                 ValueSelector="@(e => e.CtrlNbr)"
+                                 TextSelector="@(e => $"{e.EmployeeNumber.ToUpperInvariant()} — {FormatEmployeeName(e)}")"
+                                 Placeholder="— Select an employee —"
+                                 class="form-select" />
+                    <ValidationMessage For="() => addModel.EmployeeCtrlNbr" class="text-danger" />
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Position Order</label>
+                    <InputNumber @bind-Value="addModel.PositionOrder" class="form-control" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showAddModal = false">Cancel</button>
+            <button type="submit" form="add-position-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Add
+            </button>
+        </Footer>
+    </Modal>
+
+    <ConfirmModal Visible="showRemoveModal" ItemName="@removeEmployeeName" IsSaving="isSaving"
+                  ActionVerb="Remove" ButtonIcon="bi bi-trash" ButtonClass="btn-danger"
+                  OnConfirm="ConfirmRemove" OnCancel="() => showRemoveModal = false" />
+}
+
+@code {
+    [Parameter] public long CtrlNbr { get; set; }
+
+    protected override string? FeatureKey => "staffing/roster-boards";
+
+    private RosterBoardResponse? board;
+    private IReadOnlyList<RosterBoardPositionResponse>? positions;
+    private IReadOnlyList<GetEmployeeResponse>? employees;
+    private bool isLoadingModal;
+
+    private IReadOnlyList<DataTableColumn<RosterBoardPositionResponse>> positionColumns =>
+    [
+        new("Order", p => p.PositionOrder, width: "80px", sortKey: "Order"),
+        new("Employee #", p => p.EmployeeNumber.ToUpperInvariant(), width: "140px"),
+        new("Name", p => p.EmployeeFullNameLnf),
+        new("Status", p => p.HangoutStatus, width: "120px"),
+        DataTableColumn<RosterBoardPositionResponse>.Actions()
+    ];
+
+    // Add position state
+    private bool showAddModal;
+    private AddPositionInputModel addModel = new();
+
+    // Remove position state
+    private bool showRemoveModal;
+    private long removeCtrlNbr;
+    private string removeEmployeeName = string.Empty;
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadBoard();
+    }
+
+    private async Task LoadBoard()
+    {
+        try
+        {
+            board = await RosterBoardClient.GetAsync(CtrlNbr);
+            positions = board.Positions.OrderBy(p => p.PositionOrder).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load board: {ex.Message}";
+        }
+    }
+
+    private async Task EnsureEmployeesLoaded()
+    {
+        if (employees is not null) return;
+        try
+        {
+            var response = await EmployeeClient.GetAllAsync(SelectedParentCtrlNbr ?? 0);
+            employees = response.Employees;
+        }
+        catch
+        {
+            employees = [];
+        }
+    }
+
+    // ── Add Position ──
+
+    private async Task OpenAddPositionModal()
+    {
+        isLoadingModal = true;
+        try
+        {
+            await EnsureEmployeesLoaded();
+            addModel = new() { PositionOrder = (positions?.Count ?? 0) + 1 };
+            showAddModal = true;
+        }
+        finally
+        {
+            isLoadingModal = false;
+        }
+    }
+
+    private async Task OnAddPosition()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await RosterBoardClient.AddPositionAsync(new AddRosterBoardPositionRequest
+            {
+                RosterBoardCtrlNbr = CtrlNbr,
+                EmployeeCtrlNbr = addModel.EmployeeCtrlNbr,
+                PositionOrder = addModel.PositionOrder
+            });
+
+            successMessage = "Position added.";
+            showAddModal = false;
+            await LoadBoard();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add position: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Remove Position ──
+
+    private void OpenRemoveModal(RosterBoardPositionResponse pos)
+    {
+        removeCtrlNbr = pos.CtrlNbr;
+        removeEmployeeName = $"{pos.EmployeeNumber.ToUpperInvariant()} — {pos.EmployeeFullNameLnf}";
+        showRemoveModal = true;
+    }
+
+    private async Task ConfirmRemove()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await RosterBoardClient.RemovePositionAsync(removeCtrlNbr);
+            successMessage = "Position removed.";
+            showRemoveModal = false;
+            await LoadBoard();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to remove position: {ex.Message}";
+            showRemoveModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Hangout / Restore ──
+
+    private async Task HangoutPosition(RosterBoardPositionResponse pos)
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await RosterBoardClient.HangoutPositionAsync(pos.CtrlNbr);
+            successMessage = $"Position for {pos.EmployeeNumber.ToUpperInvariant()} set to hangout.";
+            await LoadBoard();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to hangout position: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task RestorePosition(RosterBoardPositionResponse pos)
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await RosterBoardClient.RestorePositionAsync(pos.CtrlNbr);
+            successMessage = $"Position for {pos.EmployeeNumber.ToUpperInvariant()} restored.";
+            await LoadBoard();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to restore position: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Reorder ──
+
+    private bool IsFirstPosition(RosterBoardPositionResponse pos) =>
+        positions is null || positions.Count == 0 || positions[0].CtrlNbr == pos.CtrlNbr;
+
+    private bool IsLastPosition(RosterBoardPositionResponse pos) =>
+        positions is null || positions.Count == 0 || positions[^1].CtrlNbr == pos.CtrlNbr;
+
+    private async Task MoveUp(RosterBoardPositionResponse pos)
+    {
+        if (positions is null) return;
+        var index = positions.ToList().FindIndex(p => p.CtrlNbr == pos.CtrlNbr);
+        if (index <= 0) return;
+        await SwapPositions(index, index - 1);
+    }
+
+    private async Task MoveDown(RosterBoardPositionResponse pos)
+    {
+        if (positions is null) return;
+        var index = positions.ToList().FindIndex(p => p.CtrlNbr == pos.CtrlNbr);
+        if (index < 0 || index >= positions.Count - 1) return;
+        await SwapPositions(index, index + 1);
+    }
+
+    private async Task SwapPositions(int indexA, int indexB)
+    {
+        if (positions is null) return;
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            var entries = positions.Select((p, i) =>
+            {
+                var newOrder = i == indexA ? indexB + 1
+                    : i == indexB ? indexA + 1
+                    : i + 1;
+                return (PositionCtrlNbr: p.CtrlNbr, PositionOrder: newOrder);
+            });
+
+            await RosterBoardClient.ReorderPositionsAsync(CtrlNbr, entries);
+            await LoadBoard();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to reorder positions: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Formatters ──
+
+    private static string FormatEmployeeName(GetEmployeeResponse e)
+        => !string.IsNullOrEmpty(e.FullNameLnf) ? e.FullNameLnf : e.UserId;
+
+    private static string FormatBoardType(string boardType) => boardType switch
+    {
+        "ExtraBoard" => "Extra Board",
+        _ => boardType
+    };
+
+    private static string FormatRotationType(string rotationType) => rotationType switch
+    {
+        "None" => "—",
+        "StandardRotation" => "Standard Rotation",
+        "FirstInFirstOut" => "First In First Out",
+        "FirstInFirstOutByTieUp" => "FIFO by Tie-Up",
+        "SeniorityBased" => "Seniority Based",
+        _ => rotationType
+    };
+
+    // ── Input Model ──
+
+    private sealed class AddPositionInputModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+        public int PositionOrder { get; set; } = 1;
+    }
+}

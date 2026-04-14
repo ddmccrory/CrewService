@@ -2,8 +2,8 @@ namespace CrewService.Domain.Modules.Boards;
 
 public enum BoardType
 {
-    Regular = 1,
-    ExtraBoard = 2,
-    Training = 3,
-    Overtime = 4
+    ExtraBoard = 1,
+    Hangout = 2,
+    ExtendedAbsence = 3,
+    Training = 4
 }

@@ -1,4 +1,5 @@
-﻿using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,6 +20,10 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
+        builder.Property(r => r.WorkAreaGroupCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr.Value,
+            value => ControlNumber.Create(value));
+
         builder.Property(r => r.RailroadPayrollDepartmentCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));
@@ -28,6 +33,7 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
         builder.Property(r => r.RosterNumber).IsRequired();
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(r => r.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, audit =>
         {

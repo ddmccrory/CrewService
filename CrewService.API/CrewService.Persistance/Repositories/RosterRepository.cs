@@ -18,4 +18,13 @@ internal sealed class RosterRepository(CrewServiceDbContext dbContext, ICurrentU
             .OrderBy(r => r.RosterNumber)
             .ToListAsync();
     }
+
+    public async Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs)
+    {
+        var ctrlNbrs = craftCtrlNbrs.ToList();
+        return await DbContext.Set<Roster>()
+            .Where(r => ctrlNbrs.Contains(r.CraftCtrlNbr))
+            .OrderBy(r => r.RosterNumber)
+            .ToListAsync();
+    }
 }

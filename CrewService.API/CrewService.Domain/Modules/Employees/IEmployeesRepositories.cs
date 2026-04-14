@@ -16,6 +16,7 @@ namespace CrewService.Domain.Modules.Employees;
 public interface IEmployeeRepository : IRepository<Employee>
 {
     Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber);
+    Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr);
 }
 
 public interface IAddressRepository : IRepository<Address>
@@ -104,6 +105,7 @@ public interface ICraftRepository : IRepository<Craft>
 public interface IRosterRepository : IRepository<Roster>
 {
     Task<List<Roster>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr);
+    Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs);
 }
 
 public interface ISeniorityRepository : IRepository<Seniority>

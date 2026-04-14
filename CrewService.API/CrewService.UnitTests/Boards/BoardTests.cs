@@ -1,3 +1,4 @@
+using CrewService.Domain.DomainEvents.Boards;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
@@ -11,11 +12,11 @@ public class RosterBoardTests
     public void Create_SetsProperties()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
         Assert.Equal("Main Roster", board.Name);
         Assert.True(board.IsActive);
-        Assert.Equal(BoardType.Regular, board.BoardType);
+        Assert.Equal(BoardType.ExtraBoard, board.BoardType);
         Assert.Equal(RotationType.StandardRotation, board.RotationType);
         Assert.Equal(100, board.RosterCtrlNbr.Value);
         Assert.Empty(board.Positions);
@@ -26,7 +27,7 @@ public class RosterBoardTests
     public void Create_WithBoardType_SetsValue()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100),
+            ControlNumber.Create(10), ControlNumber.Create(100),
             "Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
 
         Assert.Equal(BoardType.ExtraBoard, board.BoardType);
@@ -37,7 +38,7 @@ public class RosterBoardTests
     public void AddPosition_AddsToCollection()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
         var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
 
@@ -50,7 +51,7 @@ public class RosterBoardTests
     public void Update_ChangesProperties()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Old Name");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Old Name");
 
         board.Update("New Name", BoardType.Training, RotationType.SeniorityBased, false);
 
@@ -64,21 +65,51 @@ public class RosterBoardTests
     public void Deactivate_SetsInactive()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
         board.Deactivate();
 
         Assert.False(board.IsActive);
     }
-}
 
-public class RosterBoardPositionTests
+    [Fact]
+    public void ReorderPositions_RaisesDomainEventWithChanges()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, StaffablePosition.Create("Board").CtrlNbr);
+
+        board.ReorderPositions([(pos1.CtrlNbr, 2), (pos2.CtrlNbr, 1)]);
+
+        var evt = Assert.Single(board.DomainEvents.OfType<PositionsReorderedDomainEvent>());
+        Assert.NotNull(evt.PayloadJson);
+        Assert.Contains("previousOrder", evt.PayloadJson);
+        Assert.Contains("newOrder", evt.PayloadJson);
+    }
+
+    [Fact]
+    public void ReorderPositions_NoChange_DoesNotRaiseDomainEvent()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, StaffablePosition.Create("Board").CtrlNbr);
+
+        board.ReorderPositions([(pos1.CtrlNbr, 1), (pos2.CtrlNbr, 2)]);
+
+        Assert.DoesNotContain(board.DomainEvents, e => e is PositionsReorderedDomainEvent);
+    }
+
+    }
+
+    public class RosterBoardPositionTests
 {
     [Fact]
     public void Hangout_SetsHungOutStatus()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
         var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         pos.Hangout();
@@ -91,7 +122,7 @@ public class RosterBoardPositionTests
     public void MarkOff_SetsMarkedOffStatus()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
         var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
 
         pos.MarkOff();
@@ -103,7 +134,7 @@ public class RosterBoardPositionTests
     public void RestoreFromHangout_ResetsToActive()
     {
         var board = RosterBoard.Create(
-            ControlNumber.Create(1), ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
         var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
         pos.Hangout();
 

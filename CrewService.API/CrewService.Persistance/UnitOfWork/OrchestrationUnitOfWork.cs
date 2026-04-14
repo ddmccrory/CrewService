@@ -3,6 +3,7 @@ using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
@@ -11,6 +12,7 @@ using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Modules.Crews;
+using CrewService.Persistance.Modules.Boards;
 using CrewService.Persistance.Modules.Staffing;
 using CrewService.Persistance.Modules.DailyOperations;
 using CrewService.Persistance.Modules.TenantConfig;
@@ -83,6 +85,11 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IPositionAssignmentRepository? _positionAssignments;
 
     // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Boards
+    // ──────────────────────────────────────────────────────────────────
+    private IRosterBoardRepository? _rosterBoards;
+
+    // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: Crews
     // ──────────────────────────────────────────────────────────────────
     private ICrewRepository? _crews;
@@ -152,6 +159,11 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     public IStaffablePositionRepository StaffablePositions => _staffablePositions ??= new StaffablePositionRepository(_crewContext, _currentUserService);
     public IPositionAssignmentRepository PositionAssignments => _positionAssignments ??= new PositionAssignmentRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Boards
+    // ──────────────────────────────────────────────────────────────────
+    public IRosterBoardRepository RosterBoards => _rosterBoards ??= new RosterBoardRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Crews

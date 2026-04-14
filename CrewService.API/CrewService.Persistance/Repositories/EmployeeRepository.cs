@@ -55,4 +55,15 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .AsSplitQuery()
             .SingleOrDefaultAsync(e => e.EmployeeNumber == employeeNumber);
     }
+
+    public async Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr)
+    {
+        return await DbContext.Set<Employee>()
+            .Where(e => e.ClientCtrlNbr == clientCtrlNbr)
+            .Include(e => e.Addresses)
+            .Include(e => e.PhoneNumbers)
+            .Include(e => e.EmailAddresses)
+            .AsSplitQuery()
+            .ToListAsync();
+    }
 }

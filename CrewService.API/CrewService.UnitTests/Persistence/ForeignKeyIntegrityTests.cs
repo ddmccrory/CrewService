@@ -75,6 +75,9 @@ public class ForeignKeyIntegrityTests
             ("ShiftInstance", "ShiftDefinitionCtrlNbr"),
             ("PositionSlotInstance", "AssignmentCtrlNbr"),
             ("AssignmentNote", "AssignmentCtrlNbr"),
+            // Audit log — DomainEventLog is a non-Entity audit record; ParentCtrlNbr is a
+            // denormalized scope tag, not a FK to Parents (no cascade/restrict needed)
+            ("DomainEventLog", "ParentCtrlNbr"),
         };
 
         var orphans = new List<string>();

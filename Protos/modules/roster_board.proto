@@ -4,10 +4,29 @@ option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
+import "common.proto";
 
 service RosterBoardSrvc {
   rpc GetRosterBoard (GetRosterBoardRequest) returns (RosterBoardResponse) {
     option (google.api.http) = { get: "/v1/roster-board/{ctrl_nbr}" };
+  }
+  rpc GetAllRosterBoards (GetAllRosterBoardsRequest) returns (GetAllRosterBoardsResponse) {
+    option (google.api.http) = { get: "/v1/roster-boards" };
+  }
+  rpc CreateRosterBoard (CreateRosterBoardRequest) returns (RosterBoardResponse) {
+    option (google.api.http) = { post: "/v1/roster-boards" body: "*" };
+  }
+  rpc UpdateRosterBoard (UpdateRosterBoardRequest) returns (RosterBoardResponse) {
+    option (google.api.http) = { put: "/v1/roster-boards/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteRosterBoard (DeleteRosterBoardRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/roster-boards/{ctrl_nbr}" };
+  }
+  rpc AddRosterBoardPosition (AddRosterBoardPositionRequest) returns (RosterBoardPositionResponse) {
+    option (google.api.http) = { post: "/v1/roster-board/{roster_board_ctrl_nbr}/positions" body: "*" };
+  }
+  rpc RemoveRosterBoardPosition (RemoveRosterBoardPositionRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/roster-board/positions/{ctrl_nbr}" };
   }
   rpc HangoutPosition (HangoutPositionRequest) returns (RosterBoardPositionResponse) {
     option (google.api.http) = { post: "/v1/roster-board/hangout" body: "*" };
@@ -15,9 +34,56 @@ service RosterBoardSrvc {
   rpc RestorePosition (RestorePositionRequest) returns (RosterBoardPositionResponse) {
     option (google.api.http) = { post: "/v1/roster-board/restore" body: "*" };
   }
+  rpc ReorderRosterBoardPositions (ReorderRosterBoardPositionsRequest) returns (RosterBoardResponse) {
+    option (google.api.http) = { post: "/v1/roster-board/{roster_board_ctrl_nbr}/reorder" body: "*" };
+  }
 }
 
 message GetRosterBoardRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetAllRosterBoardsRequest {
+  int64 craft_ctrl_nbr = 1;
+  int32 page_number = 2;
+  int32 page_size = 3;
+  int64 parent_ctrl_nbr = 4;
+  int64 dynamic_group_ctrl_nbr = 5;
+}
+
+message GetAllRosterBoardsResponse {
+  repeated RosterBoardResponse boards = 1;
+  int32 total_count = 2;
+}
+
+message CreateRosterBoardRequest {
+  int64 craft_ctrl_nbr = 1;
+  int64 roster_ctrl_nbr = 2;
+  string name = 3;
+  string board_type = 4;
+  string rotation_type = 5;
+  bool is_active = 6;
+}
+
+message UpdateRosterBoardRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string board_type = 3;
+  string rotation_type = 4;
+  bool is_active = 5;
+}
+
+message DeleteRosterBoardRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message AddRosterBoardPositionRequest {
+  int64 roster_board_ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int32 position_order = 3;
+}
+
+message RemoveRosterBoardPositionRequest {
   int64 ctrl_nbr = 1;
 }
 
@@ -31,6 +97,11 @@ message RosterBoardResponse {
   int64 roster_ctrl_nbr = 7;
   string board_type = 8;
   string rotation_type = 9;
+  bool success = 10;
+  repeated string messages = 11;
+  string roster_name = 12;
+  string work_area_name = 13;
+  string craft_name = 14;
 }
 
 message RosterBoardPositionResponse {
@@ -39,6 +110,9 @@ message RosterBoardPositionResponse {
   int32 position_order = 3;
   string hangout_status = 4;
   optional google.protobuf.Timestamp hangout_at = 5;
+  string employee_number = 6;
+  string employee_user_id = 7;
+  string employee_full_name_lnf = 8;
 }
 
 message HangoutPositionRequest {
@@ -47,4 +121,14 @@ message HangoutPositionRequest {
 
 message RestorePositionRequest {
   int64 position_ctrl_nbr = 1;
+}
+
+message ReorderRosterBoardPositionsRequest {
+  int64 roster_board_ctrl_nbr = 1;
+  repeated PositionOrderEntry entries = 2;
+}
+
+message PositionOrderEntry {
+  int64 position_ctrl_nbr = 1;
+  int32 position_order = 2;
 }
