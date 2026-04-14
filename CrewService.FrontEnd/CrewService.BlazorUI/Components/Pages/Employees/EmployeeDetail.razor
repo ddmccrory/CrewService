@@ -1,0 +1,578 @@
+@page "/employees/{CtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.BlazorUI.Services
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject EmployeeClient EmployeeClient
+@inject AddressTypeClient AddressTypeClient
+@inject PhoneNumberTypeClient PhoneNumberTypeClient
+@inject EmailAddressTypeClient EmailAddressTypeClient
+@inject EmployeeProfileService ProfileService
+@inject NavigationManager Nav
+
+<PageTitle>Employee Detail</PageTitle>
+
+@if (employee is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="Employees" OnClick="@(() => Nav.NavigateTo("employees"))" />
+
+    <h1>@employee.FullNameLnf</h1>
+    <p class="text-muted mb-1">
+        <span class="badge bg-secondary">@employee.EmployeeNumber</span>
+    </p>
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @* ── Addresses Tab ── *@
+    @if (activeTab == "addresses")
+    {
+        <Modal Visible="showAddrModal" Title="@(editAddrCtrlNbr > 0 ? "Edit Address" : "Add Address")"
+               Icon="@(editAddrCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="CloseAddrModal" Size="lg">
+            <BodyContent>
+                <EditForm Model="addrModel" OnValidSubmit="OnSaveAddr" id="save-addr-form">
+                    <DataAnnotationsValidator />
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Type</label>
+                            <SelectInput TItem="AddressTypeResponse" TValue="long"
+                                         Items="addressTypes"
+                                         ValueSelector="t => t.CtrlNbr"
+                                         TextSelector="t => t.Name"
+                                         @bind-Value="addrModel.AddressTypeCtrlNbr"
+                                         Placeholder="-- Select Type --"
+                                         class="form-select"
+                                         disabled="@(editAddrCtrlNbr > 0)" />
+                            <ValidationMessage For="() => addrModel.AddressTypeCtrlNbr" class="text-danger" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Address 1</label>
+                            <InputText @bind-Value="addrModel.Address1" class="form-control" placeholder="Address 1" />
+                            <ValidationMessage For="() => addrModel.Address1" class="text-danger" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Address 2</label>
+                            <InputText @bind-Value="addrModel.Address2" class="form-control" placeholder="Address 2" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">City</label>
+                            <InputText @bind-Value="addrModel.City" class="form-control" placeholder="City" />
+                            <ValidationMessage For="() => addrModel.City" class="text-danger" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">State</label>
+                            <InputText @bind-Value="addrModel.State" class="form-control" placeholder="State" />
+                            <ValidationMessage For="() => addrModel.State" class="text-danger" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Zip Code</label>
+                            <InputText @bind-Value="addrModel.ZipCode" class="form-control" placeholder="Zip Code" />
+                            <ValidationMessage For="() => addrModel.ZipCode" class="text-danger" />
+                        </div>
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddrModal">Cancel</button>
+                <button type="submit" form="save-addr-form" class="btn btn-primary" disabled="@isSaving">
+                    <span class="bi bi-check-circle me-1"></span> @(editAddrCtrlNbr > 0 ? "Update" : "Add")
+                </button>
+            </Footer>
+        </Modal>
+
+        <ConfirmModal Visible="showAddrDeleteModal" ItemName="@deleteAddrLabel" IsSaving="isSaving"
+                      OnConfirm="ConfirmDeleteAddr" OnCancel="() => showAddrDeleteModal = false" />
+
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateAddrModal">
+                    <span class="bi bi-plus-circle"></span> Add Address
+                </button>
+            }
+        </div>
+
+        @if (employee.Addresses.Count == 0)
+        {
+            <p class="text-muted">No addresses on file.</p>
+        }
+        else
+        {
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Type</th><th>Address 1</th><th>Address 2</th><th>City</th><th>State</th><th>Zip</th><th style="width:180px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var addr in employee.Addresses)
+                    {
+                        <tr>
+                            <td>@(addressTypes.FirstOrDefault(t => t.CtrlNbr == addr.AddressTypeCtrlNbr)?.Name)</td>
+                            <td>@addr.Address1</td>
+                            <td>@addr.Address2</td>
+                            <td>@addr.City</td>
+                            <td>@addr.State</td>
+                            <td>@addr.ZipCode</td>
+                            <td>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditAddrModal(addr)">
+                                            <span class="bi bi-pencil"></span> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteAddrModal(addr)">
+                                            <span class="bi bi-trash"></span> Delete
+                                        </button>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    @* ── Email Addresses Tab ── *@
+    @if (activeTab == "emails")
+    {
+        <Modal Visible="showEmailModal" Title="@(editEmailCtrlNbr > 0 ? "Edit Email Address" : "Add Email Address")"
+               Icon="@(editEmailCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="CloseEmailModal">
+            <BodyContent>
+                <EditForm Model="emailModel" OnValidSubmit="OnSaveEmail" id="save-email-form">
+                    <DataAnnotationsValidator />
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Type</label>
+                            <SelectInput TItem="EmailAddressTypeResponse" TValue="long"
+                                         Items="emailTypes"
+                                         ValueSelector="t => t.CtrlNbr"
+                                         TextSelector="t => t.Name"
+                                         @bind-Value="emailModel.EmailTypeCtrlNbr"
+                                         Placeholder="-- Select Type --"
+                                         class="form-select"
+                                         disabled="@(editEmailCtrlNbr > 0)" />
+                            <ValidationMessage For="() => emailModel.EmailTypeCtrlNbr" class="text-danger" />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Email Address</label>
+                            <InputText @bind-Value="emailModel.Email" class="form-control" placeholder="Email Address" />
+                            <ValidationMessage For="() => emailModel.Email" class="text-danger" />
+                        </div>
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseEmailModal">Cancel</button>
+                <button type="submit" form="save-email-form" class="btn btn-primary" disabled="@isSaving">
+                    <span class="bi bi-check-circle me-1"></span> @(editEmailCtrlNbr > 0 ? "Update" : "Add")
+                </button>
+            </Footer>
+        </Modal>
+
+        <ConfirmModal Visible="showEmailDeleteModal" ItemName="@deleteEmailLabel" IsSaving="isSaving"
+                      OnConfirm="ConfirmDeleteEmail" OnCancel="() => showEmailDeleteModal = false" />
+
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateEmailModal">
+                    <span class="bi bi-plus-circle"></span> Add Email Address
+                </button>
+            }
+        </div>
+
+        @if (employee.EmailAddresses.Count == 0)
+        {
+            <p class="text-muted">No email addresses on file.</p>
+        }
+        else
+        {
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Type</th><th>Email</th><th style="width:180px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var email in employee.EmailAddresses)
+                    {
+                        <tr>
+                            <td>@(emailTypes.FirstOrDefault(t => t.CtrlNbr == email.EmailTypeCtrlNbr)?.Name)</td>
+                            <td>@email.Email</td>
+                            <td>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditEmailModal(email)">
+                                            <span class="bi bi-pencil"></span> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteEmailModal(email)">
+                                            <span class="bi bi-trash"></span> Delete
+                                        </button>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    @* ── Phone Numbers Tab ── *@
+    @if (activeTab == "phones")
+    {
+        <Modal Visible="showPhoneModal" Title="@(editPhoneCtrlNbr > 0 ? "Edit Phone Number" : "Add Phone Number")"
+               Icon="@(editPhoneCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="ClosePhoneModal">
+            <BodyContent>
+                <EditForm Model="phoneModel" OnValidSubmit="OnSavePhone" id="save-phone-form">
+                    <DataAnnotationsValidator />
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Type</label>
+                            <SelectInput TItem="PhoneNumberTypeResponse" TValue="long"
+                                         Items="phoneTypes"
+                                         ValueSelector="t => t.CtrlNbr"
+                                         TextSelector="t => t.Name"
+                                         @bind-Value="phoneModel.PhoneTypeCtrlNbr"
+                                         Placeholder="-- Select Type --"
+                                         class="form-select"
+                                         disabled="@(editPhoneCtrlNbr > 0)" />
+                            <ValidationMessage For="() => phoneModel.PhoneTypeCtrlNbr" class="text-danger" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Phone Number</label>
+                            <InputText @bind-Value="phoneModel.Number" class="form-control" placeholder="Phone Number" />
+                            <ValidationMessage For="() => phoneModel.Number" class="text-danger" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Calling Order</label>
+                            <InputNumber @bind-Value="phoneModel.CallingOrder" class="form-control" placeholder="Order" />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end pb-2">
+                            <div class="form-check form-switch form-check-reverse">
+                                <InputCheckbox @bind-Value="phoneModel.DialOne" class="form-check-input" />
+                                <label class="form-check-label">Dial One</label>
+                            </div>
+                        </div>
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ClosePhoneModal">Cancel</button>
+                <button type="submit" form="save-phone-form" class="btn btn-primary" disabled="@isSaving">
+                    <span class="bi bi-check-circle me-1"></span> @(editPhoneCtrlNbr > 0 ? "Update" : "Add")
+                </button>
+            </Footer>
+        </Modal>
+
+        <ConfirmModal Visible="showPhoneDeleteModal" ItemName="@deletePhoneLabel" IsSaving="isSaving"
+                      OnConfirm="ConfirmDeletePhone" OnCancel="() => showPhoneDeleteModal = false" />
+
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreatePhoneModal">
+                    <span class="bi bi-plus-circle"></span> Add Phone Number
+                </button>
+            }
+        </div>
+
+        @if (employee.PhoneNumbers.Count == 0)
+        {
+            <p class="text-muted">No phone numbers on file.</p>
+        }
+        else
+        {
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Type</th><th>Number</th><th>Calling Order</th><th>Dial One</th><th style="width:180px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var phone in employee.PhoneNumbers)
+                    {
+                        <tr>
+                            <td>@(phoneTypes.FirstOrDefault(t => t.CtrlNbr == phone.PhoneTypeCtrlNbr)?.Name)</td>
+                            <td>@phone.Number</td>
+                            <td>@phone.CallingOrder</td>
+                            <td>@(phone.DialOne ? "Yes" : "No")</td>
+                            <td>
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditPhoneModal(phone)">
+                                            <span class="bi bi-pencil"></span> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeletePhoneModal(phone)">
+                                            <span class="bi bi-trash"></span> Delete
+                                        </button>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+}
+
+@code {
+    [Parameter] public long CtrlNbr { get; set; }
+
+    protected override string? FeatureKey => "employees";
+
+    private GetEmployeeResponse? employee;
+
+    private List<AddressTypeResponse> addressTypes = [];
+    private List<PhoneNumberTypeResponse> phoneTypes = [];
+    private List<EmailAddressTypeResponse> emailTypes = [];
+
+    private string activeTab = "addresses";
+
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("addresses", "Addresses", "bi-geo-alt"),
+        new("emails", "Email Addresses", "bi-envelope"),
+        new("phones", "Phone Numbers", "bi-telephone")
+    ];
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadEmployee();
+    }
+
+    private async Task LoadEmployee()
+    {
+        try
+        {
+            var clientCtrlNbr = SelectedParentCtrlNbr!.Value;
+
+            var empTask = EmployeeClient.GetByCtrlNbrAsync(CtrlNbr);
+            var addrTask = AddressTypeClient.GetAllAsync(clientCtrlNbr);
+            var phoneTask = PhoneNumberTypeClient.GetAllAsync(clientCtrlNbr);
+            var emailTask = EmailAddressTypeClient.GetAllAsync(clientCtrlNbr);
+            await Task.WhenAll(empTask, addrTask, phoneTask, emailTask);
+
+            employee = empTask.Result;
+            addressTypes = [.. addrTask.Result.AddressTypeList];
+            phoneTypes = [.. phoneTask.Result.PhoneNumberTypeList];
+            emailTypes = [.. emailTask.Result.EmaiAddressTypeList];
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load employee: {ex.Message}";
+        }
+    }
+
+    private async Task ReloadEmployee()
+    {
+        try
+        {
+            employee = await EmployeeClient.GetByCtrlNbrAsync(CtrlNbr);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to reload employee: {ex.Message}";
+        }
+    }
+
+    // ── Address CRUD ──
+
+    private bool showAddrModal;
+    private long editAddrCtrlNbr;
+    private AddressInputModel addrModel = new();
+    private bool showAddrDeleteModal;
+    private long deleteAddrCtrlNbr;
+    private string deleteAddrLabel = "";
+
+    private void OpenCreateAddrModal() { editAddrCtrlNbr = 0; addrModel = new(); showAddrModal = true; }
+
+    private void OpenEditAddrModal(AddressResponse addr)
+    {
+        editAddrCtrlNbr = addr.CtrlNbr;
+        addrModel = EmployeeProfileService.CreateAddressModel(addr);
+        showAddrModal = true;
+    }
+
+    private void CloseAddrModal() { showAddrModal = false; editAddrCtrlNbr = 0; addrModel = new(); }
+
+    private void OpenDeleteAddrModal(AddressResponse addr)
+    {
+        deleteAddrCtrlNbr = addr.CtrlNbr;
+        deleteAddrLabel = $"{addr.Address1}, {addr.City}";
+        showAddrDeleteModal = true;
+    }
+
+    private async Task OnSaveAddr()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null; successMessage = null;
+            successMessage = await ProfileService.SaveAddressAsync(employee.CtrlNbr, editAddrCtrlNbr, addrModel);
+            CloseAddrModal();
+            await ReloadEmployee();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to save address: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDeleteAddr()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null; successMessage = null;
+            await ProfileService.DeleteAddressAsync(employee.CtrlNbr, deleteAddrCtrlNbr);
+            successMessage = "Address removed.";
+            showAddrDeleteModal = false;
+            await ReloadEmployee();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to delete address: {ex.Message}"; showAddrDeleteModal = false; }
+        finally { isSaving = false; }
+    }
+
+    // ── Email CRUD ──
+
+    private bool showEmailModal;
+    private long editEmailCtrlNbr;
+    private EmailInputModel emailModel = new();
+    private bool showEmailDeleteModal;
+    private long deleteEmailCtrlNbr;
+    private string deleteEmailLabel = "";
+
+    private void OpenCreateEmailModal() { editEmailCtrlNbr = 0; emailModel = new(); showEmailModal = true; }
+
+    private void OpenEditEmailModal(EmailAddressResponse email)
+    {
+        editEmailCtrlNbr = email.CtrlNbr;
+        emailModel = EmployeeProfileService.CreateEmailModel(email);
+        showEmailModal = true;
+    }
+
+    private void CloseEmailModal() { showEmailModal = false; editEmailCtrlNbr = 0; emailModel = new(); }
+
+    private void OpenDeleteEmailModal(EmailAddressResponse email)
+    {
+        deleteEmailCtrlNbr = email.CtrlNbr;
+        deleteEmailLabel = email.Email;
+        showEmailDeleteModal = true;
+    }
+
+    private async Task OnSaveEmail()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null; successMessage = null;
+            successMessage = await ProfileService.SaveEmailAsync(employee.CtrlNbr, editEmailCtrlNbr, emailModel);
+            CloseEmailModal();
+            await ReloadEmployee();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to save email address: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDeleteEmail()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null; successMessage = null;
+            await ProfileService.DeleteEmailAsync(employee.CtrlNbr, deleteEmailCtrlNbr);
+            successMessage = "Email address removed.";
+            showEmailDeleteModal = false;
+            await ReloadEmployee();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to delete email address: {ex.Message}"; showEmailDeleteModal = false; }
+        finally { isSaving = false; }
+    }
+
+    // ── Phone CRUD ──
+
+    private bool showPhoneModal;
+    private long editPhoneCtrlNbr;
+    private PhoneInputModel phoneModel = new();
+    private bool showPhoneDeleteModal;
+    private long deletePhoneCtrlNbr;
+    private string deletePhoneLabel = "";
+
+    private void OpenCreatePhoneModal() { editPhoneCtrlNbr = 0; phoneModel = new(); showPhoneModal = true; }
+
+    private void OpenEditPhoneModal(PhoneNumberResponse phone)
+    {
+        editPhoneCtrlNbr = phone.CtrlNbr;
+        phoneModel = EmployeeProfileService.CreatePhoneModel(phone);
+        showPhoneModal = true;
+    }
+
+    private void ClosePhoneModal() { showPhoneModal = false; editPhoneCtrlNbr = 0; phoneModel = new(); }
+
+    private void OpenDeletePhoneModal(PhoneNumberResponse phone)
+    {
+        deletePhoneCtrlNbr = phone.CtrlNbr;
+        deletePhoneLabel = phone.Number;
+        showPhoneDeleteModal = true;
+    }
+
+    private async Task OnSavePhone()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null; successMessage = null;
+            successMessage = await ProfileService.SavePhoneAsync(employee.CtrlNbr, editPhoneCtrlNbr, phoneModel);
+            ClosePhoneModal();
+            await ReloadEmployee();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to save phone number: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDeletePhone()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null; successMessage = null;
+            await ProfileService.DeletePhoneAsync(employee.CtrlNbr, deletePhoneCtrlNbr);
+            successMessage = "Phone number removed.";
+            showPhoneDeleteModal = false;
+            await ReloadEmployee();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to delete phone number: {ex.Message}"; showPhoneDeleteModal = false; }
+        finally { isSaving = false; }
+    }
+}

@@ -94,6 +94,9 @@ message GetEmployeeResponse {
   repeated PhoneNumberResponse phone_numbers = 19;
   repeated EmailAddressResponse email_addresses = 20;
   string full_name_lnf = 21;
+  string first_name = 22;
+  string middle_name = 23;
+  string last_name = 24;
 }
 
 message CreateEmployeeRequest {
@@ -129,6 +132,9 @@ message UpdateEmployeeRequest {
   bool tie_up_off_property = 8;
   string gender = 9;
   string race = 10;
+  string first_name = 11;
+  string middle_name = 12;
+  string last_name = 13;
 }
 
 message UpdateEmployeeResponse {

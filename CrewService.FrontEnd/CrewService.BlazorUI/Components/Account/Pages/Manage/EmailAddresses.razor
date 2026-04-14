@@ -4,10 +4,12 @@
 
 @using System.ComponentModel.DataAnnotations
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Models
+@using CrewService.BlazorUI.Services
 @using CrewService.Presentation
 
-@inject EmployeeClient EmployeeClient
 @inject EmailAddressTypeClient EmailAddressTypeClient
+@inject EmployeeProfileService ProfileService
 
 <PageTitle>Email Addresses</PageTitle>
 
@@ -28,13 +30,14 @@
             <div class="row g-2">
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Type</label>
-                    <InputSelect @bind-Value="saveModel.EmailTypeCtrlNbr" class="form-select" disabled="@(editCtrlNbr > 0)">
-                        <option value="0">-- Select Type --</option>
-                        @foreach (var t in emailTypes)
-                        {
-                            <option value="@t.CtrlNbr">@t.Name</option>
-                        }
-                    </InputSelect>
+                    <SelectInput TItem="EmailAddressTypeResponse" TValue="long"
+                                 Items="emailTypes"
+                                 ValueSelector="t => t.CtrlNbr"
+                                 TextSelector="t => t.Name"
+                                 @bind-Value="saveModel.EmailTypeCtrlNbr"
+                                 Placeholder="-- Select Type --"
+                                 class="form-select"
+                                 disabled="@(editCtrlNbr > 0)" />
                     <ValidationMessage For="() => saveModel.EmailTypeCtrlNbr" class="text-danger" />
                 </div>
                 <div class="col-md-8">
@@ -136,6 +139,7 @@ else
         {
             try
             {
+                await CurrentUser.ReloadEmployeeAsync();
                 var typesResponse = await EmailAddressTypeClient.GetAllAsync(employee!.ClientCtrlNbr);
                 emailTypes = [.. typesResponse.EmaiAddressTypeList];
             }
@@ -157,11 +161,7 @@ else
     private void OpenEditModal(EmailAddressResponse email)
     {
         editCtrlNbr = email.CtrlNbr;
-        saveModel = new()
-        {
-            EmailTypeCtrlNbr = email.EmailTypeCtrlNbr,
-            Email = email.Email
-        };
+        saveModel = EmployeeProfileService.CreateEmailModel(email);
         showSaveModal = true;
     }
 
@@ -188,26 +188,7 @@ else
             errorMessage = null;
             successMessage = null;
 
-            if (editCtrlNbr > 0)
-            {
-                await EmployeeClient.UpdateEmailAddressAsync(new UpdateEmailAddressRequest
-                {
-                    EmployeeCtrlNbr = employee.CtrlNbr,
-                    CtrlNbr = editCtrlNbr,
-                    Email = saveModel.Email ?? string.Empty
-                });
-                successMessage = "Email address updated.";
-            }
-            else
-            {
-                await EmployeeClient.AddEmailAddressAsync(new AddEmailAddressRequest
-                {
-                    EmployeeCtrlNbr = employee.CtrlNbr,
-                    EmailTypeCtrlNbr = saveModel.EmailTypeCtrlNbr,
-                    Email = saveModel.Email ?? string.Empty
-                });
-                successMessage = "Email address added.";
-            }
+            successMessage = await ProfileService.SaveEmailAsync(employee.CtrlNbr, editCtrlNbr, saveModel);
 
             CloseSaveModal();
             await ReloadEmployee();
@@ -227,7 +208,7 @@ else
             errorMessage = null;
             successMessage = null;
 
-            await EmployeeClient.DeleteEmailAddressAsync(employee.CtrlNbr, deleteCtrlNbr);
+            await ProfileService.DeleteEmailAsync(employee.CtrlNbr, deleteCtrlNbr);
             successMessage = "Email address removed.";
             showDeleteModal = false;
             await ReloadEmployee();
@@ -237,14 +218,5 @@ else
             errorMessage = $"Failed to delete email address: {ex.Message}";
             showDeleteModal = false;
         }
-    }
-
-    private sealed class EmailInputModel
-    {
-        [Required, EmailAddress, Display(Name = "Email Address")]
-        public string? Email { get; set; }
-
-        [Range(1, long.MaxValue, ErrorMessage = "Please select an email type.")]
-        public long EmailTypeCtrlNbr { get; set; }
     }
 }

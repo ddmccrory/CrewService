@@ -340,13 +340,27 @@ internal static class DevDataSeeder
         await employmentStatusRepo.AddAsync(activeStatus);
 
         var homeAddressType = AddressType.Create(csxParent.CtrlNbr.Value, "Home", 1, emergencyType: false);
+        var mailingAddressType = AddressType.Create(csxParent.CtrlNbr.Value, "Mailing", 2, emergencyType: false);
+        var otherAddressType = AddressType.Create(csxParent.CtrlNbr.Value, "Other", 3, emergencyType: false);
         await addressTypeRepo.AddAsync(homeAddressType);
+        await addressTypeRepo.AddAsync(mailingAddressType);
+        await addressTypeRepo.AddAsync(otherAddressType);
 
-        var cellPhoneType = PhoneNumberType.Create(csxParent.CtrlNbr.Value, "Cell", 1, emergencyType: false);
-        await phoneNumberTypeRepo.AddAsync(cellPhoneType);
+        var mobilePhoneType = PhoneNumberType.Create(csxParent.CtrlNbr.Value, "Mobile", 1, emergencyType: false);
+        var homePhoneType = PhoneNumberType.Create(csxParent.CtrlNbr.Value, "Home", 2, emergencyType: false);
+        var emergencyPhoneType = PhoneNumberType.Create(csxParent.CtrlNbr.Value, "Emergency", 3, emergencyType: true);
+        var otherPhoneType = PhoneNumberType.Create(csxParent.CtrlNbr.Value, "Other", 4, emergencyType: false);
+        await phoneNumberTypeRepo.AddAsync(mobilePhoneType);
+        await phoneNumberTypeRepo.AddAsync(homePhoneType);
+        await phoneNumberTypeRepo.AddAsync(emergencyPhoneType);
+        await phoneNumberTypeRepo.AddAsync(otherPhoneType);
 
         var workEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Work", 1, emergencyType: false);
+        var homeEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Home", 2, emergencyType: false);
+        var otherEmailType = EmailAddressType.Create(csxParent.CtrlNbr.Value, "Other", 3, emergencyType: false);
         await emailAddressTypeRepo.AddAsync(workEmailType);
+        await emailAddressTypeRepo.AddAsync(homeEmailType);
+        await emailAddressTypeRepo.AddAsync(otherEmailType);
 
         string[] firstNames = ["James", "Mary", "Robert", "Patricia", "John",
                                "Jennifer", "Michael", "Linda", "David", "Elizabeth",
@@ -421,7 +435,7 @@ internal static class DevDataSeeder
                 $"555-{100 + i:D3}-{1000 + i:D4}",
                 callingOrder: 1,
                 dialOne: true,
-                cellPhoneType.CtrlNbr.Value);
+                mobilePhoneType.CtrlNbr.Value);
 
             employee.AddEmailAddress(
                 email,
@@ -450,13 +464,27 @@ internal static class DevDataSeeder
         await ptraEmploymentStatusRepo.AddAsync(ptraActiveStatus);
 
         var ptraHomeAddressType = AddressType.Create(ptraParentCore.CtrlNbr.Value, "Home", 1, emergencyType: false);
+        var ptraMailingAddressType = AddressType.Create(ptraParentCore.CtrlNbr.Value, "Mailing", 2, emergencyType: false);
+        var ptraOtherAddressType = AddressType.Create(ptraParentCore.CtrlNbr.Value, "Other", 3, emergencyType: false);
         await ptraAddressTypeRepo.AddAsync(ptraHomeAddressType);
+        await ptraAddressTypeRepo.AddAsync(ptraMailingAddressType);
+        await ptraAddressTypeRepo.AddAsync(ptraOtherAddressType);
 
-        var ptraCellPhoneType = PhoneNumberType.Create(ptraParentCore.CtrlNbr.Value, "Cell", 1, emergencyType: false);
-        await ptraPhoneNumberTypeRepo.AddAsync(ptraCellPhoneType);
+        var ptraMobilePhoneType = PhoneNumberType.Create(ptraParentCore.CtrlNbr.Value, "Mobile", 1, emergencyType: false);
+        var ptraHomePhoneType = PhoneNumberType.Create(ptraParentCore.CtrlNbr.Value, "Home", 2, emergencyType: false);
+        var ptraEmergencyPhoneType = PhoneNumberType.Create(ptraParentCore.CtrlNbr.Value, "Emergency", 3, emergencyType: true);
+        var ptraOtherPhoneType = PhoneNumberType.Create(ptraParentCore.CtrlNbr.Value, "Other", 4, emergencyType: false);
+        await ptraPhoneNumberTypeRepo.AddAsync(ptraMobilePhoneType);
+        await ptraPhoneNumberTypeRepo.AddAsync(ptraHomePhoneType);
+        await ptraPhoneNumberTypeRepo.AddAsync(ptraEmergencyPhoneType);
+        await ptraPhoneNumberTypeRepo.AddAsync(ptraOtherPhoneType);
 
         var ptraWorkEmailType = EmailAddressType.Create(ptraParentCore.CtrlNbr.Value, "Work", 1, emergencyType: false);
+        var ptraHomeEmailType = EmailAddressType.Create(ptraParentCore.CtrlNbr.Value, "Home", 2, emergencyType: false);
+        var ptraOtherEmailType = EmailAddressType.Create(ptraParentCore.CtrlNbr.Value, "Other", 3, emergencyType: false);
         await ptraEmailAddressTypeRepo.AddAsync(ptraWorkEmailType);
+        await ptraEmailAddressTypeRepo.AddAsync(ptraHomeEmailType);
+        await ptraEmailAddressTypeRepo.AddAsync(ptraOtherEmailType);
 
         string[] ptraFirstNames = ["Antonio", "Brianna", "Carlos", "Destiny", "Eduardo",
                                    "Felicia", "Giovanni", "Hazel", "Isaiah", "Jasmine"];
@@ -546,7 +574,7 @@ internal static class DevDataSeeder
                 $"713-{200 + i:D3}-{2000 + i:D4}",
                 callingOrder: 1,
                 dialOne: true,
-                ptraCellPhoneType.CtrlNbr.Value);
+                ptraMobilePhoneType.CtrlNbr.Value);
 
             employee.AddEmailAddress(
                 email,

@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +53,7 @@ internal class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
 
         builder.HasIndex(e => e.EmployeeNumber).IsUnique();
         builder.HasIndex(e => e.SocialSecurityNumber).IsUnique();
+        builder.HasIndex(e => e.ClientCtrlNbr);
 
         builder.HasOne<EmploymentStatus>().WithMany().HasForeignKey(e => e.EmploymentStatusCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

@@ -67,6 +67,14 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .ToListAsync();
     }
 
+    public async Task<List<Employee>> GetListByClientCtrlNbrAsync(ControlNumber clientCtrlNbr)
+    {
+        return await DbContext.Set<Employee>()
+            .Where(e => e.ClientCtrlNbr == clientCtrlNbr)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public async Task<List<Employee>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default)
     {
         var ctrlNbrList = ctrlNbrs.ToList();
