@@ -16,6 +16,7 @@
 @inject SeniorityClient SeniorityClient
 @inject EmployeeClient EmployeeClient
 @inject SeniorityStateClient StateClient
+@inject RailroadReferenceDataService ReferenceData
 
 <PageTitle>Seniority Rosters</PageTitle>
 
@@ -152,7 +153,18 @@ else
     }
 
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Work Area</label>
+            <FilterSelect TItem="GroupResponse" TValue="long"
+                          Items="workAreas"
+                          Value="selectedWorkAreaCtrlNbr"
+                          ValueChanged="OnWorkAreaChanged"
+                          ValueSelector="@(wa => wa.CtrlNbr)"
+                          TextSelector="@(wa => wa.Name)"
+                          Placeholder="— Select a work area —"
+                          class="form-select" />
+        </div>
+        <div class="col-md-2">
             <label class="form-label fw-semibold">Craft</label>
             <FilterSelect TItem="CraftResponse" TValue="long"
                           Items="crafts"
@@ -161,13 +173,14 @@ else
                           ValueSelector="@(c => c.CtrlNbr)"
                           TextSelector="@(c => c.CraftName)"
                           Placeholder="— Select a craft —"
+                          disabled="@(selectedWorkAreaCtrlNbr == 0)"
                           class="form-select" />
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label class="form-label fw-semibold">Roster</label>
             <div class="d-flex gap-2">
                 <FilterSelect TItem="RosterResponse" TValue="long"
-                              Items="rosters"
+                              Items="filteredRosters"
                               Value="selectedRosterCtrlNbr"
                               ValueChanged="OnRosterChanged"
                               ValueSelector="@(r => r.CtrlNbr)"
@@ -183,9 +196,25 @@ else
                 }
             </div>
         </div>
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">State</label>
+            <FilterSelect TItem="StateTypeOption" TValue="string"
+                          Items="stateTypeOptions"
+                          Value="selectedStateType"
+                          ValueChanged="OnStateTypeChanged"
+                          ValueSelector="@(o => o.Value)"
+                          TextSelector="@(o => o.Label)"
+                          Placeholder="— All states —"
+                          disabled="@(selectedRosterCtrlNbr == 0)"
+                          class="form-select" />
+        </div>
     </div>
 
-    @if (selectedCraftCtrlNbr == 0)
+    @if (selectedWorkAreaCtrlNbr == 0)
+    {
+        <p class="text-muted">Select a work area above to view seniority rosters.</p>
+    }
+    else if (selectedCraftCtrlNbr == 0)
     {
         <p class="text-muted">Select a craft above to view its rosters.</p>
     }
@@ -199,8 +228,8 @@ else
     }
     else
     {
-        <DataTable TItem="SeniorityResponse" Items="seniorityEntries" Columns="Columns"
-                   SearchFilter="@((s, term) => s.EmployeeNumber.Contains(term, StringComparison.OrdinalIgnoreCase) || s.EmployeeFullNameLnf.Contains(term, StringComparison.OrdinalIgnoreCase))"
+        <DataTable TItem="SeniorityResponse" Items="FilteredSeniorityEntries" Columns="Columns"
+                   SearchFilter="@((s, term) => s.EmployeeNumber.Contains(term, StringComparison.OrdinalIgnoreCase) || s.EmployeeFullNameLnf.Contains(term, StringComparison.OrdinalIgnoreCase) || s.SeniorityStateName.Contains(term, StringComparison.OrdinalIgnoreCase))"
                    SearchPlaceholder="Search employees..."
                    EmptyMessage="No employees found on this roster."
                    DefaultSortColumn="Seniority Date">
@@ -252,12 +281,23 @@ else
 @code {
     protected override string? FeatureKey => "employees/seniority";
 
+    private IReadOnlyList<GroupResponse>? workAreas;
     private IReadOnlyList<CraftResponse>? crafts;
     private IReadOnlyList<RosterResponse>? rosters;
     private IReadOnlyList<SeniorityResponse>? seniorityEntries;
 
+    private long selectedWorkAreaCtrlNbr;
     private long selectedCraftCtrlNbr;
     private long selectedRosterCtrlNbr;
+    private string selectedStateType = "";
+
+    private sealed record StateTypeOption(string Value, string Label);
+    private static readonly IReadOnlyList<StateTypeOption> stateTypeOptions =
+    [
+        new("Active", "Active"),
+        new("CutBack", "Cut Back"),
+        new("Inactive", "Inactive"),
+    ];
 
     private IReadOnlyList<GetEmployeeResponse>? employees;
     private IReadOnlyList<SeniorityStateResponse>? seniorityStates;
@@ -286,20 +326,61 @@ else
     private bool showRosterModal;
     private RosterInputModel rosterModel = new();
 
+    private IReadOnlyList<RosterResponse> filteredRosters =>
+        rosters is null || selectedWorkAreaCtrlNbr == 0
+            ? []
+            : rosters.Where(r => r.WorkAreaGroupCtrlNbr == selectedWorkAreaCtrlNbr).ToList();
+
+    private IReadOnlyList<SeniorityResponse> FilteredSeniorityEntries
+    {
+        get
+        {
+            if (seniorityEntries is null) return [];
+            if (string.IsNullOrEmpty(selectedStateType)) return seniorityEntries;
+            if (seniorityStates is null) return seniorityEntries;
+
+            var matchingCtrlNbrs = new HashSet<long>(
+                seniorityStates
+                    .Where(s => s.StateType.Equals(selectedStateType, StringComparison.OrdinalIgnoreCase))
+                    .Select(s => s.CtrlNbr));
+
+            return seniorityEntries.Where(s => matchingCtrlNbrs.Contains(s.SeniorityStateCtrlNbr)).ToList();
+        }
+    }
+
     protected override async Task LoadDataAsync()
     {
+        await LoadWorkAreas();
         await LoadCrafts();
+        await EnsureSeniorityStatesLoaded();
     }
 
     protected override async Task OnAppContextChangedAsync()
     {
+        selectedWorkAreaCtrlNbr = 0;
         selectedCraftCtrlNbr = 0;
         selectedRosterCtrlNbr = 0;
+        selectedStateType = "";
+        workAreas = null;
         rosters = null;
         seniorityEntries = null;
         employees = null;
         seniorityStates = null;
+        await LoadWorkAreas();
         await LoadCrafts();
+        await EnsureSeniorityStatesLoaded();
+    }
+
+    private async Task LoadWorkAreas()
+    {
+        try
+        {
+            workAreas = (await ReferenceData.GetWorkAreasAsync()).ToList();
+        }
+        catch
+        {
+            workAreas = [];
+        }
     }
 
     private async Task LoadCrafts()
@@ -319,6 +400,15 @@ else
         {
             crafts = [];
         }
+    }
+
+    private Task OnWorkAreaChanged(long workAreaCtrlNbr)
+    {
+        selectedWorkAreaCtrlNbr = workAreaCtrlNbr;
+        selectedCraftCtrlNbr = 0;
+        selectedRosterCtrlNbr = 0;
+        seniorityEntries = null;
+        return Task.CompletedTask;
     }
 
     private async Task OnCraftChanged(long craftCtrlNbr)
@@ -364,6 +454,11 @@ else
         }
     }
 
+    private void OnStateTypeChanged(string stateType)
+    {
+        selectedStateType = stateType;
+    }
+
     private async Task LoadSeniorityEntries()
     {
         try
@@ -390,6 +485,9 @@ else
         {
             var stateResponse = await StateClient.GetAllAsync(parentCtrlNbr);
             seniorityStates = stateResponse.States.ToList();
+
+            // Default to "Active" state type
+            selectedStateType = "Active";
         }
     }
 
