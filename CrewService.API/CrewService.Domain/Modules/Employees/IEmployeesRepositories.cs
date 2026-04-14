@@ -17,6 +17,7 @@ public interface IEmployeeRepository : IRepository<Employee>
 {
     Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber);
     Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr);
+    Task<List<Employee>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default);
 }
 
 public interface IAddressRepository : IRepository<Address>

@@ -32,32 +32,54 @@ public class SeniorityService(
             ? await _seniorityRepository.GetByRosterCtrlNbrAsync(ControlNumber.Create(request.RosterCtrlNbr))
             : await _seniorityRepository.GetAllAsync();
 
-        var employeeCache = new Dictionary<long, (string Number, string UserId, string FullNameLnf)>();
-        var stateCache = new Dictionary<long, string>();
+        if (seniorities.Count == 0)
+        {
+            response.TotalCount = 0;
+            return response;
+        }
+
+        // Batch-load all referenced employees in a single query (no nav-property includes needed)
+        var uniqueEmpCtrlNbrs = seniorities.Select(s => s.EmployeeCtrlNbr).Distinct().ToList();
+        var employees = await _employeeRepository.GetByCtrlNbrsAsync(uniqueEmpCtrlNbrs);
+        var employeeMap = employees.ToDictionary(e => e.CtrlNbr.Value);
+
+        // Batch-load all referenced users in a single query
+        var userIds = employees.Where(e => !string.IsNullOrEmpty(e.UserId)).Select(e => e.UserId).Distinct().ToList();
+        var users = new Dictionary<string, User>();
+        if (userIds.Count > 0)
+        {
+            foreach (var uid in userIds)
+            {
+                var user = await _userManager.FindByIdAsync(uid);
+                if (user is not null)
+                    users[uid] = user;
+            }
+        }
+
+        // Batch-load all referenced seniority states
+        var uniqueStateCtrlNbrs = seniorities.Select(s => s.SeniorityStateCtrlNbr).Distinct().ToList();
+        var stateMap = new Dictionary<long, string>();
+        foreach (var stateCtrlNbr in uniqueStateCtrlNbrs)
+        {
+            var state = await _seniorityStateRepository.GetByCtrlNbrAsync(stateCtrlNbr);
+            stateMap[stateCtrlNbr.Value] = state?.StateDescription ?? string.Empty;
+        }
 
         foreach (var seniority in seniorities)
         {
-            if (!employeeCache.TryGetValue(seniority.EmployeeCtrlNbr.Value, out var empInfo))
+            var empNumber = string.Empty;
+            var empUserId = string.Empty;
+            var fullNameLnf = string.Empty;
+
+            if (employeeMap.TryGetValue(seniority.EmployeeCtrlNbr.Value, out var employee))
             {
-                var employee = await _employeeRepository.GetByCtrlNbrAsync(seniority.EmployeeCtrlNbr);
-                var fullNameLnf = string.Empty;
-                if (employee is not null && !string.IsNullOrEmpty(employee.UserId))
-                {
-                    var user = await _userManager.FindByIdAsync(employee.UserId);
-                    fullNameLnf = user?.FullNameLNF ?? string.Empty;
-                }
-                empInfo = employee is not null
-                    ? (employee.EmployeeNumber, employee.UserId, fullNameLnf)
-                    : (string.Empty, string.Empty, string.Empty);
-                employeeCache[seniority.EmployeeCtrlNbr.Value] = empInfo;
+                empNumber = employee.EmployeeNumber;
+                empUserId = employee.UserId;
+                if (!string.IsNullOrEmpty(employee.UserId) && users.TryGetValue(employee.UserId, out var user))
+                    fullNameLnf = user.FullNameLNF ?? string.Empty;
             }
 
-            if (!stateCache.TryGetValue(seniority.SeniorityStateCtrlNbr.Value, out var stateName))
-            {
-                var state = await _seniorityStateRepository.GetByCtrlNbrAsync(seniority.SeniorityStateCtrlNbr);
-                stateName = state?.StateDescription ?? string.Empty;
-                stateCache[seniority.SeniorityStateCtrlNbr.Value] = stateName;
-            }
+            var stateName = stateMap.GetValueOrDefault(seniority.SeniorityStateCtrlNbr.Value, string.Empty);
 
             response.Seniority.Add(new SeniorityResponse
             {
@@ -69,10 +91,10 @@ public class SeniorityService(
                 Rank = seniority.Rank,
                 SeniorityStateCtrlNbr = seniority.SeniorityStateCtrlNbr.Value,
                 CanTrain = seniority.CanTrain,
-                EmployeeNumber = empInfo.Number,
-                EmployeeUserId = empInfo.UserId,
+                EmployeeNumber = empNumber,
+                EmployeeUserId = empUserId,
                 SeniorityStateName = stateName,
-                EmployeeFullNameLnf = empInfo.FullNameLnf
+                EmployeeFullNameLnf = fullNameLnf
             });
         }
 
