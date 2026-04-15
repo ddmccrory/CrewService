@@ -120,3 +120,27 @@ public interface ISeniorityStateRepository : IRepository<SeniorityState>
 {
     Task<List<SeniorityState>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
 }
+
+// ??????????????????????????????????????????????????????????????????
+// Qualifications
+// ??????????????????????????????????????????????????????????????????
+
+public interface IQualificationTypeRepository : IRepository<QualificationType>
+{
+    Task<List<QualificationType>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
+    Task<QualificationType?> GetByCodeAsync(ControlNumber parentCtrlNbr, string code);
+    Task<List<QualificationType>> GetActiveByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
+}
+
+public interface IQualificationPrerequisiteRepository : IRepository<QualificationPrerequisite>
+{
+    Task<List<QualificationPrerequisite>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr);
+}
+
+public interface IEmployeeQualificationRepository : IRepository<EmployeeQualification>
+{
+    Task<List<EmployeeQualification>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
+    Task<EmployeeQualification?> GetByEmployeeAndTypeAsync(ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr);
+    Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
+    Task<List<EmployeeQualification>> GetExpiringBeforeAsync(DateTime cutoffUtc);
+}
