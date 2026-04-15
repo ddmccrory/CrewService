@@ -1,4 +1,6 @@
 using CrewService.Domain.Modules.Infrastructure;
+using CrewService.Domain.Modules.Employees;
+using CrewService.Application.Qualifications;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -128,5 +130,104 @@ public sealed class RailroadInfoPublishWorker(
     {
         // Publishes scheduled RailroadInformation records whose publish time has arrived
         return Task.CompletedTask;
+    }
+}
+
+public sealed class QualificationExpiryNotifierWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<QualificationExpiryNotifierWorker> logger)
+    : WorkerBase(scopeFactory, logger, "QualExpiryNotify", TimeSpan.FromHours(24))
+{
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var employeeQualificationRepository = services.GetRequiredService<IEmployeeQualificationRepository>();
+
+        var qualifications = await employeeQualificationRepository.GetAllAsync(ct);
+        var nowUtc = DateTime.UtcNow;
+        var thresholds = new HashSet<int> { 60, 30, 14, 7 };
+
+        foreach (var qualification in qualifications)
+        {
+            if (qualification.ExpiresAtUtc is null)
+                continue;
+
+            if (qualification.Status is not ("Active" or "ExpiringSoon"))
+                continue;
+
+            var daysRemaining = (int)Math.Floor((qualification.ExpiresAtUtc.Value - nowUtc).TotalDays);
+            if (thresholds.Contains(daysRemaining) && qualification.Status == "Active")
+            {
+                qualification.MarkExpiringSoon(daysRemaining);
+                await employeeQualificationRepository.UpdateAsync(qualification, ct);
+            }
+        }
+    }
+}
+
+public sealed class QualificationExpiryEnforcerWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<QualificationExpiryEnforcerWorker> logger)
+    : WorkerBase(scopeFactory, logger, "QualExpiryEnforce", TimeSpan.FromHours(1))
+{
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var employeeQualificationRepository = services.GetRequiredService<IEmployeeQualificationRepository>();
+        var qualificationTypeRepository = services.GetRequiredService<IQualificationTypeRepository>();
+
+        var nowUtc = DateTime.UtcNow;
+        var candidates = await employeeQualificationRepository.GetExpiringBeforeAsync(nowUtc);
+
+        foreach (var qualification in candidates)
+        {
+            if (qualification.ExpiresAtUtc is null)
+                continue;
+
+            var qualificationType = await qualificationTypeRepository
+                .GetByCtrlNbrAsync(qualification.QualificationTypeCtrlNbr, ct);
+
+            var graceDays = qualificationType?.GraceDays ?? 0;
+            var hardExpiryUtc = qualification.ExpiresAtUtc.Value.AddDays(graceDays);
+
+            if (hardExpiryUtc >= nowUtc)
+                continue;
+
+            if (qualification.Status is "Expired" or "Revoked")
+                continue;
+
+            qualification.Expire();
+            await employeeQualificationRepository.UpdateAsync(qualification, ct);
+        }
+    }
+}
+
+public sealed class PrerequisiteEvaluationWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<PrerequisiteEvaluationWorker> logger)
+    : WorkerBase(scopeFactory, logger, "PrereqEval", TimeSpan.FromHours(24))
+{
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var employeeRepository = services.GetRequiredService<IEmployeeRepository>();
+        var qualificationTypeRepository = services.GetRequiredService<IQualificationTypeRepository>();
+        var prerequisiteEvaluationService = services.GetRequiredService<PrerequisiteEvaluationService>();
+
+        var employees = await employeeRepository.GetAllAsync(ct);
+        var qualificationTypes = await qualificationTypeRepository.GetAllAsync(ct);
+
+        var strategySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "TimeFromEvent",
+            "ActivityCount",
+            "TimeInRole",
+            "QualificationHeld"
+        };
+
+        foreach (var qualificationType in qualificationTypes.Where(q => q.IsActive && strategySet.Contains(q.EvaluationStrategy)))
+        {
+            foreach (var employee in employees)
+            {
+                await prerequisiteEvaluationService.EvaluateAsync(employee.CtrlNbr, qualificationType, ct);
+            }
+        }
     }
 }

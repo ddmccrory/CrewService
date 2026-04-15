@@ -22,7 +22,8 @@ namespace CrewService.Persistance.Data;
 internal sealed class CrewServiceDbContext(
 DbContextOptions<CrewServiceDbContext> options,
 ICurrentUserService currentUserService,
-IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
+IFieldEncryptor fieldEncryptor,
+IDomainEventReactor? domainEventReactor = null) : DbContext(options), IOutboxDbContext
 {
     private static readonly JsonSerializerOptions s_camelCase = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly string[] s_auditPrefixes = ["CreatedBy", "ModifiedBy", "DeletedBy", "IsDeleted", "DeletedAt"];
@@ -180,6 +181,12 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformation> RailroadInformations => Set<Domain.Modules.RailroadInfo.RailroadInformation>();
     public DbSet<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt> RailroadInformationReadReceipts => Set<Domain.Modules.RailroadInfo.RailroadInformationReadReceipt>();
 
+    // Qualifications Module (Employees)
+    public DbSet<Domain.Modules.Employees.QualificationType> QualificationTypes => Set<Domain.Modules.Employees.QualificationType>();
+    public DbSet<Domain.Modules.Employees.QualificationPrerequisite> QualificationPrerequisites => Set<Domain.Modules.Employees.QualificationPrerequisite>();
+    public DbSet<Domain.Modules.Employees.EmployeeQualification> EmployeeQualifications => Set<Domain.Modules.Employees.EmployeeQualification>();
+    public DbSet<Domain.Modules.Employees.QualificationEvidence> QualificationEvidence => Set<Domain.Modules.Employees.QualificationEvidence>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrewServiceDbContext).Assembly);
@@ -217,9 +224,14 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditableEntities();
-        CollectDomainEventLogs();
+        var explicitDomainEvents = CollectDomainEventLogs();
         await CascadeSoftDeletesAsync(cancellationToken);
-        return await base.SaveChangesAsync(cancellationToken);
+        var rows = await base.SaveChangesAsync(cancellationToken);
+
+        if (domainEventReactor is not null && explicitDomainEvents.Count > 0)
+            await domainEventReactor.ReactAsync(explicitDomainEvents, cancellationToken);
+
+        return rows;
     }
 
     /// <summary>
@@ -228,8 +240,9 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     /// For entities that do not raise explicit events, auto-generates audit entries
     /// from the EF change tracker (Added / Modified / soft-Deleted).
     /// </summary>
-    private void CollectDomainEventLogs()
+    private List<DomainEvent> CollectDomainEventLogs()
     {
+        var explicitDomainEvents = new List<DomainEvent>();
         var trackedEntries = ChangeTracker.Entries<Entity>().ToList();
 
         var performedBy = currentUserService.GetUserName();
@@ -245,6 +258,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
             {
                 foreach (var domainEvent in events.OfType<DomainEvent>())
                 {
+                    explicitDomainEvents.Add(domainEvent);
+
                     var log = DomainEventLog.Create(
                         domainEvent.EventId,
                         domainEvent.EventType,
@@ -319,6 +334,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
                 parentCtrlNbr);
             DomainEventLogs.Add(autoLog);
         }
+
+        return explicitDomainEvents;
     }
 
     /// <summary>

@@ -24,6 +24,7 @@ public sealed class SkipContext
     public bool IsMarkedOff { get; init; }
     public bool IsRested { get; init; }
     public bool IsQualified { get; init; }
+    public IReadOnlyList<string> QualificationBlockingReasons { get; init; } = [];
     public int RecentOnDutyCount { get; init; }
     public decimal WeeklyHoursWorked { get; init; }
     public decimal WeeklyHoursCap { get; init; }

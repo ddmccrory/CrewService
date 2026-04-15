@@ -1,4 +1,5 @@
 using CrewService.Application.VacancyAssignment;
+using CrewService.Application.Qualifications;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Dispatching;
@@ -52,7 +53,9 @@ internal sealed class BoardCandidateProvider(CrewServiceDbContext dbContext) : I
     }
 }
 
-internal sealed class SkipContextProvider(CrewServiceDbContext dbContext) : ISkipContextProvider
+internal sealed class SkipContextProvider(
+    CrewServiceDbContext dbContext,
+    EmployeeEligibilityService eligibilityService) : ISkipContextProvider
 {
     public async Task<SkipContext> BuildAsync(
         SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
@@ -82,13 +85,18 @@ internal sealed class SkipContextProvider(CrewServiceDbContext dbContext) : ISki
             .Where(r => r.EmployeeCtrlNbr == empCtrl && r.OnDutyTimeUtc >= sevenDaysAgo)
             .ToListAsync(ct);
 
+        var eligibility = await eligibilityService.CheckEligibilityAsync(empCtrl, slot.PositionSlotCtrlNbr, ct);
+
         return new SkipContext
         {
             NowUtc = now,
             HasActiveOnDuty = hasActiveOnDuty,
             IsMarkedOff = isMarkedOff,
             IsRested = isRested,
-            IsQualified = true,
+            IsQualified = eligibility.IsEligible,
+            QualificationBlockingReasons = eligibility.BlockingReasons
+                .Select(r => $"{r.RuleCode}: {r.Description}")
+                .ToList(),
             RecentOnDutyCount = recentOnDuty.Count,
             WeeklyHoursWorked = 0m,
             WeeklyHoursCap = 0m,

@@ -5,6 +5,8 @@ using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
 using CrewService.Application.Payroll;
+using CrewService.Application.Qualifications;
+using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.ReportingExports;
 using CrewService.Application.ReportingExports.Formatters;
 using CrewService.Application.ReportingExports.Renderers;
@@ -63,6 +65,16 @@ public static class DependencyInjection
         services.AddScoped<HolidayAutoGenerationService>();
         services.AddScoped<HolidayQualificationService>();
         services.AddScoped<HolidayPayrollGenerationService>();
+
+        // B15 – Qualifications
+        services.AddScoped<PrerequisiteEvaluationService>();
+        services.AddScoped<EmployeeEligibilityService>();
+        services.AddScoped<QualificationReactiveService>();
+        services.AddScoped<IPrerequisiteEvaluator, ManualCompletionEvaluator>();
+        services.AddScoped<IPrerequisiteEvaluator, TimeFromEventEvaluator>();
+        services.AddScoped<IPrerequisiteEvaluator, ActivityCountEvaluator>();
+        services.AddScoped<IPrerequisiteEvaluator, TimeInRoleEvaluator>();
+        services.AddScoped<IPrerequisiteEvaluator, QualificationHeldEvaluator>();
 
         // B10 – Reporting & Exports
         services.AddScoped<IPayrollExportFormatter, AdpExportFormatter>();
