@@ -52,7 +52,7 @@ public class VacancyResolutionEngineTests
             ControlNumber.Create(700),
             TestContext.Current.CancellationToken);
 
-        var skipLog = Assert.Single(decisionLogRepo.AddedLogs.Where(l => l.Phase == "Skip"));
+        var skipLog = Assert.Single(decisionLogRepo.AddedLogs, l => l.Phase == "Skip");
         Assert.Contains("NOT_QUALIFIED", skipLog.DecisionJson);
         Assert.Contains("Missing FOREMAN qualification", skipLog.DecisionJson);
     }
