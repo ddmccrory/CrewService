@@ -1,6 +1,8 @@
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
+using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 using Xunit;
 
@@ -18,6 +20,101 @@ public class SkipRuleTests
         var ctx = new SkipContext { RecentOnDutyCount = 10, WorkedDayCap = 12 };
         Assert.False(rule.ShouldSkip(MakeCandidate(), MakeSlot(), ctx));
     }
+
+public class VacancyResolutionEngineTests
+{
+    [Fact]
+    public async Task ExecuteAsync_WhenNotQualified_LogsSkipDecisionWithBlockingReasons()
+    {
+        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
+        var candidate = new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1);
+
+        var decisionLogRepo = new FakeDispatchDecisionLogRepository();
+        var runRepo = new FakeVacancyResolutionRunRepository();
+
+        var engine = new VacancyResolutionEngine(
+            new FakeOpenSlotProvider([slot]),
+            new FakeBoardCandidateProvider([candidate]),
+            new FakeSkipContextProvider(new SkipContext
+            {
+                IsQualified = false,
+                QualificationBlockingReasons = ["NOT_QUALIFIED: Missing FOREMAN qualification"],
+                IsRested = true
+            }),
+            runRepo,
+            decisionLogRepo,
+            [new QualificationRule()],
+            new StandardAssignmentStrategy());
+
+        await engine.ExecuteAsync(
+            ControlNumber.Create(500),
+            ControlNumber.Create(600),
+            ControlNumber.Create(700),
+            TestContext.Current.CancellationToken);
+
+        var skipLog = Assert.Single(decisionLogRepo.AddedLogs.Where(l => l.Phase == "Skip"));
+        Assert.Contains("NOT_QUALIFIED", skipLog.DecisionJson);
+        Assert.Contains("Missing FOREMAN qualification", skipLog.DecisionJson);
+    }
+
+    private sealed class FakeOpenSlotProvider(IReadOnlyList<SkipRuleSlot> slots) : IOpenSlotProvider
+    {
+        public Task<IReadOnlyList<SkipRuleSlot>> GetOpenSlotsAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(slots);
+    }
+
+    private sealed class FakeBoardCandidateProvider(IReadOnlyList<SkipRuleCandidate> candidates) : IBoardCandidateProvider
+    {
+        public Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(candidates);
+    }
+
+    private sealed class FakeSkipContextProvider(SkipContext ctx) : ISkipContextProvider
+    {
+        public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+            => Task.FromResult(ctx);
+    }
+
+    private sealed class FakeVacancyResolutionRunRepository : IVacancyResolutionRunRepository
+    {
+        public List<VacancyResolutionRun> AddedRuns { get; } = [];
+
+        public Task AddAsync(VacancyResolutionRun run, CancellationToken ct = default)
+        {
+            AddedRuns.Add(run);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeDispatchDecisionLogRepository : FakeRepositoryBase<DispatchDecisionLog>, IDispatchDecisionLogRepository
+    {
+        public List<DispatchDecisionLog> AddedLogs { get; } = [];
+
+        public override Task AddAsync(DispatchDecisionLog entity, CancellationToken ct = default)
+        {
+            AddedLogs.Add(entity);
+            return Task.CompletedTask;
+        }
+
+        public Task<List<DispatchDecisionLog>> GetByPositionSlotAsync(ControlNumber positionSlotCtrlNbr)
+            => Task.FromResult(AddedLogs.Where(l => l.PositionSlotCtrlNbr == positionSlotCtrlNbr).ToList());
+    }
+
+    private abstract class FakeRepositoryBase<TEntity> : IRepository<TEntity> where TEntity : Entity
+    {
+        public virtual Task<List<TEntity>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<TEntity>());
+        public virtual Task<List<TEntity>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<TEntity>());
+        public virtual Task<TEntity?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<TEntity?>(null);
+        public virtual Task<TEntity?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<TEntity?>(null);
+        public virtual Task AddAsync(TEntity entity, CancellationToken ct = default) => Task.CompletedTask;
+        public virtual Task UpdateAsync(TEntity entity, CancellationToken ct = default) => Task.CompletedTask;
+        public virtual Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public virtual Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public virtual void Add(TEntity entity) { }
+        public virtual void Update(TEntity entity) { }
+        public virtual void Remove(TEntity entity) { }
+    }
+}
 
     [Fact]
     public void WorkedCapRule_AtCap_Skips()
