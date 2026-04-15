@@ -16,3 +16,6 @@ CrewService.API/CrewService.Persistance/Data/*.db-wal
 
 # Test results
 **/TestResults/
+
+# Legacy system code
+StrategicApplications/
