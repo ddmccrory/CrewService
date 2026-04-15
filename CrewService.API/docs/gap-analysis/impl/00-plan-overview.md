@@ -123,7 +123,17 @@ Phase 9 delivers: `PayrollExportBatch`, `PayrollImportRecord`, ADP/UKG formatter
 |---|--------|------|---------|------------|
 | B12 | `feature/gap-safety-besafe` | [B12-safety-besafe.md](B12-safety-besafe.md) | 4 | Nothing |
 
-### Phase 12: PTRA Seed Data
+### Phase 12: Qualifications & Requirements
+
+| # | Branch | Spec | Commits | Depends On |
+|---|--------|------|---------|------------|
+| B15 | `feature/gap-qualifications-requirements` | [B15-qualifications-requirements.md](B15-qualifications-requirements.md) | 13 | B02 (OnDutyRecord), B01 (EmployeeCertification), Employee module, TenantConfig (DynamicGroup) |
+
+Phase 12 delivers: `QualificationType`, `QualificationPrerequisite`, `EmployeeQualification`,
+`QualificationEvidence`, `IPrerequisiteEvaluator` pipeline, `EmployeeEligibilityService`,
+expanded `QualificationRule` skip rule, expiry background jobs.
+
+### Phase 13: PTRA Seed Data
 
 | # | Branch | Spec | Commits | Depends On |
 |---|--------|------|---------|------------|
@@ -149,6 +159,10 @@ B01 (FRA Compliance — system-level) ◄─── B14 (locations for FRA segmen
 B11 (Railroad Information) ── independent
 B12 (Safety/BeSafe) ── independent
 
+B15 (Qualifications & Requirements) ◄─── B02 (OnDutyRecord), B01 (EmployeeCertification)
+ ├─► Expands B04 QualificationRule skip rule
+ └─► Background jobs (QualificationExpiryEnforcer, PrerequisiteEvaluationJob)
+
 B13 (PTRA Seed Data) ◄─── all above
 ```
 
@@ -171,14 +185,15 @@ B13 (PTRA Seed Data) ◄─── all above
 | 9 | Reporting/Exports | 6 | 92 |
 | 10 | Railroad Information | 4 | 96 |
 | 11 | Safety/BeSafe | 4 | 100 |
-| 12 | PTRA Seed Data | 1 | 101 |
-| **Total** | **14 branches** | **101 commits** | |
+| 12 | Qualifications & Requirements | 13 | 114 |
+| 13 | PTRA Seed Data | 1 | 115 |
+| **Total** | **15 branches** | **115 commits** | |
 
 ## Conventions
 
 - **All new entities** follow the existing `AuditStamp` owned value object pattern
   (`CreatedBy`, `ModifiedBy`, `DeletedBy`) already established in the codebase.
-- **Backend-first**: All 14 branches build the CrewService.API backend. Frontend
+- **Backend-first**: All 15 branches build the CrewService.API backend. Frontend
   (CrewService.FrontEnd/BlazorUI) is a separate follow-on phase with its own plan.
 - **No data migration**: Greenfield build with seed data only (B13).
 
