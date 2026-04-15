@@ -142,5 +142,6 @@ app.MapGrpcService<HolidayManagementService>().EnableGrpcWeb().RequireAuthorizat
 app.MapGrpcService<ReportingExportsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RailroadInfoService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SafetyService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<QualificationsService>().EnableGrpcWeb().RequireAuthorization();
 
 await app.RunAsync();
