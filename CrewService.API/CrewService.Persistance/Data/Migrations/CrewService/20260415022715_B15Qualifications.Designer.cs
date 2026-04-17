@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260415022715_B15Qualifications")]
+    partial class B15Qualifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
@@ -2429,18 +2432,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsSystemSeeded")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("RegulatoryQualificationCtrlNbr")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("RenewalLeadDays")
@@ -2452,8 +2449,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("CraftCtrlNbr");
-
-                    b.HasIndex("RegulatoryQualificationCtrlNbr");
 
                     b.HasIndex("ScopeGroupCtrlNbr");
 
@@ -9824,11 +9819,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasForeignKey("ParentCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Modules.FraCompliance.RegulatoryQualification", null)
-                        .WithMany()
-                        .HasForeignKey("RegulatoryQualificationCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
                         .WithMany()

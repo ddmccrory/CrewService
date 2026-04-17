@@ -22,6 +22,8 @@ using CrewService.Application.ElectronicCalling;
 using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
+using CrewService.Application.Qualifications;
+using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Application.VacancyAssignment;
 using HolidayPayrollInterfaces = CrewService.Application.Payroll;
@@ -44,6 +46,7 @@ using CrewService.Persistance.Modules.Payroll;
 using CrewService.Persistance.Modules.FraCompliance;
 using CrewService.Persistance.Modules.Infrastructure;
 using CrewService.Persistance.Modules.Notifications;
+using CrewService.Persistance.Modules.Qualifications;
 using CrewService.Persistance.Modules.RailroadInfo;
 using CrewService.Persistance.Modules.Safety;
 using CrewService.Persistance.Encryption;
@@ -198,6 +201,13 @@ public static class DependencyInjection
         // FRA Compliance Repositories (B01)
         services.AddScoped<IFraDutyTourRepository, FraDutyTourRepository>();
         services.AddScoped<IRegulatoryStandardRepository, RegulatoryStandardRepository>();
+        services.AddScoped<IRegulatoryQualificationRepository, RegulatoryQualificationRepository>();
+        services.AddScoped<IEmployeeCertificationReadRepository, EmployeeCertificationReadRepository>();
+        services.AddScoped<IEmployeeCertificationRepository, EmployeeCertificationRepository>();
+        services.AddScoped<ICertificationRevocationRepository, CertificationRevocationRepository>();
+        services.AddScoped<IDrugAlcoholTestRepository, DrugAlcoholTestRepository>();
+        services.AddScoped<IDrugAlcoholActionRepository, DrugAlcoholActionRepository>();
+        services.AddScoped<IVoluntaryReferralRepository, VoluntaryReferralRepository>();
 
         // Daily Operations Repositories (B02)
         services.AddScoped<IShiftDefinitionRepository, ShiftDefinitionRepository>();
@@ -252,6 +262,17 @@ public static class DependencyInjection
         services.AddScoped<IAddressRepository, AddressRepository>();
         services.AddScoped<IPhoneNumberRepository, PhoneNumberRepository>();
         services.AddScoped<IEmailAddressRepository, EmailAddressRepository>();
+
+        // Qualifications Repositories (B15)
+        services.AddScoped<IQualificationTypeRepository, QualificationTypeRepository>();
+        services.AddScoped<IQualificationPrerequisiteRepository, QualificationPrerequisiteRepository>();
+        services.AddScoped<IEmployeeQualificationRepository, EmployeeQualificationRepository>();
+
+        // Qualifications Read Providers (B15)
+        services.AddScoped<IOnDutyRecordCounter, OnDutyRecordCounter>();
+        services.AddScoped<ICraftMembershipDateProvider, CraftMembershipDateProvider>();
+        services.AddScoped<IFraCertificationChecker, FraCertificationChecker>();
+        services.AddScoped<IRegulatoryQualificationCatalog, RegulatoryQualificationCatalog>();
 
         return services;
     }

@@ -293,7 +293,7 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "employees/qualifications", "admin/invitations"))
                 {
                     <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
                         @if (Permissions.HasAccess("employees"))
@@ -317,6 +317,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/prior-service">
                                     <span class="bi bi-hourglass-split" aria-hidden="true"></span> Prior Service Credits
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("employees/qualifications"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/qualifications">
+                                    <span class="bi bi-award" aria-hidden="true"></span> Qualifications
                                 </NavLink>
                             </div>
                         }

@@ -3,6 +3,7 @@ using CrewService.Infrastructure.Email;
 using CrewService.Domain.Interfaces;
 using CrewService.Infrastructure.Notifications;
 using CrewService.Infrastructure.Outbox;
+using CrewService.Infrastructure.Reactive;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +23,7 @@ public static class DependencyInjection
         // Register in-process dispatcher (singleton - shared channel)
         services.AddSingleton<OutboxDispatcher>();
         services.AddSingleton<IOutboxDispatcher>(sp => sp.GetRequiredService<OutboxDispatcher>());
+        services.AddScoped<IDomainEventReactor, DomainEventReactor>();
 
         // Register background outbox publisher service (hybrid mode)
         services.AddHostedService<OutboxPublisherService>();

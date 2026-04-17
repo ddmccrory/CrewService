@@ -17,6 +17,8 @@
 @inject PhoneNumberTypeClient PhoneNumberTypeClient
 @inject EmailAddressTypeClient EmailAddressTypeClient
 @inject EmployeeProfileService ProfileService
+@inject QualificationsClient QualificationsClient
+@inject FraComplianceClient FraComplianceClient
 @inject NavigationManager Nav
 
 <PageTitle>Employee Detail</PageTitle>
@@ -344,11 +346,148 @@ else
                     }
                 </tbody>
             </table>
-        }
-    }
-}
+                        }
+            }
 
-@code {
+            @* ── Qualifications Tab ── *@
+            @if (activeTab == "qualifications")
+            {
+                <Modal Visible="showGrantModal"
+                       Title="Grant Qualification"
+                       Icon="bi bi-award"
+                       OnClose="CloseGrantModal">
+                    <BodyContent>
+                        <EditForm Model="grantModel" OnValidSubmit="GrantQualification" id="grant-qual-form">
+                            <DataAnnotationsValidator />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Qualification Type</label>
+                                    <SelectInput TItem="QualificationTypeResponse" TValue="long"
+                                                 @bind-Value="grantModel.QualificationTypeCtrlNbr"
+                                         Items="@qualificationTypes.Where(q => q.IsActive && !string.Equals(q.EvaluationStrategy, "FraCertification", StringComparison.Ordinal)).ToList()"
+                                                 ValueSelector="@(q => q.CtrlNbr)"
+                                                 TextSelector="@(q => $"{q.Code.ToUpperInvariant()} - {q.Name}")"
+                                                 Placeholder="-- Select Qualification --"
+                                                 class="form-select" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Status</label>
+                                    <SelectInput TItem="string" TValue="string"
+                                                 @bind-Value="grantModel.Status"
+                                                 Items="grantStatuses"
+                                                 ValueSelector="@(s => s)"
+                                                 TextSelector="@(s => s)"
+                                                 Placeholder="-- Select Status --"
+                                                 class="form-select" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Expires At (optional)</label>
+                                    <InputDate @bind-Value="grantModel.ExpiresAtUtc" class="form-control" />
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-semibold">Evidence</label>
+                                    <InputText @bind-Value="grantModel.EvidenceValue" class="form-control" placeholder="Manual completion detail" />
+                                </div>
+                            </div>
+                        </EditForm>
+                    </BodyContent>
+                    <Footer>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseGrantModal">Cancel</button>
+                        <button type="submit" form="grant-qual-form" class="btn btn-primary" disabled="@isSaving">
+                            <span class="bi bi-award me-1"></span> Grant
+                        </button>
+                    </Footer>
+                </Modal>
+
+                <ConfirmModal Visible="showRevokeModal" ItemName="@revokeQualLabel" IsSaving="isSaving"
+                              OnConfirm="ConfirmRevokeQual" OnCancel="() => showRevokeModal = false" />
+
+                @* FRA Certifications — read-only summary *@
+                <h5 class="mt-3">FRA Certifications</h5>
+                @if (employeeCertifications.Count == 0)
+                {
+                    <div class="text-muted mb-3">No FRA certifications on record.</div>
+                }
+                else
+                {
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Certification Type</th>
+                                <th>Status</th>
+                                <th>Expiration</th>
+                                <th>Certification #</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cert in employeeCertifications)
+                            {
+                                <tr>
+                                    <td>@cert.CertificationType</td>
+                                    <td>
+                                        <span class="badge @(cert.Status == "Active" ? "bg-success" : cert.Status == "Suspended" || cert.Status == "Revoked" || cert.Status == "Expired" ? "bg-danger" : "bg-secondary")">
+                                            @cert.Status
+                                        </span>
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(cert.ExpirationDate) ? "—" : cert.ExpirationDate)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(cert.CertificationNumber) ? "—" : cert.CertificationNumber)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <p class="text-muted small mb-3">
+                    <span class="bi bi-info-circle"></span>
+                    FRA certifications are managed in the FRA Compliance module.
+                </p>
+
+                @* Railroad Qualifications — CRUD *@
+                <h5 class="mt-2">Railroad Qualifications</h5>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-primary" @onclick="OpenGrantModal">
+                            <span class="bi bi-award"></span> Grant Qualification
+                        </button>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                </div>
+
+                <DataTable TItem="EmployeeQualificationResponse"
+                           Items="GetRailroadQualifications()"
+                           Columns="qualColumns"
+                           SearchFilter="@((q, term) => ResolveQualCode(q.QualificationTypeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || q.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                           SearchPlaceholder="Search by code or status..."
+                           EmptyMessage="No qualifications found."
+                           DefaultSortColumn="Code">
+                    <RowContent Context="eq">
+                        <td>@ResolveQualCode(eq.QualificationTypeCtrlNbr)</td>
+                        <td>
+                            <span class="badge @(eq.Status == "Active" ? "bg-success" : eq.Status == "ExpiringSoon" ? "bg-warning text-dark" : eq.Status == "Revoked" ? "bg-danger" : "bg-secondary")">
+                                @eq.Status
+                            </span>
+                        </td>
+                        <td>@FormatDate(eq.AchievedAtUtc?.ToDateTime().ToString("o"))</td>
+                        <td>@(eq.ExpiresAtUtc is null ? "—" : FormatDate(eq.ExpiresAtUtc.ToDateTime().ToString("o")))</td>
+                        <td>
+                            @if (!IsFeatureReadOnly && eq.Status is "Active" or "ExpiringSoon" or "Pending")
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRevokeModal(eq)">
+                                    <span class="bi bi-x-circle"></span> Revoke
+                                </button>
+                            }
+                        </td>
+                    </RowContent>
+                </DataTable>
+            }
+        }
+
+        @code {
     [Parameter] public long CtrlNbr { get; set; }
 
     protected override string? FeatureKey => "employees";
@@ -358,6 +497,9 @@ else
     private List<AddressTypeResponse> addressTypes = [];
     private List<PhoneNumberTypeResponse> phoneTypes = [];
     private List<EmailAddressTypeResponse> emailTypes = [];
+    private List<QualificationTypeResponse> qualificationTypes = [];
+    private List<EmployeeQualificationResponse> employeeQualifications = [];
+    private List<CertificationResponse> employeeCertifications = [];
 
     private string activeTab = "addresses";
 
@@ -365,7 +507,8 @@ else
     [
         new("addresses", "Addresses", "bi-geo-alt"),
         new("emails", "Email Addresses", "bi-envelope"),
-        new("phones", "Phone Numbers", "bi-telephone")
+        new("phones", "Phone Numbers", "bi-telephone"),
+        new("qualifications", "Qualifications", "bi-award")
     ];
 
     protected override async Task LoadDataAsync()
@@ -383,12 +526,18 @@ else
             var addrTask = AddressTypeClient.GetAllAsync(clientCtrlNbr);
             var phoneTask = PhoneNumberTypeClient.GetAllAsync(clientCtrlNbr);
             var emailTask = EmailAddressTypeClient.GetAllAsync(clientCtrlNbr);
-            await Task.WhenAll(empTask, addrTask, phoneTask, emailTask);
+            var qualTypesTask = QualificationsClient.GetQualificationTypesAsync(clientCtrlNbr);
+            var qualTask = QualificationsClient.GetEmployeeQualificationsAsync(CtrlNbr);
+            var certTask = FraComplianceClient.GetEmployeeCertificationsAsync(CtrlNbr);
+            await Task.WhenAll(empTask, addrTask, phoneTask, emailTask, qualTypesTask, qualTask, certTask);
 
             employee = empTask.Result;
             addressTypes = [.. addrTask.Result.AddressTypeList];
             phoneTypes = [.. phoneTask.Result.PhoneNumberTypeList];
             emailTypes = [.. emailTask.Result.EmaiAddressTypeList];
+            qualificationTypes = [.. qualTypesTask.Result.QualificationTypes];
+            employeeQualifications = [.. qualTask.Result.Qualifications.OrderByDescending(q => q.AchievedAtUtc?.ToDateTime())];
+            employeeCertifications = [.. certTask.Result.Certifications.OrderBy(c => c.CertificationType, StringComparer.OrdinalIgnoreCase)];
         }
         catch (Exception ex)
         {
@@ -574,5 +723,115 @@ else
         }
         catch (Exception ex) { errorMessage = $"Failed to delete phone number: {ex.Message}"; showPhoneDeleteModal = false; }
         finally { isSaving = false; }
+    }
+
+    // ── Qualifications ──
+
+    private bool showGrantModal;
+    private bool showRevokeModal;
+    private long revokeQualCtrlNbr;
+    private string revokeQualLabel = "";
+    private GrantQualificationModel grantModel = new();
+
+    private static readonly IReadOnlyList<string> grantStatuses = ["Active", "Pending"];
+
+    private static readonly IReadOnlyList<DataTableColumn<EmployeeQualificationResponse>> qualColumns =
+    [
+        new("Code", q => q.QualificationTypeCtrlNbr.ToString()),
+        new("Status", q => q.Status),
+        new("Achieved", q => q.AchievedAtUtc?.ToDateTime().ToString("yyyy-MM-dd") ?? ""),
+        new("Expires", q => q.ExpiresAtUtc is null ? "" : q.ExpiresAtUtc.ToDateTime().ToString("yyyy-MM-dd")),
+        DataTableColumn<EmployeeQualificationResponse>.Actions()
+    ];
+
+    private string ResolveQualCode(long qualTypeCtrlNbr)
+    {
+        var t = qualificationTypes.FirstOrDefault(q => q.CtrlNbr == qualTypeCtrlNbr);
+        return t is null ? qualTypeCtrlNbr.ToString() : t.Code.ToUpperInvariant();
+    }
+
+    private string ResolveQualName(long qualTypeCtrlNbr)
+    {
+        var t = qualificationTypes.FirstOrDefault(q => q.CtrlNbr == qualTypeCtrlNbr);
+        return t is null ? qualTypeCtrlNbr.ToString() : t.Name;
+    }
+
+    private void OpenGrantModal()
+    {
+        grantModel = new GrantQualificationModel { Status = "Active", GrantedBy = CurrentUser.Username ?? "SYSTEM" };
+        showGrantModal = true;
+    }
+
+    private void CloseGrantModal() { showGrantModal = false; grantModel = new(); }
+
+    private void OpenRevokeModal(EmployeeQualificationResponse eq)
+    {
+        revokeQualCtrlNbr = eq.CtrlNbr;
+        revokeQualLabel = ResolveQualCode(eq.QualificationTypeCtrlNbr);
+        showRevokeModal = true;
+    }
+
+    private async Task GrantQualification()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null;
+            var request = new GrantEmployeeQualificationRequest
+            {
+                EmployeeCtrlNbr = employee.CtrlNbr,
+                QualificationTypeCtrlNbr = grantModel.QualificationTypeCtrlNbr,
+                GrantedBy = string.IsNullOrWhiteSpace(grantModel.GrantedBy) ? "SYSTEM" : grantModel.GrantedBy,
+                Status = string.IsNullOrWhiteSpace(grantModel.Status) ? "Active" : grantModel.Status,
+                EvidenceValue = grantModel.EvidenceValue ?? string.Empty
+            };
+            if (grantModel.ExpiresAtUtc.HasValue)
+                request.ExpiresAtUtc = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                    DateTime.SpecifyKind(grantModel.ExpiresAtUtc.Value, DateTimeKind.Utc));
+            await QualificationsClient.GrantEmployeeQualificationAsync(request);
+            CloseGrantModal();
+            successMessage = "Qualification granted.";
+            var qualTask = QualificationsClient.GetEmployeeQualificationsAsync(employee.CtrlNbr);
+            await qualTask;
+            employeeQualifications = [.. qualTask.Result.Qualifications.OrderByDescending(q => q.AchievedAtUtc?.ToDateTime())];
+        }
+        catch (Exception ex) { errorMessage = $"Failed to grant qualification: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmRevokeQual()
+    {
+        try
+        {
+            isSaving = true; errorMessage = null;
+            await QualificationsClient.RevokeEmployeeQualificationAsync(revokeQualCtrlNbr, "Manually revoked");
+            showRevokeModal = false;
+            successMessage = "Qualification revoked.";
+            if (employee is not null)
+            {
+                var r = await QualificationsClient.GetEmployeeQualificationsAsync(employee.CtrlNbr);
+                employeeQualifications = [.. r.Qualifications.OrderByDescending(q => q.AchievedAtUtc?.ToDateTime())];
+            }
+        }
+        catch (Exception ex) { errorMessage = $"Failed to revoke qualification: {ex.Message}"; showRevokeModal = false; }
+        finally { isSaving = false; }
+    }
+
+    private List<EmployeeQualificationResponse> GetRailroadQualifications()
+    {
+        var fraTypeCtrlNbrs = qualificationTypes
+            .Where(q => string.Equals(q.EvaluationStrategy, "FraCertification", StringComparison.Ordinal))
+            .Select(q => q.CtrlNbr)
+            .ToHashSet();
+        return employeeQualifications.Where(q => !fraTypeCtrlNbrs.Contains(q.QualificationTypeCtrlNbr)).ToList();
+    }
+
+    private sealed class GrantQualificationModel
+    {
+        public long QualificationTypeCtrlNbr { get; set; }
+        public string? Status { get; set; }
+        public string? GrantedBy { get; set; }
+        public DateTime? ExpiresAtUtc { get; set; }
+        public string? EvidenceValue { get; set; }
     }
 }

@@ -6,7 +6,7 @@
 - Do not pause for confirmation; continue uninterrupted batched updates to SystemSpec until completion. However, DO ask for confirmation before reverting changes.
 - Prefer proper fixes over workarounds/hacks. When the correct solution is known, implement it rather than building interim solutions.
 - Fix warnings and technical debt immediately rather than deferring them.
-- Work in smaller increments rather than large batch changes. When making multiple edits, apply them incrementally and verify each step.
+- Work in smaller increments rather than large batch changes. When making multiple edits, apply them incrementally and verify each step. When creating large files, NEVER create the entire file in one pass. Always work in very small increments - create a minimal file first, then append/edit in small chunks. Large single create_file calls cause the process to stall. This applies to all file creation, especially documentation and spec files.
 - Fully discuss and agree on design before any code is written. Do not start coding until explicitly told to proceed.
 - Launch wizards from existing list pages via buttons rather than separate pages, and prefer atomic API endpoints (single transaction) over sequential client-side calls for multi-step wizard operations.
 
@@ -36,3 +36,4 @@
 - When a board member is called to fill a vacancy, they are placed back on the board at the normal tie-up time (8 or 12 hours after calling time). If they tie up late, their position is re-adjusted. If they tie up early, they are NOT re-adjusted by default — but some railroads may use the early tie-up time. This tie-up time handling is configurable per railroad.
 - Memory: All seeder data (DevDataSeeder) should always match the app creation process so we always get the same results. The seeder must create data the same way the application creates data — using the same patterns (UoW, auto-creation of related entities, etc.).
 - **Board Types**: Force Assign is a process (employee forced off current position onto a no-bid bulletin position), not a board type. Bulletined Positions are open positions posted for bidding, not a board type. Every board must have a specific operational purpose. Board types are: ExtraBoard, Hangout, ExtendedAbsence, Training, Overtime.
+- The StrategicApplications directory at the repo root is legacy system code and should never be tracked in Git.

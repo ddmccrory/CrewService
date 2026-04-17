@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+service QualificationsSrvc {
+  rpc CreateQualificationType (CreateQualificationTypeRequest) returns (QualificationTypeResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/types" body: "*" };
+  }
+
+  rpc SetQualificationTypeActive (SetQualificationTypeActiveRequest) returns (QualificationTypeResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/types/active" body: "*" };
+  }
+
+  rpc GetQualificationTypes (GetQualificationTypesRequest) returns (GetQualificationTypesResponse) {
+    option (google.api.http) = { get: "/v1/qualifications/types/{parent_ctrl_nbr}" };
+  }
+
+  rpc GetRegulatoryQualifications (GetRegulatoryQualificationsRequest) returns (GetRegulatoryQualificationsResponse) {
+    option (google.api.http) = { get: "/v1/qualifications/regulatory-catalog" };
+  }
+
+  rpc GetEmployeeQualifications (GetEmployeeQualificationsRequest) returns (GetEmployeeQualificationsResponse) {
+    option (google.api.http) = { get: "/v1/qualifications/employees/{employee_ctrl_nbr}" };
+  }
+
+  rpc GrantEmployeeQualification (GrantEmployeeQualificationRequest) returns (EmployeeQualificationResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/grant" body: "*" };
+  }
+
+  rpc RevokeEmployeeQualification (RevokeEmployeeQualificationRequest) returns (EmployeeQualificationResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/revoke" body: "*" };
+  }
+
+  rpc CheckEligibility (CheckEligibilityRequest) returns (CheckEligibilityResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/check-eligibility" body: "*" };
+  }
+}
+
+message GetQualificationTypesRequest {
+  int64 parent_ctrl_nbr = 1;
+  bool active_only = 2;
+}
+
+message CreateQualificationTypeRequest {
+  int64 parent_ctrl_nbr = 1;
+  optional int64 scope_group_ctrl_nbr = 2;
+  optional int64 craft_ctrl_nbr = 3;
+  string code = 4;
+  string name = 5;
+  string description = 6;
+  string evaluation_strategy = 7;
+  optional int32 expiration_months = 8;
+  bool calendar_year_expiry = 9;
+  int32 grace_days = 10;
+  int32 renewal_lead_days = 11;
+  bool is_blocking = 12;
+  optional int64 regulatory_qualification_ctrl_nbr = 13;
+}
+
+message SetQualificationTypeActiveRequest {
+  int64 qualification_type_ctrl_nbr = 1;
+  bool is_active = 2;
+}
+
+message QualificationTypeResponse {
+  int64 ctrl_nbr = 1;
+  int64 parent_ctrl_nbr = 2;
+  optional int64 scope_group_ctrl_nbr = 3;
+  optional int64 craft_ctrl_nbr = 4;
+  string code = 5;
+  string name = 6;
+  string description = 7;
+  string evaluation_strategy = 8;
+  optional int32 expiration_months = 9;
+  bool calendar_year_expiry = 10;
+  int32 grace_days = 11;
+  int32 renewal_lead_days = 12;
+  bool is_blocking = 13;
+  bool is_active = 14;
+  bool is_system_seeded = 15;
+  optional int64 regulatory_qualification_ctrl_nbr = 16;
+}
+
+message GetQualificationTypesResponse {
+  repeated QualificationTypeResponse qualification_types = 1;
+}
+
+message GetRegulatoryQualificationsRequest {}
+
+message RegulatoryQualificationCatalogItem {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string cfr_part = 3;
+  string description = 4;
+}
+
+message GetRegulatoryQualificationsResponse {
+  repeated RegulatoryQualificationCatalogItem qualifications = 1;
+}
+
+message GetEmployeeQualificationsRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message EmployeeQualificationResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int64 qualification_type_ctrl_nbr = 3;
+  google.protobuf.Timestamp achieved_at_utc = 4;
+  optional google.protobuf.Timestamp expires_at_utc = 5;
+  string status = 6;
+  string granted_by = 7;
+  optional google.protobuf.Timestamp revoked_at_utc = 8;
+  string revocation_reason = 9;
+}
+
+message GetEmployeeQualificationsResponse {
+  repeated EmployeeQualificationResponse qualifications = 1;
+}
+
+message GrantEmployeeQualificationRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 qualification_type_ctrl_nbr = 2;
+  string granted_by = 3;
+  optional google.protobuf.Timestamp expires_at_utc = 4;
+  string status = 5;
+  string evidence_value = 6;
+}
+
+message RevokeEmployeeQualificationRequest {
+  int64 employee_qualification_ctrl_nbr = 1;
+  string reason = 2;
+}
+
+message CheckEligibilityRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 position_slot_ctrl_nbr = 2;
+}
+
+message EligibilityBlockingReason {
+  string rule_code = 1;
+  string description = 2;
+}
+
+message CheckEligibilityResponse {
+  bool is_eligible = 1;
+  repeated EligibilityBlockingReason blocking_reasons = 2;
+}

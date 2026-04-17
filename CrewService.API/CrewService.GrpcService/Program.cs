@@ -75,9 +75,9 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
     });
-
-    await app.Services.MigrateDatabasesAsync();
 }
+
+await app.Services.MigrateDatabasesAsync();
 
 // Baseline data required in all environments (idempotent)
 await BaselineSeeder.SeedAsync(app.Services);
@@ -142,5 +142,6 @@ app.MapGrpcService<HolidayManagementService>().EnableGrpcWeb().RequireAuthorizat
 app.MapGrpcService<ReportingExportsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RailroadInfoService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<SafetyService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<QualificationsService>().EnableGrpcWeb().RequireAuthorization();
 
 await app.RunAsync();

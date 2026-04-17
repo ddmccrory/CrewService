@@ -1,5 +1,6 @@
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.ValueObjects;
+using System.Text.Json;
 
 namespace CrewService.Application.VacancyAssignment;
 
@@ -29,6 +30,7 @@ public sealed class VacancyResolutionEngine(
     IBoardCandidateProvider candidateProvider,
     ISkipContextProvider skipContextProvider,
     IVacancyResolutionRunRepository runRepo,
+    IDispatchDecisionLogRepository decisionLogRepository,
     IEnumerable<ISkipRule> skipRules,
     IAssignmentStrategy assignmentStrategy)
 {
@@ -62,6 +64,16 @@ public sealed class VacancyResolutionEngine(
                     {
                         if (rule.ShouldSkip(candidate, slot, ctx))
                         {
+                            var decisionJson = BuildSkipDecisionJson(rule.RuleCode, ctx);
+                            var skipLog = DispatchDecisionLog.Create(
+                                slot.PositionSlotCtrlNbr,
+                                DateTime.UtcNow,
+                                "Skip",
+                                candidate.EmployeeCtrlNbr,
+                                "VacancyResolutionEngine",
+                                decisionJson);
+                            await decisionLogRepository.AddAsync(skipLog, ct);
+
                             skipped = true;
                             break;
                         }
@@ -74,6 +86,15 @@ public sealed class VacancyResolutionEngine(
 
                     if (result.Success)
                     {
+                        var selectLog = DispatchDecisionLog.Create(
+                            slot.PositionSlotCtrlNbr,
+                            DateTime.UtcNow,
+                            "Select",
+                            result.AssignedEmployeeCtrlNbr,
+                            "VacancyResolutionEngine",
+                            JsonSerializer.Serialize(new { RuleCode = "ASSIGNED", candidate.OrderIndex }));
+                        await decisionLogRepository.AddAsync(selectLog, ct);
+
                         slotsFilled++;
                         filled = true;
                         break;
@@ -96,5 +117,22 @@ public sealed class VacancyResolutionEngine(
         }
 
         return run;
+    }
+
+    private static string BuildSkipDecisionJson(string ruleCode, SkipContext ctx)
+    {
+        if (ruleCode == "NOT_QUALIFIED")
+        {
+            return JsonSerializer.Serialize(new
+            {
+                RuleCode = ruleCode,
+                QualificationBlockingReasons = ctx.QualificationBlockingReasons
+            });
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            RuleCode = ruleCode
+        });
     }
 }
