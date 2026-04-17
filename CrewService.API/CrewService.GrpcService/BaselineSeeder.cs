@@ -1,6 +1,8 @@
 using CrewService.Domain.Models.UserAccess;
+using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
@@ -55,6 +57,7 @@ internal static class BaselineSeeder
 
         // Compliance
         ("compliance/fra", "FRA Compliance", "Compliance", "/compliance/fra"),
+        ("compliance/drug-alcohol", "Drug & Alcohol", "Compliance", "/compliance/drug-alcohol"),
         ("compliance/safety", "Safety Observations", "Compliance", "/compliance/safety"),
         ("compliance/absence-codes", "Absence Codes", "Compliance", "/compliance/absence-codes"),
         ("compliance/policies", "Policies", "Compliance", "/compliance/policies"),
@@ -68,6 +71,7 @@ internal static class BaselineSeeder
         ("work-management/rosters", "Rosters", "Work Management", "/work-management/rosters"),
         ("work-management/seniority-states", "Seniority States", "Work Management", "/work-management/seniority-states"),
         ("work-management/group-types", "Group Types", "Work Management", "/work-management/group-types"),
+        ("work-management/qualification-types", "Qualification Types", "Work Management", "/work-management/qualification-types"),
 
         // Employee Management
         ("employees", "Employees", "Employee Management", "/employees"),
@@ -119,6 +123,7 @@ internal static class BaselineSeeder
 
         // Compliance
         ["compliance/fra"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["compliance/drug-alcohol"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["compliance/safety"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["compliance/absence-codes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["compliance/policies"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
@@ -132,6 +137,7 @@ internal static class BaselineSeeder
         ["work-management/rosters"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["work-management/seniority-states"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["work-management/group-types"] = ["SystemAdmin", "ParentAdmin"],
+        ["work-management/qualification-types"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
 
         // Employee Management
         ["employees"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
@@ -172,7 +178,52 @@ internal static class BaselineSeeder
         await SeedRolesAsync(sp);
         await SeedFeaturesAsync(sp);
         await SeedDefaultPermissionsAsync(sp);
+        await SeedRegulatoryQualificationsAsync(sp);
         await SeedSystemAdminAsync(sp);
+    }
+
+    private static async Task SeedRegulatoryQualificationsAsync(IServiceProvider sp)
+    {
+        var repository = sp.GetRequiredService<IRegulatoryQualificationRepository>();
+
+        var seeds = new[]
+        {
+            new
+            {
+                Code = "CFR-240-ENGINEER",
+                CfrPart = "49 CFR Part 240",
+                Description = "Locomotive Engineer Certification"
+            },
+            new
+            {
+                Code = "CFR-242-CONDUCTOR",
+                CfrPart = "49 CFR Part 242",
+                Description = "Conductor Certification"
+            },
+            new
+            {
+                Code = "CFR-242-SWITCHMAN",
+                CfrPart = "49 CFR Part 242",
+                Description = "Switchman Certification"
+            }
+        };
+
+        foreach (var seed in seeds)
+        {
+            var existing = await repository.GetByCodeAsync(seed.Code);
+            if (existing is not null)
+                continue;
+
+            var qualification = RegulatoryQualification.Create(
+                code: seed.Code,
+                cfrPart: seed.CfrPart,
+                description: seed.Description,
+                requiresCertification: true,
+                recertificationIntervalMonths: 36,
+                effectiveDate: DateOnly.FromDateTime(DateTime.UtcNow.Date));
+
+            await repository.AddAsync(qualification);
+        }
     }
 
     private static async Task SeedSystemAdminAsync(IServiceProvider sp)

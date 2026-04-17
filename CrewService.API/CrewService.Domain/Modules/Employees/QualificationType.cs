@@ -11,6 +11,7 @@ public sealed class QualificationType : Entity
     public ControlNumber ParentCtrlNbr { get; private set; }
     public ControlNumber? ScopeGroupCtrlNbr { get; private set; }
     public ControlNumber? CraftCtrlNbr { get; private set; }
+    public ControlNumber? RegulatoryQualificationCtrlNbr { get; private set; }
     public string Code { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
     public string? Description { get; private set; }
@@ -20,6 +21,7 @@ public sealed class QualificationType : Entity
     public int GraceDays { get; private set; }
     public int RenewalLeadDays { get; private set; }
     public bool IsBlocking { get; private set; }
+    public bool IsSystemSeeded { get; private set; }
     public bool IsActive { get; private set; } = true;
 
     public IReadOnlyList<QualificationPrerequisite> Prerequisites => _prerequisites.AsReadOnly();
@@ -36,12 +38,14 @@ public sealed class QualificationType : Entity
         string evaluationStrategy = "Manual",
         ControlNumber? scopeGroupCtrlNbr = null,
         ControlNumber? craftCtrlNbr = null,
+        ControlNumber? regulatoryQualificationCtrlNbr = null,
         string? description = null,
         int? expirationMonths = null,
         bool calendarYearExpiry = false,
         int graceDays = 0,
         int renewalLeadDays = 0,
-        bool isBlocking = false)
+        bool isBlocking = false,
+        bool isSystemSeeded = false)
     {
         var qt = new QualificationType
         {
@@ -51,12 +55,14 @@ public sealed class QualificationType : Entity
             EvaluationStrategy = evaluationStrategy,
             ScopeGroupCtrlNbr = scopeGroupCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
+            RegulatoryQualificationCtrlNbr = regulatoryQualificationCtrlNbr,
             Description = description,
             ExpirationMonths = expirationMonths,
             CalendarYearExpiry = calendarYearExpiry,
             GraceDays = graceDays,
             RenewalLeadDays = renewalLeadDays,
             IsBlocking = isBlocking,
+            IsSystemSeeded = isSystemSeeded,
             IsActive = true
         };
 

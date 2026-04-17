@@ -47,11 +47,13 @@ is a single UoW commit.
 | Name | string | Display name |
 | Description | string? | |
 | EvaluationStrategy | string | "Manual", "TimeFromEvent", "ActivityCount", "TimeInRole", "QualificationHeld", "FraCertification" |
+| RegulatoryQualificationCtrlNbr | ControlNumber? | FK → RegulatoryQualification (B01). Set on FraCertification-strategy types to specify *which* FRA cert (engineer vs. conductor vs. switchman) |
 | ExpirationMonths | int? | Null = never expires |
 | CalendarYearExpiry | bool | True = expires Dec 31 of computed year |
 | GraceDays | int | Extra days after expiration before enforcement |
 | RenewalLeadDays | int | Days before expiry to trigger "ExpiringSoon" |
 | IsBlocking | bool | If true, blocks vacancy assignment when missing |
+| IsSystemSeeded | bool | True = auto-created from RegulatoryQualification; locked (non-editable, non-deletable) |
 | IsActive | bool | Soft-disable |
 
 ### `QualificationPrerequisite` — Employees module (child of QualificationType)
@@ -142,7 +144,7 @@ IPrerequisiteEvaluator
 |----------|-----------|---------|
 | `OnDutyRecordCounter` | `IOnDutyRecordCounter` | Counts completed on-duty records for ActivityCount evaluator |
 | `CraftMembershipDateProvider` | `ICraftMembershipDateProvider` | Gets earliest active position assignment date for TimeInRole |
-| `FraCertificationChecker` | `IFraCertificationChecker` | Checks active FRA certification status (B01 integration) |
+| `FraCertificationChecker` | `IFraCertificationChecker` | Checks active FRA certification status for a specific RegulatoryQualification (B01 integration) |
 
 ---
 
@@ -169,7 +171,72 @@ blocking reasons into the `DispatchDecisionLog` payload for audit.
 
 ---
 
-## 6. Background Workers
+## 6. FRA Certification Integration (B01 ↔ B15)
+
+FRA conductor/engineer certification (B01) and railroad-defined qualifications (B15) are
+**separate domain modules** with a clean cross-module integration point. They must not be
+merged — FRA certifications are federally mandated with non-configurable lifecycle rules,
+while qualifications are railroad-configurable.
+
+### Domain Boundary
+
+| Concern | Owning Module | Menu Location |
+|---------|---------------|---------------|
+| Certification lifecycle (issue, renew, expire, suspend, revoke) | FRA Compliance (B01) | FRA Compliance |
+| Eligibility checks (7 types per §240.203), staleness, monitoring | FRA Compliance (B01) | FRA Compliance |
+| Revocation hearings, cross-revocation (§242.213(h)) | FRA Compliance (B01) | FRA Compliance |
+| "This position requires X FRA certification" rule | Qualifications (B15) | Work Management > Qualification Types |
+| Vacancy engine eligibility check | Integration point | `EmployeeEligibilityService` → `IFraCertificationChecker` |
+| Employee cert status at a glance | Both | Employee Detail > Qualifications tab (B15 quals + FRA cert summary) |
+
+### Auto-Seeded FRA Qualification Types
+
+When a new parent is created, the system auto-seeds **one `QualificationType` per
+`RegulatoryQualification`** for that parent:
+
+| Seeded Code | Name | RegulatoryQualificationCtrlNbr | EvaluationStrategy |
+|-------------|------|-------------------------------|-------------------|
+| CFR-240-ENGINEER | Locomotive Engineer Certification | → CFR-240-ENGINEER | FraCertification |
+| CFR-242-CONDUCTOR | Conductor Certification | → CFR-242-CONDUCTOR | FraCertification |
+| CFR-242-SWITCHMAN | Switchman Certification | → CFR-242-SWITCHMAN | FraCertification |
+
+These types are created with `IsSystemSeeded = true`, `IsBlocking = true`, and
+`IsActive = true`. They **cannot** be edited, deleted, or deactivated by users. They
+appear in the Qualification Types list with an "FRA" badge indicating they are
+system-managed. Their "Manage" action navigates to the FRA Compliance module (when
+that UI exists).
+
+### `IFraCertificationChecker` — Specific Cert Type
+
+The checker must accept the `RegulatoryQualificationCtrlNbr` so it can distinguish
+engineer vs. conductor vs. switchman:
+
+```
+IFraCertificationChecker
+  Task<bool> HasActiveCertificationAsync(
+      ControlNumber employeeCtrlNbr,
+      ControlNumber regulatoryQualificationCtrlNbr,
+      CancellationToken ct)
+```
+
+`EmployeeEligibilityService` passes `qualType.RegulatoryQualificationCtrlNbr` for
+FraCertification-strategy types. The checker queries:
+`EmployeeCertification WHERE EmployeeCtrlNbr = X AND RegulatoryQualificationCtrlNbr = Y AND Status = "Active"`.
+
+### Employee Detail — Qualifications Tab
+
+The Qualifications tab on the Employee Detail page shows **both** systems in a unified
+view:
+
+1. **FRA Certifications section** — read-only summary of `EmployeeCertification` records
+   (certification type, status, expiration date, last monitoring observation). Links to
+   FRA Compliance for management.
+2. **Railroad Qualifications section** — full CRUD for `EmployeeQualification` records
+   (grant, revoke, view evidence).
+
+---
+
+## 7. Background Workers
 
 | Worker | Schedule | Logic |
 |--------|----------|-------|
@@ -179,7 +246,7 @@ blocking reasons into the `DispatchDecisionLog` payload for audit.
 
 ---
 
-## 7. Reactive Event Dispatch
+## 8. Reactive Event Dispatch
 
 ### `IDomainEventReactor` — Domain interface
 
@@ -198,7 +265,7 @@ Uses `IServiceScopeFactory` to resolve scoped services per dispatch batch.
 
 ---
 
-## 8. gRPC Contract (`qualifications.proto`)
+## 9. gRPC Contract (`qualifications.proto`)
 
 | RPC | HTTP Mapping | Purpose |
 |-----|-------------|---------|
@@ -212,27 +279,54 @@ Uses `IServiceScopeFactory` to resolve scoped services per dispatch batch.
 
 ---
 
-## 9. Frontend (BlazorUI)
+## 10. Frontend (BlazorUI)
 
 ### `QualificationsClient` — gRPC client wrapper
 
 Wraps all 7 RPCs with error logging via `BaseGrpcClient`.
 
-### `Qualifications.razor` — Page (`/employees/qualifications`)
+### Page Decomposition (SRP)
 
-| Section | Features |
-|---------|----------|
-| Qualification Types table | DataTable with code/name/strategy/blocking/status columns, Create Type modal, Activate/Deactivate toggle |
-| Employee Qualification Dashboard | FilterSelect employee picker, DataTable with code/status/achieved/expires columns |
-| Eligibility Check tool | Manual employee + position slot input, displays eligible/not-eligible badge with blocking reasons |
+The original monolithic `Qualifications.razor` is decomposed into single-responsibility
+components:
+
+#### `QualificationTypes.razor` — Page (`/work-management/qualification-types`)
+
+Standalone admin page for managing qualification type definitions. Located under
+**Work Management** nav group (not People).
+
+| Feature | Details |
+|---------|---------|
+| DataTable | Code (first col, uppercase, default sort), Name, EvaluationStrategy, IsBlocking, IsActive columns |
+| FRA-seeded types | Displayed with "FRA" badge, row actions disabled (non-editable, non-deletable) |
+| Create Type modal | Modal component pattern (BodyContent/Footer, form id, static backdrop). SelectInput for EvaluationStrategy. Only railroad-defined types can be created. |
+| Activate/Deactivate | Toggle button per row (disabled for FRA-seeded types) |
+
+#### Employee Detail > Qualifications Tab
+
+Added as a tab on `EmployeeDetail.razor` (alongside Addresses, Emails, Phones).
+
+| Section | Details |
+|---------|---------|
+| FRA Certifications | Read-only summary table of `EmployeeCertification` records (cert type, status, expiry, last monitoring). Links to FRA Compliance for full management. |
+| Railroad Qualifications | DataTable with code/status/achieved/expires columns. Grant (modal) and Revoke (confirm modal) actions. |
+
+#### Deleted
+
+- `Qualifications.razor` — removed entirely (SRP violation)
+- Eligibility Check tool — removed from UI (internal engine concern, not user-facing)
 
 ### Navigation
 
-Added under **People** nav group with `employees/qualifications` permission key.
+| Location | Link |
+|----------|------|
+| Work Management group | Qualification Types (`/work-management/qualification-types`) |
+| People > Employee Detail | Qualifications tab (no nav link, accessed via employee) |
+| ~~People > Qualifications~~ | **Removed** |
 
 ---
 
-## 10. Commit Sequence
+## 11. Commit Sequence
 
 ### Commit 1: `gap(quals): add qualification aggregates and persistence mappings`
 - `QualificationType`, `QualificationPrerequisite`, `EmployeeQualification`, `QualificationEvidence` entities
@@ -278,7 +372,7 @@ Added under **People** nav group with `employees/qualifications` permission key.
 
 ---
 
-## 11. Acceptance Scenarios
+## 12. Acceptance Scenarios
 
 ### Scenario 1: Create and query qualification types
 
@@ -350,15 +444,30 @@ THEN DomainEventReactor dispatches to QualificationReactiveService
 AND PrerequisiteEvaluationService creates a Pending qualification for Employee E
 ```
 
-### Scenario 7: Eligibility check with FRA certification
+### Scenario 7: Eligibility check with FRA certification (specific cert type)
 
 ```
 GIVEN PositionSlot requires QualificationType with EvaluationStrategy="FraCertification"
-AND Employee F has an active FRA EmployeeCertification (from B01)
+AND that QualificationType.RegulatoryQualificationCtrlNbr points to CFR-240-ENGINEER
+AND Employee F has an active FRA EmployeeCertification for CFR-240-ENGINEER
 WHEN CheckEligibility is called for Employee F
 THEN result is IsEligible=true, no blocking reasons
 
-GIVEN Employee G has no active FRA certification
-WHEN CheckEligibility is called for Employee G
+GIVEN Employee G has an active CFR-242-CONDUCTOR certification but NOT CFR-240-ENGINEER
+WHEN CheckEligibility is called for Employee G for a position requiring ENGINEER
 THEN result is IsEligible=false, blocking reason "FRA_CERT_MISSING"
+(conductor cert does not satisfy engineer requirement)
+```
+
+### Scenario 8: FRA qualification types auto-seeded on parent creation
+
+```
+GIVEN a new parent "Acme Railroad" is created
+THEN 3 QualificationType records are auto-seeded:
+  - Code="CFR-240-ENGINEER", IsSystemSeeded=true, IsBlocking=true, EvaluationStrategy="FraCertification"
+  - Code="CFR-242-CONDUCTOR", IsSystemSeeded=true, IsBlocking=true, EvaluationStrategy="FraCertification"
+  - Code="CFR-242-SWITCHMAN", IsSystemSeeded=true, IsBlocking=true, EvaluationStrategy="FraCertification"
+AND each has RegulatoryQualificationCtrlNbr pointing to the corresponding RegulatoryQualification
+AND they cannot be edited, deleted, or deactivated via the UI
+AND they appear in the Qualification Types list with an "FRA" badge
 ```

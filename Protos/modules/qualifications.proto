@@ -18,6 +18,10 @@ service QualificationsSrvc {
     option (google.api.http) = { get: "/v1/qualifications/types/{parent_ctrl_nbr}" };
   }
 
+  rpc GetRegulatoryQualifications (GetRegulatoryQualificationsRequest) returns (GetRegulatoryQualificationsResponse) {
+    option (google.api.http) = { get: "/v1/qualifications/regulatory-catalog" };
+  }
+
   rpc GetEmployeeQualifications (GetEmployeeQualificationsRequest) returns (GetEmployeeQualificationsResponse) {
     option (google.api.http) = { get: "/v1/qualifications/employees/{employee_ctrl_nbr}" };
   }
@@ -53,6 +57,7 @@ message CreateQualificationTypeRequest {
   int32 grace_days = 10;
   int32 renewal_lead_days = 11;
   bool is_blocking = 12;
+  optional int64 regulatory_qualification_ctrl_nbr = 13;
 }
 
 message SetQualificationTypeActiveRequest {
@@ -75,10 +80,25 @@ message QualificationTypeResponse {
   int32 renewal_lead_days = 12;
   bool is_blocking = 13;
   bool is_active = 14;
+  bool is_system_seeded = 15;
+  optional int64 regulatory_qualification_ctrl_nbr = 16;
 }
 
 message GetQualificationTypesResponse {
   repeated QualificationTypeResponse qualification_types = 1;
+}
+
+message GetRegulatoryQualificationsRequest {}
+
+message RegulatoryQualificationCatalogItem {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string cfr_part = 3;
+  string description = 4;
+}
+
+message GetRegulatoryQualificationsResponse {
+  repeated RegulatoryQualificationCatalogItem qualifications = 1;
 }
 
 message GetEmployeeQualificationsRequest {

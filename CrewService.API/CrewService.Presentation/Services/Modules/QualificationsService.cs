@@ -9,7 +9,8 @@ namespace CrewService.Presentation.Services.Modules;
 public sealed class QualificationsService(
     IQualificationTypeRepository qualificationTypeRepository,
     IEmployeeQualificationRepository employeeQualificationRepository,
-    EmployeeEligibilityService employeeEligibilityService)
+    EmployeeEligibilityService employeeEligibilityService,
+    IRegulatoryQualificationCatalog regulatoryQualificationCatalog)
     : QualificationsSrvc.QualificationsSrvcBase
 {
     public override async Task<QualificationTypeResponse> CreateQualificationType(
@@ -17,18 +18,21 @@ public sealed class QualificationsService(
         ServerCallContext context)
     {
         var qualificationType = QualificationType.Create(
-            ControlNumber.Create(request.ParentCtrlNbr),
-            request.Code,
-            request.Name,
-            string.IsNullOrWhiteSpace(request.EvaluationStrategy) ? "Manual" : request.EvaluationStrategy,
-            request.ScopeGroupCtrlNbr > 0 ? ControlNumber.Create(request.ScopeGroupCtrlNbr) : null,
-            request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null,
-            string.IsNullOrWhiteSpace(request.Description) ? null : request.Description,
-            request.ExpirationMonths > 0 ? request.ExpirationMonths : null,
-            request.CalendarYearExpiry,
-            request.GraceDays,
-            request.RenewalLeadDays,
-            request.IsBlocking);
+            parentCtrlNbr: ControlNumber.Create(request.ParentCtrlNbr),
+            code: request.Code,
+            name: request.Name,
+            evaluationStrategy: string.IsNullOrWhiteSpace(request.EvaluationStrategy) ? "Manual" : request.EvaluationStrategy,
+            scopeGroupCtrlNbr: request.ScopeGroupCtrlNbr > 0 ? ControlNumber.Create(request.ScopeGroupCtrlNbr) : null,
+            craftCtrlNbr: request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            regulatoryQualificationCtrlNbr: request.RegulatoryQualificationCtrlNbr > 0
+                ? ControlNumber.Create(request.RegulatoryQualificationCtrlNbr)
+                : null,
+            description: string.IsNullOrWhiteSpace(request.Description) ? null : request.Description,
+            expirationMonths: request.ExpirationMonths > 0 ? request.ExpirationMonths : null,
+            calendarYearExpiry: request.CalendarYearExpiry,
+            graceDays: request.GraceDays,
+            renewalLeadDays: request.RenewalLeadDays,
+            isBlocking: request.IsBlocking);
 
         await qualificationTypeRepository.AddAsync(qualificationType, context.CancellationToken);
         return MapQualificationType(qualificationType);
@@ -41,6 +45,9 @@ public sealed class QualificationsService(
         var qualificationType = await qualificationTypeRepository
             .GetByCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken)
             ?? throw new RpcException(new Status(StatusCode.NotFound, "Qualification type not found"));
+
+        if (qualificationType.IsSystemSeeded || qualificationType.EvaluationStrategy == "FraCertification")
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "FRA-managed qualification types cannot be modified from this menu"));
 
         if (request.IsActive)
             qualificationType.Activate();
@@ -74,6 +81,23 @@ public sealed class QualificationsService(
 
         var response = new GetEmployeeQualificationsResponse();
         response.Qualifications.AddRange(qualifications.Select(MapEmployeeQualification));
+        return response;
+    }
+
+    public override async Task<GetRegulatoryQualificationsResponse> GetRegulatoryQualifications(
+        GetRegulatoryQualificationsRequest request,
+        ServerCallContext context)
+    {
+        var catalog = await regulatoryQualificationCatalog.GetAllAsync(context.CancellationToken);
+        var response = new GetRegulatoryQualificationsResponse();
+        response.Qualifications.AddRange(catalog.Select(r => new RegulatoryQualificationCatalogItem
+        {
+            CtrlNbr = r.CtrlNbr.Value,
+            Code = r.Code,
+            CfrPart = r.CfrPart,
+            Description = r.Description
+        }));
+
         return response;
     }
 
@@ -185,6 +209,7 @@ public sealed class QualificationsService(
             RenewalLeadDays = qualificationType.RenewalLeadDays,
             IsBlocking = qualificationType.IsBlocking,
             IsActive = qualificationType.IsActive,
+            IsSystemSeeded = qualificationType.IsSystemSeeded,
         };
 
         if (qualificationType.ScopeGroupCtrlNbr is not null)
@@ -192,6 +217,9 @@ public sealed class QualificationsService(
 
         if (qualificationType.CraftCtrlNbr is not null)
             response.CraftCtrlNbr = qualificationType.CraftCtrlNbr.Value;
+
+        if (qualificationType.RegulatoryQualificationCtrlNbr is not null)
+            response.RegulatoryQualificationCtrlNbr = qualificationType.RegulatoryQualificationCtrlNbr.Value;
 
         if (qualificationType.ExpirationMonths.HasValue)
             response.ExpirationMonths = qualificationType.ExpirationMonths.Value;

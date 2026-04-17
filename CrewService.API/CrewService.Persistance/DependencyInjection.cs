@@ -201,6 +201,13 @@ public static class DependencyInjection
         // FRA Compliance Repositories (B01)
         services.AddScoped<IFraDutyTourRepository, FraDutyTourRepository>();
         services.AddScoped<IRegulatoryStandardRepository, RegulatoryStandardRepository>();
+        services.AddScoped<IRegulatoryQualificationRepository, RegulatoryQualificationRepository>();
+        services.AddScoped<IEmployeeCertificationReadRepository, EmployeeCertificationReadRepository>();
+        services.AddScoped<IEmployeeCertificationRepository, EmployeeCertificationRepository>();
+        services.AddScoped<ICertificationRevocationRepository, CertificationRevocationRepository>();
+        services.AddScoped<IDrugAlcoholTestRepository, DrugAlcoholTestRepository>();
+        services.AddScoped<IDrugAlcoholActionRepository, DrugAlcoholActionRepository>();
+        services.AddScoped<IVoluntaryReferralRepository, VoluntaryReferralRepository>();
 
         // Daily Operations Repositories (B02)
         services.AddScoped<IShiftDefinitionRepository, ShiftDefinitionRepository>();
@@ -265,6 +272,7 @@ public static class DependencyInjection
         services.AddScoped<IOnDutyRecordCounter, OnDutyRecordCounter>();
         services.AddScoped<ICraftMembershipDateProvider, CraftMembershipDateProvider>();
         services.AddScoped<IFraCertificationChecker, FraCertificationChecker>();
+        services.AddScoped<IRegulatoryQualificationCatalog, RegulatoryQualificationCatalog>();
 
         return services;
     }

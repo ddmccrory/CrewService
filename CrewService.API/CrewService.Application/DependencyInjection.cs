@@ -28,6 +28,11 @@ public static class DependencyInjection
         services.AddScoped<FraConsecutiveDayTracker>();
         services.AddScoped<FraExcessServiceDetector>();
         services.AddScoped<FraMonthlyCapTracker>();
+        services.AddScoped<CertificationEligibilityService>();
+        services.AddScoped<CertificationExpirationService>();
+        services.AddScoped<CertificationMonitoringService>();
+        services.AddScoped<CertificationRevocationService>();
+        services.AddScoped<DrugAlcoholCertificationImpactHandler>();
 
         // B02 – Daily Operations
         services.AddScoped<OnDutyPlacementService>();

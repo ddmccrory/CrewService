@@ -1,6 +1,7 @@
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,10 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));
 
+        builder.Property(qt => qt.RegulatoryQualificationCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+
         builder.Property(qt => qt.Code).HasMaxLength(50).IsRequired();
         builder.Property(qt => qt.Name).HasMaxLength(200).IsRequired();
         builder.Property(qt => qt.Description).HasMaxLength(500);
@@ -38,6 +43,7 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
         builder.Property(qt => qt.RenewalLeadDays).IsRequired();
         builder.Property(qt => qt.CalendarYearExpiry).IsRequired();
         builder.Property(qt => qt.IsBlocking).IsRequired();
+        builder.Property(qt => qt.IsSystemSeeded).IsRequired();
         builder.Property(qt => qt.IsActive).IsRequired();
 
         builder.HasIndex(qt => new { qt.ParentCtrlNbr, qt.Code }).IsUnique()
@@ -45,6 +51,7 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(qt => qt.ScopeGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(qt => qt.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(qt => qt.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Parent>().WithMany().HasForeignKey(qt => qt.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(qt => qt.Prerequisites)

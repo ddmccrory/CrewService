@@ -32,6 +32,19 @@ public sealed class QualificationsClient(
         }
     }
 
+    public async Task<GetRegulatoryQualificationsResponse> GetRegulatoryQualificationsAsync()
+    {
+        try
+        {
+            return await _client.GetRegulatoryQualificationsAsync(new GetRegulatoryQualificationsRequest());
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<QualificationTypeResponse> CreateQualificationTypeAsync(CreateQualificationTypeRequest request)
     {
         try

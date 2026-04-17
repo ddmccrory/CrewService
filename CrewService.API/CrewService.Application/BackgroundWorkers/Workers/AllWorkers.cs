@@ -1,5 +1,6 @@
 using CrewService.Domain.Modules.Infrastructure;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Application.FraCompliance;
 using CrewService.Application.Qualifications;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -80,9 +81,18 @@ public sealed class FraComplianceWorker(
     ILogger<FraComplianceWorker> logger)
     : WorkerBase(scopeFactory, logger, "FraCheck", TimeSpan.FromMinutes(5))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
-        return Task.CompletedTask;
+        var certifications = services.GetRequiredService<IEmployeeCertificationRepository>();
+
+        var allCertifications = await certifications.GetAllAsync(ct);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        foreach (var cert in allCertifications.Where(c => c.Status == "Active" && c.ExpirationDate <= today))
+        {
+            cert.Expire();
+            await certifications.UpdateAsync(cert, ct);
+        }
     }
 }
 

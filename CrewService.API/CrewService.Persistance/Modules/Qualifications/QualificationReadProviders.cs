@@ -36,9 +36,26 @@ internal sealed class CraftMembershipDateProvider(CrewServiceDbContext dbContext
 
 internal sealed class FraCertificationChecker(CrewServiceDbContext dbContext) : IFraCertificationChecker
 {
-    public async Task<bool> HasActiveCertificationAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    public async Task<bool> HasActiveCertificationAsync(ControlNumber employeeCtrlNbr, ControlNumber regulatoryQualificationCtrlNbr, CancellationToken ct = default)
     {
         return await dbContext.Set<EmployeeCertification>()
-            .AnyAsync(c => c.EmployeeCtrlNbr == employeeCtrlNbr && c.Status == "Active", ct);
+            .AnyAsync(c => c.EmployeeCtrlNbr == employeeCtrlNbr
+                        && c.RegulatoryQualificationCtrlNbr == regulatoryQualificationCtrlNbr
+                        && c.Status == "Active", ct);
+    }
+}
+
+internal sealed class RegulatoryQualificationCatalog(CrewServiceDbContext dbContext) : IRegulatoryQualificationCatalog
+{
+    public async Task<IReadOnlyList<RegulatoryQualificationCatalogEntry>> GetAllAsync(CancellationToken ct = default)
+    {
+        return await dbContext.Set<RegulatoryQualification>()
+            .OrderBy(r => r.Code)
+            .Select(r => new RegulatoryQualificationCatalogEntry(
+                r.CtrlNbr,
+                r.Code,
+                r.CfrPart,
+                r.Description))
+            .ToListAsync(ct);
     }
 }

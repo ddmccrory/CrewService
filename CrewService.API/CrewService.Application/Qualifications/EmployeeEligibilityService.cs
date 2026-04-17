@@ -6,7 +6,7 @@ namespace CrewService.Application.Qualifications;
 
 public interface IFraCertificationChecker
 {
-    Task<bool> HasActiveCertificationAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<bool> HasActiveCertificationAsync(ControlNumber employeeCtrlNbr, ControlNumber regulatoryQualificationCtrlNbr, CancellationToken ct = default);
 }
 
 public sealed class EmployeeEligibilityService(
@@ -68,10 +68,16 @@ public sealed class EmployeeEligibilityService(
 
             if (qualType.EvaluationStrategy == "FraCertification")
             {
-                if (fraCertificationChecker is not null)
+                if (qualType.RegulatoryQualificationCtrlNbr is null)
+                {
+                    blockingReasons.Add(new BlockingReason(
+                        "FRA_CERT_REQUIREMENT_INVALID",
+                        $"FRA certification requirement is not configured for {qualType.Name}"));
+                }
+                else if (fraCertificationChecker is not null)
                 {
                     var hasCert = await fraCertificationChecker
-                        .HasActiveCertificationAsync(employeeCtrlNbr, ct);
+                        .HasActiveCertificationAsync(employeeCtrlNbr, qualType.RegulatoryQualificationCtrlNbr, ct);
 
                     if (!hasCert)
                     {

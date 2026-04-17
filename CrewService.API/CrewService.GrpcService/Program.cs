@@ -75,9 +75,9 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
     });
-
-    await app.Services.MigrateDatabasesAsync();
 }
+
+await app.Services.MigrateDatabasesAsync();
 
 // Baseline data required in all environments (idempotent)
 await BaselineSeeder.SeedAsync(app.Services);
