@@ -49,3 +49,13 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Keep list-page row action buttons compact/flat across all DataTable screens */
+.table td .d-flex.gap-1 > .btn.btn-sm {
+    white-space: nowrap;
+    align-self: center;
+}
+
+.table td .d-flex.gap-1 > .btn.btn-sm.flex-fill {
+    flex: 0 0 auto !important;
+}

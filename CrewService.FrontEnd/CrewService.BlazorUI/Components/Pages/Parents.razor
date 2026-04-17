@@ -73,11 +73,14 @@
     </ToolbarContent>
     <RowContent Context="parent">
         <td>
-            <a href="/parents/@parent.CtrlNbr" class="text-decoration-none">@parent.Name</a>
+            @parent.Name
         </td>
         <td>@parent.Railroads.Count</td>
         <td>
             <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="() => OpenDetails(parent)">
+                    <span class="bi bi-info-circle"></span> Details
+                </button>
                 <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(parent)">
                     <span class="bi bi-pencil"></span> Edit
                 </button>
@@ -154,6 +157,9 @@
         deleteParentName = parent.Name;
         showDeleteModal = true;
     }
+
+    private void OpenDetails(GetParentResponse parent)
+        => NavigationManager.NavigateTo($"/parents/{parent.CtrlNbr}");
 
     private async Task OnSave()
     {
