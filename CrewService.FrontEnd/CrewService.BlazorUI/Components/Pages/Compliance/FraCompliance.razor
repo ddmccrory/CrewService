@@ -1,0 +1,461 @@
+@page "/compliance/fra"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject FraComplianceClient FraComplianceClient
+@inject EmployeeClient EmployeeClient
+@inject QualificationsClient QualificationsClient
+
+<PageTitle>FRA Certification</PageTitle>
+
+<h1>FRA Certification</h1>
+
+@if (!HasParent)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent in the context switcher to manage FRA certification.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">Managing FRA Certification for <strong>@SelectedParentName</strong></p>
+
+    <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-outline-secondary" @onclick="LoadCertifications">
+            <span class="bi bi-arrow-repeat"></span> Refresh
+        </button>
+    </div>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Certification" : "Create Certification")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-cert-form">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Employee</label>
+                        <FilterSelect TItem="EmployeeOption" TValue="long"
+                                      Value="saveModel.EmployeeCtrlNbr"
+                                      ValueChanged="OnSaveEmployeeChanged"
+                                      Items="employeeOptions"
+                                      ValueSelector="@(e => e.CtrlNbr)"
+                                      TextSelector="@(e => e.Display)"
+                                      Searchable="true"
+                                      AlwaysShowPlaceholder="true"
+                                      Placeholder="-- Select Employee --"
+                                      class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Regulatory Qualification</label>
+                        <SelectInput TItem="RegulatoryQualificationCatalogItem" TValue="long"
+                                     @bind-Value="saveModel.RegulatoryQualificationCtrlNbr"
+                                     Items="regulatoryQualifications"
+                                     ValueSelector="@(r => r.CtrlNbr)"
+                                     TextSelector="@(r => $"{r.Code.ToUpperInvariant()} - {r.Description}")"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Certification Type</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="saveModel.CertificationType"
+                                     Items="certificationTypes"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Effective Date</label>
+                        <InputDate @bind-Value="saveModel.CertificationDate" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Certification Number</label>
+                        <InputText @bind-Value="saveModel.CertificationNumber" class="form-control" placeholder="Optional" />
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-cert-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <ConfirmModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
+                  OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="CertificationResponse"
+               Items="certifications"
+               Columns="columns"
+               SearchFilter="@((c, term) => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveEmployeeName(c.EmployeeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || c.CertificationType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search certifications..."
+               EmptyMessage="No certifications found."
+               DefaultSortColumn="Code">
+        <ToolbarContent>
+                <div class="d-flex flex-column align-items-start">
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-primary" @onclick="OpenCreateModal">
+                            <span class="bi bi-plus-circle"></span> Add Certification
+                        </button>
+                    }
+            </div>
+        </ToolbarContent>
+        <RowContent Context="c">
+            <td>@ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).ToUpperInvariant()</td>
+            <td>@ResolveEmployeeName(c.EmployeeCtrlNbr)</td>
+            <td>@c.CertificationType</td>
+            <td>@c.EffectiveDate</td>
+            <td>@c.ExpirationDate</td>
+            <td>@c.Status</td>
+            <td>@(string.IsNullOrWhiteSpace(c.CertificationNumber) ? "—" : c.CertificationNumber)</td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenDetails(c)">Details</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRevocationWorkflow(c)">
+                            @(c.Status is "Revoked" or "Suspended" ? "Resolve" : "Revoke")
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditModal(c)">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeleteModal(c)">Delete</button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "compliance/fra";
+
+    private IReadOnlyList<EmployeeOption> employeeOptions = [];
+    private IReadOnlyList<RegulatoryQualificationCatalogItem> regulatoryQualifications = [];
+    private IReadOnlyList<CertificationResponse>? certifications;
+    private Dictionary<long, string> employeeNames = [];
+    private bool isPageLoading = true;
+    private bool areEmployeeOptionsLoaded;
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private CertificationSaveModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = string.Empty;
+
+    private readonly IReadOnlyList<string> certificationTypes = ["LocomotiveService", "TrainService", "Passenger", "Freight", "Yard"];
+
+    private static readonly IReadOnlyList<DataTableColumn<CertificationResponse>> columns =
+    [
+        new("Code", c => c.RegulatoryQualificationCtrlNbr.ToString()),
+        new("Employee", c => c.EmployeeCtrlNbr.ToString()),
+        new("Requirement", c => c.CertificationType),
+        new("Effective", c => c.EffectiveDate),
+        new("Renewal", c => c.ExpirationDate),
+        new("Status", c => c.Status),
+        new("Number", c => c.CertificationNumber ?? string.Empty),
+        DataTableColumn<CertificationResponse>.Actions()
+    ];
+
+    protected override Task LoadDataAsync()
+    {
+        if (!HasParent)
+        {
+            isPageLoading = false;
+            return Task.CompletedTask;
+        }
+
+        isPageLoading = true;
+        _ = LoadPageDataAsync();
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (!HasParent)
+        {
+            employeeOptions = [];
+            regulatoryQualifications = [];
+            certifications = [];
+            employeeNames = [];
+            areEmployeeOptionsLoaded = false;
+            isPageLoading = false;
+            return;
+        }
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadPageDataAsync()
+    {
+        try
+        {
+            certifications = null;
+            await LoadRegulatoryQualifications();
+            await LoadCertifications();
+        }
+        finally
+        {
+            isPageLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadEmployees()
+    {
+        var response = await EmployeeClient.GetAllAsync(SelectedParentCtrlNbr!.Value);
+        employeeOptions = response.Employees
+            .Select(e => new EmployeeOption(e.CtrlNbr, $"{e.EmployeeNumber} - {e.FullNameLnf}"))
+            .OrderBy(e => e.Display)
+            .ToList();
+        areEmployeeOptionsLoaded = true;
+    }
+
+    private async Task LoadRegulatoryQualifications()
+    {
+        var response = await QualificationsClient.GetRegulatoryQualificationsAsync();
+        regulatoryQualifications = response.Qualifications.OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private async Task LoadCertifications()
+    {
+        if (!SelectedParentCtrlNbr.HasValue)
+        {
+            certifications = [];
+            return;
+        }
+
+        var response = await FraComplianceClient.GetCertificationsByClientAsync(
+            SelectedParentCtrlNbr!.Value,
+            "Pending",
+            "Active");
+
+        certifications = response.Certifications.ToList();
+
+        certifications = certifications
+            .OrderBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => ResolveEmployeeName(c.EmployeeCtrlNbr), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        _ = LoadEmployeeNamesInBackground(certifications.Select(c => c.EmployeeCtrlNbr).Distinct().ToList());
+    }
+
+    private async Task OpenCreateModal()
+    {
+        await EnsureEmployeeOptionsLoaded();
+
+        editCtrlNbr = 0;
+        saveModel = new CertificationSaveModel
+        {
+            EmployeeCtrlNbr = 0,
+            CertificationDate = DateTime.UtcNow.Date
+        };
+        showSaveModal = true;
+    }
+
+    private async Task OpenEditModal(CertificationResponse certification)
+    {
+        await EnsureEmployeeOptionsLoaded();
+
+        editCtrlNbr = certification.CtrlNbr;
+        saveModel = new CertificationSaveModel
+        {
+            EmployeeCtrlNbr = certification.EmployeeCtrlNbr,
+            RegulatoryQualificationCtrlNbr = certification.RegulatoryQualificationCtrlNbr,
+            CertificationType = certification.CertificationType,
+            CertificationDate = DateTime.TryParse(certification.EffectiveDate, out var parsedDate) ? parsedDate : DateTime.UtcNow.Date,
+            CertificationNumber = certification.CertificationNumber
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private void OpenDeleteModal(CertificationResponse certification)
+    {
+        deleteCtrlNbr = certification.CtrlNbr;
+        deleteName = $"{ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant()} - {certification.CertificationType}";
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (saveModel.EmployeeCtrlNbr <= 0)
+            {
+                errorMessage = "Select an employee.";
+                return;
+            }
+
+            if (editCtrlNbr > 0)
+            {
+                await FraComplianceClient.UpdateEmployeeCertificationAsync(new UpdateEmployeeCertificationRequest
+                {
+                    CtrlNbr = editCtrlNbr,
+                    RegulatoryQualificationCtrlNbr = saveModel.RegulatoryQualificationCtrlNbr,
+                    CertificationType = saveModel.CertificationType ?? string.Empty,
+                    CertificationDate = saveModel.CertificationDate.ToString("yyyy-MM-dd"),
+                    CertificationNumber = saveModel.CertificationNumber ?? string.Empty
+                });
+                successMessage = "Certification updated.";
+            }
+            else
+            {
+                await FraComplianceClient.CreateEmployeeCertificationAsync(new CreateEmployeeCertificationRequest
+                {
+                    EmployeeCtrlNbr = saveModel.EmployeeCtrlNbr,
+                    RegulatoryQualificationCtrlNbr = saveModel.RegulatoryQualificationCtrlNbr,
+                    CertificationType = saveModel.CertificationType ?? string.Empty,
+                    CertificationDate = saveModel.CertificationDate.ToString("yyyy-MM-dd"),
+                    CertificationNumber = saveModel.CertificationNumber ?? string.Empty
+                });
+                successMessage = "Certification created.";
+            }
+
+            CloseSaveModal();
+            await LoadCertifications();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save certification: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await FraComplianceClient.DeleteEmployeeCertificationAsync(deleteCtrlNbr);
+            showDeleteModal = false;
+            successMessage = "Certification deleted.";
+            await LoadCertifications();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete certification: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OpenDetails(CertificationResponse certification)
+    {
+        NavigationManager.NavigateTo($"/compliance/fra/{certification.EmployeeCtrlNbr}/{certification.CtrlNbr}");
+    }
+
+    private void OpenRevocationWorkflow(CertificationResponse certification)
+    {
+        NavigationManager.NavigateTo($"/compliance/fra/{certification.EmployeeCtrlNbr}/{certification.CtrlNbr}?tab=revocations");
+    }
+
+    private string ResolveRegulatoryCode(long regulatoryQualificationCtrlNbr)
+    {
+        var item = regulatoryQualifications.FirstOrDefault(r => r.CtrlNbr == regulatoryQualificationCtrlNbr);
+        return item?.Code ?? regulatoryQualificationCtrlNbr.ToString();
+    }
+
+    private string ResolveEmployeeName(long employeeCtrlNbr)
+        => employeeNames.TryGetValue(employeeCtrlNbr, out var name) ? name : employeeCtrlNbr.ToString();
+
+    private async Task EnsureEmployeeOptionsLoaded()
+    {
+        if (areEmployeeOptionsLoaded)
+            return;
+
+        await LoadEmployees();
+    }
+
+    private async Task EnsureEmployeeNamesLoaded(IEnumerable<long> employeeCtrlNbrs)
+    {
+        var missingCtrlNbrs = employeeCtrlNbrs
+            .Distinct()
+            .Where(ctrlNbr => !employeeNames.ContainsKey(ctrlNbr))
+            .ToList();
+
+        if (missingCtrlNbrs.Count == 0)
+            return;
+
+        var employeeDetails = await Task.WhenAll(missingCtrlNbrs.Select(EmployeeClient.GetByCtrlNbrAsync));
+        foreach (var detail in employeeDetails)
+        {
+            employeeNames[detail.CtrlNbr] = $"{detail.EmployeeNumber} - {detail.FullNameLnf}";
+        }
+    }
+
+    private async Task LoadEmployeeNamesInBackground(IReadOnlyList<long> employeeCtrlNbrs)
+    {
+        try
+        {
+            await EnsureEmployeeNamesLoaded(employeeCtrlNbrs);
+
+            certifications = certifications
+                .OrderBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(c => ResolveEmployeeName(c.EmployeeCtrlNbr), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+        }
+    }
+
+    private Task OnSaveEmployeeChanged(long value)
+    {
+        saveModel.EmployeeCtrlNbr = value;
+        return Task.CompletedTask;
+    }
+
+    private sealed record EmployeeOption(long CtrlNbr, string Display);
+
+    private sealed class CertificationSaveModel
+    {
+        public long EmployeeCtrlNbr { get; set; }
+        public long RegulatoryQualificationCtrlNbr { get; set; }
+        public string? CertificationType { get; set; }
+        public DateTime CertificationDate { get; set; }
+        public string? CertificationNumber { get; set; }
+    }
+}

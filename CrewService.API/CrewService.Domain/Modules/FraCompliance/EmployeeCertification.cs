@@ -43,9 +43,28 @@ public sealed class EmployeeCertification : Entity
             CertificationType = certificationType,
             CertificationDate = certificationDate,
             ExpirationDate = certificationDate.AddMonths(recertificationIntervalMonths),
-            Status = "Active",
+            Status = "Pending",
             CertificationNumber = certificationNumber
         };
+    }
+
+    public void Activate()
+    {
+        Status = "Active";
+    }
+
+    public void UpdateCertificationDetails(
+        ControlNumber regulatoryQualificationCtrlNbr,
+        string certificationType,
+        DateOnly certificationDate,
+        int recertificationIntervalMonths,
+        string? certificationNumber)
+    {
+        RegulatoryQualificationCtrlNbr = regulatoryQualificationCtrlNbr;
+        CertificationType = certificationType;
+        CertificationDate = certificationDate;
+        ExpirationDate = certificationDate.AddMonths(recertificationIntervalMonths);
+        CertificationNumber = certificationNumber;
     }
 
     public void Suspend(string reason)
@@ -86,5 +105,28 @@ public sealed class EmployeeCertification : Entity
             CtrlNbr, checkType, evaluationDate, stalenessLimitDays, result, evaluatorName);
         _eligibilityChecks.Add(check);
         return check;
+    }
+
+    public CertificationEligibilityCheck UpdateEligibilityCheck(
+        ControlNumber eligibilityCheckCtrlNbr,
+        string checkType,
+        DateOnly evaluationDate,
+        int stalenessLimitDays,
+        string result,
+        string? evaluatorName)
+    {
+        var check = _eligibilityChecks.FirstOrDefault(c => c.CtrlNbr == eligibilityCheckCtrlNbr)
+            ?? throw new InvalidOperationException("Eligibility check not found");
+
+        check.Update(checkType, evaluationDate, stalenessLimitDays, result, evaluatorName);
+        return check;
+    }
+
+    public void DeleteEligibilityCheck(ControlNumber eligibilityCheckCtrlNbr)
+    {
+        var check = _eligibilityChecks.FirstOrDefault(c => c.CtrlNbr == eligibilityCheckCtrlNbr)
+            ?? throw new InvalidOperationException("Eligibility check not found");
+
+        _eligibilityChecks.Remove(check);
     }
 }

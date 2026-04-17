@@ -37,3 +37,50 @@ public interface IRegulatoryStandardRepository
     Task<RegulatoryStandard?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
     Task AddAsync(RegulatoryStandard standard, CancellationToken ct = default);
 }
+
+public interface IRegulatoryQualificationRepository
+{
+    Task<List<RegulatoryQualification>> GetAllAsync(CancellationToken ct = default);
+    Task<RegulatoryQualification?> GetByCodeAsync(string code, CancellationToken ct = default);
+    Task AddAsync(RegulatoryQualification qualification, CancellationToken ct = default);
+}
+
+public interface IEmployeeCertificationRepository
+{
+    Task<List<EmployeeCertification>> GetAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<EmployeeCertification>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<EmployeeCertification?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task<EmployeeCertification?> GetByCtrlNbrWithChecksAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task<EmployeeCertification?> GetByEligibilityCheckCtrlNbrWithChecksAsync(ControlNumber eligibilityCheckCtrlNbr, CancellationToken ct = default);
+    Task AddAsync(EmployeeCertification certification, CancellationToken ct = default);
+    Task UpdateAsync(EmployeeCertification certification, CancellationToken ct = default);
+    Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+}
+
+public interface ICertificationRevocationRepository
+{
+    Task<CertificationRevocationRecord?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task<IReadOnlyList<CertificationRevocationRecord>> GetByCertificationCtrlNbrAsync(ControlNumber employeeCertificationCtrlNbr, CancellationToken ct = default);
+    Task AddAsync(CertificationRevocationRecord revocationRecord, CancellationToken ct = default);
+    Task UpdateAsync(CertificationRevocationRecord revocationRecord, CancellationToken ct = default);
+}
+
+public interface IDrugAlcoholTestRepository
+{
+    Task<IReadOnlyList<DrugAlcoholTestRecord>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task AddAsync(DrugAlcoholTestRecord testRecord, CancellationToken ct = default);
+}
+
+public interface IDrugAlcoholActionRepository
+{
+    Task<IReadOnlyList<DrugAlcoholAction>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task AddAsync(DrugAlcoholAction action, CancellationToken ct = default);
+}
+
+public interface IVoluntaryReferralRepository
+{
+    Task<IReadOnlyList<VoluntaryReferral>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<VoluntaryReferral?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task AddAsync(VoluntaryReferral referral, CancellationToken ct = default);
+    Task UpdateAsync(VoluntaryReferral referral, CancellationToken ct = default);
+}

@@ -3,6 +3,7 @@ syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
 
 service FraComplianceSrvc {
@@ -14,6 +15,90 @@ service FraComplianceSrvc {
   }
   rpc GetEmployeeCertifications (GetEmployeeCertificationsRequest) returns (GetEmployeeCertificationsResponse) {
     option (google.api.http) = { get: "/api/fra/certifications/{employee_ctrl_nbr}" };
+  }
+
+  rpc GetCertificationsByClient (GetCertificationsByClientRequest) returns (GetEmployeeCertificationsResponse) {
+    option (google.api.http) = { get: "/api/fra/certifications/client/{client_ctrl_nbr}" };
+  }
+
+  rpc CreateEmployeeCertification (CreateEmployeeCertificationRequest) returns (CertificationResponse) {
+    option (google.api.http) = { post: "/api/fra/certifications" body: "*" };
+  }
+
+  rpc UpdateEmployeeCertification (UpdateEmployeeCertificationRequest) returns (CertificationResponse) {
+    option (google.api.http) = { post: "/api/fra/certifications/update" body: "*" };
+  }
+
+  rpc DeleteEmployeeCertification (DeleteEmployeeCertificationRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { post: "/api/fra/certifications/delete" body: "*" };
+  }
+
+  rpc GetCertificationRevocationHistory (GetCertificationRevocationHistoryRequest) returns (GetCertificationRevocationHistoryResponse) {
+    option (google.api.http) = { get: "/api/fra/certifications/{employee_certification_ctrl_nbr}/revocations" };
+  }
+
+  rpc StartCertificationRevocation (StartCertificationRevocationRequest) returns (CertificationRevocationResponse) {
+    option (google.api.http) = { post: "/api/fra/revocations/start" body: "*" };
+  }
+
+  rpc RecordRevocationNotice (RecordRevocationNoticeRequest) returns (CertificationRevocationResponse) {
+    option (google.api.http) = { post: "/api/fra/revocations/notice" body: "*" };
+  }
+
+  rpc ScheduleRevocationHearing (ScheduleRevocationHearingRequest) returns (CertificationRevocationResponse) {
+    option (google.api.http) = { post: "/api/fra/revocations/schedule-hearing" body: "*" };
+  }
+
+  rpc DecideRevocation (DecideRevocationRequest) returns (CertificationRevocationResponse) {
+    option (google.api.http) = { post: "/api/fra/revocations/decide" body: "*" };
+  }
+
+  rpc GetCertificationEligibilityChecks (GetCertificationEligibilityChecksRequest) returns (GetCertificationEligibilityChecksResponse) {
+    option (google.api.http) = { get: "/api/fra/certifications/{employee_certification_ctrl_nbr}/eligibility-checks" };
+  }
+
+  rpc AddCertificationEligibilityCheck (AddCertificationEligibilityCheckRequest) returns (CertificationEligibilityCheckResponse) {
+    option (google.api.http) = { post: "/api/fra/certifications/eligibility-checks" body: "*" };
+  }
+
+  rpc UpdateCertificationEligibilityCheck (UpdateCertificationEligibilityCheckRequest) returns (CertificationEligibilityCheckResponse) {
+    option (google.api.http) = { post: "/api/fra/certifications/eligibility-checks/update" body: "*" };
+  }
+
+  rpc DeleteCertificationEligibilityCheck (DeleteCertificationEligibilityCheckRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { post: "/api/fra/certifications/eligibility-checks/delete" body: "*" };
+  }
+
+  rpc AddEmployeeRequirementResult (AddEmployeeRequirementResultRequest) returns (AddEmployeeRequirementResultResponse) {
+    option (google.api.http) = { post: "/api/fra/requirements/results" body: "*" };
+  }
+
+  rpc GetCertificationComplianceSummary (GetCertificationComplianceSummaryRequest) returns (CertificationComplianceSummaryResponse) {
+    option (google.api.http) = { get: "/api/fra/certifications/{employee_certification_ctrl_nbr}/compliance-summary" };
+  }
+
+  rpc RecordDrugAlcoholTest (RecordDrugAlcoholTestRequest) returns (DrugAlcoholTestResponse) {
+    option (google.api.http) = { post: "/api/fra/drug-alcohol/tests" body: "*" };
+  }
+
+  rpc GetDrugAlcoholTests (GetDrugAlcoholTestsRequest) returns (GetDrugAlcoholTestsResponse) {
+    option (google.api.http) = { get: "/api/fra/drug-alcohol/tests/{employee_ctrl_nbr}" };
+  }
+
+  rpc GetDrugAlcoholActions (GetDrugAlcoholActionsRequest) returns (GetDrugAlcoholActionsResponse) {
+    option (google.api.http) = { get: "/api/fra/drug-alcohol/actions/{employee_ctrl_nbr}" };
+  }
+
+  rpc CreateVoluntaryReferral (CreateVoluntaryReferralRequest) returns (VoluntaryReferralResponse) {
+    option (google.api.http) = { post: "/api/fra/drug-alcohol/referrals" body: "*" };
+  }
+
+  rpc GetVoluntaryReferrals (GetVoluntaryReferralsRequest) returns (GetVoluntaryReferralsResponse) {
+    option (google.api.http) = { get: "/api/fra/drug-alcohol/referrals/{employee_ctrl_nbr}" };
+  }
+
+  rpc UpdateVoluntaryReferral (UpdateVoluntaryReferralRequest) returns (VoluntaryReferralResponse) {
+    option (google.api.http) = { post: "/api/fra/drug-alcohol/referrals/update" body: "*" };
   }
 }
 
@@ -51,6 +136,11 @@ message GetEmployeeCertificationsRequest {
   int64 employee_ctrl_nbr = 1;
 }
 
+message GetCertificationsByClientRequest {
+  int64 client_ctrl_nbr = 1;
+  repeated string statuses = 2;
+}
+
 message GetEmployeeCertificationsResponse {
   repeated CertificationResponse certifications = 1;
 }
@@ -58,8 +148,223 @@ message GetEmployeeCertificationsResponse {
 message CertificationResponse {
   int64 ctrl_nbr = 1;
   int64 employee_ctrl_nbr = 2;
+  int64 regulatory_qualification_ctrl_nbr = 3;
+  string certification_type = 4;
+  string status = 5;
+  string expiration_date = 6;
+  optional string certification_number = 7;
+  string effective_date = 8;
+}
+
+message CreateEmployeeCertificationRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 regulatory_qualification_ctrl_nbr = 2;
   string certification_type = 3;
-  string status = 4;
-  string expiration_date = 5;
-  optional string certification_number = 6;
+  string certification_date = 4;
+  optional string certification_number = 5;
+}
+
+message UpdateEmployeeCertificationRequest {
+  int64 ctrl_nbr = 1;
+  int64 regulatory_qualification_ctrl_nbr = 2;
+  string certification_type = 3;
+  string certification_date = 4;
+  optional string certification_number = 5;
+}
+
+message DeleteEmployeeCertificationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetCertificationRevocationHistoryRequest {
+  int64 employee_certification_ctrl_nbr = 1;
+}
+
+message CertificationRevocationResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_certification_ctrl_nbr = 2;
+  string violation_type = 3;
+  google.protobuf.Timestamp violation_date = 4;
+  google.protobuf.Timestamp suspended_at_utc = 5;
+  optional google.protobuf.Timestamp written_notice_at_utc = 6;
+  optional google.protobuf.Timestamp hearing_scheduled_utc = 7;
+  optional google.protobuf.Timestamp hearing_held_utc = 8;
+  optional int64 presiding_officer_ctrl_nbr = 9;
+  optional string decision = 10;
+  optional google.protobuf.Timestamp decision_date = 11;
+  optional int32 revocation_period_months = 12;
+  optional google.protobuf.Timestamp revocation_ends_utc = 13;
+}
+
+message GetCertificationRevocationHistoryResponse {
+  repeated CertificationRevocationResponse revocations = 1;
+}
+
+message StartCertificationRevocationRequest {
+  int64 employee_certification_ctrl_nbr = 1;
+  string violation_type = 2;
+  google.protobuf.Timestamp violation_date = 3;
+}
+
+message RecordRevocationNoticeRequest {
+  int64 revocation_record_ctrl_nbr = 1;
+}
+
+message ScheduleRevocationHearingRequest {
+  int64 revocation_record_ctrl_nbr = 1;
+  google.protobuf.Timestamp hearing_date = 2;
+}
+
+message DecideRevocationRequest {
+  int64 revocation_record_ctrl_nbr = 1;
+  string decision = 2;
+  optional int32 revocation_period_months = 3;
+}
+
+message GetCertificationEligibilityChecksRequest {
+  int64 employee_certification_ctrl_nbr = 1;
+}
+
+message CertificationEligibilityCheckResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_certification_ctrl_nbr = 2;
+  string check_type = 3;
+  string evaluation_date = 4;
+  int32 staleness_limit_days = 5;
+  string expires_at_date = 6;
+  string result = 7;
+  optional string evaluator_name = 8;
+  bool is_stale = 9;
+}
+
+message GetCertificationEligibilityChecksResponse {
+  repeated CertificationEligibilityCheckResponse checks = 1;
+}
+
+message AddCertificationEligibilityCheckRequest {
+  int64 employee_certification_ctrl_nbr = 1;
+  string check_type = 2;
+  string evaluation_date = 3;
+  string result = 4;
+  optional string evaluator_name = 5;
+}
+
+message UpdateCertificationEligibilityCheckRequest {
+  int64 eligibility_check_ctrl_nbr = 1;
+  string check_type = 2;
+  string evaluation_date = 3;
+  string result = 4;
+  optional string evaluator_name = 5;
+}
+
+message DeleteCertificationEligibilityCheckRequest {
+  int64 eligibility_check_ctrl_nbr = 1;
+}
+
+message AddEmployeeRequirementResultRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 regulatory_qualification_ctrl_nbr = 2;
+  string certification_type = 3;
+  string check_type = 4;
+  string evaluation_date = 5;
+  string result = 6;
+  optional string evaluator_name = 7;
+}
+
+message AddEmployeeRequirementResultResponse {
+  CertificationEligibilityCheckResponse check = 1;
+  CertificationResponse certification = 2;
+  bool certification_activated = 3;
+}
+
+message GetCertificationComplianceSummaryRequest {
+  int64 employee_certification_ctrl_nbr = 1;
+}
+
+message CertificationComplianceSummaryResponse {
+  bool is_expired = 1;
+  bool is_expiring_soon = 2;
+  bool is_monitoring_observation_current = 3;
+  bool is_compliance_test_current = 4;
+  bool is_fully_compliant = 5;
+  repeated string stale_or_missing_checks = 6;
+}
+
+message RecordDrugAlcoholTestRequest {
+  int64 employee_ctrl_nbr = 1;
+  string test_type = 2;
+  google.protobuf.Timestamp test_date = 3;
+  optional double alcohol_result = 4;
+  optional string drug_result = 5;
+  optional string substances_detected = 6;
+  bool federal_authority = 7;
+}
+
+message DrugAlcoholTestResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  string test_type = 3;
+  google.protobuf.Timestamp test_date = 4;
+  optional double alcohol_result = 5;
+  optional string drug_result = 6;
+  optional string substances_detected = 7;
+  bool is_violation = 8;
+  bool federal_authority = 9;
+}
+
+message GetDrugAlcoholTestsRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message GetDrugAlcoholTestsResponse {
+  repeated DrugAlcoholTestResponse tests = 1;
+}
+
+message DrugAlcoholActionResponse {
+  int64 ctrl_nbr = 1;
+  int64 test_record_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string action_type = 4;
+  google.protobuf.Timestamp action_date = 5;
+  optional string notes = 6;
+}
+
+message GetDrugAlcoholActionsRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message GetDrugAlcoholActionsResponse {
+  repeated DrugAlcoholActionResponse actions = 1;
+}
+
+message CreateVoluntaryReferralRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message VoluntaryReferralResponse {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  google.protobuf.Timestamp referral_date = 3;
+  optional google.protobuf.Timestamp sap_evaluation_date = 4;
+  optional google.protobuf.Timestamp treatment_completed_date = 5;
+  optional google.protobuf.Timestamp return_to_duty_test_date = 6;
+  optional string return_to_duty_result = 7;
+  int32 follow_up_tests_required = 8;
+  optional google.protobuf.Timestamp follow_up_end_date = 9;
+  string status = 10;
+}
+
+message GetVoluntaryReferralsRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message GetVoluntaryReferralsResponse {
+  repeated VoluntaryReferralResponse referrals = 1;
+}
+
+message UpdateVoluntaryReferralRequest {
+  int64 referral_ctrl_nbr = 1;
+  string action_type = 2;
+  optional google.protobuf.Timestamp action_date = 3;
+  optional string return_to_duty_result = 4;
 }

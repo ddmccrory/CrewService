@@ -36,4 +36,19 @@ public sealed class CertificationEligibilityCheck : Entity
     }
 
     public bool IsStale(DateOnly asOfDate) => asOfDate > ExpiresAtDate;
+
+    public void Update(
+        string checkType,
+        DateOnly evaluationDate,
+        int stalenessLimitDays,
+        string result,
+        string? evaluatorName)
+    {
+        CheckType = checkType;
+        EvaluationDate = evaluationDate;
+        StalenessLimitDays = stalenessLimitDays;
+        ExpiresAtDate = evaluationDate.AddDays(stalenessLimitDays);
+        Result = result;
+        EvaluatorName = evaluatorName;
+    }
 }

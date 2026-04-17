@@ -38,6 +38,7 @@ builder.Services.AddScoped<WorkManagementClient>();
 builder.Services.AddScoped<DailyOperationsClient>();
 builder.Services.AddScoped<AuditLogClient>();
 builder.Services.AddScoped<QualificationsClient>();
+builder.Services.AddScoped<FraComplianceClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 

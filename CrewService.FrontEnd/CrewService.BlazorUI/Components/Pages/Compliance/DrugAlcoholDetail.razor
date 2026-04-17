@@ -1,0 +1,309 @@
+@page "/compliance/drug-alcohol/{EmployeeCtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject FraComplianceClient FraComplianceClient
+@inject EmployeeClient EmployeeClient
+
+<PageTitle>Drug & Alcohol Detail</PageTitle>
+
+@if (employeeName is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="Drug & Alcohol" OnClick="@(() => NavigationManager.NavigateTo("/compliance/drug-alcohol"))" />
+
+    <h1>Drug & Alcohol - @employeeName</h1>
+
+    <Modal Visible="showRecordTestModal"
+           Title="Record Drug/Alcohol Test"
+           Icon="bi bi-shield-check"
+           OnClose="CloseRecordTestModal">
+        <BodyContent>
+            <EditForm Model="recordTestModel" OnValidSubmit="RecordDrugAlcoholTest" id="record-test-form">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Test Type</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="recordTestModel.TestType"
+                                     Items="testTypes"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Test Date</label>
+                        <InputDate @bind-Value="recordTestModel.TestDate" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Alcohol Result</label>
+                        <InputNumber @bind-Value="recordTestModel.AlcoholResult" class="form-control" step="0.001" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Drug Result</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="recordTestModel.DrugResult"
+                                     Items="drugResults"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Substances Detected</label>
+                        <InputText @bind-Value="recordTestModel.SubstancesDetected" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch mt-4">
+                            <InputCheckbox @bind-Value="recordTestModel.FederalAuthority" class="form-check-input" />
+                            <label class="form-check-label">Federal Authority</label>
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseRecordTestModal">Cancel</button>
+            <button type="submit" form="record-test-form" class="btn btn-primary" disabled="@isSaving">Save</button>
+        </Footer>
+    </Modal>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (!IsFeatureReadOnly)
+    {
+        <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-primary" @onclick="OpenRecordTestModal"><span class="bi bi-plus-circle"></span> Record Test</button>
+            <button class="btn btn-outline-secondary" @onclick="CreateVoluntaryReferral"><span class="bi bi-plus-circle"></span> Add Referral</button>
+        </div>
+    }
+
+    <h5>Drug &amp; Alcohol Tests</h5>
+    <DataTable TItem="DrugAlcoholTestResponse" Items="drugAlcoholTests" Columns="testColumns"
+               SearchFilter="@((t, term) => t.TestType.Contains(term, StringComparison.OrdinalIgnoreCase) || (t.DrugResult?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))"
+               SearchPlaceholder="Search tests..." EmptyMessage="No tests found." DefaultSortColumn="Code">
+        <RowContent Context="t">
+            <td>@t.TestType.ToUpperInvariant()</td>
+            <td>@FormatDate(t.TestDate.ToDateTime().ToString("o"))</td>
+            <td>@(t.HasAlcoholResult ? t.AlcoholResult.ToString("0.000") : "—")</td>
+            <td>@(string.IsNullOrWhiteSpace(t.DrugResult) ? "—" : t.DrugResult)</td>
+            <td>@(t.IsViolation ? "Yes" : "No")</td>
+        </RowContent>
+    </DataTable>
+
+    <h6 class="mt-3">Drug &amp; Alcohol Actions</h6>
+    <DataTable TItem="DrugAlcoholActionResponse" Items="drugAlcoholActions" Columns="actionColumns"
+               SearchFilter="@((a, term) => a.ActionType.Contains(term, StringComparison.OrdinalIgnoreCase) || (a.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))"
+               SearchPlaceholder="Search actions..." EmptyMessage="No actions found." DefaultSortColumn="Code">
+        <RowContent Context="a">
+            <td>@a.ActionType.ToUpperInvariant()</td>
+            <td>@FormatDate(a.ActionDate.ToDateTime().ToString("o"))</td>
+            <td>@(string.IsNullOrWhiteSpace(a.Notes) ? "—" : a.Notes)</td>
+        </RowContent>
+    </DataTable>
+
+    <h5 class="mt-4">Voluntary Referrals</h5>
+    <DataTable TItem="VoluntaryReferralResponse" Items="voluntaryReferrals" Columns="referralColumns"
+               SearchFilter="@((r, term) => r.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search referrals..." EmptyMessage="No referrals found." DefaultSortColumn="Code">
+        <RowContent Context="r">
+            <td>@r.Status.ToUpperInvariant()</td>
+            <td>@FormatDate(r.ReferralDate.ToDateTime().ToString("o"))</td>
+            <td>@r.FollowUpTestsRequired</td>
+            <td>@(r.FollowUpEndDate is null ? "—" : FormatDate(r.FollowUpEndDate.ToDateTime().ToString("o")))</td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary" @onclick='@(() => UpdateReferral(r.CtrlNbr, "RecordSapEvaluation"))'>SAP</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick='@(() => UpdateReferral(r.CtrlNbr, "CompleteTreatment"))'>Treatment</button>
+                        <button class="btn btn-sm btn-outline-success" @onclick='@(() => UpdateReferral(r.CtrlNbr, "RecordReturnToDutyTest", "Negative"))'>RTD - Neg</button>
+                        <button class="btn btn-sm btn-outline-dark" @onclick='@(() => UpdateReferral(r.CtrlNbr, "Complete"))'>Complete</button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    [Parameter] public long EmployeeCtrlNbr { get; set; }
+
+    protected override string? FeatureKey => "compliance/drug-alcohol";
+
+    private string? employeeName;
+    private IReadOnlyList<DrugAlcoholTestResponse> drugAlcoholTests = [];
+    private IReadOnlyList<DrugAlcoholActionResponse> drugAlcoholActions = [];
+    private IReadOnlyList<VoluntaryReferralResponse> voluntaryReferrals = [];
+
+    private bool showRecordTestModal;
+
+    private readonly IReadOnlyList<string> testTypes = ["PostAccident", "ReasonableSuspicion", "ReasonableCause", "Random", "PreEmployment", "ReturnToDuty", "FollowUp"];
+    private readonly IReadOnlyList<string> drugResults = ["Negative", "Positive", "Refused"];
+
+    private RecordTestModel recordTestModel = new();
+
+    private static readonly IReadOnlyList<DataTableColumn<DrugAlcoholTestResponse>> testColumns =
+    [
+        new("Code", t => t.TestType.ToUpperInvariant()),
+        new("Date", t => t.TestDate.ToString()),
+        new("Alcohol", t => t.HasAlcoholResult ? t.AlcoholResult.ToString() : string.Empty),
+        new("Drug", t => t.DrugResult ?? string.Empty),
+        new("Violation", t => t.IsViolation ? "Yes" : "No")
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn<DrugAlcoholActionResponse>> actionColumns =
+    [
+        new("Code", a => a.ActionType.ToUpperInvariant()),
+        new("Date", a => a.ActionDate.ToString()),
+        new("Notes", a => a.Notes ?? string.Empty)
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn<VoluntaryReferralResponse>> referralColumns =
+    [
+        new("Code", r => r.Status.ToUpperInvariant()),
+        new("Referral Date", r => r.ReferralDate.ToString()),
+        new("Follow-Up Tests", r => r.FollowUpTestsRequired.ToString()),
+        new("Follow-Up End", r => r.FollowUpEndDate?.ToString() ?? string.Empty),
+        DataTableColumn<VoluntaryReferralResponse>.Actions()
+    ];
+
+    protected override async Task LoadDataAsync()
+    {
+        var employeeResponse = await EmployeeClient.GetByCtrlNbrAsync(EmployeeCtrlNbr);
+        employeeName = employeeResponse.FullNameLnf;
+        await LoadDataForEmployee();
+    }
+
+    private async Task LoadDataForEmployee()
+    {
+        var testsTask = FraComplianceClient.GetDrugAlcoholTestsAsync(EmployeeCtrlNbr);
+        var actionsTask = FraComplianceClient.GetDrugAlcoholActionsAsync(EmployeeCtrlNbr);
+        var referralsTask = FraComplianceClient.GetVoluntaryReferralsAsync(EmployeeCtrlNbr);
+        await Task.WhenAll(testsTask, actionsTask, referralsTask);
+
+        drugAlcoholTests = testsTask.Result.Tests.OrderByDescending(t => t.TestDate.ToDateTime()).ToList();
+        drugAlcoholActions = actionsTask.Result.Actions.OrderByDescending(a => a.ActionDate.ToDateTime()).ToList();
+        voluntaryReferrals = referralsTask.Result.Referrals.OrderByDescending(r => r.ReferralDate.ToDateTime()).ToList();
+    }
+
+    private void OpenRecordTestModal()
+    {
+        recordTestModel = new RecordTestModel { TestDate = DateTime.UtcNow.Date, FederalAuthority = true };
+        showRecordTestModal = true;
+    }
+
+    private void CloseRecordTestModal() => showRecordTestModal = false;
+
+    private async Task RecordDrugAlcoholTest()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            var request = new RecordDrugAlcoholTestRequest
+            {
+                EmployeeCtrlNbr = EmployeeCtrlNbr,
+                TestType = recordTestModel.TestType ?? string.Empty,
+                TestDate = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(recordTestModel.TestDate, DateTimeKind.Utc)),
+                DrugResult = recordTestModel.DrugResult ?? string.Empty,
+                SubstancesDetected = recordTestModel.SubstancesDetected ?? string.Empty,
+                FederalAuthority = recordTestModel.FederalAuthority
+            };
+
+            if (recordTestModel.AlcoholResult.HasValue)
+                request.AlcoholResult = recordTestModel.AlcoholResult.Value;
+
+            await FraComplianceClient.RecordDrugAlcoholTestAsync(request);
+            showRecordTestModal = false;
+            successMessage = "Test recorded.";
+            await LoadDataForEmployee();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to record test: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task CreateVoluntaryReferral()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            await FraComplianceClient.CreateVoluntaryReferralAsync(EmployeeCtrlNbr);
+            successMessage = "Voluntary referral created.";
+            await LoadDataForEmployee();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to create referral: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task UpdateReferral(long referralCtrlNbr, string actionType, string? returnToDutyResult = null)
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            var request = new UpdateVoluntaryReferralRequest
+            {
+                ReferralCtrlNbr = referralCtrlNbr,
+                ActionType = actionType,
+                ActionDate = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc))
+            };
+            if (!string.IsNullOrWhiteSpace(returnToDutyResult))
+                request.ReturnToDutyResult = returnToDutyResult;
+
+            await FraComplianceClient.UpdateVoluntaryReferralAsync(request);
+            successMessage = "Referral updated.";
+            await LoadDataForEmployee();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update referral: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private sealed class RecordTestModel
+    {
+        public string? TestType { get; set; }
+        public DateTime TestDate { get; set; }
+        public double? AlcoholResult { get; set; }
+        public string? DrugResult { get; set; }
+        public string? SubstancesDetected { get; set; }
+        public bool FederalAuthority { get; set; }
+    }
+}
