@@ -186,14 +186,22 @@
                 }
 
                 @* ── Compliance ── *@
-                @if (Permissions.HasAccessToAny("compliance/fra", "compliance/safety", "compliance/absence-codes", "compliance/policies"))
+                @if (Permissions.HasAccessToAny("compliance/fra", "compliance/drug-alcohol", "compliance/safety", "compliance/absence-codes", "compliance/policies"))
                 {
                     <NavMenuGroup Title="Compliance" Icon="bi-shield-check" IsInitiallyExpanded="@IsCurrentPath("compliance")">
                         @if (Permissions.HasAccess("compliance/fra"))
                         {
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="compliance/fra">
-                                    <span class="bi bi-file-earmark-ruled" aria-hidden="true"></span> FRA Compliance
+                                    <span class="bi bi-file-earmark-ruled" aria-hidden="true"></span> FRA Certification
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("compliance/drug-alcohol"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="compliance/drug-alcohol">
+                                    <span class="bi bi-shield-check" aria-hidden="true"></span> Drug &amp; Alcohol
                                 </NavLink>
                             </div>
                         }
@@ -225,7 +233,7 @@
                 }
 
                 @* ── Work Management ── *@
-                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles", "work-management/shift-definitions", "work-management/rosters", "work-management/seniority-states", "work-management/group-types"))
+                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles", "work-management/shift-definitions", "work-management/rosters", "work-management/seniority-states", "work-management/group-types", "work-management/qualification-types"))
                 {
                     <NavMenuGroup Title="Work Management" Icon="bi-briefcase-fill" IsInitiallyExpanded="@IsCurrentPath("work-management")">
                         @if (Permissions.HasAccess("work-management/departments"))
@@ -284,6 +292,14 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (Permissions.HasAccess("work-management/qualification-types"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/qualification-types">
+                                    <span class="bi bi-award" aria-hidden="true"></span> Qualification Types
+                                </NavLink>
+                            </div>
+                        }
                     </NavMenuGroup>
                 }
                 } @* end railroad-scoped *@
@@ -293,7 +309,7 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "employees/qualifications", "admin/invitations"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations"))
                 {
                     <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
                         @if (Permissions.HasAccess("employees"))
@@ -317,14 +333,6 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/prior-service">
                                     <span class="bi bi-hourglass-split" aria-hidden="true"></span> Prior Service Credits
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("employees/qualifications"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="employees/qualifications">
-                                    <span class="bi bi-award" aria-hidden="true"></span> Qualifications
                                 </NavLink>
                             </div>
                         }

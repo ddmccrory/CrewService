@@ -1,0 +1,517 @@
+@page "/compliance/fra/{EmployeeCtrlNbr:long}/{CertificationCtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject FraComplianceClient FraComplianceClient
+@inject QualificationsClient QualificationsClient
+
+<PageTitle>FRA Certification Detail</PageTitle>
+
+@if (certification is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="FRA Certification" OnClick="@(() => NavigationManager.NavigateTo("/compliance/fra"))" />
+
+    <h1>@ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant() - @certification.CertificationType</h1>
+    <p class="text-muted mb-2">
+        <strong>Status:</strong> @certification.Status
+        <span class="ms-3"><strong>Effective:</strong> @certification.EffectiveDate</span>
+        <span class="ms-3"><strong>Renewal:</strong> @certification.ExpirationDate</span>
+    </p>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    <Modal Visible="showAddRequirementModal"
+           Title="Add Requirement Result"
+           Icon="bi bi-clipboard-check"
+           OnClose="CloseAddRequirementModal">
+        <BodyContent>
+            <EditForm Model="addRequirementModel" OnValidSubmit="AddRequirement" id="add-requirement-form">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Qualification</label>
+                        <InputText Value="@ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant()" class="form-control" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Certification Type</label>
+                        <InputText Value="@certification.CertificationType" class="form-control" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Check Type</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="addRequirementModel.CheckType"
+                                     Items="availableEligibilityCheckTypes"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Result</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="addRequirementModel.Result"
+                                     Items="eligibilityResults"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Evaluation Date</label>
+                        <InputDate @bind-Value="addRequirementModel.EvaluationDate" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Evaluator Name</label>
+                        <InputText @bind-Value="addRequirementModel.EvaluatorName" class="form-control" placeholder="Optional" />
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddRequirementModal">Cancel</button>
+            <button type="submit" form="add-requirement-form" class="btn btn-primary" disabled="@(isSaving || availableEligibilityCheckTypes.Count == 0)">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showEditRequirementModal"
+           Title="Edit Requirement Result"
+           Icon="bi bi-pencil"
+           OnClose="CloseEditRequirementModal">
+        <BodyContent>
+            <EditForm Model="editRequirementModel" OnValidSubmit="SaveRequirementEdit" id="edit-requirement-form">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Check Type</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="editRequirementModel.CheckType"
+                                     Items="eligibilityCheckTypes"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Result</label>
+                        <SelectInput TItem="string" TValue="string"
+                                     @bind-Value="editRequirementModel.Result"
+                                     Items="eligibilityResults"
+                                     ValueSelector="@(s => s)"
+                                     TextSelector="@(s => s)"
+                                     class="form-select" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Evaluation Date</label>
+                        <InputDate @bind-Value="editRequirementModel.EvaluationDate" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Evaluator Name</label>
+                        <InputText @bind-Value="editRequirementModel.EvaluatorName" class="form-control" placeholder="Optional" />
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditRequirementModal">Cancel</button>
+            <button type="submit" form="edit-requirement-form" class="btn btn-primary" disabled="@isSaving">Save</button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showRevocationModal"
+           Title="Start Certification Revocation"
+           Icon="bi bi-exclamation-octagon"
+           OnClose="CloseRevocationModal">
+        <BodyContent>
+            <EditForm Model="startRevocationModel" OnValidSubmit="StartRevocation" id="start-revocation-form">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Violation Type</label>
+                        <InputText @bind-Value="startRevocationModel.ViolationType" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Violation Date</label>
+                        <InputDate @bind-Value="startRevocationModel.ViolationDate" class="form-control" />
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseRevocationModal">Cancel</button>
+            <button type="submit" form="start-revocation-form" class="btn btn-danger" disabled="@isSaving">Start</button>
+        </Footer>
+    </Modal>
+
+    @if (activeTab == "requirements")
+    {
+        <h5 class="mt-3">Requirements</h5>
+        @if (!IsFeatureReadOnly)
+        {
+            <button class="btn btn-primary mb-2" @onclick="OpenAddRequirementModal">
+                <span class="bi bi-plus-circle"></span> Add Requirement Result
+            </button>
+        }
+
+        <DataTable TItem="CertificationEligibilityCheckResponse"
+                   Items="eligibilityChecks"
+                   Columns="eligibilityColumns"
+                   SearchFilter="@((c, term) => c.CheckType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Result.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search requirements..."
+                   EmptyMessage="No requirement results found."
+                   DefaultSortColumn="Code">
+            <RowContent Context="ec">
+                <td>@ec.CheckType.ToUpperInvariant()</td>
+                <td>@ec.Result</td>
+                <td>@ec.EvaluationDate</td>
+                <td>@ec.ExpiresAtDate</td>
+                <td>@(ec.IsStale ? "Yes" : "No")</td>
+                <td>@(string.IsNullOrWhiteSpace(ec.EvaluatorName) ? "—" : ec.EvaluatorName)</td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditRequirementModal(ec)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRequirement(ec.CtrlNbr)">Delete</button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+
+    @if (activeTab == "revocations")
+    {
+        <h5 class="mt-3">Revocations</h5>
+        @if (!IsFeatureReadOnly)
+        {
+            <button class="btn btn-outline-danger mb-2" @onclick="OpenRevocationModal">
+                <span class="bi bi-plus-circle"></span> Add Revocation
+            </button>
+        }
+
+        <DataTable TItem="CertificationRevocationResponse"
+                   Items="revocationHistory"
+                   Columns="revocationColumns"
+                   SearchFilter="@((r, term) => r.ViolationType.Contains(term, StringComparison.OrdinalIgnoreCase) || (r.Decision?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))"
+                   SearchPlaceholder="Search revocations..."
+                   EmptyMessage="No revocations found."
+                   DefaultSortColumn="Code">
+            <RowContent Context="r">
+                <td>@r.ViolationType.ToUpperInvariant()</td>
+                <td>@FormatDate(r.ViolationDate.ToDateTime().ToString("o"))</td>
+                <td>@(r.Decision ?? "Pending")</td>
+                <td>@(r.RevocationEndsUtc is null ? "—" : FormatDate(r.RevocationEndsUtc.ToDateTime().ToString("o")))</td>
+                <td>
+                    @if (!IsFeatureReadOnly && string.IsNullOrWhiteSpace(r.Decision))
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-warning" @onclick="() => RecordRevocationNotice(r.CtrlNbr)">Notice</button>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => ScheduleRevocationHearing(r.CtrlNbr)">Hearing +7d</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick='@(() => DecideRevocation(r.CtrlNbr, "Revoked", 12))'>Revoke 12m</button>
+                            <button class="btn btn-sm btn-outline-success" @onclick='@(() => DecideRevocation(r.CtrlNbr, "Reinstated", null))'>Reinstate</button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    [Parameter] public long EmployeeCtrlNbr { get; set; }
+    [Parameter] public long CertificationCtrlNbr { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
+
+    protected override string? FeatureKey => "compliance/fra";
+
+    private CertificationResponse? certification;
+    private IReadOnlyList<RegulatoryQualificationCatalogItem> regulatoryQualifications = [];
+    private IReadOnlyList<CertificationEligibilityCheckResponse> eligibilityChecks = [];
+    private IReadOnlyList<CertificationRevocationResponse> revocationHistory = [];
+
+    private readonly IReadOnlyList<string> eligibilityCheckTypes = ["SafetyConduct", "MotorVehicle", "SubstanceAbuse", "Vision", "Hearing", "Knowledge", "Performance"];
+    private readonly IReadOnlyList<string> eligibilityResults = ["Pass", "Fail", "Conditional"];
+    private IReadOnlyList<string> availableEligibilityCheckTypes = [];
+
+    private bool showAddRequirementModal;
+    private bool showEditRequirementModal;
+    private bool showRevocationModal;
+
+    private string activeTab = "requirements";
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("requirements", "Requirements", "bi bi-list-check"),
+        new("revocations", "Revocations", "bi bi-exclamation-octagon")
+    ];
+
+    private AddRequirementModel addRequirementModel = new();
+    private EditRequirementModel editRequirementModel = new();
+    private StartRevocationModel startRevocationModel = new();
+
+    private static readonly IReadOnlyList<DataTableColumn<CertificationEligibilityCheckResponse>> eligibilityColumns =
+    [
+        new("Code", c => c.CheckType.ToUpperInvariant()),
+        new("Result", c => c.Result),
+        new("Evaluation Date", c => c.EvaluationDate),
+        new("Expires", c => c.ExpiresAtDate),
+        new("Stale", c => c.IsStale ? "Yes" : "No"),
+        new("Evaluator", c => c.EvaluatorName ?? string.Empty),
+        DataTableColumn<CertificationEligibilityCheckResponse>.Actions()
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn<CertificationRevocationResponse>> revocationColumns =
+    [
+        new("Code", r => r.ViolationType.ToUpperInvariant()),
+        new("Violation Date", r => r.ViolationDate.ToString()),
+        new("Decision", r => r.Decision ?? string.Empty),
+        new("Revocation Ends", r => r.RevocationEndsUtc?.ToString() ?? string.Empty),
+        DataTableColumn<CertificationRevocationResponse>.Actions()
+    ];
+
+    protected override async Task LoadDataAsync()
+    {
+        if (string.Equals(TabQuery, "revocations", StringComparison.OrdinalIgnoreCase))
+            activeTab = "revocations";
+        else
+            activeTab = "requirements";
+
+        await LoadRegulatoryQualifications();
+        await LoadCertificationDetails();
+    }
+
+    private async Task LoadRegulatoryQualifications()
+    {
+        var response = await QualificationsClient.GetRegulatoryQualificationsAsync();
+        regulatoryQualifications = response.Qualifications.OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private async Task LoadCertificationDetails()
+    {
+        var certResponse = await FraComplianceClient.GetEmployeeCertificationsAsync(EmployeeCtrlNbr);
+        certification = certResponse.Certifications.FirstOrDefault(c => c.CtrlNbr == CertificationCtrlNbr);
+
+        if (certification is null)
+            return;
+
+        var checksTask = FraComplianceClient.GetCertificationEligibilityChecksAsync(CertificationCtrlNbr);
+        var revocationsTask = FraComplianceClient.GetCertificationRevocationHistoryAsync(CertificationCtrlNbr);
+        await Task.WhenAll(checksTask, revocationsTask);
+
+        eligibilityChecks = checksTask.Result.Checks.OrderByDescending(c => c.EvaluationDate).ToList();
+        revocationHistory = revocationsTask.Result.Revocations.OrderByDescending(r => r.ViolationDate.ToDateTime()).ToList();
+
+        availableEligibilityCheckTypes = eligibilityCheckTypes
+            .Where(checkType => !eligibilityChecks.Any(c => string.Equals(c.CheckType, checkType, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Result, "Pass", StringComparison.OrdinalIgnoreCase) && !c.IsStale))
+            .ToList();
+    }
+
+    private string ResolveRegulatoryCode(long regulatoryQualificationCtrlNbr)
+    {
+        var item = regulatoryQualifications.FirstOrDefault(r => r.CtrlNbr == regulatoryQualificationCtrlNbr);
+        return item?.Code ?? regulatoryQualificationCtrlNbr.ToString();
+    }
+
+    private void OpenAddRequirementModal()
+    {
+        addRequirementModel = new AddRequirementModel { EvaluationDate = DateTime.UtcNow.Date };
+        showAddRequirementModal = true;
+    }
+
+    private void CloseAddRequirementModal() => showAddRequirementModal = false;
+
+    private async Task AddRequirement()
+    {
+        try
+        {
+            if (certification is null)
+                return;
+
+            isSaving = true;
+            errorMessage = null;
+
+            await FraComplianceClient.AddEmployeeRequirementResultAsync(new AddEmployeeRequirementResultRequest
+            {
+                EmployeeCtrlNbr = certification.EmployeeCtrlNbr,
+                RegulatoryQualificationCtrlNbr = certification.RegulatoryQualificationCtrlNbr,
+                CertificationType = certification.CertificationType,
+                CheckType = addRequirementModel.CheckType ?? string.Empty,
+                EvaluationDate = addRequirementModel.EvaluationDate.ToString("yyyy-MM-dd"),
+                Result = addRequirementModel.Result ?? string.Empty,
+                EvaluatorName = addRequirementModel.EvaluatorName ?? string.Empty
+            });
+
+            showAddRequirementModal = false;
+            successMessage = "Requirement result added.";
+            await LoadCertificationDetails();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add requirement result: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OpenEditRequirementModal(CertificationEligibilityCheckResponse check)
+    {
+        editRequirementModel = new EditRequirementModel
+        {
+            EligibilityCheckCtrlNbr = check.CtrlNbr,
+            CheckType = check.CheckType,
+            Result = check.Result,
+            EvaluationDate = DateTime.TryParse(check.EvaluationDate, out var parsedDate) ? parsedDate : DateTime.UtcNow.Date,
+            EvaluatorName = check.EvaluatorName
+        };
+        showEditRequirementModal = true;
+    }
+
+    private void CloseEditRequirementModal() => showEditRequirementModal = false;
+
+    private async Task SaveRequirementEdit()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            await FraComplianceClient.UpdateCertificationEligibilityCheckAsync(new UpdateCertificationEligibilityCheckRequest
+            {
+                EligibilityCheckCtrlNbr = editRequirementModel.EligibilityCheckCtrlNbr,
+                CheckType = editRequirementModel.CheckType ?? string.Empty,
+                EvaluationDate = editRequirementModel.EvaluationDate.ToString("yyyy-MM-dd"),
+                Result = editRequirementModel.Result ?? string.Empty,
+                EvaluatorName = editRequirementModel.EvaluatorName ?? string.Empty
+            });
+
+            showEditRequirementModal = false;
+            successMessage = "Requirement result updated.";
+            await LoadCertificationDetails();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update requirement result: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteRequirement(long eligibilityCheckCtrlNbr)
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            await FraComplianceClient.DeleteCertificationEligibilityCheckAsync(eligibilityCheckCtrlNbr);
+            successMessage = "Requirement result deleted.";
+            await LoadCertificationDetails();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete requirement result: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OpenRevocationModal()
+    {
+        startRevocationModel = new StartRevocationModel { ViolationDate = DateTime.UtcNow.Date };
+        showRevocationModal = true;
+    }
+
+    private void CloseRevocationModal() => showRevocationModal = false;
+
+    private async Task StartRevocation()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            await FraComplianceClient.StartCertificationRevocationAsync(
+                CertificationCtrlNbr,
+                startRevocationModel.ViolationType ?? string.Empty,
+                startRevocationModel.ViolationDate);
+
+            showRevocationModal = false;
+            successMessage = "Revocation started.";
+            await LoadCertificationDetails();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to start revocation: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task RecordRevocationNotice(long revocationRecordCtrlNbr)
+    {
+        await FraComplianceClient.RecordRevocationNoticeAsync(revocationRecordCtrlNbr);
+        await LoadCertificationDetails();
+    }
+
+    private async Task ScheduleRevocationHearing(long revocationRecordCtrlNbr)
+    {
+        await FraComplianceClient.ScheduleRevocationHearingAsync(revocationRecordCtrlNbr, DateTime.UtcNow.AddDays(7));
+        await LoadCertificationDetails();
+    }
+
+    private async Task DecideRevocation(long revocationRecordCtrlNbr, string decision, int? revocationPeriodMonths)
+    {
+        await FraComplianceClient.DecideRevocationAsync(revocationRecordCtrlNbr, decision, revocationPeriodMonths);
+        await LoadCertificationDetails();
+    }
+
+    private sealed class AddRequirementModel
+    {
+        public string? CheckType { get; set; }
+        public string? Result { get; set; }
+        public DateTime EvaluationDate { get; set; }
+        public string? EvaluatorName { get; set; }
+    }
+
+    private sealed class EditRequirementModel
+    {
+        public long EligibilityCheckCtrlNbr { get; set; }
+        public string? CheckType { get; set; }
+        public string? Result { get; set; }
+        public DateTime EvaluationDate { get; set; }
+        public string? EvaluatorName { get; set; }
+    }
+
+    private sealed class StartRevocationModel
+    {
+        public string? ViolationType { get; set; }
+        public DateTime ViolationDate { get; set; }
+    }
+}
