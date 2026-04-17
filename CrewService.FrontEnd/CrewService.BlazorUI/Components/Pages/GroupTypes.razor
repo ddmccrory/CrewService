@@ -131,7 +131,7 @@ else
            DefaultSortColumn="Name">
     <RowContent Context="gt">
         <td>
-            <a href="/work-management/group-types/@gt.CtrlNbr" class="text-decoration-none">@gt.Name</a>
+            @gt.Name
         </td>
         <td>@gt.Description</td>
         <td>
@@ -159,12 +159,15 @@ else
                 </td>
                 <td>
                     <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(gt)">
+                        <button class="btn btn-sm btn-outline-secondary text-nowrap" @onclick="() => OpenDetails(gt)">
+                            <span class="bi bi-info-circle"></span> Details
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary text-nowrap" @onclick="() => OpenEditModal(gt)">
                             <span class="bi bi-pencil"></span> Edit
                         </button>
                         @if (!gt.IsSystemType)
                         {
-                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(gt)">
+                            <button class="btn btn-sm btn-outline-danger text-nowrap" @onclick="() => OpenDeleteModal(gt)">
                                 <span class="bi bi-trash"></span> Delete
                             </button>
                         }
@@ -358,6 +361,9 @@ else
         deleteGroupTypeName = gt.Name;
         showDeleteModal = true;
     }
+
+    private void OpenDetails(GroupTypeResponse groupType)
+        => NavigationManager.NavigateTo($"/work-management/group-types/{groupType.CtrlNbr}");
 
     private async Task OnSave()
     {
