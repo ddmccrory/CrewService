@@ -51,11 +51,11 @@ else
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Qualification</label>
-                        <InputText Value="@ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant()" class="form-control" disabled />
+                        <input type="text" value="@ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant()" class="form-control" disabled />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Certification Type</label>
-                        <InputText Value="@certification.CertificationType" class="form-control" disabled />
+                        <input type="text" value="@certification.CertificationType" class="form-control" disabled />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Check Type</label>
@@ -170,6 +170,19 @@ else
             <button class="btn btn-primary mb-2" @onclick="OpenAddRequirementModal">
                 <span class="bi bi-plus-circle"></span> Add Requirement Result
             </button>
+        }
+
+        @if (availableEligibilityCheckTypes.Count > 0)
+        {
+            <div class="alert alert-warning py-2">
+                <div class="fw-semibold mb-1">Remaining Requirements</div>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var checkType in availableEligibilityCheckTypes)
+                    {
+                        <span class="badge text-bg-warning">@checkType.ToUpperInvariant()</span>
+                    }
+                </div>
+            </div>
         }
 
         <DataTable TItem="CertificationEligibilityCheckResponse"
