@@ -1,8 +1,10 @@
 using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
+using CrewService.Infrastructure.Models.UserAccount;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
@@ -14,6 +16,7 @@ public class FraComplianceService(
     ICertificationRevocationRepository certificationRevocationRepository,
     IDrugAlcoholTestRepository drugAlcoholTestRepository,
     IVoluntaryReferralRepository voluntaryReferralRepository,
+    UserManager<User> userManager,
     IServiceProvider serviceProvider)
     : FraComplianceSrvc.FraComplianceSrvcBase
 {
@@ -53,8 +56,18 @@ public class FraComplianceService(
         var certifications = await employeeCertificationReadRepository
             .GetByClientAndStatusesAsync(clientCtrlNbr, statuses, context.CancellationToken);
 
+        // Batch-load user names to avoid N+1 lookups
+        var userIds = certifications.Select(c => c.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+        var userMap = new Dictionary<string, User>();
+        foreach (var uid in userIds)
+        {
+            var user = await userManager.FindByIdAsync(uid);
+            if (user is not null)
+                userMap[uid] = user;
+        }
+
         var response = new GetEmployeeCertificationsResponse();
-        response.Certifications.AddRange(certifications.Select(MapCertification));
+        response.Certifications.AddRange(certifications.Select(dto => MapCertification(dto, userMap)));
         return response;
     }
 
@@ -162,40 +175,13 @@ public class FraComplianceService(
         GetCertificationRevocationHistoryRequest request,
         ServerCallContext context)
     {
+        var certCtrlNbr = ControlNumber.Create(request.EmployeeCertificationCtrlNbr);
         var revocations = await certificationRevocationRepository
-            .GetByCertificationCtrlNbrAsync(ControlNumber.Create(request.EmployeeCertificationCtrlNbr), context.CancellationToken);
+            .GetByCertificationCtrlNbrAsync(certCtrlNbr, context.CancellationToken);
 
         var response = new GetCertificationRevocationHistoryResponse();
-        response.Revocations.AddRange(revocations.Select(r =>
-        {
-            var item = new CertificationRevocationResponse
-            {
-                CtrlNbr = r.CtrlNbr.Value,
-                EmployeeCertificationCtrlNbr = r.EmployeeCertificationCtrlNbr.Value,
-                ViolationType = r.ViolationType,
-                ViolationDate = Timestamp.FromDateTime(DateTime.SpecifyKind(r.ViolationDate, DateTimeKind.Utc)),
-                SuspendedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.SuspendedAtUtc, DateTimeKind.Utc))
-            };
-
-            if (r.WrittenNoticeAtUtc.HasValue)
-                item.WrittenNoticeAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.WrittenNoticeAtUtc.Value, DateTimeKind.Utc));
-            if (r.HearingScheduledUtc.HasValue)
-                item.HearingScheduledUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.HearingScheduledUtc.Value, DateTimeKind.Utc));
-            if (r.HearingHeldUtc.HasValue)
-                item.HearingHeldUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.HearingHeldUtc.Value, DateTimeKind.Utc));
-            if (r.PresidingOfficerCtrlNbr is not null)
-                item.PresidingOfficerCtrlNbr = r.PresidingOfficerCtrlNbr.Value;
-            if (!string.IsNullOrWhiteSpace(r.Decision))
-                item.Decision = r.Decision;
-            if (r.DecisionDate.HasValue)
-                item.DecisionDate = Timestamp.FromDateTime(DateTime.SpecifyKind(r.DecisionDate.Value, DateTimeKind.Utc));
-            if (r.RevocationPeriodMonths.HasValue)
-                item.RevocationPeriodMonths = r.RevocationPeriodMonths.Value;
-            if (r.RevocationEndsUtc.HasValue)
-                item.RevocationEndsUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.RevocationEndsUtc.Value, DateTimeKind.Utc));
-
-            return item;
-        }));
+        foreach (var r in revocations)
+            response.Revocations.Add(MapRevocation(r));
 
         return response;
     }
@@ -314,6 +300,16 @@ public class FraComplianceService(
         return MapTour(tour);
     }
 
+    public override async Task<CertificationResponse> GetCertification(
+        GetCertificationRequest request, ServerCallContext context)
+    {
+        var certification = await employeeCertificationRepository
+            .GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, "Certification not found"));
+
+        return MapCertification(certification);
+    }
+
     public override async Task<GetEmployeeCertificationsResponse> GetEmployeeCertifications(
         GetEmployeeCertificationsRequest request, ServerCallContext context)
     {
@@ -331,15 +327,18 @@ public class FraComplianceService(
         GetCertificationEligibilityChecksRequest request,
         ServerCallContext context)
     {
+        var certCtrlNbr = ControlNumber.Create(request.EmployeeCertificationCtrlNbr);
         var certification = await employeeCertificationRepository
-            .GetByCtrlNbrWithChecksAsync(ControlNumber.Create(request.EmployeeCertificationCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Employee certification not found"));
+            .GetByCtrlNbrWithChecksAsync(certCtrlNbr, context.CancellationToken);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var response = new GetCertificationEligibilityChecksResponse();
-        response.Checks.AddRange(certification.EligibilityChecks
-            .OrderByDescending(c => c.EvaluationDate)
-            .Select(c => MapEligibilityCheck(c, today)));
+        if (certification is not null)
+        {
+            var asOfDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            foreach (var c in certification.EligibilityChecks)
+                response.Checks.Add(MapEligibilityCheck(c, asOfDate));
+        }
+
         return response;
     }
 
@@ -557,11 +556,39 @@ public class FraComplianceService(
             CertificationType = c.CertificationType,
             Status = c.Status,
             ExpirationDate = c.ExpirationDate.ToString("yyyy-MM-dd"),
-            EffectiveDate = c.CertificationDate.ToString("yyyy-MM-dd")
+            EffectiveDate = c.CertificationDate.ToString("yyyy-MM-dd"),
+            EmployeeNumber = string.Empty,
+            EmployeeNameLnf = string.Empty
         };
 
         if (!string.IsNullOrWhiteSpace(c.CertificationNumber))
             response.CertificationNumber = c.CertificationNumber;
+
+        return response;
+    }
+
+    private static CertificationResponse MapCertification(CertificationWithEmployeeDto dto, Dictionary<string, User> userMap)
+    {
+        var response = new CertificationResponse
+        {
+            CtrlNbr = dto.Certification.CtrlNbr.Value,
+            EmployeeCtrlNbr = dto.Certification.EmployeeCtrlNbr.Value,
+            RegulatoryQualificationCtrlNbr = dto.Certification.RegulatoryQualificationCtrlNbr.Value,
+            CertificationType = dto.Certification.CertificationType,
+            Status = dto.Certification.Status,
+            ExpirationDate = dto.Certification.ExpirationDate.ToString("yyyy-MM-dd"),
+            EffectiveDate = dto.Certification.CertificationDate.ToString("yyyy-MM-dd"),
+            EmployeeNumber = dto.EmployeeNumber,
+            EmployeeNameLnf = string.Empty
+        };
+
+        if (!string.IsNullOrEmpty(dto.UserId) && userMap.TryGetValue(dto.UserId, out var user))
+        {
+            response.EmployeeNameLnf = user.FullNameLNF ?? string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Certification.CertificationNumber))
+            response.CertificationNumber = dto.Certification.CertificationNumber;
 
         return response;
     }
@@ -680,7 +707,7 @@ public class FraComplianceService(
             return;
 
         var prior = await drugAlcoholTestRepository.GetByEmployeeCtrlNbrAsync(testRecord.EmployeeCtrlNbr, ct);
-        var ineligibility = drugAlcoholCertificationImpactHandler.DetermineIneligibility(testRecord, prior.Where(p => p.CtrlNbr != testRecord.CtrlNbr).ToList());
+        var ineligibility = drugAlcoholCertificationImpactHandler.DetermineIneligibility(testRecord, [.. prior.Where(p => p.CtrlNbr != testRecord.CtrlNbr)]);
 
         var certifications = await employeeCertificationRepository.GetByEmployeeCtrlNbrAsync(testRecord.EmployeeCtrlNbr, ct);
         foreach (var cert in certifications.Where(c => c.Status == "Active"))
