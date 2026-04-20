@@ -44,16 +44,23 @@ else
                 <div class="row g-3">
                     <div class="col-md-12">
                         <label class="form-label fw-semibold">Employee</label>
-                        <FilterSelect TItem="EmployeeOption" TValue="long"
-                                      Value="saveModel.EmployeeCtrlNbr"
-                                      ValueChanged="OnSaveEmployeeChanged"
-                                      Items="employeeOptions"
-                                      ValueSelector="@(e => e.CtrlNbr)"
-                                      TextSelector="@(e => e.Display)"
-                                      Searchable="true"
-                                      AlwaysShowPlaceholder="true"
-                                      Placeholder="-- Select Employee --"
-                                      class="form-select" />
+                        @if (editCtrlNbr > 0)
+                        {
+                            <input type="text" value="@editEmployeeName" class="form-control" disabled />
+                        }
+                        else
+                        {
+                            <FilterSelect TItem="EmployeeOption" TValue="long"
+                                          Value="saveModel.EmployeeCtrlNbr"
+                                          ValueChanged="OnSaveEmployeeChanged"
+                                          Items="employeeOptions"
+                                          ValueSelector="@(e => e.CtrlNbr)"
+                                          TextSelector="@(e => e.Display)"
+                                          Searchable="true"
+                                          AlwaysShowPlaceholder="true"
+                                          Placeholder="-- Select Employee --"
+                                          class="form-select" />
+                        }
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Regulatory Qualification</label>
@@ -108,7 +115,7 @@ else
     <DataTable TItem="CertificationResponse"
                Items="certifications"
                Columns="columns"
-               SearchFilter="@((c, term) => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveEmployeeName(c.EmployeeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || c.CertificationType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchFilter="@((c, term) => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveEmployeeName(c).Contains(term, StringComparison.OrdinalIgnoreCase) || c.CertificationType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search certifications..."
                EmptyMessage="No certifications found."
                DefaultSortColumn="Code">
@@ -124,7 +131,7 @@ else
         </ToolbarContent>
         <RowContent Context="c">
             <td>@ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).ToUpperInvariant()</td>
-            <td>@ResolveEmployeeName(c.EmployeeCtrlNbr)</td>
+            <td>@ResolveEmployeeName(c)</td>
             <td>@c.CertificationType</td>
             <td>@c.EffectiveDate</td>
             <td>@c.ExpirationDate</td>
@@ -153,12 +160,11 @@ else
     private IReadOnlyList<EmployeeOption> employeeOptions = [];
     private IReadOnlyList<RegulatoryQualificationCatalogItem> regulatoryQualifications = [];
     private IReadOnlyList<CertificationResponse>? certifications;
-    private Dictionary<long, string> employeeNames = [];
-    private bool isPageLoading = true;
     private bool areEmployeeOptionsLoaded;
 
     private bool showSaveModal;
     private long editCtrlNbr;
+    private string editEmployeeName = string.Empty;
     private CertificationSaveModel saveModel = new();
 
     private bool showDeleteModal;
@@ -183,11 +189,9 @@ else
     {
         if (!HasParent)
         {
-            isPageLoading = false;
             return Task.CompletedTask;
         }
 
-        isPageLoading = true;
         _ = LoadPageDataAsync();
         return Task.CompletedTask;
     }
@@ -199,9 +203,7 @@ else
             employeeOptions = [];
             regulatoryQualifications = [];
             certifications = [];
-            employeeNames = [];
             areEmployeeOptionsLoaded = false;
-            isPageLoading = false;
             return;
         }
 
@@ -218,7 +220,6 @@ else
         }
         finally
         {
-            isPageLoading = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -250,16 +251,14 @@ else
         var response = await FraComplianceClient.GetCertificationsByClientAsync(
             SelectedParentCtrlNbr!.Value,
             "Pending",
-            "Active");
+            "Active",
+            "Expired",
+            "Suspended");
 
-        certifications = response.Certifications.ToList();
-
-        certifications = certifications
+        certifications = response.Certifications
             .OrderBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
-            .ThenBy(c => ResolveEmployeeName(c.EmployeeCtrlNbr), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.EmployeeNameLnf, StringComparer.OrdinalIgnoreCase)
             .ToList();
-
-        _ = LoadEmployeeNamesInBackground(certifications.Select(c => c.EmployeeCtrlNbr).Distinct().ToList());
     }
 
     private async Task OpenCreateModal()
@@ -280,6 +279,7 @@ else
         await EnsureEmployeeOptionsLoaded();
 
         editCtrlNbr = certification.CtrlNbr;
+        editEmployeeName = ResolveEmployeeName(certification);
         saveModel = new CertificationSaveModel
         {
             EmployeeCtrlNbr = certification.EmployeeCtrlNbr,
@@ -295,6 +295,7 @@ else
     {
         showSaveModal = false;
         editCtrlNbr = 0;
+        editEmployeeName = string.Empty;
         saveModel = new();
     }
 
@@ -382,12 +383,32 @@ else
 
     private void OpenDetails(CertificationResponse certification)
     {
-        NavigationManager.NavigateTo($"/compliance/fra/{certification.EmployeeCtrlNbr}/{certification.CtrlNbr}");
+        NavigationManager.NavigateTo(BuildDetailUrl(certification));
     }
 
     private void OpenRevocationWorkflow(CertificationResponse certification)
     {
-        NavigationManager.NavigateTo($"/compliance/fra/{certification.EmployeeCtrlNbr}/{certification.CtrlNbr}?tab=revocations");
+        NavigationManager.NavigateTo(BuildDetailUrl(certification, "revocations"));
+    }
+
+    private string BuildDetailUrl(CertificationResponse cert, string? tab = null)
+    {
+        var empName = ResolveEmployeeName(cert);
+        var qualCode = ResolveRegulatoryCode(cert.RegulatoryQualificationCtrlNbr);
+        var url = $"/compliance/fra/{cert.EmployeeCtrlNbr}/{cert.CtrlNbr}";
+        var qs = new List<string>
+        {
+            $"emp={Uri.EscapeDataString(empName)}",
+            $"qual={Uri.EscapeDataString(qualCode)}",
+            $"type={Uri.EscapeDataString(cert.CertificationType)}",
+            $"status={Uri.EscapeDataString(cert.Status)}",
+            $"eff={Uri.EscapeDataString(cert.EffectiveDate)}",
+            $"exp={Uri.EscapeDataString(cert.ExpirationDate)}",
+            $"rqcn={cert.RegulatoryQualificationCtrlNbr}"
+        };
+        if (tab is not null)
+            qs.Add($"tab={tab}");
+        return $"{url}?{string.Join('&', qs)}";
     }
 
     private string ResolveRegulatoryCode(long regulatoryQualificationCtrlNbr)
@@ -396,8 +417,10 @@ else
         return item?.Code ?? regulatoryQualificationCtrlNbr.ToString();
     }
 
-    private string ResolveEmployeeName(long employeeCtrlNbr)
-        => employeeNames.TryGetValue(employeeCtrlNbr, out var name) ? name : employeeCtrlNbr.ToString();
+    private string ResolveEmployeeName(CertificationResponse cert)
+        => !string.IsNullOrWhiteSpace(cert.EmployeeNameLnf)
+            ? $"{cert.EmployeeNumber} - {cert.EmployeeNameLnf}"
+            : cert.EmployeeCtrlNbr.ToString();
 
     private async Task EnsureEmployeeOptionsLoaded()
     {
@@ -405,41 +428,6 @@ else
             return;
 
         await LoadEmployees();
-    }
-
-    private async Task EnsureEmployeeNamesLoaded(IEnumerable<long> employeeCtrlNbrs)
-    {
-        var missingCtrlNbrs = employeeCtrlNbrs
-            .Distinct()
-            .Where(ctrlNbr => !employeeNames.ContainsKey(ctrlNbr))
-            .ToList();
-
-        if (missingCtrlNbrs.Count == 0)
-            return;
-
-        var employeeDetails = await Task.WhenAll(missingCtrlNbrs.Select(EmployeeClient.GetByCtrlNbrAsync));
-        foreach (var detail in employeeDetails)
-        {
-            employeeNames[detail.CtrlNbr] = $"{detail.EmployeeNumber} - {detail.FullNameLnf}";
-        }
-    }
-
-    private async Task LoadEmployeeNamesInBackground(IReadOnlyList<long> employeeCtrlNbrs)
-    {
-        try
-        {
-            await EnsureEmployeeNamesLoaded(employeeCtrlNbrs);
-
-            certifications = certifications
-                .OrderBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
-                .ThenBy(c => ResolveEmployeeName(c.EmployeeCtrlNbr), StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-        }
     }
 
     private Task OnSaveEmployeeChanged(long value)
