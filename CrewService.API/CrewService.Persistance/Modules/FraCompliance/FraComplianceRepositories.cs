@@ -71,7 +71,7 @@ internal sealed class EmployeeCertificationReadRepository(CrewServiceDbContext d
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<EmployeeCertification>> GetByClientAndStatusesAsync(ControlNumber clientCtrlNbr, IReadOnlyCollection<string> statuses, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CertificationWithEmployeeDto>> GetByClientAndStatusesAsync(ControlNumber clientCtrlNbr, IReadOnlyCollection<string> statuses, CancellationToken ct = default)
     {
         var normalizedStatuses = statuses
             .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -81,16 +81,26 @@ internal sealed class EmployeeCertificationReadRepository(CrewServiceDbContext d
         var query = from certification in dbContext.Set<EmployeeCertification>()
                     join employee in dbContext.Set<Employee>() on certification.EmployeeCtrlNbr equals employee.CtrlNbr
                     where employee.ClientCtrlNbr == clientCtrlNbr
-                    select certification;
+                    select new
+                    {
+                        Certification = certification,
+                        employee.EmployeeNumber,
+                        employee.UserId
+                    };
 
         if (normalizedStatuses.Count > 0)
         {
-            query = query.Where(c => normalizedStatuses.Contains(c.Status));
+            query = query.Where(x => normalizedStatuses.Contains(x.Certification.Status));
         }
 
-        return await query
-            .OrderByDescending(c => c.ExpirationDate)
+        var results = await query
+            .OrderByDescending(x => x.Certification.ExpirationDate)
             .ToListAsync(ct);
+
+        return [.. results.Select(r => new CertificationWithEmployeeDto(
+            r.Certification,
+            r.EmployeeNumber,
+            r.UserId))];
     }
 }
 
