@@ -13,6 +13,10 @@ service FraComplianceSrvc {
   rpc GetDutyTour (GetDutyTourRequest) returns (DutyTourResponse) {
     option (google.api.http) = { get: "/api/fra/duty-tours/{ctrl_nbr}" };
   }
+  rpc GetCertification (GetCertificationRequest) returns (CertificationResponse) {
+    option (google.api.http) = { get: "/api/fra/certifications/single/{ctrl_nbr}" };
+  }
+
   rpc GetEmployeeCertifications (GetEmployeeCertificationsRequest) returns (GetEmployeeCertificationsResponse) {
     option (google.api.http) = { get: "/api/fra/certifications/{employee_ctrl_nbr}" };
   }
@@ -132,6 +136,10 @@ message DutyTourResponse {
   bool is_certified = 10;
 }
 
+message GetCertificationRequest {
+  int64 ctrl_nbr = 1;
+}
+
 message GetEmployeeCertificationsRequest {
   int64 employee_ctrl_nbr = 1;
 }
@@ -154,6 +162,8 @@ message CertificationResponse {
   string expiration_date = 6;
   optional string certification_number = 7;
   string effective_date = 8;
+  string employee_number = 9;
+  string employee_name_lnf = 10;
 }
 
 message CreateEmployeeCertificationRequest {
