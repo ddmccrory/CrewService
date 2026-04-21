@@ -28,12 +28,6 @@ else
 {
     <p class="text-muted mb-3">Managing FRA Certification for <strong>@SelectedParentName</strong></p>
 
-    <div class="d-flex justify-content-end mb-3">
-        <button class="btn btn-outline-secondary" @onclick="LoadCertifications">
-            <span class="bi bi-arrow-repeat"></span> Refresh
-        </button>
-    </div>
-
     <Modal Visible="showSaveModal"
            Title="@(editCtrlNbr > 0 ? "Edit Certification" : "Create Certification")"
            Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
@@ -118,7 +112,7 @@ else
                SearchFilter="@((c, term) => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveEmployeeName(c).Contains(term, StringComparison.OrdinalIgnoreCase) || c.CertificationType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search certifications..."
                EmptyMessage="No certifications found."
-               DefaultSortColumn="Code">
+               RowClass="@(c => GetRowClass(c.Status))">
         <ToolbarContent>
                 <div class="d-flex flex-column align-items-start">
                     @if (!IsFeatureReadOnly)
@@ -135,7 +129,7 @@ else
             <td>@c.CertificationType</td>
             <td>@c.EffectiveDate</td>
             <td>@c.ExpirationDate</td>
-            <td>@c.Status</td>
+            <td><span class="badge @GetStatusBadgeClass(c.Status)">@c.Status</span></td>
             <td>@(string.IsNullOrWhiteSpace(c.CertificationNumber) ? "—" : c.CertificationNumber)</td>
             <td>
                 @if (!IsFeatureReadOnly)
@@ -256,10 +250,37 @@ else
             "Suspended");
 
         certifications = response.Certifications
-            .OrderBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => GetStatusPriority(c.Status))
+            .ThenBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => DateTime.TryParse(c.ExpirationDate, out var d) ? d : DateTime.MaxValue)
             .ThenBy(c => c.EmployeeNameLnf, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private static int GetStatusPriority(string status) => status switch
+    {
+        "Expired" => 0,
+        "Pending" => 1,
+        "Active" => 2,
+        _ => 3
+    };
+
+    private static string? GetRowClass(string status) => status switch
+    {
+        "Expired" => "row-attention-expired",
+        "Pending" => "row-attention-pending",
+        _ => null
+    };
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Expired" => "text-bg-danger",
+        "Pending" => "text-bg-warning",
+        "Active" => "text-bg-success",
+        "Suspended" => "text-bg-secondary",
+        "Revoked" => "text-bg-dark",
+        _ => "text-bg-light"
+    };
 
     private async Task OpenCreateModal()
     {
