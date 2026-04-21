@@ -59,3 +59,13 @@ h1:focus {
 .table td .d-flex.gap-1 > .btn.btn-sm.flex-fill {
     flex: 0 0 auto !important;
 }
+
+/* Subtle attention accent: a thin colored left edge on rows that need action.
+   Uses Bootstrap semantic CSS variables so it adapts to light/dark themes. */
+.table > tbody > tr.row-attention-expired > td:first-child {
+    border-left: 3px solid var(--bs-danger);
+}
+
+.table > tbody > tr.row-attention-pending > td:first-child {
+    border-left: 3px solid var(--bs-warning);
+}

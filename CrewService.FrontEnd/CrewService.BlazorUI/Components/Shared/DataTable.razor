@@ -59,7 +59,7 @@ else
             <tbody>
                 @foreach (var item in ProcessedItems)
                 {
-                    <tr>
+                    <tr class="@(RowClass?.Invoke(item))">
                         @RowContent(item)
                     </tr>
                 }
@@ -78,6 +78,7 @@ else
     [Parameter] public string EmptyMessage { get; set; } = "No items found.";
     [Parameter] public string? DefaultSortColumn { get; set; }
     [Parameter] public bool DefaultSortAscending { get; set; } = true;
+    [Parameter] public Func<TItem, string?>? RowClass { get; set; }
 
     private string searchText = string.Empty;
     private string sortColumn = "";
