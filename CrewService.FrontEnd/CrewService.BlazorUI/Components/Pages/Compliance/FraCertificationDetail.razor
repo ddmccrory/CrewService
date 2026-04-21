@@ -174,12 +174,15 @@ else
 
         @if (availableEligibilityCheckTypes.Count > 0)
         {
-            <div class="alert alert-warning py-2">
+            var isExpired = string.Equals(certification.Status, "Expired", StringComparison.OrdinalIgnoreCase);
+            var alertClass = isExpired ? "alert-danger" : "alert-warning";
+            var badgeClass = isExpired ? "text-bg-danger" : "text-bg-warning";
+            <div class="alert @alertClass py-2">
                 <div class="fw-semibold mb-1">Remaining Requirements</div>
                 <div class="d-flex flex-wrap gap-2">
                     @foreach (var checkType in availableEligibilityCheckTypes)
                     {
-                        <span class="badge text-bg-warning">@checkType.ToUpperInvariant()</span>
+                        <span class="badge @badgeClass">@checkType.ToUpperInvariant()</span>
                     }
                 </div>
             </div>
@@ -191,13 +194,22 @@ else
                    SearchFilter="@((c, term) => c.CheckType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Result.Contains(term, StringComparison.OrdinalIgnoreCase))"
                    SearchPlaceholder="Search requirements..."
                    EmptyMessage="No requirement results found."
-                   DefaultSortColumn="Code">
+                   RowClass="@(c => GetRequirementRowClass(c))">
             <RowContent Context="ec">
                 <td>@ec.CheckType.ToUpperInvariant()</td>
-                <td>@ec.Result</td>
+                <td><span class="badge @GetResultBadgeClass(ec.Result)">@ec.Result</span></td>
                 <td>@ec.EvaluationDate</td>
                 <td>@ec.ExpiresAtDate</td>
-                <td>@(ec.IsStale ? "Yes" : "No")</td>
+                <td>
+                    @if (ec.IsStale)
+                    {
+                        <span class="badge text-bg-warning">Yes</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">No</span>
+                    }
+                </td>
                 <td>@(string.IsNullOrWhiteSpace(ec.EvaluatorName) ? "—" : ec.EvaluatorName)</td>
                 <td>
                     @if (!IsFeatureReadOnly)
@@ -228,11 +240,11 @@ else
                    SearchFilter="@((r, term) => r.ViolationType.Contains(term, StringComparison.OrdinalIgnoreCase) || (r.Decision?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))"
                    SearchPlaceholder="Search revocations..."
                    EmptyMessage="No revocations found."
-                   DefaultSortColumn="Code">
+                   RowClass="@(r => GetRevocationRowClass(r))">
             <RowContent Context="r">
                 <td>@r.ViolationType.ToUpperInvariant()</td>
                 <td>@FormatDate(r.ViolationDate.ToDateTime().ToString("o"))</td>
-                <td>@(r.Decision ?? "Pending")</td>
+                <td><span class="badge @GetDecisionBadgeClass(r.Decision)">@(r.Decision ?? "Pending")</span></td>
                 <td>@(r.RevocationEndsUtc is null ? "—" : FormatDate(r.RevocationEndsUtc.ToDateTime().ToString("o")))</td>
                 <td>
                     @if (!IsFeatureReadOnly && string.IsNullOrWhiteSpace(r.Decision))
@@ -330,8 +342,13 @@ else
         var revocationsTask = FraComplianceClient.GetCertificationRevocationHistoryAsync(CertificationCtrlNbr);
         await Task.WhenAll(checksTask, revocationsTask);
 
-        eligibilityChecks = checksTask.Result.Checks.OrderByDescending(c => c.EvaluationDate).ToList();
-        revocationHistory = revocationsTask.Result.Revocations.OrderByDescending(r => r.ViolationDate.ToDateTime()).ToList();
+        eligibilityChecks = [.. checksTask.Result.Checks
+            .OrderBy(GetRequirementPriority)
+            .ThenBy(c => DateTime.TryParse(c.ExpiresAtDate, out var d) ? d : DateTime.MaxValue)
+            .ThenBy(c => c.CheckType, StringComparer.OrdinalIgnoreCase)];
+        revocationHistory = [.. revocationsTask.Result.Revocations
+            .OrderBy(GetRevocationPriority)
+            .ThenBy(r => r.ViolationDate.ToDateTime())];
 
         availableEligibilityCheckTypes = eligibilityCheckTypes
             .Where(checkType => !eligibilityChecks.Any(c => string.Equals(c.CheckType, checkType, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Result, "Pass", StringComparison.OrdinalIgnoreCase) && !c.IsStale))
@@ -343,6 +360,55 @@ else
         var item = regulatoryQualifications.FirstOrDefault(r => r.CtrlNbr == regulatoryQualificationCtrlNbr);
         return item?.Code ?? regulatoryQualificationCtrlNbr.ToString();
     }
+
+    private static int GetRequirementPriority(CertificationEligibilityCheckResponse c)
+    {
+        var isExpired = DateTime.TryParse(c.ExpiresAtDate, out var exp) && exp.Date < DateTime.UtcNow.Date;
+        if (string.Equals(c.Result, "Fail", StringComparison.OrdinalIgnoreCase) || isExpired) return 0;
+        if (c.IsStale || string.Equals(c.Result, "Conditional", StringComparison.OrdinalIgnoreCase)) return 1;
+        return 2;
+    }
+
+    private static string? GetRequirementRowClass(CertificationEligibilityCheckResponse c) => GetRequirementPriority(c) switch
+    {
+        0 => "row-attention-expired",
+        1 => "row-attention-pending",
+        _ => null
+    };
+
+    private static string GetResultBadgeClass(string result) => result switch
+    {
+        "Pass" => "text-bg-success",
+        "Fail" => "text-bg-danger",
+        "Conditional" => "text-bg-warning",
+        _ => "text-bg-light"
+    };
+
+    private static int GetRevocationPriority(CertificationRevocationResponse r)
+    {
+        if (string.IsNullOrWhiteSpace(r.Decision)) return 0;
+        if (string.Equals(r.Decision, "Revoked", StringComparison.OrdinalIgnoreCase))
+        {
+            var endsInPast = r.RevocationEndsUtc is not null && r.RevocationEndsUtc.ToDateTime() < DateTime.UtcNow;
+            return endsInPast ? 1 : 2;
+        }
+        return 3;
+    }
+
+    private static string? GetRevocationRowClass(CertificationRevocationResponse r) => GetRevocationPriority(r) switch
+    {
+        0 or 1 => "row-attention-expired",
+        2 => "row-attention-pending",
+        _ => null
+    };
+
+    private static string GetDecisionBadgeClass(string? decision) => decision switch
+    {
+        null or "" => "text-bg-warning",
+        "Revoked" => "text-bg-danger",
+        "Reinstated" => "text-bg-success",
+        _ => "text-bg-secondary"
+    };
 
     private void OpenAddRequirementModal()
     {
