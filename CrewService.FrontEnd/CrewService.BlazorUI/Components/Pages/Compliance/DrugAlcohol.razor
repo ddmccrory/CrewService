@@ -149,12 +149,6 @@ else
         }
     </div>
 
-    <div class="d-flex justify-content-end mb-3">
-        <button class="btn btn-outline-secondary" @onclick="LoadEmployeesWithRecords">
-            <span class="bi bi-arrow-repeat"></span> Refresh
-        </button>
-    </div>
-
     <DataTable TItem="EmployeeSummary" Items="employees" Columns="columns"
                SearchFilter="@((e, term) => e.Code.Contains(term, StringComparison.OrdinalIgnoreCase) || e.Name.Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search employees with records..."
