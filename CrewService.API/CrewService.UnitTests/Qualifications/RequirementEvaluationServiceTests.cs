@@ -7,7 +7,7 @@ using Xunit;
 
 namespace CrewService.UnitTests.Qualifications;
 
-public sealed class PrerequisiteEvaluationServiceTests
+public sealed class RequirementEvaluationServiceTests
 {
     [Fact]
     public async Task EvaluateAsync_WhenAllPrerequisitesSatisfied_CreatesPendingQualificationWithEvidence()
@@ -19,21 +19,21 @@ public sealed class PrerequisiteEvaluationServiceTests
             parentCtrlNbr,
             "FOREMAN",
             "Foreman",
-            evaluationStrategy: "ActivityCount",
+            evaluationStrategy: EvaluationStrategies.ActivityCount,
             expirationMonths: 12,
             isBlocking: true);
 
-        var prerequisite = qualificationType.AddPrerequisite(
-            prerequisiteKind: "ActivityCount",
+        var Requirement = qualificationType.AddRequirement(
+            requirementKind: RequirementKinds.ActivityCount,
             threshold: 90,
-            thresholdUnit: "Trips",
+            thresholdUnit: ThresholdUnits.Count,
             description: "90 trips required");
 
-        var prerequisiteRepository = new FakeQualificationPrerequisiteRepository([prerequisite]);
+        var prerequisiteRepository = new FakeQualificationRequirementRepository([Requirement]);
         var qualificationRepository = new FakeEmployeeQualificationRepository();
 
-        var sut = new PrerequisiteEvaluationService(
-            [new AlwaysSatisfiedEvaluator("ActivityCount", "90 qualifying on-duty records")],
+        var sut = new RequirementEvaluationService(
+            [new AlwaysSatisfiedEvaluator(RequirementKinds.ActivityCount, "90 qualifying on-duty records")],
             prerequisiteRepository,
             qualificationRepository);
 
@@ -52,11 +52,11 @@ public sealed class PrerequisiteEvaluationServiceTests
         Assert.Single(created.Evidence);
     }
 
-    private sealed class AlwaysSatisfiedEvaluator(string kind, string description) : IPrerequisiteEvaluator
+    private sealed class AlwaysSatisfiedEvaluator(string kind, string description) : IRequirementEvaluator
     {
         public string Kind { get; } = kind;
 
-        public Task<EvaluationResult> EvaluateAsync(ControlNumber employeeCtrlNbr, QualificationPrerequisite rule, CancellationToken ct = default)
+        public Task<EvaluationResult> EvaluateAsync(ControlNumber employeeCtrlNbr, QualificationRequirement rule, CancellationToken ct = default)
             => Task.FromResult(EvaluationResult.Satisfied(description));
     }
 
@@ -75,10 +75,10 @@ public sealed class PrerequisiteEvaluationServiceTests
         public virtual void Remove(TEntity entity) { }
     }
 
-    private sealed class FakeQualificationPrerequisiteRepository(IReadOnlyList<QualificationPrerequisite> prerequisites)
-        : FakeRepositoryBase<QualificationPrerequisite>, IQualificationPrerequisiteRepository
+    private sealed class FakeQualificationRequirementRepository(IReadOnlyList<QualificationRequirement> prerequisites)
+        : FakeRepositoryBase<QualificationRequirement>, IQualificationRequirementRepository
     {
-        public Task<List<QualificationPrerequisite>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr)
+        public Task<List<QualificationRequirement>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr)
             => Task.FromResult(prerequisites.Where(p => p.QualificationTypeCtrlNbr == qualificationTypeCtrlNbr).ToList());
     }
 
