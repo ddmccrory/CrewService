@@ -52,6 +52,7 @@ public interface IEmployeeCertificationRepository
     Task<EmployeeCertification?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
     Task<EmployeeCertification?> GetByCtrlNbrWithChecksAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
     Task<EmployeeCertification?> GetByEligibilityCheckCtrlNbrWithChecksAsync(ControlNumber eligibilityCheckCtrlNbr, CancellationToken ct = default);
+    Task<EmployeeCertification?> GetByEmployeeAndRegulatoryQualAsync(ControlNumber employeeCtrlNbr, ControlNumber regulatoryQualCtrlNbr, CancellationToken ct = default);
     Task AddAsync(EmployeeCertification certification, CancellationToken ct = default);
     Task UpdateAsync(EmployeeCertification certification, CancellationToken ct = default);
     Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default);

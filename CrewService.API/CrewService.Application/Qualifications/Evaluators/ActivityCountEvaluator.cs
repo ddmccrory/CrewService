@@ -8,13 +8,13 @@ public interface IOnDutyRecordCounter
     Task<int> CountCompletedAsync(ControlNumber employeeCtrlNbr, string? activityFilter = null, CancellationToken ct = default);
 }
 
-public sealed class ActivityCountEvaluator(IOnDutyRecordCounter onDutyRecordCounter) : IPrerequisiteEvaluator
+public sealed class ActivityCountEvaluator(IOnDutyRecordCounter onDutyRecordCounter) : IRequirementEvaluator
 {
-    public string Kind => "ActivityCount";
+    public string Kind => RequirementKinds.ActivityCount;
 
     public async Task<EvaluationResult> EvaluateAsync(
         ControlNumber employeeCtrlNbr,
-        QualificationPrerequisite rule,
+        QualificationRequirement rule,
         CancellationToken ct = default)
     {
         var count = await onDutyRecordCounter.CountCompletedAsync(employeeCtrlNbr, rule.ActivityFilter, ct);

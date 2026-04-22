@@ -1,4 +1,4 @@
-﻿using CrewService.Application.DailyOperations;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.ElectronicCalling.Providers;
 using CrewService.Application.FraCompliance;
@@ -72,14 +72,15 @@ public static class DependencyInjection
         services.AddScoped<HolidayPayrollGenerationService>();
 
         // B15 – Qualifications
-        services.AddScoped<PrerequisiteEvaluationService>();
+        services.AddScoped<RequirementEvaluationService>();
         services.AddScoped<EmployeeEligibilityService>();
         services.AddScoped<QualificationReactiveService>();
-        services.AddScoped<IPrerequisiteEvaluator, ManualCompletionEvaluator>();
-        services.AddScoped<IPrerequisiteEvaluator, TimeFromEventEvaluator>();
-        services.AddScoped<IPrerequisiteEvaluator, ActivityCountEvaluator>();
-        services.AddScoped<IPrerequisiteEvaluator, TimeInRoleEvaluator>();
-        services.AddScoped<IPrerequisiteEvaluator, QualificationHeldEvaluator>();
+        services.AddScoped<IRequirementEvaluator, ManualCompletionEvaluator>();
+        services.AddScoped<IRequirementEvaluator, TimeFromEventEvaluator>();
+        services.AddScoped<IRequirementEvaluator, ActivityCountEvaluator>();
+        services.AddScoped<IRequirementEvaluator, TimeInRoleEvaluator>();
+        services.AddScoped<IRequirementEvaluator, QualificationHeldEvaluator>();
+        services.AddScoped<IRequirementEvaluator, FraCertificationHeldEvaluator>();
 
         // B10 – Reporting & Exports
         services.AddScoped<IPayrollExportFormatter, AdpExportFormatter>();

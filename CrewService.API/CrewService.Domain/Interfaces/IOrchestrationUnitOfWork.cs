@@ -98,6 +98,13 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     ISlotRequirementRepository SlotRequirements { get; }
     IShiftDefinitionRepository ShiftDefinitions { get; }
 
+    // ──────────────────────────────────────────────────────────────────
+    // Qualifications
+    // ──────────────────────────────────────────────────────────────────
+    IQualificationTypeRepository QualificationTypes { get; }
+    IQualificationRequirementRepository QualificationRequirements { get; }
+    IEmployeeQualificationRepository EmployeeQualifications { get; }
+
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,
     /// saves all changes, and commits the transaction atomically.

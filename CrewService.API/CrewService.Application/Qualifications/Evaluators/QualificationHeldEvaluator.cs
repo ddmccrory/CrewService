@@ -3,13 +3,13 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Qualifications.Evaluators;
 
-public sealed class QualificationHeldEvaluator(IEmployeeQualificationRepository qualificationRepository) : IPrerequisiteEvaluator
+public sealed class QualificationHeldEvaluator(IEmployeeQualificationRepository qualificationRepository) : IRequirementEvaluator
 {
-    public string Kind => "QualificationHeld";
+    public string Kind => RequirementKinds.QualificationHeld;
 
     public async Task<EvaluationResult> EvaluateAsync(
         ControlNumber employeeCtrlNbr,
-        QualificationPrerequisite rule,
+        QualificationRequirement rule,
         CancellationToken ct = default)
     {
         if (rule.RequiredQualTypeCtrlNbr is null)

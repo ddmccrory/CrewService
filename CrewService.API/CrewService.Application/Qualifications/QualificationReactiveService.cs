@@ -5,7 +5,7 @@ namespace CrewService.Application.Qualifications;
 
 public sealed class QualificationReactiveService(
     IQualificationTypeRepository qualificationTypeRepository,
-    PrerequisiteEvaluationService prerequisiteEvaluationService)
+    RequirementEvaluationService RequirementEvaluationService)
 {
     public async Task HandleOnDutyRecordCreatedAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
     {
@@ -15,7 +15,7 @@ public sealed class QualificationReactiveService(
                      q.IsActive &&
                      string.Equals(q.EvaluationStrategy, "ActivityCount", StringComparison.OrdinalIgnoreCase)))
         {
-            await prerequisiteEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, ct);
+            await RequirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, ct);
         }
     }
 
@@ -25,7 +25,7 @@ public sealed class QualificationReactiveService(
 
         foreach (var qualificationType in qualificationTypes.Where(q => q.IsActive))
         {
-            await prerequisiteEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, ct);
+            await RequirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, ct);
         }
     }
 }

@@ -8,13 +8,13 @@ public interface ICraftMembershipDateProvider
     Task<DateTime?> GetEarliestActiveMembershipDateAsync(ControlNumber employeeCtrlNbr, ControlNumber? craftCtrlNbr = null, CancellationToken ct = default);
 }
 
-public sealed class TimeInRoleEvaluator(ICraftMembershipDateProvider membershipDateProvider) : IPrerequisiteEvaluator
+public sealed class TimeInRoleEvaluator(ICraftMembershipDateProvider membershipDateProvider) : IRequirementEvaluator
 {
-    public string Kind => "TimeInRole";
+    public string Kind => RequirementKinds.TimeInRole;
 
     public async Task<EvaluationResult> EvaluateAsync(
         ControlNumber employeeCtrlNbr,
-        QualificationPrerequisite rule,
+        QualificationRequirement rule,
         CancellationToken ct = default)
     {
         var membershipDate = await membershipDateProvider.GetEarliestActiveMembershipDateAsync(employeeCtrlNbr, ct: ct);
@@ -23,8 +23,8 @@ public sealed class TimeInRoleEvaluator(ICraftMembershipDateProvider membershipD
 
         var elapsed = rule.ThresholdUnit switch
         {
-            "Days" => (DateTime.UtcNow - membershipDate.Value).TotalDays,
-            "Months" => (DateTime.UtcNow - membershipDate.Value).TotalDays / 30.44,
+            ThresholdUnits.Days => (DateTime.UtcNow - membershipDate.Value).TotalDays,
+            ThresholdUnits.Months => (DateTime.UtcNow - membershipDate.Value).TotalDays / 30.44,
             _ => 0
         };
 
