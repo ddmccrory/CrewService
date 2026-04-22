@@ -6,7 +6,7 @@ namespace CrewService.Domain.Modules.Employees;
 
 public sealed class QualificationType : Entity
 {
-    private readonly List<QualificationPrerequisite> _prerequisites = [];
+    private readonly List<QualificationRequirement> _requirements = [];
 
     public ControlNumber ParentCtrlNbr { get; private set; }
     public ControlNumber? ScopeGroupCtrlNbr { get; private set; }
@@ -15,7 +15,7 @@ public sealed class QualificationType : Entity
     public string Code { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
     public string? Description { get; private set; }
-    public string EvaluationStrategy { get; private set; } = "Manual";
+    public string EvaluationStrategy { get; private set; } = EvaluationStrategies.Manual;
     public int? ExpirationMonths { get; private set; }
     public bool CalendarYearExpiry { get; private set; }
     public int GraceDays { get; private set; }
@@ -24,7 +24,7 @@ public sealed class QualificationType : Entity
     public bool IsSystemSeeded { get; private set; }
     public bool IsActive { get; private set; } = true;
 
-    public IReadOnlyList<QualificationPrerequisite> Prerequisites => _prerequisites.AsReadOnly();
+    public IReadOnlyList<QualificationRequirement> Requirements => _requirements.AsReadOnly();
 
     private QualificationType()
     {
@@ -35,7 +35,7 @@ public sealed class QualificationType : Entity
         ControlNumber parentCtrlNbr,
         string code,
         string name,
-        string evaluationStrategy = "Manual",
+        string evaluationStrategy = EvaluationStrategies.Manual,
         ControlNumber? scopeGroupCtrlNbr = null,
         ControlNumber? craftCtrlNbr = null,
         ControlNumber? regulatoryQualificationCtrlNbr = null,
@@ -73,6 +73,7 @@ public sealed class QualificationType : Entity
     public void Update(
         string name,
         string? description,
+        string evaluationStrategy,
         ControlNumber? scopeGroupCtrlNbr,
         ControlNumber? craftCtrlNbr,
         int? expirationMonths,
@@ -83,6 +84,7 @@ public sealed class QualificationType : Entity
     {
         Name = name;
         Description = description;
+        EvaluationStrategy = evaluationStrategy;
         ScopeGroupCtrlNbr = scopeGroupCtrlNbr;
         CraftCtrlNbr = craftCtrlNbr;
         ExpirationMonths = expirationMonths;
@@ -96,33 +98,35 @@ public sealed class QualificationType : Entity
 
     public void Activate() => IsActive = true;
 
-    public QualificationPrerequisite AddPrerequisite(
-        string prerequisiteKind,
+    public QualificationRequirement AddRequirement(
+        string requirementKind,
         int threshold,
         string thresholdUnit,
         string description,
         string? eventSource = null,
         string? activityFilter = null,
-        ControlNumber? requiredQualTypeCtrlNbr = null)
+        ControlNumber? requiredQualTypeCtrlNbr = null,
+        ControlNumber? requiredRegulatoryQualCtrlNbr = null)
     {
-        var prerequisite = QualificationPrerequisite.Create(
+        var prerequisite = QualificationRequirement.Create(
             CtrlNbr,
-            prerequisiteKind,
+            requirementKind,
             threshold,
             thresholdUnit,
             description,
             eventSource,
             activityFilter,
-            requiredQualTypeCtrlNbr);
+            requiredQualTypeCtrlNbr,
+            requiredRegulatoryQualCtrlNbr);
 
-        _prerequisites.Add(prerequisite);
+        _requirements.Add(prerequisite);
         return prerequisite;
     }
 
-    public void RemovePrerequisite(ControlNumber prerequisiteCtrlNbr)
+    public void RemoveRequirement(ControlNumber requirementCtrlNbr)
     {
-        var prerequisite = _prerequisites.Find(p => p.CtrlNbr == prerequisiteCtrlNbr);
+        var prerequisite = _requirements.Find(p => p.CtrlNbr == requirementCtrlNbr);
         if (prerequisite is not null)
-            _prerequisites.Remove(prerequisite);
+            _requirements.Remove(prerequisite);
     }
 }

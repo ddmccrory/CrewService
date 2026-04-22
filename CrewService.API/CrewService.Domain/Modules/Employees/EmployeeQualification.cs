@@ -87,14 +87,14 @@ public sealed class EmployeeQualification : Entity
         string evidenceType,
         string evidenceValue,
         string recordedBy,
-        ControlNumber? prerequisiteCtrlNbr = null)
+        ControlNumber? requirementCtrlNbr = null)
     {
         var evidence = QualificationEvidence.Create(
             CtrlNbr,
             evidenceType,
             evidenceValue,
             recordedBy,
-            prerequisiteCtrlNbr);
+            requirementCtrlNbr);
 
         _evidence.Add(evidence);
         return evidence;
