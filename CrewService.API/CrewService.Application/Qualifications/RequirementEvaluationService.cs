@@ -3,42 +3,42 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Qualifications;
 
-public sealed class PrerequisiteEvaluationService(
-    IEnumerable<IPrerequisiteEvaluator> evaluators,
-    IQualificationPrerequisiteRepository prerequisiteRepository,
+public sealed class RequirementEvaluationService(
+    IEnumerable<IRequirementEvaluator> evaluators,
+    IQualificationRequirementRepository requirementRepository,
     IEmployeeQualificationRepository employeeQualificationRepository)
 {
-    private readonly Dictionary<string, IPrerequisiteEvaluator> _evaluatorMap =
+    private readonly Dictionary<string, IRequirementEvaluator> _evaluatorMap =
         evaluators.ToDictionary(e => e.Kind, StringComparer.OrdinalIgnoreCase);
 
-    public async Task<PrerequisiteEvaluationResult> EvaluateAsync(
+    public async Task<RequirementEvaluationResult> EvaluateAsync(
         ControlNumber employeeCtrlNbr,
         QualificationType qualificationType,
         CancellationToken ct = default)
     {
-        var prerequisites = await prerequisiteRepository
+        var prerequisites = await requirementRepository
             .GetByQualificationTypeCtrlNbrAsync(qualificationType.CtrlNbr);
 
         if (prerequisites.Count == 0)
         {
-            return new PrerequisiteEvaluationResult(
+            return new RequirementEvaluationResult(
                 AllSatisfied: true,
                 Results: [],
                 QualificationTypeCtrlNbr: qualificationType.CtrlNbr,
                 QualificationCreated: false);
         }
 
-        var results = new List<PrerequisiteCheckResult>();
+        var results = new List<RequirementCheckResult>();
         var allSatisfied = true;
 
         foreach (var prerequisite in prerequisites)
         {
-            if (_evaluatorMap.TryGetValue(prerequisite.PrerequisiteKind, out var evaluator))
+            if (_evaluatorMap.TryGetValue(prerequisite.RequirementKind, out var evaluator))
             {
                 var result = await evaluator.EvaluateAsync(employeeCtrlNbr, prerequisite, ct);
-                results.Add(new PrerequisiteCheckResult(
-                    PrerequisiteCtrlNbr: prerequisite.CtrlNbr,
-                    Kind: prerequisite.PrerequisiteKind,
+                results.Add(new RequirementCheckResult(
+                    RequirementCtrlNbr: prerequisite.CtrlNbr,
+                    Kind: prerequisite.RequirementKind,
                     IsSatisfied: result.IsSatisfied,
                     Description: result.Description));
 
@@ -47,11 +47,11 @@ public sealed class PrerequisiteEvaluationService(
             }
             else
             {
-                results.Add(new PrerequisiteCheckResult(
-                    PrerequisiteCtrlNbr: prerequisite.CtrlNbr,
-                    Kind: prerequisite.PrerequisiteKind,
+                results.Add(new RequirementCheckResult(
+                    RequirementCtrlNbr: prerequisite.CtrlNbr,
+                    Kind: prerequisite.RequirementKind,
                     IsSatisfied: false,
-                    Description: $"No evaluator registered for kind '{prerequisite.PrerequisiteKind}'"));
+                    Description: $"No evaluator registered for kind '{prerequisite.RequirementKind}'"));
                 allSatisfied = false;
             }
         }
@@ -68,17 +68,17 @@ public sealed class PrerequisiteEvaluationService(
                 var createdQualification = EmployeeQualification.Create(
                     employeeCtrlNbr,
                     qualificationType.CtrlNbr,
-                    "SYSTEM",
+                    SystemActors.System,
                     expiresAtUtc,
-                    status: "Pending");
+                    status: QualificationStatuses.Pending);
 
                 foreach (var check in results.Where(r => r.IsSatisfied))
                 {
                     createdQualification.AddEvidence(
                         MapEvidenceType(check.Kind),
                         check.Description,
-                        "SYSTEM",
-                        check.PrerequisiteCtrlNbr);
+                        SystemActors.System,
+                        check.RequirementCtrlNbr);
                 }
 
                 await employeeQualificationRepository.AddAsync(createdQualification, ct);
@@ -86,7 +86,7 @@ public sealed class PrerequisiteEvaluationService(
             }
         }
 
-        return new PrerequisiteEvaluationResult(
+        return new RequirementEvaluationResult(
             AllSatisfied: allSatisfied,
             Results: results,
             QualificationTypeCtrlNbr: qualificationType.CtrlNbr,
@@ -106,24 +106,25 @@ public sealed class PrerequisiteEvaluationService(
         return new DateTime(baseExpiration.Year, 12, 31, 23, 59, 59, DateTimeKind.Utc);
     }
 
-    private static string MapEvidenceType(string prerequisiteKind) => prerequisiteKind switch
+    private static string MapEvidenceType(string requirementKind) => requirementKind switch
     {
-        "TimeFromEvent" => "TimeThresholdMet",
-        "ActivityCount" => "ActivityCountMet",
-        "TimeInRole" => "TimeThresholdMet",
-        "QualificationHeld" => "QualificationHeld",
-        _ => "ManualCompletion"
+        RequirementKinds.TimeFromEvent => EvidenceTypes.TimeThresholdMet,
+        RequirementKinds.ActivityCount => EvidenceTypes.ActivityCountMet,
+        RequirementKinds.TimeInRole => EvidenceTypes.TimeThresholdMet,
+        RequirementKinds.QualificationHeld => EvidenceTypes.QualificationHeld,
+        RequirementKinds.FraCertificationHeld => EvidenceTypes.FraCertificationHeld,
+        _ => EvidenceTypes.ManualCompletion
     };
 }
 
-public sealed record PrerequisiteEvaluationResult(
+public sealed record RequirementEvaluationResult(
     bool AllSatisfied,
-    IReadOnlyList<PrerequisiteCheckResult> Results,
+    IReadOnlyList<RequirementCheckResult> Results,
     ControlNumber QualificationTypeCtrlNbr,
     bool QualificationCreated);
 
-public sealed record PrerequisiteCheckResult(
-    ControlNumber PrerequisiteCtrlNbr,
+public sealed record RequirementCheckResult(
+    ControlNumber RequirementCtrlNbr,
     string Kind,
     bool IsSatisfied,
     string Description);

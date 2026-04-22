@@ -1,34 +1,38 @@
+using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Qualifications.Evaluators;
 
-public sealed class TimeFromEventEvaluator(IEmployeeRepository employeeRepository) : IPrerequisiteEvaluator
+public sealed class TimeFromEventEvaluator(
+    IEmployeeRepository employeeRepository,
+    ISeniorityRepository seniorityRepository,
+    IEmployeeCertificationRepository certificationRepository) : IRequirementEvaluator
 {
-    public string Kind => "TimeFromEvent";
+    public string Kind => RequirementKinds.TimeFromEvent;
 
     public async Task<EvaluationResult> EvaluateAsync(
         ControlNumber employeeCtrlNbr,
-        QualificationPrerequisite rule,
+        QualificationRequirement rule,
         CancellationToken ct = default)
     {
-        var employee = await employeeRepository.GetByCtrlNbrAsync(employeeCtrlNbr, ct);
-        if (employee is null)
-            return EvaluationResult.NotSatisfied("Employee not found");
-
-        var eventDate = rule.EventSource switch
+        DateTime? eventDate = rule.EventSource switch
         {
-            "EmploymentDate" => employee.EmploymentDate,
-            _ => (DateTime?)null
+            EventSources.EmploymentDate => await GetEmploymentDateAsync(employeeCtrlNbr, ct),
+            EventSources.SeniorityDate => await GetSeniorityDateAsync(employeeCtrlNbr, ct),
+            EventSources.CertificationDate => await GetLatestCertificationDateAsync(employeeCtrlNbr, ct),
+            _ => null
         };
 
         if (eventDate is null)
-            return EvaluationResult.NotSatisfied($"Unknown event source: {rule.EventSource}");
+            return EvaluationResult.NotSatisfied($"Could not resolve event source: {rule.EventSource}");
 
         var elapsed = rule.ThresholdUnit switch
         {
-            "Days" => (DateTime.UtcNow - eventDate.Value).TotalDays,
-            "Months" => (DateTime.UtcNow - eventDate.Value).TotalDays / 30.44,
+            ThresholdUnits.Days => (DateTime.UtcNow - eventDate.Value).TotalDays,
+            ThresholdUnits.Months => (DateTime.UtcNow - eventDate.Value).TotalDays / 30.44,
             _ => 0
         };
 
@@ -38,5 +42,29 @@ public sealed class TimeFromEventEvaluator(IEmployeeRepository employeeRepositor
         return met
             ? EvaluationResult.Satisfied(description)
             : EvaluationResult.NotSatisfied($"{description} — need {rule.Threshold}");
+    }
+
+    private async Task<DateTime?> GetEmploymentDateAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        var employee = await employeeRepository.GetByCtrlNbrAsync(employeeCtrlNbr, ct);
+        return employee?.EmploymentDate;
+    }
+
+    private async Task<DateTime?> GetSeniorityDateAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        var seniorityRecords = await seniorityRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        var earliest = seniorityRecords
+            .Where(s => s.LastActiveRoster)
+            .MinBy(s => s.RosterDate);
+        return earliest?.RosterDate;
+    }
+
+    private async Task<DateTime?> GetLatestCertificationDateAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        var certifications = await certificationRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr, ct);
+        var latest = certifications
+            .Where(c => c.Status == CertificationStatuses.Active)
+            .MaxBy(c => c.CertificationDate);
+        return latest?.CertificationDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
     }
 }

@@ -6,7 +6,7 @@ namespace CrewService.Domain.Modules.Employees;
 public sealed class QualificationEvidence : Entity
 {
     public ControlNumber EmployeeQualificationCtrlNbr { get; private set; }
-    public ControlNumber? PrerequisiteCtrlNbr { get; private set; }
+    public ControlNumber? RequirementCtrlNbr { get; private set; }
     public string EvidenceType { get; private set; } = string.Empty;
     public string EvidenceValue { get; private set; } = string.Empty;
     public DateTime RecordedAtUtc { get; private set; }
@@ -22,12 +22,12 @@ public sealed class QualificationEvidence : Entity
         string evidenceType,
         string evidenceValue,
         string recordedBy,
-        ControlNumber? prerequisiteCtrlNbr = null)
+        ControlNumber? RequirementCtrlNbr = null)
     {
         return new QualificationEvidence
         {
             EmployeeQualificationCtrlNbr = employeeQualificationCtrlNbr,
-            PrerequisiteCtrlNbr = prerequisiteCtrlNbr,
+            RequirementCtrlNbr = RequirementCtrlNbr,
             EvidenceType = evidenceType,
             EvidenceValue = evidenceValue,
             RecordedAtUtc = DateTime.UtcNow,

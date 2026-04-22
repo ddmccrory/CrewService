@@ -132,9 +132,9 @@ public interface IQualificationTypeRepository : IRepository<QualificationType>
     Task<List<QualificationType>> GetActiveByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
 }
 
-public interface IQualificationPrerequisiteRepository : IRepository<QualificationPrerequisite>
+public interface IQualificationRequirementRepository : IRepository<QualificationRequirement>
 {
-    Task<List<QualificationPrerequisite>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr);
+    Task<List<QualificationRequirement>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr);
 }
 
 public interface IEmployeeQualificationRepository : IRepository<EmployeeQualification>

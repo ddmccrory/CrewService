@@ -3,42 +3,45 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Domain.Modules.Employees;
 
-public sealed class QualificationPrerequisite : Entity
+public sealed class QualificationRequirement : Entity
 {
     public ControlNumber QualificationTypeCtrlNbr { get; private set; }
-    public string PrerequisiteKind { get; private set; } = string.Empty;
+    public string RequirementKind { get; private set; } = string.Empty;
     public int Threshold { get; private set; }
     public string ThresholdUnit { get; private set; } = string.Empty;
     public string? EventSource { get; private set; }
     public string? ActivityFilter { get; private set; }
     public ControlNumber? RequiredQualTypeCtrlNbr { get; private set; }
+    public ControlNumber? RequiredRegulatoryQualCtrlNbr { get; private set; }
     public string Description { get; private set; } = string.Empty;
 
-    private QualificationPrerequisite()
+    private QualificationRequirement()
     {
         QualificationTypeCtrlNbr = null!;
     }
 
-    internal static QualificationPrerequisite Create(
+    internal static QualificationRequirement Create(
         ControlNumber qualificationTypeCtrlNbr,
-        string prerequisiteKind,
+        string requirementKind,
         int threshold,
         string thresholdUnit,
         string description,
         string? eventSource = null,
         string? activityFilter = null,
-        ControlNumber? requiredQualTypeCtrlNbr = null)
+        ControlNumber? requiredQualTypeCtrlNbr = null,
+        ControlNumber? requiredRegulatoryQualCtrlNbr = null)
     {
-        return new QualificationPrerequisite
+        return new QualificationRequirement
         {
             QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
-            PrerequisiteKind = prerequisiteKind,
+            RequirementKind = requirementKind,
             Threshold = threshold,
-            ThresholdUnit = thresholdUnit,
+            ThresholdUnit = requirementKind == RequirementKinds.ActivityCount ? ThresholdUnits.Count : thresholdUnit,
             Description = description,
             EventSource = eventSource,
             ActivityFilter = activityFilter,
-            RequiredQualTypeCtrlNbr = requiredQualTypeCtrlNbr
+            RequiredQualTypeCtrlNbr = requiredQualTypeCtrlNbr,
+            RequiredRegulatoryQualCtrlNbr = requiredRegulatoryQualCtrlNbr
         };
     }
 
@@ -48,13 +51,15 @@ public sealed class QualificationPrerequisite : Entity
         string description,
         string? eventSource,
         string? activityFilter,
-        ControlNumber? requiredQualTypeCtrlNbr)
+        ControlNumber? requiredQualTypeCtrlNbr,
+        ControlNumber? requiredRegulatoryQualCtrlNbr)
     {
         Threshold = threshold;
-        ThresholdUnit = thresholdUnit;
+        ThresholdUnit = RequirementKind == RequirementKinds.ActivityCount ? ThresholdUnits.Count : thresholdUnit;
         Description = description;
         EventSource = eventSource;
         ActivityFilter = activityFilter;
         RequiredQualTypeCtrlNbr = requiredQualTypeCtrlNbr;
+        RequiredRegulatoryQualCtrlNbr = requiredRegulatoryQualCtrlNbr;
     }
 }

@@ -78,7 +78,7 @@ internal class QualificationEvidenceConfiguration : IEntityTypeConfiguration<Qua
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
-        builder.Property(e => e.PrerequisiteCtrlNbr).HasConversion(
+        builder.Property(e => e.RequirementCtrlNbr).HasConversion(
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));
 
@@ -86,9 +86,9 @@ internal class QualificationEvidenceConfiguration : IEntityTypeConfiguration<Qua
         builder.Property(e => e.EvidenceValue).HasMaxLength(200).IsRequired();
         builder.Property(e => e.RecordedBy).HasMaxLength(50).IsRequired();
 
-        builder.HasOne<QualificationPrerequisite>()
+        builder.HasOne<QualificationRequirement>()
             .WithMany()
-            .HasForeignKey(e => e.PrerequisiteCtrlNbr)
+            .HasForeignKey(e => e.RequirementCtrlNbr)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(e => e.CreatedBy, audit =>

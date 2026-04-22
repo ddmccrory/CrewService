@@ -1,0 +1,488 @@
+@page "/work-management/qualification-types/{CtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject QualificationsClient QualificationsClient
+@inject NavigationManager Nav
+
+<PageTitle>Qualification Type Detail</PageTitle>
+
+@if (qualificationType is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="Qualification Types" OnClick="NavigateBack" />
+
+    <h1>@qualificationType.Name</h1>
+    <p class="text-muted mb-1">
+        <strong>Code:</strong> @qualificationType.Code.ToUpperInvariant()
+        <span class="mx-2">|</span>
+        <strong>Strategy:</strong> @qualificationType.EvaluationStrategy
+    </p>
+    @if (!string.IsNullOrEmpty(qualificationType.Description))
+    {
+        <p class="text-muted">@qualificationType.Description</p>
+    }
+    <div class="mb-2">
+        @if (qualificationType.IsBlocking)
+        {
+            <span class="badge bg-warning me-1">Blocking</span>
+        }
+        @if (qualificationType.IsActive)
+        {
+            <span class="badge bg-success me-1">Active</span>
+        }
+        else
+        {
+            <span class="badge bg-secondary me-1">Inactive</span>
+        }
+        @if (string.Equals(qualificationType.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal))
+        {
+            <span class="badge bg-info me-1">FRA Managed</span>
+        }
+        @if (qualificationType.IsSystemSeeded)
+        {
+            <span class="badge bg-dark me-1">System Seeded</span>
+        }
+    </div>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @if (activeTab == "requirements")
+    {
+        <Modal Visible="showreqSaveModal"
+               Title="@(editreqCtrlNbr > 0 ? "Edit Requirement" : "Add Requirement")"
+               Icon="@(editreqCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+               OnClose="ClosereqSaveModal"
+               Size="lg">
+            <BodyContent>
+                <EditForm @key="editreqCtrlNbr" Model="reqSaveModel" OnValidSubmit="OnSaverequirement" id="save-prereq-form">
+                    <DataAnnotationsValidator />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Requirement Kind</label>
+                            <SelectInput TItem="string" TValue="string"
+                                         @bind-Value="reqSaveModel.RequirementKind"
+                                         Items="requirementKindOptions"
+                                         ValueSelector="@(s => s)"
+                                         TextSelector="@(s => requirementKindLabels.GetValueOrDefault(s, s))"
+                                         Placeholder="-- Select Kind --"
+                                         class="form-select"
+                                         disabled="@(editreqCtrlNbr > 0)" />
+                            @if (editreqCtrlNbr > 0)
+                            {
+                                <div class="form-text text-muted">Kind cannot be changed.</div>
+                            }
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Description</label>
+                            <InputText @bind-Value="reqSaveModel.Description" class="form-control" placeholder="Describe what this requirement checks for" />
+                            <ValidationMessage For="() => reqSaveModel.Description" class="text-danger" />
+                        </div>
+
+                        @if (string.Equals(reqSaveModel.RequirementKind, "TimeFromEvent", StringComparison.Ordinal))
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Event Source</label>
+                                <SelectInput TItem="string" TValue="string"
+                                             @bind-Value="reqSaveModel.EventSource"
+                                             Items="eventSourceOptions"
+                                             ValueSelector="@(s => s)"
+                                             TextSelector="@(s => eventSourceLabels.GetValueOrDefault(s, s))"
+                                             Placeholder="-- Select Event Source --"
+                                             class="form-select" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Threshold</label>
+                                <InputNumber @bind-Value="reqSaveModel.Threshold" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Unit</label>
+                                <SelectInput TItem="string" TValue="string"
+                                             @bind-Value="reqSaveModel.ThresholdUnit"
+                                             Items="timeThresholdUnits"
+                                             ValueSelector="@(s => s)"
+                                             TextSelector="@(s => s)"
+                                             Placeholder="-- Select Unit --"
+                                             class="form-select" />
+                            </div>
+                        }
+                        else if (string.Equals(reqSaveModel.RequirementKind, "ActivityCount", StringComparison.Ordinal))
+                        {
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Minimum Count</label>
+                                <InputNumber @bind-Value="reqSaveModel.Threshold" class="form-control" />
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Activity Filter</label>
+                                <SelectInput TItem="string" TValue="string"
+                                             @bind-Value="reqSaveModel.ActivityFilter"
+                                             Items="activityFilterOptions"
+                                             ValueSelector="@(s => s)"
+                                             TextSelector="@(s => activityFilterLabels.GetValueOrDefault(s, s))"
+                                             Placeholder="-- Select Filter --"
+                                             class="form-select" />
+                            </div>
+                        }
+                        else if (string.Equals(reqSaveModel.RequirementKind, "TimeInRole", StringComparison.Ordinal))
+                        {
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Threshold</label>
+                                <InputNumber @bind-Value="reqSaveModel.Threshold" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Unit</label>
+                                <SelectInput TItem="string" TValue="string"
+                                             @bind-Value="reqSaveModel.ThresholdUnit"
+                                             Items="timeThresholdUnits"
+                                             ValueSelector="@(s => s)"
+                                             TextSelector="@(s => s)"
+                                             Placeholder="-- Select Unit --"
+                                             class="form-select" />
+                            </div>
+                        }
+                        else if (string.Equals(reqSaveModel.RequirementKind, "QualificationHeld", StringComparison.Ordinal))
+                        {
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold">Required Qualification Type</label>
+                                <SelectInput TItem="QualificationTypeResponse" TValue="long"
+                                             @bind-Value="reqSaveModel.RequiredQualTypeCtrlNbr"
+                                             Items="otherQualificationTypes"
+                                             ValueSelector="@(q => q.CtrlNbr)"
+                                             TextSelector="@(q => $"{q.Code.ToUpperInvariant()} - {q.Name}")"
+                                             Placeholder="-- Select Qualification --"
+                                             class="form-select" />
+                            </div>
+                        }
+                        else if (string.Equals(reqSaveModel.RequirementKind, "FraCertificationHeld", StringComparison.Ordinal))
+                        {
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold">Required FRA Certification</label>
+                                <SelectInput TItem="RegulatoryQualificationCatalogItem" TValue="long"
+                                             @bind-Value="reqSaveModel.RequiredRegulatoryQualCtrlNbr"
+                                             Items="regulatoryQualifications"
+                                             ValueSelector="@(r => r.CtrlNbr)"
+                                             TextSelector="@(r => $"{r.Code} — {r.Description}")"
+                                             Placeholder="-- Select FRA Certification --"
+                                             class="form-select" />
+                            </div>
+                        }
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ClosereqSaveModal">Cancel</button>
+                <button type="submit" form="save-prereq-form" class="btn btn-primary" disabled="@isSaving">
+                    <span class="bi bi-check-circle me-1"></span> @(editreqCtrlNbr > 0 ? "Update" : "Add")
+                </button>
+            </Footer>
+        </Modal>
+
+        <Modal Visible="showreqDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+               OnClose="() => showreqDeleteModal = false" Size="sm">
+            <BodyContent>
+                <p>Are you sure you want to delete this requirement?</p>
+                <p class="text-muted"><em>@deleteReqDescription</em></p>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => showreqDeleteModal = false">Cancel</button>
+                <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDeleterequirement">
+                    <span class="bi bi-trash me-1"></span> Delete
+                </button>
+            </Footer>
+        </Modal>
+
+        <DataTable TItem="QualificationRequirementResponse" Items="requirements" Columns="reqColumns"
+                   SearchFilter="@((p, term) => p.Description.Contains(term, StringComparison.OrdinalIgnoreCase) || p.RequirementKind.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search requirements..."
+                   EmptyMessage="No requirements defined for this qualification type yet."
+                   DefaultSortColumn="Kind">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly && !IsLocked)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreatePrereqModal">
+                        <span class="bi bi-plus-circle"></span> Add Requirement
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="p">
+                <td>@requirementKindLabels.GetValueOrDefault(p.RequirementKind, p.RequirementKind)</td>
+                <td>@p.Description</td>
+                <td>@(string.IsNullOrEmpty(p.ThresholdUnit) || p.ThresholdUnit == ThresholdUnits.Count ? p.Threshold.ToString() : $"{p.Threshold} {p.ThresholdUnit}")</td>
+                <td>
+                    @if (p.RequiredQualTypeCtrlNbr > 0)
+                    {
+                        @(allQualTypesLookup.GetValueOrDefault(p.RequiredQualTypeCtrlNbr, p.RequiredQualTypeCtrlNbr.ToString()))
+                    }
+                    else if (p.RequiredRegulatoryQualCtrlNbr > 0)
+                    {
+                        @(regulatoryQualsLookup.GetValueOrDefault(p.RequiredRegulatoryQualCtrlNbr, p.RequiredRegulatoryQualCtrlNbr.ToString()))
+                    }
+                    else
+                    {
+                        <span class="text-muted">&mdash;</span>
+                    }
+                </td>
+                <td>
+                    @if (!IsFeatureReadOnly && !IsLocked)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpeneditReqModal(p)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => OpendeleteReqModal(p)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/qualification-types";
+
+    [Parameter]
+    public long CtrlNbr { get; set; }
+
+    private QualificationTypeResponse? qualificationType;
+    private IReadOnlyList<QualificationRequirementResponse> requirements = [];
+    private IReadOnlyList<QualificationTypeResponse> otherQualificationTypes = [];
+    private IReadOnlyList<RegulatoryQualificationCatalogItem> regulatoryQualifications = [];
+    private Dictionary<long, string> allQualTypesLookup = new();
+    private Dictionary<long, string> regulatoryQualsLookup = new();
+
+    private string activeTab = "requirements";
+    private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
+    [
+        new("requirements", "Requirements", "bi bi-list-check")
+    ];
+
+    private static readonly IReadOnlyList<string> requirementKindOptions =
+        [RequirementKinds.Manual, RequirementKinds.TimeFromEvent, RequirementKinds.ActivityCount, RequirementKinds.TimeInRole, RequirementKinds.QualificationHeld, RequirementKinds.FraCertificationHeld];
+
+    private static readonly Dictionary<string, string> requirementKindLabels = new()
+    {
+        [RequirementKinds.Manual] = "Manual",
+        [RequirementKinds.TimeFromEvent] = "Time from Event",
+        [RequirementKinds.ActivityCount] = "Activity Count",
+        [RequirementKinds.TimeInRole] = "Time in Role",
+        [RequirementKinds.QualificationHeld] = "Qualification Held",
+        [RequirementKinds.FraCertificationHeld] = "FRA Certification Held"
+    };
+
+    private static readonly IReadOnlyList<string> timeThresholdUnits = [ThresholdUnits.Days, ThresholdUnits.Months];
+    private static readonly IReadOnlyList<string> eventSourceOptions = [EventSources.EmploymentDate, EventSources.SeniorityDate, EventSources.CertificationDate];
+    private static readonly Dictionary<string, string> eventSourceLabels = new()
+    {
+        [EventSources.EmploymentDate] = "Employment Date",
+        [EventSources.SeniorityDate] = "Seniority Date",
+        [EventSources.CertificationDate] = "Certification Date"
+    };
+    private static readonly IReadOnlyList<string> activityFilterOptions = [ActivityFilters.Any, ActivityFilters.AssignedOnly, ActivityFilters.CalledFromBoard];
+    private static readonly Dictionary<string, string> activityFilterLabels = new()
+    {
+        [ActivityFilters.Any] = "Any on-duty trip",
+        [ActivityFilters.AssignedOnly] = "Assigned trips only",
+        [ActivityFilters.CalledFromBoard] = "Called from board only"
+    };
+
+    private IReadOnlyList<DataTableColumn<QualificationRequirementResponse>> reqColumns =>
+    [
+        new("Kind", p => p.RequirementKind),
+        new("Description", p => p.Description),
+        new("Threshold", p => string.IsNullOrEmpty(p.ThresholdUnit) || p.ThresholdUnit == ThresholdUnits.Count
+            ? p.Threshold.ToString()
+            : $"{p.Threshold} {p.ThresholdUnit}"),
+        new("Required Qualification", p => p.RequiredQualTypeCtrlNbr > 0
+            ? allQualTypesLookup.GetValueOrDefault(p.RequiredQualTypeCtrlNbr, "")
+            : p.RequiredRegulatoryQualCtrlNbr > 0
+                ? regulatoryQualsLookup.GetValueOrDefault(p.RequiredRegulatoryQualCtrlNbr, "")
+                : ""),
+        DataTableColumn<QualificationRequirementResponse>.Actions()
+    ];
+
+    private bool showreqSaveModal;
+    private long editreqCtrlNbr;
+    private RequirementInputModel reqSaveModel = new();
+    private bool showreqDeleteModal;
+    private long deletereqCtrlNbr;
+    private string deleteReqDescription = string.Empty;
+
+    private bool IsLocked => qualificationType is not null
+        && (qualificationType.IsSystemSeeded
+            || string.Equals(qualificationType.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal));
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadAllQualificationTypes();
+        await Loadrequirements();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadAllQualificationTypes();
+    }
+
+    private async Task LoadAllQualificationTypes()
+    {
+        if (!HasParent) return;
+        var response = await QualificationsClient.GetQualificationTypesAsync(SelectedParentCtrlNbr!.Value);
+        qualificationType = response.QualificationTypes.FirstOrDefault(q => q.CtrlNbr == CtrlNbr);
+        if (qualificationType is null)
+        {
+            NavigateBack();
+            return;
+        }
+        otherQualificationTypes =
+        [
+            .. response.QualificationTypes
+                .Where(q => q.CtrlNbr != CtrlNbr)
+                .OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)
+        ];
+        allQualTypesLookup = response.QualificationTypes
+            .ToDictionary(q => q.CtrlNbr, q => $"{q.Code.ToUpperInvariant()} - {q.Name}");
+
+        var regResponse = await QualificationsClient.GetRegulatoryQualificationsAsync();
+        regulatoryQualifications = [.. regResponse.Qualifications.OrderBy(r => r.Code, StringComparer.OrdinalIgnoreCase)];
+        regulatoryQualsLookup = regResponse.Qualifications.ToDictionary(r => r.CtrlNbr, r => $"{r.Code} — {r.Description}");
+    }
+
+    private async Task Loadrequirements()
+    {
+        var response = await QualificationsClient.GetQualificationRequirementsAsync(CtrlNbr);
+        requirements = [.. response.Requirements.OrderBy(p => p.RequirementKind, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private void NavigateBack() => Nav.NavigateTo("/work-management/qualification-types");
+
+    private void OpenCreatePrereqModal()
+    {
+        editreqCtrlNbr = 0;
+        reqSaveModel = new RequirementInputModel { RequirementKind = RequirementKinds.Manual };
+        showreqSaveModal = true;
+    }
+
+    private void OpeneditReqModal(QualificationRequirementResponse p)
+    {
+        editreqCtrlNbr = p.CtrlNbr;
+        reqSaveModel = new RequirementInputModel
+        {
+            RequirementKind = p.RequirementKind,
+            Description = p.Description,
+            Threshold = p.Threshold,
+            ThresholdUnit = p.ThresholdUnit,
+            EventSource = p.EventSource,
+            ActivityFilter = p.ActivityFilter,
+            RequiredQualTypeCtrlNbr = p.RequiredQualTypeCtrlNbr,
+            RequiredRegulatoryQualCtrlNbr = p.RequiredRegulatoryQualCtrlNbr
+        };
+        showreqSaveModal = true;
+    }
+
+    private void ClosereqSaveModal() => showreqSaveModal = false;
+
+    private void OpendeleteReqModal(QualificationRequirementResponse p)
+    {
+        deletereqCtrlNbr = p.CtrlNbr;
+        deleteReqDescription = p.Description;
+        showreqDeleteModal = true;
+    }
+
+    private async Task OnSaverequirement()
+    {
+        try
+        {
+            isSaving = true; errorMessage = null;
+
+            if (editreqCtrlNbr > 0)
+            {
+                await QualificationsClient.UpdateQualificationRequirementAsync(new UpdateQualificationRequirementRequest
+                {
+                    RequirementCtrlNbr = editreqCtrlNbr,
+                    Threshold = reqSaveModel.Threshold,
+                    ThresholdUnit = reqSaveModel.ThresholdUnit ?? string.Empty,
+                    Description = reqSaveModel.Description ?? string.Empty,
+                    EventSource = reqSaveModel.EventSource ?? string.Empty,
+                    ActivityFilter = reqSaveModel.ActivityFilter ?? string.Empty,
+                    RequiredQualTypeCtrlNbr = reqSaveModel.RequiredQualTypeCtrlNbr,
+                    RequiredRegulatoryQualCtrlNbr = reqSaveModel.RequiredRegulatoryQualCtrlNbr
+                });
+                successMessage = "Requirement updated.";
+            }
+            else
+            {
+                var kind = reqSaveModel.RequirementKind ?? "Manual";
+                await QualificationsClient.AddQualificationRequirementAsync(new AddQualificationRequirementRequest
+                {
+                    QualificationTypeCtrlNbr = CtrlNbr,
+                    RequirementKind = kind,
+                    Threshold = reqSaveModel.Threshold,
+                    ThresholdUnit = reqSaveModel.ThresholdUnit ?? string.Empty,
+                    Description = reqSaveModel.Description ?? string.Empty,
+                    EventSource = reqSaveModel.EventSource ?? string.Empty,
+                    ActivityFilter = reqSaveModel.ActivityFilter ?? string.Empty,
+                    RequiredQualTypeCtrlNbr = reqSaveModel.RequiredQualTypeCtrlNbr,
+                    RequiredRegulatoryQualCtrlNbr = reqSaveModel.RequiredRegulatoryQualCtrlNbr
+                });
+                successMessage = "Requirement added.";
+            }
+
+            showreqSaveModal = false;
+            await Loadrequirements();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to save requirement: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDeleterequirement()
+    {
+        try
+        {
+            isSaving = true; errorMessage = null;
+            await QualificationsClient.RemoveQualificationRequirementAsync(deletereqCtrlNbr);
+            showreqDeleteModal = false;
+            successMessage = "Requirement deleted.";
+            await Loadrequirements();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to delete requirement: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private sealed class RequirementInputModel
+    {
+        public string? RequirementKind { get; set; }
+        [Required(ErrorMessage = "Description is required")]
+        public string? Description { get; set; }
+        public int Threshold { get; set; }
+        public string? ThresholdUnit { get; set; }
+        public string? EventSource { get; set; }
+        public string? ActivityFilter { get; set; }
+        public long RequiredQualTypeCtrlNbr { get; set; }
+        public long RequiredRegulatoryQualCtrlNbr { get; set; }
+    }
+}

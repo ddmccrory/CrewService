@@ -12,7 +12,7 @@ public sealed class EmployeeCertification : Entity
     public string CertificationType { get; private set; } = string.Empty;
     public DateOnly CertificationDate { get; private set; }
     public DateOnly ExpirationDate { get; private set; }
-    public string Status { get; private set; } = "Pending";
+    public string Status { get; private set; } = CertificationStatuses.Pending;
     public string? CertificationNumber { get; private set; }
     public DateTime? SuspendedAtUtc { get; private set; }
     public string? SuspensionReason { get; private set; }
@@ -43,14 +43,14 @@ public sealed class EmployeeCertification : Entity
             CertificationType = certificationType,
             CertificationDate = certificationDate,
             ExpirationDate = certificationDate.AddMonths(recertificationIntervalMonths),
-            Status = "Pending",
+            Status = CertificationStatuses.Pending,
             CertificationNumber = certificationNumber
         };
     }
 
     public void Activate()
     {
-        Status = "Active";
+        Status = CertificationStatuses.Active;
     }
 
     public void UpdateCertificationDetails(
@@ -69,20 +69,20 @@ public sealed class EmployeeCertification : Entity
 
     public void Suspend(string reason)
     {
-        Status = "Suspended";
+        Status = CertificationStatuses.Suspended;
         SuspendedAtUtc = DateTime.UtcNow;
         SuspensionReason = reason;
     }
 
     public void Revoke(DateTime revocationPeriodEndUtc)
     {
-        Status = "Revoked";
+        Status = CertificationStatuses.Revoked;
         RevocationPeriodEndUtc = revocationPeriodEndUtc;
     }
 
     public void Reinstate()
     {
-        Status = "Active";
+        Status = CertificationStatuses.Active;
         SuspendedAtUtc = null;
         SuspensionReason = null;
         RevocationPeriodEndUtc = null;
@@ -90,7 +90,7 @@ public sealed class EmployeeCertification : Entity
 
     public void Expire()
     {
-        Status = "Expired";
+        Status = CertificationStatuses.Expired;
     }
 
     public void RecordMonitoringObservation() => LastMonitoringObservationUtc = DateTime.UtcNow;

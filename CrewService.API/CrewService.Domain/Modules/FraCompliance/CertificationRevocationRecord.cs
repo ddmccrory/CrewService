@@ -60,7 +60,7 @@ public sealed class CertificationRevocationRecord : Entity
         DecisionDate = DateTime.UtcNow;
         RevocationPeriodMonths = revocationPeriodMonths;
 
-        if (decision == "Revoked" && revocationPeriodMonths.HasValue)
+        if (decision == CertificationStatuses.Revoked && revocationPeriodMonths.HasValue)
             RevocationEndsUtc = DateTime.UtcNow.AddMonths(revocationPeriodMonths.Value);
 
         HearingRecordRetainUntil = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(3));

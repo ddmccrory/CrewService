@@ -210,33 +210,33 @@ public sealed class QualificationExpiryEnforcerWorker(
     }
 }
 
-public sealed class PrerequisiteEvaluationWorker(
+public sealed class RequirementEvaluationWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<PrerequisiteEvaluationWorker> logger)
+    ILogger<RequirementEvaluationWorker> logger)
     : WorkerBase(scopeFactory, logger, "PrereqEval", TimeSpan.FromHours(24))
 {
     protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var employeeRepository = services.GetRequiredService<IEmployeeRepository>();
         var qualificationTypeRepository = services.GetRequiredService<IQualificationTypeRepository>();
-        var prerequisiteEvaluationService = services.GetRequiredService<PrerequisiteEvaluationService>();
+        var requirementEvaluationService = services.GetRequiredService<RequirementEvaluationService>();
 
         var employees = await employeeRepository.GetAllAsync(ct);
         var qualificationTypes = await qualificationTypeRepository.GetAllAsync(ct);
 
         var strategySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "TimeFromEvent",
-            "ActivityCount",
-            "TimeInRole",
-            "QualificationHeld"
+            EvaluationStrategies.TimeFromEvent,
+            EvaluationStrategies.ActivityCount,
+            EvaluationStrategies.TimeInRole,
+            EvaluationStrategies.QualificationHeld
         };
 
         foreach (var qualificationType in qualificationTypes.Where(q => q.IsActive && strategySet.Contains(q.EvaluationStrategy)))
         {
             foreach (var employee in employees)
             {
-                await prerequisiteEvaluationService.EvaluateAsync(employee.CtrlNbr, qualificationType, ct);
+                await requirementEvaluationService.EvaluateAsync(employee.CtrlNbr, qualificationType, ct);
             }
         }
     }

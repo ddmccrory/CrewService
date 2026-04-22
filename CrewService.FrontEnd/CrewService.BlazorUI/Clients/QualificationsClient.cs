@@ -58,6 +58,93 @@ public sealed class QualificationsClient(
         }
     }
 
+    public async Task<QualificationTypeResponse> UpdateQualificationTypeAsync(UpdateQualificationTypeRequest request)
+    {
+        try
+        {
+            return await _client.UpdateQualificationTypeAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<DeleteResponse> DeleteQualificationTypeAsync(long qualificationTypeCtrlNbr)
+    {
+        try
+        {
+            return await _client.DeleteQualificationTypeAsync(new DeleteQualificationTypeRequest
+            {
+                QualificationTypeCtrlNbr = qualificationTypeCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetQualificationRequirementsResponse> GetQualificationRequirementsAsync(long qualificationTypeCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetQualificationRequirementsAsync(new GetQualificationRequirementsRequest
+            {
+                QualificationTypeCtrlNbr = qualificationTypeCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<QualificationRequirementResponse> AddQualificationRequirementAsync(AddQualificationRequirementRequest request)
+    {
+        try
+        {
+            return await _client.AddQualificationRequirementAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<QualificationRequirementResponse> UpdateQualificationRequirementAsync(UpdateQualificationRequirementRequest request)
+    {
+        try
+        {
+            return await _client.UpdateQualificationRequirementAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<DeleteResponse> RemoveQualificationRequirementAsync(long RequirementCtrlNbr)
+    {
+        try
+        {
+            return await _client.RemoveQualificationRequirementAsync(new RemoveQualificationRequirementRequest
+            {
+                RequirementCtrlNbr = RequirementCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<QualificationTypeResponse> SetQualificationTypeActiveAsync(long qualificationTypeCtrlNbr, bool isActive)
     {
         try

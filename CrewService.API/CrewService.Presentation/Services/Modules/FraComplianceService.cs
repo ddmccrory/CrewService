@@ -51,7 +51,7 @@ public class FraComplianceService(
         var clientCtrlNbr = ControlNumber.Create(request.ClientCtrlNbr);
         var statuses = request.Statuses.Count > 0
             ? request.Statuses.ToList()
-            : ["Pending", "Active"];
+            : [CertificationStatuses.Pending, CertificationStatuses.Active];
 
         var certifications = await employeeCertificationReadRepository
             .GetByClientAndStatusesAsync(clientCtrlNbr, statuses, context.CancellationToken);
@@ -456,7 +456,7 @@ public class FraComplianceService(
             evaluatorName: request.EvaluatorName);
 
         var wasActivated = false;
-        if (eligibilityService.AreAllChecksValid(certification, today) && certification.Status != "Active")
+        if (eligibilityService.AreAllChecksValid(certification, today) && certification.Status != CertificationStatuses.Active)
         {
             certification.Activate();
             wasActivated = true;
@@ -710,7 +710,7 @@ public class FraComplianceService(
         var ineligibility = drugAlcoholCertificationImpactHandler.DetermineIneligibility(testRecord, [.. prior.Where(p => p.CtrlNbr != testRecord.CtrlNbr)]);
 
         var certifications = await employeeCertificationRepository.GetByEmployeeCtrlNbrAsync(testRecord.EmployeeCtrlNbr, ct);
-        foreach (var cert in certifications.Where(c => c.Status == "Active"))
+        foreach (var cert in certifications.Where(c => c.Status == CertificationStatuses.Active))
         {
             cert.Suspend($"Drug/alcohol violation ({ineligibility.ViolationCount})");
             await employeeCertificationRepository.UpdateAsync(cert, ct);

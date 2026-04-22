@@ -4,10 +4,35 @@ option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
+import "common.proto";
 
 service QualificationsSrvc {
   rpc CreateQualificationType (CreateQualificationTypeRequest) returns (QualificationTypeResponse) {
     option (google.api.http) = { post: "/v1/qualifications/types" body: "*" };
+  }
+
+  rpc UpdateQualificationType (UpdateQualificationTypeRequest) returns (QualificationTypeResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/types/update" body: "*" };
+  }
+
+  rpc DeleteQualificationType (DeleteQualificationTypeRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/qualifications/types/{qualification_type_ctrl_nbr}" };
+  }
+
+  rpc GetQualificationRequirements (GetQualificationRequirementsRequest) returns (GetQualificationRequirementsResponse) {
+    option (google.api.http) = { get: "/v1/qualifications/types/{qualification_type_ctrl_nbr}/requirements" };
+  }
+
+  rpc AddQualificationRequirement (AddQualificationRequirementRequest) returns (QualificationRequirementResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/requirements" body: "*" };
+  }
+
+  rpc UpdateQualificationRequirement (UpdateQualificationRequirementRequest) returns (QualificationRequirementResponse) {
+    option (google.api.http) = { post: "/v1/qualifications/requirements/update" body: "*" };
+  }
+
+  rpc RemoveQualificationRequirement (RemoveQualificationRequirementRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/qualifications/requirements/{requirement_ctrl_nbr}" };
   }
 
   rpc SetQualificationTypeActive (SetQualificationTypeActiveRequest) returns (QualificationTypeResponse) {
@@ -63,6 +88,72 @@ message CreateQualificationTypeRequest {
 message SetQualificationTypeActiveRequest {
   int64 qualification_type_ctrl_nbr = 1;
   bool is_active = 2;
+}
+
+message UpdateQualificationTypeRequest {
+  int64 qualification_type_ctrl_nbr = 1;
+  string name = 2;
+  string description = 3;
+  optional int32 expiration_months = 4;
+  bool calendar_year_expiry = 5;
+  int32 grace_days = 6;
+  int32 renewal_lead_days = 7;
+  bool is_blocking = 8;
+  optional int64 scope_group_ctrl_nbr = 9;
+  optional int64 craft_ctrl_nbr = 10;
+  string evaluation_strategy = 11;
+}
+
+message DeleteQualificationTypeRequest {
+  int64 qualification_type_ctrl_nbr = 1;
+}
+
+message GetQualificationRequirementsRequest {
+  int64 qualification_type_ctrl_nbr = 1;
+}
+
+message QualificationRequirementResponse {
+  int64 ctrl_nbr = 1;
+  int64 qualification_type_ctrl_nbr = 2;
+  string requirement_kind = 3;
+  int32 threshold = 4;
+  string threshold_unit = 5;
+  string description = 6;
+  string event_source = 7;
+  string activity_filter = 8;
+  optional int64 required_qual_type_ctrl_nbr = 9;
+  optional int64 required_regulatory_qual_ctrl_nbr = 10;
+}
+
+message GetQualificationRequirementsResponse {
+  repeated QualificationRequirementResponse requirements = 1;
+}
+
+message AddQualificationRequirementRequest {
+  int64 qualification_type_ctrl_nbr = 1;
+  string requirement_kind = 2;
+  int32 threshold = 3;
+  string threshold_unit = 4;
+  string description = 5;
+  string event_source = 6;
+  string activity_filter = 7;
+  optional int64 required_qual_type_ctrl_nbr = 8;
+  optional int64 required_regulatory_qual_ctrl_nbr = 9;
+}
+
+message UpdateQualificationRequirementRequest {
+  int64 requirement_ctrl_nbr = 1;
+  int32 threshold = 2;
+  string threshold_unit = 3;
+  string description = 4;
+  string event_source = 5;
+  string activity_filter = 6;
+  optional int64 required_qual_type_ctrl_nbr = 7;
+  optional int64 required_regulatory_qual_ctrl_nbr = 8;
+}
+
+message RemoveQualificationRequirementRequest {
+  int64 requirement_ctrl_nbr = 1;
 }
 
 message QualificationTypeResponse {

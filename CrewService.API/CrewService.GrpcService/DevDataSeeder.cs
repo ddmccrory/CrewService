@@ -19,6 +19,7 @@ using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Application.FraCompliance;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Domain.Interfaces;
 using CrewService.Presentation;
@@ -1576,6 +1577,276 @@ internal static class DevDataSeeder
         tour.Close(DateTime.UtcNow.AddDays(-1).Date.AddHours(16),
             totalTimeOnDutyMinutes: 600, excessMinutes: null, excessServiceReason: null, isQuickTieUp: false);
         await fraDutyTourRepo.AddAsync(tour);
+        }
+
+        // ?? Section 15: FRA Compliance � Employee Certifications ????????????????
+        var regQualRepo = sp.GetRequiredService<IRegulatoryQualificationRepository>();
+        var empCertRepo = sp.GetRequiredService<IEmployeeCertificationRepository>();
+        var existingCerts = await empCertRepo.GetAllAsync();
+        if (existingCerts.Count == 0)
+        {
+            var cfr240 = await regQualRepo.GetByCodeAsync("CFR-240-ENGINEER");
+            var cfr242sw = await regQualRepo.GetByCodeAsync("CFR-242-SWITCHMAN");
+
+            if (cfr240 != null && cfr242sw != null)
+            {
+                string[] checkTypes =
+                [
+                    "PERFORMANCE", "KNOWLEDGE", "MOTORVEHICLE",
+                    "SAFETYCONDUCT", "SUBSTANCEABUSE", "VISION", "HEARING"
+                ];
+                string[] evaluators = ["Stevenson", "Williams", "Johnson"];
+                var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+                async Task SeedCertsForRosterAsync(
+                    Domain.Models.Seniority.Roster roster,
+                    Domain.Modules.FraCompliance.RegulatoryQualification qual)
+                {
+                    var seniority = await seniorityRepo.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
+                    int total = seniority.Count;
+                    if (total == 0) return;
+
+                    // Only the first 2 are Expired and the last 2 are Pending;
+                    // everyone else is Active.
+                    for (int i = 0; i < total; i++)
+                    {
+                        string status;
+                        int monthsAgo;
+                        if (i < 2)
+                        {
+                            // Expired: certified > 36 months ago
+                            status = "Expired";
+                            monthsAgo = 40 + i;
+                        }
+                        else if (i >= total - 2)
+                        {
+                            // Pending: very recent, not yet activated
+                            status = CertificationStatuses.Pending;
+                            monthsAgo = 1;
+                        }
+                        else
+                        {
+                            // Active: somewhere within the valid 36-month window
+                            status = CertificationStatuses.Active;
+                            monthsAgo = 6 + ((i * 2) % 24);
+                        }
+
+                        var certDate = today.AddMonths(-monthsAgo).AddDays((i * 7) % 28);
+                        var cert = Domain.Modules.FraCompliance.EmployeeCertification.Create(
+                            seniority[i].EmployeeCtrlNbr,
+                            qual.CtrlNbr,
+                            "Yard",
+                            certDate,
+                            recertificationIntervalMonths: 36,
+                            certificationNumber: $"{qual.Code}-{i + 1:D4}");
+
+                        if (status == CertificationStatuses.Expired) cert.Expire();
+                        else if (status == CertificationStatuses.Active) cert.Activate();
+                        // Pending stays Pending
+
+                        for (int c = 0; c < checkTypes.Length; c++)
+                        {
+                            var evalDate = certDate.AddMonths(c * 3);
+                            if (evalDate > today) evalDate = today;
+                            cert.AddEligibilityCheck(
+                                checkTypes[c],
+                                evalDate,
+                                stalenessLimitDays: 365,
+                                result: "Pass",
+                                evaluatorName: evaluators[(i + c) % evaluators.Length]);
+                        }
+
+                        await empCertRepo.AddAsync(cert);
+                    }
+                }
+
+                // CSX
+                SetParent(csxParentCtrlNbr);
+                var csxRR15 = (await groupRepo.GetByGroupTypeNameAsync("Railroad"))
+                    .First(g => g.Code == "CSX");
+                var csxCrafts15 = await craftRepo.GetByParentAndRailroadAsync(csxParentCtrlNbr, csxRR15.CtrlNbr);
+                var csxEngCraft = csxCrafts15.First(c => c.CraftName == "Engineer");
+                var csxTrnCraft = csxCrafts15.First(c => c.CraftName == "Trainman");
+                foreach (var r in await rosterRepo.GetByCraftCtrlNbrAsync(csxEngCraft.CtrlNbr))
+                    await SeedCertsForRosterAsync(r, cfr240);
+                foreach (var r in await rosterRepo.GetByCraftCtrlNbrAsync(csxTrnCraft.CtrlNbr))
+                    await SeedCertsForRosterAsync(r, cfr242sw);
+
+                // PTRA
+                SetParent(ptraParentCore.CtrlNbr.Value);
+                var ptraRR15 = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value))
+                    .First(g => g.Code == "PTRA");
+                var ptraCrafts15 = await craftRepo.GetByParentAndRailroadAsync(ptraParentCore.CtrlNbr, ptraRR15.CtrlNbr);
+                var ptraEngCraft = ptraCrafts15.First(c => c.CraftName == "Engineer");
+                var ptraTrnCraft = ptraCrafts15.First(c => c.CraftName == "Trainman");
+                foreach (var r in await rosterRepo.GetByCraftCtrlNbrAsync(ptraEngCraft.CtrlNbr))
+                    await SeedCertsForRosterAsync(r, cfr240);
+                foreach (var r in await rosterRepo.GetByCraftCtrlNbrAsync(ptraTrnCraft.CtrlNbr))
+                    await SeedCertsForRosterAsync(r, cfr242sw);
+            }
+        }
+
+        // ?? Section 16: Qualifications (Transportation) ??????????????????????????
+        // Rule: All transportation department employees must hold the CFR certification
+        // to be "qualified" in their craft. Foreman is earned 90 days after certification.
+        var qualTypeRepo = sp.GetRequiredService<IQualificationTypeRepository>();
+        var empQualRepo = sp.GetRequiredService<IEmployeeQualificationRepository>();
+        var allQualTypes = await qualTypeRepo.GetAllAsync();
+        if (allQualTypes.Count == 0)
+        {
+            var cfr240Q = await regQualRepo.GetByCodeAsync("CFR-240-ENGINEER");
+            var cfr242swQ = await regQualRepo.GetByCodeAsync("CFR-242-SWITCHMAN");
+
+            async Task SeedTenantQualificationsAsync(
+                Domain.ValueObjects.ControlNumber parentCtrlNbr,
+                Domain.Modules.TenantConfig.DynamicGroup railroad,
+                Domain.Models.Seniority.Craft engCraft,
+                Domain.Models.Seniority.Craft trnCraft)
+            {
+                SetParent(parentCtrlNbr.Value);
+
+                // ---- Engineer Qualified ----
+                var engQT = QualificationType.Create(
+                    parentCtrlNbr,
+                    code: "ENGINEER-QUALIFIED",
+                    name: "Qualified Engineer",
+                    evaluationStrategy: EvaluationStrategies.QualificationHeld,
+                    scopeGroupCtrlNbr: railroad.CtrlNbr,
+                    craftCtrlNbr: engCraft.CtrlNbr,
+                    regulatoryQualificationCtrlNbr: cfr240Q?.CtrlNbr,
+                    description: "Engineer who holds an active CFR-240 certification.",
+                    isBlocking: true);
+                engQT.AddRequirement(
+                    requirementKind: RequirementKinds.FraCertificationHeld,
+                    threshold: 1,
+                    thresholdUnit: ThresholdUnits.Count,
+                    description: "Must hold an Active CFR-240 Engineer certification.",
+                    requiredRegulatoryQualCtrlNbr: cfr240Q?.CtrlNbr);
+                await qualTypeRepo.AddAsync(engQT);
+
+                // ---- Trainman Qualified ----
+                var trnQT = QualificationType.Create(
+                    parentCtrlNbr,
+                    code: "TRAINMAN-QUALIFIED",
+                    name: "Qualified Trainman",
+                    evaluationStrategy: EvaluationStrategies.QualificationHeld,
+                    scopeGroupCtrlNbr: railroad.CtrlNbr,
+                    craftCtrlNbr: trnCraft.CtrlNbr,
+                    regulatoryQualificationCtrlNbr: cfr242swQ?.CtrlNbr,
+                    description: "Trainman who holds an active CFR-242 Switchman certification.",
+                    isBlocking: true);
+                trnQT.AddRequirement(
+                    requirementKind: RequirementKinds.FraCertificationHeld,
+                    threshold: 1,
+                    thresholdUnit: ThresholdUnits.Count,
+                    description: "Must hold an Active CFR-242 Switchman certification.",
+                    requiredRegulatoryQualCtrlNbr: cfr242swQ?.CtrlNbr);
+                await qualTypeRepo.AddAsync(trnQT);
+
+                // ---- Yard Foreman (90 days post-certification) ----
+                var foremanQT = QualificationType.Create(
+                    parentCtrlNbr,
+                    code: "YARD-FOREMAN",
+                    name: "Yard Foreman",
+                    evaluationStrategy: EvaluationStrategies.TimeFromEvent,
+                    scopeGroupCtrlNbr: railroad.CtrlNbr,
+                    craftCtrlNbr: trnCraft.CtrlNbr,
+                    description: "Trainman eligible to work Foreman position 90 days after CFR-242 certification.");
+                foremanQT.AddRequirement(
+                    requirementKind: RequirementKinds.FraCertificationHeld,
+                    threshold: 1,
+                    thresholdUnit: ThresholdUnits.Count,
+                    description: "Must hold an Active CFR-242 Switchman certification.",
+                    requiredRegulatoryQualCtrlNbr: cfr242swQ?.CtrlNbr);
+                foremanQT.AddRequirement(
+                    requirementKind: RequirementKinds.TimeFromEvent,
+                    threshold: 90,
+                    thresholdUnit: ThresholdUnits.Days,
+                    description: "At least 90 days since seniority date.",
+                    eventSource: EventSources.SeniorityDate);
+                await qualTypeRepo.AddAsync(foremanQT);
+
+                // ---- Grant EmployeeQualifications to every employee with an Active cert ----
+                var nowUtc = DateTime.UtcNow;
+
+                async Task GrantFromCertsAsync(
+                    Domain.Models.Seniority.Craft craft,
+                    QualificationType targetQT,
+                    int minDaysSinceCert)
+                {
+                    var rosters = await rosterRepo.GetByCraftCtrlNbrAsync(craft.CtrlNbr);
+                    foreach (var roster in rosters)
+                    {
+                        var seniority = await seniorityRepo.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
+                        foreach (var sen in seniority)
+                        {
+                            var certs = await empCertRepo.GetByEmployeeCtrlNbrAsync(sen.EmployeeCtrlNbr);
+                            var activeCert = certs.FirstOrDefault(c =>
+                                c.Status == CertificationStatuses.Active &&
+                                c.RegulatoryQualificationCtrlNbr == targetQT.RegulatoryQualificationCtrlNbr);
+
+                            // Foreman falls back to matching CFR-242 from any active cert
+                            if (activeCert is null && targetQT.Code == "YARD-FOREMAN" && cfr242swQ is not null)
+                            {
+                                activeCert = certs.FirstOrDefault(c =>
+                                    c.Status == CertificationStatuses.Active &&
+                                    c.RegulatoryQualificationCtrlNbr == cfr242swQ.CtrlNbr);
+                            }
+
+                            if (activeCert is null) continue;
+
+                            var certDateUtc = activeCert.CertificationDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+                            var daysSince = (nowUtc - certDateUtc).TotalDays;
+                            if (daysSince < minDaysSinceCert) continue;
+
+                            // Cert-derived quals (minDaysSinceCert == 0) expire with the underlying cert.
+                            // Threshold-based quals (e.g. Foreman, earned after N days in role) are permanent once achieved.
+                            var isThresholdBased = minDaysSinceCert > 0;
+                            var eq = EmployeeQualification.Create(
+                                sen.EmployeeCtrlNbr,
+                                targetQT.CtrlNbr,
+                                grantedBy: SystemActors.System,
+                                expiresAtUtc: isThresholdBased
+                                    ? null
+                                    : activeCert.ExpirationDate.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc),
+                                status: QualificationStatuses.Active);
+                            eq.AddEvidence(
+                                evidenceType: isThresholdBased ? EvidenceTypes.TimeThresholdMet : EvidenceTypes.CertificationHeld,
+                                evidenceValue: isThresholdBased
+                                    ? $"Earned after {minDaysSinceCert} days since cert #{activeCert.CertificationNumber}"
+                                    : $"Cert #{activeCert.CertificationNumber} dated {activeCert.CertificationDate:yyyy-MM-dd}",
+                                recordedBy: SystemActors.System);
+                            await empQualRepo.AddAsync(eq);
+                        }
+                    }
+                }
+
+                await GrantFromCertsAsync(engCraft, engQT, minDaysSinceCert: 0);
+                await GrantFromCertsAsync(trnCraft, trnQT, minDaysSinceCert: 0);
+                await GrantFromCertsAsync(trnCraft, foremanQT, minDaysSinceCert: 90);
+            }
+
+            // CSX
+            SetParent(csxParentCtrlNbr);
+            var csxRR16 = (await groupRepo.GetByGroupTypeNameAsync("Railroad"))
+                .First(g => g.Code == "CSX");
+            var csxCrafts16 = await craftRepo.GetByParentAndRailroadAsync(csxParentCtrlNbr, csxRR16.CtrlNbr);
+            await SeedTenantQualificationsAsync(
+                csxParentCtrlNbr,
+                csxRR16,
+                csxCrafts16.First(c => c.CraftName == "Engineer"),
+                csxCrafts16.First(c => c.CraftName == "Trainman"));
+
+            // PTRA
+            SetParent(ptraParentCore.CtrlNbr.Value);
+            var ptraRR16 = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value))
+                .First(g => g.Code == "PTRA");
+            var ptraCrafts16 = await craftRepo.GetByParentAndRailroadAsync(ptraParentCore.CtrlNbr, ptraRR16.CtrlNbr);
+            await SeedTenantQualificationsAsync(
+                ptraParentCore.CtrlNbr.Value,
+                ptraRR16,
+                ptraCrafts16.First(c => c.CraftName == "Engineer"),
+                ptraCrafts16.First(c => c.CraftName == "Trainman"));
         }
     }
 }
