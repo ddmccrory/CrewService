@@ -118,6 +118,14 @@ internal sealed class EmployeeCertificationRepository(CrewServiceDbContext dbCon
             .ToListAsync(ct);
     }
 
+    public async Task<EmployeeCertification?> GetByEmployeeAndRegulatoryQualAsync(ControlNumber employeeCtrlNbr, ControlNumber regulatoryQualCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<EmployeeCertification>()
+            .Where(c => c.EmployeeCtrlNbr == employeeCtrlNbr && c.RegulatoryQualificationCtrlNbr == regulatoryQualCtrlNbr)
+            .OrderByDescending(c => c.ExpirationDate)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<EmployeeCertification?> GetByCtrlNbrWithChecksAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         return await DbContext.Set<EmployeeCertification>()

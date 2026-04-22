@@ -1,5 +1,6 @@
-using CrewService.Application.Qualifications;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Application.Qualifications.Evaluators;
+using CrewService.Application.Qualifications;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Dispatching;
@@ -13,8 +14,17 @@ internal sealed class OnDutyRecordCounter(CrewServiceDbContext dbContext) : IOnD
 {
     public async Task<int> CountCompletedAsync(ControlNumber employeeCtrlNbr, string? activityFilter = null, CancellationToken ct = default)
     {
-        return await dbContext.Set<OnDutyRecord>()
-            .CountAsync(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status == "TiedUp", ct);
+        var query = dbContext.Set<OnDutyRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status == "TiedUp");
+
+        query = activityFilter switch
+        {
+            ActivityFilters.AssignedOnly => query.Where(r => r.IsAssigned),
+            ActivityFilters.CalledFromBoard => query.Where(r => !r.IsAssigned),
+            _ => query
+        };
+
+        return await query.CountAsync(ct);
     }
 }
 

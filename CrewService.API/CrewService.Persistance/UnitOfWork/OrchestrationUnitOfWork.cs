@@ -114,6 +114,13 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private ISlotRequirementRepository? _slotRequirements;
     private IShiftDefinitionRepository? _shiftDefinitions;
 
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Qualifications
+    // ──────────────────────────────────────────────────────────────────
+    private IQualificationTypeRepository? _qualificationTypes;
+    private IQualificationRequirementRepository? _qualificationRequirements;
+    private IEmployeeQualificationRepository? _employeeQualifications;
+
     public string CorrelationId { get; }
     public string OrchestrationId { get; }
 
@@ -189,6 +196,13 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IPositionSlotRepository PositionSlots => _positionSlots ??= new PositionSlotRepository(_crewContext, _currentUserService);
     public ISlotRequirementRepository SlotRequirements => _slotRequirements ??= new SlotRequirementRepository(_crewContext, _currentUserService);
     public IShiftDefinitionRepository ShiftDefinitions => _shiftDefinitions ??= new ShiftDefinitionRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Qualifications
+    // ──────────────────────────────────────────────────────────────────
+    public IQualificationTypeRepository QualificationTypes => _qualificationTypes ??= new QualificationTypeRepository(_crewContext, _currentUserService);
+    public IQualificationRequirementRepository QualificationRequirements => _qualificationRequirements ??= new QualificationRequirementRepository(_crewContext, _currentUserService);
+    public IEmployeeQualificationRepository EmployeeQualifications => _employeeQualifications ??= new EmployeeQualificationRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
         DbConnection connection,

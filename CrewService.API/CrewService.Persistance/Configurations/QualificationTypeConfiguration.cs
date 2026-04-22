@@ -54,7 +54,7 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
         builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(qt => qt.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Parent>().WithMany().HasForeignKey(qt => qt.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasMany(qt => qt.Prerequisites)
+        builder.HasMany(qt => qt.Requirements)
             .WithOne()
             .HasForeignKey(p => p.QualificationTypeCtrlNbr)
             .OnDelete(DeleteBehavior.Cascade);
@@ -85,9 +85,9 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
     }
 }
 
-internal class QualificationPrerequisiteConfiguration : IEntityTypeConfiguration<QualificationPrerequisite>
+internal class QualificationRequirementConfiguration : IEntityTypeConfiguration<QualificationRequirement>
 {
-    public void Configure(EntityTypeBuilder<QualificationPrerequisite> builder)
+    public void Configure(EntityTypeBuilder<QualificationRequirement> builder)
     {
         builder.HasKey(p => p.CtrlNbr);
 
@@ -103,7 +103,11 @@ internal class QualificationPrerequisiteConfiguration : IEntityTypeConfiguration
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));
 
-        builder.Property(p => p.PrerequisiteKind).HasMaxLength(20).IsRequired();
+        builder.Property(p => p.RequiredRegulatoryQualCtrlNbr).HasConversion(
+            ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
+            value => value == null ? null : ControlNumber.Create(value.Value));
+
+        builder.Property(p => p.RequirementKind).HasMaxLength(20).IsRequired();
         builder.Property(p => p.Threshold).IsRequired();
         builder.Property(p => p.ThresholdUnit).HasMaxLength(10).IsRequired();
         builder.Property(p => p.EventSource).HasMaxLength(30);

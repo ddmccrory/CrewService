@@ -183,7 +183,7 @@ IDomainEventReactor? domainEventReactor = null) : DbContext(options), IOutboxDbC
 
     // Qualifications Module (Employees)
     public DbSet<Domain.Modules.Employees.QualificationType> QualificationTypes => Set<Domain.Modules.Employees.QualificationType>();
-    public DbSet<Domain.Modules.Employees.QualificationPrerequisite> QualificationPrerequisites => Set<Domain.Modules.Employees.QualificationPrerequisite>();
+    public DbSet<Domain.Modules.Employees.QualificationRequirement> QualificationRequirements => Set<Domain.Modules.Employees.QualificationRequirement>();
     public DbSet<Domain.Modules.Employees.EmployeeQualification> EmployeeQualifications => Set<Domain.Modules.Employees.EmployeeQualification>();
     public DbSet<Domain.Modules.Employees.QualificationEvidence> QualificationEvidence => Set<Domain.Modules.Employees.QualificationEvidence>();
 

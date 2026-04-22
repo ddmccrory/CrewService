@@ -12,7 +12,7 @@ internal sealed class QualificationTypeRepository(CrewServiceDbContext dbContext
     public override async Task<QualificationType?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         return await DbContext.Set<QualificationType>()
-            .Include(q => q.Prerequisites)
+            .Include(q => q.Requirements)
             .SingleOrDefaultAsync(q => q.CtrlNbr == ctrlNbr, ct);
     }
 
@@ -29,7 +29,7 @@ internal sealed class QualificationTypeRepository(CrewServiceDbContext dbContext
         var normalizedCode = code.ToUpperInvariant();
 
         return await DbContext.Set<QualificationType>()
-            .Include(q => q.Prerequisites)
+            .Include(q => q.Requirements)
             .SingleOrDefaultAsync(q => q.ParentCtrlNbr == parentCtrlNbr && q.Code == normalizedCode);
     }
 
@@ -42,14 +42,14 @@ internal sealed class QualificationTypeRepository(CrewServiceDbContext dbContext
     }
 }
 
-internal sealed class QualificationPrerequisiteRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<QualificationPrerequisite>(dbContext, currentUserService), IQualificationPrerequisiteRepository
+internal sealed class QualificationRequirementRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<QualificationRequirement>(dbContext, currentUserService), IQualificationRequirementRepository
 {
-    public async Task<List<QualificationPrerequisite>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr)
+    public async Task<List<QualificationRequirement>> GetByQualificationTypeCtrlNbrAsync(ControlNumber qualificationTypeCtrlNbr)
     {
-        return await DbContext.Set<QualificationPrerequisite>()
+        return await DbContext.Set<QualificationRequirement>()
             .Where(p => p.QualificationTypeCtrlNbr == qualificationTypeCtrlNbr)
-            .OrderBy(p => p.PrerequisiteKind)
+            .OrderBy(p => p.RequirementKind)
             .ThenBy(p => p.CtrlNbr)
             .ToListAsync();
     }
