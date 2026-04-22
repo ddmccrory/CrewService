@@ -8,12 +8,12 @@
 
   <ItemGroup>
     <PackageReference Include="Grpc.Core.Api" Version="2.76.0" />
-    <PackageReference Include="MailKit" Version="4.15.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.Middleware" Version="10.4.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.5" />
+    <PackageReference Include="MailKit" Version="4.16.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.Middleware" Version="10.5.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>
