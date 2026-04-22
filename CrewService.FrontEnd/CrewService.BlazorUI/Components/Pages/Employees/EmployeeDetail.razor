@@ -18,7 +18,6 @@
 @inject EmailAddressTypeClient EmailAddressTypeClient
 @inject EmployeeProfileService ProfileService
 @inject QualificationsClient QualificationsClient
-@inject FraComplianceClient FraComplianceClient
 @inject NavigationManager Nav
 
 <PageTitle>Employee Detail</PageTitle>
@@ -402,48 +401,8 @@ else
                 <ConfirmModal Visible="showRevokeModal" ItemName="@revokeQualLabel" IsSaving="isSaving"
                               OnConfirm="ConfirmRevokeQual" OnCancel="() => showRevokeModal = false" />
 
-                @* FRA Certifications — read-only summary *@
-                <h5 class="mt-3">FRA Certifications</h5>
-                @if (employeeCertifications.Count == 0)
-                {
-                    <div class="text-muted mb-3">No FRA certifications on record.</div>
-                }
-                else
-                {
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Certification Type</th>
-                                <th>Status</th>
-                                <th>Expiration</th>
-                                <th>Certification #</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var cert in employeeCertifications)
-                            {
-                                <tr>
-                                    <td>@cert.CertificationType</td>
-                                    <td>
-                                        <span class="badge @(cert.Status == "Active" ? "bg-success" : cert.Status == "Suspended" || cert.Status == "Revoked" || cert.Status == "Expired" ? "bg-danger" : "bg-secondary")">
-                                            @cert.Status
-                                        </span>
-                                    </td>
-                                    <td>@(string.IsNullOrWhiteSpace(cert.ExpirationDate) ? "—" : cert.ExpirationDate)</td>
-                                    <td>@(string.IsNullOrWhiteSpace(cert.CertificationNumber) ? "—" : cert.CertificationNumber)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-
-                <p class="text-muted small mb-3">
-                    <span class="bi bi-info-circle"></span>
-                    FRA certifications are managed in the FRA Compliance module.
-                </p>
-
                 @* Railroad Qualifications — CRUD *@
-                <h5 class="mt-2">Railroad Qualifications</h5>
+                <h5 class="mt-3">Railroad Qualifications</h5>
 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     @if (!IsFeatureReadOnly)
@@ -499,7 +458,6 @@ else
     private List<EmailAddressTypeResponse> emailTypes = [];
     private List<QualificationTypeResponse> qualificationTypes = [];
     private List<EmployeeQualificationResponse> employeeQualifications = [];
-    private List<CertificationResponse> employeeCertifications = [];
 
     private string activeTab = "addresses";
 
@@ -528,8 +486,7 @@ else
             var emailTask = EmailAddressTypeClient.GetAllAsync(clientCtrlNbr);
             var qualTypesTask = QualificationsClient.GetQualificationTypesAsync(clientCtrlNbr);
             var qualTask = QualificationsClient.GetEmployeeQualificationsAsync(CtrlNbr);
-            var certTask = FraComplianceClient.GetEmployeeCertificationsAsync(CtrlNbr);
-            await Task.WhenAll(empTask, addrTask, phoneTask, emailTask, qualTypesTask, qualTask, certTask);
+            await Task.WhenAll(empTask, addrTask, phoneTask, emailTask, qualTypesTask, qualTask);
 
             employee = empTask.Result;
             addressTypes = [.. addrTask.Result.AddressTypeList];
@@ -537,7 +494,6 @@ else
             emailTypes = [.. emailTask.Result.EmaiAddressTypeList];
             qualificationTypes = [.. qualTypesTask.Result.QualificationTypes];
             employeeQualifications = [.. qualTask.Result.Qualifications.OrderByDescending(q => q.AchievedAtUtc?.ToDateTime())];
-            employeeCertifications = [.. certTask.Result.Certifications.OrderBy(c => c.CertificationType, StringComparer.OrdinalIgnoreCase)];
         }
         catch (Exception ex)
         {

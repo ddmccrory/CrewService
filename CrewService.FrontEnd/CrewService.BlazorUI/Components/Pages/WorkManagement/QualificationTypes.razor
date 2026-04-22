@@ -10,6 +10,7 @@
 @attribute [Authorize]
 
 @inject QualificationsClient QualificationsClient
+@inject NavigationManager Nav
 
 <PageTitle>Qualification Types</PageTitle>
 
@@ -26,42 +27,47 @@ else
 {
     <p class="text-muted mb-3">Managing qualification types for <strong>@SelectedParentName</strong></p>
 
-    <Modal Visible="showCreateModal"
-           Title="Create Qualification Type"
-           Icon="bi bi-plus-circle"
-           OnClose="CloseCreateModal">
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Qualification Type" : "Create Qualification Type")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal"
+           Size="lg">
         <BodyContent>
-            <EditForm Model="createModel" OnValidSubmit="CreateQualificationType" id="create-qual-type-form">
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-qual-type-form">
                 <DataAnnotationsValidator />
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Code</label>
-                        <InputText @bind-Value="createModel.Code" class="form-control" placeholder="FOREMAN" />
+                        <InputText @bind-Value="saveModel.Code" class="form-control" placeholder="e.g. YARD-FOREMAN" disabled="@(editCtrlNbr > 0)" />
+                        @if (editCtrlNbr > 0)
+                        {
+                            <div class="form-text text-muted">Code cannot be changed.</div>
+                        }
                     </div>
                     <div class="col-md-8">
                         <label class="form-label fw-semibold">Name</label>
-                        <InputText @bind-Value="createModel.Name" class="form-control" placeholder="Foreman Qualification" />
+                        <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. Yard Foreman Qualification" />
                     </div>
                     <div class="col-md-12">
                         <label class="form-label fw-semibold">Description</label>
-                        <InputText @bind-Value="createModel.Description" class="form-control" placeholder="Optional description" />
+                        <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Optional description" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Evaluation Strategy</label>
                         <SelectInput TItem="string" TValue="string"
-                                     @bind-Value="createModel.EvaluationStrategy"
+                                     @bind-Value="saveModel.EvaluationStrategy"
                                      Items="userDefinedStrategies"
                                      ValueSelector="@(s => s)"
-                                     TextSelector="@(s => s)"
+                                     TextSelector="@(s => evaluationStrategyLabels.GetValueOrDefault(s, s))"
                                      Placeholder="-- Select Strategy --"
                                      class="form-select" />
                     </div>
-                    @if (string.Equals(createModel.EvaluationStrategy, "FraCertification", StringComparison.Ordinal))
+                    @if (string.Equals(saveModel.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal) && editCtrlNbr == 0)
                     {
                         <div class="col-md-8">
                             <label class="form-label fw-semibold">FRA Regulatory Qualification</label>
                             <SelectInput TItem="RegulatoryQualificationCatalogItem" TValue="long"
-                                         @bind-Value="createModel.RegulatoryQualificationCtrlNbr"
+                                         @bind-Value="saveModel.RegulatoryQualificationCtrlNbr"
                                          Items="regulatoryQualifications"
                                          ValueSelector="@(r => r.CtrlNbr)"
                                          TextSelector="@(r => $"{r.Code.ToUpperInvariant()} - {r.Description}")"
@@ -71,25 +77,25 @@ else
                     }
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Expiration Months</label>
-                        <InputNumber @bind-Value="createModel.ExpirationMonths" class="form-control" />
+                        <InputNumber @bind-Value="saveModel.ExpirationMonths" class="form-control" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Grace Days</label>
-                        <InputNumber @bind-Value="createModel.GraceDays" class="form-control" />
+                        <InputNumber @bind-Value="saveModel.GraceDays" class="form-control" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Renewal Lead Days</label>
-                        <InputNumber @bind-Value="createModel.RenewalLeadDays" class="form-control" />
+                        <InputNumber @bind-Value="saveModel.RenewalLeadDays" class="form-control" />
                     </div>
                     <div class="col-md-4">
                         <div class="form-check form-switch mt-4">
-                            <InputCheckbox @bind-Value="createModel.CalendarYearExpiry" class="form-check-input" />
+                            <InputCheckbox @bind-Value="saveModel.CalendarYearExpiry" class="form-check-input" />
                             <label class="form-check-label">Calendar Year Expiry</label>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-check form-switch mt-4">
-                            <InputCheckbox @bind-Value="createModel.IsBlocking" class="form-check-input" />
+                            <InputCheckbox @bind-Value="saveModel.IsBlocking" class="form-check-input" />
                             <label class="form-check-label">Blocking Qualification</label>
                         </div>
                     </div>
@@ -97,9 +103,22 @@ else
             </EditForm>
         </BodyContent>
         <Footer>
-            <button type="button" class="btn btn-outline-secondary" @onclick="CloseCreateModal">Cancel</button>
-            <button type="submit" form="create-qual-type-form" class="btn btn-primary" disabled="@isSaving">
-                <span class="bi bi-check2-circle me-1"></span> Save
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-qual-type-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check2-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Save")
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete <strong>@deleteQualTypeName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
             </button>
         </Footer>
     </Modal>
@@ -134,28 +153,39 @@ else
         <RowContent Context="q">
             <td>
                 @q.Code.ToUpperInvariant()
-                @if (string.Equals(q.EvaluationStrategy, "FraCertification", StringComparison.Ordinal))
+                @if (string.Equals(q.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal))
                 {
                     <span class="badge bg-info ms-2">FRA</span>
                 }
             </td>
             <td>@q.Name</td>
-            <td>@q.EvaluationStrategy</td>
+            <td>@evaluationStrategyLabels.GetValueOrDefault(q.EvaluationStrategy, q.EvaluationStrategy)</td>
             <td>@(q.IsBlocking ? "Yes" : "No")</td>
             <td>@(q.IsActive ? "Active" : "Inactive")</td>
             <td>
-                @if (!string.Equals(q.EvaluationStrategy, "FraCertification", StringComparison.Ordinal) && !IsFeatureReadOnly)
-                {
-                    <button class="btn btn-sm @(q.IsActive ? "btn-outline-danger" : "btn-outline-success")"
-                            @onclick="() => ToggleActive(q)">
-                        <span class="bi @(q.IsActive ? "bi-pause-circle" : "bi-play-circle")"></span>
-                        @(q.IsActive ? "Deactivate" : "Activate")
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => NavigateToDetail(q)">
+                        <span class="bi bi-list-check"></span> Requirements
                     </button>
-                }
-                else if (string.Equals(q.EvaluationStrategy, "FraCertification", StringComparison.Ordinal))
-                {
-                    <span class="text-muted small">FRA Managed</span>
-                }
+                    @if (!string.Equals(q.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal) && !q.IsSystemSeeded && !IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEditModal(q)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm @(q.IsActive ? "btn-outline-warning" : "btn-outline-success")"
+                                @onclick="() => ToggleActive(q)">
+                            <span class="bi @(q.IsActive ? "bi-pause-circle" : "bi-play-circle")"></span>
+                            @(q.IsActive ? "Deactivate" : "Activate")
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeleteModal(q)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    }
+                    else if (string.Equals(q.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal))
+                    {
+                        <span class="text-muted small align-self-center ms-2">FRA Managed</span>
+                    }
+                </div>
             </td>
         </RowContent>
     </DataTable>
@@ -165,13 +195,23 @@ else
     protected override string? FeatureKey => "work-management/qualification-types";
 
     private static readonly IReadOnlyList<string> userDefinedStrategies =
-        ["Manual", "TimeFromEvent", "ActivityCount", "TimeInRole", "QualificationHeld", "FraCertification"];
+        [EvaluationStrategies.Manual, EvaluationStrategies.TimeFromEvent, EvaluationStrategies.ActivityCount, EvaluationStrategies.TimeInRole, EvaluationStrategies.QualificationHeld, EvaluationStrategies.FraCertification];
+
+    private static readonly Dictionary<string, string> evaluationStrategyLabels = new()
+    {
+        [EvaluationStrategies.Manual] = "Manual",
+        [EvaluationStrategies.TimeFromEvent] = "Time from Event",
+        [EvaluationStrategies.ActivityCount] = "Activity Count",
+        [EvaluationStrategies.TimeInRole] = "Time in Role",
+        [EvaluationStrategies.QualificationHeld] = "Certification Held",
+        [EvaluationStrategies.FraCertification] = "FRA Certification"
+    };
 
     private static readonly IReadOnlyList<DataTableColumn<QualificationTypeResponse>> columns =
     [
         new("Code", q => q.Code.ToUpperInvariant()),
         new("Name", q => q.Name),
-        new("Strategy", q => q.EvaluationStrategy),
+        new("Strategy", q => evaluationStrategyLabels.GetValueOrDefault(q.EvaluationStrategy, q.EvaluationStrategy)),
         new("Blocking", q => q.IsBlocking ? "Yes" : "No"),
         new("Status", q => q.IsActive ? "Active" : "Inactive"),
         DataTableColumn<QualificationTypeResponse>.Actions()
@@ -179,8 +219,12 @@ else
 
     private IReadOnlyList<QualificationTypeResponse> qualificationTypes = [];
     private IReadOnlyList<RegulatoryQualificationCatalogItem> regulatoryQualifications = [];
-    private bool showCreateModal;
-    private CreateQualificationTypeModel createModel = new();
+    private bool showSaveModal;
+    private bool showDeleteModal;
+    private long editCtrlNbr;
+    private long deleteCtrlNbr;
+    private string deleteQualTypeName = string.Empty;
+    private SaveQualificationTypeModel saveModel = new();
 
     protected override async Task LoadDataAsync()
     {
@@ -210,46 +254,110 @@ else
 
     private void OpenCreateModal()
     {
-        createModel = new CreateQualificationTypeModel { EvaluationStrategy = "Manual" };
-        showCreateModal = true;
+        editCtrlNbr = 0;
+        saveModel = new SaveQualificationTypeModel { EvaluationStrategy = EvaluationStrategies.Manual };
+        showSaveModal = true;
     }
 
-    private void CloseCreateModal() => showCreateModal = false;
+    private void OpenEditModal(QualificationTypeResponse q)
+    {
+        editCtrlNbr = q.CtrlNbr;
+        saveModel = new SaveQualificationTypeModel
+        {
+            Code = q.Code,
+            Name = q.Name,
+            Description = q.Description,
+            EvaluationStrategy = q.EvaluationStrategy,
+            ExpirationMonths = q.ExpirationMonths > 0 ? q.ExpirationMonths : null,
+            CalendarYearExpiry = q.CalendarYearExpiry,
+            GraceDays = q.GraceDays,
+            RenewalLeadDays = q.RenewalLeadDays,
+            IsBlocking = q.IsBlocking,
+            ScopeGroupCtrlNbr = q.ScopeGroupCtrlNbr,
+            CraftCtrlNbr = q.CraftCtrlNbr
+        };
+        showSaveModal = true;
+    }
 
-    private async Task CreateQualificationType()
+    private void CloseSaveModal() => showSaveModal = false;
+
+    private void OpenDeleteModal(QualificationTypeResponse q)
+    {
+        deleteCtrlNbr = q.CtrlNbr;
+        deleteQualTypeName = q.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task OnSave()
     {
         try
         {
             isSaving = true; errorMessage = null;
 
-            if (string.Equals(createModel.EvaluationStrategy, "FraCertification", StringComparison.Ordinal)
-                && createModel.RegulatoryQualificationCtrlNbr <= 0)
+            if (editCtrlNbr > 0)
             {
-                errorMessage = "FRA Regulatory Qualification is required for FraCertification strategy.";
-                return;
+                await QualificationsClient.UpdateQualificationTypeAsync(new UpdateQualificationTypeRequest
+                {
+                    QualificationTypeCtrlNbr = editCtrlNbr,
+                    Name = saveModel.Name ?? string.Empty,
+                    Description = saveModel.Description ?? string.Empty,
+                    EvaluationStrategy = saveModel.EvaluationStrategy ?? string.Empty,
+                    ScopeGroupCtrlNbr = saveModel.ScopeGroupCtrlNbr,
+                    CraftCtrlNbr = saveModel.CraftCtrlNbr,
+                    ExpirationMonths = saveModel.ExpirationMonths ?? 0,
+                    CalendarYearExpiry = saveModel.CalendarYearExpiry,
+                    GraceDays = saveModel.GraceDays,
+                    RenewalLeadDays = saveModel.RenewalLeadDays,
+                    IsBlocking = saveModel.IsBlocking
+                });
+                successMessage = "Qualification type updated.";
+            }
+            else
+            {
+                if (string.Equals(saveModel.EvaluationStrategy, EvaluationStrategies.FraCertification, StringComparison.Ordinal)
+                    && saveModel.RegulatoryQualificationCtrlNbr <= 0)
+                {
+                    errorMessage = "FRA Regulatory Qualification is required for FraCertification strategy.";
+                    return;
+                }
+
+                await QualificationsClient.CreateQualificationTypeAsync(new CreateQualificationTypeRequest
+                {
+                    ParentCtrlNbr = SelectedParentCtrlNbr!.Value,
+                    Code = (saveModel.Code ?? string.Empty).ToUpperInvariant(),
+                    Name = saveModel.Name ?? string.Empty,
+                    Description = saveModel.Description ?? string.Empty,
+                    EvaluationStrategy = saveModel.EvaluationStrategy ?? EvaluationStrategies.Manual,
+                    ExpirationMonths = saveModel.ExpirationMonths ?? 0,
+                    CalendarYearExpiry = saveModel.CalendarYearExpiry,
+                    GraceDays = saveModel.GraceDays,
+                    RenewalLeadDays = saveModel.RenewalLeadDays,
+                    IsBlocking = saveModel.IsBlocking,
+                    RegulatoryQualificationCtrlNbr = saveModel.RegulatoryQualificationCtrlNbr > 0
+                        ? saveModel.RegulatoryQualificationCtrlNbr
+                        : default
+                });
+                successMessage = "Qualification type created.";
             }
 
-            await QualificationsClient.CreateQualificationTypeAsync(new CreateQualificationTypeRequest
-            {
-                ParentCtrlNbr = SelectedParentCtrlNbr!.Value,
-                Code = (createModel.Code ?? string.Empty).ToUpperInvariant(),
-                Name = createModel.Name ?? string.Empty,
-                Description = createModel.Description ?? string.Empty,
-                EvaluationStrategy = createModel.EvaluationStrategy ?? "Manual",
-                ExpirationMonths = createModel.ExpirationMonths ?? 0,
-                CalendarYearExpiry = createModel.CalendarYearExpiry,
-                GraceDays = createModel.GraceDays,
-                RenewalLeadDays = createModel.RenewalLeadDays,
-                IsBlocking = createModel.IsBlocking,
-                RegulatoryQualificationCtrlNbr = createModel.RegulatoryQualificationCtrlNbr > 0
-                    ? createModel.RegulatoryQualificationCtrlNbr
-                    : default
-            });
-            showCreateModal = false;
-            successMessage = "Qualification type created.";
+            showSaveModal = false;
             await LoadQualificationTypes();
         }
-        catch (Exception ex) { errorMessage = $"Failed to create qualification type: {ex.Message}"; }
+        catch (Exception ex) { errorMessage = $"Failed to save qualification type: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true; errorMessage = null;
+            await QualificationsClient.DeleteQualificationTypeAsync(deleteCtrlNbr);
+            showDeleteModal = false;
+            successMessage = "Qualification type deleted.";
+            await LoadQualificationTypes();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to delete qualification type: {ex.Message}"; }
         finally { isSaving = false; }
     }
 
@@ -265,7 +373,10 @@ else
         catch (Exception ex) { errorMessage = $"Failed to update qualification type: {ex.Message}"; }
     }
 
-    private sealed class CreateQualificationTypeModel
+    private void NavigateToDetail(QualificationTypeResponse q)
+        => Nav.NavigateTo($"/work-management/qualification-types/{q.CtrlNbr}");
+
+    private sealed class SaveQualificationTypeModel
     {
         public string? Code { get; set; }
         public string? Name { get; set; }
@@ -277,6 +388,8 @@ else
         public int RenewalLeadDays { get; set; }
         public bool IsBlocking { get; set; }
         public long RegulatoryQualificationCtrlNbr { get; set; }
+        public long ScopeGroupCtrlNbr { get; set; }
+        public long CraftCtrlNbr { get; set; }
     }
 }
 
