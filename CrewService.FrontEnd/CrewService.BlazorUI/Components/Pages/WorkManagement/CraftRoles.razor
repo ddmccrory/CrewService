@@ -406,6 +406,7 @@ else
         try
         {
             var typesResponse = await QualificationsClient.GetQualificationTypesAsync(SelectedParentCtrlNbr!.Value, activeOnly: true);
+            qualTypes = [.. typesResponse.QualificationTypes.OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)];
 
             var qualsResponse = await WorkManagementClient.GetCraftRoleQualificationsAsync(qualsRoleCtrlNbr);
             roleQualifications = [.. qualsResponse.Qualifications];
