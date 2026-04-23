@@ -8,6 +8,7 @@ namespace CrewService.Presentation.Services.Modules;
 public class WorkManagementService(
     IWorkInstanceRepository workInstanceRepository,
     IPositionSlotRepository positionSlotRepository,
+    ICraftRoleQualificationRepository craftRoleQualificationRepository,
     ICraftRoleRepository craftRoleRepository,
     IShiftDefinitionRepository shiftDefinitionRepository,
     IOrchestrationUnitOfWorkFactory uowFactory) : WorkManagementSrvc.WorkManagementSrvcBase
@@ -163,6 +164,55 @@ public class WorkManagementService(
 
         return new DeleteResponse { Success = true };
     }
+
+    public override async Task<GetCraftRoleQualificationsResponse> GetCraftRoleQualifications(GetCraftRoleQualificationsRequest request, ServerCallContext context)
+    {
+        var quals = await craftRoleQualificationRepository.GetByCraftRoleAsync(ControlNumber.Create(request.CraftRoleCtrlNbr));
+        var response = new GetCraftRoleQualificationsResponse { TotalCount = quals.Count };
+        foreach (var q in quals) response.Qualifications.Add(MapCraftRoleQualification(q));
+        return response;
+    }
+
+    public override async Task<CraftRoleQualificationResponse> AddCraftRoleQualification(AddCraftRoleQualificationRequest request, ServerCallContext context)
+    {
+        var role = await craftRoleRepository.GetByCtrlNbrWithQualificationsAsync(ControlNumber.Create(request.CraftRoleCtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CraftRoleCtrlNbr} not found."));
+
+        var rq = role.AddRequiredQualification(ControlNumber.Create(request.QualificationTypeCtrlNbr));
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CraftRoleQualifications.Add(rq);
+        uow.CraftRoles.Update(role);
+        await uow.CommitAsync(context.CancellationToken);
+
+        return MapCraftRoleQualification(rq);
+    }
+
+    public override async Task<DeleteResponse> RemoveCraftRoleQualification(RemoveCraftRoleQualificationRequest request, ServerCallContext context)
+    {
+        var ctrlNbr = ControlNumber.Create(request.CtrlNbr);
+        var rq = await craftRoleQualificationRepository.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRoleQualification {request.CtrlNbr} not found."));
+
+        var role = await craftRoleRepository.GetByCtrlNbrWithQualificationsAsync(rq.CraftRoleCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, "CraftRole not found."));
+
+        role.RemoveRequiredQualification(ctrlNbr);
+
+        await using var uow = await uowFactory.CreateAsync();
+        uow.CraftRoleQualifications.Remove(rq);
+        uow.CraftRoles.Update(role);
+        await uow.CommitAsync(context.CancellationToken);
+
+        return new DeleteResponse { Success = true };
+    }
+
+    private static CraftRoleQualificationResponse MapCraftRoleQualification(CraftRoleQualification rq) => new()
+    {
+        CtrlNbr = rq.CtrlNbr.Value,
+        CraftRoleCtrlNbr = rq.CraftRoleCtrlNbr.Value,
+        QualificationTypeCtrlNbr = rq.QualificationTypeCtrlNbr.Value
+    };
 
     private static CraftRoleResponse MapRole(CraftRole r) => new()
     {
