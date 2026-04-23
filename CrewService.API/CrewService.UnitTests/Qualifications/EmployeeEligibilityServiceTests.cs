@@ -25,9 +25,11 @@ public sealed class EmployeeEligibilityServiceTests
 
         var sut = new EmployeeEligibilityService(
             slotRequirementRepository,
+            new FakePositionSlotRepository(),
             new FakeQualificationTypeRepository(),
             new FakeEmployeeQualificationRepository(),
             new FakeCraftRoleRepository([craftRole]),
+            new FakeCraftRoleQualificationRepository(),
             new FakeSeniorityRepository([]),
             new FakeRosterRepository([Roster.Create(craftCtrlNbr, ControlNumber.Create(900), null, "Trainman", "Trainmen", 1)]));
 
@@ -64,9 +66,11 @@ public sealed class EmployeeEligibilityServiceTests
 
         var sut = new EmployeeEligibilityService(
             slotRequirementRepository,
+            new FakePositionSlotRepository(),
             new FakeQualificationTypeRepository(),
             new FakeEmployeeQualificationRepository(),
             new FakeCraftRoleRepository([craftRole]),
+            new FakeCraftRoleQualificationRepository(),
             new FakeSeniorityRepository([seniority]),
             new FakeRosterRepository([roster]));
 
@@ -101,6 +105,17 @@ public sealed class EmployeeEligibilityServiceTests
             => Task.FromResult(requirements.Where(r => r.PositionSlotCtrlNbr == positionSlotCtrlNbr).ToList());
     }
 
+    private sealed class FakePositionSlotRepository : FakeRepositoryBase<PositionSlot>, IPositionSlotRepository
+    {
+        public Task<List<PositionSlot>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr) => Task.FromResult(new List<PositionSlot>());
+        public Task<List<PositionSlot>> GetOpenByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr) => Task.FromResult(new List<PositionSlot>());
+    }
+
+    private sealed class FakeCraftRoleQualificationRepository : FakeRepositoryBase<CraftRoleQualification>, ICraftRoleQualificationRepository
+    {
+        public Task<List<CraftRoleQualification>> GetByCraftRoleAsync(ControlNumber craftRoleCtrlNbr) => Task.FromResult(new List<CraftRoleQualification>());
+    }
+
     private sealed class FakeQualificationTypeRepository : FakeRepositoryBase<QualificationType>, IQualificationTypeRepository
     {
         public Task<List<QualificationType>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr) => Task.FromResult(new List<QualificationType>());
@@ -130,6 +145,9 @@ public sealed class EmployeeEligibilityServiceTests
 
         public Task<List<CraftRole>> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
             => Task.FromResult(new List<CraftRole>());
+
+        public Task<CraftRole?> GetByCtrlNbrWithQualificationsAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult<CraftRole?>(craftRoles.SingleOrDefault(c => c.CtrlNbr == ctrlNbr));
     }
 
     private sealed class FakeSeniorityRepository(IReadOnlyList<Seniority> seniorities)
