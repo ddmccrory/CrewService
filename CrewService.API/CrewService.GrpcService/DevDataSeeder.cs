@@ -1848,5 +1848,39 @@ internal static class DevDataSeeder
                 ptraCrafts16.First(c => c.CraftName == "Engineer"),
                 ptraCrafts16.First(c => c.CraftName == "Trainman"));
         }
+
+        // ?? Section: Craft Role Qualifications ??
+        var craftRoleQualRepo = sp.GetRequiredService<ICraftRoleQualificationRepository>();
+        var existingRoleQuals = await craftRoleQualRepo.GetAllAsync();
+        if (existingRoleQuals.Count == 0)
+        {
+            var allRoles = await craftRoleRepo.GetAllAsync();
+            var allQT = await qualTypeRepo.GetAllAsync();
+
+            async Task SeedRoleQualAsync(string roleCode, string qualCode)
+            {
+                var role = allRoles.FirstOrDefault(r => r.Code == roleCode);
+                var qt = allQT.FirstOrDefault(q => q.Code == qualCode);
+                if (role is null || qt is null) return;
+                var rq = role.AddRequiredQualification(qt.CtrlNbr);
+                await craftRoleQualRepo.AddAsync(rq);
+            }
+
+            // CSX: Engineer role
+            await SeedRoleQualAsync("ENGR", "ENGINEER-QUALIFIED");
+            // CSX: Conductor role
+            await SeedRoleQualAsync("COND", "TRAINMAN-QUALIFIED");
+            await SeedRoleQualAsync("COND", "YARD-FOREMAN");
+            // CSX: Trainman role
+            await SeedRoleQualAsync("TRMN", "TRAINMAN-QUALIFIED");
+
+            // PTRA: Engineer role
+            await SeedRoleQualAsync("E", "ENGINEER-QUALIFIED");
+            // PTRA: Foreman role
+            await SeedRoleQualAsync("F", "TRAINMAN-QUALIFIED");
+            await SeedRoleQualAsync("F", "YARD-FOREMAN");
+            // PTRA: Helper role
+            await SeedRoleQualAsync("H", "TRAINMAN-QUALIFIED");
+        }
     }
 }
