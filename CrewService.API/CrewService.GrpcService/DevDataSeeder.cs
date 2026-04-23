@@ -1862,7 +1862,7 @@ internal static class DevDataSeeder
 
             // CSX
             SetParent(csxParentCtrlNbr);
-            var csxRoles = await craftRoleRepo.GetAllAsync();
+            var csxRoles = await craftRoleRepo.GetByRailroadAsync(csxRailroadWM.CtrlNbr);
             var csxQT = await qualTypeRepo.GetByParentCtrlNbrAsync(csxParentCtrlNbr);
             var csxEngRole   = csxRoles.First(r => r.Code == "ENGR");
             var csxCondRole  = csxRoles.First(r => r.Code == "COND");
@@ -1877,7 +1877,7 @@ internal static class DevDataSeeder
 
             // PTRA
             SetParent(ptraParentCore.CtrlNbr.Value);
-            var ptraRoles = await craftRoleRepo.GetAllAsync();
+            var ptraRoles = await craftRoleRepo.GetByRailroadAsync(ptraRailroadWM.CtrlNbr);
             var ptraQT = await qualTypeRepo.GetByParentCtrlNbrAsync(ptraParentCore.CtrlNbr);
             var ptraEngRole     = ptraRoles.First(r => r.Code == "E");
             var ptraForemanRole = ptraRoles.First(r => r.Code == "F");
