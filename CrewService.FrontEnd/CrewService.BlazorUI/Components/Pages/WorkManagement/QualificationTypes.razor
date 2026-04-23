@@ -54,7 +54,7 @@ else
                         <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Optional description" />
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Craft Scope <span class="text-muted fw-normal">(optional)</span></label>
+                        <label class="form-label fw-semibold">Restrict to Craft <span class="text-muted fw-normal">(optional)</span></label>
                         <FilterSelect TItem="CraftResponse" TValue="long"
                                       @bind-Value="saveModel.CraftCtrlNbr"
                                       Items="crafts"

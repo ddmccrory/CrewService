@@ -78,6 +78,38 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         }
     }
 
+    public async Task<GetCraftRoleQualificationsResponse> GetCraftRoleQualificationsAsync(long craftRoleCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetCraftRoleQualificationsAsync(new GetCraftRoleQualificationsRequest { CraftRoleCtrlNbr = craftRoleCtrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<CraftRoleQualificationResponse> AddCraftRoleQualificationAsync(long craftRoleCtrlNbr, long qualificationTypeCtrlNbr)
+    {
+        try
+        {
+            return await _client.AddCraftRoleQualificationAsync(new AddCraftRoleQualificationRequest
+            {
+                CraftRoleCtrlNbr = craftRoleCtrlNbr,
+                QualificationTypeCtrlNbr = qualificationTypeCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<DeleteResponse> RemoveCraftRoleQualificationAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.RemoveCraftRoleQualificationAsync(new RemoveCraftRoleQualificationRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    // __ Shift Definitions __
     // ── Shift Definitions ──
 
     public async Task<GetShiftDefinitionsResponse> GetShiftDefinitionsAsync(long workAreaGroupCtrlNbr)

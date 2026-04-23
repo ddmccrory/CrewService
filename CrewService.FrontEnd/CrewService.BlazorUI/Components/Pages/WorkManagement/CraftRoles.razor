@@ -12,6 +12,7 @@
 
 @inject WorkManagementClient WorkManagementClient
 @inject CraftClient CraftClient
+@inject QualificationsClient QualificationsClient
 
 <PageTitle>Craft Roles</PageTitle>
 
@@ -86,6 +87,79 @@ else
             </Footer>
         </Modal>
 
+        <Modal Visible="showQualsModal"
+               Title="@($"Required Qualifications — {qualsRoleName}")"
+               Icon="bi bi-patch-check"
+               OnClose="CloseQualsModal"
+               Size="lg">
+            <BodyContent>
+                @if (qualsError is not null)
+                {
+                    <div class="alert alert-danger alert-dismissible">
+                        @qualsError
+                        <button type="button" class="btn-close" @onclick="() => qualsError = null"></button>
+                    </div>
+                }
+                @if (roleQualifications is null)
+                {
+                    <p class="text-muted">Loading...</p>
+                }
+                else
+                {
+                    @if (roleQualifications.Count == 0)
+                    {
+                        <p class="text-muted fst-italic">No required qualifications defined for this role.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm table-hover mb-3">
+                            <thead><tr><th>Code</th><th>Name</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var rq in roleQualifications)
+                                {
+                                    var qt = qualTypes.FirstOrDefault(q => q.CtrlNbr == rq.QualificationTypeCtrlNbr);
+                                    <tr>
+                                        <td>@(qt?.Code.ToUpperInvariant() ?? "—")</td>
+                                        <td>@(qt?.Name ?? "Unknown")</td>
+                                        <td class="text-end">
+                                            @if (!IsFeatureReadOnly)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveRoleQualification(rq.CtrlNbr)" disabled="@isSaving">
+                                                    <span class="bi bi-trash"></span>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-2 align-items-end">
+                            <div class="flex-grow-1">
+                                <label class="form-label fw-semibold mb-1">Add Qualification</label>
+                                <FilterSelect TItem="QualificationTypeResponse" TValue="long"
+                                              @bind-Value="addQualTypeCtrlNbr"
+                                              Items="availableQualTypes"
+                                              ValueSelector="@(q => q.CtrlNbr)"
+                                              TextSelector="@(q => $"{q.Code.ToUpperInvariant()} — {q.Name}")"
+                                              Placeholder="-- Select Qualification --"
+                                              AlwaysShowPlaceholder="true"
+                                              class="form-select" />
+                            </div>
+                            <button class="btn btn-primary" @onclick="AddRoleQualification" disabled="@(addQualTypeCtrlNbr == 0 || isSaving)">
+                                <span class="bi bi-plus-circle me-1"></span> Add
+                            </button>
+                        </div>
+                    }
+                }
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseQualsModal">Close</button>
+            </Footer>
+        </Modal>
+
         <SuccessAlert @bind-Message="successMessage" />
 
         @if (errorMessage is not null)
@@ -117,6 +191,9 @@ else
                     @if (!IsFeatureReadOnly)
                     {
                         <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-info flex-fill" @onclick="() => OpenQualsModal(role)">
+                                <span class="bi bi-patch-check"></span> Qualifications
+                            </button>
                             <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(role)">
                                 <span class="bi bi-pencil"></span> Edit
                             </button>
@@ -294,6 +371,79 @@ else
         }
         finally { isSaving = false; }
     }
+    // ── Qualifications Modal ──
+
+    private bool showQualsModal;
+    private long qualsRoleCtrlNbr;
+    private string qualsRoleName = string.Empty;
+    private IReadOnlyList<CraftRoleQualificationResponse>? roleQualifications;
+    private IReadOnlyList<QualificationTypeResponse> qualTypes = [];
+    private IReadOnlyList<QualificationTypeResponse> availableQualTypes = [];
+    private long addQualTypeCtrlNbr;
+    private string? qualsError;
+
+    private async Task OpenQualsModal(CraftRoleResponse role)
+    {
+        qualsRoleCtrlNbr = role.CtrlNbr;
+        qualsRoleName = role.Name;
+        qualsError = null;
+        addQualTypeCtrlNbr = 0;
+        roleQualifications = null;
+        showQualsModal = true;
+        await LoadRoleQualifications();
+    }
+
+    private void CloseQualsModal()
+    {
+        showQualsModal = false;
+        roleQualifications = null;
+    }
+
+    private async Task LoadRoleQualifications()
+    {
+        try
+        {
+            // Load all qual types for this parent (filtered to current craft)
+            var typesResponse = await QualificationsClient.GetQualificationTypesAsync(SelectedParentCtrlNbr!.Value, activeOnly: true);
+            qualTypes = [.. typesResponse.QualificationTypes
+                .Where(q => q.CraftCtrlNbr == 0 || q.CraftCtrlNbr == selectedCraftCtrlNbr)
+                .OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)];
+
+            var qualsResponse = await WorkManagementClient.GetCraftRoleQualificationsAsync(qualsRoleCtrlNbr);
+            roleQualifications = [.. qualsResponse.Qualifications];
+
+            var assignedCtrlNbrs = roleQualifications.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
+            availableQualTypes = [.. qualTypes.Where(q => !assignedCtrlNbrs.Contains(q.CtrlNbr))];
+        }
+        catch (Exception ex) { qualsError = $"Failed to load qualifications: {ex.Message}"; }
+    }
+
+    private async Task AddRoleQualification()
+    {
+        if (addQualTypeCtrlNbr == 0) return;
+        try
+        {
+            isSaving = true; qualsError = null;
+            await WorkManagementClient.AddCraftRoleQualificationAsync(qualsRoleCtrlNbr, addQualTypeCtrlNbr);
+            addQualTypeCtrlNbr = 0;
+            await LoadRoleQualifications();
+        }
+        catch (Exception ex) { qualsError = $"Failed to add qualification: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task RemoveRoleQualification(long ctrlNbr)
+    {
+        try
+        {
+            isSaving = true; qualsError = null;
+            await WorkManagementClient.RemoveCraftRoleQualificationAsync(ctrlNbr);
+            await LoadRoleQualifications();
+        }
+        catch (Exception ex) { qualsError = $"Failed to remove qualification: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
 
     private sealed class RoleInputModel
     {

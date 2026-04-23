@@ -1,5 +1,6 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
@@ -10,6 +11,7 @@ public class WorkManagementService(
     IPositionSlotRepository positionSlotRepository,
     ICraftRoleQualificationRepository craftRoleQualificationRepository,
     ICraftRoleRepository craftRoleRepository,
+    IQualificationTypeRepository qualificationTypeRepository,
     IShiftDefinitionRepository shiftDefinitionRepository,
     IOrchestrationUnitOfWorkFactory uowFactory) : WorkManagementSrvc.WorkManagementSrvcBase
 {
@@ -177,6 +179,14 @@ public class WorkManagementService(
     {
         var role = await craftRoleRepository.GetByCtrlNbrWithQualificationsAsync(ControlNumber.Create(request.CraftRoleCtrlNbr), context.CancellationToken)
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CraftRoleCtrlNbr} not found."));
+
+
+        var qualType = await qualificationTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"QualificationType {request.QualificationTypeCtrlNbr} not found."));
+
+        if (qualType.CraftCtrlNbr is not null && qualType.CraftCtrlNbr != role.CraftCtrlNbr)
+            throw new RpcException(new Status(StatusCode.InvalidArgument,
+                $"Qualification '{qualType.Name}' is restricted to a different craft and cannot be assigned to this role."));
 
         var rq = role.AddRequiredQualification(ControlNumber.Create(request.QualificationTypeCtrlNbr));
 

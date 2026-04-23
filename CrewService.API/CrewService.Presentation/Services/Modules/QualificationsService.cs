@@ -12,6 +12,8 @@ public sealed class QualificationsService(
     IQualificationRequirementRepository qualificationRequirementRepository,
     IEmployeeQualificationRepository employeeQualificationRepository,
     EmployeeEligibilityService employeeEligibilityService,
+    ISeniorityRepository seniorityRepository,
+    IRosterRepository rosterRepository,
     IRegulatoryQualificationCatalog regulatoryQualificationCatalog,
     IOrchestrationUnitOfWorkFactory uowFactory)
     : QualificationsSrvc.QualificationsSrvcBase
@@ -247,6 +249,24 @@ public sealed class QualificationsService(
     {
         var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
         var qualificationTypeCtrlNbr = ControlNumber.Create(request.QualificationTypeCtrlNbr);
+
+        var qualType = await qualificationTypeRepository.GetByCtrlNbrAsync(qualificationTypeCtrlNbr, context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"QualificationType {request.QualificationTypeCtrlNbr} not found."));
+
+        if (qualType.CraftCtrlNbr is not null)
+        {
+            var employeeSeniority = await seniorityRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+            var activeRosterCtrlNbrs = employeeSeniority
+                .Where(s => s.LastActiveRoster)
+                .Select(s => s.RosterCtrlNbr)
+                .ToHashSet();
+            var craftRosters = await rosterRepository.GetByCraftCtrlNbrAsync(qualType.CraftCtrlNbr);
+            var hasActiveCraftMembership = craftRosters.Any(r => activeRosterCtrlNbrs.Contains(r.CtrlNbr));
+            if (!hasActiveCraftMembership)
+                throw new RpcException(new Status(StatusCode.PermissionDenied,
+                    $"Employee does not have active membership in the craft required for qualification '{qualType.Name}'."));
+        }
+
 
         var existing = await employeeQualificationRepository
             .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualificationTypeCtrlNbr);
