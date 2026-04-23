@@ -117,7 +117,7 @@ else
                             <tbody>
                                 @foreach (var rq in roleQualifications)
                                 {
-                                    var qt = allQualTypes.FirstOrDefault(q => q.CtrlNbr == rq.QualificationTypeCtrlNbr);
+                                    var qt = qualTypes.FirstOrDefault(q => q.CtrlNbr == rq.QualificationTypeCtrlNbr);
                                     <tr>
                                         <td>@(qt?.Code.ToUpperInvariant() ?? "—")</td>
                                         <td>@(qt?.Name ?? "Unknown")</td>
@@ -377,7 +377,6 @@ else
     private long qualsRoleCtrlNbr;
     private string qualsRoleName = string.Empty;
     private IReadOnlyList<CraftRoleQualificationResponse>? roleQualifications;
-    private IReadOnlyList<QualificationTypeResponse> allQualTypes = [];
     private IReadOnlyList<QualificationTypeResponse> qualTypes = [];
     private IReadOnlyList<QualificationTypeResponse> availableQualTypes = [];
     private long addQualTypeCtrlNbr;
@@ -406,16 +405,14 @@ else
         {
             // Load all qual types for this parent (filtered to current craft)
             var typesResponse = await QualificationsClient.GetQualificationTypesAsync(SelectedParentCtrlNbr!.Value, activeOnly: true);
-            allQualTypes = [.. typesResponse.QualificationTypes];
-            qualTypes = [.. allQualTypes
-                .Where(q => q.CraftCtrlNbr == 0 || q.CraftCtrlNbr == selectedCraftCtrlNbr)
-                .OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)];
+            qualTypes = [.. typesResponse.QualificationTypes.OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)];
 
             var qualsResponse = await WorkManagementClient.GetCraftRoleQualificationsAsync(qualsRoleCtrlNbr);
             roleQualifications = [.. qualsResponse.Qualifications];
 
             var assignedCtrlNbrs = roleQualifications.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
-            availableQualTypes = [.. qualTypes.Where(q => !assignedCtrlNbrs.Contains(q.CtrlNbr))];
+            availableQualTypes = [.. qualTypes
+                .Where(q => !assignedCtrlNbrs.Contains(q.CtrlNbr) && (q.CraftCtrlNbr == 0 || q.CraftCtrlNbr == selectedCraftCtrlNbr))];
         }
         catch (Exception ex) { qualsError = $"Failed to load qualifications: {ex.Message}"; }
     }
