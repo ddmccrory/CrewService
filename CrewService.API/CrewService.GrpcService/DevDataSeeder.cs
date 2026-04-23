@@ -1854,33 +1854,41 @@ internal static class DevDataSeeder
         var existingRoleQuals = await craftRoleQualRepo.GetAllAsync();
         if (existingRoleQuals.Count == 0)
         {
-            var allRoles = await craftRoleRepo.GetAllAsync();
-            var allQT = await qualTypeRepo.GetAllAsync();
-
-            async Task SeedRoleQualAsync(string roleCode, string qualCode)
+            async Task SeedRoleQualAsync(CraftRole role, QualificationType qt)
             {
-                var role = allRoles.FirstOrDefault(r => r.Code == roleCode);
-                var qt = allQT.FirstOrDefault(q => q.Code == qualCode);
-                if (role is null || qt is null) return;
                 var rq = role.AddRequiredQualification(qt.CtrlNbr);
                 await craftRoleQualRepo.AddAsync(rq);
             }
 
-            // CSX: Engineer role
-            await SeedRoleQualAsync("ENGR", "ENGINEER-QUALIFIED");
-            // CSX: Conductor role
-            await SeedRoleQualAsync("COND", "TRAINMAN-QUALIFIED");
-            await SeedRoleQualAsync("COND", "YARD-FOREMAN");
-            // CSX: Trainman role
-            await SeedRoleQualAsync("TRMN", "TRAINMAN-QUALIFIED");
+            // CSX
+            SetParent(csxParentCtrlNbr);
+            var csxRoles = await craftRoleRepo.GetAllAsync();
+            var csxQT = await qualTypeRepo.GetByParentCtrlNbrAsync(csxParentCtrlNbr);
+            var csxEngRole   = csxRoles.First(r => r.Code == "ENGR");
+            var csxCondRole  = csxRoles.First(r => r.Code == "COND");
+            var csxTrmnRole  = csxRoles.First(r => r.Code == "TRMN");
+            var csxEngQT     = csxQT.First(q => q.Code == "ENGINEER-QUALIFIED");
+            var csxTrnQT     = csxQT.First(q => q.Code == "TRAINMAN-QUALIFIED");
+            var csxForemanQT = csxQT.First(q => q.Code == "YARD-FOREMAN");
+            await SeedRoleQualAsync(csxEngRole,  csxEngQT);
+            await SeedRoleQualAsync(csxCondRole, csxTrnQT);
+            await SeedRoleQualAsync(csxCondRole, csxForemanQT);
+            await SeedRoleQualAsync(csxTrmnRole, csxTrnQT);
 
-            // PTRA: Engineer role
-            await SeedRoleQualAsync("E", "ENGINEER-QUALIFIED");
-            // PTRA: Foreman role
-            await SeedRoleQualAsync("F", "TRAINMAN-QUALIFIED");
-            await SeedRoleQualAsync("F", "YARD-FOREMAN");
-            // PTRA: Helper role
-            await SeedRoleQualAsync("H", "TRAINMAN-QUALIFIED");
+            // PTRA
+            SetParent(ptraParentCore.CtrlNbr.Value);
+            var ptraRoles = await craftRoleRepo.GetAllAsync();
+            var ptraQT = await qualTypeRepo.GetByParentCtrlNbrAsync(ptraParentCore.CtrlNbr);
+            var ptraEngRole     = ptraRoles.First(r => r.Code == "E");
+            var ptraForemanRole = ptraRoles.First(r => r.Code == "F");
+            var ptraHelperRole  = ptraRoles.First(r => r.Code == "H");
+            var ptraEngQT       = ptraQT.First(q => q.Code == "ENGINEER-QUALIFIED");
+            var ptraTrnQT       = ptraQT.First(q => q.Code == "TRAINMAN-QUALIFIED");
+            var ptraForemanQT   = ptraQT.First(q => q.Code == "YARD-FOREMAN");
+            await SeedRoleQualAsync(ptraEngRole,     ptraEngQT);
+            await SeedRoleQualAsync(ptraForemanRole, ptraTrnQT);
+            await SeedRoleQualAsync(ptraForemanRole, ptraForemanQT);
+            await SeedRoleQualAsync(ptraHelperRole,  ptraTrnQT);
         }
     }
 }
