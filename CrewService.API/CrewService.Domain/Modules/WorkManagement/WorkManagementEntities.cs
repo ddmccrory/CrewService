@@ -74,12 +74,33 @@ public sealed class Department : Entity
         DefaultCallSheetView = defaultCallSheetView;
     }
 }
+public sealed class CraftRoleQualification : Entity
+{
+    public ControlNumber CraftRoleCtrlNbr { get; private set; }
+    public ControlNumber QualificationTypeCtrlNbr { get; private set; }
+
+    private CraftRoleQualification() { CraftRoleCtrlNbr = null!; QualificationTypeCtrlNbr = null!; }
+
+    internal static CraftRoleQualification Create(ControlNumber craftRoleCtrlNbr, ControlNumber qualificationTypeCtrlNbr)
+    {
+        return new CraftRoleQualification
+        {
+            CraftRoleCtrlNbr = craftRoleCtrlNbr,
+            QualificationTypeCtrlNbr = qualificationTypeCtrlNbr
+        };
+    }
+}
+
 public sealed class CraftRole : Entity
 {
+    private readonly List<CraftRoleQualification> _requiredQualifications = [];
+
     public ControlNumber CraftCtrlNbr { get; private set; }
     public string? Code { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string? AlternateName { get; private set; }
+
+    public IReadOnlyList<CraftRoleQualification> RequiredQualifications => _requiredQualifications.AsReadOnly();
 
     private CraftRole() { CraftCtrlNbr = null!; }
 
@@ -101,6 +122,26 @@ public sealed class CraftRole : Entity
         Code = code;
         Name = name;
         AlternateName = alternateName;
+    }
+
+    public CraftRoleQualification AddRequiredQualification(ControlNumber qualificationTypeCtrlNbr)
+    {
+        if (_requiredQualifications.Any(q => q.QualificationTypeCtrlNbr == qualificationTypeCtrlNbr))
+            throw new InvalidOperationException("This qualification is already required by this craft role.");
+
+        var rq = CraftRoleQualification.Create(CtrlNbr, qualificationTypeCtrlNbr);
+        _requiredQualifications.Add(rq);
+        Raise(new CraftRoleQualificationAddedDomainEvent(rq));
+        return rq;
+    }
+
+    public void RemoveRequiredQualification(ControlNumber craftRoleQualificationCtrlNbr)
+    {
+        var rq = _requiredQualifications.FirstOrDefault(q => q.CtrlNbr == craftRoleQualificationCtrlNbr)
+            ?? throw new InvalidOperationException("Required qualification not found on this craft role.");
+
+        _requiredQualifications.Remove(rq);
+        Raise(new CraftRoleQualificationRemovedDomainEvent(rq));
     }
 }
 
@@ -217,4 +258,16 @@ public sealed record SlotRequirementCreatedDomainEvent : DomainEvent
 {
     public SlotRequirementCreatedDomainEvent(SlotRequirement r)
         : base(nameof(SlotRequirement), r.CtrlNbr.Value, new { PositionSlotCtrlNbr = r.PositionSlotCtrlNbr.Value, r.Priority }) { }
+}
+
+public sealed record CraftRoleQualificationAddedDomainEvent : DomainEvent
+{
+    public CraftRoleQualificationAddedDomainEvent(CraftRoleQualification rq)
+        : base(nameof(CraftRoleQualification), rq.CtrlNbr.Value, new { CraftRoleCtrlNbr = rq.CraftRoleCtrlNbr.Value, QualificationTypeCtrlNbr = rq.QualificationTypeCtrlNbr.Value }) { }
+}
+
+public sealed record CraftRoleQualificationRemovedDomainEvent : DomainEvent
+{
+    public CraftRoleQualificationRemovedDomainEvent(CraftRoleQualification rq)
+        : base(nameof(CraftRoleQualification), rq.CtrlNbr.Value, new { CraftRoleCtrlNbr = rq.CraftRoleCtrlNbr.Value }) { }
 }

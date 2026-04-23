@@ -12,6 +12,7 @@
 
 @inject WorkManagementClient WorkManagementClient
 @inject CraftClient CraftClient
+@inject NavigationManager Nav
 
 <PageTitle>Craft Roles</PageTitle>
 
@@ -28,27 +29,25 @@ else
 {
     <p class="text-muted mb-3">Managing craft roles for <strong>@SelectedRailroadName</strong></p>
 
-    <div class="mb-3">
-        <label class="form-label fw-semibold">Craft</label>
-        <FilterSelect TItem="CraftResponse" TValue="long"
-                      @bind-Value="selectedCraftCtrlNbr"
-                      @bind-Value:after="OnCraftSelected"
-                      Items="crafts"
-                      ValueSelector="@(c => c.CtrlNbr)"
-                      TextSelector="@(c => c.CraftName)"
-                      Placeholder="-- Select Craft --"
-                      class="form-select" style="max-width: 350px;" />
-    </div>
-
-    @if (selectedCraftCtrlNbr > 0)
-    {
-        <Modal Visible="showSaveModal"
+    <Modal Visible="showSaveModal"
                Title="@(editCtrlNbr > 0 ? "Edit Craft Role" : "Create Craft Role")"
                Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
                OnClose="CloseSaveModal">
             <BodyContent>
                 <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-role-form">
                     <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Craft</label>
+                        <SelectInput TItem="CraftResponse" TValue="long"
+                                     Items="crafts ?? []"
+                                     ValueSelector="c => c.CtrlNbr"
+                                     TextSelector="c => c.CraftName"
+                                     @bind-Value="saveModel.CraftCtrlNbr"
+                                     Placeholder="-- Select Craft --"
+                                     class="form-select"
+                                     disabled="@(editCtrlNbr > 0)" />
+                        <ValidationMessage For="() => saveModel.CraftCtrlNbr" class="text-danger" />
+                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Code</label>
                         <InputText @bind-Value="saveModel.Code" class="form-control" placeholder="e.g. COND (optional)" />
@@ -97,8 +96,8 @@ else
         }
 
         <DataTable TItem="CraftRoleResponse" Items="roles" Columns="columns"
-                   SearchFilter="@((r, term) => r.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || r.Code.Contains(term, StringComparison.OrdinalIgnoreCase) || r.AlternateName.Contains(term, StringComparison.OrdinalIgnoreCase))"
-                   SearchPlaceholder="Search by code, name, or alternate name..."
+                   SearchFilter="@((r, term) => r.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || r.Code.Contains(term, StringComparison.OrdinalIgnoreCase) || r.AlternateName.Contains(term, StringComparison.OrdinalIgnoreCase) || GetCraftName(r.CraftCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search by code, name, alternate name, or craft..."
                    EmptyMessage="No craft roles found for this craft."
                    DefaultSortColumn="Code">
             <ToolbarContent>
@@ -111,12 +110,16 @@ else
             </ToolbarContent>
             <RowContent Context="role">
                 <td>@(string.IsNullOrEmpty(role.Code) ? "—" : role.Code.ToUpperInvariant())</td>
+                <td>@GetCraftName(role.CraftCtrlNbr)</td>
                 <td>@role.Name</td>
                 <td>@(string.IsNullOrEmpty(role.AlternateName) ? "—" : role.AlternateName)</td>
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
                         <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-info flex-fill" @onclick="() => NavigateToDetail(role.CtrlNbr)">
+                                <span class="bi bi-patch-check"></span> Qualifications
+                            </button>
                             <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(role)">
                                 <span class="bi bi-pencil"></span> Edit
                             </button>
@@ -128,19 +131,24 @@ else
                 </td>
             </RowContent>
         </DataTable>
-    }
 }
 
 @code {
     protected override string? FeatureKey => "work-management/craft-roles";
 
+    private void NavigateToDetail(long ctrlNbr) =>
+        Nav.NavigateTo($"/work-management/craft-roles/{ctrlNbr}");
+
     private IReadOnlyList<CraftResponse>? crafts;
     private IReadOnlyList<CraftRoleResponse>? roles;
-    private long selectedCraftCtrlNbr;
+
+    private string GetCraftName(long craftCtrlNbr) =>
+        crafts?.FirstOrDefault(c => c.CtrlNbr == craftCtrlNbr)?.CraftName ?? "—";
 
     private static readonly IReadOnlyList<DataTableColumn<CraftRoleResponse>> columns =
     [
         new("Code", r => r.Code),
+        new("Craft", _ => string.Empty),
         new("Name", r => r.Name),
         new("Alternate Name", r => r.AlternateName),
         DataTableColumn<CraftRoleResponse>.Actions()
@@ -157,54 +165,27 @@ else
     protected override async Task LoadDataAsync()
     {
         if (HasRailroad)
-            await LoadCrafts();
+            await LoadAll();
     }
 
     protected override async Task OnAppContextChangedAsync()
     {
-        selectedCraftCtrlNbr = 0;
         roles = null;
+        crafts = null;
 
         if (HasRailroad)
-            await LoadCrafts();
-        else
-            crafts = null;
+            await LoadAll();
     }
 
-    private async Task OnCraftSelected()
-    {
-        roles = null;
-
-        if (selectedCraftCtrlNbr > 0)
-            await LoadRoles();
-    }
-
-    private async Task LoadCrafts()
-    {
-        try
-        {
-            var response = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
-            crafts = response.Crafts;
-
-            if (crafts.Count == 1)
-            {
-                selectedCraftCtrlNbr = crafts[0].CtrlNbr;
-                await LoadRoles();
-            }
-        }
-        catch
-        {
-            crafts = [];
-        }
-    }
-
-    private async Task LoadRoles()
+    private async Task LoadAll()
     {
         try
         {
             errorMessage = null;
-            var response = await WorkManagementClient.GetCraftRolesAsync(selectedCraftCtrlNbr);
-            roles = response.Roles;
+            var craftsResponse = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr!.Value);
+            crafts = craftsResponse.Crafts;
+            var rolesResponse = await WorkManagementClient.GetCraftRolesAsync(railroadCtrlNbr: SelectedRailroadCtrlNbr!.Value);
+            roles = rolesResponse.Roles;
         }
         catch (Exception ex)
         {
@@ -224,6 +205,7 @@ else
         editCtrlNbr = role.CtrlNbr;
         saveModel = new()
         {
+            CraftCtrlNbr = role.CraftCtrlNbr,
             Code = string.IsNullOrEmpty(role.Code) ? null : role.Code,
             Name = role.Name,
             AlternateName = string.IsNullOrEmpty(role.AlternateName) ? null : role.AlternateName
@@ -260,12 +242,12 @@ else
             }
             else
             {
-                await WorkManagementClient.CreateCraftRoleAsync(selectedCraftCtrlNbr, saveModel.Code, saveModel.Name!, saveModel.AlternateName);
+                await WorkManagementClient.CreateCraftRoleAsync(saveModel.CraftCtrlNbr, saveModel.Code, saveModel.Name!, saveModel.AlternateName);
                 successMessage = "Craft role created.";
             }
 
             CloseSaveModal();
-            await LoadRoles();
+            await LoadAll();
         }
         catch (Exception ex)
         {
@@ -285,7 +267,7 @@ else
             await WorkManagementClient.DeleteCraftRoleAsync(deleteCtrlNbr);
             successMessage = "Craft role deleted.";
             showDeleteModal = false;
-            await LoadRoles();
+            await LoadAll();
         }
         catch (Exception ex)
         {
@@ -294,9 +276,11 @@ else
         }
         finally { isSaving = false; }
     }
-
     private sealed class RoleInputModel
     {
+        [Range(1, long.MaxValue, ErrorMessage = "Craft is required.")]
+        public long CraftCtrlNbr { get; set; }
+
         private string? _code;
 
         [StringLength(30)]

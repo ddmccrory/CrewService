@@ -10,6 +10,7 @@
 @attribute [Authorize]
 
 @inject QualificationsClient QualificationsClient
+@inject CraftClient CraftClient
 @inject NavigationManager Nav
 
 <PageTitle>Qualification Types</PageTitle>
@@ -51,6 +52,17 @@ else
                     <div class="col-md-12">
                         <label class="form-label fw-semibold">Description</label>
                         <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="Optional description" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Restrict to Craft <span class="text-muted fw-normal">(optional)</span></label>
+                        <FilterSelect TItem="CraftResponse" TValue="long"
+                                      @bind-Value="saveModel.CraftCtrlNbr"
+                                      Items="crafts"
+                                      ValueSelector="@(c => c.CtrlNbr)"
+                                      TextSelector="@(c => c.CraftName)"
+                                      Placeholder="-- All Crafts --"
+                                      class="form-select" />
+                        <div class="form-text">Narrows this qualification to a specific craft.</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Evaluation Strategy</label>
@@ -159,6 +171,7 @@ else
                 }
             </td>
             <td>@q.Name</td>
+            <td>@(q.CraftCtrlNbr > 0 ? (crafts.FirstOrDefault(c => c.CtrlNbr == q.CraftCtrlNbr)?.CraftName ?? "—") : "—")</td>
             <td>@evaluationStrategyLabels.GetValueOrDefault(q.EvaluationStrategy, q.EvaluationStrategy)</td>
             <td>@(q.IsBlocking ? "Yes" : "No")</td>
             <td>@(q.IsActive ? "Active" : "Inactive")</td>
@@ -211,6 +224,7 @@ else
     [
         new("Code", q => q.Code.ToUpperInvariant()),
         new("Name", q => q.Name),
+        new("Craft", q => string.Empty),
         new("Strategy", q => evaluationStrategyLabels.GetValueOrDefault(q.EvaluationStrategy, q.EvaluationStrategy)),
         new("Blocking", q => q.IsBlocking ? "Yes" : "No"),
         new("Status", q => q.IsActive ? "Active" : "Inactive"),
@@ -219,6 +233,7 @@ else
 
     private IReadOnlyList<QualificationTypeResponse> qualificationTypes = [];
     private IReadOnlyList<RegulatoryQualificationCatalogItem> regulatoryQualifications = [];
+    private IReadOnlyList<CraftResponse> crafts = [];
     private bool showSaveModal;
     private bool showDeleteModal;
     private long editCtrlNbr;
@@ -230,14 +245,26 @@ else
     {
         if (!HasParent) return;
         await LoadRegulatoryQualifications();
+        await LoadCrafts();
         await LoadQualificationTypes();
     }
 
     protected override async Task OnAppContextChangedAsync()
     {
-        if (!HasParent) { qualificationTypes = []; regulatoryQualifications = []; return; }
+        if (!HasParent) { qualificationTypes = []; regulatoryQualifications = []; crafts = []; return; }
         await LoadRegulatoryQualifications();
+        await LoadCrafts();
         await LoadQualificationTypes();
+    }
+
+    private async Task LoadCrafts()
+    {
+        try
+        {
+            var response = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr ?? 0);
+            crafts = [.. response.Crafts.OrderBy(c => c.CraftName, StringComparer.OrdinalIgnoreCase)];
+        }
+        catch { crafts = []; }
     }
 
     private async Task LoadRegulatoryQualifications()

@@ -13,6 +13,12 @@ public interface ICraftRoleRepository : IRepository<CraftRole>
     Task<List<CraftRole>> GetByCraftAsync(ControlNumber craftCtrlNbr);
     Task<List<CraftRole>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
     Task<List<CraftRole>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
+    Task<CraftRole?> GetByCtrlNbrWithQualificationsAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+}
+
+public interface ICraftRoleQualificationRepository : IRepository<CraftRoleQualification>
+{
+    Task<List<CraftRoleQualification>> GetByCraftRoleAsync(ControlNumber craftRoleCtrlNbr);
 }
 
 public interface IPositionSlotRepository : IRepository<PositionSlot>

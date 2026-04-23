@@ -1848,5 +1848,49 @@ internal static class DevDataSeeder
                 ptraCrafts16.First(c => c.CraftName == "Engineer"),
                 ptraCrafts16.First(c => c.CraftName == "Trainman"));
         }
+
+        // ?? Section: Craft Role Qualifications ??
+        var craftRoleQualRepo = sp.GetRequiredService<ICraftRoleQualificationRepository>();
+        var existingRoleQuals = await craftRoleQualRepo.GetAllAsync();
+        if (existingRoleQuals.Count == 0)
+        {
+            async Task SeedRoleQualAsync(CraftRole role, QualificationType qt)
+            {
+                var rq = role.AddRequiredQualification(qt.CtrlNbr);
+                await craftRoleQualRepo.AddAsync(rq);
+            }
+
+            // CSX
+            SetParent(csxParentCtrlNbr);
+            var csxRailroad = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
+            var csxRoles = await craftRoleRepo.GetByRailroadAsync(csxRailroad.CtrlNbr);
+            var csxQT = await qualTypeRepo.GetByParentCtrlNbrAsync(csxParentCtrlNbr);
+            var csxEngRole   = csxRoles.First(r => r.Code == "ENGR");
+            var csxCondRole  = csxRoles.First(r => r.Code == "COND");
+            var csxTrmnRole  = csxRoles.First(r => r.Code == "TRMN");
+            var csxEngQT     = csxQT.First(q => q.Code == "ENGINEER-QUALIFIED");
+            var csxTrnQT     = csxQT.First(q => q.Code == "TRAINMAN-QUALIFIED");
+            var csxForemanQT = csxQT.First(q => q.Code == "YARD-FOREMAN");
+            await SeedRoleQualAsync(csxEngRole,  csxEngQT);
+            await SeedRoleQualAsync(csxCondRole, csxTrnQT);
+            await SeedRoleQualAsync(csxCondRole, csxForemanQT);
+            await SeedRoleQualAsync(csxTrmnRole, csxTrnQT);
+
+            // PTRA
+            SetParent(ptraParentCore.CtrlNbr.Value);
+            var ptraRailroad = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
+            var ptraRoles = await craftRoleRepo.GetByRailroadAsync(ptraRailroad.CtrlNbr);
+            var ptraQT = await qualTypeRepo.GetByParentCtrlNbrAsync(ptraParentCore.CtrlNbr);
+            var ptraEngRole     = ptraRoles.First(r => r.Code == "E");
+            var ptraForemanRole = ptraRoles.First(r => r.Code == "F");
+            var ptraHelperRole  = ptraRoles.First(r => r.Code == "H");
+            var ptraEngQT       = ptraQT.First(q => q.Code == "ENGINEER-QUALIFIED");
+            var ptraTrnQT       = ptraQT.First(q => q.Code == "TRAINMAN-QUALIFIED");
+            var ptraForemanQT   = ptraQT.First(q => q.Code == "YARD-FOREMAN");
+            await SeedRoleQualAsync(ptraEngRole,     ptraEngQT);
+            await SeedRoleQualAsync(ptraForemanRole, ptraTrnQT);
+            await SeedRoleQualAsync(ptraForemanRole, ptraForemanQT);
+            await SeedRoleQualAsync(ptraHelperRole,  ptraTrnQT);
+        }
     }
 }

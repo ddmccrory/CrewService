@@ -109,6 +109,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     private IDepartmentRepository? _departments;
     private ICraftRoleRepository? _craftRoles;
+    private ICraftRoleQualificationRepository? _craftRoleQualifications;
     private IWorkInstanceRepository? _workInstances;
     private IPositionSlotRepository? _positionSlots;
     private ISlotRequirementRepository? _slotRequirements;
@@ -192,6 +193,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     public IDepartmentRepository Departments => _departments ??= new DepartmentRepository(_crewContext, _currentUserService);
     public ICraftRoleRepository CraftRoles => _craftRoles ??= new CraftRoleRepository(_crewContext, _currentUserService);
+    public ICraftRoleQualificationRepository CraftRoleQualifications => _craftRoleQualifications ??= new CraftRoleQualificationRepository(_crewContext, _currentUserService);
     public IWorkInstanceRepository WorkInstances => _workInstances ??= new WorkInstanceRepository(_crewContext, _currentUserService);
     public IPositionSlotRepository PositionSlots => _positionSlots ??= new PositionSlotRepository(_crewContext, _currentUserService);
     public ISlotRequirementRepository SlotRequirements => _slotRequirements ??= new SlotRequirementRepository(_crewContext, _currentUserService);

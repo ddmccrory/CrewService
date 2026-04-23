@@ -41,6 +41,17 @@ service WorkManagementSrvc {
     option (google.api.http) = { delete: "/v1/work-management/craft-roles/{ctrl_nbr}" };
   }
 
+  // Craft Role Qualifications
+  rpc GetCraftRoleQualifications(GetCraftRoleQualificationsRequest) returns (GetCraftRoleQualificationsResponse) {
+    option (google.api.http) = { get: "/v1/work-management/craft-roles/{craft_role_ctrl_nbr}/qualifications" };
+  }
+  rpc AddCraftRoleQualification(AddCraftRoleQualificationRequest) returns (CraftRoleQualificationResponse) {
+    option (google.api.http) = { post: "/v1/work-management/craft-roles/qualifications" body: "*" };
+  }
+  rpc RemoveCraftRoleQualification(RemoveCraftRoleQualificationRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/work-management/craft-roles/qualifications/{ctrl_nbr}" };
+  }
+
   // Shift Definitions
   rpc GetShiftDefinitions(GetShiftDefinitionsRequest) returns (GetShiftDefinitionsResponse) {
     option (google.api.http) = { get: "/v1/work-management/shift-definitions" };
@@ -116,6 +127,13 @@ message CreateCraftRoleRequest { int64 craft_ctrl_nbr = 1; string code = 2; stri
 message CraftRoleResponse { int64 ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; string code = 3; string name = 4; string alternate_name = 5; }
 message UpdateCraftRoleRequest { int64 ctrl_nbr = 1; string code = 2; string name = 3; string alternate_name = 4; }
 message DeleteCraftRoleRequest { int64 ctrl_nbr = 1; }
+
+// CraftRoleQualification messages
+message GetCraftRoleQualificationsRequest { int64 craft_role_ctrl_nbr = 1; }
+message GetCraftRoleQualificationsResponse { repeated CraftRoleQualificationResponse qualifications = 1; int32 total_count = 2; }
+message AddCraftRoleQualificationRequest { int64 craft_role_ctrl_nbr = 1; int64 qualification_type_ctrl_nbr = 2; }
+message RemoveCraftRoleQualificationRequest { int64 ctrl_nbr = 1; }
+message CraftRoleQualificationResponse { int64 ctrl_nbr = 1; int64 craft_role_ctrl_nbr = 2; int64 qualification_type_ctrl_nbr = 3; }
 
 // ShiftDefinition messages
 message GetShiftDefinitionsRequest { int64 work_area_group_ctrl_nbr = 1; }

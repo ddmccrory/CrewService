@@ -143,6 +143,7 @@ public static class DependencyInjection
         // WorkManagement Module Repositories
                 services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
         services.AddScoped<ICraftRoleRepository, CraftRoleRepository>();
+        services.AddScoped<ICraftRoleQualificationRepository, CraftRoleQualificationRepository>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
 
