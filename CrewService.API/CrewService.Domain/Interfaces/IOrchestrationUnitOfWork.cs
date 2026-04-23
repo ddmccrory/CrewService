@@ -93,6 +93,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ──────────────────────────────────────────────────────────────────
     IDepartmentRepository Departments { get; }
     ICraftRoleRepository CraftRoles { get; }
+    ICraftRoleQualificationRepository CraftRoleQualifications { get; }
     IWorkInstanceRepository WorkInstances { get; }
     IPositionSlotRepository PositionSlots { get; }
     ISlotRequirementRepository SlotRequirements { get; }

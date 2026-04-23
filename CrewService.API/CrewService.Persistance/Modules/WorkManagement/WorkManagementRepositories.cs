@@ -62,6 +62,25 @@ internal sealed class CraftRoleRepository(CrewServiceDbContext dbContext, ICurre
             .OrderBy(r => r.Code)
             .ToListAsync();
     }
+
+    public async Task<CraftRole?> GetByCtrlNbrWithQualificationsAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<CraftRole>()
+            .Include("_requiredQualifications")
+            .FirstOrDefaultAsync(r => r.CtrlNbr == ctrlNbr, ct);
+    }
+}
+
+
+internal sealed class CraftRoleQualificationRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<CraftRoleQualification>(dbContext, currentUserService), ICraftRoleQualificationRepository
+{
+    public async Task<List<CraftRoleQualification>> GetByCraftRoleAsync(ControlNumber craftRoleCtrlNbr)
+    {
+        return await DbContext.Set<CraftRoleQualification>()
+            .Where(q => q.CraftRoleCtrlNbr == craftRoleCtrlNbr)
+            .ToListAsync();
+    }
 }
 
 internal sealed class PositionSlotRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

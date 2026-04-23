@@ -1,5 +1,6 @@
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
@@ -43,10 +44,31 @@ internal class CraftRoleConfiguration : IEntityTypeConfiguration<CraftRole>
         builder.Property(r => r.AlternateName).HasMaxLength(100);
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(r => r.RequiredQualifications).WithOne().HasForeignKey(q => q.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class CraftRoleQualificationConfiguration : IEntityTypeConfiguration<CraftRoleQualification>
+{
+    public void Configure(EntityTypeBuilder<CraftRoleQualification> builder)
+    {
+        builder.HasKey(q => q.CtrlNbr);
+        builder.Property(q => q.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(q => q.CraftRoleCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(q => q.QualificationTypeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+
+        builder.HasIndex(q => new { q.CraftRoleCtrlNbr, q.QualificationTypeCtrlNbr }).IsUnique();
+
+        builder.HasOne<CraftRole>().WithMany().HasForeignKey(q => q.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<QualificationType>().WithMany().HasForeignKey(q => q.QualificationTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(q => q.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(q => q.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(q => q.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
 
@@ -91,7 +113,7 @@ internal class SlotRequirementConfiguration : IEntityTypeConfiguration<SlotRequi
 
         builder.HasOne<PositionSlot>().WithMany().HasForeignKey(r => r.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<CraftRole>().WithMany().HasForeignKey(r => r.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(r => r.QualificationTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<QualificationType>().WithMany().HasForeignKey(r => r.QualificationTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
