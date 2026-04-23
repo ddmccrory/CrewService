@@ -1,0 +1,254 @@
+@page "/work-management/craft-roles/{CtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject WorkManagementClient WorkManagementClient
+@inject QualificationsClient QualificationsClient
+@inject NavigationManager Nav
+
+<PageTitle>Craft Role Detail</PageTitle>
+
+@if (role is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <BackNavButton Text="Craft Roles" OnClick="@(() => Nav.NavigateTo("/work-management/craft-roles"))" />
+
+    <h1>@role.Name</h1>
+    @if (!string.IsNullOrEmpty(role.Code))
+    {
+        <p class="text-muted mb-1"><span class="badge bg-secondary">@role.Code.ToUpperInvariant()</span></p>
+    }
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <h5>Required Qualifications</h5>
+
+    <Modal Visible="showAddModal" Title="Add Required Qualification" Icon="bi bi-plus-circle" OnClose="CloseAddModal" Size="sm">
+        <BodyContent>
+            <EditForm Model="addModel" OnValidSubmit="OnAddQualification" id="add-qual-form">
+                <DataAnnotationsValidator />
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Qualification</label>
+                    <SelectInput TItem="QualificationTypeResponse" TValue="long"
+                                 Items="availableQualTypes"
+                                 ValueSelector="q => q.CtrlNbr"
+                                 TextSelector="@(q => $"{q.Code.ToUpperInvariant()} — {q.Name}")"
+                                 @bind-Value="addModel.QualificationTypeCtrlNbr"
+                                 Placeholder="-- Select Qualification --"
+                                 class="form-select" />
+                    <ValidationMessage For="() => addModel.QualificationTypeCtrlNbr" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAddModal">Cancel</button>
+            <button type="submit" form="add-qual-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-plus-circle me-1"></span> Add
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDeleteModal" Title="Confirm Remove" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Remove <strong>@deleteQualName</strong> from required qualifications?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Remove
+            </button>
+        </Footer>
+    </Modal>
+
+    <DataTable TItem="QualDisplayRow" Items="qualRows" Columns="columns"
+               SearchFilter="@((r, term) => r.Code.Contains(term, StringComparison.OrdinalIgnoreCase) || r.Name.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search by code or name..."
+               EmptyMessage="No required qualifications defined for this role."
+               DefaultSortColumn="Code">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenAddModal" disabled="@(!availableQualTypes.Any())">
+                    <span class="bi bi-plus-circle"></span> Add Qualification
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="row">
+            <td>@row.Code.ToUpperInvariant()</td>
+            <td>@row.Name</td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(row)">
+                            <span class="bi bi-trash"></span> Remove
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/craft-roles";
+
+    [Parameter] public long CtrlNbr { get; set; }
+
+    private CraftRoleResponse? role;
+    private IReadOnlyList<QualDisplayRow> qualRows = [];
+    private IReadOnlyList<QualificationTypeResponse> allQualTypes = [];
+    private IReadOnlyList<QualificationTypeResponse> availableQualTypes = [];
+
+    private static readonly IReadOnlyList<DataTableColumn<QualDisplayRow>> columns =
+    [
+        new("Code", r => r.Code),
+        new("Name", r => r.Name),
+        DataTableColumn<QualDisplayRow>.Actions()
+    ];
+
+    private bool showAddModal;
+    private AddQualModel addModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteQualName = "";
+
+    protected override async Task LoadDataAsync()
+    {
+        await LoadAll();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        try
+        {
+            errorMessage = null;
+            var rolesResponse = await WorkManagementClient.GetCraftRolesAsync();
+            role = rolesResponse.Roles.FirstOrDefault(r => r.CtrlNbr == CtrlNbr);
+
+            if (role is null)
+            {
+                errorMessage = "Craft role not found.";
+                return;
+            }
+
+            var typesResponse = await QualificationsClient.GetQualificationTypesAsync(SelectedParentCtrlNbr!.Value, activeOnly: true);
+            allQualTypes = [.. typesResponse.QualificationTypes.OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)];
+
+            await LoadQualifications();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load data: {ex.Message}";
+        }
+    }
+
+    private async Task LoadQualifications()
+    {
+        var qualsResponse = await WorkManagementClient.GetCraftRoleQualificationsAsync(CtrlNbr);
+
+        var assignedCtrlNbrs = qualsResponse.Qualifications.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
+
+        qualRows = [.. qualsResponse.Qualifications
+            .Select(rq =>
+            {
+                var qt = allQualTypes.FirstOrDefault(q => q.CtrlNbr == rq.QualificationTypeCtrlNbr);
+                return new QualDisplayRow(rq.CtrlNbr, qt?.Code ?? "", qt?.Name ?? "Unknown");
+            })
+            .OrderBy(r => r.Code, StringComparer.OrdinalIgnoreCase)];
+
+        availableQualTypes = [.. allQualTypes
+            .Where(q => !assignedCtrlNbrs.Contains(q.CtrlNbr)
+                     && (q.CraftCtrlNbr == 0 || q.CraftCtrlNbr == role!.CraftCtrlNbr))];
+    }
+
+    private void OpenAddModal()
+    {
+        addModel = new();
+        showAddModal = true;
+    }
+
+    private void CloseAddModal()
+    {
+        showAddModal = false;
+        addModel = new();
+    }
+
+    private async Task OnAddQualification()
+    {
+        if (addModel.QualificationTypeCtrlNbr == 0) return;
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            await WorkManagementClient.AddCraftRoleQualificationAsync(CtrlNbr, addModel.QualificationTypeCtrlNbr);
+            successMessage = "Qualification added.";
+            CloseAddModal();
+            await LoadQualifications();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to add qualification: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private void OpenDeleteModal(QualDisplayRow row)
+    {
+        deleteCtrlNbr = row.AssignmentCtrlNbr;
+        deleteQualName = row.Name;
+        showDeleteModal = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            await WorkManagementClient.RemoveCraftRoleQualificationAsync(deleteCtrlNbr);
+            successMessage = "Qualification removed.";
+            showDeleteModal = false;
+            await LoadQualifications();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to remove qualification: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    private sealed record QualDisplayRow(long AssignmentCtrlNbr, string Code, string Name);
+
+    private sealed class AddQualModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Please select a qualification.")]
+        public long QualificationTypeCtrlNbr { get; set; }
+    }
+}
