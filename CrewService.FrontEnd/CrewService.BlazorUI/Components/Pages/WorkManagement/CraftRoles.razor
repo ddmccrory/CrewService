@@ -375,6 +375,7 @@ else
 
     private bool showQualsModal;
     private long qualsRoleCtrlNbr;
+    private long qualsRoleCraftCtrlNbr;
     private string qualsRoleName = string.Empty;
     private IReadOnlyList<CraftRoleQualificationResponse>? roleQualifications;
     private IReadOnlyList<QualificationTypeResponse> qualTypes = [];
@@ -385,6 +386,7 @@ else
     private async Task OpenQualsModal(CraftRoleResponse role)
     {
         qualsRoleCtrlNbr = role.CtrlNbr;
+        qualsRoleCraftCtrlNbr = role.CraftCtrlNbr;
         qualsRoleName = role.Name;
         qualsError = null;
         addQualTypeCtrlNbr = 0;
@@ -403,16 +405,14 @@ else
     {
         try
         {
-            // Load all qual types for this parent (filtered to current craft)
             var typesResponse = await QualificationsClient.GetQualificationTypesAsync(SelectedParentCtrlNbr!.Value, activeOnly: true);
-            qualTypes = [.. typesResponse.QualificationTypes.OrderBy(q => q.Code, StringComparer.OrdinalIgnoreCase)];
 
             var qualsResponse = await WorkManagementClient.GetCraftRoleQualificationsAsync(qualsRoleCtrlNbr);
             roleQualifications = [.. qualsResponse.Qualifications];
 
             var assignedCtrlNbrs = roleQualifications.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
             availableQualTypes = [.. qualTypes
-                .Where(q => !assignedCtrlNbrs.Contains(q.CtrlNbr) && (q.CraftCtrlNbr == 0 || q.CraftCtrlNbr == selectedCraftCtrlNbr))];
+                .Where(q => !assignedCtrlNbrs.Contains(q.CtrlNbr) && (q.CraftCtrlNbr == 0 || q.CraftCtrlNbr == qualsRoleCraftCtrlNbr))];
         }
         catch (Exception ex) { qualsError = $"Failed to load qualifications: {ex.Message}"; }
     }
