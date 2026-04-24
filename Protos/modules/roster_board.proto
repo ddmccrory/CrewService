@@ -5,6 +5,7 @@ option csharp_namespace = "CrewService.Presentation";
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 import "common.proto";
+import "modules/qualifications.proto";
 
 service RosterBoardSrvc {
   rpc GetRosterBoard (GetRosterBoardRequest) returns (RosterBoardResponse) {
@@ -36,6 +37,9 @@ service RosterBoardSrvc {
   }
   rpc ReorderRosterBoardPositions (ReorderRosterBoardPositionsRequest) returns (RosterBoardResponse) {
     option (google.api.http) = { post: "/v1/roster-board/{roster_board_ctrl_nbr}/reorder" body: "*" };
+  }
+  rpc GetEligibleEmployeesForRosterBoard (GetEligibleEmployeesForRosterBoardRequest) returns (GetEligibleEmployeesForRosterBoardResponse) {
+    option (google.api.http) = { get: "/v1/roster-board/eligible-employees" };
   }
 }
 
@@ -131,4 +135,13 @@ message ReorderRosterBoardPositionsRequest {
 message PositionOrderEntry {
   int64 position_ctrl_nbr = 1;
   int32 position_order = 2;
+}
+
+message GetEligibleEmployeesForRosterBoardRequest {
+  int64 client_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+}
+
+message GetEligibleEmployeesForRosterBoardResponse {
+  repeated EligibleEmployeeItem employees = 1;
 }
