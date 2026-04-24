@@ -62,6 +62,18 @@ internal sealed class CrewIncumbencyRepository(CrewServiceDbContext dbContext, I
         await DbContext.Set<CrewIncumbency>()
             .Where(i => i.EmployeeCtrlNbr == employeeCtrlNbr && i.StartUtc <= asOfUtc && (i.EndUtc == null || i.EndUtc > asOfUtc))
             .ToListAsync();
+
+    public async Task<CrewIncumbency?> GetActiveByPositionAsync(ControlNumber crewPositionCtrlNbr, DateTime asOfUtc) =>
+        await DbContext.Set<CrewIncumbency>()
+            .Where(i => i.CrewPositionCtrlNbr == crewPositionCtrlNbr && i.StartUtc <= asOfUtc && (i.EndUtc == null || i.EndUtc > asOfUtc))
+            .OrderByDescending(i => i.StartUtc)
+            .FirstOrDefaultAsync();
+
+    public override async Task UpdateAsync(CrewIncumbency incumbency, CancellationToken ct = default)
+    {
+        DbContext.Set<CrewIncumbency>().Update(incumbency);
+        await DbContext.SaveChangesAsync(ct);
+    }
 }
 
 internal sealed class CrewAssignmentRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

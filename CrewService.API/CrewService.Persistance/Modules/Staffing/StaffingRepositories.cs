@@ -22,4 +22,13 @@ internal sealed class PositionAssignmentRepository(CrewServiceDbContext dbContex
 
     public async Task<List<PositionAssignment>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr) =>
         await DbContext.Set<PositionAssignment>().Where(a => a.EmployeeCtrlNbr == employeeCtrlNbr).ToListAsync();
+
+    public async Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsAsync()
+    {
+        var values = await DbContext.Set<PositionAssignment>()
+            .Select(a => a.EmployeeCtrlNbr.Value)
+            .Distinct()
+            .ToListAsync();
+        return [.. values];
+    }
 }

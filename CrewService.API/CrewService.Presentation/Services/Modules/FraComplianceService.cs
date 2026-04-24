@@ -1,10 +1,9 @@
 using CrewService.Application.FraCompliance;
+using CrewService.Presentation.Services;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
-using CrewService.Infrastructure.Models.UserAccount;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
@@ -16,7 +15,7 @@ public class FraComplianceService(
     ICertificationRevocationRepository certificationRevocationRepository,
     IDrugAlcoholTestRepository drugAlcoholTestRepository,
     IVoluntaryReferralRepository voluntaryReferralRepository,
-    UserManager<User> userManager,
+    EmployeeNameService employeeNameService,
     IServiceProvider serviceProvider)
     : FraComplianceSrvc.FraComplianceSrvcBase
 {
@@ -58,12 +57,11 @@ public class FraComplianceService(
 
         // Batch-load user names to avoid N+1 lookups
         var userIds = certifications.Select(c => c.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
-        var userMap = new Dictionary<string, User>();
+        var userMap = new Dictionary<string, string>();
         foreach (var uid in userIds)
         {
-            var user = await userManager.FindByIdAsync(uid);
-            if (user is not null)
-                userMap[uid] = user;
+            var name = await employeeNameService.GetFullNameLnfAsync(uid);
+            userMap[uid] = name;
         }
 
         var response = new GetEmployeeCertificationsResponse();
@@ -567,7 +565,7 @@ public class FraComplianceService(
         return response;
     }
 
-    private static CertificationResponse MapCertification(CertificationWithEmployeeDto dto, Dictionary<string, User> userMap)
+    private static CertificationResponse MapCertification(CertificationWithEmployeeDto dto, Dictionary<string, string> userMap)
     {
         var response = new CertificationResponse
         {
@@ -582,10 +580,8 @@ public class FraComplianceService(
             EmployeeNameLnf = string.Empty
         };
 
-        if (!string.IsNullOrEmpty(dto.UserId) && userMap.TryGetValue(dto.UserId, out var user))
-        {
-            response.EmployeeNameLnf = user.FullNameLNF ?? string.Empty;
-        }
+        if (!string.IsNullOrEmpty(dto.UserId) && userMap.TryGetValue(dto.UserId, out var nameStr))
+            response.EmployeeNameLnf = nameStr;
 
         if (!string.IsNullOrWhiteSpace(dto.Certification.CertificationNumber))
             response.CertificationNumber = dto.Certification.CertificationNumber;

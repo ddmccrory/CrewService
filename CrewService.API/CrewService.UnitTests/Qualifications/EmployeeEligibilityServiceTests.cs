@@ -128,6 +128,7 @@ public sealed class EmployeeEligibilityServiceTests
         public Task<List<EmployeeQualification>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr) => Task.FromResult(new List<EmployeeQualification>());
         public Task<EmployeeQualification?> GetByEmployeeAndTypeAsync(ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr) => Task.FromResult<EmployeeQualification?>(null);
         public Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr) => Task.FromResult(new List<EmployeeQualification>());
+        public Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrsAsync(IEnumerable<ControlNumber> employeeCtrlNbrs) => Task.FromResult(new List<EmployeeQualification>());
         public Task<List<EmployeeQualification>> GetExpiringBeforeAsync(DateTime cutoffUtc) => Task.FromResult(new List<EmployeeQualification>());
     }
 

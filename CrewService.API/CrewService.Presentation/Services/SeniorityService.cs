@@ -1,11 +1,10 @@
 using CrewService.Domain.Exceptions;
+using CrewService.Presentation.Services;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
-using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
-using Microsoft.AspNetCore.Identity;
 
 namespace CrewService.Presentation.Services;
 
@@ -15,15 +14,13 @@ public class SeniorityService(
     ICraftRepository craftRepository,
     IEmployeeRepository employeeRepository,
     ISeniorityStateRepository seniorityStateRepository,
-    UserManager<User> userManager) : SenioritySrvc.SenioritySrvcBase
+    EmployeeNameService employeeNameService) : SenioritySrvc.SenioritySrvcBase
 {
     private readonly ISeniorityRepository _seniorityRepository = seniorityRepository;
     private readonly IRosterRepository _rosterRepository = rosterRepository;
     private readonly ICraftRepository _craftRepository = craftRepository;
     private readonly IEmployeeRepository _employeeRepository = employeeRepository;
     private readonly ISeniorityStateRepository _seniorityStateRepository = seniorityStateRepository;
-    private readonly UserManager<User> _userManager = userManager;
-
     public override async Task<GetAllSeniorityResponse> GetAllAsync(GetAllSeniorityRequest request, ServerCallContext context)
     {
         var response = new GetAllSeniorityResponse();
@@ -42,19 +39,6 @@ public class SeniorityService(
         var uniqueEmpCtrlNbrs = seniorities.Select(s => s.EmployeeCtrlNbr).Distinct().ToList();
         var employees = await _employeeRepository.GetByCtrlNbrsAsync(uniqueEmpCtrlNbrs);
         var employeeMap = employees.ToDictionary(e => e.CtrlNbr.Value);
-
-        // Batch-load all referenced users in a single query
-        var userIds = employees.Where(e => !string.IsNullOrEmpty(e.UserId)).Select(e => e.UserId).Distinct().ToList();
-        var users = new Dictionary<string, User>();
-        if (userIds.Count > 0)
-        {
-            foreach (var uid in userIds)
-            {
-                var user = await _userManager.FindByIdAsync(uid);
-                if (user is not null)
-                    users[uid] = user;
-            }
-        }
 
         // Batch-load all referenced seniority states
         var uniqueStateCtrlNbrs = seniorities.Select(s => s.SeniorityStateCtrlNbr).Distinct().ToList();
@@ -75,8 +59,8 @@ public class SeniorityService(
             {
                 empNumber = employee.EmployeeNumber;
                 empUserId = employee.UserId;
-                if (!string.IsNullOrEmpty(employee.UserId) && users.TryGetValue(employee.UserId, out var user))
-                    fullNameLnf = user.FullNameLNF ?? string.Empty;
+                if (!string.IsNullOrEmpty(employee.UserId))
+                    fullNameLnf = await employeeNameService.GetFullNameLnfAsync(employee.UserId);
             }
 
             var stateName = stateMap.GetValueOrDefault(seniority.SeniorityStateCtrlNbr.Value, string.Empty);

@@ -1,6 +1,9 @@
 using CrewService.Application.Qualifications;
+using CrewService.Presentation.Services;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.Staffing;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -11,11 +14,15 @@ public sealed class QualificationsService(
     IQualificationTypeRepository qualificationTypeRepository,
     IQualificationRequirementRepository qualificationRequirementRepository,
     IEmployeeQualificationRepository employeeQualificationRepository,
+    IEmployeeRepository employeeRepository,
+    ICraftRoleQualificationRepository craftRoleQualificationRepository,
     EmployeeEligibilityService employeeEligibilityService,
     ISeniorityRepository seniorityRepository,
     IRosterRepository rosterRepository,
     IRegulatoryQualificationCatalog regulatoryQualificationCatalog,
-    IOrchestrationUnitOfWorkFactory uowFactory)
+    IPositionAssignmentRepository positionAssignmentRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    EmployeeNameService employeeNameService)
     : QualificationsSrvc.QualificationsSrvcBase
 {
     public override async Task<QualificationTypeResponse> CreateQualificationType(
@@ -351,6 +358,75 @@ public sealed class QualificationsService(
             Description = r.Description
         }));
 
+        return response;
+    }
+
+    public override async Task<GetEligibleEmployeesForCraftRoleResponse> GetEligibleEmployeesForCraftRole(
+        GetEligibleEmployeesForCraftRoleRequest request,
+        ServerCallContext context)
+    {
+        var craftRoleCtrlNbr = ControlNumber.Create(request.CraftRoleCtrlNbr);
+
+        // Get all required qualifications for this craft role
+        var requiredQuals = await craftRoleQualificationRepository.GetByCraftRoleAsync(craftRoleCtrlNbr);
+
+        // Load all employees for this railroad — lean query, no nav-property includes needed
+        var employees = await employeeRepository.GetListByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
+
+        if (employees.Count == 0)
+            return new GetEligibleEmployeesForCraftRoleResponse();
+
+        // Exclude employees already assigned to any staffable position (crew or board) globally
+        var assignedCtrlNbrs = await positionAssignmentRepository.GetAssignedEmployeeCtrlNbrsAsync();
+        var unassignedEmployees = assignedCtrlNbrs.Count == 0
+            ? employees
+            : employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList();
+
+        // Batch-resolve names only for unassigned employees
+        var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(unassignedEmployees.Select(e => e.UserId));
+
+        // If no quals required, all unassigned employees in the railroad are eligible
+        if (requiredQuals.Count == 0)
+        {
+            var allItems = unassignedEmployees.Select(e => new EligibleEmployeeItem
+            {
+                CtrlNbr = e.CtrlNbr.Value,
+                EmployeeNumber = e.EmployeeNumber,
+                FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? "", string.Empty)
+            }).ToList();
+            allItems.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
+            var responseAll = new GetEligibleEmployeesForCraftRoleResponse();
+            responseAll.Employees.AddRange(allItems);
+            return responseAll;
+        }
+
+        // Filter to employees who hold all required qualification types
+        var requiredTypeCtrlNbrs = requiredQuals.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
+
+        // Bulk-fetch active qualifications for unassigned employees only
+        var allEmpQuals = await employeeQualificationRepository.GetActiveByEmployeeCtrlNbrsAsync(unassignedEmployees.Select(e => e.CtrlNbr));
+        var qualsByEmployee = allEmpQuals
+            .GroupBy(q => q.EmployeeCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.Select(q => q.QualificationTypeCtrlNbr).ToHashSet());
+
+        var eligible = new List<EligibleEmployeeItem>();
+        foreach (var employee in unassignedEmployees)
+        {
+            var heldTypeCtrlNbrs = qualsByEmployee.GetValueOrDefault(employee.CtrlNbr, []);
+            if (requiredTypeCtrlNbrs.IsSubsetOf(heldTypeCtrlNbrs))
+            {
+                eligible.Add(new EligibleEmployeeItem
+                {
+                    CtrlNbr = employee.CtrlNbr.Value,
+                    EmployeeNumber = employee.EmployeeNumber,
+                    FullNameLnf = nameMap.GetValueOrDefault(employee.UserId ?? "", string.Empty)
+                });
+            }
+        }
+
+        eligible.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
+        var response = new GetEligibleEmployeesForCraftRoleResponse();
+        response.Employees.AddRange(eligible);
         return response;
     }
 

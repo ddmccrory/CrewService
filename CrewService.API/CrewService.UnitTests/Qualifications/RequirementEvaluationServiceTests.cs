@@ -102,6 +102,9 @@ public sealed class RequirementEvaluationServiceTests
         public Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr)
             => Task.FromResult(new List<EmployeeQualification>());
 
+        public Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrsAsync(IEnumerable<ControlNumber> employeeCtrlNbrs)
+            => Task.FromResult(new List<EmployeeQualification>());
+
         public Task<List<EmployeeQualification>> GetExpiringBeforeAsync(DateTime cutoffUtc)
             => Task.FromResult(new List<EmployeeQualification>());
     }

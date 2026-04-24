@@ -1,6 +1,7 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
+using CrewService.Presentation.Services;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
@@ -12,7 +13,8 @@ public class DailyOperationsService(
     CallSheetGenerationService callSheetGeneration,
     OnDutyPlacementService onDutyPlacement,
     TieUpService tieUpService,
-    IAssignmentQueryService assignmentQuery)
+    IAssignmentQueryService assignmentQuery,
+    EmployeeNameService employeeNameService)
     : DailyOperationsSrvc.DailyOperationsSrvcBase
 {
     public override async Task<GetCallSheetResponse> GetCallSheet(
@@ -42,7 +44,7 @@ public class DailyOperationsService(
             if (!request.IncludeClosed && shift.IsComplete)
                 continue;
 
-            response.Shifts.Add(MapShiftToResponse(shift));
+            response.Shifts.Add(await MapShiftToResponseAsync(shift));
         }
         return response;
     }
@@ -64,7 +66,7 @@ public class DailyOperationsService(
 
             return new GenerateCallSheetResponse
             {
-                Shift = MapShiftToResponse(shiftInstance)
+                Shift = await MapShiftToResponseAsync(shiftInstance)
             };
         }
         catch (InvalidOperationException ex)
@@ -130,7 +132,7 @@ public class DailyOperationsService(
         slot.Annul(request.Reason, request.AnnulmentDateTime.ToDateTime());
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> AnnulAssignment(
@@ -156,7 +158,7 @@ public class DailyOperationsService(
 
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> DoNotFillPosition(
@@ -174,7 +176,7 @@ public class DailyOperationsService(
         slot.MarkDoNotFill();
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> RestorePositionSlot(
@@ -192,7 +194,7 @@ public class DailyOperationsService(
         slot.RestoreSlot();
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> RestoreAssignment(
@@ -216,7 +218,7 @@ public class DailyOperationsService(
 
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> SaveAssignmentNote(
@@ -231,7 +233,7 @@ public class DailyOperationsService(
         shift.SetAssignmentNote(assignmentCtrlNbr, request.NoteText);
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
 
@@ -266,7 +268,7 @@ public class DailyOperationsService(
             throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
 
@@ -276,7 +278,7 @@ public class DailyOperationsService(
         var newShift = await callSheetGeneration.RegenerateShiftAsync(
             ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(newShift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(newShift) };
     }
 
     public override async Task<DeleteResponse> CloseShiftInstance(
@@ -300,7 +302,7 @@ public class DailyOperationsService(
 
         shift.Reopen();
         await shiftInstanceRepo.UpdateAsync(shift, context.CancellationToken);
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GetAvailableExtraAssignmentsResponse> GetAvailableExtraAssignments(
@@ -388,7 +390,7 @@ public class DailyOperationsService(
             throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> AddAdHocAssignment(
@@ -420,7 +422,7 @@ public class DailyOperationsService(
             throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
     public override async Task<GenerateCallSheetResponse> RemoveAssignment(
@@ -442,11 +444,18 @@ public class DailyOperationsService(
             throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
 
-        return new GenerateCallSheetResponse { Shift = MapShiftToResponse(shift) };
+        return new GenerateCallSheetResponse { Shift = await MapShiftToResponseAsync(shift) };
     }
 
-    private static DailyShiftInstanceResponse MapShiftToResponse(ShiftInstance shift)
+    private async Task<DailyShiftInstanceResponse> MapShiftToResponseAsync(ShiftInstance shift)
     {
+        var employeeCtrlNbrs = shift.PositionSlots
+            .Where(s => s.IncumbentEmployeeCtrlNbr is not null)
+            .Select(s => s.IncumbentEmployeeCtrlNbr!)
+            .Distinct()
+            .ToList();
+        var employeeInfoMap = await employeeNameService.GetEmployeeInfoBatchAsync(employeeCtrlNbrs);
+
         var shiftResp = new DailyShiftInstanceResponse
         {
             CtrlNbr = shift.CtrlNbr.Value,
@@ -484,7 +493,14 @@ public class DailyOperationsService(
             slotResp.CrewName = slot.CrewName;
             slotResp.CrewType = slot.CrewType;
             if (slot.IncumbentEmployeeCtrlNbr is not null)
+            {
                 slotResp.IncumbentEmployeeCtrlNbr = slot.IncumbentEmployeeCtrlNbr.Value;
+                if (employeeInfoMap.TryGetValue(slot.IncumbentEmployeeCtrlNbr, out var info))
+                {
+                    slotResp.IncumbentEmployeeNumber = info.EmployeeNumber;
+                    slotResp.IncumbentEmployeeName = info.FullNameLnf;
+                }
+            }
             shiftResp.PositionSlots.Add(slotResp);
         }
 

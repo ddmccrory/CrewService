@@ -90,6 +90,11 @@ public sealed class CrewIncumbency : Entity
         incumbency.Raise(new CrewIncumbencyCreatedDomainEvent(incumbency));
         return incumbency;
     }
+
+    public void End(DateTime endUtc)
+    {
+        EndUtc = endUtc;
+    }
 }
 
 public sealed class CrewAttachmentInstance : Entity

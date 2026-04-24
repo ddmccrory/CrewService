@@ -1,12 +1,11 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Presentation.Services;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
-using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
-using Microsoft.AspNetCore.Identity;
 
 namespace CrewService.Presentation.Services.Modules;
 
@@ -16,8 +15,11 @@ public class RosterBoardService(
     IEmployeeRepository employeeRepository,
     IDynamicGroupRepository dynamicGroupRepository,
     ICraftRepository craftRepository,
+    IPositionAssignmentRepository positionAssignmentRepository,
+    IQualificationTypeRepository qualificationTypeRepository,
+    IEmployeeQualificationRepository employeeQualificationRepository,
     IOrchestrationUnitOfWorkFactory uowFactory,
-    UserManager<User> userManager)
+    EmployeeNameService employeeNameService)
     : RosterBoardSrvc.RosterBoardSrvcBase
 {
     private readonly IRosterBoardRepository _rosterBoardRepository = rosterBoardRepository;
@@ -25,8 +27,9 @@ public class RosterBoardService(
     private readonly IEmployeeRepository _employeeRepository = employeeRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
     private readonly ICraftRepository _craftRepository = craftRepository;
-    private readonly UserManager<User> _userManager = userManager;
-
+    private readonly IPositionAssignmentRepository _positionAssignmentRepository = positionAssignmentRepository;
+    private readonly IQualificationTypeRepository _qualificationTypeRepository = qualificationTypeRepository;
+    private readonly IEmployeeQualificationRepository _employeeQualificationRepository = employeeQualificationRepository;
     public override async Task<RosterBoardResponse> GetRosterBoard(
         GetRosterBoardRequest request, ServerCallContext context)
     {
@@ -137,14 +140,23 @@ public class RosterBoardService(
         var board = await _rosterBoardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.RosterBoardCtrlNbr))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster board {request.RosterBoardCtrlNbr} not found."));
 
+        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+
+        // Cross-cutting guard: covers crew incumbencies AND board positions
+        var existingAssignments = await _positionAssignmentRepository.GetByEmployeeAsync(employeeCtrlNbr);
+        if (existingAssignments.Count > 0)
+            throw new RpcException(new Status(StatusCode.AlreadyExists,
+                "This employee is already assigned to a staffable position. Unassign them first."));
+
         var staffablePosition = StaffablePosition.Create("Board");
-        var position = board.AddPosition(
-            ControlNumber.Create(request.EmployeeCtrlNbr),
-            request.PositionOrder,
-            staffablePosition.CtrlNbr);
+        var position = board.AddPosition(employeeCtrlNbr, request.PositionOrder, staffablePosition.CtrlNbr);
+        var positionAssignment = PositionAssignment.Create(
+            staffablePosition.CtrlNbr, employeeCtrlNbr, "Board",
+            position.CtrlNbr);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.StaffablePositions.Add(staffablePosition);
+        uow.PositionAssignments.Add(positionAssignment);
         uow.RosterBoards.Update(board);
         await uow.CommitAsync();
 
@@ -154,13 +166,20 @@ public class RosterBoardService(
     public override async Task<DeleteResponse> RemoveRosterBoardPosition(
         RemoveRosterBoardPositionRequest request, ServerCallContext context)
     {
-        var boards = await _rosterBoardRepository.GetAllAsync();
+        await using var uow = await uowFactory.CreateAsync();
+
+        var boards = await uow.RosterBoards.GetAllAsync();
         var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == ControlNumber.Create(request.CtrlNbr)))
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position {request.CtrlNbr} not found on any board."));
 
         var position = board.Positions.First(p => p.CtrlNbr == ControlNumber.Create(request.CtrlNbr));
+        var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(position.StaffablePositionCtrlNbr);
+
         board.RemovePosition(position);
-        await _rosterBoardRepository.UpdateAsync(board);
+        uow.RosterBoards.Update(board);
+        if (positionAssignment is not null)
+            uow.PositionAssignments.Remove(positionAssignment);
+        await uow.CommitAsync();
 
         return new DeleteResponse
         {
@@ -271,14 +290,55 @@ public class RosterBoardService(
                 : null,
             EmployeeNumber = emp?.EmployeeNumber ?? string.Empty,
             EmployeeUserId = emp?.UserId ?? string.Empty,
-            EmployeeFullNameLnf = await GetEmployeeNameAsync(emp?.UserId)
+            EmployeeFullNameLnf = await employeeNameService.GetFullNameLnfAsync(emp?.UserId)
         };
     }
 
-    private async Task<string> GetEmployeeNameAsync(string? userId)
+    public override async Task<GetEligibleEmployeesForRosterBoardResponse> GetEligibleEmployeesForRosterBoard(
+        GetEligibleEmployeesForRosterBoardRequest request, ServerCallContext context)
     {
-        if (string.IsNullOrEmpty(userId)) return string.Empty;
-        var user = await _userManager.FindByIdAsync(userId);
-        return user?.FullNameLNF ?? string.Empty;
+        var craftCtrlNbr = ControlNumber.Create(request.CraftCtrlNbr);
+        var clientCtrlNbr = ControlNumber.Create(request.ClientCtrlNbr);
+
+        // All qual types scoped to this craft
+        var craftQualTypes = await _qualificationTypeRepository.GetActiveByCraftCtrlNbrAsync(craftCtrlNbr);
+        var craftQualTypeCtrlNbrs = craftQualTypes.Select(q => q.CtrlNbr).ToHashSet();
+
+        // No qual types defined for this craft — no one is eligible
+        if (craftQualTypeCtrlNbrs.Count == 0)
+            return new GetEligibleEmployeesForRosterBoardResponse();
+
+        // All employees for this railroad, excluding those already assigned to any staffable position
+        var employees = await _employeeRepository.GetListByClientCtrlNbrAsync(clientCtrlNbr);
+        if (employees.Count == 0)
+            return new GetEligibleEmployeesForRosterBoardResponse();
+
+        var assignedCtrlNbrs = await _positionAssignmentRepository.GetAssignedEmployeeCtrlNbrsAsync();
+        var unassigned = assignedCtrlNbrs.Count == 0
+            ? employees
+            : employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList();
+
+        // Filter to employees who hold at least one active qualification in this craft
+        var empQuals = await _employeeQualificationRepository.GetActiveByEmployeeCtrlNbrsAsync(unassigned.Select(e => e.CtrlNbr));
+        var qualifiedCtrlNbrs = empQuals
+            .Where(eq => craftQualTypeCtrlNbrs.Contains(eq.QualificationTypeCtrlNbr))
+            .Select(eq => eq.EmployeeCtrlNbr)
+            .ToHashSet();
+
+        var qualified = unassigned.Where(e => qualifiedCtrlNbrs.Contains(e.CtrlNbr)).ToList();
+        var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(qualified.Select(e => e.UserId));
+
+        var eligible = qualified.Select(e => new EligibleEmployeeItem
+        {
+            CtrlNbr = e.CtrlNbr.Value,
+            EmployeeNumber = e.EmployeeNumber,
+            FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? string.Empty, string.Empty)
+        }).ToList();
+
+        eligible.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
+        var response = new GetEligibleEmployeesForRosterBoardResponse();
+        response.Employees.AddRange(eligible);
+        return response;
     }
+
 }
