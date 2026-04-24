@@ -1892,5 +1892,153 @@ internal static class DevDataSeeder
             await SeedRoleQualAsync(ptraForemanRole, ptraForemanQT);
             await SeedRoleQualAsync(ptraHelperRole,  ptraTrnQT);
         }
+
+        // ???? Section 17: PTRA Crew Incumbencies + Extra Board Placements ??????????
+        // Guard: skip if any PositionAssignments already exist for PTRA
+        SetParent(ptraParentCore.CtrlNbr.Value);
+        var positionAssignmentRepo = sp.GetRequiredService<IPositionAssignmentRepository>();
+        var ptraEmpListFinal = await employeeRepo.GetByClientCtrlNbrAsync(ptraParentCore.CtrlNbr);
+
+        if (ptraEmpListFinal.Count > 0)
+        {
+            // Check if any PTRA employee is already assigned
+            var assignedSet = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsAsync();
+            bool anyPtraAssigned = ptraEmpListFinal.Any(e => assignedSet.Contains(e.CtrlNbr.Value));
+
+            if (!anyPtraAssigned)
+            {
+                // Resolve PTRA railroad + crafts
+                var ptraRailroadF = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value))
+                    .First(g => g.Code == "PTRA");
+                var allCraftsF = await craftRepo.GetByParentAndRailroadAsync(ptraParentCore.CtrlNbr, ptraRailroadF.CtrlNbr);
+                var ptraEngCraftF = allCraftsF.First(c => c.CraftName == "Engineer");
+                var ptraTrnCraftF = allCraftsF.First(c => c.CraftName == "Trainman");
+
+                // Resolve roles
+                var allRolesF = await craftRoleRepo.GetAllAsync();
+                var ptraEngRoleF = allRolesF.First(r => r.Code == "E");
+                var ptraFmnRoleF = allRolesF.First(r => r.Code == "F");
+                var ptraHlpRoleF = allRolesF.First(r => r.Code == "H");
+
+                // Resolve PTRA crews by railroad
+                var allPtraCrews = await crewRepo.GetByRailroadAsync(ptraRailroadF.CtrlNbr);
+                var ptra3PosCrewNames = new HashSet<string> { "130", "150", "230", "250", "330", "350" };
+                var ptra2PosCrewNames = new HashSet<string> { "140", "240", "340", "RLF-A", "RLF-B", "RLF-C" };
+
+                // Collect all crew positions ordered by crew name then display order
+                var ptra3PosCrewsF = allPtraCrews.Where(c => ptra3PosCrewNames.Contains(c.Name)).OrderBy(c => c.Name).ToList();
+                var ptra2PosCrewsF = allPtraCrews.Where(c => ptra2PosCrewNames.Contains(c.Name)).OrderBy(c => c.Name).ToList();
+
+                var allCrewCtrlNbrs = ptra3PosCrewsF.Concat(ptra2PosCrewsF).Select(c => c.CtrlNbr);
+                var allPositions = await crewPositionRepo.GetByCrewsAsync(allCrewCtrlNbrs);
+
+                // Separate by role
+                var engPositions = allPositions.Where(p => p.CraftRoleCtrlNbr == ptraEngRoleF.CtrlNbr)
+                    .OrderBy(p => p.CrewCtrlNbr.Value).ThenBy(p => p.DisplayOrder).ToList();
+                var fmnPositions = allPositions.Where(p => p.CraftRoleCtrlNbr == ptraFmnRoleF.CtrlNbr)
+                    .OrderBy(p => p.CrewCtrlNbr.Value).ThenBy(p => p.DisplayOrder).ToList();
+                var hlpPositions = allPositions.Where(p => p.CraftRoleCtrlNbr == ptraHlpRoleF.CtrlNbr)
+                    .OrderBy(p => p.CrewCtrlNbr.Value).ThenBy(p => p.DisplayOrder).ToList();
+
+                // Engineers: [0..29]; first 12 fill E crew slots, remaining 18 go to extra board
+                // Trainmen:  [30..89]; first 12 fill F slots, next 6 fill H slots, remaining 42 go to extra board
+                var ptraEngEmps = ptraEmpListFinal.Take(30).ToList();
+                var ptraTrnEmps = ptraEmpListFinal.Skip(30).Take(60).ToList();
+
+                var incumbencyBase = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                var today = DateTime.UtcNow.Date;
+                var rng = new Random(42);
+
+                DateTime RandomIncumbencyDate()
+                {
+                    var date = incumbencyBase.AddDays(rng.Next(-365, 365));
+                    return date > today ? today : date;
+                }
+
+                // ── Crew Incumbencies ───────────────────────────────────────────
+                // Engineer crew slots
+                for (int i = 0; i < engPositions.Count; i++)
+                {
+                    var pos = engPositions[i];
+                    var emp = ptraEngEmps[i];
+                    var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
+                    var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
+                    await using var uow = await uowFactory.CreateAsync();
+                    uow.CrewIncumbencies.Add(incumbency);
+                    uow.PositionAssignments.Add(pa);
+                    await uow.CommitAsync();
+                }
+
+                // Foreman crew slots (trainmen [0..11])
+                for (int i = 0; i < fmnPositions.Count; i++)
+                {
+                    var pos = fmnPositions[i];
+                    var emp = ptraTrnEmps[i];
+                    var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
+                    var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
+                    await using var uow = await uowFactory.CreateAsync();
+                    uow.CrewIncumbencies.Add(incumbency);
+                    uow.PositionAssignments.Add(pa);
+                    await uow.CommitAsync();
+                }
+
+                // Helper crew slots (trainmen [12..17])
+                for (int i = 0; i < hlpPositions.Count; i++)
+                {
+                    var pos = hlpPositions[i];
+                    var emp = ptraTrnEmps[fmnPositions.Count + i];
+                    var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
+                    var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
+                    await using var uow = await uowFactory.CreateAsync();
+                    uow.CrewIncumbencies.Add(incumbency);
+                    uow.PositionAssignments.Add(pa);
+                    await uow.CommitAsync();
+                }
+
+                // ── Extra Board Placements ──────────────────────────────────────
+                // Resolve extra boards
+                var allBoardsF = await rosterBoardRepo.GetAllAsync();
+                var ptraEngBoardCtrlNbr = allBoardsF.First(b => b.CraftCtrlNbr == ptraEngCraftF.CtrlNbr && b.BoardType == BoardType.ExtraBoard).CtrlNbr;
+                var ptraTrnBoardCtrlNbr = allBoardsF.First(b => b.CraftCtrlNbr == ptraTrnCraftF.CtrlNbr && b.BoardType == BoardType.ExtraBoard).CtrlNbr;
+
+                // Remaining engineers: [12..29] → 18 employees — all in one UoW
+                var boardEngEmps = ptraEngEmps.Skip(engPositions.Count).ToList();
+                await using (var uow = await uowFactory.CreateAsync())
+                {
+                    var ptraEngBoardF = await uow.RosterBoards.GetByCtrlNbrAsync(ptraEngBoardCtrlNbr)
+                        ?? throw new InvalidOperationException("PTRA engineer extra board not found.");
+                    for (int i = 0; i < boardEngEmps.Count; i++)
+                    {
+                        var emp = boardEngEmps[i];
+                        var spEng = StaffablePosition.Create("Board");
+                        var position = ptraEngBoardF.AddPosition(emp.CtrlNbr, i + 1, spEng.CtrlNbr);
+                        var pa = PositionAssignment.Create(spEng.CtrlNbr, emp.CtrlNbr, "Board", position.CtrlNbr);
+                        uow.StaffablePositions.Add(spEng);
+                        uow.PositionAssignments.Add(pa);
+                    }
+                    uow.RosterBoards.Update(ptraEngBoardF);
+                    await uow.CommitAsync();
+                }
+
+                // Remaining trainmen: [18..59] → 42 employees — all in one UoW
+                var boardTrnEmps = ptraTrnEmps.Skip(fmnPositions.Count + hlpPositions.Count).ToList();
+                await using (var uow = await uowFactory.CreateAsync())
+                {
+                    var ptraTrnBoardF = await uow.RosterBoards.GetByCtrlNbrAsync(ptraTrnBoardCtrlNbr)
+                        ?? throw new InvalidOperationException("PTRA trainman extra board not found.");
+                    for (int i = 0; i < boardTrnEmps.Count; i++)
+                    {
+                        var emp = boardTrnEmps[i];
+                        var spTrn = StaffablePosition.Create("Board");
+                        var position = ptraTrnBoardF.AddPosition(emp.CtrlNbr, i + 1, spTrn.CtrlNbr);
+                        var pa = PositionAssignment.Create(spTrn.CtrlNbr, emp.CtrlNbr, "Board", position.CtrlNbr);
+                        uow.StaffablePositions.Add(spTrn);
+                        uow.PositionAssignments.Add(pa);
+                    }
+                    uow.RosterBoards.Update(ptraTrnBoardF);
+                    await uow.CommitAsync();
+                }
+            }
+        }
     }
 }
