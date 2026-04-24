@@ -1,4 +1,5 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Presentation.Services;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
@@ -15,7 +16,9 @@ public class CrewsService(
     IAssignmentRepository staffingAssignmentRepository,
     IAssignmentScheduleRepository assignmentScheduleRepository,
     IDynamicGroupRepository dynamicGroupRepository,
-    IOrchestrationUnitOfWorkFactory uowFactory) : CrewsSrvc.CrewsSrvcBase
+    IPositionAssignmentRepository positionAssignmentRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    EmployeeNameService employeeNameService) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
@@ -176,7 +179,7 @@ public class CrewsService(
     {
         var items = await incumbencyRepository.GetByCrewPositionAsync(ControlNumber.Create(request.CrewPositionCtrlNbr));
         var response = new GetCrewIncumbenciesResponse { TotalCount = items.Count };
-        foreach (var i in items) response.Incumbencies.Add(MapIncumbency(i));
+        foreach (var i in items) response.Incumbencies.Add(await MapIncumbencyAsync(i));
         return response;
     }
 
@@ -184,23 +187,71 @@ public class CrewsService(
     {
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
+
+        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+
+        // Cross-cutting guard: PositionAssignment covers crew incumbencies AND roster board positions
+        var existingAssignments = await positionAssignmentRepository.GetByEmployeeAsync(employeeCtrlNbr);
+        if (existingAssignments.Count > 0)
+            throw new RpcException(new Status(StatusCode.AlreadyExists,
+                "This employee is already assigned to a staffable position. Unassign them first."));
+
+        var crewPosition = await crewPositionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CrewPositionCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewPosition {request.CrewPositionCtrlNbr} not found."));
+
         var incumbency = CrewIncumbency.Create(request.CrewPositionCtrlNbr, request.EmployeeCtrlNbr, startUtc, endUtc);
+        var positionAssignment = PositionAssignment.Create(
+            crewPosition.StaffablePositionCtrlNbr, employeeCtrlNbr, "Crew",
+            crewPosition.CtrlNbr);
 
         await using var uow = await uowFactory.CreateAsync();
         uow.CrewIncumbencies.Add(incumbency);
+        uow.PositionAssignments.Add(positionAssignment);
         await uow.CommitAsync();
 
-        return MapIncumbency(incumbency);
+        return await MapIncumbencyAsync(incumbency);
     }
 
-    private static CrewIncumbencyResponse MapIncumbency(CrewIncumbency i) => new()
+    public override async Task<DeleteResponse> EndCrewIncumbency(EndCrewIncumbencyRequest request, ServerCallContext context)
     {
-        CtrlNbr = i.CtrlNbr.Value,
-        CrewPositionCtrlNbr = i.CrewPositionCtrlNbr.Value,
-        EmployeeCtrlNbr = i.EmployeeCtrlNbr.Value,
-        StartUtc = i.StartUtc.ToString("O"),
-        EndUtc = i.EndUtc?.ToString("O") ?? string.Empty
-    };
+        var endUtc = string.IsNullOrEmpty(request.EndUtc)
+            ? DateTime.UtcNow
+            : DateTime.Parse(request.EndUtc).ToUniversalTime();
+
+        await using var uow = await uowFactory.CreateAsync();
+
+        var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Incumbency {request.CtrlNbr} not found."));
+
+        incumbency.End(endUtc);
+        uow.CrewIncumbencies.Update(incumbency);
+
+        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, context.CancellationToken);
+        if (crewPosition is not null)
+        {
+            var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
+            if (positionAssignment is not null)
+                uow.PositionAssignments.Remove(positionAssignment);
+        }
+
+        await uow.CommitAsync();
+        return new DeleteResponse { Success = true, Messages = { "Incumbency ended." } };
+    }
+
+    private async Task<CrewIncumbencyResponse> MapIncumbencyAsync(CrewIncumbency i)
+    {
+        var employee = await employeeNameService.GetEmployeeInfoAsync(i.EmployeeCtrlNbr);
+        return new CrewIncumbencyResponse
+        {
+            CtrlNbr = i.CtrlNbr.Value,
+            CrewPositionCtrlNbr = i.CrewPositionCtrlNbr.Value,
+            EmployeeCtrlNbr = i.EmployeeCtrlNbr.Value,
+            StartUtc = i.StartUtc.ToString("O"),
+            EndUtc = i.EndUtc?.ToString("O") ?? string.Empty,
+            FullNameLnf = employee.FullNameLnf,
+            EmployeeNumber = employee.EmployeeNumber
+        };
+    }
 
     // Crew Assignments
     public override async Task<GetCrewAssignmentsResponse> GetCrewAssignments(GetCrewAssignmentsRequest request, ServerCallContext context)

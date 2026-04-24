@@ -40,6 +40,13 @@ internal sealed class QualificationTypeRepository(CrewServiceDbContext dbContext
             .OrderBy(q => q.Code)
             .ToListAsync();
     }
+
+    public async Task<List<QualificationType>> GetActiveByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr)
+    {
+        return await DbContext.Set<QualificationType>()
+            .Where(q => q.CraftCtrlNbr == craftCtrlNbr && q.IsActive)
+            .ToListAsync();
+    }
 }
 
 internal sealed class QualificationRequirementRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -84,6 +91,15 @@ internal sealed class EmployeeQualificationRepository(CrewServiceDbContext dbCon
         return await DbContext.Set<EmployeeQualification>()
             .Where(eq => eq.EmployeeCtrlNbr == employeeCtrlNbr && (eq.Status == "Active" || eq.Status == "ExpiringSoon"))
             .OrderBy(eq => eq.ExpiresAtUtc)
+            .ToListAsync();
+    }
+
+    public async Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrsAsync(IEnumerable<ControlNumber> employeeCtrlNbrs)
+    {
+        var ctrlNbrList = employeeCtrlNbrs.ToList();
+        if (ctrlNbrList.Count == 0) return [];
+        return await DbContext.Set<EmployeeQualification>()
+            .Where(eq => ctrlNbrList.Contains(eq.EmployeeCtrlNbr) && (eq.Status == "Active" || eq.Status == "ExpiringSoon"))
             .ToListAsync();
     }
 

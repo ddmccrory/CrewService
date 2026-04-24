@@ -1,4 +1,4 @@
-﻿using CrewService.Infrastructure.Models.UserAccount;
+using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -111,8 +111,8 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
                 user.FirstName = request.FirstName;
                 user.MiddleName = request.MiddleName;
                 user.LastName = request.LastName;
-                user.FullName = FormatFullName(request.FirstName, request.MiddleName, request.LastName, false);
-                user.FullNameLNF = FormatFullName(request.FirstName, request.MiddleName, request.LastName, true);
+                user.FullName = EmployeeNameService.FormatFullName(request.FirstName, request.MiddleName, request.LastName);
+                user.FullNameLNF = EmployeeNameService.FormatFullNameLnf(request.FirstName, request.MiddleName, request.LastName);
 
                 var result = await _userManager.UpdateAsync(user);
 
@@ -139,31 +139,4 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
         return response;
     }
 
-    private static string FormatFullName(string fname, string mname, string lname, bool lnf)
-    {
-        if (lnf)
-            return $"{lname}, {FormatFirstName(fname)} {FormatMiddleName(mname)}";
-
-        return $"{FormatFirstName(fname)} {FormatMiddleName(mname)} {lname}";
-    }
-
-    private static string FormatFirstName(string fname)
-    {
-        fname = fname.Trim('.');
-
-        if (!string.IsNullOrEmpty(fname) && fname.Length is 1)
-            fname = $"{fname}.";
-
-        return fname;
-    }
-
-    private static string FormatMiddleName(string mname)
-    {
-        mname = mname.Trim('.');
-
-        if (!string.IsNullOrEmpty(mname))
-            mname = $"{mname[..1]}.";
-
-        return mname;
-    }
 }

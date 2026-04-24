@@ -60,6 +60,7 @@ builder.Services.AddGrpc(options =>
     options.Interceptors.Add<GrpcExceptionInterceptor>();
 }).AddJsonTranscoding();
 builder.Services.AddTransient<ParentService>();
+builder.Services.AddScoped<EmployeeNameService>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();

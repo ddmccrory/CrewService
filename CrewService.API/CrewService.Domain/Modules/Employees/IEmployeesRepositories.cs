@@ -130,6 +130,7 @@ public interface IQualificationTypeRepository : IRepository<QualificationType>
     Task<List<QualificationType>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
     Task<QualificationType?> GetByCodeAsync(ControlNumber parentCtrlNbr, string code);
     Task<List<QualificationType>> GetActiveByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
+    Task<List<QualificationType>> GetActiveByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr);
 }
 
 public interface IQualificationRequirementRepository : IRepository<QualificationRequirement>
@@ -142,5 +143,6 @@ public interface IEmployeeQualificationRepository : IRepository<EmployeeQualific
     Task<List<EmployeeQualification>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
     Task<EmployeeQualification?> GetByEmployeeAndTypeAsync(ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr);
     Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
+    Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrsAsync(IEnumerable<ControlNumber> employeeCtrlNbrs);
     Task<List<EmployeeQualification>> GetExpiringBeforeAsync(DateTime cutoffUtc);
 }

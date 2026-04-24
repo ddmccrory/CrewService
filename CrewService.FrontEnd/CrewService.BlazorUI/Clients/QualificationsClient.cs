@@ -224,4 +224,21 @@ public sealed class QualificationsClient(
             throw;
         }
     }
+
+    public async Task<GetEligibleEmployeesForCraftRoleResponse> GetEligibleEmployeesForCraftRoleAsync(long craftRoleCtrlNbr, long clientCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetEligibleEmployeesForCraftRoleAsync(new GetEligibleEmployeesForCraftRoleRequest
+            {
+                CraftRoleCtrlNbr = craftRoleCtrlNbr,
+                ClientCtrlNbr = clientCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }

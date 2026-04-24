@@ -21,6 +21,7 @@ public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>
 {
     Task<List<CrewIncumbency>> GetByCrewPositionAsync(ControlNumber crewPositionCtrlNbr);
     Task<List<CrewIncumbency>> GetActiveByEmployeeAsync(ControlNumber employeeCtrlNbr, DateTime asOfUtc);
+    Task<CrewIncumbency?> GetActiveByPositionAsync(ControlNumber crewPositionCtrlNbr, DateTime asOfUtc);
 }
 
 public interface ICrewAttachmentInstanceRepository : IRepository<CrewAttachmentInstance>

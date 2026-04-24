@@ -130,6 +130,8 @@ message DailyPositionSlotResponse {
   bool is_ad_hoc = 18;
   string crew_name = 19;
   string crew_type = 20;
+  string incumbent_employee_number = 21;
+  string incumbent_employee_name = 22;
 }
 
 message PlaceOnDutyRequest {

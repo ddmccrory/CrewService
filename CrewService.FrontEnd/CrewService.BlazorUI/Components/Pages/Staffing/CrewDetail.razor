@@ -14,6 +14,7 @@
 @inject AssignmentClient AssignmentClient
 @inject TenantConfigClient TenantConfigClient
 @inject WorkManagementClient WorkManagementClient
+@inject QualificationsClient QualificationsClient
 @inject NavigationManager Nav
 
 <PageTitle>Crew Detail</PageTitle>
@@ -80,13 +81,46 @@ else
             </ToolbarContent>
             <RowContent Context="pos">
                 <td>@GetCraftRoleName(pos.CraftRoleCtrlNbr)</td>
+                <td>
+                    @if (activeIncumbencies.TryGetValue(pos.CtrlNbr, out var inc))
+                    {
+                        <span>@GetIncumbentDisplay(pos.CtrlNbr)</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Vacant</span>
+                    }
+                </td>
+                <td>@GetAssignmentDate(pos.CtrlNbr)</td>
                 <td>@pos.DisplayOrder</td>
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeletePositionModal(pos)">
-                            <span class="bi bi-trash"></span> Delete
-                        </button>
+                        <div class="d-flex gap-1">
+                            @if (activeIncumbencies.ContainsKey(pos.CtrlNbr))
+                            {
+                                <button class="btn btn-sm btn-outline-warning" style="min-width:90px" @onclick="() => OpenUnassignModal(pos)">
+                                    <span class="bi bi-person-dash"></span> Unassign
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-primary" style="min-width:90px" disabled="@isAssignLoading" @onclick="() => OpenAssignModal(pos)">
+                                    @if (isAssignLoading && assignPositionCtrlNbr == pos.CtrlNbr)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="bi bi-person-plus"></span>
+                                    }
+                                    Assign
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-outline-danger" style="min-width:75px" @onclick="() => OpenDeletePositionModal(pos)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
                     }
                 </td>
             </RowContent>
@@ -123,6 +157,49 @@ else
 
         <ConfirmModal Visible="showDeletePositionModal" ItemName="@deletePositionRoleName" IsSaving="isSaving"
                             OnConfirm="ConfirmDeletePosition" OnCancel="() => showDeletePositionModal = false" />
+
+        <Modal Visible="showAssignModal" Title="Assign Employee" Icon="bi bi-person-plus"
+               OnClose="CloseAssignModal">
+            <BodyContent>
+                <EditForm Model="assignIncumbentModel" OnValidSubmit="OnSaveIncumbent" id="save-incumbent-form">
+                    <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Employee</label>
+                        @if (eligibleEmployees is null)
+                        {
+                            <p class="text-muted small"><em>Loading eligible employees…</em></p>
+                        }
+                        else
+                        {
+                            <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
+                                          @bind-Value="assignIncumbentModel.EmployeeCtrlNbr"
+                                          Items="eligibleEmployees"
+                                          ValueSelector="@(e => e.CtrlNbr)"
+                                          TextSelector="@(e => $"{e.EmployeeNumber} – {e.FullNameLnf}")"
+                                          Placeholder="-- Select --"
+                                          AlwaysShowPlaceholder="true"
+                                          Searchable="true"
+                                          class="form-control" />
+                        }
+                        <ValidationMessage For="() => assignIncumbentModel.EmployeeCtrlNbr" class="text-danger" />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">Start Date</label>
+                        <InputDate @bind-Value="assignIncumbentModel.StartDate" class="form-control" />
+                    </div>
+                </EditForm>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseAssignModal">Cancel</button>
+                <button type="submit" form="save-incumbent-form" class="btn btn-primary" disabled="@(isSaving || eligibleEmployees is null)">
+                    <span class="bi bi-check-circle me-1"></span> Assign
+                </button>
+            </Footer>
+        </Modal>
+
+        <ConfirmModal Visible="showUnassignModal" ItemName="@unassignEmployeeName" IsSaving="isSaving"
+                      ActionVerb="Unassign" ButtonIcon="bi bi-person-dash" ButtonClass="btn-warning"
+                      OnConfirm="ConfirmUnassign" OnCancel="() => showUnassignModal = false" />
     }
 
     @* ── Assignments Tab ── *@
@@ -229,6 +306,8 @@ else
     private IReadOnlyList<DataTableColumn<CrewPositionResponse>> positionColumns =>
     [
         new("Role", p => GetCraftRoleName(p.CraftRoleCtrlNbr)),
+        new("Incumbent", p => GetIncumbentDisplay(p.CtrlNbr)),
+        new("Assignment Date", p => GetAssignmentDate(p.CtrlNbr)),
         new("Order", p => p.DisplayOrder, width: "100px"),
         DataTableColumn<CrewPositionResponse>.Actions()
     ];
@@ -249,6 +328,19 @@ else
     private long deletePositionCtrlNbr;
     private string deletePositionRoleName = string.Empty;
 
+    // Incumbency state
+    private Dictionary<long, CrewIncumbencyResponse> activeIncumbencies = [];
+    private Dictionary<long, string> incumbentNames = [];
+    private bool isAssignLoading;
+    private bool showAssignModal;
+    private long assignPositionCtrlNbr;
+    private long assignCraftRoleCtrlNbr;
+    private AssignIncumbentModel assignIncumbentModel = new();
+    private IReadOnlyList<EligibleEmployeeItem>? eligibleEmployees;
+    private bool showUnassignModal;
+    private long unassignIncumbencyCtrlNbr;
+    private string unassignEmployeeName = string.Empty;
+
     // Assignments state
     private bool showAssignmentModal;
     private long editAssignmentCtrlNbr;
@@ -260,6 +352,7 @@ else
     {
         await LoadCrew();
         await LoadPositions();
+        await LoadIncumbencies();
         await LoadAssignments();
         await LoadAssignmentOptions();
         await LoadCraftRoles();
@@ -334,6 +427,40 @@ else
         }
     }
 
+    private async Task LoadIncumbencies()
+    {
+        activeIncumbencies = [];
+        incumbentNames = [];
+        if (positions is null || positions.Count == 0) return;
+        try
+        {
+            foreach (var pos in positions)
+            {
+                var response = await CrewClient.GetCrewIncumbenciesAsync(pos.CtrlNbr);
+                var active = response.Incumbencies.FirstOrDefault(i =>
+                    string.IsNullOrEmpty(i.EndUtc) || DateTime.Parse(i.EndUtc) > DateTime.UtcNow);
+                if (active is not null)
+                {
+                    activeIncumbencies[pos.CtrlNbr] = active;
+                    incumbentNames[pos.CtrlNbr] = string.IsNullOrEmpty(active.EmployeeNumber)
+                        ? active.FullNameLnf
+                        : $"{active.EmployeeNumber.ToUpperInvariant()} – {active.FullNameLnf}";
+                }
+            }
+        }
+        catch { /* non-fatal */ }
+    }
+
+    private string GetIncumbentDisplay(long positionCtrlNbr) =>
+        incumbentNames.TryGetValue(positionCtrlNbr, out var name) ? name : string.Empty;
+
+    private string GetAssignmentDate(long positionCtrlNbr)
+    {
+        if (!activeIncumbencies.TryGetValue(positionCtrlNbr, out var inc)) return string.Empty;
+        if (string.IsNullOrEmpty(inc.StartUtc)) return string.Empty;
+        return DateTime.Parse(inc.StartUtc).ToLocalTime().ToString("MM/dd/yyyy");
+    }
+
     private string GetAssignmentName(long ctrlNbr) =>
         assignmentNames.TryGetValue(ctrlNbr, out var name) ? name : ctrlNbr.ToString();
 
@@ -390,6 +517,88 @@ else
         {
             errorMessage = $"Failed to remove position: {ex.Message}";
             showDeletePositionModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Incumbencies ──
+
+    private async Task OpenAssignModal(CrewPositionResponse pos)
+    {
+        assignPositionCtrlNbr = pos.CtrlNbr;
+        assignCraftRoleCtrlNbr = pos.CraftRoleCtrlNbr;
+        assignIncumbentModel = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
+        eligibleEmployees = null;
+        isAssignLoading = true;
+        try
+        {
+            var response = await QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
+                pos.CraftRoleCtrlNbr, SelectedParentCtrlNbr ?? 0);
+            eligibleEmployees = response.Employees;
+            showAssignModal = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load eligible employees: {ex.Message}";
+        }
+        finally
+        {
+            isAssignLoading = false;
+        }
+    }
+
+    private void CloseAssignModal()
+    {
+        showAssignModal = false;
+        eligibleEmployees = null;
+        assignIncumbentModel = new();
+    }
+
+    private async Task OnSaveIncumbent()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+            var startUtc = assignIncumbentModel.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).ToString("O");
+            await CrewClient.CreateCrewIncumbencyAsync(assignPositionCtrlNbr, assignIncumbentModel.EmployeeCtrlNbr, startUtc);
+            successMessage = "Employee assigned.";
+            CloseAssignModal();
+            await LoadPositions();
+            await LoadIncumbencies();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to assign employee: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private void OpenUnassignModal(CrewPositionResponse pos)
+    {
+        if (!activeIncumbencies.TryGetValue(pos.CtrlNbr, out var inc)) return;
+        unassignIncumbencyCtrlNbr = inc.CtrlNbr;
+        unassignEmployeeName = GetIncumbentDisplay(pos.CtrlNbr);
+        showUnassignModal = true;
+    }
+
+    private async Task ConfirmUnassign()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+            await CrewClient.EndCrewIncumbencyAsync(unassignIncumbencyCtrlNbr);
+            successMessage = "Employee unassigned.";
+            showUnassignModal = false;
+            await LoadIncumbencies();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to unassign employee: {ex.Message}";
+            showUnassignModal = false;
         }
         finally { isSaving = false; }
     }
@@ -487,6 +696,13 @@ else
         [Range(1, long.MaxValue, ErrorMessage = "Craft role is required.")]
         public long CraftRoleCtrlNbr { get; set; }
         public int DisplayOrder { get; set; } = 1;
+    }
+
+    private sealed class AssignIncumbentModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+        public DateOnly StartDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
     }
 
     private sealed class AssignmentInputModel

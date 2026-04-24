@@ -62,6 +62,9 @@ service QualificationsSrvc {
   rpc CheckEligibility (CheckEligibilityRequest) returns (CheckEligibilityResponse) {
     option (google.api.http) = { post: "/v1/qualifications/check-eligibility" body: "*" };
   }
+  rpc GetEligibleEmployeesForCraftRole (GetEligibleEmployeesForCraftRoleRequest) returns (GetEligibleEmployeesForCraftRoleResponse) {
+    option (google.api.http) = { get: "/v1/qualifications/eligible-employees/craft-role/{craft_role_ctrl_nbr}" };
+  }
 }
 
 message GetQualificationTypesRequest {
@@ -239,4 +242,19 @@ message EligibilityBlockingReason {
 message CheckEligibilityResponse {
   bool is_eligible = 1;
   repeated EligibilityBlockingReason blocking_reasons = 2;
+}
+
+message GetEligibleEmployeesForCraftRoleRequest {
+  int64 craft_role_ctrl_nbr = 1;
+  int64 client_ctrl_nbr = 2;
+}
+
+message EligibleEmployeeItem {
+  int64 ctrl_nbr = 1;
+  string employee_number = 2;
+  string full_name_lnf = 3;
+}
+
+message GetEligibleEmployeesForCraftRoleResponse {
+  repeated EligibleEmployeeItem employees = 1;
 }

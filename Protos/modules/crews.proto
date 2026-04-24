@@ -37,6 +37,9 @@ service CrewsSrvc {
   rpc CreateCrewIncumbency(CreateCrewIncumbencyRequest) returns (CrewIncumbencyResponse) {
     option (google.api.http) = { post: "/v1/crews/incumbencies" body: "*" };
   }
+  rpc EndCrewIncumbency(EndCrewIncumbencyRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { post: "/v1/crews/incumbencies/{ctrl_nbr}/end" body: "*" };
+  }
 
   // Crew Assignments
   rpc GetCrewAssignments(GetCrewAssignmentsRequest) returns (GetCrewAssignmentsResponse) {
@@ -136,12 +139,18 @@ message CreateCrewIncumbencyRequest {
   string start_utc = 3;
   string end_utc = 4;
 }
+message EndCrewIncumbencyRequest {
+  int64 ctrl_nbr = 1;
+  string end_utc = 2;
+}
 message CrewIncumbencyResponse {
   int64 ctrl_nbr = 1;
   int64 crew_position_ctrl_nbr = 2;
   int64 employee_ctrl_nbr = 3;
   string start_utc = 4;
   string end_utc = 5;
+  string full_name_lnf = 6;
+  string employee_number = 7;
 }
 
 // Crew Assignment messages

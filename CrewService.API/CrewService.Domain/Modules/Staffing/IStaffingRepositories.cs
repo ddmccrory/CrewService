@@ -12,4 +12,5 @@ public interface IPositionAssignmentRepository : IRepository<PositionAssignment>
 {
     Task<PositionAssignment?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr);
     Task<List<PositionAssignment>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr);
+    Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsAsync();
 }
