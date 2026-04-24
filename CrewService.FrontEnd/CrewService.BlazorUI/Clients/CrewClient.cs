@@ -111,7 +111,39 @@ public sealed class CrewClient(GrpcChannelProvider channelProvider, CircuitToken
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    // ── Crew Assignments ──
+    // ── Crew Incumbencies ──
+
+    public async Task<GetCrewIncumbenciesResponse> GetCrewIncumbenciesAsync(long crewPositionCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetCrewIncumbenciesAsync(new GetCrewIncumbenciesRequest { CrewPositionCtrlNbr = crewPositionCtrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<CrewIncumbencyResponse> CreateCrewIncumbencyAsync(long crewPositionCtrlNbr, long employeeCtrlNbr, string startUtc)
+    {
+        try
+        {
+            return await _client.CreateCrewIncumbencyAsync(new CreateCrewIncumbencyRequest
+            {
+                CrewPositionCtrlNbr = crewPositionCtrlNbr,
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                StartUtc = startUtc
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<DeleteResponse> EndCrewIncumbencyAsync(long ctrlNbr)
+    {
+        try
+        {
+            return await _client.EndCrewIncumbencyAsync(new EndCrewIncumbencyRequest { CtrlNbr = ctrlNbr });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 
     public async Task<GetCrewAssignmentsResponse> GetCrewAssignmentsAsync(long crewCtrlNbr)
     {

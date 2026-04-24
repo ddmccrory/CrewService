@@ -154,4 +154,21 @@ public sealed class RosterBoardClient(GrpcChannelProvider channelProvider, Circu
             throw;
         }
     }
+
+    public async Task<GetEligibleEmployeesForRosterBoardResponse> GetEligibleEmployeesAsync(long clientCtrlNbr, long craftCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetEligibleEmployeesForRosterBoardAsync(new GetEligibleEmployeesForRosterBoardRequest
+            {
+                ClientCtrlNbr = clientCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }
