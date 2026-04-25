@@ -9,12 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CrewService.Presentation.Services.Modules;
 
 public class FraComplianceService(
-    IFraDutyTourRepository dutyTourRepository,
-    IEmployeeCertificationReadRepository employeeCertificationReadRepository,
-    IEmployeeCertificationRepository employeeCertificationRepository,
-    ICertificationRevocationRepository certificationRevocationRepository,
-    IDrugAlcoholTestRepository drugAlcoholTestRepository,
-    IVoluntaryReferralRepository voluntaryReferralRepository,
     EmployeeNameService employeeNameService,
     IServiceProvider serviceProvider)
     : FraComplianceSrvc.FraComplianceSrvcBase
@@ -22,24 +16,19 @@ public class FraComplianceService(
     public override async Task<SearchDutyToursResponse> SearchDutyTours(
         SearchDutyToursRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var criteria = new FraRecordSearchCriteria
         {
-            EmployeeCtrlNbr = request.HasEmployeeCtrlNbr
-                ? ControlNumber.Create(request.EmployeeCtrlNbr) : null,
+            EmployeeCtrlNbr = request.HasEmployeeCtrlNbr ? ControlNumber.Create(request.EmployeeCtrlNbr) : null,
             StartDateUtc = request.StartDate?.ToDateTime(),
             EndDateUtc = request.EndDate?.ToDateTime(),
             LocationCode = request.HasLocationCode ? request.LocationCode : null,
-            RegulatoryStandardCode = request.HasRegulatoryStandardCode
-                ? request.RegulatoryStandardCode : null,
+            RegulatoryStandardCode = request.HasRegulatoryStandardCode ? request.RegulatoryStandardCode : null,
             HasExcessService = request.HasHasExcessService ? request.HasExcessService : null,
         };
-
-        var tours = await dutyTourRepository.SearchAsync(criteria, context.CancellationToken);
-
+        var tours = await svc.SearchDutyToursAsync(criteria, context.CancellationToken);
         var response = new SearchDutyToursResponse();
-        foreach (var tour in tours)
-            response.DutyTours.Add(MapTour(tour));
-
+        foreach (var tour in tours) response.DutyTours.Add(MapTour(tour));
         return response;
     }
 
@@ -47,22 +36,13 @@ public class FraComplianceService(
         GetCertificationsByClientRequest request,
         ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var clientCtrlNbr = ControlNumber.Create(request.ClientCtrlNbr);
         var statuses = request.Statuses.Count > 0
             ? request.Statuses.ToList()
             : [CertificationStatuses.Pending, CertificationStatuses.Active];
-
-        var certifications = await employeeCertificationReadRepository
-            .GetByClientAndStatusesAsync(clientCtrlNbr, statuses, context.CancellationToken);
-
-        // Batch-load user names to avoid N+1 lookups
-        var userIds = certifications.Select(c => c.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
-        var userMap = new Dictionary<string, string>();
-        foreach (var uid in userIds)
-        {
-            var name = await employeeNameService.GetFullNameLnfAsync(uid);
-            userMap[uid] = name;
-        }
+        var (certifications, _) = await svc.GetCertificationsByEmployeeAsync(clientCtrlNbr, statuses, context.CancellationToken);
+        var userMap = await employeeNameService.GetFullNameLnfBatchAsync(certifications.Select(c => c.UserId));
 
         var response = new GetEmployeeCertificationsResponse();
         response.Certifications.AddRange(certifications.Select(dto => MapCertification(dto, userMap)));
@@ -88,10 +68,10 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var certificationRevocationService = serviceProvider.GetRequiredService<CertificationRevocationService>();
+        var fraSvc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var ctrlNbr = ControlNumber.Create(request.RevocationRecordCtrlNbr);
         await certificationRevocationService.RecordWrittenNoticeAsync(ctrlNbr, context.CancellationToken);
-        var record = await certificationRevocationRepository.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Revocation record not found"));
+        var record = await fraSvc.GetRevocationRecordAsync(ctrlNbr, context.CancellationToken);
         return MapRevocation(record);
     }
 
@@ -100,10 +80,10 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var certificationRevocationService = serviceProvider.GetRequiredService<CertificationRevocationService>();
+        var fraSvc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var ctrlNbr = ControlNumber.Create(request.RevocationRecordCtrlNbr);
         await certificationRevocationService.ScheduleHearingAsync(ctrlNbr, request.HearingDate.ToDateTime(), context.CancellationToken);
-        var record = await certificationRevocationRepository.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Revocation record not found"));
+        var record = await fraSvc.GetRevocationRecordAsync(ctrlNbr, context.CancellationToken);
         return MapRevocation(record);
     }
 
@@ -112,6 +92,7 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var certificationRevocationService = serviceProvider.GetRequiredService<CertificationRevocationService>();
+        var fraSvc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var ctrlNbr = ControlNumber.Create(request.RevocationRecordCtrlNbr);
         await certificationRevocationService.DecideAsync(
             revocationRecordCtrlNbr: ctrlNbr,
@@ -119,8 +100,7 @@ public class FraComplianceService(
             revocationPeriodMonths: request.HasRevocationPeriodMonths ? request.RevocationPeriodMonths : null,
             ct: context.CancellationToken);
 
-        var record = await certificationRevocationRepository.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Revocation record not found"));
+        var record = await fraSvc.GetRevocationRecordAsync(ctrlNbr, context.CancellationToken);
         return MapRevocation(record);
     }
 
@@ -128,16 +108,14 @@ public class FraComplianceService(
         CreateEmployeeCertificationRequest request,
         ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var certificationDate = DateOnly.Parse(request.CertificationDate);
-        var certification = EmployeeCertification.Create(
-            employeeCtrlNbr: ControlNumber.Create(request.EmployeeCtrlNbr),
-            regulatoryQualificationCtrlNbr: ControlNumber.Create(request.RegulatoryQualificationCtrlNbr),
-            certificationType: request.CertificationType,
-            certificationDate: certificationDate,
-            recertificationIntervalMonths: 36,
-            certificationNumber: request.CertificationNumber);
-
-        await employeeCertificationRepository.AddAsync(certification, context.CancellationToken);
+        var parentCtrlNbr = request.HasParentCtrlNbr ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        var certification = await svc.CreateEmployeeCertificationAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr),
+            ControlNumber.Create(request.RegulatoryQualificationCtrlNbr),
+            request.CertificationType, certificationDate, parentCtrlNbr,
+            request.CertificationNumber, context.CancellationToken);
         return MapCertification(certification);
     }
 
@@ -145,27 +123,27 @@ public class FraComplianceService(
         UpdateEmployeeCertificationRequest request,
         ServerCallContext context)
     {
-        var certification = await employeeCertificationRepository
-            .GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Employee certification not found"));
-
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var certificationDate = DateOnly.Parse(request.CertificationDate);
-        certification.UpdateCertificationDetails(
-            regulatoryQualificationCtrlNbr: ControlNumber.Create(request.RegulatoryQualificationCtrlNbr),
-            certificationType: request.CertificationType,
-            certificationDate: certificationDate,
-            recertificationIntervalMonths: 36,
-            certificationNumber: request.CertificationNumber);
-
-        await employeeCertificationRepository.UpdateAsync(certification, context.CancellationToken);
-        return MapCertification(certification);
+        var parentCtrlNbr = request.HasParentCtrlNbr ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        try
+        {
+            var certification = await svc.UpdateEmployeeCertificationAsync(
+                ControlNumber.Create(request.CtrlNbr),
+                ControlNumber.Create(request.RegulatoryQualificationCtrlNbr),
+                request.CertificationType, certificationDate, parentCtrlNbr,
+                request.CertificationNumber, context.CancellationToken);
+            return MapCertification(certification);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<Empty> DeleteEmployeeCertification(
         DeleteEmployeeCertificationRequest request,
         ServerCallContext context)
     {
-        await employeeCertificationRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        await svc.DeleteEmployeeCertificationAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
         return new Empty();
     }
 
@@ -173,14 +151,11 @@ public class FraComplianceService(
         GetCertificationRevocationHistoryRequest request,
         ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var certCtrlNbr = ControlNumber.Create(request.EmployeeCertificationCtrlNbr);
-        var revocations = await certificationRevocationRepository
-            .GetByCertificationCtrlNbrAsync(certCtrlNbr, context.CancellationToken);
-
+        var revocations = await svc.GetRevocationHistoryAsync(certCtrlNbr, context.CancellationToken);
         var response = new GetCertificationRevocationHistoryResponse();
-        foreach (var r in revocations)
-            response.Revocations.Add(MapRevocation(r));
-
+        foreach (var r in revocations) response.Revocations.Add(MapRevocation(r));
         return response;
     }
 
@@ -188,23 +163,14 @@ public class FraComplianceService(
         RecordDrugAlcoholTestRequest request,
         ServerCallContext context)
     {
-        decimal? alcoholResult = request.HasAlcoholResult
-            ? Convert.ToDecimal(request.AlcoholResult)
-            : null;
-
-        var testRecord = DrugAlcoholTestRecord.Create(
-            employeeCtrlNbr: ControlNumber.Create(request.EmployeeCtrlNbr),
-            testType: request.TestType,
-            testDate: request.TestDate.ToDateTime(),
-            alcoholResult: alcoholResult,
-            drugResult: request.DrugResult,
-            substancesDetected: request.SubstancesDetected,
-            federalAuthority: request.FederalAuthority);
-
-        await drugAlcoholTestRepository.AddAsync(testRecord, context.CancellationToken);
-
-        await HandleDrugAlcoholActionsAsync(testRecord, context.CancellationToken);
-
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        decimal? alcoholResult = request.HasAlcoholResult ? Convert.ToDecimal(request.AlcoholResult) : null;
+        var testRecord = await svc.RecordDrugAlcoholTestAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), request.TestType,
+            request.TestDate.ToDateTime(), alcoholResult, request.DrugResult,
+            request.SubstancesDetected, request.FederalAuthority, context.CancellationToken);
+        var impactHandler = serviceProvider.GetRequiredService<DrugAlcoholCertificationImpactHandler>();
+        await svc.HandleDrugAlcoholActionsAsync(testRecord, impactHandler, context.CancellationToken);
         return MapDrugAlcoholTest(testRecord);
     }
 
@@ -212,9 +178,9 @@ public class FraComplianceService(
         GetDrugAlcoholTestsRequest request,
         ServerCallContext context)
     {
-        var tests = await drugAlcoholTestRepository
-            .GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
-
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var tests = await svc.GetDrugAlcoholTestsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetDrugAlcoholTestsResponse();
         response.Tests.AddRange(tests.Select(MapDrugAlcoholTest));
         return response;
@@ -224,10 +190,9 @@ public class FraComplianceService(
         GetDrugAlcoholActionsRequest request,
         ServerCallContext context)
     {
-        var drugAlcoholActionRepository = serviceProvider.GetRequiredService<IDrugAlcoholActionRepository>();
-        var actions = await drugAlcoholActionRepository
-            .GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
-
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var actions = await svc.GetDrugAlcoholActionsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetDrugAlcoholActionsResponse();
         response.Actions.AddRange(actions.Select(MapDrugAlcoholAction));
         return response;
@@ -237,8 +202,9 @@ public class FraComplianceService(
         CreateVoluntaryReferralRequest request,
         ServerCallContext context)
     {
-        var referral = VoluntaryReferral.Create(ControlNumber.Create(request.EmployeeCtrlNbr));
-        await voluntaryReferralRepository.AddAsync(referral, context.CancellationToken);
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var referral = await svc.CreateVoluntaryReferralAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         return MapVoluntaryReferral(referral);
     }
 
@@ -246,9 +212,9 @@ public class FraComplianceService(
         GetVoluntaryReferralsRequest request,
         ServerCallContext context)
     {
-        var referrals = await voluntaryReferralRepository
-            .GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
-
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var referrals = await svc.GetVoluntaryReferralsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetVoluntaryReferralsResponse();
         response.Referrals.AddRange(referrals.Select(MapVoluntaryReferral));
         return response;
@@ -258,9 +224,8 @@ public class FraComplianceService(
         UpdateVoluntaryReferralRequest request,
         ServerCallContext context)
     {
-        var referralCtrlNbr = ControlNumber.Create(request.ReferralCtrlNbr);
-        var referral = await voluntaryReferralRepository.GetByCtrlNbrAsync(referralCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Voluntary referral not found"));
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var referral = await svc.GetVoluntaryReferralAsync(ControlNumber.Create(request.ReferralCtrlNbr), context.CancellationToken);
 
         var actionDate = request.ActionDate is not null
             ? DateTime.SpecifyKind(request.ActionDate.ToDateTime(), DateTimeKind.Utc)
@@ -284,40 +249,41 @@ public class FraComplianceService(
                 throw new RpcException(new Status(StatusCode.InvalidArgument, $"Unknown referral action type: {request.ActionType}"));
         }
 
-        await voluntaryReferralRepository.UpdateAsync(referral, context.CancellationToken);
+        await svc.UpdateVoluntaryReferralAsync(referral, context.CancellationToken);
         return MapVoluntaryReferral(referral);
     }
 
     public override async Task<DutyTourResponse> GetDutyTour(
         GetDutyTourRequest request, ServerCallContext context)
     {
-        var tour = await dutyTourRepository.GetByCtrlNbrAsync(
-            ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Duty tour not found"));
-
-        return MapTour(tour);
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        try { return MapTour(await svc.GetDutyTourAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<CertificationResponse> GetCertification(
         GetCertificationRequest request, ServerCallContext context)
     {
-        var certification = await employeeCertificationRepository
-            .GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Certification not found"));
-
-        return MapCertification(certification);
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        try { return MapCertification(await svc.GetCertificationAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<GetEmployeeCertificationsResponse> GetEmployeeCertifications(
         GetEmployeeCertificationsRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
-        var certifications = await employeeCertificationReadRepository
-            .GetByEmployeeCtrlNbrAsync(employeeCtrlNbr, context.CancellationToken);
-
+        var certifications = await svc.GetEmployeeCertificationsAsync(employeeCtrlNbr, context.CancellationToken);
+        var (employeeNameLnf, employeeNumber) = await employeeNameService.GetEmployeeInfoAsync(employeeCtrlNbr);
         var response = new GetEmployeeCertificationsResponse();
-        response.Certifications.AddRange(certifications.Select(MapCertification));
-
+        response.Certifications.AddRange(certifications.Select(c =>
+        {
+            var mapped = MapCertification(c);
+            mapped.EmployeeNumber = employeeNumber;
+            mapped.EmployeeNameLnf = employeeNameLnf;
+            return mapped;
+        }));
         return response;
     }
 
@@ -325,10 +291,9 @@ public class FraComplianceService(
         GetCertificationEligibilityChecksRequest request,
         ServerCallContext context)
     {
-        var certCtrlNbr = ControlNumber.Create(request.EmployeeCertificationCtrlNbr);
-        var certification = await employeeCertificationRepository
-            .GetByCtrlNbrWithChecksAsync(certCtrlNbr, context.CancellationToken);
-
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var certification = await svc.GetCertificationWithChecksAsync(
+            ControlNumber.Create(request.EmployeeCertificationCtrlNbr), context.CancellationToken);
         var response = new GetCertificationEligibilityChecksResponse();
         if (certification is not null)
         {
@@ -336,7 +301,6 @@ public class FraComplianceService(
             foreach (var c in certification.EligibilityChecks)
                 response.Checks.Add(MapEligibilityCheck(c, asOfDate));
         }
-
         return response;
     }
 
@@ -344,156 +308,201 @@ public class FraComplianceService(
         AddCertificationEligibilityCheckRequest request,
         ServerCallContext context)
     {
-        var certification = await employeeCertificationRepository
-            .GetByCtrlNbrWithChecksAsync(ControlNumber.Create(request.EmployeeCertificationCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Employee certification not found"));
-
-        var eligibilityService = serviceProvider.GetRequiredService<CertificationEligibilityService>();
-        var evaluationDate = DateOnly.Parse(request.EvaluationDate);
-        var stalenessLimitDays = eligibilityService.GetStalenessLimitDays(request.CheckType);
-
-        var check = certification.AddEligibilityCheck(
-            checkType: request.CheckType,
-            evaluationDate: evaluationDate,
-            stalenessLimitDays: stalenessLimitDays,
-            result: request.Result,
-            evaluatorName: request.EvaluatorName);
-
-        await employeeCertificationRepository.UpdateAsync(certification, context.CancellationToken);
-        return MapEligibilityCheck(check, DateOnly.FromDateTime(DateTime.UtcNow));
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var parentCtrlNbr = request.HasParentCtrlNbr ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        var stalenessLimitDays = await GetStalenessLimitDaysAsync(request.CheckType, parentCtrlNbr, context.CancellationToken);
+        try
+        {
+            var (check, _) = await svc.AddEligibilityCheckAsync(
+                ControlNumber.Create(request.EmployeeCertificationCtrlNbr),
+                request.CheckType, DateOnly.Parse(request.EvaluationDate),
+                stalenessLimitDays, request.Result, request.EvaluatorName,
+                context.CancellationToken);
+            return MapEligibilityCheck(check, DateOnly.FromDateTime(DateTime.UtcNow));
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<CertificationEligibilityCheckResponse> UpdateCertificationEligibilityCheck(
         UpdateCertificationEligibilityCheckRequest request,
         ServerCallContext context)
     {
-        var checkCtrlNbr = ControlNumber.Create(request.EligibilityCheckCtrlNbr);
-        var certification = await employeeCertificationRepository
-            .GetByEligibilityCheckCtrlNbrWithChecksAsync(checkCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Eligibility check not found"));
-
-        var eligibilityService = serviceProvider.GetRequiredService<CertificationEligibilityService>();
-        var evaluationDate = DateOnly.Parse(request.EvaluationDate);
-        var stalenessLimitDays = eligibilityService.GetStalenessLimitDays(request.CheckType);
-
-        var check = certification.UpdateEligibilityCheck(
-            eligibilityCheckCtrlNbr: checkCtrlNbr,
-            checkType: request.CheckType,
-            evaluationDate: evaluationDate,
-            stalenessLimitDays: stalenessLimitDays,
-            result: request.Result,
-            evaluatorName: request.EvaluatorName);
-
-        await employeeCertificationRepository.UpdateAsync(certification, context.CancellationToken);
-        return MapEligibilityCheck(check, DateOnly.FromDateTime(DateTime.UtcNow));
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var parentCtrlNbr = request.HasParentCtrlNbr ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        var stalenessLimitDays = await GetStalenessLimitDaysAsync(request.CheckType, parentCtrlNbr, context.CancellationToken);
+        try
+        {
+            var (check, _) = await svc.UpdateEligibilityCheckAsync(
+                ControlNumber.Create(request.EligibilityCheckCtrlNbr),
+                request.CheckType, DateOnly.Parse(request.EvaluationDate),
+                stalenessLimitDays, request.Result, request.EvaluatorName,
+                context.CancellationToken);
+            return MapEligibilityCheck(check, DateOnly.FromDateTime(DateTime.UtcNow));
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<Empty> DeleteCertificationEligibilityCheck(
         DeleteCertificationEligibilityCheckRequest request,
         ServerCallContext context)
     {
-        var checkCtrlNbr = ControlNumber.Create(request.EligibilityCheckCtrlNbr);
-        var certification = await employeeCertificationRepository
-            .GetByEligibilityCheckCtrlNbrWithChecksAsync(checkCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Eligibility check not found"));
-
-        certification.DeleteEligibilityCheck(checkCtrlNbr);
-        await employeeCertificationRepository.UpdateAsync(certification, context.CancellationToken);
-        return new Empty();
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        try { await svc.DeleteEligibilityCheckAsync(ControlNumber.Create(request.EligibilityCheckCtrlNbr), context.CancellationToken); return new Empty(); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<AddEmployeeRequirementResultResponse> AddEmployeeRequirementResult(
         AddEmployeeRequirementResultRequest request,
         ServerCallContext context)
     {
-        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
-        var regulatoryQualificationCtrlNbr = ControlNumber.Create(request.RegulatoryQualificationCtrlNbr);
-        var evaluationDate = DateOnly.Parse(request.EvaluationDate);
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var parentCtrlNbr = request.HasParentCtrlNbr ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        var stalenessLimitDays = await GetStalenessLimitDaysAsync(request.CheckType, parentCtrlNbr, context.CancellationToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-        var eligibilityService = serviceProvider.GetRequiredService<CertificationEligibilityService>();
-
-        var existingCertifications = await employeeCertificationRepository
-            .GetByEmployeeCtrlNbrAsync(employeeCtrlNbr, context.CancellationToken);
-
-        var certification = existingCertifications
-            .OrderByDescending(c => c.CertificationDate)
-            .FirstOrDefault(c =>
-                c.RegulatoryQualificationCtrlNbr == regulatoryQualificationCtrlNbr
-                && string.Equals(c.CertificationType, request.CertificationType, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(c.Status, "Revoked", StringComparison.OrdinalIgnoreCase));
-
-        if (certification is null)
+        try
         {
-            certification = EmployeeCertification.Create(
-                employeeCtrlNbr: employeeCtrlNbr,
-                regulatoryQualificationCtrlNbr: regulatoryQualificationCtrlNbr,
-                certificationType: request.CertificationType,
-                certificationDate: evaluationDate,
-                recertificationIntervalMonths: 36,
-                certificationNumber: null);
-
-            await employeeCertificationRepository.AddAsync(certification, context.CancellationToken);
-            certification = await employeeCertificationRepository
-                .GetByCtrlNbrWithChecksAsync(certification.CtrlNbr, context.CancellationToken)
-                ?? throw new RpcException(new Status(StatusCode.Internal, "Failed to load created employee certification"));
+            var r = await svc.AddEmployeeRequirementResultAsync(
+                ControlNumber.Create(request.EmployeeCtrlNbr),
+                ControlNumber.Create(request.RegulatoryQualificationCtrlNbr),
+                request.CertificationType, DateOnly.Parse(request.EvaluationDate),
+                parentCtrlNbr, request.CheckType, request.Result, request.EvaluatorName,
+                stalenessLimitDays, context.CancellationToken);
+            return new AddEmployeeRequirementResultResponse
+            {
+                Check = MapEligibilityCheck(r.Check, today),
+                Certification = MapCertification(r.Certification),
+                CertificationActivated = r.Certification.Status == CertificationStatuses.Active
+            };
         }
-        else
-        {
-            certification = await employeeCertificationRepository
-                .GetByCtrlNbrWithChecksAsync(certification.CtrlNbr, context.CancellationToken)
-                ?? throw new RpcException(new Status(StatusCode.NotFound, "Employee certification not found"));
-        }
-
-        var stalenessLimitDays = eligibilityService.GetStalenessLimitDays(request.CheckType);
-        var check = certification.AddEligibilityCheck(
-            checkType: request.CheckType,
-            evaluationDate: evaluationDate,
-            stalenessLimitDays: stalenessLimitDays,
-            result: request.Result,
-            evaluatorName: request.EvaluatorName);
-
-        var wasActivated = false;
-        if (eligibilityService.AreAllChecksValid(certification, today) && certification.Status != CertificationStatuses.Active)
-        {
-            certification.Activate();
-            wasActivated = true;
-        }
-
-        await employeeCertificationRepository.UpdateAsync(certification, context.CancellationToken);
-
-        return new AddEmployeeRequirementResultResponse
-        {
-            Check = MapEligibilityCheck(check, today),
-            Certification = MapCertification(certification),
-            CertificationActivated = wasActivated
-        };
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.Internal, ex.Message)); }
     }
-
     public override async Task<CertificationComplianceSummaryResponse> GetCertificationComplianceSummary(
         GetCertificationComplianceSummaryRequest request,
         ServerCallContext context)
     {
-        var certification = await employeeCertificationRepository
-            .GetByCtrlNbrWithChecksAsync(ControlNumber.Create(request.EmployeeCertificationCtrlNbr), context.CancellationToken)
+        var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        var certification = await svc.GetCertificationWithChecksAsync(
+            ControlNumber.Create(request.EmployeeCertificationCtrlNbr), context.CancellationToken)
             ?? throw new RpcException(new Status(StatusCode.NotFound, "Employee certification not found"));
 
-        var eligibilityService = serviceProvider.GetRequiredService<CertificationEligibilityService>();
         var expirationService = serviceProvider.GetRequiredService<CertificationExpirationService>();
-        var monitoringService = serviceProvider.GetRequiredService<CertificationMonitoringService>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-        var missing = eligibilityService.GetStaleOrMissingChecks(certification, today);
 
         var response = new CertificationComplianceSummaryResponse
         {
             IsExpired = expirationService.IsExpired(certification, today),
             IsExpiringSoon = expirationService.IsExpiringSoon(certification, today),
-            IsMonitoringObservationCurrent = monitoringService.IsMonitoringObservationCurrent(certification),
-            IsComplianceTestCurrent = monitoringService.IsComplianceTestCurrent(certification),
-            IsFullyCompliant = monitoringService.IsFullyCompliant(certification) && missing.Count == 0
+            IsMonitoringObservationCurrent = certification.EligibilityChecks
+                .Any(c => string.Equals(c.CheckType, "OperationalMonitoring", StringComparison.OrdinalIgnoreCase)
+                       && c.Result == "Pass" && !c.IsStale(today)),
+            IsComplianceTestCurrent = certification.EligibilityChecks
+                .Any(c => string.Equals(c.CheckType, "ComplianceTest", StringComparison.OrdinalIgnoreCase)
+                       && c.Result == "Pass" && !c.IsStale(today)),
+            IsFullyCompliant = certification.Status == CertificationStatuses.Active
         };
-        response.StaleOrMissingChecks.AddRange(missing);
+        response.StaleOrMissingChecks.AddRange(
+            EligibilityCheckStalenessLimits.Days.Keys.Where(type =>
+                !certification.EligibilityChecks.Any(c =>
+                    string.Equals(c.CheckType, type, StringComparison.OrdinalIgnoreCase)
+                    && c.Result == "Pass"
+                    && !c.IsStale(today))));
+        return response;
+    }
+
+    public override async Task<FraCertificationConfigResponse> GetCertificationConfig(
+        GetCertificationConfigRequest request,
+        ServerCallContext context)
+    {
+        var configService = serviceProvider.GetRequiredService<FraCertificationConfigService>();
+        var parentCtrlNbr = ControlNumber.Create(request.ParentCtrlNbr);
+        var railroadCtrlNbr = request.HasRailroadCtrlNbr ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var config = await configService.GetOrDefaultAsync(parentCtrlNbr, railroadCtrlNbr, context.CancellationToken);
+        return MapCertificationConfig(config);
+    }
+
+    public override async Task<GetCertificationCheckConfigsResponse> GetCertificationCheckConfigs(
+        GetCertificationCheckConfigsRequest request,
+        ServerCallContext context)
+    {
+        var configService = serviceProvider.GetRequiredService<FraCertificationConfigService>();
+        var parentCtrlNbr = ControlNumber.Create(request.ParentCtrlNbr);
+        var railroadCtrlNbr = request.HasRailroadCtrlNbr ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var configs = await configService.GetCheckConfigsOrDefaultAsync(parentCtrlNbr, railroadCtrlNbr, context.CancellationToken);
+        var response = new GetCertificationCheckConfigsResponse();
+        response.Configs.AddRange(configs.Select(MapCheckConfig));
+        return response;
+    }
+
+    public override async Task<FraCertificationConfigResponse> UpsertCertificationConfig(
+        UpsertCertificationConfigRequest request,
+        ServerCallContext context)
+    {
+        var configService = serviceProvider.GetRequiredService<FraCertificationConfigService>();
+        var parentCtrlNbr = ControlNumber.Create(request.ParentCtrlNbr);
+        var railroadCtrlNbr = request.HasRailroadCtrlNbr ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var config = await configService.UpsertAsync(
+            parentCtrlNbr, railroadCtrlNbr,
+            request.CertCycleMonths, request.RecertWindowDays, request.RenewWindowDays,
+            context.CancellationToken);
+        return MapCertificationConfig(config);
+    }
+
+    public override async Task<FraCertificationCheckConfigResponse> UpsertCertificationCheckConfig(
+        UpsertCertificationCheckConfigRequest request,
+        ServerCallContext context)
+    {
+        var configService = serviceProvider.GetRequiredService<FraCertificationConfigService>();
+        var parentCtrlNbr = ControlNumber.Create(request.ParentCtrlNbr);
+        var railroadCtrlNbr = request.HasRailroadCtrlNbr ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var row = await configService.UpsertCheckConfigAsync(
+            parentCtrlNbr, railroadCtrlNbr,
+            request.CheckType, request.StalenessLimitDays, request.IsEnforced,
+            context.CancellationToken);
+        return MapCheckConfig(row);
+    }
+
+    private async Task<int> GetCertCycleMonthsAsync(ControlNumber? parentCtrlNbr, CancellationToken ct)
+    {
+        var configService = serviceProvider.GetRequiredService<FraCertificationConfigService>();
+        return await configService.GetCertCycleMonthsAsync(parentCtrlNbr, ct);
+    }
+
+    private async Task<int> GetStalenessLimitDaysAsync(string checkType, ControlNumber? parentCtrlNbr, CancellationToken ct)
+    {
+        var configService = serviceProvider.GetRequiredService<FraCertificationConfigService>();
+        return await configService.GetStalenessLimitDaysAsync(checkType, parentCtrlNbr, ct);
+    }
+
+    private static FraCertificationConfigResponse MapCertificationConfig(FraCertificationConfig c)
+    {
+        var response = new FraCertificationConfigResponse
+        {
+            CtrlNbr = c.CtrlNbr.Value,
+            ParentCtrlNbr = c.ParentCtrlNbr.Value,
+            CertCycleMonths = c.CertCycleMonths,
+            RecertWindowDays = c.RecertWindowDays,
+            RenewWindowDays = c.RenewWindowDays
+        };
+        if (c.RailroadCtrlNbr is not null)
+            response.RailroadCtrlNbr = c.RailroadCtrlNbr.Value;
+        return response;
+    }
+
+    private static FraCertificationCheckConfigResponse MapCheckConfig(FraCertificationCheckConfig c)
+    {
+        var response = new FraCertificationCheckConfigResponse
+        {
+            CtrlNbr = c.CtrlNbr.Value,
+            ParentCtrlNbr = c.ParentCtrlNbr.Value,
+            CheckType = c.CheckType,
+            DisplayName = CertificationCheckDefaults.GetDisplayName(c.CheckType),
+            StalenessLimitDays = c.StalenessLimitDays,
+            IsEnforced = c.IsEnforced,
+            IsEnforcementLocked = c.IsEnforcementLocked
+        };
+        if (c.RailroadCtrlNbr is not null)
+            response.RailroadCtrlNbr = c.RailroadCtrlNbr.Value;
         return response;
     }
 
@@ -683,33 +692,5 @@ public class FraComplianceService(
 
         return response;
     }
-
-    private async Task HandleDrugAlcoholActionsAsync(DrugAlcoholTestRecord testRecord, CancellationToken ct)
-    {
-        var drugAlcoholActionRepository = serviceProvider.GetRequiredService<IDrugAlcoholActionRepository>();
-        var drugAlcoholCertificationImpactHandler = serviceProvider.GetRequiredService<DrugAlcoholCertificationImpactHandler>();
-
-        if (!testRecord.IsViolation && !testRecord.IsAlcoholRemovalRange)
-            return;
-
-        var removed = DrugAlcoholAction.Create(
-            testRecord.CtrlNbr,
-            testRecord.EmployeeCtrlNbr,
-            "RemovedFromService",
-            "Auto-generated from FRA Part 219 test result");
-        await drugAlcoholActionRepository.AddAsync(removed, ct);
-
-        if (!testRecord.IsViolation)
-            return;
-
-        var prior = await drugAlcoholTestRepository.GetByEmployeeCtrlNbrAsync(testRecord.EmployeeCtrlNbr, ct);
-        var ineligibility = drugAlcoholCertificationImpactHandler.DetermineIneligibility(testRecord, [.. prior.Where(p => p.CtrlNbr != testRecord.CtrlNbr)]);
-
-        var certifications = await employeeCertificationRepository.GetByEmployeeCtrlNbrAsync(testRecord.EmployeeCtrlNbr, ct);
-        foreach (var cert in certifications.Where(c => c.Status == CertificationStatuses.Active))
-        {
-            cert.Suspend($"Drug/alcohol violation ({ineligibility.ViolationCount})");
-            await employeeCertificationRepository.UpdateAsync(cert, ct);
-        }
-    }
 }
+

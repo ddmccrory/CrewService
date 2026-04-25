@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260425064609_AddRestrictionLabelToQualificationTypes")]
+    partial class AddRestrictionLabelToQualificationTypes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
@@ -2720,6 +2723,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("LastComplianceTestUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastMonitoringObservationUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("RegulatoryQualificationCtrlNbr")
                         .HasColumnType("INTEGER");
 
@@ -2745,81 +2754,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("RegulatoryQualificationCtrlNbr");
 
                     b.ToTable("EmployeeCertifications");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraCertificationCheckConfig", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("CheckType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsEnforced")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsEnforcementLocked")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("StalenessLimitDays")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("ParentCtrlNbr");
-
-                    b.HasIndex("RailroadCtrlNbr");
-
-                    b.ToTable("FraCertificationCheckConfigs");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraCertificationConfig", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("CertCycleMonths")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long?>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("RecertWindowDays")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("RenewWindowDays")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("ParentCtrlNbr");
-
-                    b.HasIndex("RailroadCtrlNbr");
-
-                    b.ToTable("FraCertificationConfigs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraDutyTour", b =>
@@ -10502,172 +10436,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("EmployeeCertificationCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraCertificationCheckConfig", b =>
-                {
-                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
-                        .WithMany()
-                        .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
-                        .WithMany()
-                        .HasForeignKey("RailroadCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("FraCertificationCheckConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("FraCertificationCheckConfigCtrlNbr");
-
-                            b1.ToTable("FraCertificationCheckConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FraCertificationCheckConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("FraCertificationCheckConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("FraCertificationCheckConfigCtrlNbr");
-
-                            b1.ToTable("FraCertificationCheckConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FraCertificationCheckConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("FraCertificationCheckConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("FraCertificationCheckConfigCtrlNbr");
-
-                            b1.ToTable("FraCertificationCheckConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FraCertificationCheckConfigCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.FraCompliance.FraCertificationConfig", b =>
-                {
-                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
-                        .WithMany()
-                        .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
-                        .WithMany()
-                        .HasForeignKey("RailroadCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("FraCertificationConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("FraCertificationConfigCtrlNbr");
-
-                            b1.ToTable("FraCertificationConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FraCertificationConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("FraCertificationConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("FraCertificationConfigCtrlNbr");
-
-                            b1.ToTable("FraCertificationConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FraCertificationConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("FraCertificationConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("FraCertificationConfigCtrlNbr");
-
-                            b1.ToTable("FraCertificationConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FraCertificationConfigCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
