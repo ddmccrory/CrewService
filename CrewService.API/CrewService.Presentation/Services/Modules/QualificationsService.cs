@@ -1,54 +1,35 @@
 using CrewService.Application.Qualifications;
-using CrewService.Presentation.Services;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Employees;
-using CrewService.Domain.Modules.Staffing;
-using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public sealed class QualificationsService(
-    IQualificationTypeRepository qualificationTypeRepository,
-    IQualificationRequirementRepository qualificationRequirementRepository,
-    IEmployeeQualificationRepository employeeQualificationRepository,
-    IEmployeeRepository employeeRepository,
-    ICraftRoleQualificationRepository craftRoleQualificationRepository,
-    EmployeeEligibilityService employeeEligibilityService,
-    ISeniorityRepository seniorityRepository,
-    IRosterRepository rosterRepository,
-    IRegulatoryQualificationCatalog regulatoryQualificationCatalog,
-    IPositionAssignmentRepository positionAssignmentRepository,
-    IOrchestrationUnitOfWorkFactory uowFactory,
-    EmployeeNameService employeeNameService)
-    : QualificationsSrvc.QualificationsSrvcBase
+public sealed class QualificationsService(IServiceProvider serviceProvider) : QualificationsSrvc.QualificationsSrvcBase
 {
     public override async Task<QualificationTypeResponse> CreateQualificationType(
         CreateQualificationTypeRequest request,
         ServerCallContext context)
     {
-        var qualificationType = QualificationType.Create(
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        var qualificationType = await svc.CreateQualificationTypeAsync(
             parentCtrlNbr: ControlNumber.Create(request.ParentCtrlNbr),
             code: request.Code,
             name: request.Name,
             evaluationStrategy: string.IsNullOrWhiteSpace(request.EvaluationStrategy) ? EvaluationStrategies.Manual : request.EvaluationStrategy,
             scopeGroupCtrlNbr: request.ScopeGroupCtrlNbr > 0 ? ControlNumber.Create(request.ScopeGroupCtrlNbr) : null,
             craftCtrlNbr: request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null,
-            regulatoryQualificationCtrlNbr: request.RegulatoryQualificationCtrlNbr > 0
-                ? ControlNumber.Create(request.RegulatoryQualificationCtrlNbr)
-                : null,
+            regulatoryQualificationCtrlNbr: request.RegulatoryQualificationCtrlNbr > 0 ? ControlNumber.Create(request.RegulatoryQualificationCtrlNbr) : null,
             description: string.IsNullOrWhiteSpace(request.Description) ? null : request.Description,
             expirationMonths: request.ExpirationMonths > 0 ? request.ExpirationMonths : null,
             calendarYearExpiry: request.CalendarYearExpiry,
             graceDays: request.GraceDays,
             renewalLeadDays: request.RenewalLeadDays,
-            isBlocking: request.IsBlocking);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.QualificationTypes.Add(qualificationType);
-        await uow.CommitAsync(context.CancellationToken);
+            isBlocking: request.IsBlocking,
+            ct: context.CancellationToken);
         return MapQualificationType(qualificationType);
     }
 
@@ -56,77 +37,65 @@ public sealed class QualificationsService(
         UpdateQualificationTypeRequest request,
         ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-        var qualificationType = await uow.QualificationTypes
-            .GetByCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Qualification type not found"));
-
-        if (qualificationType.IsSystemSeeded || qualificationType.EvaluationStrategy == EvaluationStrategies.FraCertification)
-            throw new RpcException(new Status(StatusCode.PermissionDenied, "FRA-managed qualification types cannot be modified from this menu"));
-
-        qualificationType.Update(
-            name: request.Name,
-            description: string.IsNullOrWhiteSpace(request.Description) ? null : request.Description,
-            evaluationStrategy: string.IsNullOrWhiteSpace(request.EvaluationStrategy) ? qualificationType.EvaluationStrategy : request.EvaluationStrategy,
-            scopeGroupCtrlNbr: request.ScopeGroupCtrlNbr > 0 ? ControlNumber.Create(request.ScopeGroupCtrlNbr) : null,
-            craftCtrlNbr: request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null,
-            expirationMonths: request.ExpirationMonths > 0 ? request.ExpirationMonths : null,
-            calendarYearExpiry: request.CalendarYearExpiry,
-            graceDays: request.GraceDays,
-            renewalLeadDays: request.RenewalLeadDays,
-            isBlocking: request.IsBlocking);
-
-        uow.QualificationTypes.Update(qualificationType);
-        await uow.CommitAsync(context.CancellationToken);
-        return MapQualificationType(qualificationType);
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            var qualificationType = await svc.UpdateQualificationTypeAsync(
+                ctrlNbr: ControlNumber.Create(request.QualificationTypeCtrlNbr),
+                name: request.Name,
+                description: string.IsNullOrWhiteSpace(request.Description) ? null : request.Description,
+                evaluationStrategy: string.IsNullOrWhiteSpace(request.EvaluationStrategy) ? string.Empty : request.EvaluationStrategy,
+                scopeGroupCtrlNbr: request.ScopeGroupCtrlNbr > 0 ? ControlNumber.Create(request.ScopeGroupCtrlNbr) : null,
+                craftCtrlNbr: request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+                expirationMonths: request.ExpirationMonths > 0 ? request.ExpirationMonths : null,
+                calendarYearExpiry: request.CalendarYearExpiry,
+                graceDays: request.GraceDays,
+                renewalLeadDays: request.RenewalLeadDays,
+                isBlocking: request.IsBlocking,
+                restrictionLabel: string.IsNullOrWhiteSpace(request.RestrictionLabel) ? null : request.RestrictionLabel,
+                ct: context.CancellationToken);
+            return MapQualificationType(qualificationType);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message)); }
     }
 
     public override async Task<DeleteResponse> DeleteQualificationType(
         DeleteQualificationTypeRequest request,
         ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-        var ctrlNbr = ControlNumber.Create(request.QualificationTypeCtrlNbr);
-        var qualificationType = await uow.QualificationTypes.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Qualification type not found"));
-
-        if (qualificationType.IsSystemSeeded || qualificationType.EvaluationStrategy == EvaluationStrategies.FraCertification)
-            throw new RpcException(new Status(StatusCode.PermissionDenied, "FRA-managed qualification types cannot be deleted"));
-
-        uow.QualificationTypes.Remove(qualificationType);
-        await uow.CommitAsync(context.CancellationToken);
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            await svc.DeleteQualificationTypeAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message)); }
     }
 
     public override async Task<QualificationTypeResponse> SetQualificationTypeActive(
         SetQualificationTypeActiveRequest request,
         ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-        var qualificationType = await uow.QualificationTypes
-            .GetByCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Qualification type not found"));
-
-        if (qualificationType.IsSystemSeeded || qualificationType.EvaluationStrategy == EvaluationStrategies.FraCertification)
-            throw new RpcException(new Status(StatusCode.PermissionDenied, "FRA-managed qualification types cannot be modified from this menu"));
-
-        if (request.IsActive)
-            qualificationType.Activate();
-        else
-            qualificationType.Deactivate();
-
-        uow.QualificationTypes.Update(qualificationType);
-        await uow.CommitAsync(context.CancellationToken);
-        return MapQualificationType(qualificationType);
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            var qualificationType = await svc.SetQualificationTypeActiveAsync(
+                ControlNumber.Create(request.QualificationTypeCtrlNbr), request.IsActive, context.CancellationToken);
+            return MapQualificationType(qualificationType);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message)); }
     }
 
     public override async Task<GetQualificationRequirementsResponse> GetQualificationRequirements(
         GetQualificationRequirementsRequest request,
         ServerCallContext context)
     {
-        var requirements = await qualificationRequirementRepository
-            .GetByQualificationTypeCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr));
-
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        var requirements = await svc.GetQualificationRequirementsAsync(
+            ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken);
         var response = new GetQualificationRequirementsResponse();
         response.Requirements.AddRange(requirements.Select(MapRequirement));
         return response;
@@ -136,86 +105,67 @@ public sealed class QualificationsService(
         AddQualificationRequirementRequest request,
         ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-        var qualificationType = await uow.QualificationTypes
-            .GetByCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Qualification type not found"));
-
-        var requirement = qualificationType.AddRequirement(
-            requirementKind: request.RequirementKind,
-            threshold: request.Threshold,
-            thresholdUnit: request.ThresholdUnit,
-            description: request.Description ?? string.Empty,
-            eventSource: string.IsNullOrWhiteSpace(request.EventSource) ? null : request.EventSource,
-            activityFilter: string.IsNullOrWhiteSpace(request.ActivityFilter) ? null : request.ActivityFilter,
-            requiredQualTypeCtrlNbr: request.RequiredQualTypeCtrlNbr > 0
-                ? ControlNumber.Create(request.RequiredQualTypeCtrlNbr)
-                : null,
-            requiredRegulatoryQualCtrlNbr: request.RequiredRegulatoryQualCtrlNbr > 0
-                ? ControlNumber.Create(request.RequiredRegulatoryQualCtrlNbr)
-                : null);
-
-        uow.QualificationTypes.Update(qualificationType);
-        await uow.CommitAsync(context.CancellationToken);
-        return MapRequirement(requirement);
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            var requirement = await svc.AddQualificationRequirementAsync(
+                qualificationTypeCtrlNbr: ControlNumber.Create(request.QualificationTypeCtrlNbr),
+                requirementKind: request.RequirementKind,
+                threshold: request.Threshold,
+                thresholdUnit: request.ThresholdUnit,
+                description: request.Description ?? string.Empty,
+                eventSource: string.IsNullOrWhiteSpace(request.EventSource) ? null : request.EventSource,
+                activityFilter: string.IsNullOrWhiteSpace(request.ActivityFilter) ? null : request.ActivityFilter,
+                requiredQualTypeCtrlNbr: request.RequiredQualTypeCtrlNbr > 0 ? ControlNumber.Create(request.RequiredQualTypeCtrlNbr) : null,
+                requiredRegulatoryQualCtrlNbr: request.RequiredRegulatoryQualCtrlNbr > 0 ? ControlNumber.Create(request.RequiredRegulatoryQualCtrlNbr) : null,
+                ct: context.CancellationToken);
+            return MapRequirement(requirement);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<QualificationRequirementResponse> UpdateQualificationRequirement(
         UpdateQualificationRequirementRequest request,
         ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-        var reqCtrlNbr = ControlNumber.Create(request.RequirementCtrlNbr);
-        var requirement = await uow.QualificationRequirements.GetByCtrlNbrAsync(reqCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "requirement not found"));
-
-        requirement.Update(
-            threshold: request.Threshold,
-            thresholdUnit: request.ThresholdUnit ?? string.Empty,
-            description: request.Description ?? string.Empty,
-            eventSource: string.IsNullOrWhiteSpace(request.EventSource) ? null : request.EventSource,
-            activityFilter: string.IsNullOrWhiteSpace(request.ActivityFilter) ? null : request.ActivityFilter,
-            requiredQualTypeCtrlNbr: request.RequiredQualTypeCtrlNbr > 0
-                ? ControlNumber.Create(request.RequiredQualTypeCtrlNbr)
-                : null,
-            requiredRegulatoryQualCtrlNbr: request.RequiredRegulatoryQualCtrlNbr > 0
-                ? ControlNumber.Create(request.RequiredRegulatoryQualCtrlNbr)
-                : null);
-
-        uow.QualificationRequirements.Update(requirement);
-        await uow.CommitAsync(context.CancellationToken);
-        return MapRequirement(requirement);
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            var requirement = await svc.UpdateQualificationRequirementAsync(
+                reqCtrlNbr: ControlNumber.Create(request.RequirementCtrlNbr),
+                threshold: request.Threshold,
+                thresholdUnit: request.ThresholdUnit ?? string.Empty,
+                description: request.Description ?? string.Empty,
+                eventSource: string.IsNullOrWhiteSpace(request.EventSource) ? null : request.EventSource,
+                activityFilter: string.IsNullOrWhiteSpace(request.ActivityFilter) ? null : request.ActivityFilter,
+                requiredQualTypeCtrlNbr: request.RequiredQualTypeCtrlNbr > 0 ? ControlNumber.Create(request.RequiredQualTypeCtrlNbr) : null,
+                requiredRegulatoryQualCtrlNbr: request.RequiredRegulatoryQualCtrlNbr > 0 ? ControlNumber.Create(request.RequiredRegulatoryQualCtrlNbr) : null,
+                ct: context.CancellationToken);
+            return MapRequirement(requirement);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<DeleteResponse> RemoveQualificationRequirement(
         RemoveQualificationRequirementRequest request,
         ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-        var reqCtrlNbr = ControlNumber.Create(request.RequirementCtrlNbr);
-        var requirement = await uow.QualificationRequirements.GetByCtrlNbrAsync(reqCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "requirement not found"));
-
-        var qualificationType = await uow.QualificationTypes
-            .GetByCtrlNbrAsync(requirement.QualificationTypeCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Qualification type not found"));
-
-        qualificationType.RemoveRequirement(reqCtrlNbr);
-        uow.QualificationRequirements.Remove(requirement);
-        uow.QualificationTypes.Update(qualificationType);
-        await uow.CommitAsync(context.CancellationToken);
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            await svc.RemoveQualificationRequirementAsync(ControlNumber.Create(request.RequirementCtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<GetQualificationTypesResponse> GetQualificationTypes(
         GetQualificationTypesRequest request,
         ServerCallContext context)
     {
-        var parentCtrlNbr = ControlNumber.Create(request.ParentCtrlNbr);
-        var types = request.ActiveOnly
-            ? await qualificationTypeRepository.GetActiveByParentCtrlNbrAsync(parentCtrlNbr)
-            : await qualificationTypeRepository.GetByParentCtrlNbrAsync(parentCtrlNbr);
-
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        var types = await svc.GetQualificationTypesAsync(
+            ControlNumber.Create(request.ParentCtrlNbr), request.ActiveOnly, context.CancellationToken);
         var response = new GetQualificationTypesResponse();
         response.QualificationTypes.AddRange(types.Select(MapQualificationType));
         return response;
@@ -225,9 +175,9 @@ public sealed class QualificationsService(
         GetEmployeeQualificationsRequest request,
         ServerCallContext context)
     {
-        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
-        var qualifications = await employeeQualificationRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
-
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        var qualifications = await svc.GetEmployeeQualificationsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetEmployeeQualificationsResponse();
         response.Qualifications.AddRange(qualifications.Select(MapEmployeeQualification));
         return response;
@@ -237,6 +187,7 @@ public sealed class QualificationsService(
         GetRegulatoryQualificationsRequest request,
         ServerCallContext context)
     {
+        var regulatoryQualificationCatalog = serviceProvider.GetRequiredService<IRegulatoryQualificationCatalog>();
         var catalog = await regulatoryQualificationCatalog.GetAllAsync(context.CancellationToken);
         var response = new GetRegulatoryQualificationsResponse();
         response.Qualifications.AddRange(catalog.Select(r => new RegulatoryQualificationCatalogItem
@@ -254,94 +205,43 @@ public sealed class QualificationsService(
         GrantEmployeeQualificationRequest request,
         ServerCallContext context)
     {
-        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
-        var qualificationTypeCtrlNbr = ControlNumber.Create(request.QualificationTypeCtrlNbr);
-
-        var qualType = await qualificationTypeRepository.GetByCtrlNbrAsync(qualificationTypeCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"QualificationType {request.QualificationTypeCtrlNbr} not found."));
-
-        if (qualType.CraftCtrlNbr is not null)
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        var employeeNameSvc = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var grantedBy = string.IsNullOrWhiteSpace(request.GrantedBy) ? SystemActors.System : request.GrantedBy;
+        DateTime? expiresAtUtc = request.ExpiresAtUtc is not null ? request.ExpiresAtUtc.ToDateTime() : null;
+        try
         {
-            var employeeSeniority = await seniorityRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
-            var activeRosterCtrlNbrs = employeeSeniority
-                .Where(s => s.LastActiveRoster)
-                .Select(s => s.RosterCtrlNbr)
-                .ToHashSet();
-            var craftRosters = await rosterRepository.GetByCraftCtrlNbrAsync(qualType.CraftCtrlNbr);
-            var hasActiveCraftMembership = craftRosters.Any(r => activeRosterCtrlNbrs.Contains(r.CtrlNbr));
-            if (!hasActiveCraftMembership)
-                throw new RpcException(new Status(StatusCode.PermissionDenied,
-                    $"Employee does not have active membership in the craft required for qualification '{qualType.Name}'."));
+            var result = await svc.GrantEmployeeQualificationAsync(
+                ControlNumber.Create(request.EmployeeCtrlNbr),
+                ControlNumber.Create(request.QualificationTypeCtrlNbr),
+                grantedBy, expiresAtUtc,
+                string.IsNullOrWhiteSpace(request.EvidenceValue) ? null : request.EvidenceValue,
+                context.CancellationToken);
+            return MapEmployeeQualification(result);
         }
-
-
-        var existing = await employeeQualificationRepository
-            .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualificationTypeCtrlNbr);
-
-        var grantedBy = string.IsNullOrWhiteSpace(request.GrantedBy)
-            ? SystemActors.System
-            : request.GrantedBy;
-
-        var status = string.IsNullOrWhiteSpace(request.Status)
-            ? QualificationStatuses.Active
-            : request.Status;
-
-        DateTime? expiresAtUtc = null;
-        if (request.ExpiresAtUtc is not null)
-            expiresAtUtc = request.ExpiresAtUtc.ToDateTime();
-
-        if (existing is null)
-        {
-            var created = EmployeeQualification.Create(
-                employeeCtrlNbr,
-                qualificationTypeCtrlNbr,
-                grantedBy,
-                expiresAtUtc,
-                status);
-
-            if (!string.IsNullOrWhiteSpace(request.EvidenceValue))
-            {
-                created.AddEvidence(
-                    EvidenceTypes.ManualCompletion,
-                    request.EvidenceValue,
-                    grantedBy);
-            }
-
-            await employeeQualificationRepository.AddAsync(created, context.CancellationToken);
-            return MapEmployeeQualification(created);
-        }
-
-        existing.Reinstate(expiresAtUtc);
-        if (!string.IsNullOrWhiteSpace(request.EvidenceValue))
-        {
-            existing.AddEvidence(
-                EvidenceTypes.ManualCompletion,
-                request.EvidenceValue,
-                grantedBy);
-        }
-
-        await employeeQualificationRepository.UpdateAsync(existing, context.CancellationToken);
-        return MapEmployeeQualification(existing);
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message)); }
     }
 
     public override async Task<EmployeeQualificationResponse> RevokeEmployeeQualification(
         RevokeEmployeeQualificationRequest request,
         ServerCallContext context)
     {
-        var qualification = await employeeQualificationRepository
-            .GetByCtrlNbrAsync(ControlNumber.Create(request.EmployeeQualificationCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "Employee qualification not found"));
-
-        qualification.Revoke(request.Reason);
-        await employeeQualificationRepository.UpdateAsync(qualification, context.CancellationToken);
-
-        return MapEmployeeQualification(qualification);
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            var qualification = await svc.RevokeEmployeeQualificationAsync(
+                ControlNumber.Create(request.EmployeeQualificationCtrlNbr), request.Reason, context.CancellationToken);
+            return MapEmployeeQualification(qualification);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<CheckEligibilityResponse> CheckEligibility(
         CheckEligibilityRequest request,
         ServerCallContext context)
     {
+        var employeeEligibilityService = serviceProvider.GetRequiredService<EmployeeEligibilityService>();
         var result = await employeeEligibilityService.CheckEligibilityAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.PositionSlotCtrlNbr),
@@ -365,68 +265,46 @@ public sealed class QualificationsService(
         GetEligibleEmployeesForCraftRoleRequest request,
         ServerCallContext context)
     {
-        var craftRoleCtrlNbr = ControlNumber.Create(request.CraftRoleCtrlNbr);
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        var employeeNameSvc = serviceProvider.GetRequiredService<EmployeeNameService>();
 
-        // Get all required qualifications for this craft role
-        var requiredQuals = await craftRoleQualificationRepository.GetByCraftRoleAsync(craftRoleCtrlNbr);
+        var (employees, _, requiredQuals, qualsByEmployee) = await svc.GetEligibleEmployeesDataAsync(
+            ControlNumber.Create(request.CraftRoleCtrlNbr),
+            ControlNumber.Create(request.ClientCtrlNbr),
+            context.CancellationToken);
 
-        // Load all employees for this railroad — lean query, no nav-property includes needed
-        var employees = await employeeRepository.GetListByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
+        var nameMap = await employeeNameSvc.GetFullNameLnfBatchAsync(employees.Select(e => e.UserId));
+        var requiredTypeCtrlNbrs = requiredQuals.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
 
-        if (employees.Count == 0)
-            return new GetEligibleEmployeesForCraftRoleResponse();
-
-        // Exclude employees already assigned to any staffable position (crew or board) globally
-        var assignedCtrlNbrs = await positionAssignmentRepository.GetAssignedEmployeeCtrlNbrsAsync();
-        var unassignedEmployees = assignedCtrlNbrs.Count == 0
-            ? employees
-            : employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList();
-
-        // Batch-resolve names only for unassigned employees
-        var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(unassignedEmployees.Select(e => e.UserId));
-
-        // If no quals required, all unassigned employees in the railroad are eligible
+        IEnumerable<EligibleEmployeeItem> eligible;
         if (requiredQuals.Count == 0)
         {
-            var allItems = unassignedEmployees.Select(e => new EligibleEmployeeItem
+            eligible = employees.Select(e => new EligibleEmployeeItem
             {
                 CtrlNbr = e.CtrlNbr.Value,
                 EmployeeNumber = e.EmployeeNumber,
                 FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? "", string.Empty)
-            }).ToList();
-            allItems.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
-            var responseAll = new GetEligibleEmployeesForCraftRoleResponse();
-            responseAll.Employees.AddRange(allItems);
-            return responseAll;
+            });
         }
-
-        // Filter to employees who hold all required qualification types
-        var requiredTypeCtrlNbrs = requiredQuals.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
-
-        // Bulk-fetch active qualifications for unassigned employees only
-        var allEmpQuals = await employeeQualificationRepository.GetActiveByEmployeeCtrlNbrsAsync(unassignedEmployees.Select(e => e.CtrlNbr));
-        var qualsByEmployee = allEmpQuals
-            .GroupBy(q => q.EmployeeCtrlNbr)
-            .ToDictionary(g => g.Key, g => g.Select(q => q.QualificationTypeCtrlNbr).ToHashSet());
-
-        var eligible = new List<EligibleEmployeeItem>();
-        foreach (var employee in unassignedEmployees)
+        else
         {
-            var heldTypeCtrlNbrs = qualsByEmployee.GetValueOrDefault(employee.CtrlNbr, []);
-            if (requiredTypeCtrlNbrs.IsSubsetOf(heldTypeCtrlNbrs))
-            {
-                eligible.Add(new EligibleEmployeeItem
+            eligible = employees
+                .Where(e =>
                 {
-                    CtrlNbr = employee.CtrlNbr.Value,
-                    EmployeeNumber = employee.EmployeeNumber,
-                    FullNameLnf = nameMap.GetValueOrDefault(employee.UserId ?? "", string.Empty)
+                    var held = qualsByEmployee.GetValueOrDefault(e.CtrlNbr, []);
+                    return requiredTypeCtrlNbrs.IsSubsetOf(held);
+                })
+                .Select(e => new EligibleEmployeeItem
+                {
+                    CtrlNbr = e.CtrlNbr.Value,
+                    EmployeeNumber = e.EmployeeNumber,
+                    FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? "", string.Empty)
                 });
-            }
         }
 
-        eligible.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
+        var sorted = eligible.OrderBy(e => e.FullNameLnf, StringComparer.OrdinalIgnoreCase).ToList();
         var response = new GetEligibleEmployeesForCraftRoleResponse();
-        response.Employees.AddRange(eligible);
+        response.Employees.AddRange(sorted);
         return response;
     }
 
@@ -460,6 +338,9 @@ public sealed class QualificationsService(
         if (qualificationType.ExpirationMonths.HasValue)
             response.ExpirationMonths = qualificationType.ExpirationMonths.Value;
 
+        if (qualificationType.RestrictionLabel is not null)
+            response.RestrictionLabel = qualificationType.RestrictionLabel;
+
         return response;
     }
 
@@ -470,7 +351,7 @@ public sealed class QualificationsService(
             CtrlNbr = qualification.CtrlNbr.Value,
             EmployeeCtrlNbr = qualification.EmployeeCtrlNbr.Value,
             QualificationTypeCtrlNbr = qualification.QualificationTypeCtrlNbr.Value,
-            AchievedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(qualification.AchievedAtUtc, DateTimeKind.Utc)),
+            AchievedAtUtc = qualification.AchievedAtUtc.HasValue ? Timestamp.FromDateTime(DateTime.SpecifyKind(qualification.AchievedAtUtc.Value, DateTimeKind.Utc)) : null,
             Status = qualification.Status,
             GrantedBy = qualification.GrantedBy,
             RevocationReason = qualification.RevocationReason ?? string.Empty,

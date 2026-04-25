@@ -1,17 +1,16 @@
-using CrewService.Domain.Interfaces;
-using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Application.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class DepartmentService(
-    IDepartmentRepository departmentRepository,
-    IOrchestrationUnitOfWorkFactory uowFactory) : DepartmentSrvc.DepartmentSrvcBase
+public class DepartmentService(IServiceProvider serviceProvider) : DepartmentSrvc.DepartmentSrvcBase
 {
     public override async Task<GetDepartmentsResponse> GetAll(GetDepartmentsRequest request, ServerCallContext context)
     {
-        var departments = await departmentRepository.GetByParentAndRailroadAsync(
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.DepartmentService>();
+        var departments = await svc.GetByParentAndRailroadAsync(
             request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
             request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null);
         var response = new GetDepartmentsResponse { TotalCount = departments.Count };
@@ -22,45 +21,47 @@ public class DepartmentService(
 
     public override async Task<DepartmentResponse> Create(CreateDepartmentRequest request, ServerCallContext context)
     {
-        var department = Department.Create(
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.DepartmentService>();
+        var department = await svc.CreateAsync(
             request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
             request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null,
             request.Name,
             string.IsNullOrEmpty(request.DefaultCallSheetView) ? "Vertical" : request.DefaultCallSheetView);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.Departments.Add(department);
-        await uow.CommitAsync();
-
         return MapDepartment(department);
     }
 
     public override async Task<DepartmentResponse> Update(UpdateDepartmentRequest request, ServerCallContext context)
     {
-        var department = await departmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Department {request.CtrlNbr} not found."));
-        department.Update(request.Name, string.IsNullOrEmpty(request.DefaultCallSheetView) ? "Vertical" : request.DefaultCallSheetView);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.Departments.Update(department);
-        await uow.CommitAsync();
-
-        return MapDepartment(department);
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.DepartmentService>();
+        try
+        {
+            var department = await svc.UpdateAsync(
+                ControlNumber.Create(request.CtrlNbr),
+                request.Name,
+                string.IsNullOrEmpty(request.DefaultCallSheetView) ? "Vertical" : request.DefaultCallSheetView);
+            return MapDepartment(department);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<DeleteResponse> Delete(DeleteDepartmentRequest request, ServerCallContext context)
     {
-        var department = await departmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Department {request.CtrlNbr} not found."));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.Departments.Remove(department);
-        await uow.CommitAsync();
-
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.DepartmentService>();
+        try
+        {
+            await svc.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
-    private static DepartmentResponse MapDepartment(Department d) => new()
+    private static DepartmentResponse MapDepartment(Domain.Modules.WorkManagement.Department d) => new()
     {
         CtrlNbr = d.CtrlNbr.Value,
         ParentCtrlNbr = d.ParentCtrlNbr?.Value ?? 0,

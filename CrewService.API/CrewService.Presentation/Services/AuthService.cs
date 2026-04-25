@@ -2,9 +2,9 @@ using CrewService.Domain.Constants;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
-using CrewService.Infrastructure.Models.UserAccount;
+using CrewService.Application.Models.UserAccount;
+using CrewService.Application.Modules.UserAccount;
 using Grpc.Core;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -16,12 +16,12 @@ namespace CrewService.Presentation.Services;
 
 public sealed class AuthService(
     IConfiguration configuration,
-    UserManager<User> userManager,
+    IUserAccountService userAccountService,
     IUserParentAssignmentRepository assignmentRepository,
     IInvitationRepository invitationRepository,
     ICurrentUserService currentUserService) : AuthSrvc.AuthSrvcBase
 {
-    private readonly UserManager<User> _userManager = userManager;
+    private readonly IUserAccountService _userAccountService = userAccountService;
     private readonly IConfiguration _configuration = configuration;
     private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
     private readonly IInvitationRepository _invitationRepository = invitationRepository;
@@ -66,7 +66,7 @@ public sealed class AuthService(
         }
 
         // Check if user already exists (e.g., invited to a second parent)
-        var existingUser = await _userManager.FindByEmailAsync(invitation.Email);
+        var existingUser = await _userAccountService.FindByEmailAsync(invitation.Email);
 
         if (existingUser is null)
         {
@@ -77,22 +77,22 @@ public sealed class AuthService(
                 return response;
             }
 
-            existingUser = new User
+            var createResult = await _userAccountService.CreateAsync(new CreateUserRequest
             {
                 UserName = invitation.Email,
                 Email = invitation.Email,
-                EmailConfirmed = true
-            };
+                Password = request.Password
+            });
 
-            var result = await _userManager.CreateAsync(existingUser, request.Password);
-
-            if (!result.Succeeded)
+            if (!createResult.Result.Succeeded)
             {
                 response.Success = false;
-                foreach (var error in result.Errors)
-                    response.Message.Add(error.Description);
+                foreach (var error in createResult.Result.Errors)
+                    response.Message.Add(error);
                 return response;
             }
+
+            existingUser = await _userAccountService.FindByIdAsync(createResult.UserId);
         }
 
         // Accept the invitation
@@ -102,8 +102,7 @@ public sealed class AuthService(
         // Global SystemAdmin invitation (no parent) — set PrimaryRoleId
         if (invitation.ParentCtrlNbr is null)
         {
-            existingUser.PrimaryRoleId = Roles.SystemAdmin;
-            await _userManager.UpdateAsync(existingUser);
+            await _userAccountService.UpdatePrimaryRoleAsync(existingUser!.Id, Roles.SystemAdmin);
 
             // Supersede prior SystemAdmin invitations for this email
             var oldInvitations = await _invitationRepository.GetAcceptedByEmailAndParentAsync(invitation.Email, null);
@@ -119,7 +118,7 @@ public sealed class AuthService(
         }
 
         // Create or update the UserParentAssignment from the invitation
-        var existingAssignments = await _assignmentRepository.GetByUserAndParentAsync(existingUser.Id, invitation.ParentCtrlNbr);
+        var existingAssignments = await _assignmentRepository.GetByUserAndParentAsync(existingUser!.Id, invitation.ParentCtrlNbr!);
         var isParentScoped = !Roles.RequiresRailroad(invitation.Role);
 
         if (existingAssignments.Count > 0)
@@ -202,7 +201,7 @@ public sealed class AuthService(
 
         if (!string.IsNullOrEmpty(request.UserName) && !string.IsNullOrEmpty(request.Password))
         {
-            var user = await _userManager.FindByEmailAsync(request.UserName);
+            var user = await _userAccountService.FindByEmailAsync(request.UserName);
 
             if (user is null)
             {
@@ -211,7 +210,7 @@ public sealed class AuthService(
             }
             else
             {
-                var validated = await _userManager.CheckPasswordAsync(user, request.Password);
+                var validated = await _userAccountService.CheckPasswordAsync(user.Id, request.Password);
 
                 if (validated)
                 {
@@ -255,7 +254,7 @@ public sealed class AuthService(
         if (principal?.Identity?.Name is null)
             return response;
 
-        var user = await _userManager.FindByEmailAsync(principal.Identity.Name);
+        var user = await _userAccountService.FindByEmailAsync(principal.Identity.Name);
 
         if (user is null)
         {
@@ -275,7 +274,7 @@ public sealed class AuthService(
         return response;
     }
 
-    private async Task<AuthResponse> GenerateJwtAccessTokensAsync(User user)
+    private async Task<AuthResponse> GenerateJwtAccessTokensAsync(UserAccountDto user)
     {
         AuthResponse response = new();
 
@@ -284,10 +283,7 @@ public sealed class AuthService(
         var token = await GenerateJwtTokenAsync(user, expireDate);
         var refreshToken = GenerateRefreshToken();
 
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiration = DateTime.UtcNow.AddHours(12);
-
-        await _userManager.UpdateAsync(user);
+        await _userAccountService.UpdateRefreshTokenAsync(user.Id, refreshToken, DateTime.UtcNow.AddHours(12));
 
         response.Token = token;
         response.Success = true;
@@ -298,7 +294,7 @@ public sealed class AuthService(
         return response;
     }
 
-    private async Task<string> GenerateJwtTokenAsync(User user, DateTime expirationDate)
+    private async Task<string> GenerateJwtTokenAsync(UserAccountDto user, DateTime expirationDate)
     {
         var claims = new List<Claim>
         {

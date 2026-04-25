@@ -1,99 +1,225 @@
-using CrewService.Domain.Interfaces;
-using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class WorkManagementService(
-    IWorkInstanceRepository workInstanceRepository,
-    IPositionSlotRepository positionSlotRepository,
-    ICraftRoleQualificationRepository craftRoleQualificationRepository,
-    ICraftRoleRepository craftRoleRepository,
-    IQualificationTypeRepository qualificationTypeRepository,
-    IShiftDefinitionRepository shiftDefinitionRepository,
-    IOrchestrationUnitOfWorkFactory uowFactory) : WorkManagementSrvc.WorkManagementSrvcBase
+public class WorkManagementService(IServiceProvider serviceProvider) : WorkManagementSrvc.WorkManagementSrvcBase
 {
-
-
-
-
-
     public override async Task<GetWorkInstancesResponse> GetWorkInstances(GetWorkInstancesRequest request, ServerCallContext context)
     {
-        var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
-        var endUtc = DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var instances = await workInstanceRepository.GetByWorkAreaAndDateRangeAsync(
-            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), startUtc, endUtc);
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var instances = await svc.GetWorkInstancesAsync(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+            DateTime.Parse(request.StartUtc).ToUniversalTime(),
+            DateTime.Parse(request.EndUtc).ToUniversalTime(),
+            context.CancellationToken);
         var response = new GetWorkInstancesResponse { TotalCount = instances.Count };
-        foreach (var w in instances)
-            response.Instances.Add(MapWorkInstance(w));
+        foreach (var w in instances) response.Instances.Add(MapWorkInstance(w));
         return response;
     }
 
     public override async Task<WorkInstanceResponse> CreateWorkInstance(CreateWorkInstanceRequest request, ServerCallContext context)
     {
-        var instance = WorkInstance.Create(
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var instance = await svc.CreateWorkInstanceAsync(
             request.AssignmentGroupCtrlNbr > 0 ? request.AssignmentGroupCtrlNbr : null,
             request.WorkAreaGroupCtrlNbr,
             DateTime.Parse(request.StartUtc).ToUniversalTime(),
             DateTime.Parse(request.EndUtc).ToUniversalTime(),
-            string.IsNullOrEmpty(request.CallTimeUtc) ? null : DateTime.Parse(request.CallTimeUtc).ToUniversalTime());
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.WorkInstances.Add(instance);
-        await uow.CommitAsync();
-
+            string.IsNullOrEmpty(request.CallTimeUtc) ? null : DateTime.Parse(request.CallTimeUtc).ToUniversalTime(),
+            context.CancellationToken);
         return MapWorkInstance(instance);
     }
 
     public override async Task<GetPositionSlotsResponse> GetPositionSlots(GetPositionSlotsRequest request, ServerCallContext context)
     {
-        var slots = await positionSlotRepository.GetByWorkInstanceAsync(ControlNumber.Create(request.WorkInstanceCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var slots = await svc.GetPositionSlotsAsync(ControlNumber.Create(request.WorkInstanceCtrlNbr), context.CancellationToken);
         var response = new GetPositionSlotsResponse { TotalCount = slots.Count };
-        foreach (var s in slots)
-            response.Slots.Add(MapSlot(s));
+        foreach (var s in slots) response.Slots.Add(MapSlot(s));
         return response;
     }
 
     public override async Task<PositionSlotResponse> CreatePositionSlot(CreatePositionSlotRequest request, ServerCallContext context)
     {
-        var slot = PositionSlot.Create(request.WorkInstanceCtrlNbr, request.CraftRoleCtrlNbr);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.PositionSlots.Add(slot);
-        await uow.CommitAsync();
-
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var slot = await svc.CreatePositionSlotAsync(request.WorkInstanceCtrlNbr, request.CraftRoleCtrlNbr, context.CancellationToken);
         return MapSlot(slot);
     }
 
     public override async Task<PositionSlotResponse> BindSlot(BindSlotRequest request, ServerCallContext context)
     {
-        var slot = await positionSlotRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Slot {request.CtrlNbr} not found."));
-        slot.Bind(request.EmployeeCtrlNbr, request.Source);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.PositionSlots.Update(slot);
-        await uow.CommitAsync();
-
-        return MapSlot(slot);
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            var slot = await svc.BindSlotAsync(ControlNumber.Create(request.CtrlNbr), request.EmployeeCtrlNbr, request.Source, context.CancellationToken);
+            return MapSlot(slot);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<PositionSlotResponse> UnbindSlot(UnbindSlotRequest request, ServerCallContext context)
     {
-        var slot = await positionSlotRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Slot {request.CtrlNbr} not found."));
-        slot.Unbind();
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.PositionSlots.Update(slot);
-        await uow.CommitAsync();
-
-        return MapSlot(slot);
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            var slot = await svc.UnbindSlotAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return MapSlot(slot);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
+    public override async Task<GetCraftRolesResponse> GetCraftRoles(GetCraftRolesRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        var craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var roles = await svc.GetCraftRolesAsync(departmentCtrlNbr, craftCtrlNbr, railroadCtrlNbr, context.CancellationToken);
+        var response = new GetCraftRolesResponse { TotalCount = roles.Count };
+        foreach (var r in roles) response.Roles.Add(MapRole(r));
+        return response;
+    }
+
+    public override async Task<CraftRoleResponse> CreateCraftRole(CreateCraftRoleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var role = await svc.CreateCraftRoleAsync(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName, context.CancellationToken);
+        return MapRole(role);
+    }
+
+    public override async Task<CraftRoleResponse> UpdateCraftRole(UpdateCraftRoleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            var role = await svc.UpdateCraftRoleAsync(ControlNumber.Create(request.CtrlNbr), request.Code, request.Name, request.AlternateName, context.CancellationToken);
+            return MapRole(role);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<DeleteResponse> DeleteCraftRole(DeleteCraftRoleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            await svc.DeleteCraftRoleAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<GetCraftRoleQualificationsResponse> GetCraftRoleQualifications(GetCraftRoleQualificationsRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var quals = await svc.GetCraftRoleQualificationsAsync(ControlNumber.Create(request.CraftRoleCtrlNbr), context.CancellationToken);
+        var response = new GetCraftRoleQualificationsResponse { TotalCount = quals.Count };
+        foreach (var q in quals) response.Qualifications.Add(MapCraftRoleQualification(q));
+        return response;
+    }
+
+    public override async Task<CraftRoleQualificationResponse> AddCraftRoleQualification(AddCraftRoleQualificationRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            var rq = await svc.AddCraftRoleQualificationAsync(
+                ControlNumber.Create(request.CraftRoleCtrlNbr),
+                ControlNumber.Create(request.QualificationTypeCtrlNbr),
+                context.CancellationToken);
+            return MapCraftRoleQualification(rq);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
+        }
+    }
+
+    public override async Task<DeleteResponse> RemoveCraftRoleQualification(RemoveCraftRoleQualificationRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            await svc.RemoveCraftRoleQualificationAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<GetShiftDefinitionsResponse> GetShiftDefinitions(GetShiftDefinitionsRequest request, ServerCallContext context)
+    {
+        if (request.WorkAreaGroupCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "WorkAreaGroupCtrlNbr is required."));
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var shifts = await svc.GetShiftDefinitionsAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr), context.CancellationToken);
+        var response = new GetShiftDefinitionsResponse { TotalCount = shifts.Count };
+        foreach (var sd in shifts) response.ShiftDefinitions.Add(MapShiftDefinition(sd));
+        return response;
+    }
+
+    public override async Task<ShiftDefinitionResponse> CreateShiftDefinition(CreateShiftDefinitionRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        var shift = await svc.CreateShiftDefinitionAsync(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+            request.ShiftCode, request.DisplayName, request.DisplayOrder, request.IsActive,
+            context.CancellationToken);
+        return MapShiftDefinition(shift);
+    }
+
+    public override async Task<ShiftDefinitionResponse> UpdateShiftDefinition(UpdateShiftDefinitionRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            var shift = await svc.UpdateShiftDefinitionAsync(
+                ControlNumber.Create(request.CtrlNbr),
+                request.ShiftCode, request.DisplayName, request.DisplayOrder, request.IsActive,
+                context.CancellationToken);
+            return MapShiftDefinition(shift);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<DeleteResponse> DeleteShiftDefinition(DeleteShiftDefinitionRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
+        try
+        {
+            await svc.DeleteShiftDefinitionAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
 
     private static WorkInstanceResponse MapWorkInstance(WorkInstance w) => new()
     {
@@ -116,107 +242,6 @@ public class WorkManagementService(
         BindingSource = s.BindingSource ?? string.Empty
     };
 
-    public override async Task<GetCraftRolesResponse> GetCraftRoles(GetCraftRolesRequest request, ServerCallContext context)
-    {
-        var roles = request.DepartmentCtrlNbr > 0
-            ? await craftRoleRepository.GetByDepartmentAsync(ControlNumber.Create(request.DepartmentCtrlNbr))
-            : request.CraftCtrlNbr > 0
-                ? await craftRoleRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-                : request.RailroadCtrlNbr > 0
-                    ? await craftRoleRepository.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr))
-                    : await craftRoleRepository.GetAllAsync();
-        var response = new GetCraftRolesResponse { TotalCount = roles.Count };
-        foreach (var r in roles) response.Roles.Add(MapRole(r));
-        return response;
-    }
-
-    public override async Task<CraftRoleResponse> CreateCraftRole(CreateCraftRoleRequest request, ServerCallContext context)
-    {
-        var role = CraftRole.Create(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CraftRoles.Add(role);
-        await uow.CommitAsync();
-
-        return MapRole(role);
-    }
-
-
-    public override async Task<CraftRoleResponse> UpdateCraftRole(UpdateCraftRoleRequest request, ServerCallContext context)
-    {
-        var role = await craftRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CtrlNbr} not found."));
-        role.Update(request.Code, request.Name, request.AlternateName);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CraftRoles.Update(role);
-        await uow.CommitAsync();
-
-        return MapRole(role);
-    }
-
-    public override async Task<DeleteResponse> DeleteCraftRole(DeleteCraftRoleRequest request, ServerCallContext context)
-    {
-        var role = await craftRoleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CtrlNbr} not found."));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CraftRoles.Remove(role);
-        await uow.CommitAsync();
-
-        return new DeleteResponse { Success = true };
-    }
-
-    public override async Task<GetCraftRoleQualificationsResponse> GetCraftRoleQualifications(GetCraftRoleQualificationsRequest request, ServerCallContext context)
-    {
-        var quals = await craftRoleQualificationRepository.GetByCraftRoleAsync(ControlNumber.Create(request.CraftRoleCtrlNbr));
-        var response = new GetCraftRoleQualificationsResponse { TotalCount = quals.Count };
-        foreach (var q in quals) response.Qualifications.Add(MapCraftRoleQualification(q));
-        return response;
-    }
-
-    public override async Task<CraftRoleQualificationResponse> AddCraftRoleQualification(AddCraftRoleQualificationRequest request, ServerCallContext context)
-    {
-        var role = await craftRoleRepository.GetByCtrlNbrWithQualificationsAsync(ControlNumber.Create(request.CraftRoleCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRole {request.CraftRoleCtrlNbr} not found."));
-
-
-        var qualType = await qualificationTypeRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.QualificationTypeCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"QualificationType {request.QualificationTypeCtrlNbr} not found."));
-
-        if (qualType.CraftCtrlNbr is not null && qualType.CraftCtrlNbr != role.CraftCtrlNbr)
-            throw new RpcException(new Status(StatusCode.InvalidArgument,
-                $"Qualification '{qualType.Name}' is restricted to a different craft and cannot be assigned to this role."));
-
-        var rq = role.AddRequiredQualification(ControlNumber.Create(request.QualificationTypeCtrlNbr));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CraftRoleQualifications.Add(rq);
-        uow.CraftRoles.Update(role);
-        await uow.CommitAsync(context.CancellationToken);
-
-        return MapCraftRoleQualification(rq);
-    }
-
-    public override async Task<DeleteResponse> RemoveCraftRoleQualification(RemoveCraftRoleQualificationRequest request, ServerCallContext context)
-    {
-        var ctrlNbr = ControlNumber.Create(request.CtrlNbr);
-        var rq = await craftRoleQualificationRepository.GetByCtrlNbrAsync(ctrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CraftRoleQualification {request.CtrlNbr} not found."));
-
-        var role = await craftRoleRepository.GetByCtrlNbrWithQualificationsAsync(rq.CraftRoleCtrlNbr, context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "CraftRole not found."));
-
-        role.RemoveRequiredQualification(ctrlNbr);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CraftRoleQualifications.Remove(rq);
-        uow.CraftRoles.Update(role);
-        await uow.CommitAsync(context.CancellationToken);
-
-        return new DeleteResponse { Success = true };
-    }
-
     private static CraftRoleQualificationResponse MapCraftRoleQualification(CraftRoleQualification rq) => new()
     {
         CtrlNbr = rq.CtrlNbr.Value,
@@ -232,66 +257,6 @@ public class WorkManagementService(
         Name = r.Name,
         AlternateName = r.AlternateName ?? string.Empty
     };
-
-    // ── Shift Definitions ──
-
-    public override async Task<GetShiftDefinitionsResponse> GetShiftDefinitions(GetShiftDefinitionsRequest request, ServerCallContext context)
-    {
-        if (request.WorkAreaGroupCtrlNbr <= 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "WorkAreaGroupCtrlNbr is required."));
-
-        var shifts = await shiftDefinitionRepository.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaGroupCtrlNbr));
-        var response = new GetShiftDefinitionsResponse { TotalCount = shifts.Count };
-        foreach (var sd in shifts)
-            response.ShiftDefinitions.Add(MapShiftDefinition(sd));
-        return response;
-    }
-
-    public override async Task<ShiftDefinitionResponse> CreateShiftDefinition(CreateShiftDefinitionRequest request, ServerCallContext context)
-    {
-        var shift = ShiftDefinition.Create(
-            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
-            request.ShiftCode,
-            request.DisplayName,
-            request.DisplayOrder,
-            request.IsActive);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.ShiftDefinitions.Add(shift);
-        await uow.CommitAsync();
-
-        return MapShiftDefinition(shift);
-    }
-
-    public override async Task<ShiftDefinitionResponse> UpdateShiftDefinition(UpdateShiftDefinitionRequest request, ServerCallContext context)
-    {
-        var shift = await shiftDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"ShiftDefinition {request.CtrlNbr} not found."));
-
-        shift.Update(
-            shiftCode: request.ShiftCode,
-            displayName: request.DisplayName,
-            displayOrder: request.DisplayOrder,
-            isActive: request.IsActive);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.ShiftDefinitions.Update(shift);
-        await uow.CommitAsync();
-
-        return MapShiftDefinition(shift);
-    }
-
-    public override async Task<DeleteResponse> DeleteShiftDefinition(DeleteShiftDefinitionRequest request, ServerCallContext context)
-    {
-        var shift = await shiftDefinitionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"ShiftDefinition {request.CtrlNbr} not found."));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.ShiftDefinitions.Remove(shift);
-        await uow.CommitAsync();
-
-        return new DeleteResponse { Success = true };
-    }
 
     private static ShiftDefinitionResponse MapShiftDefinition(ShiftDefinition sd) => new()
     {

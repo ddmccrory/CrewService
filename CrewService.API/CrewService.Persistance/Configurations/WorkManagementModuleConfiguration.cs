@@ -63,7 +63,6 @@ internal class CraftRoleQualificationConfiguration : IEntityTypeConfiguration<Cr
 
         builder.HasIndex(q => new { q.CraftRoleCtrlNbr, q.QualificationTypeCtrlNbr }).IsUnique();
 
-        builder.HasOne<CraftRole>().WithMany().HasForeignKey(q => q.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<QualificationType>().WithMany().HasForeignKey(q => q.QualificationTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(q => q.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -109,11 +108,15 @@ internal class SlotRequirementConfiguration : IEntityTypeConfiguration<SlotRequi
         builder.Property(r => r.QualificationTypeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(r => r.RegulatoryQualificationCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(r => r.Notes).HasMaxLength(500);
 
         builder.HasOne<PositionSlot>().WithMany().HasForeignKey(r => r.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<CraftRole>().WithMany().HasForeignKey(r => r.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<QualificationType>().WithMany().HasForeignKey(r => r.QualificationTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(r => r.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

@@ -67,5 +67,9 @@ h1:focus {
 }
 
 .table > tbody > tr.row-attention-pending > td:first-child {
+    border-left: 3px solid var(--bs-info);
+}
+
+.table > tbody > tr.row-attention-renew > td:first-child {
     border-left: 3px solid var(--bs-warning);
 }

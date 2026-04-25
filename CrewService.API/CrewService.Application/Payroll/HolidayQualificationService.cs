@@ -1,17 +1,8 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Payroll;
-
-public interface IHolidayRepository
-{
-    Task<IReadOnlyList<Holiday>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-}
-
-public interface IHolidayQualificationRuleRepository
-{
-    Task<IReadOnlyList<HolidayQualificationRule>> GetByHolidayAsync(ControlNumber holidayCtrlNbr, CancellationToken ct = default);
-}
 
 public sealed record HolidayQualificationContext(
     ControlNumber EmployeeCtrlNbr,
@@ -24,12 +15,20 @@ public sealed record HolidayQualificationResult(
     bool IsQualified,
     string? DisqualificationReason = null);
 
-public sealed class HolidayQualificationService(IHolidayQualificationRuleRepository ruleRepo)
+public sealed class HolidayQualificationService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
+    public async Task<IReadOnlyList<Holiday>> GetActiveByWorkAreaAsync(
+        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.Holidays.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+    }
+
     public async Task<HolidayQualificationResult> EvaluateAsync(
         ControlNumber holidayCtrlNbr, HolidayQualificationContext ctx, CancellationToken ct = default)
     {
-        var rules = await ruleRepo.GetByHolidayAsync(holidayCtrlNbr, ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var rules = await uow.HolidayQualificationRules.GetByHolidayAsync(holidayCtrlNbr, ct);
         if (rules.Count == 0)
             return new HolidayQualificationResult(true);
 

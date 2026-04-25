@@ -34,12 +34,6 @@ public sealed class DomainEventReactor(
                     break;
                 }
 
-                case "EmployeeCreatedDomainEvent":
-                {
-                    var employeeCtrlNbr = ControlNumber.Create(domainEvent.AggregateId);
-                    await reactiveService.HandleEmployeeCreatedAsync(employeeCtrlNbr, cancellationToken);
-                    break;
-                }
             }
         }
     }

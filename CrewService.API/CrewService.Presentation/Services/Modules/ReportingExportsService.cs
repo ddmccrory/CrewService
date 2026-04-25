@@ -2,18 +2,17 @@ using CrewService.Application.ReportingExports;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class ReportingExportsService(
-    PayrollExportService exportService,
-    PayrollImportService importService,
-    DailyReportGenerationService dailyReportService,
-    IPayrollExportBatchRepository exportBatchRepo) : ReportingExportsSrvc.ReportingExportsSrvcBase
+public class ReportingExportsService(IServiceProvider serviceProvider)
+    : ReportingExportsSrvc.ReportingExportsSrvcBase
 {
     public override async Task<PayrollExportBatchResponse> ExportPayroll(ExportPayrollRequest request, ServerCallContext context)
     {
-        var batch = await exportService.ExportAsync(
+        var svc = serviceProvider.GetRequiredService<PayrollExportService>();
+        var batch = await svc.ExportAsync(
             ControlNumber.Create(request.PayrollRunCtrlNbr),
             request.FormatCode,
             context.CancellationToken);
@@ -23,7 +22,8 @@ public class ReportingExportsService(
 
     public override async Task<GetExportBatchesResponse> GetExportBatches(GetExportBatchesRequest request, ServerCallContext context)
     {
-        var batches = await exportBatchRepo.GetByRunAsync(
+        var svc = serviceProvider.GetRequiredService<PayrollExportService>();
+        var batches = await svc.GetExportBatchesAsync(
             ControlNumber.Create(request.PayrollRunCtrlNbr),
             context.CancellationToken);
 
@@ -34,11 +34,12 @@ public class ReportingExportsService(
 
     public override async Task<ImportPayrollResponse> ImportPayroll(ImportPayrollRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<PayrollImportService>();
         var rows = request.Rows
             .Select(r => new PayrollImportRow(r.EmployeeCtrlNbr, (decimal)r.PaidAmount, request.PayPeriod))
             .ToList();
 
-        var records = await importService.ImportAsync(
+        var records = await svc.ImportAsync(
             request.SourceFile, rows, request.PayPeriod, context.CancellationToken);
 
         var matched = records.Count(r => r.MatchStatus == "Matched");
@@ -52,8 +53,9 @@ public class ReportingExportsService(
 
     public override async Task<DailyReportResponse> GenerateDailyReport(GenerateDailyReportRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<DailyReportGenerationService>();
         var reportDate = DateOnly.Parse(request.ReportDate);
-        var report = await dailyReportService.GenerateAsync(
+        var report = await svc.GenerateAsync(
             ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
             ControlNumber.Create(request.WorkInstanceCtrlNbr),
             reportDate,

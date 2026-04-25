@@ -2,16 +2,18 @@ using CrewService.Application.ElectronicCalling;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class ElectronicCallingService(CrewCallingService callingService)
+public class ElectronicCallingService(IServiceProvider serviceProvider)
     : ElectronicCallingSrvc.ElectronicCallingSrvcBase
 {
     public override async Task<NotificationRequestResponse> SendCrewCall(
         SendCrewCallRequest request, ServerCallContext context)
     {
-        var result = await callingService.SendCallAsync(
+        var svc = serviceProvider.GetRequiredService<CrewCallingService>();
+        var result = await svc.SendCallAsync(
             ControlNumber.Create(request.PositionSlotCtrlNbr),
             ControlNumber.Create(request.EmployeeCtrlNbr),
             request.TemplateType,
@@ -25,7 +27,8 @@ public class ElectronicCallingService(CrewCallingService callingService)
     public override async Task<NotificationRequestResponse> PollCallStatus(
         PollCallStatusRequest request, ServerCallContext context)
     {
-        var result = await callingService.PollAndUpdateAsync(
+        var svc = serviceProvider.GetRequiredService<CrewCallingService>();
+        var result = await svc.PollAndUpdateAsync(
             ControlNumber.Create(request.RequestCtrlNbr), context.CancellationToken)
             ?? throw new RpcException(new Status(StatusCode.NotFound, "Notification request not found"));
 

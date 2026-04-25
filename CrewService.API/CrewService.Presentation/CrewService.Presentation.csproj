@@ -19,6 +19,7 @@
     <PackageReference Include="Google.Api.CommonProtos" Version="2.17.0" />
     <PackageReference Include="Google.Protobuf" Version="3.34.1" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.76.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -28,8 +29,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CrewService.Application\CrewService.Application.csproj" />
-    <ProjectReference Include="..\CrewService.Infrastructure\CrewService.Infrastructure.csproj" />
-    <ProjectReference Include="..\CrewService.Persistance\CrewService.Persistance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,22 +1,11 @@
-using CrewService.Application.Payroll;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.HolidayManagement;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.HolidayManagement;
 
-public interface IRailroadHolidaySelectionRepository
-{
-    Task<IReadOnlyList<RailroadHolidaySelection>> GetActiveByWorkAreaAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-
-    Task<bool> HasOwnSelectionsAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-}
-
-public sealed class HolidayAutoGenerationService(
-    IRailroadHolidaySelectionRepository selectionRepo,
-    IHolidayRepository holidayRepo)
+public sealed class HolidayAutoGenerationService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
     /// <summary>
     /// Generates holidays for a work area. If the work area has its own selections, those
@@ -26,8 +15,10 @@ public sealed class HolidayAutoGenerationService(
         ControlNumber workAreaGroupCtrlNbr, int year,
         ControlNumber? parentGroupCtrlNbr = null, CancellationToken ct = default)
     {
-        var selections = await ResolveSelectionsAsync(workAreaGroupCtrlNbr, parentGroupCtrlNbr, ct);
-        var existingHolidays = await holidayRepo.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var selections = await ResolveSelectionsAsync(uow, workAreaGroupCtrlNbr, parentGroupCtrlNbr, ct);
+        var existingHolidays = await uow.Holidays.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
 
         var existingDates = existingHolidays
             .Where(h => h.ObservedDate.Year == year)
@@ -62,19 +53,17 @@ public sealed class HolidayAutoGenerationService(
         };
     }
 
-    /// <summary>
-    /// Railroad-specific selections take priority. If none exist and a parent group
-    /// is provided, the parent's selections are inherited.
-    /// </summary>
-    private async Task<IReadOnlyList<RailroadHolidaySelection>> ResolveSelectionsAsync(
-        ControlNumber workAreaGroupCtrlNbr, ControlNumber? parentGroupCtrlNbr, CancellationToken ct)
+    private static async Task<IReadOnlyList<RailroadHolidaySelection>> ResolveSelectionsAsync(
+        IOrchestrationUnitOfWork uow, ControlNumber workAreaGroupCtrlNbr,
+        ControlNumber? parentGroupCtrlNbr, CancellationToken ct)
     {
-        if (await selectionRepo.HasOwnSelectionsAsync(workAreaGroupCtrlNbr, ct))
-            return await selectionRepo.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        if (await uow.RailroadHolidaySelections.HasOwnSelectionsAsync(workAreaGroupCtrlNbr, ct))
+            return await uow.RailroadHolidaySelections.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
 
         if (parentGroupCtrlNbr is not null)
-            return await selectionRepo.GetActiveByWorkAreaAsync(parentGroupCtrlNbr, ct);
+            return await uow.RailroadHolidaySelections.GetActiveByWorkAreaAsync(parentGroupCtrlNbr, ct);
 
         return [];
     }
 }
+

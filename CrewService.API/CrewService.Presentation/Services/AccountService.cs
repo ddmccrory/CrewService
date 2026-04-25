@@ -1,13 +1,12 @@
-using CrewService.Infrastructure.Models.UserAccount;
+using CrewService.Application.Modules.UserAccount;
 using Grpc.Core;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 
 namespace CrewService.Presentation.Services;
 
-public sealed partial class AccountService(UserManager<User> userManager, ILogger<AccountService> logger) : AccountSrvc.AccountSrvcBase
+public sealed partial class AccountService(IUserAccountService userAccountService, ILogger<AccountService> logger) : AccountSrvc.AccountSrvcBase
 {
-    private readonly UserManager<User> _userManager = userManager;
+    private readonly IUserAccountService _userAccountService = userAccountService;
     private readonly ILogger<AccountService> _logger = logger;
 
     public override async Task<GetProfileResponse> GetProfile(GetProfileRequest request, ServerCallContext context)
@@ -16,7 +15,7 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
 
         if (!string.IsNullOrEmpty(request.UserName))
         {
-            var user = await _userManager.FindByEmailAsync(request.UserName);
+            var user = await _userAccountService.FindByEmailAsync(request.UserName);
 
             if (user is null)
             {
@@ -50,8 +49,7 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
 
         if (!string.IsNullOrEmpty(request.UserName))
         {
-            var user = await _userManager.FindByEmailAsync(request.UserName);
-
+            var user = await _userAccountService.FindByEmailAsync(request.UserName);
 
             if (user is null)
             {
@@ -61,10 +59,7 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
             }
             else
             {
-                user.ThemeName = request.ThemeName;
-                user.ThemeMode = request.ThemeMode;
-
-                var result = await _userManager.UpdateAsync(user);
+                var result = await _userAccountService.UpdateThemeAsync(user.Id, request.ThemeName, request.ThemeMode);
 
                 if (result.Succeeded)
                 {
@@ -76,10 +71,10 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
                 else
                 {
                     _logger.LogError("ModifyTheme: UpdateAsync failed for user '{UserName}': {Errors}",
-                        request.UserName, string.Join("; ", result.Errors.Select(e => e.Description)));
+                        request.UserName, string.Join("; ", result.Errors));
                     response.Success = false;
-                    foreach (var erorr in result.Errors)
-                        response.Message.Add(erorr.Description);
+                    foreach (var error in result.Errors)
+                        response.Message.Add(error);
                 }
             }
         }
@@ -99,7 +94,7 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
 
         if (!string.IsNullOrEmpty(request.UserName))
         {
-            var user = await _userManager.FindByEmailAsync(request.UserName);
+            var user = await _userAccountService.FindByEmailAsync(request.UserName);
 
             if (user is null)
             {
@@ -108,25 +103,23 @@ public sealed partial class AccountService(UserManager<User> userManager, ILogge
             }
             else
             {
-                user.FirstName = request.FirstName;
-                user.MiddleName = request.MiddleName;
-                user.LastName = request.LastName;
-                user.FullName = EmployeeNameService.FormatFullName(request.FirstName, request.MiddleName, request.LastName);
-                user.FullNameLNF = EmployeeNameService.FormatFullNameLnf(request.FirstName, request.MiddleName, request.LastName);
+                var fullName = EmployeeNameService.FormatFullName(request.FirstName, request.MiddleName, request.LastName);
+                var fullNameLNF = EmployeeNameService.FormatFullNameLnf(request.FirstName, request.MiddleName, request.LastName);
 
-                var result = await _userManager.UpdateAsync(user);
+                var result = await _userAccountService.UpdateProfileAsync(
+                    user.Id, request.FirstName, request.MiddleName, request.LastName, fullName, fullNameLNF);
 
                 if (result.Succeeded)
                 {
                     response.Success = true;
-                    response.FullName = user.FullName ?? string.Empty;
+                    response.FullName = fullName;
                     response.Message.Add("User profile name has been successfully updated.");
                 }
                 else
                 {
                     response.Success = false;
-                    foreach (var erorr in result.Errors)
-                        response.Message.Add(erorr.Description);
+                    foreach (var error in result.Errors)
+                        response.Message.Add(error);
                 }
             }
         }

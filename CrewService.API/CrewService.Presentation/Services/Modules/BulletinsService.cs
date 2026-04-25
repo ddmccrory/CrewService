@@ -1,19 +1,16 @@
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class BulletinsService(
-    IPositionVacancyRepository vacancyRepository,
-    IBulletinRepository bulletinRepository,
-    IBulletinBidRepository bidRepository) : BulletinsSrvc.BulletinsSrvcBase
+public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.BulletinsSrvcBase
 {
-    // Position Vacancies
-
     public override async Task<GetVacanciesResponse> GetOpenVacancies(GetOpenVacanciesRequest request, ServerCallContext context)
     {
-        var vacancies = await vacancyRepository.GetOpenAsync();
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var vacancies = await svc.GetOpenVacanciesAsync(context.CancellationToken);
         var response = new GetVacanciesResponse { TotalCount = vacancies.Count };
         foreach (var v in vacancies) response.Vacancies.Add(MapVacancy(v));
         return response;
@@ -21,7 +18,8 @@ public class BulletinsService(
 
     public override async Task<GetVacanciesResponse> GetVacanciesByCraft(GetVacanciesByCraftRequest request, ServerCallContext context)
     {
-        var vacancies = await vacancyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var vacancies = await svc.GetVacanciesByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
         var response = new GetVacanciesResponse { TotalCount = vacancies.Count };
         foreach (var v in vacancies) response.Vacancies.Add(MapVacancy(v));
         return response;
@@ -29,25 +27,22 @@ public class BulletinsService(
 
     public override async Task<PositionVacancyResponse> GetVacancy(GetVacancyRequest request, ServerCallContext context)
     {
-        var vacancy = await vacancyRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Vacancy {request.CtrlNbr} not found."));
-        return MapVacancy(vacancy);
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try { return MapVacancy(await svc.GetVacancyAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<PositionVacancyResponse> AbolishVacancy(AbolishVacancyRequest request, ServerCallContext context)
     {
-        var vacancy = await vacancyRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Vacancy {request.CtrlNbr} not found."));
-        vacancy.Abolish();
-        await vacancyRepository.UpdateAsync(vacancy);
-        return MapVacancy(vacancy);
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try { return MapVacancy(await svc.AbolishVacancyAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
-
-    // Bulletins
 
     public override async Task<GetBulletinsResponse> GetPostedBulletins(GetPostedBulletinsRequest request, ServerCallContext context)
     {
-        var bulletins = await bulletinRepository.GetPostedAsync();
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var bulletins = await svc.GetPostedBulletinsAsync(context.CancellationToken);
         var response = new GetBulletinsResponse { TotalCount = bulletins.Count };
         foreach (var b in bulletins) response.Bulletins.Add(MapBulletin(b));
         return response;
@@ -55,7 +50,8 @@ public class BulletinsService(
 
     public override async Task<GetBulletinsResponse> GetPostedBulletinsByCraft(GetPostedBulletinsByCraftRequest request, ServerCallContext context)
     {
-        var bulletins = await bulletinRepository.GetPostedByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var bulletins = await svc.GetPostedBulletinsByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
         var response = new GetBulletinsResponse { TotalCount = bulletins.Count };
         foreach (var b in bulletins) response.Bulletins.Add(MapBulletin(b));
         return response;
@@ -63,32 +59,30 @@ public class BulletinsService(
 
     public override async Task<BulletinResponse> GetBulletin(GetBulletinRequest request, ServerCallContext context)
     {
-        var bulletin = await bulletinRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Bulletin {request.CtrlNbr} not found."));
-        return MapBulletin(bulletin);
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try { return MapBulletin(await svc.GetBulletinAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
-
-    // Bids
 
     public override async Task<BulletinBidResponse> SubmitBid(SubmitBidRequest request, ServerCallContext context)
     {
-        var bid = BulletinBid.Create(request.BulletinCtrlNbr, request.EmployeeCtrlNbr, request.Priority, request.SeniorityRank);
-        await bidRepository.AddAsync(bid);
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var bid = await svc.SubmitBidAsync(
+            request.BulletinCtrlNbr, request.EmployeeCtrlNbr, request.Priority, request.SeniorityRank, context.CancellationToken);
         return MapBid(bid);
     }
 
     public override async Task<BulletinBidResponse> WithdrawBid(WithdrawBidRequest request, ServerCallContext context)
     {
-        var bid = await bidRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Bid {request.CtrlNbr} not found."));
-        bid.Withdraw();
-        await bidRepository.UpdateAsync(bid);
-        return MapBid(bid);
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try { return MapBid(await svc.WithdrawBidAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<GetBidsResponse> GetBidsByBulletin(GetBidsByBulletinRequest request, ServerCallContext context)
     {
-        var bids = await bidRepository.GetByBulletinAsync(ControlNumber.Create(request.BulletinCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var bids = await svc.GetBidsByBulletinAsync(ControlNumber.Create(request.BulletinCtrlNbr), context.CancellationToken);
         var response = new GetBidsResponse { TotalCount = bids.Count };
         foreach (var b in bids) response.Bids.Add(MapBid(b));
         return response;
@@ -96,13 +90,12 @@ public class BulletinsService(
 
     public override async Task<GetBidsResponse> GetBidsByEmployee(GetBidsByEmployeeRequest request, ServerCallContext context)
     {
-        var bids = await bidRepository.GetByEmployeeAsync(ControlNumber.Create(request.EmployeeCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        var bids = await svc.GetBidsByEmployeeAsync(ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetBidsResponse { TotalCount = bids.Count };
         foreach (var b in bids) response.Bids.Add(MapBid(b));
         return response;
     }
-
-    // Mappers
 
     private static PositionVacancyResponse MapVacancy(PositionVacancy v) => new()
     {

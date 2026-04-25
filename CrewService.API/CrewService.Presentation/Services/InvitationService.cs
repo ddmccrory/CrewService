@@ -3,16 +3,15 @@ using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Application.Modules.UserAccess;
+using CrewService.Application.Modules.UserAccount;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.ValueObjects;
-using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 
 namespace CrewService.Presentation.Services;
 
@@ -23,7 +22,7 @@ public class InvitationService(
     IParentRepository parentRepository,
     IDynamicGroupRepository dynamicGroupRepository,
     IRoleRepository roleRepository,
-    UserManager<User> userManager,
+    IUserAccountService userAccountService,
     IInvitationEmailService emailService,
     IConfiguration configuration)
     : InvitationSrvc.InvitationSrvcBase
@@ -34,7 +33,7 @@ public class InvitationService(
     private readonly IParentRepository _parentRepository = parentRepository;
     private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
     private readonly IRoleRepository _roleRepository = roleRepository;
-    private readonly UserManager<User> _userManager = userManager;
+    private readonly IUserAccountService _userAccountService = userAccountService;
     private readonly IInvitationEmailService _emailService = emailService;
     private readonly string _baseUrl = configuration["AppSettings:BaseUrl"] ?? "https://localhost:7132";
 
@@ -294,7 +293,7 @@ public class InvitationService(
             parentName = parent?.Name.Value ?? $"Parent {invitation.ParentCtrlNbr.Value}";
         }
 
-        var existingUser = await _userManager.FindByEmailAsync(invitation.Email);
+        var existingUser = await _userAccountService.FindByEmailAsync(invitation.Email);
 
         var railroadName = string.Empty;
         if (invitation.RailroadCtrlNbr is not null && invitation.ParentCtrlNbr is not null)

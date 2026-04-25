@@ -24,3 +24,13 @@ public interface IEmployeeBookingRepository : IRepository<EmployeeBooking>
     Task<List<EmployeeBooking>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc);
     Task<bool> HasOverlapAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc);
 }
+
+public interface IOnDutyRecordRepository : IRepository<OnDutyRecord>
+{
+    Task<IReadOnlyList<OnDutyRecord>> GetRecentForEmployeeAsync(ControlNumber employeeCtrlNbr, int dayCount, CancellationToken ct = default);
+}
+
+public interface IOffDutyRecordRepository : IRepository<OffDutyRecord>
+{
+    Task<OffDutyRecord?> GetLastForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+}

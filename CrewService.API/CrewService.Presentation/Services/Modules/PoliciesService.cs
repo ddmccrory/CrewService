@@ -1,34 +1,29 @@
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class PoliciesService(
-    ICraftDisplacementPolicyRepository policyRepository,
-    IBulletinPolicyRepository bulletinPolicyRepository,
-    ISeniorityMovePolicyRepository seniorityMovePolicyRepository,
-    ISeniorityMoveRepository seniorityMoveRepository) : PoliciesSrvc.PoliciesSrvcBase
+public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.PoliciesSrvcBase
 {
     public override async Task<DisplacementPolicyResponse> GetDisplacementPolicy(GetDisplacementPolicyRequest request, ServerCallContext context)
     {
-        var policy = await policyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Displacement policy for craft {request.CraftCtrlNbr} not found."));
-        return MapPolicy(policy);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetDisplacementPolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
+            return MapPolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<DisplacementPolicyResponse> UpsertDisplacementPolicy(UpsertDisplacementPolicyRequest request, ServerCallContext context)
     {
-        var existing = await policyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
-        if (existing is not null)
-        {
-            existing.Update(request.WindowHours, request.SeniorityBasis, request.DefaultAction, request.EligibilitySelectorJson);
-            await policyRepository.UpdateAsync(existing);
-            return MapPolicy(existing);
-        }
-
-        var policy = CraftDisplacementPolicy.Create(request.CraftCtrlNbr, request.WindowHours, request.SeniorityBasis, request.DefaultAction, request.EligibilitySelectorJson);
-        await policyRepository.AddAsync(policy);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var policy = await svc.GetOrUpsertDisplacementPolicyAsync(
+            request.CraftCtrlNbr, request.WindowHours, request.SeniorityBasis,
+            request.DefaultAction, request.EligibilitySelectorJson, context.CancellationToken);
         return MapPolicy(policy);
     }
 
@@ -42,27 +37,23 @@ public class PoliciesService(
         EligibilitySelectorJson = p.EligibilitySelectorJson ?? string.Empty
     };
 
-    // Bulletin Policy
-
     public override async Task<BulletinPolicyResponse> GetBulletinPolicy(GetBulletinPolicyRequest request, ServerCallContext context)
     {
-        var policy = await bulletinPolicyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Bulletin policy for craft {request.CraftCtrlNbr} not found."));
-        return MapBulletinPolicy(policy);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetBulletinPolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
+            return MapBulletinPolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<BulletinPolicyResponse> UpsertBulletinPolicy(UpsertBulletinPolicyRequest request, ServerCallContext context)
     {
-        var existing = await bulletinPolicyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
-        if (existing is not null)
-        {
-            existing.Update(request.BidWindowHours, request.ForcedAssignmentEnabled, request.ForcedAssignmentBasis);
-            await bulletinPolicyRepository.UpdateAsync(existing);
-            return MapBulletinPolicy(existing);
-        }
-
-        var policy = BulletinPolicy.Create(request.CraftCtrlNbr, request.BidWindowHours, request.ForcedAssignmentEnabled, request.ForcedAssignmentBasis);
-        await bulletinPolicyRepository.AddAsync(policy);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var policy = await svc.GetOrUpsertBulletinPolicyAsync(
+            request.CraftCtrlNbr, request.BidWindowHours, request.ForcedAssignmentEnabled,
+            request.ForcedAssignmentBasis, context.CancellationToken);
         return MapBulletinPolicy(policy);
     }
 
@@ -75,27 +66,22 @@ public class PoliciesService(
         ForcedAssignmentBasis = p.ForcedAssignmentBasis
     };
 
-    // Seniority Move Policy
-
     public override async Task<SeniorityMovePolicyResponse> GetSeniorityMovePolicy(GetSeniorityMovePolicyRequest request, ServerCallContext context)
     {
-        var policy = await seniorityMovePolicyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority move policy for craft {request.CraftCtrlNbr} not found."));
-        return MapSeniorityMovePolicy(policy);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetSeniorityMovePolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
+            return MapSeniorityMovePolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<SeniorityMovePolicyResponse> UpsertSeniorityMovePolicy(UpsertSeniorityMovePolicyRequest request, ServerCallContext context)
     {
-        var existing = await seniorityMovePolicyRepository.GetByCraftAsync(ControlNumber.Create(request.CraftCtrlNbr));
-        if (existing is not null)
-        {
-            existing.Update(request.EligibilityDays, request.SeniorityBasis);
-            await seniorityMovePolicyRepository.UpdateAsync(existing);
-            return MapSeniorityMovePolicy(existing);
-        }
-
-        var policy = SeniorityMovePolicy.Create(request.CraftCtrlNbr, request.EligibilityDays, request.SeniorityBasis);
-        await seniorityMovePolicyRepository.AddAsync(policy);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var policy = await svc.GetOrUpsertSeniorityMovePolicyAsync(
+            request.CraftCtrlNbr, request.EligibilityDays, request.SeniorityBasis, context.CancellationToken);
         return MapSeniorityMovePolicy(policy);
     }
 
@@ -107,20 +93,21 @@ public class PoliciesService(
         SeniorityBasis = p.SeniorityBasis
     };
 
-    // Seniority Move
-
     public override async Task<SeniorityMoveResponse> ExerciseSeniorityMove(ExerciseSeniorityMoveRequest request, ServerCallContext context)
     {
-        var move = SeniorityMove.Create(request.EmployeeCtrlNbr, request.CraftCtrlNbr,
-            request.TargetPositionCtrlNbr, request.DisplacedEmployeeCtrlNbr == 0 ? null : request.DisplacedEmployeeCtrlNbr,
-            request.DaysOnCurrentPosition);
-        await seniorityMoveRepository.AddAsync(move);
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var move = await svc.ExerciseSeniorityMoveAsync(
+            request.EmployeeCtrlNbr, request.CraftCtrlNbr, request.TargetPositionCtrlNbr,
+            request.DisplacedEmployeeCtrlNbr == 0 ? null : request.DisplacedEmployeeCtrlNbr,
+            request.DaysOnCurrentPosition, context.CancellationToken);
         return MapSeniorityMove(move);
     }
 
     public override async Task<GetSeniorityMovesResponse> GetSeniorityMovesByEmployee(GetSeniorityMovesByEmployeeRequest request, ServerCallContext context)
     {
-        var moves = await seniorityMoveRepository.GetByEmployeeAsync(ControlNumber.Create(request.EmployeeCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var moves = await svc.GetSeniorityMovesByEmployeeAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetSeniorityMovesResponse { TotalCount = moves.Count };
         foreach (var m in moves) response.Moves.Add(MapSeniorityMove(m));
         return response;
@@ -137,3 +124,4 @@ public class PoliciesService(
         DaysOnCurrentPosition = m.DaysOnCurrentPosition
     };
 }
+

@@ -41,3 +41,9 @@ public interface IShiftDefinitionRepository : IRepository<ShiftDefinition>
 {
     Task<List<ShiftDefinition>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);
 }
+
+public interface IShiftInstanceRepository : IRepository<ShiftInstance>
+{
+    Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default);
+    Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, ControlNumber? departmentCtrlNbr, CancellationToken ct = default);
+}

@@ -57,6 +57,7 @@ internal static class BaselineSeeder
 
         // Compliance
         ("compliance/fra", "FRA Compliance", "Compliance", "/compliance/fra"),
+        ("compliance/fra-settings", "FRA Settings", "Compliance", "/compliance/fra-settings"),
         ("compliance/drug-alcohol", "Drug & Alcohol", "Compliance", "/compliance/drug-alcohol"),
         ("compliance/safety", "Safety Observations", "Compliance", "/compliance/safety"),
         ("compliance/absence-codes", "Absence Codes", "Compliance", "/compliance/absence-codes"),
@@ -123,6 +124,7 @@ internal static class BaselineSeeder
 
         // Compliance
         ["compliance/fra"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["compliance/fra-settings"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["compliance/drug-alcohol"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["compliance/safety"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
         ["compliance/absence-codes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],

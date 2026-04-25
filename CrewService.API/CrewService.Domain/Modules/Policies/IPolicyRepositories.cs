@@ -34,3 +34,8 @@ public interface ISeniorityMoveRepository : IRepository<SeniorityMove>
     Task<List<SeniorityMove>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr);
     Task<List<SeniorityMove>> GetByCraftAsync(ControlNumber craftCtrlNbr);
 }
+
+public interface ICraftOperationsPolicyRepository : IRepository<CraftOperationsPolicy>
+{
+    Task<CraftOperationsPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default);
+}

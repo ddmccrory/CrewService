@@ -2,15 +2,17 @@ using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class VacancyAssignmentService(VacancyResolutionEngine engine)
+public class VacancyAssignmentService(IServiceProvider serviceProvider)
     : VacancyAssignmentSrvc.VacancyAssignmentSrvcBase
 {
     public override async Task<VacancyResolutionRunResponse> TriggerResolution(
         TriggerResolutionRequest request, ServerCallContext context)
     {
+        var engine = serviceProvider.GetRequiredService<VacancyResolutionEngine>();
         var run = await engine.ExecuteAsync(
             ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
             ControlNumber.Create(request.ShiftInstanceCtrlNbr),

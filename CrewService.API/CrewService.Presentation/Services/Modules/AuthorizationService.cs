@@ -1,23 +1,16 @@
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class AuthorizationService(
-    IRoleRepository roleRepository,
-    IFeatureRepository featureRepository,
-    IPermissionRepository permissionRepository) : AuthorizationSrvc.AuthorizationSrvcBase
+public class AuthorizationService(IServiceProvider serviceProvider) : AuthorizationSrvc.AuthorizationSrvcBase
 {
-    private readonly IRoleRepository _roleRepository = roleRepository;
-    private readonly IFeatureRepository _featureRepository = featureRepository;
-    private readonly IPermissionRepository _permissionRepository = permissionRepository;
-
-    // ---- Roles ----
-
     public override async Task<GetAllRolesResponse> GetAllRoles(GetAllRolesRequest request, ServerCallContext context)
     {
-        var roles = await _roleRepository.GetAllAsync();
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        var roles = await svc.GetAllRolesAsync(context.CancellationToken);
         var response = new GetAllRolesResponse();
         foreach (var role in roles.OrderByDescending(r => r.Level).ThenBy(r => r.Name))
             response.Roles.Add(MapRole(role));
@@ -26,154 +19,94 @@ public class AuthorizationService(
 
     public override async Task<RoleResponse> GetRole(GetRoleRequest request, ServerCallContext context)
     {
-        var role = await _roleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Role {request.CtrlNbr} not found."));
-        return MapRole(role);
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        try { return MapRole(await svc.GetRoleAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<RoleResponse> CreateRole(CreateRoleRequest request, ServerCallContext context)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Role name is required."));
-
-        var existing = await _roleRepository.GetByNameIncludingDeletedAsync(request.Name);
-        if (existing is not null)
-        {
-            if (!existing.IsDeleted)
-                throw new RpcException(new Status(StatusCode.AlreadyExists, $"Role '{request.Name}' already exists."));
-
-            existing.Restore();
-            existing.Update(request.Name, request.Description, request.Level);
-            await _roleRepository.UpdateAsync(existing);
-            return MapRole(existing);
-        }
-
-        var role = Role.Create(request.Name, request.Description, isSystem: false, request.Level);
-        await _roleRepository.AddAsync(role);
-        return MapRole(role);
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        try { return MapRole(await svc.CreateRoleAsync(request.Name, request.Description, request.Level, context.CancellationToken)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message)); }
     }
 
     public override async Task<RoleResponse> UpdateRole(UpdateRoleRequest request, ServerCallContext context)
     {
-        var role = await _roleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Role {request.CtrlNbr} not found."));
-
-        if (role.IsSystem)
-            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"System role '{role.Name}' cannot be modified."));
-
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Role name is required."));
-
-        role.Update(request.Name, request.Description, request.Level);
-        await _roleRepository.UpdateAsync(role);
-        return MapRole(role);
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        try { return MapRole(await svc.UpdateRoleAsync(ControlNumber.Create(request.CtrlNbr), request.Name, request.Description, request.Level, context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
     public override async Task<DeleteResponse> DeleteRole(DeleteRoleRequest request, ServerCallContext context)
     {
-        var role = await _roleRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Role {request.CtrlNbr} not found."));
-
-        if (role.IsSystem)
-            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"System role '{role.Name}' cannot be deleted."));
-
-        await _roleRepository.DeleteAsync(ControlNumber.Create(request.CtrlNbr));
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        try
+        {
+            await svc.DeleteRoleAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
-
-    // ---- Features ----
 
     public override async Task<GetAllFeaturesResponse> GetAllFeatures(GetAllFeaturesRequest request, ServerCallContext context)
     {
-        var features = await _featureRepository.GetAllAsync();
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        var features = await svc.GetAllFeaturesAsync(context.CancellationToken);
         var response = new GetAllFeaturesResponse();
         foreach (var feature in features.OrderBy(f => f.Category).ThenBy(f => f.DisplayName))
             response.Features.Add(MapFeature(feature));
         return response;
     }
 
-    // ---- Permissions ----
-
     public override async Task<GetPermissionMatrixResponse> GetPermissionMatrix(GetPermissionMatrixRequest request, ServerCallContext context)
     {
-        var roles = await _roleRepository.GetAllAsync();
-        var features = await _featureRepository.GetAllAsync();
-
-        var response = new GetPermissionMatrixResponse();
-
-        foreach (var role in roles.OrderByDescending(r => r.Level).ThenBy(r => r.Name))
-            response.Roles.Add(MapRole(role));
-
-        foreach (var feature in features.OrderBy(f => f.Category).ThenBy(f => f.DisplayName))
-            response.Features.Add(MapFeature(feature));
-
-        // Load permissions: parent/craft-specific if requested, otherwise global defaults
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
         ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
+        var (roles, features, permsByRole) = await svc.GetPermissionMatrixAsync(parentCtrlNbr, craftCtrlNbr, context.CancellationToken);
 
-        foreach (var role in roles)
-        {
-            var effective = await _permissionRepository.GetEffectivePermissionsAsync(
-                role.CtrlNbr, parentCtrlNbr, craftCtrlNbr);
-
-            foreach (var perm in effective)
+        var response = new GetPermissionMatrixResponse();
+        foreach (var role in roles.OrderByDescending(r => r.Level).ThenBy(r => r.Name))
+            response.Roles.Add(MapRole(role));
+        foreach (var feature in features.OrderBy(f => f.Category).ThenBy(f => f.DisplayName))
+            response.Features.Add(MapFeature(feature));
+        foreach (var kvp in permsByRole)
+            foreach (var perm in kvp.Value)
                 response.Permissions.Add(MapPermission(perm));
-        }
-
         return response;
     }
 
     public override async Task<GetEffectivePermissionsResponse> GetEffectivePermissions(GetEffectivePermissionsRequest request, ServerCallContext context)
     {
-        // Batch mode: use repeated role_ctrl_nbrs if provided, otherwise fall back to single role_ctrl_nbr.
-        IEnumerable<long> roleCtrlNbrs = request.RoleCtrlNbrs.Count > 0
-            ? request.RoleCtrlNbrs
-            : [request.RoleCtrlNbr];
-
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
+        IEnumerable<long> roleCtrlNbrs = request.RoleCtrlNbrs.Count > 0 ? request.RoleCtrlNbrs : [request.RoleCtrlNbr];
         ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
 
+        var permissions = await svc.GetEffectivePermissionsAsync(
+            roleCtrlNbrs.Select(ControlNumber.Create), parentCtrlNbr, craftCtrlNbr, context.CancellationToken);
         var response = new GetEffectivePermissionsResponse();
-        foreach (var roleId in roleCtrlNbrs)
-        {
-            var permissions = await _permissionRepository.GetEffectivePermissionsAsync(
-                ControlNumber.Create(roleId), parentCtrlNbr, craftCtrlNbr);
-            foreach (var perm in permissions)
-                response.Permissions.Add(MapPermission(perm));
-        }
+        foreach (var perm in permissions) response.Permissions.Add(MapPermission(perm));
         return response;
     }
 
     public override async Task<PermissionResponse> UpdatePermission(UpdatePermissionRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.Authorization.AuthorizationService>();
         ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
         ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
-        var accessLevel = (AccessLevel)request.AccessLevel;
-
-        var existing = await _permissionRepository.GetByRoleFeatureParentCraftAsync(
-            ControlNumber.Create(request.RoleCtrlNbr),
-            ControlNumber.Create(request.FeatureCtrlNbr),
-            parentCtrlNbr,
-            craftCtrlNbr);
-
-        if (existing is not null)
-        {
-            existing.UpdateAccessLevel(accessLevel);
-            await _permissionRepository.UpdateAsync(existing);
-            return MapPermission(existing);
-        }
-
-        var permission = Permission.Create(
-            ControlNumber.Create(request.RoleCtrlNbr),
-            ControlNumber.Create(request.FeatureCtrlNbr),
-            accessLevel,
-            parentCtrlNbr,
-            craftCtrlNbr);
-        await _permissionRepository.AddAsync(permission);
+        var permission = await svc.UpdatePermissionAsync(
+            ControlNumber.Create(request.RoleCtrlNbr), ControlNumber.Create(request.FeatureCtrlNbr),
+            parentCtrlNbr, craftCtrlNbr, request.AccessLevel, context.CancellationToken);
         return MapPermission(permission);
     }
-
-    // ---- Mappers ----
 
     private static RoleResponse MapRole(Role role) => new()
     {

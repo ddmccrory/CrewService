@@ -1,35 +1,39 @@
+using CrewService.Application.RailroadInfo;
 using CrewService.Domain.Modules.RailroadInfo;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class RailroadInfoService(
-    IRailroadInformationRepository infoRepo,
-    IRailroadInformationReadReceiptRepository receiptRepo) : RailroadInfoSrvc.RailroadInfoSrvcBase
+public class RailroadInfoService(IServiceProvider serviceProvider) : RailroadInfoSrvc.RailroadInfoSrvcBase
 {
     public override async Task<RailroadInformationResponse> CreateInformation(CreateInformationRequest request, ServerCallContext context)
     {
-        var info = RailroadInformation.Create(
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        var info = await svc.CreateAsync(
             request.WorkAreaGroupCtrlNbr, request.InformationType, request.Subject, request.Body);
-        await infoRepo.AddAsync(info);
         return MapInfo(info);
     }
 
     public override async Task<RailroadInformationResponse> GetInformation(GetInformationRequest request, ServerCallContext context)
     {
-        var info = await infoRepo.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Railroad information {request.CtrlNbr} not found."));
-        return MapInfo(info);
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        try
+        {
+            return MapInfo(await svc.GetAsync(ControlNumber.Create(request.CtrlNbr)));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<GetInformationListResponse> GetByWorkArea(GetByWorkAreaRequest request, ServerCallContext context)
     {
-        var workArea = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
-        var items = request.PublishedOnly
-            ? await infoRepo.GetPublishedByWorkAreaAsync(workArea, context.CancellationToken)
-            : await infoRepo.GetByWorkAreaAsync(workArea, context.CancellationToken);
-
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        var items = await svc.GetByWorkAreaAsync(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), request.PublishedOnly, context.CancellationToken);
         var response = new GetInformationListResponse { TotalCount = items.Count };
         foreach (var item in items) response.Items.Add(MapInfo(item));
         return response;
@@ -37,55 +41,44 @@ public class RailroadInfoService(
 
     public override async Task<RailroadInformationResponse> PublishInformation(PublishInformationRequest request, ServerCallContext context)
     {
-        var info = await GetRequiredAsync(request.CtrlNbr);
-        info.Publish();
-        await infoRepo.UpdateAsync(info);
-        return MapInfo(info);
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        try { return MapInfo(await svc.PublishAsync(ControlNumber.Create(request.CtrlNbr))); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<RailroadInformationResponse> CloseInformation(CloseInformationRequest request, ServerCallContext context)
     {
-        var info = await GetRequiredAsync(request.CtrlNbr);
-        info.Close();
-        await infoRepo.UpdateAsync(info);
-        return MapInfo(info);
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        try { return MapInfo(await svc.CloseAsync(ControlNumber.Create(request.CtrlNbr))); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<RailroadInformationResponse> CancelInformation(CancelInformationRequest request, ServerCallContext context)
     {
-        var info = await GetRequiredAsync(request.CtrlNbr);
-        info.Cancel();
-        await infoRepo.UpdateAsync(info);
-        return MapInfo(info);
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        try { return MapInfo(await svc.CancelAsync(ControlNumber.Create(request.CtrlNbr))); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<ReadReceiptResponse> AcknowledgeRead(AcknowledgeReadRequest request, ServerCallContext context)
     {
-        var infoCtrl = ControlNumber.Create(request.InformationCtrlNbr);
-        var empCtrl = ControlNumber.Create(request.EmployeeCtrlNbr);
-
-        var existing = await receiptRepo.GetByInformationAndEmployeeAsync(infoCtrl, empCtrl, context.CancellationToken);
-        if (existing is not null)
-            return MapReceipt(existing);
-
-        var receipt = RailroadInformationReadReceipt.Create(infoCtrl, empCtrl);
-        await receiptRepo.AddAsync(receipt, context.CancellationToken);
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        var receipt = await svc.AcknowledgeReadAsync(
+            ControlNumber.Create(request.InformationCtrlNbr),
+            ControlNumber.Create(request.EmployeeCtrlNbr),
+            context.CancellationToken);
         return MapReceipt(receipt);
     }
 
     public override async Task<GetReadReceiptsResponse> GetReadReceipts(GetReadReceiptsRequest request, ServerCallContext context)
     {
-        var receipts = await receiptRepo.GetByInformationAsync(
+        var svc = serviceProvider.GetRequiredService<Application.RailroadInfo.RailroadInfoService>();
+        var receipts = await svc.GetReadReceiptsAsync(
             ControlNumber.Create(request.InformationCtrlNbr), context.CancellationToken);
-
         var response = new GetReadReceiptsResponse { TotalCount = receipts.Count };
         foreach (var r in receipts) response.Receipts.Add(MapReceipt(r));
         return response;
     }
-
-    private async Task<RailroadInformation> GetRequiredAsync(long ctrlNbr) =>
-        await infoRepo.GetByCtrlNbrAsync(ControlNumber.Create(ctrlNbr))
-        ?? throw new RpcException(new Status(StatusCode.NotFound, $"Railroad information {ctrlNbr} not found."));
 
     private static RailroadInformationResponse MapInfo(RailroadInformation info) => new()
     {
@@ -107,3 +100,4 @@ public class RailroadInfoService(
         ReadAtUtc = r.ReadAtUtc.ToString("O")
     };
 }
+

@@ -1,19 +1,20 @@
+using CrewService.Application.Payroll;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class PayrollService(
-    ITimeEntryRepository timeEntryRepository,
-    IPayrollRunRepository payrollRunRepository,
-    IPayrollRecordRepository payrollRecordRepository) : PayrollSrvc.PayrollSrvcBase
+public class PayrollService(IServiceProvider serviceProvider) : PayrollSrvc.PayrollSrvcBase
 {
     public override async Task<GetTimeEntriesResponse> GetTimeEntries(GetTimeEntriesRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.Payroll.PayrollService>();
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         var endUtc = DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var entries = await timeEntryRepository.GetByEmployeeAndPeriodAsync(ControlNumber.Create(request.EmployeeCtrlNbr), startUtc, endUtc);
+        var entries = await svc.GetTimeEntriesAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), startUtc, endUtc, context.CancellationToken);
         var response = new GetTimeEntriesResponse { TotalCount = entries.Count };
         foreach (var e in entries) response.Entries.Add(MapTimeEntry(e));
         return response;
@@ -21,38 +22,48 @@ public class PayrollService(
 
     public override async Task<TimeEntryResponse> CreateTimeEntry(CreateTimeEntryRequest request, ServerCallContext context)
     {
-        var entry = TimeEntry.Create(request.EmployeeCtrlNbr, DateTime.Parse(request.DateUtc).ToUniversalTime(),
-            request.EntryType, (decimal)request.Hours, request.ReasonCode, request.Notes);
-        await timeEntryRepository.AddAsync(entry);
+        var svc = serviceProvider.GetRequiredService<Application.Payroll.PayrollService>();
+        var entry = await svc.CreateTimeEntryAsync(
+            request.EmployeeCtrlNbr, DateTime.Parse(request.DateUtc).ToUniversalTime(),
+            request.EntryType, (decimal)request.Hours, request.ReasonCode, request.Notes,
+            context.CancellationToken);
         return MapTimeEntry(entry);
     }
 
     public override async Task<PayrollRunResponse> GetPayrollRun(GetPayrollRunRequest request, ServerCallContext context)
     {
-        var run = await payrollRunRepository.GetByPayPeriodAsync(request.PayPeriod)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Payroll run for period {request.PayPeriod} not found."));
-        return MapRun(run);
+        var svc = serviceProvider.GetRequiredService<Application.Payroll.PayrollService>();
+        try
+        {
+            var run = await svc.GetPayrollRunAsync(request.PayPeriod, context.CancellationToken);
+            return MapRun(run);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<PayrollRunResponse> CreatePayrollRun(CreatePayrollRunRequest request, ServerCallContext context)
     {
-        var run = PayrollRun.Create(request.PayPeriod);
-        await payrollRunRepository.AddAsync(run);
+        var svc = serviceProvider.GetRequiredService<Application.Payroll.PayrollService>();
+        var run = await svc.CreatePayrollRunAsync(request.PayPeriod, context.CancellationToken);
         return MapRun(run);
     }
 
     public override async Task<PayrollRunResponse> LockPayrollRun(LockPayrollRunRequest request, ServerCallContext context)
     {
-        var run = await payrollRunRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Payroll run {request.CtrlNbr} not found."));
-        run.Lock();
-        await payrollRunRepository.UpdateAsync(run);
-        return MapRun(run);
+        var svc = serviceProvider.GetRequiredService<Application.Payroll.PayrollService>();
+        try
+        {
+            var run = await svc.LockPayrollRunAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return MapRun(run);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<GetPayrollRecordsResponse> GetPayrollRecords(GetPayrollRecordsRequest request, ServerCallContext context)
     {
-        var records = await payrollRecordRepository.GetByRunAsync(ControlNumber.Create(request.PayrollRunCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Payroll.PayrollService>();
+        var records = await svc.GetPayrollRecordsAsync(
+            ControlNumber.Create(request.PayrollRunCtrlNbr), context.CancellationToken);
         var response = new GetPayrollRecordsResponse { TotalCount = records.Count };
         foreach (var r in records) response.Records.Add(MapRecord(r));
         return response;
@@ -89,3 +100,4 @@ public class PayrollService(
         PolicyRef = r.PolicyRef ?? string.Empty
     };
 }
+

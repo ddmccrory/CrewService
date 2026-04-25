@@ -1,39 +1,40 @@
+using CrewService.Application.Dispatching;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class DispatchingService(
-    IDispatchProjectionRepository projectionRepository,
-    IDispatchDecisionLogRepository decisionLogRepository,
-    IDispatchOverrideRepository overrideRepository,
-    IEmployeeBookingRepository bookingRepository) : DispatchingSrvc.DispatchingSrvcBase
+public class DispatchingService(IServiceProvider serviceProvider) : DispatchingSrvc.DispatchingSrvcBase
 {
     public override async Task<GetProjectionsResponse> GetProjections(GetProjectionsRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.Dispatching.DispatchingService>();
+        var projections = await svc.GetProjectionsAsync(
+            request.PositionSlotCtrlNbrs.Select(ControlNumber.Create), context.CancellationToken);
+
         var response = new GetProjectionsResponse();
-        foreach (var slotCtrlNbr in request.PositionSlotCtrlNbrs)
+        foreach (var p in projections)
         {
-            var projections = await projectionRepository.GetByPositionSlotAsync(ControlNumber.Create(slotCtrlNbr));
-            foreach (var p in projections)
+            response.Projections.Add(new ProjectionResponse
             {
-                response.Projections.Add(new ProjectionResponse
-                {
-                    CtrlNbr = p.CtrlNbr.Value,
-                    PositionSlotCtrlNbr = p.PositionSlotCtrlNbr.Value,
-                    ProjectedEmployeeCtrlNbr = p.ProjectedEmployeeCtrlNbr?.Value ?? 0,
-                    TraceJson = p.TraceJson ?? string.Empty,
-                    ComputedUtc = p.ComputedUtc.ToString("O")
-                });
-            }
+                CtrlNbr = p.CtrlNbr.Value,
+                PositionSlotCtrlNbr = p.PositionSlotCtrlNbr.Value,
+                ProjectedEmployeeCtrlNbr = p.ProjectedEmployeeCtrlNbr?.Value ?? 0,
+                TraceJson = p.TraceJson ?? string.Empty,
+                ComputedUtc = p.ComputedUtc.ToString("O")
+            });
         }
         return response;
     }
 
     public override async Task<GetDecisionLogsResponse> GetDecisionLogs(GetDecisionLogsRequest request, ServerCallContext context)
     {
-        var logs = await decisionLogRepository.GetByPositionSlotAsync(ControlNumber.Create(request.PositionSlotCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<Application.Dispatching.DispatchingService>();
+        var logs = await svc.GetDecisionLogsAsync(
+            ControlNumber.Create(request.PositionSlotCtrlNbr), context.CancellationToken);
+
         var response = new GetDecisionLogsResponse();
         foreach (var l in logs)
         {
@@ -63,19 +64,27 @@ public class DispatchingService(
 
     public override async Task<OverrideResponse> RequestOverride(RequestOverrideRequest request, ServerCallContext context)
     {
-        var dispatch = DispatchOverride.Create(request.PositionSlotCtrlNbr, request.EmployeeCtrlNbr,
-            request.OverrideType, request.ReasonCode, request.ReasonText);
-        await overrideRepository.AddAsync(dispatch);
+        var svc = serviceProvider.GetRequiredService<Application.Dispatching.DispatchingService>();
+        var dispatch = await svc.RequestOverrideAsync(
+            request.PositionSlotCtrlNbr, request.EmployeeCtrlNbr,
+            request.OverrideType, request.ReasonCode, request.ReasonText,
+            context.CancellationToken);
         return MapOverride(dispatch);
     }
 
     public override async Task<OverrideResponse> ApproveOverride(ApproveOverrideRequest request, ServerCallContext context)
     {
-        var dispatch = await overrideRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Override {request.CtrlNbr} not found."));
-        dispatch.Approve(request.ApprovedByCtrlNbr);
-        await overrideRepository.UpdateAsync(dispatch);
-        return MapOverride(dispatch);
+        var svc = serviceProvider.GetRequiredService<Application.Dispatching.DispatchingService>();
+        try
+        {
+            var dispatch = await svc.ApproveOverrideAsync(
+                ControlNumber.Create(request.CtrlNbr), request.ApprovedByCtrlNbr, context.CancellationToken);
+            return MapOverride(dispatch);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     private static OverrideResponse MapOverride(DispatchOverride o) => new()
@@ -90,8 +99,10 @@ public class DispatchingService(
 
     public override async Task<GetEmployeeBookingsResponse> GetEmployeeBookings(GetEmployeeBookingsRequest request, ServerCallContext context)
     {
-        var bookings = await bookingRepository.GetByEmployeeAsync(
-            ControlNumber.Create(request.EmployeeCtrlNbr), DateTime.UtcNow.AddDays(-30), DateTime.UtcNow.AddDays(30));
+        var svc = serviceProvider.GetRequiredService<Application.Dispatching.DispatchingService>();
+        var bookings = await svc.GetEmployeeBookingsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
+
         var response = new GetEmployeeBookingsResponse { TotalCount = bookings.Count };
         foreach (var b in bookings) response.Bookings.Add(MapBooking(b));
         return response;
@@ -99,11 +110,13 @@ public class DispatchingService(
 
     public override async Task<EmployeeBookingResponse> CreateEmployeeBooking(CreateEmployeeBookingRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<Application.Dispatching.DispatchingService>();
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         var endUtc = DateTime.Parse(request.EndUtc).ToUniversalTime();
         ControlNumber? slotCtrl = request.PositionSlotCtrlNbr > 0 ? ControlNumber.Create(request.PositionSlotCtrlNbr) : null;
-        var booking = EmployeeBooking.Create(request.EmployeeCtrlNbr, startUtc, endUtc, slotCtrl);
-        await bookingRepository.AddAsync(booking);
+
+        var booking = await svc.CreateEmployeeBookingAsync(
+            request.EmployeeCtrlNbr, startUtc, endUtc, slotCtrl, context.CancellationToken);
         return MapBooking(booking);
     }
 
