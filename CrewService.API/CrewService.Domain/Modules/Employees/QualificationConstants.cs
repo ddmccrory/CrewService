@@ -53,10 +53,11 @@ public static class EvidenceTypes
 
 public static class QualificationStatuses
 {
-    public const string Active = "Active";
-    public const string Pending = "Pending";
-    public const string Revoked = "Revoked";
-    public const string Expired = "Expired";
+    public const string Active       = "Active";
+    public const string ExpiringSoon = "ExpiringSoon";
+    public const string Pending      = "Pending";
+    public const string Revoked      = "Revoked";
+    public const string Expired      = "Expired";
 }
 
 public static class SystemActors

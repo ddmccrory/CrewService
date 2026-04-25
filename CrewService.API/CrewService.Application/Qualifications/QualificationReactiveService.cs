@@ -1,31 +1,38 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Qualifications;
 
 public sealed class QualificationReactiveService(
-    IQualificationTypeRepository qualificationTypeRepository,
-    RequirementEvaluationService RequirementEvaluationService)
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    RequirementEvaluationService requirementEvaluationService)
 {
+    public async Task HandleAddedToRosterAsync(ControlNumber employeeCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var qualificationTypes = await uow.QualificationTypes.GetActiveByCraftCtrlNbrAsync(craftCtrlNbr);
+
+        foreach (var qualificationType in qualificationTypes.Where(q => q.Requirements.Count > 0))
+            await requirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, uow, ct);
+
+        await uow.CommitAsync(ct);
+    }
+
     public async Task HandleOnDutyRecordCreatedAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
     {
-        var qualificationTypes = await qualificationTypeRepository.GetAllAsync(ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var qualificationTypes = await uow.QualificationTypes.GetAllAsync(ct);
 
         foreach (var qualificationType in qualificationTypes.Where(q =>
                      q.IsActive &&
-                     string.Equals(q.EvaluationStrategy, "ActivityCount", StringComparison.OrdinalIgnoreCase)))
+                     q.Requirements.Count > 0 &&
+                     string.Equals(q.EvaluationStrategy, EvaluationStrategies.ActivityCount, StringComparison.OrdinalIgnoreCase)))
         {
-            await RequirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, ct);
+            await requirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, uow, ct);
         }
-    }
 
-    public async Task HandleEmployeeCreatedAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
-    {
-        var qualificationTypes = await qualificationTypeRepository.GetAllAsync(ct);
-
-        foreach (var qualificationType in qualificationTypes.Where(q => q.IsActive))
-        {
-            await RequirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, ct);
-        }
+        await uow.CommitAsync(ct);
     }
 }
+

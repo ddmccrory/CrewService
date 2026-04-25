@@ -45,6 +45,7 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
         builder.Property(qt => qt.IsBlocking).IsRequired();
         builder.Property(qt => qt.IsSystemSeeded).IsRequired();
         builder.Property(qt => qt.IsActive).IsRequired();
+        builder.Property(qt => qt.RestrictionLabel).HasMaxLength(50);
 
         builder.HasIndex(qt => new { qt.ParentCtrlNbr, qt.Code }).IsUnique()
             .HasFilter("[IsDeleted] = 0");
@@ -117,6 +118,11 @@ internal class QualificationRequirementConfiguration : IEntityTypeConfiguration<
         builder.HasOne<QualificationType>()
             .WithMany()
             .HasForeignKey(p => p.RequiredQualTypeCtrlNbr)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<RegulatoryQualification>()
+            .WithMany()
+            .HasForeignKey(p => p.RequiredRegulatoryQualCtrlNbr)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, audit =>

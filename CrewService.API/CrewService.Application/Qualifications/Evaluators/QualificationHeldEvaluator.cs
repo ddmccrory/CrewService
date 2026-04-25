@@ -21,6 +21,6 @@ public sealed class QualificationHeldEvaluator(IEmployeeQualificationRepository 
         if (existing is null || existing.Status is not ("Active" or "ExpiringSoon"))
             return EvaluationResult.NotSatisfied("Required qualification not held or not active");
 
-        return EvaluationResult.Satisfied($"Holds active qualification (achieved {existing.AchievedAtUtc:yyyy-MM-dd})");
+        return EvaluationResult.Satisfied($"Holds active qualification (achieved {existing.AchievedAtUtc?.ToString("yyyy-MM-dd") ?? "pending"})");
     }
 }

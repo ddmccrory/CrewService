@@ -1,12 +1,12 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Qualifications;
 
 public sealed class RequirementEvaluationService(
-    IEnumerable<IRequirementEvaluator> evaluators,
-    IQualificationRequirementRepository requirementRepository,
-    IEmployeeQualificationRepository employeeQualificationRepository)
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IEnumerable<IRequirementEvaluator> evaluators)
 {
     private readonly Dictionary<string, IRequirementEvaluator> _evaluatorMap =
         evaluators.ToDictionary(e => e.Kind, StringComparer.OrdinalIgnoreCase);
@@ -16,7 +16,20 @@ public sealed class RequirementEvaluationService(
         QualificationType qualificationType,
         CancellationToken ct = default)
     {
-        var prerequisites = await requirementRepository
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var result = await EvaluateAsync(employeeCtrlNbr, qualificationType, uow, ct);
+        await uow.CommitAsync(ct);
+        return result;
+    }
+
+    public async Task<RequirementEvaluationResult> EvaluateAsync(
+        ControlNumber employeeCtrlNbr,
+        QualificationType qualificationType,
+        IOrchestrationUnitOfWork uow,
+        CancellationToken ct = default)
+    {
+
+        var prerequisites = await uow.QualificationRequirements
             .GetByQualificationTypeCtrlNbrAsync(qualificationType.CtrlNbr);
 
         if (prerequisites.Count == 0)
@@ -40,7 +53,8 @@ public sealed class RequirementEvaluationService(
                     RequirementCtrlNbr: prerequisite.CtrlNbr,
                     Kind: prerequisite.RequirementKind,
                     IsSatisfied: result.IsSatisfied,
-                    Description: result.Description));
+                    Description: result.Description,
+                    PendingUntil: result.PendingUntil));
 
                 if (!result.IsSatisfied)
                     allSatisfied = false;
@@ -56,34 +70,67 @@ public sealed class RequirementEvaluationService(
             }
         }
 
+        // Always create or update the record.
+        // AchievedAtUtc is null (Pending) until requirements are met, then set to the earned date.
+        // For time-based requirements not yet met, AchievedAtUtc is the future date they will be earned.
         var qualificationCreated = false;
+        var existingQualification = await uow.EmployeeQualifications
+            .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualificationType.CtrlNbr);
+
+        DateTime? achievedAtUtc = null;
         if (allSatisfied)
         {
-            var existingQualification = await employeeQualificationRepository
-                .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualificationType.CtrlNbr);
+            achievedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            // Use the latest known future date for time-based requirements; null for cert/manual
+            var latestPending = results
+                .Where(r => !r.IsSatisfied && r.PendingUntil.HasValue)
+                .Select(r => r.PendingUntil!.Value)
+                .Cast<DateTime?>()
+                .DefaultIfEmpty(null)
+                .Max();
+            achievedAtUtc = latestPending; // null if no computable future date (e.g. cert not yet held)
+        }
 
-            if (existingQualification is null)
+        if (existingQualification is null)
+        {
+            var expiresAtUtc = allSatisfied ? ComputeExpirationUtc(qualificationType, achievedAtUtc!.Value) : null;
+            var createdQualification = EmployeeQualification.Create(
+                employeeCtrlNbr,
+                qualificationType.CtrlNbr,
+                SystemActors.System,
+                expiresAtUtc,
+                achievedAtUtc);
+
+            foreach (var check in results)
             {
-                var expiresAtUtc = ComputeExpirationUtc(qualificationType, DateTime.UtcNow);
-                var createdQualification = EmployeeQualification.Create(
-                    employeeCtrlNbr,
-                    qualificationType.CtrlNbr,
+                createdQualification.AddEvidence(
+                    MapEvidenceType(check.Kind),
+                    check.Description,
                     SystemActors.System,
-                    expiresAtUtc,
-                    status: QualificationStatuses.Pending);
-
-                foreach (var check in results.Where(r => r.IsSatisfied))
-                {
-                    createdQualification.AddEvidence(
-                        MapEvidenceType(check.Kind),
-                        check.Description,
-                        SystemActors.System,
-                        check.RequirementCtrlNbr);
-                }
-
-                await employeeQualificationRepository.AddAsync(createdQualification, ct);
-                qualificationCreated = true;
+                    check.RequirementCtrlNbr);
             }
+
+            await uow.EmployeeQualifications.AddAsync(createdQualification, ct);
+            await uow.SaveAsync(ct);
+            qualificationCreated = true;
+        }
+        else if (existingQualification.Status == QualificationStatuses.Pending && allSatisfied)
+        {
+            // Requirements now satisfied — activate the existing pending record
+            existingQualification.Activate(achievedAtUtc!.Value, ComputeExpirationUtc(qualificationType, achievedAtUtc.Value));
+            foreach (var check in results.Where(r => r.IsSatisfied))
+            {
+                existingQualification.AddEvidence(
+                    MapEvidenceType(check.Kind),
+                    check.Description,
+                    SystemActors.System,
+                    check.RequirementCtrlNbr);
+            }
+            await uow.EmployeeQualifications.UpdateAsync(existingQualification, ct);
+            await uow.SaveAsync(ct);
         }
 
         return new RequirementEvaluationResult(
@@ -127,4 +174,5 @@ public sealed record RequirementCheckResult(
     ControlNumber RequirementCtrlNbr,
     string Kind,
     bool IsSatisfied,
-    string Description);
+    string Description,
+    DateTime? PendingUntil = null);

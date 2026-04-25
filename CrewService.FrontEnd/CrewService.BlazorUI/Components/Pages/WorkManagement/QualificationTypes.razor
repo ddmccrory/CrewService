@@ -111,6 +111,11 @@ else
                             <label class="form-check-label">Blocking Qualification</label>
                         </div>
                     </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Restriction Label <span class="text-muted fw-normal">(optional)</span></label>
+                        <InputText @bind-Value="saveModel.RestrictionLabel" class="form-control" placeholder="e.g. Helper Only" />
+                        <div class="form-text">If set, employees without this qualification will be badged with this label on seniority and board displays.</div>
+                    </div>
                 </div>
             </EditForm>
         </BodyContent>
@@ -300,6 +305,7 @@ else
             GraceDays = q.GraceDays,
             RenewalLeadDays = q.RenewalLeadDays,
             IsBlocking = q.IsBlocking,
+            RestrictionLabel = string.IsNullOrEmpty(q.RestrictionLabel) ? null : q.RestrictionLabel,
             ScopeGroupCtrlNbr = q.ScopeGroupCtrlNbr,
             CraftCtrlNbr = q.CraftCtrlNbr
         };
@@ -335,9 +341,9 @@ else
                     CalendarYearExpiry = saveModel.CalendarYearExpiry,
                     GraceDays = saveModel.GraceDays,
                     RenewalLeadDays = saveModel.RenewalLeadDays,
-                    IsBlocking = saveModel.IsBlocking
+                    IsBlocking = saveModel.IsBlocking,
+                    RestrictionLabel = saveModel.RestrictionLabel ?? string.Empty
                 });
-                successMessage = "Qualification type updated.";
             }
             else
             {
@@ -360,6 +366,7 @@ else
                     GraceDays = saveModel.GraceDays,
                     RenewalLeadDays = saveModel.RenewalLeadDays,
                     IsBlocking = saveModel.IsBlocking,
+                    RestrictionLabel = saveModel.RestrictionLabel ?? string.Empty,
                     RegulatoryQualificationCtrlNbr = saveModel.RegulatoryQualificationCtrlNbr > 0
                         ? saveModel.RegulatoryQualificationCtrlNbr
                         : default
@@ -414,6 +421,7 @@ else
         public int GraceDays { get; set; }
         public int RenewalLeadDays { get; set; }
         public bool IsBlocking { get; set; }
+        public string? RestrictionLabel { get; set; }
         public long RegulatoryQualificationCtrlNbr { get; set; }
         public long ScopeGroupCtrlNbr { get; set; }
         public long CraftCtrlNbr { get; set; }
