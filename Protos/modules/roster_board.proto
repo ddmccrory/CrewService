@@ -118,6 +118,7 @@ message RosterBoardPositionResponse {
   string employee_user_id = 7;
   string employee_full_name_lnf = 8;
   repeated string restriction_labels = 9;
+  optional google.protobuf.Timestamp assigned_date_utc = 10;
 }
 
 message HangoutPositionRequest {
