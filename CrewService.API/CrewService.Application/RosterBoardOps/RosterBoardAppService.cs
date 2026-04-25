@@ -125,9 +125,10 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
 
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.RosterBoards.Add(board);
+        var createResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
 
-        return await ResolveBoardDetailsAsync(uow, board, ct);
+        return createResult;
     }
 
     public async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
@@ -139,8 +140,9 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
             ?? throw new KeyNotFoundException($"Roster board {ctrlNbr.Value} not found.");
         board.Update(name, boardType, rotationType, isActive);
         uow.RosterBoards.Update(board);
+        var updateResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
-        return await ResolveBoardDetailsAsync(uow, board, ct);
+        return updateResult;
     }
 
     public async Task<ControlNumber?> DeleteRosterBoardAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
@@ -176,9 +178,8 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
         uow.StaffablePositions.Add(staffablePosition);
         uow.PositionAssignments.Add(positionAssignment);
         uow.RosterBoards.Update(board);
-        await uow.CommitAsync(ct);
-
         var labels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, [employeeCtrlNbr], ct);
+        await uow.CommitAsync(ct);
         return (position, labels);
     }
 
@@ -222,8 +223,8 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
         var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
         position.RestoreFromHangout();
         uow.RosterBoards.Update(board);
-        await uow.CommitAsync(ct);
         var labels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, [position.EmployeeCtrlNbr], ct);
+        await uow.CommitAsync(ct);
         return (position, labels);
     }
 
@@ -236,8 +237,9 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
             ?? throw new KeyNotFoundException($"Roster board {boardCtrlNbr.Value} not found.");
         board.ReorderPositions(ordering);
         uow.RosterBoards.Update(board);
+        var reorderResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
-        return await ResolveBoardDetailsAsync(uow, board, ct);
+        return reorderResult;
     }
 
     // ── Eligibility ──────────────────────────────────────────────────────────

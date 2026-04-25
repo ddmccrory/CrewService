@@ -261,8 +261,6 @@ public sealed class FraComplianceService(
                 certificationType, evaluationDate, certCycleMonths, null);
             await uow.EmployeeCertifications.AddAsync(certification, ct);
             await uow.CommitAsync(ct);
-            certification = await uow.EmployeeCertifications.GetByCtrlNbrWithChecksAsync(certification.CtrlNbr, ct)
-                ?? throw new InvalidOperationException("Failed to load created employee certification.");
         }
         else
         {
