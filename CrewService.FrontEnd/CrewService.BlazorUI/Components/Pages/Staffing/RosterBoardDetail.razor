@@ -87,6 +87,12 @@ else
                 }
             </td>
             <td>
+                @foreach (var label in pos.RestrictionLabels)
+                {
+                    <span class="badge bg-info text-dark me-1">@label</span>
+                }
+            </td>
+            <td>
                 @if (!IsFeatureReadOnly)
                 {
                     <div class="d-flex gap-1">
@@ -158,6 +164,7 @@ else
         new("Employee #", p => p.EmployeeNumber.ToUpperInvariant(), width: "140px"),
         new("Name", p => p.EmployeeFullNameLnf),
         new("Status", p => p.HangoutStatus, width: "120px"),
+        new("Restrictions", p => p.RestrictionLabels.Count > 0 ? string.Join(", ", p.RestrictionLabels) : "", width: "120px"),
         DataTableColumn<RosterBoardPositionResponse>.Actions()
     ];
 

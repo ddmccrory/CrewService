@@ -117,6 +117,7 @@ message RosterBoardPositionResponse {
   string employee_number = 6;
   string employee_user_id = 7;
   string employee_full_name_lnf = 8;
+  repeated string restriction_labels = 9;
 }
 
 message HangoutPositionRequest {

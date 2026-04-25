@@ -1,84 +1,100 @@
-using CrewService.Domain.Interfaces;
-using CrewService.Presentation.Services;
+using CrewService.Application.RosterBoardOps;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
-using CrewService.Domain.Modules.Staffing;
-using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
 public class RosterBoardService(
-    IRosterBoardRepository rosterBoardRepository,
-    IRosterRepository rosterRepository,
-    IEmployeeRepository employeeRepository,
-    IDynamicGroupRepository dynamicGroupRepository,
-    ICraftRepository craftRepository,
-    IPositionAssignmentRepository positionAssignmentRepository,
-    IQualificationTypeRepository qualificationTypeRepository,
-    IEmployeeQualificationRepository employeeQualificationRepository,
-    IOrchestrationUnitOfWorkFactory uowFactory,
-    EmployeeNameService employeeNameService)
+    EmployeeNameService employeeNameService,
+    IServiceProvider serviceProvider)
     : RosterBoardSrvc.RosterBoardSrvcBase
 {
-    private readonly IRosterBoardRepository _rosterBoardRepository = rosterBoardRepository;
-    private readonly IRosterRepository _rosterRepository = rosterRepository;
-    private readonly IEmployeeRepository _employeeRepository = employeeRepository;
-    private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
-    private readonly ICraftRepository _craftRepository = craftRepository;
-    private readonly IPositionAssignmentRepository _positionAssignmentRepository = positionAssignmentRepository;
-    private readonly IQualificationTypeRepository _qualificationTypeRepository = qualificationTypeRepository;
-    private readonly IEmployeeQualificationRepository _employeeQualificationRepository = employeeQualificationRepository;
     public override async Task<RosterBoardResponse> GetRosterBoard(
         GetRosterBoardRequest request, ServerCallContext context)
     {
-        var board = await _rosterBoardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr));
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels) =
+            await svc.GetRosterBoardDetailAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
         if (board is null) return new RosterBoardResponse();
-        var craftName = await ResolveCraftNameAsync(board.CraftCtrlNbr);
-        return await MapToResponseAsync(board, craftName);
+        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels);
     }
 
     public override async Task<GetAllRosterBoardsResponse> GetAllRosterBoards(
         GetAllRosterBoardsRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        var result = await svc.GetAllRosterBoardsAsync(
+            request.CraftCtrlNbr, request.ParentCtrlNbr, request.DynamicGroupCtrlNbr, context.CancellationToken);
+
         var response = new GetAllRosterBoardsResponse();
-
-        IReadOnlyList<RosterBoard> boards;
-
-        if (request.CraftCtrlNbr > 0)
+        if (result.Boards.Count == 0)
         {
-            boards = await _rosterBoardRepository.GetByCraftCtrlNbrAsync(ControlNumber.Create(request.CraftCtrlNbr));
-        }
-        else if (request.ParentCtrlNbr > 0)
-        {
-            var crafts = await _craftRepository.GetByParentAndRailroadAsync(
-                ControlNumber.Create(request.ParentCtrlNbr),
-                request.DynamicGroupCtrlNbr > 0 ? ControlNumber.Create(request.DynamicGroupCtrlNbr) : null);
-
-            var craftCtrlNbrs = crafts.Select(c => c.CtrlNbr).ToList();
-            boards = craftCtrlNbrs.Count > 0
-                ? await _rosterBoardRepository.GetByCraftCtrlNbrsAsync(craftCtrlNbrs)
-                : [];
-        }
-        else
-        {
-            boards = await _rosterBoardRepository.GetAllAsync();
+            response.TotalCount = 0;
+            return response;
         }
 
-        // Batch-resolve craft names
-        var distinctCraftCtrlNbrs = boards.Select(b => b.CraftCtrlNbr).Distinct().ToList();
-        var craftNames = new Dictionary<ControlNumber, string>();
-        foreach (var ctrlNbr in distinctCraftCtrlNbrs)
-        {
-            var craft = await _craftRepository.GetByCtrlNbrAsync(ctrlNbr);
-            if (craft is not null) craftNames[ctrlNbr] = craft.CraftName;
-        }
+        var allUserIds = result.EmployeeMap.Values
+            .Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList()!;
+        var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(allUserIds!);
 
-        foreach (var board in boards)
+        foreach (var board in result.Boards)
         {
-            craftNames.TryGetValue(board.CraftCtrlNbr, out var craftName);
-            response.Boards.Add(await MapToResponseAsync(board, craftName ?? string.Empty));
+            var craftName = board.CraftCtrlNbr is not null && result.CraftNames.TryGetValue(board.CraftCtrlNbr, out var cn) ? cn : string.Empty;
+            var rosterName = string.Empty;
+            long workAreaCtrlNbr = 0;
+            var workAreaName = string.Empty;
+
+            if (board.RosterCtrlNbr is not null && result.RosterMap.TryGetValue(board.RosterCtrlNbr, out var roster))
+            {
+                rosterName = roster.RosterName;
+                workAreaCtrlNbr = roster.WorkAreaGroupCtrlNbr.Value;
+                result.GroupNames.TryGetValue(roster.WorkAreaGroupCtrlNbr, out workAreaName);
+            }
+
+            var boardResponse = new RosterBoardResponse
+            {
+                CtrlNbr = board.CtrlNbr?.Value ?? 0,
+                Name = board.Name,
+                IsActive = board.IsActive,
+                WorkAreaGroupCtrlNbr = workAreaCtrlNbr,
+                WorkAreaName = workAreaName ?? string.Empty,
+                CraftCtrlNbr = board.CraftCtrlNbr?.Value ?? 0,
+                RosterCtrlNbr = board.RosterCtrlNbr?.Value ?? 0,
+                BoardType = board.BoardType.ToString(),
+                RotationType = board.RotationType.ToString(),
+                RosterName = rosterName,
+                CraftName = craftName
+            };
+
+            foreach (var position in board.Positions)
+            {
+                result.EmployeeMap.TryGetValue(position.EmployeeCtrlNbr!, out var emp);
+                var userId = emp?.UserId ?? string.Empty;
+                var fullName = !string.IsNullOrEmpty(userId) && nameMap.TryGetValue(userId, out var n) ? n : string.Empty;
+
+                var posResponse = new RosterBoardPositionResponse
+                {
+                    CtrlNbr = position.CtrlNbr?.Value ?? 0,
+                    EmployeeCtrlNbr = position.EmployeeCtrlNbr?.Value ?? 0,
+                    PositionOrder = position.PositionOrder,
+                    HangoutStatus = position.HangoutStatus,
+                    HangoutAt = position.HangoutAtUtc.HasValue
+                        ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                            DateTime.SpecifyKind(position.HangoutAtUtc.Value, DateTimeKind.Utc))
+                        : null,
+                    EmployeeNumber = emp?.EmployeeNumber ?? string.Empty,
+                    EmployeeUserId = userId,
+                    EmployeeFullNameLnf = fullName
+                };
+                if (position.EmployeeCtrlNbr is not null &&
+                    result.RestrictionLabels.TryGetValue(position.EmployeeCtrlNbr, out var posLabels))
+                    posResponse.RestrictionLabels.AddRange(posLabels);
+                boardResponse.Positions.Add(posResponse);
+            }
+            response.Boards.Add(boardResponse);
         }
 
         response.TotalCount = response.Boards.Count;
@@ -88,171 +104,166 @@ public class RosterBoardService(
     public override async Task<RosterBoardResponse> CreateRosterBoard(
         CreateRosterBoardRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
         var boardType = Enum.Parse<BoardType>(request.BoardType, ignoreCase: true);
         var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
-
-        var board = RosterBoard.Create(
-            ControlNumber.Create(request.CraftCtrlNbr),
-            ControlNumber.Create(request.RosterCtrlNbr),
-            request.Name,
-            boardType,
-            rotationType,
-            request.IsActive);
-
-        await _rosterBoardRepository.AddAsync(board);
-        var craftName = await ResolveCraftNameAsync(board.CraftCtrlNbr);
-        return await MapToResponseAsync(board, craftName);
+        var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
+            await svc.CreateRosterBoardAsync(request.CraftCtrlNbr, request.RosterCtrlNbr, request.Name,
+                boardType, rotationType, request.IsActive, context.CancellationToken);
+        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, []);
     }
 
     public override async Task<RosterBoardResponse> UpdateRosterBoard(
         UpdateRosterBoardRequest request, ServerCallContext context)
     {
-        var board = await _rosterBoardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster board {request.CtrlNbr} not found."));
-
-        var boardType = Enum.Parse<BoardType>(request.BoardType, ignoreCase: true);
-        var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
-
-        board.Update(request.Name, boardType, rotationType, request.IsActive);
-        await _rosterBoardRepository.UpdateAsync(board);
-        var craftName = await ResolveCraftNameAsync(board.CraftCtrlNbr);
-        return await MapToResponseAsync(board, craftName);
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
+        {
+            var boardType = Enum.Parse<BoardType>(request.BoardType, ignoreCase: true);
+            var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
+            var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
+                await svc.UpdateRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
+                    boardType, rotationType, request.IsActive, context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, []);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<DeleteResponse> DeleteRosterBoard(
         DeleteRosterBoardRequest request, ServerCallContext context)
     {
-        var board = await _rosterBoardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster board {request.CtrlNbr} not found."));
-
-        await _rosterBoardRepository.DeleteAsync(board.CtrlNbr);
-
-        return new DeleteResponse
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
         {
-            Success = true,
-            Messages = { $"Roster board {board.CtrlNbr?.Value ?? 0} deleted." }
-        };
+            var ctrlNbr = await svc.DeleteRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { $"Roster board {ctrlNbr?.Value ?? 0} deleted." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<RosterBoardPositionResponse> AddRosterBoardPosition(
         AddRosterBoardPositionRequest request, ServerCallContext context)
     {
-        var board = await _rosterBoardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.RosterBoardCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster board {request.RosterBoardCtrlNbr} not found."));
-
-        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
-
-        // Cross-cutting guard: covers crew incumbencies AND board positions
-        var existingAssignments = await _positionAssignmentRepository.GetByEmployeeAsync(employeeCtrlNbr);
-        if (existingAssignments.Count > 0)
-            throw new RpcException(new Status(StatusCode.AlreadyExists,
-                "This employee is already assigned to a staffable position. Unassign them first."));
-
-        var staffablePosition = StaffablePosition.Create("Board");
-        var position = board.AddPosition(employeeCtrlNbr, request.PositionOrder, staffablePosition.CtrlNbr);
-        var positionAssignment = PositionAssignment.Create(
-            staffablePosition.CtrlNbr, employeeCtrlNbr, "Board",
-            position.CtrlNbr);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.StaffablePositions.Add(staffablePosition);
-        uow.PositionAssignments.Add(positionAssignment);
-        uow.RosterBoards.Update(board);
-        await uow.CommitAsync();
-
-        return await MapPositionResponseAsync(position);
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
+        {
+            var (position, labels) = await svc.AddRosterBoardPositionAsync(
+                ControlNumber.Create(request.RosterBoardCtrlNbr),
+                ControlNumber.Create(request.EmployeeCtrlNbr),
+                request.PositionOrder, context.CancellationToken);
+            return await MapPositionAsync(position, labels);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message));
+        }
     }
 
     public override async Task<DeleteResponse> RemoveRosterBoardPosition(
         RemoveRosterBoardPositionRequest request, ServerCallContext context)
     {
-        await using var uow = await uowFactory.CreateAsync();
-
-        var boards = await uow.RosterBoards.GetAllAsync();
-        var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == ControlNumber.Create(request.CtrlNbr)))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position {request.CtrlNbr} not found on any board."));
-
-        var position = board.Positions.First(p => p.CtrlNbr == ControlNumber.Create(request.CtrlNbr));
-        var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(position.StaffablePositionCtrlNbr);
-
-        board.RemovePosition(position);
-        uow.RosterBoards.Update(board);
-        if (positionAssignment is not null)
-            uow.PositionAssignments.Remove(positionAssignment);
-        await uow.CommitAsync();
-
-        return new DeleteResponse
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
         {
-            Success = true,
-            Messages = { $"Position {request.CtrlNbr} removed." }
-        };
+            var ctrlNbr = await svc.RemoveRosterBoardPositionAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { $"Position {ctrlNbr.Value} removed." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<RosterBoardPositionResponse> HangoutPosition(
         HangoutPositionRequest request, ServerCallContext context)
     {
-        var boards = await _rosterBoardRepository.GetAllAsync();
-        var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == ControlNumber.Create(request.PositionCtrlNbr)))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position {request.PositionCtrlNbr} not found."));
-
-        var position = board.Positions.First(p => p.CtrlNbr == ControlNumber.Create(request.PositionCtrlNbr));
-        position.Hangout();
-        await _rosterBoardRepository.UpdateAsync(board);
-        return await MapPositionResponseAsync(position);
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
+        {
+            var (position, labels) = await svc.HangoutPositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
+            return await MapPositionAsync(position, labels);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<RosterBoardPositionResponse> RestorePosition(
         RestorePositionRequest request, ServerCallContext context)
     {
-        var boards = await _rosterBoardRepository.GetAllAsync();
-        var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == ControlNumber.Create(request.PositionCtrlNbr)))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Position {request.PositionCtrlNbr} not found."));
-
-        var position = board.Positions.First(p => p.CtrlNbr == ControlNumber.Create(request.PositionCtrlNbr));
-        position.RestoreFromHangout();
-        await _rosterBoardRepository.UpdateAsync(board);
-        return await MapPositionResponseAsync(position);
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
+        {
+            var (position, labels) = await svc.RestorePositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
+            return await MapPositionAsync(position, labels);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<RosterBoardResponse> ReorderRosterBoardPositions(
         ReorderRosterBoardPositionsRequest request, ServerCallContext context)
     {
-        var board = await _rosterBoardRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.RosterBoardCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Roster board {request.RosterBoardCtrlNbr} not found."));
-
-        var ordering = request.Entries
-            .Select(e => (ControlNumber.Create(e.PositionCtrlNbr), e.PositionOrder))
-            .ToList();
-
-        board.ReorderPositions(ordering);
-        await _rosterBoardRepository.UpdateAsync(board);
-        var craftName = await ResolveCraftNameAsync(board.CraftCtrlNbr);
-        return await MapToResponseAsync(board, craftName);
-    }
-
-    private async Task<string> ResolveCraftNameAsync(ControlNumber craftCtrlNbr)
-    {
-        var craft = await _craftRepository.GetByCtrlNbrAsync(craftCtrlNbr);
-        return craft?.CraftName ?? string.Empty;
-    }
-
-    private async Task<RosterBoardResponse> MapToResponseAsync(RosterBoard board, string craftName = "")
-    {
-        var rosterName = string.Empty;
-        long workAreaCtrlNbr = 0;
-        var workAreaName = string.Empty;
-        if (board.RosterCtrlNbr is not null)
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
         {
-            var roster = await _rosterRepository.GetByCtrlNbrAsync(board.RosterCtrlNbr);
-            rosterName = roster?.RosterName ?? string.Empty;
-            workAreaCtrlNbr = roster?.WorkAreaGroupCtrlNbr.Value ?? 0;
-            if (roster?.WorkAreaGroupCtrlNbr is not null)
-            {
-                var group = await _dynamicGroupRepository.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
-                workAreaName = group?.Name ?? string.Empty;
-            }
+            var ordering = request.Entries
+                .Select(e => (ControlNumber.Create(e.PositionCtrlNbr), e.PositionOrder))
+                .ToList();
+            var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
+                await svc.ReorderRosterBoardPositionsAsync(
+                    ControlNumber.Create(request.RosterBoardCtrlNbr), ordering, context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, []);
         }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
 
+    public override async Task<GetEligibleEmployeesForRosterBoardResponse> GetEligibleEmployeesForRosterBoard(
+        GetEligibleEmployeesForRosterBoardRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        var qualified = await svc.GetEligibleEmployeesForRosterBoardAsync(
+            ControlNumber.Create(request.CraftCtrlNbr),
+            ControlNumber.Create(request.ClientCtrlNbr),
+            context.CancellationToken);
+
+        var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(qualified.Select(e => e.UserId));
+        var eligible = qualified.Select(e => new EligibleEmployeeItem
+        {
+            CtrlNbr = e.CtrlNbr.Value,
+            EmployeeNumber = e.EmployeeNumber,
+            FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? string.Empty, string.Empty)
+        }).ToList();
+
+        eligible.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
+        var response = new GetEligibleEmployeesForRosterBoardResponse();
+        response.Employees.AddRange(eligible);
+        return response;
+    }
+
+    // ── Mapping ──────────────────────────────────────────────────────────────
+
+    private async Task<RosterBoardResponse> MapBoardAsync(
+        RosterBoard board, string craftName, string rosterName,
+        long workAreaCtrlNbr, string workAreaName,
+        Dictionary<ControlNumber, List<string>> empRestrictionLabels)
+    {
         var response = new RosterBoardResponse
         {
             CtrlNbr = board.CtrlNbr?.Value ?? 0,
@@ -267,78 +278,30 @@ public class RosterBoardService(
             RosterName = rosterName,
             CraftName = craftName
         };
-
         foreach (var position in board.Positions)
-        {
-            response.Positions.Add(await MapPositionResponseAsync(position));
-        }
-
+            response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels));
         return response;
     }
 
-    private async Task<RosterBoardPositionResponse> MapPositionResponseAsync(RosterBoardPosition position)
+    private async Task<RosterBoardPositionResponse> MapPositionAsync(
+        RosterBoardPosition position, Dictionary<ControlNumber, List<string>> empRestrictionLabels)
     {
-        var emp = await _employeeRepository.GetByCtrlNbrAsync(position.EmployeeCtrlNbr);
-        return new RosterBoardPositionResponse
+        var fullName = await employeeNameService.GetFullNameLnfAsync(position.EmployeeCtrlNbr?.Value.ToString());
+        var pr = new RosterBoardPositionResponse
         {
             CtrlNbr = position.CtrlNbr?.Value ?? 0,
             EmployeeCtrlNbr = position.EmployeeCtrlNbr?.Value ?? 0,
             PositionOrder = position.PositionOrder,
             HangoutStatus = position.HangoutStatus,
             HangoutAt = position.HangoutAtUtc.HasValue
-                ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(position.HangoutAtUtc.Value, DateTimeKind.Utc))
+                ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                    DateTime.SpecifyKind(position.HangoutAtUtc.Value, DateTimeKind.Utc))
                 : null,
-            EmployeeNumber = emp?.EmployeeNumber ?? string.Empty,
-            EmployeeUserId = emp?.UserId ?? string.Empty,
-            EmployeeFullNameLnf = await employeeNameService.GetFullNameLnfAsync(emp?.UserId)
+            EmployeeFullNameLnf = fullName
         };
+        if (position.EmployeeCtrlNbr is not null &&
+            empRestrictionLabels.TryGetValue(position.EmployeeCtrlNbr, out var labels))
+            pr.RestrictionLabels.AddRange(labels);
+        return pr;
     }
-
-    public override async Task<GetEligibleEmployeesForRosterBoardResponse> GetEligibleEmployeesForRosterBoard(
-        GetEligibleEmployeesForRosterBoardRequest request, ServerCallContext context)
-    {
-        var craftCtrlNbr = ControlNumber.Create(request.CraftCtrlNbr);
-        var clientCtrlNbr = ControlNumber.Create(request.ClientCtrlNbr);
-
-        // All qual types scoped to this craft
-        var craftQualTypes = await _qualificationTypeRepository.GetActiveByCraftCtrlNbrAsync(craftCtrlNbr);
-        var craftQualTypeCtrlNbrs = craftQualTypes.Select(q => q.CtrlNbr).ToHashSet();
-
-        // No qual types defined for this craft — no one is eligible
-        if (craftQualTypeCtrlNbrs.Count == 0)
-            return new GetEligibleEmployeesForRosterBoardResponse();
-
-        // All employees for this railroad, excluding those already assigned to any staffable position
-        var employees = await _employeeRepository.GetListByClientCtrlNbrAsync(clientCtrlNbr);
-        if (employees.Count == 0)
-            return new GetEligibleEmployeesForRosterBoardResponse();
-
-        var assignedCtrlNbrs = await _positionAssignmentRepository.GetAssignedEmployeeCtrlNbrsAsync();
-        var unassigned = assignedCtrlNbrs.Count == 0
-            ? employees
-            : employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList();
-
-        // Filter to employees who hold at least one active qualification in this craft
-        var empQuals = await _employeeQualificationRepository.GetActiveByEmployeeCtrlNbrsAsync(unassigned.Select(e => e.CtrlNbr));
-        var qualifiedCtrlNbrs = empQuals
-            .Where(eq => craftQualTypeCtrlNbrs.Contains(eq.QualificationTypeCtrlNbr))
-            .Select(eq => eq.EmployeeCtrlNbr)
-            .ToHashSet();
-
-        var qualified = unassigned.Where(e => qualifiedCtrlNbrs.Contains(e.CtrlNbr)).ToList();
-        var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(qualified.Select(e => e.UserId));
-
-        var eligible = qualified.Select(e => new EligibleEmployeeItem
-        {
-            CtrlNbr = e.CtrlNbr.Value,
-            EmployeeNumber = e.EmployeeNumber,
-            FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? string.Empty, string.Empty)
-        }).ToList();
-
-        eligible.Sort((a, b) => string.Compare(a.FullNameLnf, b.FullNameLnf, StringComparison.OrdinalIgnoreCase));
-        var response = new GetEligibleEmployeesForRosterBoardResponse();
-        response.Employees.AddRange(eligible);
-        return response;
-    }
-
 }
