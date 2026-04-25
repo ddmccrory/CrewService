@@ -20,6 +20,15 @@ internal sealed class PositionAssignmentRepository(CrewServiceDbContext dbContex
     public async Task<PositionAssignment?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr) =>
         await DbContext.Set<PositionAssignment>().FirstOrDefaultAsync(a => a.StaffablePositionCtrlNbr == staffablePositionCtrlNbr);
 
+    public async Task<List<PositionAssignment>> GetByStaffablePositionsAsync(IEnumerable<ControlNumber> staffablePositionCtrlNbrs)
+    {
+        var ctrlNbrs = staffablePositionCtrlNbrs.ToList();
+        if (ctrlNbrs.Count == 0) return [];
+        return await DbContext.Set<PositionAssignment>()
+            .Where(a => ctrlNbrs.Contains(a.StaffablePositionCtrlNbr))
+            .ToListAsync();
+    }
+
     public async Task<List<PositionAssignment>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr) =>
         await DbContext.Set<PositionAssignment>().Where(a => a.EmployeeCtrlNbr == employeeCtrlNbr).ToListAsync();
 

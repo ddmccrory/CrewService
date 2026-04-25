@@ -1,6 +1,8 @@
 using CrewService.Application.RosterBoardOps;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +11,7 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class RosterBoardService(
     EmployeeNameService employeeNameService,
+    IOrchestrationUnitOfWorkFactory uowFactory,
     IServiceProvider serviceProvider)
     : RosterBoardSrvc.RosterBoardSrvcBase
 {
@@ -19,7 +22,8 @@ public class RosterBoardService(
         var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels) =
             await svc.GetRosterBoardDetailAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
         if (board is null) return new RosterBoardResponse();
-        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels, uow);
     }
 
     public override async Task<GetAllRosterBoardsResponse> GetAllRosterBoards(
@@ -39,6 +43,17 @@ public class RosterBoardService(
         var allUserIds = result.EmployeeMap.Values
             .Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList()!;
         var nameMap = await employeeNameService.GetFullNameLnfBatchAsync(allUserIds!);
+
+        var allStaffableCtrlNbrs = result.Boards
+            .SelectMany(b => b.Positions)
+            .Select(p => p.StaffablePositionCtrlNbr)
+            .Where(c => c is not null)
+            .Distinct()
+            .ToList();
+
+        await using var listUow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+        var allAssignments = await listUow.PositionAssignments.GetByStaffablePositionsAsync(allStaffableCtrlNbrs!);
+        var assignmentMap = allAssignments.ToDictionary(a => a.StaffablePositionCtrlNbr);
 
         foreach (var board in result.Boards)
         {
@@ -74,6 +89,7 @@ public class RosterBoardService(
                 result.EmployeeMap.TryGetValue(position.EmployeeCtrlNbr!, out var emp);
                 var userId = emp?.UserId ?? string.Empty;
                 var fullName = !string.IsNullOrEmpty(userId) && nameMap.TryGetValue(userId, out var n) ? n : string.Empty;
+                assignmentMap.TryGetValue(position.StaffablePositionCtrlNbr!, out var pa);
 
                 var posResponse = new RosterBoardPositionResponse
                 {
@@ -87,7 +103,11 @@ public class RosterBoardService(
                         : null,
                     EmployeeNumber = emp?.EmployeeNumber ?? string.Empty,
                     EmployeeUserId = userId,
-                    EmployeeFullNameLnf = fullName
+                    EmployeeFullNameLnf = fullName,
+                    AssignedDateUtc = pa is not null
+                        ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                            DateTime.SpecifyKind(pa.AssignedDateUtc, DateTimeKind.Utc))
+                        : null
                 };
                 if (position.EmployeeCtrlNbr is not null &&
                     result.RestrictionLabels.TryGetValue(position.EmployeeCtrlNbr, out var posLabels))
@@ -110,7 +130,8 @@ public class RosterBoardService(
         var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
             await svc.CreateRosterBoardAsync(request.CraftCtrlNbr, request.RosterCtrlNbr, request.Name,
                 boardType, rotationType, request.IsActive, context.CancellationToken);
-        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, []);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], uow);
     }
 
     public override async Task<RosterBoardResponse> UpdateRosterBoard(
@@ -124,7 +145,8 @@ public class RosterBoardService(
             var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
                 await svc.UpdateRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
                     boardType, rotationType, request.IsActive, context.CancellationToken);
-            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, []);
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], uow);
         }
         catch (KeyNotFoundException ex)
         {
@@ -157,7 +179,8 @@ public class RosterBoardService(
                 ControlNumber.Create(request.RosterBoardCtrlNbr),
                 ControlNumber.Create(request.EmployeeCtrlNbr),
                 request.PositionOrder, context.CancellationToken);
-            return await MapPositionAsync(position, labels);
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+            return await MapPositionAsync(position, labels, uow);
         }
         catch (KeyNotFoundException ex)
         {
@@ -191,7 +214,8 @@ public class RosterBoardService(
         try
         {
             var (position, labels) = await svc.HangoutPositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
-            return await MapPositionAsync(position, labels);
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+            return await MapPositionAsync(position, labels, uow);
         }
         catch (KeyNotFoundException ex)
         {
@@ -206,7 +230,8 @@ public class RosterBoardService(
         try
         {
             var (position, labels) = await svc.RestorePositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
-            return await MapPositionAsync(position, labels);
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+            return await MapPositionAsync(position, labels, uow);
         }
         catch (KeyNotFoundException ex)
         {
@@ -226,7 +251,8 @@ public class RosterBoardService(
             var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
                 await svc.ReorderRosterBoardPositionsAsync(
                     ControlNumber.Create(request.RosterBoardCtrlNbr), ordering, context.CancellationToken);
-            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, []);
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], uow);
         }
         catch (KeyNotFoundException ex)
         {
@@ -262,7 +288,8 @@ public class RosterBoardService(
     private async Task<RosterBoardResponse> MapBoardAsync(
         RosterBoard board, string craftName, string rosterName,
         long workAreaCtrlNbr, string workAreaName,
-        Dictionary<ControlNumber, List<string>> empRestrictionLabels)
+        Dictionary<ControlNumber, List<string>> empRestrictionLabels,
+        IOrchestrationUnitOfWork uow)
     {
         var response = new RosterBoardResponse
         {
@@ -279,14 +306,22 @@ public class RosterBoardService(
             CraftName = craftName
         };
         foreach (var position in board.Positions)
-            response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels));
+            response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, uow));
         return response;
     }
 
     private async Task<RosterBoardPositionResponse> MapPositionAsync(
-        RosterBoardPosition position, Dictionary<ControlNumber, List<string>> empRestrictionLabels)
+        RosterBoardPosition position, Dictionary<ControlNumber, List<string>> empRestrictionLabels,
+        IOrchestrationUnitOfWork uow)
     {
-        var fullName = await employeeNameService.GetFullNameLnfAsync(position.EmployeeCtrlNbr?.Value.ToString());
+        var (fullName, employeeNumber) = position.EmployeeCtrlNbr is not null
+            ? await employeeNameService.GetEmployeeInfoAsync(position.EmployeeCtrlNbr)
+            : (string.Empty, string.Empty);
+
+        PositionAssignment? positionAssignment = null;
+        if (position.StaffablePositionCtrlNbr is not null)
+            positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(position.StaffablePositionCtrlNbr);
+
         var pr = new RosterBoardPositionResponse
         {
             CtrlNbr = position.CtrlNbr?.Value ?? 0,
@@ -297,7 +332,12 @@ public class RosterBoardService(
                 ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
                     DateTime.SpecifyKind(position.HangoutAtUtc.Value, DateTimeKind.Utc))
                 : null,
-            EmployeeFullNameLnf = fullName
+            EmployeeNumber = employeeNumber,
+            EmployeeFullNameLnf = fullName,
+            AssignedDateUtc = positionAssignment is not null
+                ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                    DateTime.SpecifyKind(positionAssignment.AssignedDateUtc, DateTimeKind.Utc))
+                : null
         };
         if (position.EmployeeCtrlNbr is not null &&
             empRestrictionLabels.TryGetValue(position.EmployeeCtrlNbr, out var labels))
