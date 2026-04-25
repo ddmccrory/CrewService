@@ -12,6 +12,7 @@ public sealed class Roster : Entity
     public string RosterName { get; private set; } = string.Empty;
     public string RosterPluralName { get; private set; } = string.Empty;
     public int RosterNumber { get; private set; }
+    public RosterType RosterType { get; private set; } = RosterType.Active;
 
     private Roster()
     {
@@ -25,7 +26,8 @@ public sealed class Roster : Entity
         ControlNumber? railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
-        int rosterNumber)
+        int rosterNumber,
+        RosterType rosterType)
     {
         CraftCtrlNbr = craftCtrlNbr;
         WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr;
@@ -33,6 +35,7 @@ public sealed class Roster : Entity
         RosterName = rosterName;
         RosterPluralName = rosterPluralName;
         RosterNumber = rosterNumber;
+        RosterType = rosterType;
     }
 
     public static Roster Create(
@@ -41,7 +44,8 @@ public sealed class Roster : Entity
         ControlNumber? railroadPayrollDepartmentCtrlNbr,
         string rosterName,
         string rosterPluralName,
-        int rosterNumber)
+        int rosterNumber,
+        RosterType rosterType = RosterType.Active)
     {
         var entity = new Roster(
             craftCtrlNbr,
@@ -49,7 +53,8 @@ public sealed class Roster : Entity
             railroadPayrollDepartmentCtrlNbr,
             rosterName,
             rosterPluralName,
-            rosterNumber);
+            rosterNumber,
+            rosterType);
         entity.Raise(new RosterCreatedDomainEvent(entity.CtrlNbr));
         return entity;
     }

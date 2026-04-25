@@ -31,6 +31,7 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
         builder.Property(r => r.RosterName).HasMaxLength(100).IsRequired();
         builder.Property(r => r.RosterPluralName).HasMaxLength(100).IsRequired();
         builder.Property(r => r.RosterNumber).IsRequired();
+        builder.Property(r => r.RosterType).IsRequired().HasDefaultValue(RosterType.Active);
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(r => r.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);

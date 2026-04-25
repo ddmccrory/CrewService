@@ -251,7 +251,9 @@ else
             </ToolbarContent>
             <RowContent Context="entry">
                 <td>@entry.EmployeeNumber.ToUpperInvariant()</td>
-                <td>@entry.EmployeeFullNameLnf</td>
+                <td>
+                    @entry.EmployeeFullNameLnf
+                </td>
                 <td>@FormatDate(entry.RosterDate)</td>
                 <td>@entry.Rank</td>
                 <td>@entry.SeniorityStateName</td>
@@ -259,6 +261,12 @@ else
                     <div class="form-check form-switch">
                         <input type="checkbox" class="form-check-input" checked="@entry.CanTrain" disabled />
                     </div>
+                </td>
+                <td>
+                    @foreach (var label in entry.RestrictionLabels)
+                    {
+                        <span class="badge bg-info text-dark me-1">@label</span>
+                    }
                 </td>
                 <td>
                     @if (!IsFeatureReadOnly)
@@ -310,6 +318,7 @@ else
         new("Rank", s => s.Rank, sortKey: "Rank"),
         new("State", s => s.SeniorityStateName),
         new("Can Train", s => s.CanTrain ? "Yes" : "No"),
+        new("Restrictions", s => s.RestrictionLabels.Count > 0 ? string.Join(", ", s.RestrictionLabels) : ""),
         DataTableColumn<SeniorityResponse>.Actions()
     ];
 

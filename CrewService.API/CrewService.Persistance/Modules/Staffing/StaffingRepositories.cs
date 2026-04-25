@@ -31,4 +31,14 @@ internal sealed class PositionAssignmentRepository(CrewServiceDbContext dbContex
             .ToListAsync();
         return [.. values];
     }
+
+    public async Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsByTypeAsync(string assignmentType)
+    {
+        var values = await DbContext.Set<PositionAssignment>()
+            .Where(a => a.AssignmentType == assignmentType)
+            .Select(a => a.EmployeeCtrlNbr.Value)
+            .Distinct()
+            .ToListAsync();
+        return [.. values];
+    }
 }

@@ -32,7 +32,7 @@ public sealed class RosterBoard : Entity
         bool isActive = true)
     {
         // Hangout and ExtendedAbsence boards have no rotation
-        if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence)
+        if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence or BoardType.NewHire)
             rotationType = RotationType.None;
 
         var board = new RosterBoard
@@ -51,7 +51,7 @@ public sealed class RosterBoard : Entity
     public void Update(string name, BoardType boardType, RotationType rotationType, bool isActive)
     {
         // Hangout and ExtendedAbsence boards have no rotation
-        if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence)
+        if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence or BoardType.NewHire)
             rotationType = RotationType.None;
 
         Name = name;

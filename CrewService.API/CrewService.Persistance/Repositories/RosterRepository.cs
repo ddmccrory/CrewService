@@ -27,4 +27,11 @@ internal sealed class RosterRepository(CrewServiceDbContext dbContext, ICurrentU
             .OrderBy(r => r.RosterNumber)
             .ToListAsync();
     }
+
+    public async Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<Roster>()
+            .Where(r => r.CraftCtrlNbr == craftCtrlNbr && r.RosterType == RosterType.Training)
+            .FirstOrDefaultAsync(ct);
+    }
 }

@@ -186,7 +186,7 @@
                 }
 
                 @* ── Compliance ── *@
-                @if (Permissions.HasAccessToAny("compliance/fra", "compliance/drug-alcohol", "compliance/safety", "compliance/absence-codes", "compliance/policies"))
+                @if (Permissions.HasAccessToAny("compliance/fra", "compliance/fra-settings", "compliance/drug-alcohol", "compliance/safety", "compliance/absence-codes", "compliance/policies"))
                 {
                     <NavMenuGroup Title="Compliance" Icon="bi-shield-check" IsInitiallyExpanded="@IsCurrentPath("compliance")">
                         @if (Permissions.HasAccess("compliance/fra"))
@@ -194,6 +194,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="compliance/fra">
                                     <span class="bi bi-file-earmark-ruled" aria-hidden="true"></span> FRA Certification
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("compliance/fra-settings"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="compliance/fra-settings">
+                                    <span class="bi bi-gear-fill" aria-hidden="true"></span> FRA Settings
                                 </NavLink>
                             </div>
                         }
