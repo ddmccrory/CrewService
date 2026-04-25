@@ -76,6 +76,7 @@ else
             <td>@pos.PositionOrder</td>
             <td>@pos.EmployeeNumber.ToUpperInvariant()</td>
             <td>@pos.EmployeeFullNameLnf</td>
+            <td>@FormatAssignedDate(pos)</td>
             <td>
                 @if (pos.HangoutStatus == "Active")
                 {
@@ -163,6 +164,7 @@ else
         new("Order", p => p.PositionOrder, width: "80px", sortKey: "Order"),
         new("Employee #", p => p.EmployeeNumber.ToUpperInvariant(), width: "140px"),
         new("Name", p => p.EmployeeFullNameLnf),
+        new("Assigned Date", p => FormatAssignedDate(p), width: "140px"),
         new("Status", p => p.HangoutStatus, width: "120px"),
         new("Restrictions", p => p.RestrictionLabels.Count > 0 ? string.Join(", ", p.RestrictionLabels) : "", width: "120px"),
         DataTableColumn<RosterBoardPositionResponse>.Actions()
@@ -376,6 +378,12 @@ else
     }
 
     // ── Formatters ──
+
+    private static string FormatAssignedDate(RosterBoardPositionResponse pos)
+    {
+        if (pos.AssignedDateUtc is null) return string.Empty;
+        return pos.AssignedDateUtc.ToDateTime().ToLocalTime().ToString("MM/dd/yyyy");
+    }
 
     private static string FormatBoardType(string boardType) => boardType switch
     {
