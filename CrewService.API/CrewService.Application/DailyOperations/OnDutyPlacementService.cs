@@ -1,24 +1,10 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
 
-public interface IOnDutyRecordRepository
-{
-    Task AddAsync(OnDutyRecord record, CancellationToken ct = default);
-    Task<OnDutyRecord?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
-    Task<IReadOnlyList<OnDutyRecord>> GetRecentForEmployeeAsync(ControlNumber employeeCtrlNbr, int dayCount, CancellationToken ct = default);
-}
-
-public interface IOffDutyRecordRepository
-{
-    Task AddAsync(OffDutyRecord record, CancellationToken ct = default);
-    Task<OffDutyRecord?> GetLastForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
-}
-
-public sealed class OnDutyPlacementService(
-    IOnDutyRecordRepository onDutyRepo,
-    IOffDutyRecordRepository offDutyRepo)
+public sealed class OnDutyPlacementService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
     public async Task<OnDutyRecord> ExecuteAsync(
         ControlNumber positionSlotCtrlNbr,
@@ -29,12 +15,14 @@ public sealed class OnDutyPlacementService(
         int lateCallThresholdMinutes = 0,
         CancellationToken ct = default)
     {
-        var lastOffDuty = await offDutyRepo.GetLastForEmployeeAsync(employeeCtrlNbr, ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var lastOffDuty = await uow.OffDutyRecords.GetLastForEmployeeAsync(employeeCtrlNbr, ct);
         var previousRestHours = lastOffDuty is null
             ? 999m
             : (decimal)(onDutyTimeUtc - lastOffDuty.OffDutyTimeUtc).TotalHours;
 
-        var recentOnDuty = await onDutyRepo.GetRecentForEmployeeAsync(employeeCtrlNbr, 7, ct);
+        var recentOnDuty = await uow.OnDutyRecords.GetRecentForEmployeeAsync(employeeCtrlNbr, 7, ct);
         var consecutiveDays = CalculateConsecutiveDays(recentOnDuty, onDutyTimeUtc);
 
         var record = OnDutyRecord.Create(
@@ -47,7 +35,8 @@ public sealed class OnDutyPlacementService(
             isAssigned,
             lateCallThresholdMinutes);
 
-        await onDutyRepo.AddAsync(record, ct);
+        await uow.OnDutyRecords.AddAsync(record, ct);
+        await uow.CommitAsync(ct);
         return record;
     }
 
@@ -73,3 +62,4 @@ public sealed class OnDutyPlacementService(
         return count;
     }
 }
+

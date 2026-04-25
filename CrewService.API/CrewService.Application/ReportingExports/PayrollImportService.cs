@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
@@ -8,10 +9,7 @@ public sealed record PayrollImportRow(
     decimal PaidAmount,
     string PayPeriod);
 
-public sealed class PayrollImportService(
-    IPayrollRecordRepository recordRepo,
-    IPayrollImportRecordRepository importRepo,
-    IPayrollRunRepository runRepo)
+public sealed class PayrollImportService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
     public async Task<IReadOnlyList<PayrollImportRecord>> ImportAsync(
         string sourceFile,
@@ -19,10 +17,12 @@ public sealed class PayrollImportService(
         string payPeriod,
         CancellationToken ct = default)
     {
-        var run = await runRepo.GetByPayPeriodAsync(payPeriod);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var run = await uow.PayrollRuns.GetByPayPeriodAsync(payPeriod);
         List<PayrollRecord>? runRecords = null;
         if (run is not null)
-            runRecords = await recordRepo.GetByRunAsync(run.CtrlNbr);
+            runRecords = await uow.PayrollRecords.GetByRunAsync(run.CtrlNbr);
 
         var importRecords = new List<PayrollImportRecord>();
 
@@ -41,10 +41,12 @@ public sealed class PayrollImportService(
                     record.MatchToRecord(match.CtrlNbr);
             }
 
-            await importRepo.AddAsync(record, ct);
+            await uow.PayrollImportRecords.AddAsync(record, ct);
             importRecords.Add(record);
         }
 
+        await uow.CommitAsync(ct);
         return importRecords;
     }
 }
+

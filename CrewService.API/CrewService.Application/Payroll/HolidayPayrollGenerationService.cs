@@ -1,16 +1,12 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Payroll;
 
-public interface IHolidayPayrollRecordRepository
-{
-    Task AddAsync(HolidayPayrollRecord record, CancellationToken ct = default);
-}
-
 public sealed class HolidayPayrollGenerationService(
     HolidayQualificationService qualificationService,
-    IHolidayPayrollRecordRepository recordRepo)
+    IOrchestrationUnitOfWorkFactory uowFactory)
 {
     public async Task<HolidayPayrollRecord> GenerateAsync(
         ControlNumber holidayCtrlNbr,
@@ -23,7 +19,10 @@ public sealed class HolidayPayrollGenerationService(
             holidayCtrlNbr, ctx.EmployeeCtrlNbr,
             result.IsQualified, result.DisqualificationReason);
 
-        await recordRepo.AddAsync(record, ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        await uow.HolidayPayrollRecords.AddAsync(record, ct);
+        await uow.CommitAsync(ct);
         return record;
     }
 }
+

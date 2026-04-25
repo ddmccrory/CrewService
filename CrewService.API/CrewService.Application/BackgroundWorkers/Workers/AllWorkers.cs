@@ -1,6 +1,7 @@
 using CrewService.Domain.Modules.Infrastructure;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Application.FraCompliance;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Application.Qualifications;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -84,14 +85,59 @@ public sealed class FraComplianceWorker(
     protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var certifications = services.GetRequiredService<IEmployeeCertificationRepository>();
-
-        var allCertifications = await certifications.GetAllAsync(ct);
+        var checkConfigRepo = services.GetRequiredService<IFraCertificationCheckConfigRepository>();
+        var certConfigRepo = services.GetRequiredService<IFraCertificationConfigRepository>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        foreach (var cert in allCertifications.Where(c => c.Status == "Active" && c.ExpirationDate <= today))
+        var allWithChecks = await certifications.GetAllWithChecksAsync(ct);
+
+        // Load all parent-level configs once. Employee certs don't carry a parent FK,
+        // so use the single parent config if there is exactly one; otherwise fall back to defaults.
+        var allCertConfigs = await certConfigRepo.GetAllAsync(ct);
+        var allCheckConfigs = await checkConfigRepo.GetAllAsync(ct);
+        var singleCertConfig = allCertConfigs.Count == 1 ? allCertConfigs[0] : null;
+        IReadOnlyList<FraCertificationCheckConfig>? singleCheckConfigs =
+            allCertConfigs.Count == 1 && allCheckConfigs.Count > 0
+                ? allCheckConfigs.Where(c => c.ParentCtrlNbr == allCertConfigs[0].ParentCtrlNbr
+                                          && c.RailroadCtrlNbr == null).ToList()
+                : null;
+
+        foreach (var cert in allWithChecks)
         {
-            cert.Expire();
-            await certifications.UpdateAsync(cert, ct);
+            var before = cert.Status;
+            cert.RecomputeStatus(today, singleCheckConfigs);
+
+            if (cert.Status != before)
+                await certifications.UpdateAsync(cert, ct);
+
+            if (cert.Status is CertificationStatuses.Active or CertificationStatuses.Renew)
+            {
+                var recertWindowDays = singleCertConfig?.RecertWindowDays ?? 180;
+                if (today >= cert.ExpirationDate.AddDays(-recertWindowDays))
+                {
+                    var existingCerts = await certifications.GetByEmployeeCtrlNbrAsync(cert.EmployeeCtrlNbr, ct);
+                    var hasPendingRecert = existingCerts.Any(c =>
+                        c.CtrlNbr != cert.CtrlNbr
+                        && c.RegulatoryQualificationCtrlNbr == cert.RegulatoryQualificationCtrlNbr
+                        && string.Equals(c.CertificationType, cert.CertificationType, StringComparison.OrdinalIgnoreCase)
+                        && c.Status == CertificationStatuses.Pending
+                        && c.CertificationDate > cert.CertificationDate);
+
+                    if (!hasPendingRecert)
+                    {
+                        var certCycleMonths = singleCertConfig?.CertCycleMonths ?? 36;
+                        var newCert = EmployeeCertification.Create(
+                            employeeCtrlNbr: cert.EmployeeCtrlNbr,
+                            regulatoryQualificationCtrlNbr: cert.RegulatoryQualificationCtrlNbr,
+                            certificationType: cert.CertificationType,
+                            certificationDate: cert.ExpirationDate,
+                            recertificationIntervalMonths: certCycleMonths);
+                        certifications.Add(newCert);
+                        logger.LogInformation("Auto-initiated recertification for employee {EmployeeCtrlNbr}, expiring {ExpirationDate}",
+                            cert.EmployeeCtrlNbr.Value, cert.ExpirationDate);
+                    }
+                }
+            }
         }
     }
 }
@@ -152,60 +198,17 @@ public sealed class QualificationExpiryNotifierWorker(
     {
         var employeeQualificationRepository = services.GetRequiredService<IEmployeeQualificationRepository>();
 
-        var qualifications = await employeeQualificationRepository.GetAllAsync(ct);
         var nowUtc = DateTime.UtcNow;
+        var notifyWindowUtc = nowUtc.AddDays(EmployeeQualification.ExpiringSoonDays);
+        var qualifications = await employeeQualificationRepository.GetExpiringBeforeAsync(notifyWindowUtc);
         var thresholds = new HashSet<int> { 60, 30, 14, 7 };
 
         foreach (var qualification in qualifications)
         {
-            if (qualification.ExpiresAtUtc is null)
-                continue;
-
-            if (qualification.Status is not ("Active" or "ExpiringSoon"))
-                continue;
-
+            if (qualification.ExpiresAtUtc is null) continue;
             var daysRemaining = (int)Math.Floor((qualification.ExpiresAtUtc.Value - nowUtc).TotalDays);
-            if (thresholds.Contains(daysRemaining) && qualification.Status == "Active")
-            {
-                qualification.MarkExpiringSoon(daysRemaining);
-                await employeeQualificationRepository.UpdateAsync(qualification, ct);
-            }
-        }
-    }
-}
-
-public sealed class QualificationExpiryEnforcerWorker(
-    IServiceScopeFactory scopeFactory,
-    ILogger<QualificationExpiryEnforcerWorker> logger)
-    : WorkerBase(scopeFactory, logger, "QualExpiryEnforce", TimeSpan.FromHours(1))
-{
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
-    {
-        var employeeQualificationRepository = services.GetRequiredService<IEmployeeQualificationRepository>();
-        var qualificationTypeRepository = services.GetRequiredService<IQualificationTypeRepository>();
-
-        var nowUtc = DateTime.UtcNow;
-        var candidates = await employeeQualificationRepository.GetExpiringBeforeAsync(nowUtc);
-
-        foreach (var qualification in candidates)
-        {
-            if (qualification.ExpiresAtUtc is null)
-                continue;
-
-            var qualificationType = await qualificationTypeRepository
-                .GetByCtrlNbrAsync(qualification.QualificationTypeCtrlNbr, ct);
-
-            var graceDays = qualificationType?.GraceDays ?? 0;
-            var hardExpiryUtc = qualification.ExpiresAtUtc.Value.AddDays(graceDays);
-
-            if (hardExpiryUtc >= nowUtc)
-                continue;
-
-            if (qualification.Status is "Expired" or "Revoked")
-                continue;
-
-            qualification.Expire();
-            await employeeQualificationRepository.UpdateAsync(qualification, ct);
+            if (!thresholds.Contains(daysRemaining)) continue;
+            // TODO: send notification via IOperationalNotifier when notification system is built out
         }
     }
 }

@@ -1,44 +1,44 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Payroll;
 
-public interface IPayRateRepository
-{
-    Task<PayRate?> GetEffectiveAsync(
-        ControlNumber craftCtrlNbr, DateTime asOfDate,
-        ControlNumber? craftRoleCtrlNbr = null, CancellationToken ct = default);
-}
-
-public sealed class PayrollPeriodService(IPayrollRunRepository runRepo)
+public sealed class PayrollPeriodService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
     public async Task<PayrollRun> CreateOrGetDraftAsync(
         string payPeriod, ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
     {
-        var existing = await runRepo.GetByPayPeriodAsync(payPeriod, workAreaGroupCtrlNbr, ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var existing = await uow.PayrollRuns.GetByPayPeriodAsync(payPeriod, workAreaGroupCtrlNbr, ct);
         if (existing is not null && existing.Status == "DRAFT")
             return existing;
 
         var run = PayrollRun.Create(payPeriod);
-        await runRepo.AddAsync(run, ct);
+        await uow.PayrollRuns.AddAsync(run, ct);
+        await uow.CommitAsync(ct);
         return run;
     }
 
     public async Task<PayrollRun> CalculateTrialAsync(ControlNumber runCtrlNbr, CancellationToken ct = default)
     {
-        var run = await runRepo.GetByCtrlNbrAsync(runCtrlNbr, ct)
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var run = await uow.PayrollRuns.GetByCtrlNbrAsync(runCtrlNbr, ct)
             ?? throw new InvalidOperationException("Payroll run not found");
-
         run.MarkCalculated();
+        await uow.PayrollRuns.UpdateAsync(run, ct);
+        await uow.CommitAsync(ct);
         return run;
     }
 
     public async Task<PayrollRun> LockFinalAsync(ControlNumber runCtrlNbr, CancellationToken ct = default)
     {
-        var run = await runRepo.GetByCtrlNbrAsync(runCtrlNbr, ct)
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var run = await uow.PayrollRuns.GetByCtrlNbrAsync(runCtrlNbr, ct)
             ?? throw new InvalidOperationException("Payroll run not found");
-
         run.Lock();
+        await uow.PayrollRuns.UpdateAsync(run, ct);
+        await uow.CommitAsync(ct);
         return run;
     }
 }

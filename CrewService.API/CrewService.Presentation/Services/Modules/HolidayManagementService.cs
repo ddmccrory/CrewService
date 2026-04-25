@@ -1,10 +1,11 @@
 using CrewService.Application.HolidayManagement;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
-public class HolidayManagementService(HolidayAutoGenerationService autoGenerationService)
+public class HolidayManagementService(IServiceProvider serviceProvider)
     : HolidayManagementSrvc.HolidayManagementSrvcBase
 {
     public override Task<GetUsHolidayCatalogResponse> GetUsHolidayCatalog(
@@ -19,7 +20,8 @@ public class HolidayManagementService(HolidayAutoGenerationService autoGeneratio
     public override async Task<GenerateHolidaysForYearResponse> GenerateHolidaysForYear(
         GenerateHolidaysForYearRequest request, ServerCallContext context)
     {
-        var holidays = await autoGenerationService.GenerateForYearAsync(
+        var svc = serviceProvider.GetRequiredService<HolidayAutoGenerationService>();
+        var holidays = await svc.GenerateForYearAsync(
             ControlNumber.Create(request.WorkAreaGroupCtrlNbr), request.Year,
             request.ParentGroupCtrlNbr != 0 ? ControlNumber.Create(request.ParentGroupCtrlNbr) : null,
             context.CancellationToken);

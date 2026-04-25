@@ -29,3 +29,28 @@ public interface IPayrollImportRecordRepository : IRepository<PayrollImportRecor
 {
     Task<IReadOnlyList<PayrollImportRecord>> GetBySourceFileAsync(string sourceFile, CancellationToken ct = default);
 }
+
+public interface IHolidayRepository : IRepository<Holiday>
+{
+    Task<IReadOnlyList<Holiday>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+}
+
+public interface IHolidayQualificationRuleRepository : IRepository<HolidayQualificationRule>
+{
+    Task<IReadOnlyList<HolidayQualificationRule>> GetByHolidayAsync(ControlNumber holidayCtrlNbr, CancellationToken ct = default);
+}
+
+public interface IHolidayPayrollRecordRepository : IRepository<HolidayPayrollRecord>
+{
+}
+
+public interface IEarningCodeRuleRepository : IRepository<EarningCodeRule>
+{
+    Task<IReadOnlyList<EarningCodeRule>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
+}
+
+public interface IPayRateRepository : IRepository<PayRate>
+{
+    Task<PayRate?> GetEffectiveAsync(ControlNumber craftCtrlNbr, DateTime asOfDate,
+        ControlNumber? craftRoleCtrlNbr = null, CancellationToken ct = default);
+}

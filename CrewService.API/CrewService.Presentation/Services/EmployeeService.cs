@@ -5,19 +5,17 @@ using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.Modules.UserAccount;
 using Google.Protobuf.WellKnownTypes;
-using CrewService.Infrastructure.Models.UserAccount;
 using Grpc.Core;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Presentation.Services;
 
-public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrationUnitOfWorkFactory uowFactory, UserManager<User> userManager) : EmployeeSrvc.EmployeeSrvcBase
+public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrationUnitOfWorkFactory uowFactory, IUserAccountService userAccountService) : EmployeeSrvc.EmployeeSrvcBase
 {
     private readonly IEmployeeRepository _employeeRepository = employeeRepository;
     private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
-    private readonly UserManager<User> _userManager = userManager;
+    private readonly IUserAccountService _userAccountService = userAccountService;
     #region Employee Operations
 
     public override async Task<GetAllEmployeesResponse> GetAllEmployeesAsync(GetAllEmployeesRequest request, ServerCallContext context)
@@ -31,12 +29,9 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
                 : await _employeeRepository.GetAllAsync();
 
         // Batch-load user names in a single WHERE Id IN (...) query
-        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
-        var userMap = await _userManager.Users
-            .Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.FirstName, u.MiddleName, u.LastName, u.FullNameLNF })
-            .ToListAsync();
-        var userDict = userMap.ToDictionary(u => u.Id, StringComparer.Ordinal);
+        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().Cast<string>().ToList();
+        var userList = await _userAccountService.GetNamesByIdsAsync(userIds);
+        var userDict = userList.ToDictionary(u => u.Id, StringComparer.Ordinal);
 
         foreach (var employee in employees)
         {
@@ -142,16 +137,10 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
         // Update user name fields if provided
         if (!string.IsNullOrEmpty(employee.UserId))
         {
-            var user = await _userManager.FindByIdAsync(employee.UserId);
-            if (user is not null)
-            {
-                user.FirstName = request.FirstName;
-                user.MiddleName = request.MiddleName;
-                user.LastName = request.LastName;
-                user.FullName = EmployeeNameService.FormatFullName(request.FirstName, request.MiddleName, request.LastName);
-                user.FullNameLNF = EmployeeNameService.FormatFullNameLnf(request.FirstName, request.MiddleName, request.LastName);
-                await _userManager.UpdateAsync(user);
-            }
+            var fullName = EmployeeNameService.FormatFullName(request.FirstName, request.MiddleName, request.LastName);
+            var fullNameLNF = EmployeeNameService.FormatFullNameLnf(request.FirstName, request.MiddleName, request.LastName);
+            await _userAccountService.UpdateProfileAsync(
+                employee.UserId, request.FirstName, request.MiddleName, request.LastName, fullName, fullNameLNF);
         }
 
         return new UpdateEmployeeResponse
@@ -495,7 +484,7 @@ public class EmployeeService(IEmployeeRepository employeeRepository, IOrchestrat
     {
         if (!string.IsNullOrEmpty(userId))
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            var user = await _userAccountService.FindByIdAsync(userId);
             if (user is not null)
             {
                 response.FullNameLnf = EmployeeNameService.FormatFullNameLnf(

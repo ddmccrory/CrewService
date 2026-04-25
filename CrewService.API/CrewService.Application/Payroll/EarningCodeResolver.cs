@@ -1,13 +1,8 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Payroll;
-
-public interface IEarningCodeRuleRepository
-{
-    Task<IReadOnlyList<EarningCodeRule>> GetActiveByWorkAreaAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
-}
 
 public sealed record EarningContext(
     bool IsOffDay,
@@ -18,12 +13,13 @@ public sealed record EarningContext(
 
 public sealed record EarningCodeResult(string ResultCode, bool RequiresApproval);
 
-public sealed class EarningCodeResolver(IEarningCodeRuleRepository ruleRepo)
+public sealed class EarningCodeResolver(IOrchestrationUnitOfWorkFactory uowFactory)
 {
     public async Task<EarningCodeResult?> ResolveAsync(
         ControlNumber workAreaGroupCtrlNbr, EarningContext ctx, CancellationToken ct = default)
     {
-        var rules = await ruleRepo.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var rules = await uow.EarningCodeRules.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
 
         foreach (var rule in rules.OrderBy(r => r.Priority))
         {

@@ -1,8 +1,6 @@
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
-using CrewService.Infrastructure.Models.UserAccount;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+using CrewService.Application.Modules.UserAccount;
 
 namespace CrewService.Presentation.Services;
 
@@ -12,7 +10,7 @@ namespace CrewService.Presentation.Services;
 /// scattered across gRPC service classes.
 /// </summary>
 public sealed class EmployeeNameService(
-    UserManager<User> userManager,
+    IUserAccountService userAccountService,
     IEmployeeRepository employeeRepository)
 {
     /// <summary>
@@ -22,7 +20,7 @@ public sealed class EmployeeNameService(
     public async Task<string> GetFullNameLnfAsync(string? userId)
     {
         if (string.IsNullOrEmpty(userId)) return string.Empty;
-        var user = await userManager.FindByIdAsync(userId);
+        var user = await userAccountService.FindByIdAsync(userId);
         return user?.FullNameLNF ?? string.Empty;
     }
 
@@ -33,13 +31,10 @@ public sealed class EmployeeNameService(
     /// </summary>
     public async Task<Dictionary<string, string>> GetFullNameLnfBatchAsync(IEnumerable<string?> userIds)
     {
-        var ids = userIds.Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+        var ids = userIds.Where(id => !string.IsNullOrEmpty(id)).Distinct().Cast<string>().ToList();
         if (ids.Count == 0) return [];
 
-        var users = await userManager.Users
-            .Where(u => ids.Contains(u.Id))
-            .Select(u => new { u.Id, u.FullNameLNF })
-            .ToListAsync();
+        var users = await userAccountService.GetNamesByIdsAsync(ids);
 
         return users
             .Where(u => u.FullNameLNF is not null)

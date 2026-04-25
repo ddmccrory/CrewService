@@ -1,14 +1,12 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
 
 public sealed class CallSheetGenerationService(
-    IAssignmentQueryService templateQuery,
-    IShiftDefinitionRepository shiftDefRepo,
-    IShiftInstanceRepository shiftInstanceRepo,
-    IWorkInstanceRepository workInstanceRepo,
-    IDepartmentRepository departmentRepo)
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IAssignmentQueryService assignmentQuery)
 {
     public async Task<ShiftInstance> GenerateForShiftAsync(
         ControlNumber workAreaGroupCtrlNbr,
@@ -17,7 +15,9 @@ public sealed class CallSheetGenerationService(
         ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default)
     {
-        var shiftDef = await shiftDefRepo.GetByCtrlNbrAsync(shiftDefinitionCtrlNbr, ct)
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var shiftDef = await uow.ShiftDefinitions.GetByCtrlNbrAsync(shiftDefinitionCtrlNbr, ct)
             ?? throw new InvalidOperationException($"Shift definition {shiftDefinitionCtrlNbr} not found.");
 
         if (!shiftDef.IsActive)
@@ -26,33 +26,25 @@ public sealed class CallSheetGenerationService(
         if (shiftDef.WorkAreaGroupCtrlNbr != workAreaGroupCtrlNbr)
             throw new InvalidOperationException($"Shift definition '{shiftDef.ShiftCode}' does not belong to the specified work area.");
 
-        // Find or create the WorkInstance for this work area + date
-        var workInstance = await FindOrCreateWorkInstanceAsync(workAreaGroupCtrlNbr, targetDate, ct);
+        var workInstance = await FindOrCreateWorkInstanceAsync(uow, workAreaGroupCtrlNbr, targetDate, ct);
 
-        // Duplicate check: shift already generated for this work instance + department?
-        var alreadyExists = await shiftInstanceRepo.ExistsByWorkInstanceAndShiftCodeAsync(
+        var alreadyExists = await uow.ShiftInstances.ExistsByWorkInstanceAndShiftCodeAsync(
             workInstance.CtrlNbr, shiftDef.ShiftCode, departmentCtrlNbr, ct);
 
         if (alreadyExists)
             throw new InvalidOperationException(
                 $"A call sheet for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd} already exists.");
 
-        // Resolve department name
         string? departmentName = null;
         if (departmentCtrlNbr is not null)
         {
-            var dept = await departmentRepo.GetByCtrlNbrAsync(departmentCtrlNbr, ct);
+            var dept = await uow.Departments.GetByCtrlNbrAsync(departmentCtrlNbr, ct);
             departmentName = dept?.Name;
         }
 
-        // Query assignment templates for this shift + date
-        var templates = await templateQuery.GetTemplatesForDateAsync(
+        var templates = await assignmentQuery.GetTemplatesForDateAsync(
             workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, departmentCtrlNbr, ct);
-        // templates may be empty (e.g. no assignments scheduled on a weekend) —
-        // that is fine; the shift instance is created with zero position slots.
 
-
-        // Create the shift instance with snapshot data
         var shiftInstance = ShiftInstance.Create(
             workInstance.CtrlNbr,
             shiftDefinitionCtrlNbr,
@@ -61,7 +53,6 @@ public sealed class CallSheetGenerationService(
             departmentCtrlNbr,
             departmentName);
 
-        // Add position slots with denormalized assignment/craft role data
         foreach (var template in templates)
         {
             foreach (var position in template.Positions)
@@ -83,7 +74,8 @@ public sealed class CallSheetGenerationService(
             }
         }
 
-        await shiftInstanceRepo.AddAsync(shiftInstance, ct);
+        await uow.ShiftInstances.AddAsync(shiftInstance, ct);
+        await uow.CommitAsync(ct);
         return shiftInstance;
     }
 
@@ -91,32 +83,32 @@ public sealed class CallSheetGenerationService(
         ControlNumber shiftInstanceCtrlNbr,
         CancellationToken ct = default)
     {
-        var existingShift = await shiftInstanceRepo.GetByCtrlNbrAsync(shiftInstanceCtrlNbr, ct)
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var existingShift = await uow.ShiftInstances.GetByCtrlNbrAsync(shiftInstanceCtrlNbr, ct)
             ?? throw new InvalidOperationException($"Shift instance {shiftInstanceCtrlNbr} not found.");
 
-        var workInstance = await workInstanceRepo.GetByCtrlNbrAsync(existingShift.WorkInstanceCtrlNbr, ct)
+        var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(existingShift.WorkInstanceCtrlNbr, ct)
             ?? throw new InvalidOperationException($"Work instance {existingShift.WorkInstanceCtrlNbr} not found.");
 
-        var shiftDefs = await shiftDefRepo.GetByWorkAreaAsync(workInstance.WorkAreaGroupCtrlNbr);
+        var shiftDefs = await uow.ShiftDefinitions.GetByWorkAreaAsync(workInstance.WorkAreaGroupCtrlNbr);
         var shiftDef = shiftDefs.FirstOrDefault(sd => sd.ShiftCode == existingShift.ShiftCode && sd.IsActive)
             ?? throw new InvalidOperationException($"Active shift definition for code '{existingShift.ShiftCode}' not found.");
 
         var targetDate = DateOnly.FromDateTime(workInstance.StartUtc);
 
-        // Resolve department name (refresh from current data)
         string? departmentName = existingShift.DepartmentName;
         if (existingShift.DepartmentCtrlNbr is not null)
         {
-            var dept = await departmentRepo.GetByCtrlNbrAsync(existingShift.DepartmentCtrlNbr, ct);
+            var dept = await uow.Departments.GetByCtrlNbrAsync(existingShift.DepartmentCtrlNbr, ct);
             departmentName = dept?.Name ?? existingShift.DepartmentName;
         }
 
-        // Delete the old shift instance
-        await shiftInstanceRepo.DeleteAsync(shiftInstanceCtrlNbr, ct);
+        await uow.ShiftInstances.DeleteAsync(shiftInstanceCtrlNbr, ct);
 
-        // Query fresh templates and rebuild
-        var templates = await templateQuery.GetTemplatesForDateAsync(
+        var templates = await assignmentQuery.GetTemplatesForDateAsync(
             workInstance.WorkAreaGroupCtrlNbr, shiftDef.CtrlNbr, targetDate, existingShift.DepartmentCtrlNbr, ct);
+
         var newShift = ShiftInstance.Create(
             workInstance.CtrlNbr,
             shiftDef.CtrlNbr,
@@ -146,11 +138,13 @@ public sealed class CallSheetGenerationService(
             }
         }
 
-        await shiftInstanceRepo.AddAsync(newShift, ct);
+        await uow.ShiftInstances.AddAsync(newShift, ct);
+        await uow.CommitAsync(ct);
         return newShift;
     }
 
-    private async Task<WorkInstance> FindOrCreateWorkInstanceAsync(
+    private static async Task<WorkInstance> FindOrCreateWorkInstanceAsync(
+        IOrchestrationUnitOfWork uow,
         ControlNumber workAreaGroupCtrlNbr,
         DateOnly targetDate,
         CancellationToken ct)
@@ -158,7 +152,7 @@ public sealed class CallSheetGenerationService(
         var dayStartUtc = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var dayEndUtc = targetDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
-        var existing = await workInstanceRepo.GetByWorkAreaAndDateRangeAsync(
+        var existing = await uow.WorkInstances.GetByWorkAreaAndDateRangeAsync(
             workAreaGroupCtrlNbr, dayStartUtc, dayEndUtc);
 
         if (existing.Count > 0)
@@ -171,7 +165,8 @@ public sealed class CallSheetGenerationService(
             endUtc: dayEndUtc,
             callTimeUtc: null);
 
-        await workInstanceRepo.AddAsync(workInstance, ct);
+        await uow.WorkInstances.AddAsync(workInstance, ct);
         return workInstance;
     }
 }
+

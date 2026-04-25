@@ -1,4 +1,3 @@
-using CrewService.Application.Payroll;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;

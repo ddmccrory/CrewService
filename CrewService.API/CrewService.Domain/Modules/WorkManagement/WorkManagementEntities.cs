@@ -190,12 +190,14 @@ public sealed class SlotRequirement : Entity
     public int Priority { get; private set; }
     public ControlNumber? CraftRoleCtrlNbr { get; private set; }
     public ControlNumber? QualificationTypeCtrlNbr { get; private set; }
+    public ControlNumber? RegulatoryQualificationCtrlNbr { get; private set; }
     public string? Notes { get; private set; }
 
     private SlotRequirement() { PositionSlotCtrlNbr = null!; }
 
     public static SlotRequirement Create(ControlNumber positionSlotCtrlNbr, int priority,
-        ControlNumber? craftRoleCtrlNbr = null, ControlNumber? qualificationTypeCtrlNbr = null, string? notes = null)
+        ControlNumber? craftRoleCtrlNbr = null, ControlNumber? qualificationTypeCtrlNbr = null,
+        ControlNumber? regulatoryQualificationCtrlNbr = null, string? notes = null)
     {
         var req = new SlotRequirement
         {
@@ -203,6 +205,7 @@ public sealed class SlotRequirement : Entity
             Priority = priority,
             CraftRoleCtrlNbr = craftRoleCtrlNbr,
             QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
+            RegulatoryQualificationCtrlNbr = regulatoryQualificationCtrlNbr,
             Notes = notes
         };
         req.Raise(new SlotRequirementCreatedDomainEvent(req));

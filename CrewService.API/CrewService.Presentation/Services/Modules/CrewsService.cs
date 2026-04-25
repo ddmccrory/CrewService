@@ -1,41 +1,24 @@
-using CrewService.Domain.Interfaces;
-using CrewService.Presentation.Services;
+using CrewService.Application.Crews;
+using CrewService.Application.Qualifications;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
-using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Presentation.Services.Modules;
 
 public class CrewsService(
-    ICrewRepository crewRepository,
-    ICrewPositionRepository crewPositionRepository,
-    ICrewIncumbencyRepository incumbencyRepository,
-    ICrewAssignmentRepository assignmentRepository,
-    IAssignmentRepository staffingAssignmentRepository,
-    IAssignmentScheduleRepository assignmentScheduleRepository,
-    IDynamicGroupRepository dynamicGroupRepository,
-    IPositionAssignmentRepository positionAssignmentRepository,
-    IOrchestrationUnitOfWorkFactory uowFactory,
-    EmployeeNameService employeeNameService) : CrewsSrvc.CrewsSrvcBase
+    EmployeeNameService employeeNameService,
+    IServiceProvider serviceProvider) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
     {
-        List<Domain.Modules.Crews.Crew> crews;
-        if (!string.IsNullOrEmpty(request.CrewType))
-            crews = await crewRepository.GetByTypeAsync(request.CrewType);
-        else if (request.WorkAreaCtrlNbr > 0)
-            crews = await crewRepository.GetByWorkAreaAsync(ControlNumber.Create(request.WorkAreaCtrlNbr));
-        else if (request.RailroadCtrlNbr > 0)
-            crews = await crewRepository.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr));
-        else
-            crews = await crewRepository.GetAllAsync();
-        var crewIds = crews.Select(c => c.CtrlNbr).ToList();
-        var allPositions = await crewPositionRepository.GetByCrewsAsync(crewIds);
-        var allAssignments = await assignmentRepository.GetByCrewsAsync(crewIds);
-        var positionCounts = allPositions.GroupBy(p => p.CrewCtrlNbr).ToDictionary(g => g.Key, g => g.Count());
-        var daysMasks = allAssignments.GroupBy(a => a.CrewCtrlNbr).ToDictionary(g => g.Key, g => g.Aggregate(0, (mask, a) => mask | a.DaysOfWeekMask));
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var crewType = !string.IsNullOrEmpty(request.CrewType) ? request.CrewType : null;
+        var workAreaCtrlNbr = request.WorkAreaCtrlNbr > 0 ? ControlNumber.Create(request.WorkAreaCtrlNbr) : null;
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var (crews, positionCounts, daysMasks) = await svc.GetAllCrewsAsync(crewType, workAreaCtrlNbr, railroadCtrlNbr, context.CancellationToken);
 
         var response = new GetAllCrewsResponse { TotalCount = crews.Count };
         foreach (var c in crews)
@@ -52,73 +35,54 @@ public class CrewsService(
 
     public override async Task<CrewResponse> GetCrew(GetCrewRequest request, ServerCallContext context)
     {
-        var crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
-        return MapCrew(crew);
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        try { return MapCrew(await svc.GetCrewAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)); }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<CrewResponse> CreateCrew(CreateCrewRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
-        var effectiveDate = !string.IsNullOrWhiteSpace(request.EffectiveDate)
-            ? DateTime.Parse(request.EffectiveDate).ToUniversalTime()
-            : (DateTime?)null;
-        var abolishedDate = !string.IsNullOrWhiteSpace(request.AbolishedDate)
-            ? DateTime.Parse(request.AbolishedDate).ToUniversalTime()
-            : (DateTime?)null;
-
-        if (await crewRepository.ExistsByNameInWorkAreaAsync(ControlNumber.Create(request.WorkAreaCtrlNbr), request.Name))
-            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Crew name '{request.Name}' already exists in this work area."));
-
-        var crew = Crew.Create(request.CrewType, request.WorkAreaCtrlNbr, request.Name, request.IsActive, departmentCtrlNbr, effectiveDate, abolishedDate);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.Crews.Add(crew);
-        await uow.CommitAsync();
-
-        return MapCrew(crew);
+        var effectiveDate = !string.IsNullOrWhiteSpace(request.EffectiveDate) ? DateTime.Parse(request.EffectiveDate).ToUniversalTime() : (DateTime?)null;
+        var abolishedDate = !string.IsNullOrWhiteSpace(request.AbolishedDate) ? DateTime.Parse(request.AbolishedDate).ToUniversalTime() : (DateTime?)null;
+        try
+        {
+            var crew = await svc.CreateCrewAsync(request.CrewType, request.WorkAreaCtrlNbr, request.Name,
+                request.IsActive, departmentCtrlNbr, effectiveDate, abolishedDate, context.CancellationToken);
+            return MapCrew(crew);
+        }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message)); }
     }
 
     public override async Task<CrewResponse> UpdateCrew(UpdateCrewRequest request, ServerCallContext context)
     {
-        var crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
         var departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
-        var effectiveDate = !string.IsNullOrWhiteSpace(request.EffectiveDate)
-            ? DateTime.Parse(request.EffectiveDate).ToUniversalTime()
-            : (DateTime?)null;
-        var abolishedDate = !string.IsNullOrWhiteSpace(request.AbolishedDate)
-            ? DateTime.Parse(request.AbolishedDate).ToUniversalTime()
-            : (DateTime?)null;
+        var effectiveDate = !string.IsNullOrWhiteSpace(request.EffectiveDate) ? DateTime.Parse(request.EffectiveDate).ToUniversalTime() : (DateTime?)null;
+        var abolishedDate = !string.IsNullOrWhiteSpace(request.AbolishedDate) ? DateTime.Parse(request.AbolishedDate).ToUniversalTime() : (DateTime?)null;
         var crewType = !string.IsNullOrWhiteSpace(request.CrewType) ? request.CrewType : null;
-
-        if (await crewRepository.ExistsByNameInWorkAreaAsync(crew.WorkAreaCtrlNbr, request.Name, crew.CtrlNbr))
-            throw new RpcException(new Status(StatusCode.AlreadyExists, $"Crew name '{request.Name}' already exists in this work area."));
-
-        crew.Update(request.Name, request.IsActive, departmentCtrlNbr, effectiveDate, abolishedDate, crewType);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.Crews.Update(crew);
-        await uow.CommitAsync();
-
-        return MapCrew(crew);
+        try
+        {
+            var crew = await svc.UpdateCrewAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
+                request.IsActive, departmentCtrlNbr, effectiveDate, abolishedDate, crewType, context.CancellationToken);
+            return MapCrew(crew);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message)); }
     }
 
     public override async Task<DeleteResponse> DeleteCrew(DeleteCrewRequest request, ServerCallContext context)
     {
-        var crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.CtrlNbr} not found."));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.Crews.Remove(crew);
-        await uow.CommitAsync();
-
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        try { await svc.DeleteCrewAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken); return new DeleteResponse { Success = true }; }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<GetCrewPositionsResponse> GetCrewPositions(GetCrewPositionsRequest request, ServerCallContext context)
     {
-        var positions = await crewPositionRepository.GetByCrewAsync(ControlNumber.Create(request.CrewCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var positions = await svc.GetCrewPositionsAsync(ControlNumber.Create(request.CrewCtrlNbr), context.CancellationToken);
         var response = new GetCrewPositionsResponse { TotalCount = positions.Count };
         foreach (var p in positions)
             response.Positions.Add(new CrewPositionResponse
@@ -133,14 +97,8 @@ public class CrewsService(
 
     public override async Task<CrewPositionResponse> CreateCrewPosition(CreateCrewPositionRequest request, ServerCallContext context)
     {
-        var staffablePosition = StaffablePosition.Create("Crew");
-        var position = CrewPosition.Create(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder, staffablePosition.CtrlNbr);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.StaffablePositions.Add(staffablePosition);
-        uow.CrewPositions.Add(position);
-        await uow.CommitAsync();
-
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var position = await svc.CreateCrewPositionAsync(request.CrewCtrlNbr, request.CraftRoleCtrlNbr, request.DisplayOrder, context.CancellationToken);
         return new CrewPositionResponse
         {
             CtrlNbr = position.CtrlNbr.Value,
@@ -152,14 +110,9 @@ public class CrewsService(
 
     public override async Task<DeleteResponse> DeleteCrewPosition(DeleteCrewPositionRequest request, ServerCallContext context)
     {
-        var position = await crewPositionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewPosition {request.CtrlNbr} not found."));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CrewPositions.Remove(position);
-        await uow.CommitAsync();
-
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        try { await svc.DeleteCrewPositionAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken); return new DeleteResponse { Success = true }; }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     private static CrewResponse MapCrew(Crew c) => new()
@@ -177,7 +130,8 @@ public class CrewsService(
     // Incumbencies
     public override async Task<GetCrewIncumbenciesResponse> GetCrewIncumbencies(GetCrewIncumbenciesRequest request, ServerCallContext context)
     {
-        var items = await incumbencyRepository.GetByCrewPositionAsync(ControlNumber.Create(request.CrewPositionCtrlNbr));
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var items = await svc.GetCrewIncumbenciesAsync(ControlNumber.Create(request.CrewPositionCtrlNbr), context.CancellationToken);
         var response = new GetCrewIncumbenciesResponse { TotalCount = items.Count };
         foreach (var i in items) response.Incumbencies.Add(await MapIncumbencyAsync(i));
         return response;
@@ -185,57 +139,44 @@ public class CrewsService(
 
     public override async Task<CrewIncumbencyResponse> CreateCrewIncumbency(CreateCrewIncumbencyRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var eligibilitySvc = serviceProvider.GetRequiredService<EmployeeEligibilityService>();
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
 
-        var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+        // Eligibility check stays in Presentation — it needs CraftRoleCtrlNbr from the position
+        // which the Application service already fetches internally; for the check we need it here too.
+        // We delegate the eligibility check to the Application-layer service.
+        var eligibility = await eligibilitySvc.CheckEligibilityByCraftRoleForPositionAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr),
+            ControlNumber.Create(request.CrewPositionCtrlNbr),
+            context.CancellationToken);
+        if (!eligibility.IsEligible)
+        {
+            var reasons = string.Join("; ", eligibility.BlockingReasons.Select(r => r.Description));
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"Employee is not qualified for this position: {reasons}"));
+        }
 
-        // Cross-cutting guard: PositionAssignment covers crew incumbencies AND roster board positions
-        var existingAssignments = await positionAssignmentRepository.GetByEmployeeAsync(employeeCtrlNbr);
-        if (existingAssignments.Count > 0)
-            throw new RpcException(new Status(StatusCode.AlreadyExists,
-                "This employee is already assigned to a staffable position. Unassign them first."));
-
-        var crewPosition = await crewPositionRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CrewPositionCtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewPosition {request.CrewPositionCtrlNbr} not found."));
-
-        var incumbency = CrewIncumbency.Create(request.CrewPositionCtrlNbr, request.EmployeeCtrlNbr, startUtc, endUtc);
-        var positionAssignment = PositionAssignment.Create(
-            crewPosition.StaffablePositionCtrlNbr, employeeCtrlNbr, "Crew",
-            crewPosition.CtrlNbr);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CrewIncumbencies.Add(incumbency);
-        uow.PositionAssignments.Add(positionAssignment);
-        await uow.CommitAsync();
-
-        return await MapIncumbencyAsync(incumbency);
+        try
+        {
+            var incumbency = await svc.CreateCrewIncumbencyAsync(
+                request.CrewPositionCtrlNbr, request.EmployeeCtrlNbr, startUtc, endUtc, context.CancellationToken);
+            return await MapIncumbencyAsync(incumbency);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message)); }
     }
 
     public override async Task<DeleteResponse> EndCrewIncumbency(EndCrewIncumbencyRequest request, ServerCallContext context)
     {
-        var endUtc = string.IsNullOrEmpty(request.EndUtc)
-            ? DateTime.UtcNow
-            : DateTime.Parse(request.EndUtc).ToUniversalTime();
-
-        await using var uow = await uowFactory.CreateAsync();
-
-        var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Incumbency {request.CtrlNbr} not found."));
-
-        incumbency.End(endUtc);
-        uow.CrewIncumbencies.Update(incumbency);
-
-        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, context.CancellationToken);
-        if (crewPosition is not null)
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var endUtc = string.IsNullOrEmpty(request.EndUtc) ? DateTime.UtcNow : DateTime.Parse(request.EndUtc).ToUniversalTime();
+        try
         {
-            var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
-            if (positionAssignment is not null)
-                uow.PositionAssignments.Remove(positionAssignment);
+            await svc.EndCrewIncumbencyAsync(ControlNumber.Create(request.CtrlNbr), endUtc, context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { "Incumbency ended." } };
         }
-
-        await uow.CommitAsync();
-        return new DeleteResponse { Success = true, Messages = { "Incumbency ended." } };
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     private async Task<CrewIncumbencyResponse> MapIncumbencyAsync(CrewIncumbency i)
@@ -256,25 +197,17 @@ public class CrewsService(
     // Crew Assignments
     public override async Task<GetCrewAssignmentsResponse> GetCrewAssignments(GetCrewAssignmentsRequest request, ServerCallContext context)
     {
-        var items = await assignmentRepository.GetByCrewAsync(ControlNumber.Create(request.CrewCtrlNbr));
-        return await BuildCrewAssignmentsResponse(items);
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var (items, crewNames) = await svc.GetCrewAssignmentsAsync(ControlNumber.Create(request.CrewCtrlNbr), context.CancellationToken);
+        var response = new GetCrewAssignmentsResponse { TotalCount = items.Count };
+        foreach (var a in items) response.Assignments.Add(MapAssignment(a, crewNames));
+        return response;
     }
 
     public override async Task<GetCrewAssignmentsResponse> GetCrewAssignmentsByAssignment(GetCrewAssignmentsByAssignmentRequest request, ServerCallContext context)
     {
-        var items = await assignmentRepository.GetByAssignmentAsync(ControlNumber.Create(request.AssignmentCtrlNbr));
-        return await BuildCrewAssignmentsResponse(items);
-    }
-
-    private async Task<GetCrewAssignmentsResponse> BuildCrewAssignmentsResponse(List<CrewAssignment> items)
-    {
-        var crewCtrlNbrs = items.Select(a => a.CrewCtrlNbr).Distinct().ToList();
-        var crewNames = new Dictionary<long, string>();
-        foreach (var ctrlNbr in crewCtrlNbrs)
-        {
-            var crew = await crewRepository.GetByCtrlNbrAsync(ctrlNbr);
-            if (crew is not null) crewNames[ctrlNbr.Value] = crew.Name;
-        }
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        var (items, crewNames) = await svc.GetCrewAssignmentsByAssignmentAsync(ControlNumber.Create(request.AssignmentCtrlNbr), context.CancellationToken);
         var response = new GetCrewAssignmentsResponse { TotalCount = items.Count };
         foreach (var a in items) response.Assignments.Add(MapAssignment(a, crewNames));
         return response;
@@ -282,42 +215,31 @@ public class CrewsService(
 
     public override async Task<CrewAssignmentResponse> CreateCrewAssignment(CreateCrewAssignmentRequest request, ServerCallContext context)
     {
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        var assignment = CrewAssignment.Create(request.CrewCtrlNbr, request.AssignmentCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CrewAssignments.Add(assignment);
-        await uow.CommitAsync();
-
+        var assignment = await svc.CreateCrewAssignmentAsync(request.CrewCtrlNbr, request.AssignmentCtrlNbr, request.DaysOfWeekMask, startUtc, endUtc, context.CancellationToken);
         return MapAssignment(assignment);
     }
 
     public override async Task<CrewAssignmentResponse> UpdateCrewAssignment(UpdateCrewAssignmentRequest request, ServerCallContext context)
     {
-        var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewAssignment {request.CtrlNbr} not found."));
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
         var startUtc = DateTime.Parse(request.StartUtc).ToUniversalTime();
         DateTime? endUtc = string.IsNullOrEmpty(request.EndUtc) ? null : DateTime.Parse(request.EndUtc).ToUniversalTime();
-        assignment.Update(request.DaysOfWeekMask, startUtc, endUtc);
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CrewAssignments.Update(assignment);
-        await uow.CommitAsync();
-
-        return MapAssignment(assignment);
+        try
+        {
+            var assignment = await svc.UpdateCrewAssignmentAsync(ControlNumber.Create(request.CtrlNbr), request.DaysOfWeekMask, startUtc, endUtc, context.CancellationToken);
+            return MapAssignment(assignment);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<DeleteResponse> DeleteCrewAssignment(DeleteCrewAssignmentRequest request, ServerCallContext context)
     {
-        var assignment = await assignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"CrewAssignment {request.CtrlNbr} not found."));
-
-        await using var uow = await uowFactory.CreateAsync();
-        uow.CrewAssignments.Remove(assignment);
-        await uow.CommitAsync();
-
-        return new DeleteResponse { Success = true };
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
+        try { await svc.DeleteCrewAssignmentAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken); return new DeleteResponse { Success = true }; }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     private static CrewAssignmentResponse MapAssignment(CrewAssignment a, Dictionary<long, string>? crewNames = null) => new()
@@ -335,276 +257,51 @@ public class CrewsService(
 
     public override async Task<CrewSetupWizardResponse> CrewSetupWizard(CrewSetupWizardRequest request, ServerCallContext context)
     {
-        if (request.Assignments.Count == 0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "At least one assignment entry is required."));
+        var svc = serviceProvider.GetRequiredService<CrewsAppService>();
 
-        await using var uow = await uowFactory.CreateAsync();
+        var positions = request.Positions
+            .Select(p => new CrewsAppService.WizardPositionEntry(p.CraftRoleCtrlNbr, p.DisplayOrder))
+            .ToList();
+        var assignments = request.Assignments
+            .Select(e => new CrewsAppService.WizardAssignmentEntry(
+                e.ExistingAssignmentCtrlNbr, e.GroupCtrlNbr, e.DepartmentCtrlNbr,
+                e.Code, e.Name, e.IsExtra,
+                e.ShiftDefinitionCtrlNbr, e.OnDutyTime, e.OffDutyTime,
+                e.AssignmentOperatingDaysMask, e.CrewWorkDaysMask,
+                e.StartDate, e.EndDate))
+            .ToList();
 
-        // ── Step 1: Crew ──
-        Crew crew;
-        if (request.ExistingCrewCtrlNbr > 0)
+        try
         {
-            crew = await crewRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.ExistingCrewCtrlNbr))
-                ?? throw new RpcException(new Status(StatusCode.NotFound, $"Crew {request.ExistingCrewCtrlNbr} not found."));
+            var result = await svc.CrewSetupWizardAsync(
+                request.ExistingCrewCtrlNbr, request.WorkAreaCtrlNbr,
+                request.CrewName, request.CrewType, request.CrewDepartmentCtrlNbr,
+                request.EffectiveDate, request.AbolishedDate,
+                positions, assignments, context.CancellationToken);
 
-            // Update lifecycle dates and crew type if they changed
-            var newEffective = !string.IsNullOrWhiteSpace(request.EffectiveDate)
-                ? DateTime.Parse(request.EffectiveDate).ToUniversalTime()
-                : crew.EffectiveDate;
-            var newAbolished = !string.IsNullOrWhiteSpace(request.AbolishedDate)
-                ? DateTime.Parse(request.AbolishedDate).ToUniversalTime()
-                : (DateTime?)null;
-            var newCrewType = !string.IsNullOrWhiteSpace(request.CrewType) ? request.CrewType : null;
-
-            if (crew.EffectiveDate != newEffective || crew.AbolishedDate != newAbolished || (newCrewType is not null && crew.CrewType != newCrewType))
+            return new CrewSetupWizardResponse
             {
-                crew.Update(crew.Name, crew.IsActive, crew.DepartmentCtrlNbr, newEffective, newAbolished, newCrewType);
-                uow.Crews.Update(crew);
-            }
+                CrewCtrlNbr = result.CrewCtrlNbr,
+                CrewName = result.CrewName,
+                AssignmentsCreated = result.AssignmentsCreated,
+                AssignmentsUpdated = result.AssignmentsUpdated,
+                SchedulesCreated = result.SchedulesCreated,
+                SchedulesUpdated = result.SchedulesUpdated,
+                SchedulesExisting = result.SchedulesExisting,
+                CrewAssignmentsCreated = result.CrewAssignmentsCreated,
+                CrewAssignmentsUpdated = result.CrewAssignmentsUpdated,
+                CrewAssignmentsDeleted = result.CrewAssignmentsDeleted,
+                CrewAssignmentsExisting = result.CrewAssignmentsExisting,
+                PositionsCreated = result.PositionsCreated,
+                PositionsDeleted = result.PositionsDeleted,
+                PositionsExisting = result.PositionsExisting,
+                IsExistingCrew = result.IsExistingCrew
+            };
         }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(request.CrewName))
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Crew name is required when creating a new crew."));
-
-            if (await crewRepository.ExistsByNameInWorkAreaAsync(ControlNumber.Create(request.WorkAreaCtrlNbr), request.CrewName))
-                throw new RpcException(new Status(StatusCode.AlreadyExists, $"Crew name '{request.CrewName}' already exists in this work area."));
-
-            var deptCtrlNbr = request.CrewDepartmentCtrlNbr > 0 ? ControlNumber.Create(request.CrewDepartmentCtrlNbr) : null;
-            var effectiveDate = !string.IsNullOrWhiteSpace(request.EffectiveDate)
-                ? DateTime.Parse(request.EffectiveDate).ToUniversalTime()
-                : (DateTime?)null;
-            var abolishedDate = !string.IsNullOrWhiteSpace(request.AbolishedDate)
-                ? DateTime.Parse(request.AbolishedDate).ToUniversalTime()
-                : (DateTime?)null;
-            crew = Crew.Create(
-                request.CrewType,
-                request.WorkAreaCtrlNbr,
-                request.CrewName,
-                isActive: true,
-                departmentCtrlNbr: deptCtrlNbr,
-                effectiveDate: effectiveDate,
-                abolishedDate: abolishedDate);
-            uow.Crews.Add(crew);
-        }
-
-        int assignmentsCreated = 0, assignmentsUpdated = 0, schedulesCreated = 0, schedulesUpdated = 0, crewAssignmentsCreated = 0, crewAssignmentsUpdated = 0, crewAssignmentsDeleted = 0, positionsCreated = 0, positionsDeleted = 0;
-        int positionsExisting = 0, schedulesExisting = 0, crewAssignmentsExisting = 0;
-        var consumedCrewAssignmentKeys = new HashSet<long>();
-
-        // Load existing crew-assignment links for update/skip logic
-        var existingCrewAssignmentMap = request.ExistingCrewCtrlNbr > 0
-            ? (await assignmentRepository.GetByCrewAsync(crew.CtrlNbr))
-                .ToDictionary(ca => ca.AssignmentCtrlNbr.Value)
-            : new Dictionary<long, CrewAssignment>();
-
-        // Load existing crew positions to avoid re-creating ones already in the DB.
-        // Multiple positions with the same craft role are allowed (e.g. 2 Engineers),
-        // so we use count-based matching: consume one existing match per requested entry.
-        var unmatchedPositions = request.ExistingCrewCtrlNbr > 0
-            ? (await crewPositionRepository.GetByCrewAsync(crew.CtrlNbr)).ToList()
-            : new List<CrewPosition>();
-
-        // ── Positions ──
-        foreach (var pos in request.Positions)
-        {
-            if (pos.CraftRoleCtrlNbr <= 0) continue;
-            var craftRoleCtrlNbr = ControlNumber.Create(pos.CraftRoleCtrlNbr);
-
-            // Try to match against an existing position (same role + order); consume it if found
-            var match = unmatchedPositions.FindIndex(ep => ep.CraftRoleCtrlNbr == craftRoleCtrlNbr && ep.DisplayOrder == pos.DisplayOrder);
-            if (match >= 0)
-            {
-                unmatchedPositions.RemoveAt(match);
-                positionsExisting++;
-                continue;
-            }
-
-            var staffablePosition = StaffablePosition.Create("Crew");
-            var position = CrewPosition.Create(crew.CtrlNbr, craftRoleCtrlNbr, pos.DisplayOrder, staffablePosition.CtrlNbr);
-            uow.StaffablePositions.Add(staffablePosition);
-            uow.CrewPositions.Add(position);
-            positionsCreated++;
-        }
-
-        // Delete positions that were removed from the wizard
-        foreach (var removed in unmatchedPositions)
-        {
-            uow.CrewPositions.Remove(removed);
-            positionsDeleted++;
-        }
-
-        // ── Step 2: Assignments + Schedules + CrewAssignments ──
-        foreach (var entry in request.Assignments)
-        {
-            Assignment assignment;
-            if (entry.ExistingAssignmentCtrlNbr > 0)
-            {
-                assignment = await staffingAssignmentRepository.GetByCtrlNbrAsync(ControlNumber.Create(entry.ExistingAssignmentCtrlNbr))
-                        ?? throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {entry.ExistingAssignmentCtrlNbr} not found."));
-
-                    // Validate code uniqueness when code is being changed
-                    var effectiveCode = !string.IsNullOrWhiteSpace(entry.Code) ? entry.Code : assignment.Code;
-                    var effectiveGroupCtrlNbr = entry.GroupCtrlNbr > 0 ? ControlNumber.Create(entry.GroupCtrlNbr) : assignment.GroupCtrlNbr;
-                    var waCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(effectiveGroupCtrlNbr);
-                    if (waCtrlNbr is not null && await staffingAssignmentRepository.ExistsByCodeInWorkAreaAsync(waCtrlNbr, effectiveCode, assignment.CtrlNbr))
-                        throw new RpcException(new Status(StatusCode.AlreadyExists, $"Assignment code '{effectiveCode.ToUpperInvariant()}' already exists in this work area."));
-
-                    // Apply any edits from the wizard to the existing assignment
-                    var deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
-                    assignment.Update(
-                        code: !string.IsNullOrWhiteSpace(entry.Code) ? entry.Code : null,
-                        name: !string.IsNullOrWhiteSpace(entry.Name) ? entry.Name : null,
-                        isExtra: entry.IsExtra,
-                        isActive: true,
-                        departmentCtrlNbr: deptCtrlNbr,
-                        groupCtrlNbr: entry.GroupCtrlNbr > 0 ? ControlNumber.Create(entry.GroupCtrlNbr) : null);
-                    uow.Assignments.Update(assignment);
-                    assignmentsUpdated++;
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(entry.Code) || string.IsNullOrWhiteSpace(entry.Name))
-                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Assignment code and name are required for new assignments."));
-
-                var waCtrlNbr = await ResolveWorkAreaCtrlNbrAsync(ControlNumber.Create(entry.GroupCtrlNbr));
-                if (waCtrlNbr is not null && await staffingAssignmentRepository.ExistsByCodeInWorkAreaAsync(waCtrlNbr, entry.Code))
-                    throw new RpcException(new Status(StatusCode.AlreadyExists, $"Assignment code '{entry.Code.ToUpperInvariant()}' already exists in this work area."));
-
-                var deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
-                assignment = Assignment.Create(
-                    ControlNumber.Create(entry.GroupCtrlNbr),
-                    entry.Code,
-                    entry.Name,
-                    isExtra: entry.IsExtra,
-                    isActive: true,
-                    departmentCtrlNbr: deptCtrlNbr);
-                uow.Assignments.Add(assignment);
-                assignmentsCreated++;
-            }
-
-            // Create or update schedule
-            if (entry.ShiftDefinitionCtrlNbr > 0 && !string.IsNullOrWhiteSpace(entry.OnDutyTime))
-            {
-                var onDuty = TimeOnly.Parse(entry.OnDutyTime);
-                var offDuty = !string.IsNullOrWhiteSpace(entry.OffDutyTime) ? TimeOnly.Parse(entry.OffDutyTime) : onDuty.AddHours(8);
-                var shiftCtrlNbr = ControlNumber.Create(entry.ShiftDefinitionCtrlNbr);
-
-                if (entry.ExistingAssignmentCtrlNbr > 0)
-                {
-                    var existingSchedules = await assignmentScheduleRepository.GetByAssignmentAsync(assignment.CtrlNbr);
-                    var existingSchedule = existingSchedules.FirstOrDefault();
-
-                    if (existingSchedule is not null)
-                    {
-                        if (existingSchedule.ShiftDefinitionCtrlNbr != shiftCtrlNbr)
-                        {
-                            uow.AssignmentSchedules.Remove(existingSchedule);
-                            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(
-                                assignment.CtrlNbr, shiftCtrlNbr, entry.AssignmentOperatingDaysMask, onDuty, offDuty));
-                        }
-                        else
-                        {
-                            existingSchedule.Update(entry.AssignmentOperatingDaysMask, onDuty, offDuty);
-                            uow.AssignmentSchedules.Update(existingSchedule);
-                        }
-                        schedulesUpdated++;
-                    }
-                    else
-                    {
-                        uow.AssignmentSchedules.Add(AssignmentSchedule.Create(
-                            assignment.CtrlNbr, shiftCtrlNbr, entry.AssignmentOperatingDaysMask, onDuty, offDuty));
-                        schedulesCreated++;
-                    }
-                }
-                else
-                {
-                    uow.AssignmentSchedules.Add(AssignmentSchedule.Create(
-                        assignment.CtrlNbr, shiftCtrlNbr, entry.AssignmentOperatingDaysMask, onDuty, offDuty));
-                    schedulesCreated++;
-                }
-            }
-
-            // Create or update crew assignment
-            if (existingCrewAssignmentMap.TryGetValue(assignment.CtrlNbr.Value, out var existingCa))
-            {
-                consumedCrewAssignmentKeys.Add(assignment.CtrlNbr.Value);
-                var startUtc = !string.IsNullOrWhiteSpace(entry.StartDate)
-                    ? DateTime.Parse(entry.StartDate).ToUniversalTime()
-                    : existingCa.StartUtc;
-                DateTime? endUtc = !string.IsNullOrWhiteSpace(entry.EndDate)
-                    ? DateTime.Parse(entry.EndDate).ToUniversalTime()
-                    : null;
-
-                if (existingCa.DaysOfWeekMask != entry.CrewWorkDaysMask || existingCa.StartUtc != startUtc || existingCa.EndUtc != endUtc)
-                {
-                    existingCa.Update(entry.CrewWorkDaysMask, startUtc, endUtc);
-                    uow.CrewAssignments.Update(existingCa);
-                    crewAssignmentsUpdated++;
-                }
-                else
-                {
-                    crewAssignmentsExisting++;
-                }
-            }
-            else
-            {
-                var startUtc = !string.IsNullOrWhiteSpace(entry.StartDate)
-                    ? DateTime.Parse(entry.StartDate).ToUniversalTime()
-                    : DateTime.UtcNow;
-                DateTime? endUtc = !string.IsNullOrWhiteSpace(entry.EndDate)
-                    ? DateTime.Parse(entry.EndDate).ToUniversalTime()
-                    : null;
-
-                var crewAssignment = CrewAssignment.Create(
-                    crew.CtrlNbr,
-                    assignment.CtrlNbr,
-                    entry.CrewWorkDaysMask,
-                    startUtc,
-                    endUtc);
-                uow.CrewAssignments.Add(crewAssignment);
-                crewAssignmentsCreated++;
-            }
-        }
-
-        // Delete crew assignments that were removed from the wizard
-        foreach (var (key, removedCa) in existingCrewAssignmentMap)
-        {
-            if (!consumedCrewAssignmentKeys.Contains(key))
-            {
-                uow.CrewAssignments.Remove(removedCa);
-                crewAssignmentsDeleted++;
-            }
-        }
-
-        await uow.CommitAsync();
-
-        return new CrewSetupWizardResponse
-        {
-            CrewCtrlNbr = crew.CtrlNbr.Value,
-            CrewName = crew.Name,
-            AssignmentsCreated = assignmentsCreated,
-            AssignmentsUpdated = assignmentsUpdated,
-            SchedulesCreated = schedulesCreated,
-            CrewAssignmentsCreated = crewAssignmentsCreated,
-            PositionsCreated = positionsCreated,
-            PositionsExisting = positionsExisting,
-            PositionsDeleted = positionsDeleted,
-            SchedulesUpdated = schedulesUpdated,
-            SchedulesExisting = schedulesExisting,
-            CrewAssignmentsExisting = crewAssignmentsExisting,
-            CrewAssignmentsUpdated = crewAssignmentsUpdated,
-            CrewAssignmentsDeleted = crewAssignmentsDeleted,
-            IsExistingCrew = request.ExistingCrewCtrlNbr > 0
-        };
-    }
-
-    private async Task<ControlNumber?> ResolveWorkAreaCtrlNbrAsync(ControlNumber groupCtrlNbr)
-    {
-        var group = await dynamicGroupRepository.GetByCtrlNbrAsync(groupCtrlNbr);
-        if (group is null) return null;
-        if (group.IsWorkArea) return group.CtrlNbr;
-        var ancestors = await dynamicGroupRepository.GetAncestorsAsync(groupCtrlNbr);
-        return ancestors.FirstOrDefault(g => g.IsWorkArea)?.CtrlNbr;
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+            { throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message)); }
+        catch (InvalidOperationException ex)
+            { throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message)); }
     }
 }

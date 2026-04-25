@@ -1,5 +1,7 @@
+using CrewService.Application.Modules.UserAccount;
 using CrewService.Application.Modules.UserAccess;
 using CrewService.Infrastructure.Email;
+using CrewService.Infrastructure.Services;
 using CrewService.Domain.Interfaces;
 using CrewService.Infrastructure.Notifications;
 using CrewService.Infrastructure.Outbox;
@@ -36,6 +38,9 @@ public static class DependencyInjection
         services.Configure<SmtpSettings>(
             configuration.GetSection(SmtpSettings.SectionName));
         services.AddTransient<IInvitationEmailService, SmtpInvitationEmailService>();
+
+        // User account service
+        services.AddScoped<IUserAccountService, UserAccountService>();
 
         return services;
     }

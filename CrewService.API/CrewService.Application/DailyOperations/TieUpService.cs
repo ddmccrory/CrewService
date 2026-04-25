@@ -1,18 +1,11 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
 
-public interface ICraftOperationsPolicyRepository
-{
-    Task<CraftOperationsPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default);
-}
-
-public sealed class TieUpService(
-    IOnDutyRecordRepository onDutyRepo,
-    IOffDutyRecordRepository offDutyRepo,
-    ICraftOperationsPolicyRepository policyRepo)
+public sealed class TieUpService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
     public async Task<OffDutyRecord> ExecuteAsync(
         ControlNumber onDutyRecordCtrlNbr,
@@ -21,10 +14,12 @@ public sealed class TieUpService(
         ControlNumber craftCtrlNbr,
         CancellationToken ct = default)
     {
-        var onDutyRecord = await onDutyRepo.GetByCtrlNbrAsync(onDutyRecordCtrlNbr, ct)
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var onDutyRecord = await uow.OnDutyRecords.GetByCtrlNbrAsync(onDutyRecordCtrlNbr, ct)
             ?? throw new InvalidOperationException("On-duty record not found");
 
-        var policy = await policyRepo.GetByCraftAsync(craftCtrlNbr, ct);
+        var policy = await uow.CraftOperationsPolicies.GetByCraftAsync(craftCtrlNbr, ct);
 
         var totalMinutes = (int)(offDutyTimeUtc - onDutyRecord.OnDutyTimeUtc).TotalMinutes;
         var restHours = CalculateRestHours(policy, totalMinutes);
@@ -40,7 +35,8 @@ public sealed class TieUpService(
             releaseReason);
 
         onDutyRecord.TieUp();
-        await offDutyRepo.AddAsync(offDutyRecord, ct);
+        await uow.OffDutyRecords.AddAsync(offDutyRecord, ct);
+        await uow.CommitAsync(ct);
         return offDutyRecord;
     }
 
@@ -64,3 +60,4 @@ public sealed class TieUpService(
         return baseRest + penalty;
     }
 }
+

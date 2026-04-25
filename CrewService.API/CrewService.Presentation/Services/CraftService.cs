@@ -86,6 +86,11 @@ public class CraftService(
                     craft.CtrlNbr, roster.CtrlNbr,
                     $"{craft.CraftName} Hangout",
                     BoardType.Hangout));
+
+                uow.RosterBoards.Add(RosterBoard.Create(
+                    craft.CtrlNbr, roster.CtrlNbr,
+                    $"{craft.CraftName} Extended Absence",
+                    BoardType.ExtendedAbsence));
             }
         }
 

@@ -24,6 +24,8 @@ using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Domain.Interfaces;
 using CrewService.Presentation;
 using CrewService.Presentation.Services;
+using CrewService.Application.Qualifications;
+using CrewService.Application.RosterBoardOps;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
@@ -674,6 +676,8 @@ internal static class DevDataSeeder
         var rosterRepo = sp.GetRequiredService<IRosterRepository>();
         var seniorityRepo = sp.GetRequiredService<ISeniorityRepository>();
         var uowFactory = sp.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
+        var newHireSvc = sp.GetRequiredService<NewHireService>();
+        var regQualRepoForNewHires = sp.GetRequiredService<IRegulatoryQualificationRepository>();
 
         var existingCrafts = await craftRepo.GetAllAsync();
         if (existingCrafts.Count == 0)
@@ -698,12 +702,17 @@ internal static class DevDataSeeder
         var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxWorkArea.CtrlNbr, null, csxEngineer.CraftName, csxEngineer.CraftPluralName, 1);
         var csxEngExtraBoard = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var csxEngHangout = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Hangout", BoardType.Hangout);
+        var csxEngExtAbsBoard = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Extended Absence", BoardType.ExtendedAbsence);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(csxEngineer);
             uow.Rosters.Add(csxEngRoster);
             uow.RosterBoards.Add(csxEngExtraBoard);
             uow.RosterBoards.Add(csxEngHangout);
+            uow.RosterBoards.Add(csxEngExtAbsBoard);
+            var csxEngTrainingRoster = Roster.Create(csxEngineer.CtrlNbr, csxEngRoster.WorkAreaGroupCtrlNbr, null, $"{csxEngineer.CraftName} Trainees", $"{csxEngineer.CraftPluralName} Trainees", 99, RosterType.Training);
+            uow.Rosters.Add(csxEngTrainingRoster);
+            uow.RosterBoards.Add(RosterBoard.Create(csxEngineer.CtrlNbr, csxEngTrainingRoster.CtrlNbr, $"{csxEngineer.CraftName} New Hires", BoardType.NewHire));
             await uow.CommitAsync();
         }
 
@@ -714,12 +723,17 @@ internal static class DevDataSeeder
         var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxWorkArea.CtrlNbr, null, csxConductor.CraftName, csxConductor.CraftPluralName, 1);
         var csxCondExtraBoard = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var csxCondHangout = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Hangout", BoardType.Hangout);
+        var csxCondExtAbsBoard = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Extended Absence", BoardType.ExtendedAbsence);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(csxConductor);
             uow.Rosters.Add(csxCondRoster);
             uow.RosterBoards.Add(csxCondExtraBoard);
             uow.RosterBoards.Add(csxCondHangout);
+            uow.RosterBoards.Add(csxCondExtAbsBoard);
+            var csxCondTrainingRoster = Roster.Create(csxConductor.CtrlNbr, csxCondRoster.WorkAreaGroupCtrlNbr, null, $"{csxConductor.CraftName} Trainees", $"{csxConductor.CraftPluralName} Trainees", 99, RosterType.Training);
+            uow.Rosters.Add(csxCondTrainingRoster);
+            uow.RosterBoards.Add(RosterBoard.Create(csxConductor.CtrlNbr, csxCondTrainingRoster.CtrlNbr, $"{csxConductor.CraftName} New Hires", BoardType.NewHire));
             await uow.CommitAsync();
         }
 
@@ -730,12 +744,17 @@ internal static class DevDataSeeder
         var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxWorkArea.CtrlNbr, null, csxClerical.CraftName, csxClerical.CraftPluralName, 1);
         var csxClericalExtraBoard = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var csxClericalHangout = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Hangout", BoardType.Hangout);
+        var csxClericalExtAbsBoard = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Extended Absence", BoardType.ExtendedAbsence);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(csxClerical);
             uow.Rosters.Add(csxClericalRoster);
             uow.RosterBoards.Add(csxClericalExtraBoard);
             uow.RosterBoards.Add(csxClericalHangout);
+            uow.RosterBoards.Add(csxClericalExtAbsBoard);
+            var csxClericalTrainingRoster = Roster.Create(csxClerical.CtrlNbr, csxClericalRoster.WorkAreaGroupCtrlNbr, null, $"{csxClerical.CraftName} Trainees", $"{csxClerical.CraftPluralName} Trainees", 99, RosterType.Training);
+            uow.Rosters.Add(csxClericalTrainingRoster);
+            uow.RosterBoards.Add(RosterBoard.Create(csxClerical.CtrlNbr, csxClericalTrainingRoster.CtrlNbr, $"{csxClerical.CraftName} New Hires", BoardType.NewHire));
             await uow.CommitAsync();
         }
 
@@ -748,12 +767,17 @@ internal static class DevDataSeeder
         var ptraEngRoster = Roster.Create(ptraEngineer.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraEngineer.CraftName, ptraEngineer.CraftPluralName, 1);
         var ptraEngExtraBoard = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var ptraEngHangout = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Hangout", BoardType.Hangout);
+        var ptraEngExtAbsBoard = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Extended Absence", BoardType.ExtendedAbsence);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(ptraEngineer);
             uow.Rosters.Add(ptraEngRoster);
             uow.RosterBoards.Add(ptraEngExtraBoard);
             uow.RosterBoards.Add(ptraEngHangout);
+            uow.RosterBoards.Add(ptraEngExtAbsBoard);
+            var ptraEngTrainingRoster = Roster.Create(ptraEngineer.CtrlNbr, ptraEngRoster.WorkAreaGroupCtrlNbr, null, $"{ptraEngineer.CraftName} Trainees", $"{ptraEngineer.CraftPluralName} Trainees", 99, RosterType.Training);
+            uow.Rosters.Add(ptraEngTrainingRoster);
+            uow.RosterBoards.Add(RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngTrainingRoster.CtrlNbr, $"{ptraEngineer.CraftName} New Hires", BoardType.NewHire));
             await uow.CommitAsync();
         }
 
@@ -764,12 +788,17 @@ internal static class DevDataSeeder
         var ptraCondRoster = Roster.Create(ptraConductor.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraConductor.CraftName, ptraConductor.CraftPluralName, 1);
         var ptraCondExtraBoard = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var ptraCondHangout = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Hangout", BoardType.Hangout);
+        var ptraCondExtAbsBoard = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Extended Absence", BoardType.ExtendedAbsence);
+        var ptraCondTrainingRoster = Roster.Create(ptraConductor.CtrlNbr, ptraCondRoster.WorkAreaGroupCtrlNbr, null, $"{ptraConductor.CraftName} Trainees", $"{ptraConductor.CraftPluralName} Trainees", 99, RosterType.Training);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(ptraConductor);
             uow.Rosters.Add(ptraCondRoster);
             uow.RosterBoards.Add(ptraCondExtraBoard);
             uow.RosterBoards.Add(ptraCondHangout);
+            uow.RosterBoards.Add(ptraCondExtAbsBoard);
+            uow.Rosters.Add(ptraCondTrainingRoster);
+            uow.RosterBoards.Add(RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondTrainingRoster.CtrlNbr, $"{ptraConductor.CraftName} New Hires", BoardType.NewHire));
             await uow.CommitAsync();
         }
 
@@ -780,12 +809,17 @@ internal static class DevDataSeeder
         var ptraClericalRoster = Roster.Create(ptraClerical.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraClerical.CraftName, ptraClerical.CraftPluralName, 1);
         var ptraClericalExtraBoard = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
         var ptraClericalHangout = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Hangout", BoardType.Hangout);
+        var ptraClericalExtAbsBoard = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Extended Absence", BoardType.ExtendedAbsence);
         await using (var uow = await uowFactory.CreateAsync())
         {
             uow.Crafts.Add(ptraClerical);
             uow.Rosters.Add(ptraClericalRoster);
             uow.RosterBoards.Add(ptraClericalExtraBoard);
             uow.RosterBoards.Add(ptraClericalHangout);
+            uow.RosterBoards.Add(ptraClericalExtAbsBoard);
+            var ptraClericalTrainingRoster = Roster.Create(ptraClerical.CtrlNbr, ptraClericalRoster.WorkAreaGroupCtrlNbr, null, $"{ptraClerical.CraftName} Trainees", $"{ptraClerical.CraftPluralName} Trainees", 99, RosterType.Training);
+            uow.Rosters.Add(ptraClericalTrainingRoster);
+            uow.RosterBoards.Add(RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalTrainingRoster.CtrlNbr, $"{ptraClerical.CraftName} New Hires", BoardType.NewHire));
             await uow.CommitAsync();
         }
 
@@ -856,6 +890,7 @@ internal static class DevDataSeeder
         // PTRA Seniority: 30 Engineer, 60 Trainman, 10 Clerical
         SetParent(ptraParentCore.CtrlNbr.Value);
         var ptraEmpList = await employeeRepo.GetByClientCtrlNbrAsync(ptraParentCore.CtrlNbr);
+        var ptraCfr242swQ = await regQualRepoForNewHires.GetByCodeAsync("CFR-242-SWITCHMAN");
 
         if (ptraEmpList.Count > 0)
         {
@@ -864,7 +899,6 @@ internal static class DevDataSeeder
 
         // Hire group sizes per craft (each number = employees sharing one seniority date)
         int[] ptraEngGroups = [4, 3, 2, 5, 3, 4, 2, 3, 2, 2]; // 30 Engineers
-        int[] ptraTrnGroups = [5, 4, 3, 6, 4, 5, 3, 4, 5, 3, 6, 4, 3, 5]; // 60 Trainmen
         int[] ptraClrGroups = [3, 2, 1, 2, 2]; // 10 Clerical
 
         int ptraEmpIdx = 0;
@@ -885,20 +919,45 @@ internal static class DevDataSeeder
             ptraEngDate = ptraEngDate.AddDays(50);
         }
 
-        // Trainman roster: hire dates starting 2016-02-01, ~30 days apart
+        // Trainman roster: first 11 groups are veteran hires (2016-02-01 onward, ~30 days apart).
+        // Last 3 groups are recent new hires within 90 days — they are Helper Only until they accumulate enough seniority.
         var ptraTrnDate = new DateTime(2016, 2, 1);
-        foreach (var groupSize in ptraTrnGroups)
+        var ptraTrnToday = DateTime.UtcNow.Date;
+        int[] ptraTrnVeteranGroups = [5, 4, 3, 6, 4, 5, 3, 4, 5, 3, 6]; // 48 veterans
+        int[] ptraTrnNewHireGroups = [4, 3, 5];                           // 12 new hires — Helper Only
+        int ptraTrnRank = 1;
+        foreach (var groupSize in ptraTrnVeteranGroups)
         {
             for (int r = 0; r < groupSize; r++)
             {
                 await seniorityRepo.AddAsync(Seniority.Create(
                     ptraCondRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
                     lastActiveRoster: true, rosterDate: ptraTrnDate,
-                    rank: r + 1, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    rank: ptraTrnRank++, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
                     canTrain: ptraEmpIdx % 5 == 0));
                 ptraEmpIdx++;
             }
             ptraTrnDate = ptraTrnDate.AddDays(30);
+        }
+        // New hires: seeded via NewHireService for atomic onboarding (seniority + pending cert + board placement)
+        // Seniority dates 75, 45, and 20 days ago — all under the 90-day Helper Only threshold
+        int[] ptraTrnNewHireDaysAgo = [75, 45, 20];
+        for (int g = 0; g < ptraTrnNewHireGroups.Length; g++)
+        {
+            var newHireDate = ptraTrnToday.AddDays(-ptraTrnNewHireDaysAgo[g]);
+            for (int r = 0; r < ptraTrnNewHireGroups[g]; r++)
+            {
+                SetParent(ptraParentCore.CtrlNbr.Value);
+                await newHireSvc.OnboardAsync(
+                    employeeCtrlNbr: ptraEmpList[ptraEmpIdx].CtrlNbr,
+                    craftCtrlNbr: ptraConductor.CtrlNbr,
+                    trainingRosterCtrlNbr: ptraCondTrainingRoster.CtrlNbr,
+                    seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    hireDate: newHireDate,
+                    regulatoryQualificationCtrlNbr: ptraCfr242swQ?.CtrlNbr,
+                    rank: ptraTrnRank++);
+                ptraEmpIdx++;
+            }
         }
 
         // Clerical roster: hire dates starting 2016-06-01, ~60 days apart
@@ -1582,8 +1641,38 @@ internal static class DevDataSeeder
         // ?? Section 15: FRA Compliance � Employee Certifications ????????????????
         var regQualRepo = sp.GetRequiredService<IRegulatoryQualificationRepository>();
         var empCertRepo = sp.GetRequiredService<IEmployeeCertificationRepository>();
+        // Seed FraCertificationConfig + FraCertificationCheckConfig per parent (idempotent)
+        {
+            var certConfigRepo = sp.GetRequiredService<IFraCertificationConfigRepository>();
+            var checkConfigRepo = sp.GetRequiredService<IFraCertificationCheckConfigRepository>();
+            var allParents = await parentRepo.GetAllAsync();
+            foreach (var p in allParents)
+            {
+                SetParent(p.CtrlNbr.Value);
+                var parentCn = p.CtrlNbr;
+                var existingCertCfg = await certConfigRepo.GetByParentAsync(parentCn);
+                if (existingCertCfg is null)
+                {
+                    var fraConfig = FraCertificationConfig.Create(parentCn, railroadCtrlNbr: null,
+                        certCycleMonths: 36, recertWindowDays: 180, renewWindowDays: 60);
+                    await certConfigRepo.AddAsync(fraConfig);
+                }
+                var existingCheckCfgs = await checkConfigRepo.GetByParentAsync(parentCn);
+                if (existingCheckCfgs.Count == 0)
+                {
+                    foreach (var (checkType, _, stalenessLimitDays, isEnforced, isEnforcementLocked)
+                        in CertificationCheckDefaults.Checks)
+                    {
+                        var cc = FraCertificationCheckConfig.Create(parentCn, railroadCtrlNbr: null,
+                            checkType, stalenessLimitDays, isEnforced, isEnforcementLocked);
+                        await checkConfigRepo.AddAsync(cc);
+                    }
+                }
+            }
+        }
+
         var existingCerts = await empCertRepo.GetAllAsync();
-        if (existingCerts.Count == 0)
+        if (existingCerts.All(c => c.Status == CertificationStatuses.Pending))
         {
             var cfr240 = await regQualRepo.GetByCodeAsync("CFR-240-ENGINEER");
             var cfr242sw = await regQualRepo.GetByCodeAsync("CFR-242-SWITCHMAN");
@@ -1592,8 +1681,9 @@ internal static class DevDataSeeder
             {
                 string[] checkTypes =
                 [
-                    "PERFORMANCE", "KNOWLEDGE", "MOTORVEHICLE",
-                    "SAFETYCONDUCT", "SUBSTANCEABUSE", "VISION", "HEARING"
+                    "Performance", "Knowledge", "MotorVehicle",
+                    "SafetyConduct", "SubstanceAbuse", "Vision", "Hearing",
+                    "OperationalMonitoring", "ComplianceTest"
                 ];
                 string[] evaluators = ["Stevenson", "Williams", "Johnson"];
                 var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
@@ -1603,32 +1693,39 @@ internal static class DevDataSeeder
                     Domain.Modules.FraCompliance.RegulatoryQualification qual)
                 {
                     var seniority = await seniorityRepo.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
+                    // Skip employees already processed by NewHireService (they have a pending cert from onboarding)
+                    var existingCertEmpIds = (await empCertRepo.GetAllAsync())
+                        .Where(c => c.RegulatoryQualificationCtrlNbr == qual.CtrlNbr)
+                        .Select(c => c.EmployeeCtrlNbr)
+                        .ToHashSet();
+                    seniority = seniority.Where(s => !existingCertEmpIds.Contains(s.EmployeeCtrlNbr)).ToList();
                     int total = seniority.Count;
                     if (total == 0) return;
 
-                    // Only the first 2 are Expired and the last 2 are Pending;
-                    // everyone else is Active.
+                    // Status is derived automatically by RecomputeStatus inside AddEligibilityCheck:
+                    //   i < 2            -> Expired  (certDate > 36 months ago, ExpirationDate is in the past)
+                    //   i >= total - 2   -> Pending  (only 3 of 9 checks seeded)
+                    //   first 2 active   -> Renew    (certDate ~31-32 months ago, expiration within ~180 days)
+                    //   remaining active -> Active   (all checks within staleness window)
                     for (int i = 0; i < total; i++)
                     {
-                        string status;
                         int monthsAgo;
+                        int checksToSeed;
                         if (i < 2)
                         {
-                            // Expired: certified > 36 months ago
-                            status = "Expired";
-                            monthsAgo = 40 + i;
+                            monthsAgo = 40 + i;          // ExpirationDate is in the past -> Expired
+                            checksToSeed = checkTypes.Length;
                         }
                         else if (i >= total - 2)
                         {
-                            // Pending: very recent, not yet activated
-                            status = CertificationStatuses.Pending;
                             monthsAgo = 1;
+                            checksToSeed = 3;             // Missing 4 of 7 check types -> Pending
                         }
                         else
                         {
-                            // Active: somewhere within the valid 36-month window
-                            status = CertificationStatuses.Active;
-                            monthsAgo = 6 + ((i * 2) % 24);
+                            int activeIndex = i - 2;
+                            monthsAgo = activeIndex < 2 ? 31 + activeIndex : 6 + ((i * 2) % 22);
+                            checksToSeed = checkTypes.Length;
                         }
 
                         var certDate = today.AddMonths(-monthsAgo).AddDays((i * 7) % 28);
@@ -1640,11 +1737,7 @@ internal static class DevDataSeeder
                             recertificationIntervalMonths: 36,
                             certificationNumber: $"{qual.Code}-{i + 1:D4}");
 
-                        if (status == CertificationStatuses.Expired) cert.Expire();
-                        else if (status == CertificationStatuses.Active) cert.Activate();
-                        // Pending stays Pending
-
-                        for (int c = 0; c < checkTypes.Length; c++)
+                        for (int c = 0; c < checksToSeed; c++)
                         {
                             var evalDate = certDate.AddMonths(c * 3);
                             if (evalDate > today) evalDate = today;
@@ -1683,6 +1776,63 @@ internal static class DevDataSeeder
                     await SeedCertsForRosterAsync(r, cfr240);
                 foreach (var r in await rosterRepo.GetByCraftCtrlNbrAsync(ptraTrnCraft.CtrlNbr))
                     await SeedCertsForRosterAsync(r, cfr242sw);
+            }
+        }
+
+        // ?? Section 15b: Extended Absence Board Assignments (expired FRA certs) ??????????????
+        // Employees seeded with expired certifications are placed on their craft's Extended Absence
+        // board. Uses the same UoW+StaffablePosition+PositionAssignment pattern as other board seeding.
+        var allCerts15b = await empCertRepo.GetAllAsync();
+        var employeesWithExpiredCerts = allCerts15b
+            .Where(c => c.Status == CertificationStatuses.Expired)
+            .Select(c => c.EmployeeCtrlNbr)
+            .Distinct()
+            .ToList();
+
+        if (employeesWithExpiredCerts.Count > 0)
+        {
+            var allBoards15b = await rosterBoardRepo.GetAllAsync();
+            var extAbsBoards = allBoards15b.Where(b => b.BoardType == BoardType.ExtendedAbsence).ToList();
+
+            // Build a CtrlNbr → CraftCtrlNbr lookup for all rosters
+            var allRosters15b = await rosterRepo.GetByCraftCtrlNbrsAsync(
+                (await craftRepo.GetAllAsync()).Select(c => c.CtrlNbr));
+            var rosterCraftMap = allRosters15b.ToDictionary(r => r.CtrlNbr, r => r.CraftCtrlNbr);
+
+            foreach (var empCtrlNbr in employeesWithExpiredCerts)
+            {
+                // Find this employee's active seniority entry to identify their craft
+                var empSeniority = await seniorityRepo.GetByEmployeeCtrlNbrAsync(empCtrlNbr);
+                var activeSen = empSeniority.FirstOrDefault(s => s.LastActiveRoster);
+                if (activeSen is null) continue;
+
+                if (!rosterCraftMap.TryGetValue(activeSen.RosterCtrlNbr, out var craftCtrlNbr)) continue;
+
+                // Find the Extended Absence board for this craft
+                var extBoard = extAbsBoards.FirstOrDefault(b => b.CraftCtrlNbr == craftCtrlNbr);
+                if (extBoard is null) continue;
+
+                // Skip if employee is already on this board
+                if (extBoard.Positions.Any(p => p.EmployeeCtrlNbr == empCtrlNbr)) continue;
+
+                var extAbsSp = StaffablePosition.Create("Board");
+                await using (var uow = await uowFactory.CreateAsync())
+                {
+                    var boardToUpdate = await uow.RosterBoards.GetByCtrlNbrAsync(extBoard.CtrlNbr)
+                        ?? throw new InvalidOperationException($"Extended Absence board {extBoard.CtrlNbr} not found.");
+                    var nextOrder = boardToUpdate.Positions.Count + 1;
+                    var position = boardToUpdate.AddPosition(empCtrlNbr, nextOrder, extAbsSp.CtrlNbr);
+                    var pa = PositionAssignment.Create(extAbsSp.CtrlNbr, empCtrlNbr, "Board", position.CtrlNbr);
+                    uow.StaffablePositions.Add(extAbsSp);
+                    uow.PositionAssignments.Add(pa);
+                    uow.RosterBoards.Update(boardToUpdate);
+                    await uow.CommitAsync();
+                }
+                // Refresh local snapshot of this board so the next employee gets the correct nextOrder
+                extBoard = (await rosterBoardRepo.GetAllAsync()).First(b => b.CtrlNbr == extBoard.CtrlNbr);
+                // Update local list reference too
+                var idx = extAbsBoards.FindIndex(b => b.CtrlNbr == extBoard.CtrlNbr);
+                if (idx >= 0) extAbsBoards[idx] = extBoard;
             }
         }
 
@@ -1751,13 +1901,8 @@ internal static class DevDataSeeder
                     evaluationStrategy: EvaluationStrategies.TimeFromEvent,
                     scopeGroupCtrlNbr: railroad.CtrlNbr,
                     craftCtrlNbr: trnCraft.CtrlNbr,
-                    description: "Trainman eligible to work Foreman position 90 days after CFR-242 certification.");
-                foremanQT.AddRequirement(
-                    requirementKind: RequirementKinds.FraCertificationHeld,
-                    threshold: 1,
-                    thresholdUnit: ThresholdUnits.Count,
-                    description: "Must hold an Active CFR-242 Switchman certification.",
-                    requiredRegulatoryQualCtrlNbr: cfr242swQ?.CtrlNbr);
+                    description: "Trainman eligible to work Foreman position 90 days after CFR-242 certification.",
+                    restrictionLabel: "Helper Only");
                 foremanQT.AddRequirement(
                     requirementKind: RequirementKinds.TimeFromEvent,
                     threshold: 90,
@@ -1766,64 +1911,18 @@ internal static class DevDataSeeder
                     eventSource: EventSources.SeniorityDate);
                 await qualTypeRepo.AddAsync(foremanQT);
 
-                // ---- Grant EmployeeQualifications to every employee with an Active cert ----
-                var nowUtc = DateTime.UtcNow;
-
-                async Task GrantFromCertsAsync(
-                    Domain.Models.Seniority.Craft craft,
-                    QualificationType targetQT,
-                    int minDaysSinceCert)
+                // ---- Auto-assign required qualifications for every employee on the roster ----
+                var qualReactiveSvc = sp.GetRequiredService<QualificationReactiveService>();
+                foreach (var craft in new[] { engCraft, trnCraft })
                 {
                     var rosters = await rosterRepo.GetByCraftCtrlNbrAsync(craft.CtrlNbr);
-                    foreach (var roster in rosters)
+                    foreach (var roster in rosters.Where(r => r.RosterType == RosterType.Active))
                     {
-                        var seniority = await seniorityRepo.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
-                        foreach (var sen in seniority)
-                        {
-                            var certs = await empCertRepo.GetByEmployeeCtrlNbrAsync(sen.EmployeeCtrlNbr);
-                            var activeCert = certs.FirstOrDefault(c =>
-                                c.Status == CertificationStatuses.Active &&
-                                c.RegulatoryQualificationCtrlNbr == targetQT.RegulatoryQualificationCtrlNbr);
-
-                            // Foreman falls back to matching CFR-242 from any active cert
-                            if (activeCert is null && targetQT.Code == "YARD-FOREMAN" && cfr242swQ is not null)
-                            {
-                                activeCert = certs.FirstOrDefault(c =>
-                                    c.Status == CertificationStatuses.Active &&
-                                    c.RegulatoryQualificationCtrlNbr == cfr242swQ.CtrlNbr);
-                            }
-
-                            if (activeCert is null) continue;
-
-                            var certDateUtc = activeCert.CertificationDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-                            var daysSince = (nowUtc - certDateUtc).TotalDays;
-                            if (daysSince < minDaysSinceCert) continue;
-
-                            // Cert-derived quals (minDaysSinceCert == 0) expire with the underlying cert.
-                            // Threshold-based quals (e.g. Foreman, earned after N days in role) are permanent once achieved.
-                            var isThresholdBased = minDaysSinceCert > 0;
-                            var eq = EmployeeQualification.Create(
-                                sen.EmployeeCtrlNbr,
-                                targetQT.CtrlNbr,
-                                grantedBy: SystemActors.System,
-                                expiresAtUtc: isThresholdBased
-                                    ? null
-                                    : activeCert.ExpirationDate.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc),
-                                status: QualificationStatuses.Active);
-                            eq.AddEvidence(
-                                evidenceType: isThresholdBased ? EvidenceTypes.TimeThresholdMet : EvidenceTypes.CertificationHeld,
-                                evidenceValue: isThresholdBased
-                                    ? $"Earned after {minDaysSinceCert} days since cert #{activeCert.CertificationNumber}"
-                                    : $"Cert #{activeCert.CertificationNumber} dated {activeCert.CertificationDate:yyyy-MM-dd}",
-                                recordedBy: SystemActors.System);
-                            await empQualRepo.AddAsync(eq);
-                        }
+                        var seniorities = await seniorityRepo.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
+                        foreach (var sen in seniorities)
+                            await qualReactiveSvc.HandleAddedToRosterAsync(sen.EmployeeCtrlNbr, craft.CtrlNbr);
                     }
                 }
-
-                await GrantFromCertsAsync(engCraft, engQT, minDaysSinceCert: 0);
-                await GrantFromCertsAsync(trnCraft, trnQT, minDaysSinceCert: 0);
-                await GrantFromCertsAsync(trnCraft, foremanQT, minDaysSinceCert: 90);
             }
 
             // CSX
@@ -1901,8 +2000,8 @@ internal static class DevDataSeeder
 
         if (ptraEmpListFinal.Count > 0)
         {
-            // Check if any PTRA employee is already assigned
-            var assignedSet = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsAsync();
+            // Check if any PTRA employee already has a Crew position assignment (excludes Board assignments)
+            var assignedSet = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync("Crew");
             bool anyPtraAssigned = ptraEmpListFinal.Any(e => assignedSet.Contains(e.CtrlNbr.Value));
 
             if (!anyPtraAssigned)
@@ -1940,10 +2039,34 @@ internal static class DevDataSeeder
                 var hlpPositions = allPositions.Where(p => p.CraftRoleCtrlNbr == ptraHlpRoleF.CtrlNbr)
                     .OrderBy(p => p.CrewCtrlNbr.Value).ThenBy(p => p.DisplayOrder).ToList();
 
-                // Engineers: [0..29]; first 12 fill E crew slots, remaining 18 go to extra board
-                // Trainmen:  [30..89]; first 12 fill F slots, next 6 fill H slots, remaining 42 go to extra board
-                var ptraEngEmps = ptraEmpListFinal.Take(30).ToList();
-                var ptraTrnEmps = ptraEmpListFinal.Skip(30).Take(60).ToList();
+                // Exclude any employee already on a board (e.g. Extended Absence from Section 15b).
+                // An employee can only hold one staffable position at a time.
+                var alreadyBoardAssigned = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync("Board");
+
+                // Derive board candidates from the active seniority roster — not hardcoded counts.
+                // Anyone on the active seniority roster who does not yet hold a staffable position is eligible.
+                var ptraAllRosters = await rosterRepo.GetByCraftCtrlNbrAsync(ptraEngCraftF.CtrlNbr);
+                ptraAllRosters.AddRange(await rosterRepo.GetByCraftCtrlNbrAsync(ptraTrnCraftF.CtrlNbr));
+                var ptraEngActiveRoster = ptraAllRosters.First(r => r.CraftCtrlNbr == ptraEngCraftF.CtrlNbr && r.RosterType == RosterType.Active);
+                var ptraTrnActiveRoster = ptraAllRosters.First(r => r.CraftCtrlNbr == ptraTrnCraftF.CtrlNbr && r.RosterType == RosterType.Active);
+
+                var ptraEngSeniorities = await seniorityRepo.GetByRosterCtrlNbrAsync(ptraEngActiveRoster.CtrlNbr);
+                var ptraTrnSeniorities = await seniorityRepo.GetByRosterCtrlNbrAsync(ptraTrnActiveRoster.CtrlNbr);
+
+                var empLookup = ptraEmpListFinal.ToDictionary(e => e.CtrlNbr);
+                var alreadyCrewAssigned = assignedSet; // "Crew" assignments resolved above
+
+                var ptraEngEmps = ptraEngSeniorities
+                    .Select(s => empLookup.GetValueOrDefault(s.EmployeeCtrlNbr))
+                    .Where(e => e is not null && !alreadyBoardAssigned.Contains(e!.CtrlNbr.Value) && !alreadyCrewAssigned.Contains(e.CtrlNbr.Value))
+                    .Select(e => e!)
+                    .ToList();
+
+                var ptraTrnEmps = ptraTrnSeniorities
+                    .Select(s => empLookup.GetValueOrDefault(s.EmployeeCtrlNbr))
+                    .Where(e => e is not null && !alreadyBoardAssigned.Contains(e!.CtrlNbr.Value) && !alreadyCrewAssigned.Contains(e.CtrlNbr.Value))
+                    .Select(e => e!)
+                    .ToList();
 
                 var incumbencyBase = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
                 var today = DateTime.UtcNow.Date;
@@ -1956,8 +2079,9 @@ internal static class DevDataSeeder
                 }
 
                 // ── Crew Incumbencies ───────────────────────────────────────────
-                // Engineer crew slots
-                for (int i = 0; i < engPositions.Count; i++)
+                // Engineer crew slots — only as many as we have eligible employees
+                int engCrewAssigned = 0;
+                for (int i = 0; i < engPositions.Count && i < ptraEngEmps.Count; i++)
                 {
                     var pos = engPositions[i];
                     var emp = ptraEngEmps[i];
@@ -1967,10 +2091,12 @@ internal static class DevDataSeeder
                     uow.CrewIncumbencies.Add(incumbency);
                     uow.PositionAssignments.Add(pa);
                     await uow.CommitAsync();
+                    engCrewAssigned++;
                 }
 
-                // Foreman crew slots (trainmen [0..11])
-                for (int i = 0; i < fmnPositions.Count; i++)
+                // Foreman crew slots (trainmen [0..n])
+                int fmnCrewAssigned = 0;
+                for (int i = 0; i < fmnPositions.Count && i < ptraTrnEmps.Count; i++)
                 {
                     var pos = fmnPositions[i];
                     var emp = ptraTrnEmps[i];
@@ -1980,19 +2106,22 @@ internal static class DevDataSeeder
                     uow.CrewIncumbencies.Add(incumbency);
                     uow.PositionAssignments.Add(pa);
                     await uow.CommitAsync();
+                    fmnCrewAssigned++;
                 }
 
-                // Helper crew slots (trainmen [12..17])
-                for (int i = 0; i < hlpPositions.Count; i++)
+                // Helper crew slots (trainmen [fmnCrewAssigned..fmnCrewAssigned+n])
+                int hlpCrewAssigned = 0;
+                for (int i = 0; i < hlpPositions.Count && (fmnCrewAssigned + i) < ptraTrnEmps.Count; i++)
                 {
                     var pos = hlpPositions[i];
-                    var emp = ptraTrnEmps[fmnPositions.Count + i];
+                    var emp = ptraTrnEmps[fmnCrewAssigned + i];
                     var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
                     var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
                     await using var uow = await uowFactory.CreateAsync();
                     uow.CrewIncumbencies.Add(incumbency);
                     uow.PositionAssignments.Add(pa);
                     await uow.CommitAsync();
+                    hlpCrewAssigned++;
                 }
 
                 // ── Extra Board Placements ──────────────────────────────────────
@@ -2001,8 +2130,8 @@ internal static class DevDataSeeder
                 var ptraEngBoardCtrlNbr = allBoardsF.First(b => b.CraftCtrlNbr == ptraEngCraftF.CtrlNbr && b.BoardType == BoardType.ExtraBoard).CtrlNbr;
                 var ptraTrnBoardCtrlNbr = allBoardsF.First(b => b.CraftCtrlNbr == ptraTrnCraftF.CtrlNbr && b.BoardType == BoardType.ExtraBoard).CtrlNbr;
 
-                // Remaining engineers: [12..29] → 18 employees — all in one UoW
-                var boardEngEmps = ptraEngEmps.Skip(engPositions.Count).ToList();
+                // Remaining eligible engineers go to extra board (those not placed in crew slots)
+                var boardEngEmps = ptraEngEmps.Skip(engCrewAssigned).ToList();
                 await using (var uow = await uowFactory.CreateAsync())
                 {
                     var ptraEngBoardF = await uow.RosterBoards.GetByCtrlNbrAsync(ptraEngBoardCtrlNbr)
@@ -2020,8 +2149,8 @@ internal static class DevDataSeeder
                     await uow.CommitAsync();
                 }
 
-                // Remaining trainmen: [18..59] → 42 employees — all in one UoW
-                var boardTrnEmps = ptraTrnEmps.Skip(fmnPositions.Count + hlpPositions.Count).ToList();
+                // Remaining eligible trainmen go to extra board (those not placed in crew slots)
+                var boardTrnEmps = ptraTrnEmps.Skip(fmnCrewAssigned + hlpCrewAssigned).ToList();
                 await using (var uow = await uowFactory.CreateAsync())
                 {
                     var ptraTrnBoardF = await uow.RosterBoards.GetByCtrlNbrAsync(ptraTrnBoardCtrlNbr)
