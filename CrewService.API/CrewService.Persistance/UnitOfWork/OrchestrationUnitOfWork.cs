@@ -17,6 +17,25 @@ using CrewService.Persistance.Modules.Staffing;
 using CrewService.Persistance.Modules.DailyOperations;
 using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.Persistance.Modules.WorkManagement;
+using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Persistance.Modules.FraCompliance;
+using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Persistance.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Safety;
+using CrewService.Persistance.Modules.Safety;
+using CrewService.Domain.Modules.RailroadInfo;
+using CrewService.Persistance.Modules.RailroadInfo;
+using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.HolidayManagement;
+using CrewService.Domain.Modules.Payroll;
+using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Authorization;
+using CrewService.Domain.Modules.Bulletins;
+using CrewService.Persistance.Modules.Authorization;
+using CrewService.Persistance.Modules.Bulletins;
+using CrewService.Persistance.Modules.Dispatching;
+using CrewService.Persistance.Modules.Payroll;
+using CrewService.Persistance.Modules.Policies;
 using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -87,6 +106,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: Boards
     // ──────────────────────────────────────────────────────────────────
+    private IBoardCascadePolicyRepository? _boardCascadePolicies;
     private IRosterBoardRepository? _rosterBoards;
 
     // ──────────────────────────────────────────────────────────────────
@@ -114,13 +134,82 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IPositionSlotRepository? _positionSlots;
     private ISlotRequirementRepository? _slotRequirements;
     private IShiftDefinitionRepository? _shiftDefinitions;
+    private IShiftInstanceRepository? _shiftInstances;
+    private IOnDutyRecordRepository? _onDutyRecords;
+    private IOffDutyRecordRepository? _offDutyRecords;
+    private ICraftOperationsPolicyRepository? _craftOperationsPolicies;
+    private ICraftDisplacementPolicyRepository? _craftDisplacementPolicies;
+    private IDisplacementCaseRepository? _displacementCases;
+    private IDisplacementClaimRepository? _displacementClaims;
+    private IBulletinPolicyRepository? _bulletinPolicies;
+    private ISeniorityMovePolicyRepository? _seniorityMovePolicies;
+    private ISeniorityMoveRepository? _seniorityMoves;
+    private IDispatchProjectionRepository? _dispatchProjections;
+    private IDispatchDecisionLogRepository? _dispatchDecisionLogs;
+    private IDispatchOverrideRepository? _dispatchOverrides;
+    private IEmployeeBookingRepository? _employeeBookings;
 
     // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: Qualifications
     // ──────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: FRA Compliance
+    // ──────────────────────────────────────────────────────────────────
+    private IEmployeeCertificationRepository? _employeeCertifications;
+    private IEmployeeCertificationReadRepository? _employeeCertificationReads;
+    private IFraCertificationConfigRepository? _fraCertificationConfigs;
+    private IFraCertificationCheckConfigRepository? _fraCertificationCheckConfigs;
+    private IFraDutyTourRepository? _fraDutyTours;
+    private IRegulatoryStandardRepository? _regulatoryStandards;
+    private IRegulatoryQualificationRepository? _regulatoryQualifications;
+    private ICertificationRevocationRepository? _certificationRevocations;
+    private IDrugAlcoholTestRepository? _drugAlcoholTests;
+    private IDrugAlcoholActionRepository? _drugAlcoholActions;
+    private IVoluntaryReferralRepository? _voluntaryReferrals;
+
     private IQualificationTypeRepository? _qualificationTypes;
     private IQualificationRequirementRepository? _qualificationRequirements;
     private IEmployeeQualificationRepository? _employeeQualifications;
+
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Absence & Vacancy
+    // ──────────────────────────────────────────────────────────────────
+    private IAbsenceRequestRepository? _absenceRequests;
+    private IVacancyImpactRepository? _vacancyImpacts;
+
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Safety
+    // ──────────────────────────────────────────────────────────────────
+    private ISafetyObservationRepository? _safetyObservations;
+    private ISafetyObservationResolutionRepository? _safetyResolutions;
+    private ISafetyCategoryRepository? _safetyCategories;
+
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Railroad Info
+    // ──────────────────────────────────────────────────────────────────
+    private IRailroadInformationRepository? _railroadInformation;
+    private IRailroadInformationReadReceiptRepository? _railroadInformationReadReceipts;
+
+    // ──────────────────────────────────────────────────────────────────
+    // Lazy-initialized repositories: Payroll
+    // ──────────────────────────────────────────────────────────────────
+    private ITimeEntryRepository? _timeEntries;
+    private IPayrollRunRepository? _payrollRuns;
+    private IPayrollRecordRepository? _payrollRecords;
+    private IPayrollExportBatchRepository? _payrollExportBatches;
+    private IPayrollImportRecordRepository? _payrollImportRecords;
+    private IHolidayRepository? _holidays;
+    private IHolidayQualificationRuleRepository? _holidayQualificationRules;
+    private IHolidayPayrollRecordRepository? _holidayPayrollRecords;
+    private IEarningCodeRuleRepository? _earningCodeRules;
+    private IPayRateRepository? _payRates;
+    private IRailroadHolidaySelectionRepository? _railroadHolidaySelections;
+    private IRoleRepository? _roles;
+    private IFeatureRepository? _features;
+    private IPermissionRepository? _permissions;
+    private IPositionVacancyRepository? _positionVacancies;
+    private IBulletinRepository? _bulletins;
+    private IBulletinBidRepository? _bulletinBids;
 
     public string CorrelationId { get; }
     public string OrchestrationId { get; }
@@ -171,6 +260,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Boards
     // ──────────────────────────────────────────────────────────────────
+    public IBoardCascadePolicyRepository BoardCascadePolicies => _boardCascadePolicies ??= new BoardCascadePolicyRepository(_crewContext, _currentUserService);
     public IRosterBoardRepository RosterBoards => _rosterBoards ??= new RosterBoardRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
@@ -198,13 +288,97 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IPositionSlotRepository PositionSlots => _positionSlots ??= new PositionSlotRepository(_crewContext, _currentUserService);
     public ISlotRequirementRepository SlotRequirements => _slotRequirements ??= new SlotRequirementRepository(_crewContext, _currentUserService);
     public IShiftDefinitionRepository ShiftDefinitions => _shiftDefinitions ??= new ShiftDefinitionRepository(_crewContext, _currentUserService);
+    public IShiftInstanceRepository ShiftInstances => _shiftInstances ??= new ShiftInstanceRepository(_crewContext, _currentUserService);
+    public IOnDutyRecordRepository OnDutyRecords => _onDutyRecords ??= new OnDutyRecordRepository(_crewContext, _currentUserService);
+    public IOffDutyRecordRepository OffDutyRecords => _offDutyRecords ??= new OffDutyRecordRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Policies
+    // ──────────────────────────────────────────────────────────────────
+    public ICraftOperationsPolicyRepository CraftOperationsPolicies => _craftOperationsPolicies ??= new CraftOperationsPolicyRepository(_crewContext, _currentUserService);
+    public ICraftDisplacementPolicyRepository CraftDisplacementPolicies => _craftDisplacementPolicies ??= new CraftDisplacementPolicyRepository(_crewContext, _currentUserService);
+    public IDisplacementCaseRepository DisplacementCases => _displacementCases ??= new DisplacementCaseRepository(_crewContext, _currentUserService);
+    public IDisplacementClaimRepository DisplacementClaims => _displacementClaims ??= new DisplacementClaimRepository(_crewContext, _currentUserService);
+    public IBulletinPolicyRepository BulletinPolicies => _bulletinPolicies ??= new BulletinPolicyRepository(_crewContext, _currentUserService);
+    public ISeniorityMovePolicyRepository SeniorityMovePolicies => _seniorityMovePolicies ??= new SeniorityMovePolicyRepository(_crewContext, _currentUserService);
+    public ISeniorityMoveRepository SeniorityMoves => _seniorityMoves ??= new SeniorityMoveRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Dispatching
+    // ──────────────────────────────────────────────────────────────────
+    public IDispatchProjectionRepository DispatchProjections => _dispatchProjections ??= new DispatchProjectionRepository(_crewContext, _currentUserService);
+    public IDispatchDecisionLogRepository DispatchDecisionLogs => _dispatchDecisionLogs ??= new DispatchDecisionLogRepository(_crewContext, _currentUserService);
+    public IDispatchOverrideRepository DispatchOverrides => _dispatchOverrides ??= new DispatchOverrideRepository(_crewContext, _currentUserService);
+    public IEmployeeBookingRepository EmployeeBookings => _employeeBookings ??= new EmployeeBookingRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Qualifications
     // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: FRA Compliance
+    // ──────────────────────────────────────────────────────────────────
+    public IEmployeeCertificationRepository EmployeeCertifications => _employeeCertifications ??= new EmployeeCertificationRepository(_crewContext, _currentUserService);
+    public IEmployeeCertificationReadRepository EmployeeCertificationReads => _employeeCertificationReads ??= new EmployeeCertificationReadRepository(_crewContext);
+    public IFraCertificationConfigRepository FraCertificationConfigs => _fraCertificationConfigs ??= new FraCertificationConfigRepository(_crewContext, _currentUserService);
+    public IFraCertificationCheckConfigRepository FraCertificationCheckConfigs => _fraCertificationCheckConfigs ??= new FraCertificationCheckConfigRepository(_crewContext, _currentUserService);
+    public IFraDutyTourRepository FraDutyTours => _fraDutyTours ??= new FraDutyTourRepository(_crewContext, _currentUserService);
+    public IRegulatoryStandardRepository RegulatoryStandards => _regulatoryStandards ??= new RegulatoryStandardRepository(_crewContext, _currentUserService);
+    public IRegulatoryQualificationRepository RegulatoryQualifications => _regulatoryQualifications ??= new RegulatoryQualificationRepository(_crewContext, _currentUserService);
+    public ICertificationRevocationRepository CertificationRevocations => _certificationRevocations ??= new CertificationRevocationRepository(_crewContext, _currentUserService);
+    public IDrugAlcoholTestRepository DrugAlcoholTests => _drugAlcoholTests ??= new DrugAlcoholTestRepository(_crewContext, _currentUserService);
+    public IDrugAlcoholActionRepository DrugAlcoholActions => _drugAlcoholActions ??= new DrugAlcoholActionRepository(_crewContext, _currentUserService);
+    public IVoluntaryReferralRepository VoluntaryReferrals => _voluntaryReferrals ??= new VoluntaryReferralRepository(_crewContext, _currentUserService);
+
     public IQualificationTypeRepository QualificationTypes => _qualificationTypes ??= new QualificationTypeRepository(_crewContext, _currentUserService);
     public IQualificationRequirementRepository QualificationRequirements => _qualificationRequirements ??= new QualificationRequirementRepository(_crewContext, _currentUserService);
     public IEmployeeQualificationRepository EmployeeQualifications => _employeeQualifications ??= new EmployeeQualificationRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Absence & Vacancy
+    // ──────────────────────────────────────────────────────────────────
+    public IAbsenceRequestRepository AbsenceRequests => _absenceRequests ??= new AbsenceRequestRepository(_crewContext, _currentUserService);
+    public IVacancyImpactRepository VacancyImpacts => _vacancyImpacts ??= new VacancyImpactRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Safety
+    // ──────────────────────────────────────────────────────────────────
+    public ISafetyObservationRepository SafetyObservations => _safetyObservations ??= new SafetyObservationRepository(_crewContext, _currentUserService);
+    public ISafetyObservationResolutionRepository SafetyResolutions => _safetyResolutions ??= new SafetyObservationResolutionRepository(_crewContext, _currentUserService);
+    public ISafetyCategoryRepository SafetyCategories => _safetyCategories ??= new SafetyCategoryRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Railroad Info
+    // ──────────────────────────────────────────────────────────────────
+    public IRailroadInformationRepository RailroadInformation => _railroadInformation ??= new RailroadInformationRepository(_crewContext, _currentUserService);
+    public IRailroadInformationReadReceiptRepository RailroadInformationReadReceipts => _railroadInformationReadReceipts ??= new RailroadInformationReadReceiptRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Payroll
+    // ──────────────────────────────────────────────────────────────────
+    public ITimeEntryRepository TimeEntries => _timeEntries ??= new TimeEntryRepository(_crewContext, _currentUserService);
+    public IPayrollRunRepository PayrollRuns => _payrollRuns ??= new PayrollRunRepository(_crewContext, _currentUserService);
+    public IPayrollRecordRepository PayrollRecords => _payrollRecords ??= new PayrollRecordRepository(_crewContext, _currentUserService);
+    public IPayrollExportBatchRepository PayrollExportBatches => _payrollExportBatches ??= new PayrollExportBatchRepository(_crewContext, _currentUserService);
+    public IPayrollImportRecordRepository PayrollImportRecords => _payrollImportRecords ??= new PayrollImportRecordRepository(_crewContext, _currentUserService);
+    public IHolidayRepository Holidays => _holidays ??= new HolidayRepository(_crewContext, _currentUserService);
+    public IHolidayQualificationRuleRepository HolidayQualificationRules => _holidayQualificationRules ??= new HolidayQualificationRuleRepository(_crewContext, _currentUserService);
+    public IHolidayPayrollRecordRepository HolidayPayrollRecords => _holidayPayrollRecords ??= new HolidayPayrollRecordRepository(_crewContext, _currentUserService);
+    public IEarningCodeRuleRepository EarningCodeRules => _earningCodeRules ??= new EarningCodeRuleRepository(_crewContext, _currentUserService);
+    public IPayRateRepository PayRates => _payRates ??= new PayRateRepository(_crewContext, _currentUserService);
+    public IRailroadHolidaySelectionRepository RailroadHolidaySelections => _railroadHolidaySelections ??= new RailroadHolidaySelectionRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Authorization
+    // ──────────────────────────────────────────────────────────────────
+    public IRoleRepository Roles => _roles ??= new RoleRepository(_crewContext, _currentUserService);
+    public IFeatureRepository Features => _features ??= new FeatureRepository(_crewContext, _currentUserService);
+    public IPermissionRepository Permissions => _permissions ??= new PermissionRepository(_crewContext, _currentUserService);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Repository Properties: Bulletins
+    // ──────────────────────────────────────────────────────────────────
+    public IPositionVacancyRepository PositionVacancies => _positionVacancies ??= new PositionVacancyRepository(_crewContext, _currentUserService);
+    public IBulletinRepository Bulletins => _bulletins ??= new BulletinRepository(_crewContext, _currentUserService);
+    public IBulletinBidRepository BulletinBids => _bulletinBids ??= new BulletinBidRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
         DbConnection connection,
@@ -226,6 +400,17 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
         _idempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();
         _logger = logger;
         _dispatcher = dispatcher;
+    }
+
+    public async Task SaveAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, typeof(OrchestrationUnitOfWork));
+
+        var domainEvents = CollectDomainEvents();
+        foreach (var domainEvent in domainEvents)
+            _crewContext.OutboxMessages.Add(CreateOutboxMessage(domainEvent));
+
+        await _crewContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task CommitAsync(CancellationToken cancellationToken = default)

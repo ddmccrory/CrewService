@@ -23,6 +23,7 @@ public sealed class QualificationType : Entity
     public bool IsBlocking { get; private set; }
     public bool IsSystemSeeded { get; private set; }
     public bool IsActive { get; private set; } = true;
+    public string? RestrictionLabel { get; private set; }
 
     public IReadOnlyList<QualificationRequirement> Requirements => _requirements.AsReadOnly();
 
@@ -45,7 +46,8 @@ public sealed class QualificationType : Entity
         int graceDays = 0,
         int renewalLeadDays = 0,
         bool isBlocking = false,
-        bool isSystemSeeded = false)
+        bool isSystemSeeded = false,
+        string? restrictionLabel = null)
     {
         var qt = new QualificationType
         {
@@ -63,7 +65,8 @@ public sealed class QualificationType : Entity
             RenewalLeadDays = renewalLeadDays,
             IsBlocking = isBlocking,
             IsSystemSeeded = isSystemSeeded,
-            IsActive = true
+            IsActive = true,
+            RestrictionLabel = restrictionLabel
         };
 
         qt.Raise(new QualificationTypeCreatedDomainEvent(qt));
@@ -80,7 +83,8 @@ public sealed class QualificationType : Entity
         bool calendarYearExpiry,
         int graceDays,
         int renewalLeadDays,
-        bool isBlocking)
+        bool isBlocking,
+        string? restrictionLabel = null)
     {
         Name = name;
         Description = description;
@@ -92,6 +96,7 @@ public sealed class QualificationType : Entity
         GraceDays = graceDays;
         RenewalLeadDays = renewalLeadDays;
         IsBlocking = isBlocking;
+        RestrictionLabel = restrictionLabel;
     }
 
     public void Deactivate() => IsActive = false;

@@ -1,6 +1,16 @@
 using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.HolidayManagement;
+using CrewService.Domain.Modules.Payroll;
+using CrewService.Domain.Modules.RailroadInfo;
+using CrewService.Domain.Modules.Safety;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
@@ -71,6 +81,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ──────────────────────────────────────────────────────────────────
     // Boards
     // ──────────────────────────────────────────────────────────────────
+    IBoardCascadePolicyRepository BoardCascadePolicies { get; }
     IRosterBoardRepository RosterBoards { get; }
 
     // ──────────────────────────────────────────────────────────────────
@@ -98,6 +109,41 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IPositionSlotRepository PositionSlots { get; }
     ISlotRequirementRepository SlotRequirements { get; }
     IShiftDefinitionRepository ShiftDefinitions { get; }
+    IShiftInstanceRepository ShiftInstances { get; }
+    IOnDutyRecordRepository OnDutyRecords { get; }
+    IOffDutyRecordRepository OffDutyRecords { get; }
+    // ────────────────────────────────────────────────────
+    // Policies
+    // ────────────────────────────────────────────────────
+    ICraftOperationsPolicyRepository CraftOperationsPolicies { get; }
+    ICraftDisplacementPolicyRepository CraftDisplacementPolicies { get; }
+    IDisplacementCaseRepository DisplacementCases { get; }
+    IDisplacementClaimRepository DisplacementClaims { get; }
+    IBulletinPolicyRepository BulletinPolicies { get; }
+    ISeniorityMovePolicyRepository SeniorityMovePolicies { get; }
+    ISeniorityMoveRepository SeniorityMoves { get; }
+    // ────────────────────────────────────────────────────
+    // Dispatching
+    // ────────────────────────────────────────────────────
+    IDispatchProjectionRepository DispatchProjections { get; }
+    IDispatchDecisionLogRepository DispatchDecisionLogs { get; }
+    IDispatchOverrideRepository DispatchOverrides { get; }
+    IEmployeeBookingRepository EmployeeBookings { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // FRA Compliance
+    // ──────────────────────────────────────────────────────────────────
+    IEmployeeCertificationRepository EmployeeCertifications { get; }
+    IEmployeeCertificationReadRepository EmployeeCertificationReads { get; }
+    IFraCertificationConfigRepository FraCertificationConfigs { get; }
+    IFraCertificationCheckConfigRepository FraCertificationCheckConfigs { get; }
+    IFraDutyTourRepository FraDutyTours { get; }
+    IRegulatoryStandardRepository RegulatoryStandards { get; }
+    IRegulatoryQualificationRepository RegulatoryQualifications { get; }
+    ICertificationRevocationRepository CertificationRevocations { get; }
+    IDrugAlcoholTestRepository DrugAlcoholTests { get; }
+    IDrugAlcoholActionRepository DrugAlcoholActions { get; }
+    IVoluntaryReferralRepository VoluntaryReferrals { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // Qualifications
@@ -106,11 +152,62 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IQualificationRequirementRepository QualificationRequirements { get; }
     IEmployeeQualificationRepository EmployeeQualifications { get; }
 
+    // ──────────────────────────────────────────────────────────────────
+    // Absence & Vacancy
+    // ──────────────────────────────────────────────────────────────────
+    IAbsenceRequestRepository AbsenceRequests { get; }
+    IVacancyImpactRepository VacancyImpacts { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Safety
+    // ──────────────────────────────────────────────────────────────────
+    ISafetyObservationRepository SafetyObservations { get; }
+    ISafetyObservationResolutionRepository SafetyResolutions { get; }
+    ISafetyCategoryRepository SafetyCategories { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Railroad Info
+    // ──────────────────────────────────────────────────────────────────
+    IRailroadInformationRepository RailroadInformation { get; }
+    IRailroadInformationReadReceiptRepository RailroadInformationReadReceipts { get; }
+    // ────────────────────────────────────────────────────
+    // Payroll
+    // ────────────────────────────────────────────────────
+    ITimeEntryRepository TimeEntries { get; }
+    IPayrollRunRepository PayrollRuns { get; }
+    IPayrollRecordRepository PayrollRecords { get; }
+    IPayrollExportBatchRepository PayrollExportBatches { get; }
+    IPayrollImportRecordRepository PayrollImportRecords { get; }
+    IHolidayRepository Holidays { get; }
+    IHolidayQualificationRuleRepository HolidayQualificationRules { get; }
+    IHolidayPayrollRecordRepository HolidayPayrollRecords { get; }
+    IEarningCodeRuleRepository EarningCodeRules { get; }
+    IPayRateRepository PayRates { get; }
+    IRailroadHolidaySelectionRepository RailroadHolidaySelections { get; }
+    // ────────────────────────────────────────────────────
+    // Authorization
+    // ────────────────────────────────────────────────────
+    IRoleRepository Roles { get; }
+    IFeatureRepository Features { get; }
+    IPermissionRepository Permissions { get; }
+    // ────────────────────────────────────────────────────
+    // Bulletins
+    // ────────────────────────────────────────────────────
+    IPositionVacancyRepository PositionVacancies { get; }
+    IBulletinRepository Bulletins { get; }
+    IBulletinBidRepository BulletinBids { get; }
+
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,
     /// saves all changes, and commits the transaction atomically.
     /// </summary>
     Task CommitAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves all entity changes and outbox rows within the existing transaction
+    /// without committing it. Use when the caller controls the transaction lifetime.
+    /// </summary>
+    Task SaveAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Rolls back the transaction. Call on error before disposing.

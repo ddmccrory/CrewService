@@ -40,3 +40,13 @@ public static class EvaluationStrategies
     public const string QualificationHeld = "QualificationHeld";
     public const string FraCertification = "FraCertification";
 }
+
+public static class CertificationStatuses
+{
+    public const string Pending   = "Pending";
+    public const string Active    = "Active";
+    public const string Renew     = "Renew";
+    public const string Suspended = "Suspended";
+    public const string Revoked   = "Revoked";
+    public const string Expired   = "Expired";
+}

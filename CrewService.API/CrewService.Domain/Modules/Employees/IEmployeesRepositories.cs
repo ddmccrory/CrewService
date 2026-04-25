@@ -108,6 +108,7 @@ public interface IRosterRepository : IRepository<Roster>
 {
     Task<List<Roster>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr);
     Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs);
+    Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default);
 }
 
 public interface ISeniorityRepository : IRepository<Seniority>

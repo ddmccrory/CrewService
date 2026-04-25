@@ -44,6 +44,7 @@ internal sealed class QualificationTypeRepository(CrewServiceDbContext dbContext
     public async Task<List<QualificationType>> GetActiveByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr)
     {
         return await DbContext.Set<QualificationType>()
+            .Include(q => q.Requirements)
             .Where(q => q.CraftCtrlNbr == craftCtrlNbr && q.IsActive)
             .ToListAsync();
     }
@@ -88,8 +89,12 @@ internal sealed class EmployeeQualificationRepository(CrewServiceDbContext dbCon
 
     public async Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr)
     {
+        var now = DateTime.UtcNow;
         return await DbContext.Set<EmployeeQualification>()
-            .Where(eq => eq.EmployeeCtrlNbr == employeeCtrlNbr && (eq.Status == "Active" || eq.Status == "ExpiringSoon"))
+            .Where(eq => eq.EmployeeCtrlNbr == employeeCtrlNbr
+                && eq.RevokedAtUtc == null
+                && eq.AchievedAtUtc != null && eq.AchievedAtUtc <= now
+                && (eq.ExpiresAtUtc == null || eq.ExpiresAtUtc > now))
             .OrderBy(eq => eq.ExpiresAtUtc)
             .ToListAsync();
     }
@@ -98,17 +103,24 @@ internal sealed class EmployeeQualificationRepository(CrewServiceDbContext dbCon
     {
         var ctrlNbrList = employeeCtrlNbrs.ToList();
         if (ctrlNbrList.Count == 0) return [];
+        var now = DateTime.UtcNow;
         return await DbContext.Set<EmployeeQualification>()
-            .Where(eq => ctrlNbrList.Contains(eq.EmployeeCtrlNbr) && (eq.Status == "Active" || eq.Status == "ExpiringSoon"))
+            .Where(eq => ctrlNbrList.Contains(eq.EmployeeCtrlNbr)
+                && eq.RevokedAtUtc == null
+                && eq.AchievedAtUtc != null && eq.AchievedAtUtc <= now
+                && (eq.ExpiresAtUtc == null || eq.ExpiresAtUtc > now))
             .ToListAsync();
     }
 
     public async Task<List<EmployeeQualification>> GetExpiringBeforeAsync(DateTime cutoffUtc)
     {
+        var now = DateTime.UtcNow;
         return await DbContext.Set<EmployeeQualification>()
             .Where(eq => eq.ExpiresAtUtc.HasValue
                 && eq.ExpiresAtUtc.Value <= cutoffUtc
-                && (eq.Status == "Active" || eq.Status == "ExpiringSoon"))
+                && eq.RevokedAtUtc == null
+                && eq.AchievedAtUtc != null && eq.AchievedAtUtc <= now
+                && eq.ExpiresAtUtc.Value > now)
             .OrderBy(eq => eq.ExpiresAtUtc)
             .ToListAsync();
     }

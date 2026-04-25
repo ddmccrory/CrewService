@@ -24,7 +24,6 @@ internal class EmployeeQualificationConfiguration : IEntityTypeConfiguration<Emp
             ctrlNbr => ctrlNbr.Value,
             value => ControlNumber.Create(value));
 
-        builder.Property(eq => eq.Status).HasMaxLength(20).IsRequired();
         builder.Property(eq => eq.GrantedBy).HasMaxLength(50).IsRequired();
         builder.Property(eq => eq.RevocationReason).HasMaxLength(200);
 

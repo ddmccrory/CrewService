@@ -1,3 +1,4 @@
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -10,14 +11,7 @@ public interface IFraCertificationChecker
 }
 
 public sealed class EmployeeEligibilityService(
-    ISlotRequirementRepository slotRequirementRepository,
-    IPositionSlotRepository positionSlotRepository,
-    IQualificationTypeRepository qualificationTypeRepository,
-    IEmployeeQualificationRepository employeeQualificationRepository,
-    ICraftRoleRepository craftRoleRepository,
-    ICraftRoleQualificationRepository craftRoleQualificationRepository,
-    ISeniorityRepository seniorityRepository,
-    IRosterRepository rosterRepository,
+    IOrchestrationUnitOfWorkFactory uowFactory,
     IFraCertificationChecker? fraCertificationChecker = null)
 {
     public async Task<EligibilityResult> CheckEligibilityAsync(
@@ -25,16 +19,17 @@ public sealed class EmployeeEligibilityService(
         ControlNumber positionSlotCtrlNbr,
         CancellationToken ct = default)
     {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var blockingReasons = new List<BlockingReason>();
 
         // ── 1. Slot-level requirements (explicit overrides) ──────────────────
-        var slotRequirements = await slotRequirementRepository.GetByPositionSlotAsync(positionSlotCtrlNbr);
+        var slotRequirements = await uow.SlotRequirements.GetByPositionSlotAsync(positionSlotCtrlNbr);
 
         foreach (var requirement in slotRequirements)
         {
             if (requirement.CraftRoleCtrlNbr is not null)
             {
-                var craftRole = await craftRoleRepository.GetByCtrlNbrAsync(requirement.CraftRoleCtrlNbr, ct);
+                var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(requirement.CraftRoleCtrlNbr, ct);
                 if (craftRole is null)
                 {
                     blockingReasons.Add(new BlockingReason(
@@ -43,13 +38,13 @@ public sealed class EmployeeEligibilityService(
                 }
                 else
                 {
-                    var employeeSeniority = await seniorityRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+                    var employeeSeniority = await uow.Seniority.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
                     var activeRosterCtrlNbrs = employeeSeniority
                         .Where(s => s.LastActiveRoster)
                         .Select(s => s.RosterCtrlNbr)
                         .ToHashSet();
 
-                    var craftRosters = await rosterRepository.GetByCraftCtrlNbrAsync(craftRole.CraftCtrlNbr);
+                    var craftRosters = await uow.Rosters.GetByCraftCtrlNbrAsync(craftRole.CraftCtrlNbr);
                     var hasActiveCraftMembership = craftRosters.Any(r => activeRosterCtrlNbrs.Contains(r.CtrlNbr));
 
                     if (!hasActiveCraftMembership)
@@ -62,16 +57,16 @@ public sealed class EmployeeEligibilityService(
             }
 
             if (requirement.QualificationTypeCtrlNbr is not null)
-                await EvaluateQualificationTypeAsync(employeeCtrlNbr, requirement.QualificationTypeCtrlNbr, blockingReasons, ct);
+                await EvaluateQualificationTypeAsync(uow, employeeCtrlNbr, requirement.QualificationTypeCtrlNbr, blockingReasons, ct);
         }
 
         // ── 2. Role-level required qualifications (B2: template-based) ───────
-        var slot = await positionSlotRepository.GetByCtrlNbrAsync(positionSlotCtrlNbr, ct);
+        var slot = await uow.PositionSlots.GetByCtrlNbrAsync(positionSlotCtrlNbr, ct);
         if (slot is not null)
         {
-            var roleQualifications = await craftRoleQualificationRepository.GetByCraftRoleAsync(slot.CraftRoleCtrlNbr);
+            var roleQualifications = await uow.CraftRoleQualifications.GetByCraftRoleAsync(slot.CraftRoleCtrlNbr);
             foreach (var roleQual in roleQualifications)
-                await EvaluateQualificationTypeAsync(employeeCtrlNbr, roleQual.QualificationTypeCtrlNbr, blockingReasons, ct);
+                await EvaluateQualificationTypeAsync(uow, employeeCtrlNbr, roleQual.QualificationTypeCtrlNbr, blockingReasons, ct);
         }
 
         return new EligibilityResult(
@@ -79,13 +74,42 @@ public sealed class EmployeeEligibilityService(
             BlockingReasons: blockingReasons);
     }
 
+    public async Task<EligibilityResult> CheckEligibilityByCraftRoleForPositionAsync(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber crewPositionCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var position = await uow.CrewPositions.GetByCtrlNbrAsync(crewPositionCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Crew position {crewPositionCtrlNbr.Value} not found.");
+        return await CheckEligibilityByCraftRoleAsync(employeeCtrlNbr, position.CraftRoleCtrlNbr, ct);
+    }
+
+    public async Task<EligibilityResult> CheckEligibilityByCraftRoleAsync(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber craftRoleCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var blockingReasons = new List<BlockingReason>();
+
+        var roleQualifications = await uow.CraftRoleQualifications.GetByCraftRoleAsync(craftRoleCtrlNbr);
+        foreach (var roleQual in roleQualifications)
+            await EvaluateQualificationTypeAsync(uow, employeeCtrlNbr, roleQual.QualificationTypeCtrlNbr, blockingReasons, ct);
+
+        return new EligibilityResult(
+            IsEligible: blockingReasons.Count == 0,
+            BlockingReasons: blockingReasons);
+    }
+
     private async Task EvaluateQualificationTypeAsync(
+        IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
         ControlNumber qualificationTypeCtrlNbr,
         List<BlockingReason> blockingReasons,
         CancellationToken ct)
     {
-        var qualType = await qualificationTypeRepository.GetByCtrlNbrAsync(qualificationTypeCtrlNbr, ct);
+        var qualType = await uow.QualificationTypes.GetByCtrlNbrAsync(qualificationTypeCtrlNbr, ct);
 
         if (qualType is null || !qualType.IsActive)
             return;
@@ -113,7 +137,7 @@ public sealed class EmployeeEligibilityService(
         }
         else
         {
-            var qualification = await employeeQualificationRepository
+            var qualification = await uow.EmployeeQualifications
                 .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualType.CtrlNbr);
 
             if (qualification is null || qualification.Status is not ("Active" or "ExpiringSoon"))
