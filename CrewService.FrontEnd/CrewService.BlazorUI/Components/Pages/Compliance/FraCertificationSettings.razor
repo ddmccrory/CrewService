@@ -1,0 +1,306 @@
+@page "/compliance/fra-settings"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject FraComplianceClient FraComplianceClient
+
+<PageTitle>FRA Certification Settings</PageTitle>
+
+<h1>FRA Certification Settings</h1>
+
+@if (!HasParent)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent in the context switcher to manage FRA certification settings.
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">FRA certification configuration for <strong>@SelectedParentName</strong>@(SelectedRailroadName is not null ? $" › {SelectedRailroadName}" : string.Empty)</p>
+
+    <SuccessAlert @bind-Message="successMessage" />
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible">
+            <span class="bi bi-exclamation-triangle me-1"></span>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @* ── Certification Cycle Settings ── *@
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+            <span class="bi bi-gear-fill"></span>
+            <strong>Certification Cycle</strong>
+        </div>
+        <div class="card-body">
+            @if (certConfig is null)
+            {
+                <p><em>Loading...</em></p>
+            }
+            else
+            {
+                <EditForm Model="certConfigModel" OnValidSubmit="SaveCertConfig" id="cert-config-form">
+                    <DataAnnotationsValidator />
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Cert Cycle (months)</label>
+                            <InputNumber @bind-Value="certConfigModel.CertCycleMonths" class="form-control" min="1" max="120" />
+                            <div class="form-text">Standard: 36 months (§240/§242)</div>
+                            <ValidationMessage For="() => certConfigModel.CertCycleMonths" class="text-danger" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Recert Window (days)</label>
+                            <InputNumber @bind-Value="certConfigModel.RecertWindowDays" class="form-control" min="1" max="365" />
+                            <div class="form-text">Days before expiry to initiate recertification</div>
+                            <ValidationMessage For="() => certConfigModel.RecertWindowDays" class="text-danger" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Renew Window (days)</label>
+                            <InputNumber @bind-Value="certConfigModel.RenewWindowDays" class="form-control" min="1" max="365" />
+                            <div class="form-text">Days before a check expires to trigger Renew status</div>
+                            <ValidationMessage For="() => certConfigModel.RenewWindowDays" class="text-danger" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" form="cert-config-form" class="btn btn-primary w-100 d-block" disabled="@isSaving">
+                                <span class="bi bi-save me-1"></span>Save
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </div>
+
+    @* ── Check Type Configuration ── *@
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+            <span class="bi bi-clipboard-check-fill"></span>
+            <strong>Eligibility Check Settings</strong>
+        </div>
+        <div class="card-body p-0">
+            @if (checkConfigs is null)
+            {
+                <p class="p-3"><em>Loading...</em></p>
+            }
+            else
+            {
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Check Type</th>
+                            <th>Staleness Limit (days)</th>
+                            <th>Enforced</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in checkConfigs)
+                        {
+                            <tr>
+                                <td class="align-middle fw-semibold">@row.DisplayName</td>
+                                <td class="align-middle" style="width: 200px;">
+                                    @if (editingCheckType == row.CheckType)
+                                    {
+                                        <input type="number" class="form-control form-control-sm" style="width: 100px;"
+                                               @bind="editStalenessLimitDays" min="1" max="3650" />
+                                    }
+                                    else
+                                    {
+                                        <span>@row.StalenessLimitDays</span>
+                                    }
+                                </td>
+                                <td class="align-middle">
+                                    @if (editingCheckType == row.CheckType)
+                                    {
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="enforced-@row.CheckType"
+                                                   @bind="editIsEnforced"
+                                                   disabled="@row.IsEnforcementLocked" />
+                                            <label class="form-check-label" for="enforced-@row.CheckType">
+                                                @(row.IsEnforcementLocked ? "Always enforced" : "Enforced")
+                                            </label>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @if (row.IsEnforced)
+                                        {
+                                            <span class="badge bg-success">Enforced @(row.IsEnforcementLocked ? "(locked)" : "")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Not enforced</span>
+                                        }
+                                    }
+                                </td>
+                                <td class="align-middle text-end pe-3" style="white-space: nowrap;">
+                                    @if (editingCheckType == row.CheckType)
+                                    {
+                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => SaveCheckConfig(row.CheckType)" disabled="@isSaving">
+                                            <span class="bi bi-check-lg"></span> Save
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEditCheck">
+                                            Cancel
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEditCheck(row)" disabled="@row.IsEnforcementLocked">
+                                            <span class="bi bi-pencil"></span> Edit
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    protected override string? FeatureKey => "compliance/fra-settings";
+
+    private FraCertificationConfigResponse? certConfig;
+    private List<FraCertificationCheckConfigResponse>? checkConfigs;
+
+    private CertConfigModel certConfigModel = new();
+
+    private string? editingCheckType;
+    private int editStalenessLimitDays;
+    private bool editIsEnforced;
+
+    protected override async Task OnAppContextChangedAsync()
+        => await LoadSettingsAsync();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (RendererInfo.IsInteractive && HasParent)
+            await LoadSettingsAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        if (!HasParent) return;
+        try
+        {
+            certConfig = await FraComplianceClient.GetCertificationConfigAsync(
+                SelectedParentCtrlNbr!.Value, SelectedRailroadCtrlNbr);
+
+            certConfigModel = new CertConfigModel
+            {
+                CertCycleMonths = certConfig.CertCycleMonths,
+                RecertWindowDays = certConfig.RecertWindowDays,
+                RenewWindowDays = certConfig.RenewWindowDays
+            };
+
+            var checkResponse = await FraComplianceClient.GetCertificationCheckConfigsAsync(
+                SelectedParentCtrlNbr!.Value, railroadCtrlNbr: null);
+            checkConfigs = [.. checkResponse.Configs.OrderBy(c => c.CheckType)];
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load settings: {ex.Message}";
+        }
+    }
+
+    private async Task SaveCertConfig()
+    {
+        if (!HasParent) return;
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            certConfig = await FraComplianceClient.UpsertCertificationConfigAsync(
+                SelectedParentCtrlNbr!.Value,
+                SelectedRailroadCtrlNbr,
+                certConfigModel.CertCycleMonths,
+                certConfigModel.RecertWindowDays,
+                certConfigModel.RenewWindowDays);
+
+            successMessage = "Certification cycle settings saved.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save settings: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void StartEditCheck(FraCertificationCheckConfigResponse row)
+    {
+        editingCheckType = row.CheckType;
+        editStalenessLimitDays = row.StalenessLimitDays;
+        editIsEnforced = row.IsEnforced;
+    }
+
+    private void CancelEditCheck()
+    {
+        editingCheckType = null;
+    }
+
+    private async Task SaveCheckConfig(string checkType)
+    {
+        if (!HasParent) return;
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            var updated = await FraComplianceClient.UpsertCertificationCheckConfigAsync(
+                SelectedParentCtrlNbr!.Value,
+                railroadCtrlNbr: null,
+                checkType,
+                editStalenessLimitDays,
+                editIsEnforced);
+
+            if (checkConfigs is not null)
+            {
+                var idx = checkConfigs.FindIndex(c => c.CheckType == checkType);
+                if (idx >= 0) checkConfigs[idx] = updated;
+            }
+
+            editingCheckType = null;
+            successMessage = $"{updated.DisplayName} settings saved.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save check config: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+
+    private sealed class CertConfigModel
+    {
+        [Range(1, 120, ErrorMessage = "Must be between 1 and 120 months.")]
+        public int CertCycleMonths { get; set; } = 36;
+
+        [Range(1, 365, ErrorMessage = "Must be between 1 and 365 days.")]
+        public int RecertWindowDays { get; set; } = 180;
+
+        [Range(1, 365, ErrorMessage = "Must be between 1 and 365 days.")]
+        public int RenewWindowDays { get; set; } = 60;
+    }
+}
+

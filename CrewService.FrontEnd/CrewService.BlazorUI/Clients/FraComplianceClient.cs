@@ -372,4 +372,82 @@ public sealed class FraComplianceClient(
             throw;
         }
     }
+
+    public async Task<FraCertificationConfigResponse> GetCertificationConfigAsync(long parentCtrlNbr, long? railroadCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetCertificationConfigRequest { ParentCtrlNbr = parentCtrlNbr };
+            if (railroadCtrlNbr.HasValue)
+                request.RailroadCtrlNbr = railroadCtrlNbr.Value;
+            return await _client.GetCertificationConfigAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetCertificationCheckConfigsResponse> GetCertificationCheckConfigsAsync(long parentCtrlNbr, long? railroadCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetCertificationCheckConfigsRequest { ParentCtrlNbr = parentCtrlNbr };
+            if (railroadCtrlNbr.HasValue)
+                request.RailroadCtrlNbr = railroadCtrlNbr.Value;
+            return await _client.GetCertificationCheckConfigsAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<FraCertificationConfigResponse> UpsertCertificationConfigAsync(
+        long parentCtrlNbr, long? railroadCtrlNbr, int certCycleMonths, int recertWindowDays, int renewWindowDays)
+    {
+        try
+        {
+            var request = new UpsertCertificationConfigRequest
+            {
+                ParentCtrlNbr = parentCtrlNbr,
+                CertCycleMonths = certCycleMonths,
+                RecertWindowDays = recertWindowDays,
+                RenewWindowDays = renewWindowDays
+            };
+            if (railroadCtrlNbr.HasValue)
+                request.RailroadCtrlNbr = railroadCtrlNbr.Value;
+            return await _client.UpsertCertificationConfigAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<FraCertificationCheckConfigResponse> UpsertCertificationCheckConfigAsync(
+        long parentCtrlNbr, long? railroadCtrlNbr, string checkType, int stalenessLimitDays, bool isEnforced)
+    {
+        try
+        {
+            var request = new UpsertCertificationCheckConfigRequest
+            {
+                ParentCtrlNbr = parentCtrlNbr,
+                CheckType = checkType,
+                StalenessLimitDays = stalenessLimitDays,
+                IsEnforced = isEnforced
+            };
+            if (railroadCtrlNbr.HasValue)
+                request.RailroadCtrlNbr = railroadCtrlNbr.Value;
+            return await _client.UpsertCertificationCheckConfigAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }

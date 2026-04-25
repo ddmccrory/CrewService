@@ -1,4 +1,3 @@
-using CrewService.Application.FraCompliance;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
@@ -8,6 +7,53 @@ using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace CrewService.Persistance.Modules.FraCompliance;
+
+internal sealed class FraCertificationConfigRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<FraCertificationConfig>(dbContext, currentUserService), IFraCertificationConfigRepository
+{
+    public override async Task<List<FraCertificationConfig>> GetAllAsync(CancellationToken ct = default)
+        => await DbContext.Set<FraCertificationConfig>().ToListAsync(ct);
+
+    public async Task<FraCertificationConfig?> GetByParentAsync(ControlNumber parentCtrlNbr, CancellationToken ct = default)
+        => await DbContext.Set<FraCertificationConfig>()
+            .SingleOrDefaultAsync(c => c.ParentCtrlNbr == parentCtrlNbr && c.RailroadCtrlNbr == null, ct);
+
+    public async Task<FraCertificationConfig?> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+        => await DbContext.Set<FraCertificationConfig>()
+            .SingleOrDefaultAsync(c => c.RailroadCtrlNbr == railroadCtrlNbr, ct);
+
+    public override async Task AddAsync(FraCertificationConfig config, CancellationToken ct = default)
+        => await base.AddAsync(config, ct);
+
+    public override async Task UpdateAsync(FraCertificationConfig config, CancellationToken ct = default)
+        => await base.UpdateAsync(config, ct);
+}
+
+internal sealed class FraCertificationCheckConfigRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<FraCertificationCheckConfig>(dbContext, currentUserService), IFraCertificationCheckConfigRepository
+{
+    public override async Task<List<FraCertificationCheckConfig>> GetAllAsync(CancellationToken ct = default)
+        => await DbContext.Set<FraCertificationCheckConfig>().ToListAsync(ct);
+
+    public async Task<IReadOnlyList<FraCertificationCheckConfig>> GetByParentAsync(ControlNumber parentCtrlNbr, CancellationToken ct = default)
+        => await DbContext.Set<FraCertificationCheckConfig>()
+            .Where(c => c.ParentCtrlNbr == parentCtrlNbr && c.RailroadCtrlNbr == null)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<FraCertificationCheckConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+        => await DbContext.Set<FraCertificationCheckConfig>()
+            .Where(c => c.RailroadCtrlNbr == railroadCtrlNbr)
+            .ToListAsync(ct);
+
+    public override async Task AddAsync(FraCertificationCheckConfig config, CancellationToken ct = default)
+        => await base.AddAsync(config, ct);
+
+    public override async Task UpdateAsync(FraCertificationCheckConfig config, CancellationToken ct = default)
+        => await base.UpdateAsync(config, ct);
+
+    public override async Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+        => await base.DeleteAsync(ctrlNbr, ct);
+}
 
 internal sealed class FraDutyTourRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<FraDutyTour>(dbContext, currentUserService), IFraDutyTourRepository
@@ -78,29 +124,34 @@ internal sealed class EmployeeCertificationReadRepository(CrewServiceDbContext d
             .Select(s => s.Trim())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var query = from certification in dbContext.Set<EmployeeCertification>()
-                    join employee in dbContext.Set<Employee>() on certification.EmployeeCtrlNbr equals employee.CtrlNbr
-                    where employee.ClientCtrlNbr == clientCtrlNbr
-                    select new
-                    {
-                        Certification = certification,
-                        employee.EmployeeNumber,
-                        employee.UserId
-                    };
+        // Use an IQueryable subquery so EF translates to SQL IN (SELECT CtrlNbr FROM Employees WHERE ...)
+        // rather than materializing ControlNumber value objects into a List<ControlNumber> for Contains.
+        // AsSplitQuery is intentionally omitted: split queries cannot correctly populate private backing
+        // fields (_eligibilityChecks) when the root set is filtered via a subquery.
+        var clientEmployeeCtrlNbrs = dbContext.Set<Employee>()
+            .Where(e => e.ClientCtrlNbr == clientCtrlNbr)
+            .Select(e => e.CtrlNbr);
+
+        var certificationQuery = dbContext.Set<EmployeeCertification>()
+            .Where(c => clientEmployeeCtrlNbrs.Contains(c.EmployeeCtrlNbr));
 
         if (normalizedStatuses.Count > 0)
-        {
-            query = query.Where(x => normalizedStatuses.Contains(x.Certification.Status));
-        }
+            certificationQuery = certificationQuery.Where(c => normalizedStatuses.Contains(c.Status));
 
-        var results = await query
-            .OrderByDescending(x => x.Certification.ExpirationDate)
+        var certs = await certificationQuery
+            .OrderByDescending(c => c.ExpirationDate)
             .ToListAsync(ct);
 
-        return [.. results.Select(r => new CertificationWithEmployeeDto(
-            r.Certification,
-            r.EmployeeNumber,
-            r.UserId))];
+        var employeeMap = await dbContext.Set<Employee>()
+            .Where(e => e.ClientCtrlNbr == clientCtrlNbr)
+            .Select(e => new { e.CtrlNbr, e.EmployeeNumber, e.UserId })
+            .ToDictionaryAsync(e => e.CtrlNbr, ct);
+
+        return [.. certs.Select(c =>
+        {
+            employeeMap.TryGetValue(c.EmployeeCtrlNbr, out var emp);
+            return new CertificationWithEmployeeDto(c, emp?.EmployeeNumber ?? string.Empty, emp?.UserId ?? string.Empty);
+        })];
     }
 }
 
@@ -109,6 +160,13 @@ internal sealed class EmployeeCertificationRepository(CrewServiceDbContext dbCon
 {
     public override async Task<List<EmployeeCertification>> GetAllAsync(CancellationToken ct = default)
         => await base.GetAllAsync(ct);
+
+    public async Task<List<EmployeeCertification>> GetAllWithChecksAsync(CancellationToken ct = default)
+    {
+        return await DbContext.Set<EmployeeCertification>()
+            .Include(c => c.EligibilityChecks)
+            .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyList<EmployeeCertification>> GetByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
     {

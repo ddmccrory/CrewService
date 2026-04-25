@@ -1,18 +1,29 @@
+using CrewService.Application.RosterBoardOps;
+using CrewService.Application.AbsenceVacancy;
+using CrewService.Application.Assignments;
+using CrewService.Application.Authorization;
+using CrewService.Application.Boards;
+using CrewService.Application.Bulletins;
+using CrewService.Application.Crews;
 using CrewService.Application.DailyOperations;
+using CrewService.Application.Dispatching;
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.ElectronicCalling.Providers;
 using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
 using CrewService.Application.Payroll;
+using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
+using CrewService.Application.RailroadInfo;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.ReportingExports;
 using CrewService.Application.ReportingExports.Formatters;
 using CrewService.Application.ReportingExports.Renderers;
-using CrewService.Application.RosterBoardOps;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
+using CrewService.Application.WorkManagement;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Application;
@@ -30,13 +41,40 @@ public static class DependencyInjection
         services.AddScoped<FraMonthlyCapTracker>();
         services.AddScoped<CertificationEligibilityService>();
         services.AddScoped<CertificationExpirationService>();
-        services.AddScoped<CertificationMonitoringService>();
         services.AddScoped<CertificationRevocationService>();
+        services.AddScoped<FraCertificationConfigService>();
+        services.AddScoped<FraComplianceService>();
         services.AddScoped<DrugAlcoholCertificationImpactHandler>();
 
         // B02 – Daily Operations
+        services.AddScoped<DailyOperationsService>();
         services.AddScoped<OnDutyPlacementService>();
         services.AddScoped<TieUpService>();
+        services.AddScoped<DispatchingService>();
+
+        // Assignments
+        services.AddScoped<AssignmentsService>();
+
+        // Crews
+        services.AddScoped<CrewsAppService>();
+
+        // WorkManagement
+        services.AddScoped<Application.WorkManagement.WorkManagementService>();
+
+        // TenantConfig
+        services.AddScoped<TenantConfigService>();
+
+        // RosterBoardOps
+        services.AddScoped<RosterBoardAppService>();
+
+        // Policies
+        services.AddScoped<PoliciesService>();
+
+        // Authorization
+        services.AddScoped<Application.Authorization.AuthorizationService>();
+
+        // Bulletins
+        services.AddScoped<BulletinsService>();
 
         // B03 – Mark-Off
         services.AddScoped<AutoMarkUpService>();
@@ -54,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<ISkipRule, WeeklyHoursCapRule>();
 
         // B05 – Payroll Engine
+        services.AddScoped<PayrollService>();
         services.AddScoped<EarningCodeResolver>();
         services.AddScoped<PayrollPeriodService>();
 
@@ -64,6 +103,7 @@ public static class DependencyInjection
 
         // B08 – Roster Board Ops
         services.AddScoped<HangoutProcessingService>();
+        services.AddScoped<NewHireService>();
         services.AddScoped<DailyStatusSnapshotService>();
 
         // B09 – Holiday services
@@ -72,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<HolidayPayrollGenerationService>();
 
         // B15 – Qualifications
+        services.AddScoped<QualificationsService>();
         services.AddScoped<RequirementEvaluationService>();
         services.AddScoped<EmployeeEligibilityService>();
         services.AddScoped<QualificationReactiveService>();
@@ -91,6 +132,22 @@ public static class DependencyInjection
         services.AddScoped<IReportRenderer, PlainTextReportRenderer>();
         services.AddScoped<IReportRenderer, PdfReportRenderer>();
 
+        // Boards
+        services.AddScoped<BoardCascadePolicyService>();
+
+        // WorkManagement
+        services.AddScoped<DepartmentService>();
+
+        // AbsenceVacancy
+        services.AddScoped<AbsenceRequestService>();
+
+        // Safety
+        services.AddScoped<Application.Safety.SafetyService>();
+
+        // RailroadInfo
+        services.AddScoped<RailroadInfoService>();
+
         return services;
     }
 }
+

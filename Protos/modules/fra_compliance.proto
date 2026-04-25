@@ -104,6 +104,22 @@ service FraComplianceSrvc {
   rpc UpdateVoluntaryReferral (UpdateVoluntaryReferralRequest) returns (VoluntaryReferralResponse) {
     option (google.api.http) = { post: "/api/fra/drug-alcohol/referrals/update" body: "*" };
   }
+
+  rpc GetCertificationConfig (GetCertificationConfigRequest) returns (FraCertificationConfigResponse) {
+    option (google.api.http) = { get: "/api/fra/config" };
+  }
+
+  rpc GetCertificationCheckConfigs (GetCertificationCheckConfigsRequest) returns (GetCertificationCheckConfigsResponse) {
+    option (google.api.http) = { get: "/api/fra/config/checks" };
+  }
+
+  rpc UpsertCertificationConfig (UpsertCertificationConfigRequest) returns (FraCertificationConfigResponse) {
+    option (google.api.http) = { post: "/api/fra/config" body: "*" };
+  }
+
+  rpc UpsertCertificationCheckConfig (UpsertCertificationCheckConfigRequest) returns (FraCertificationCheckConfigResponse) {
+    option (google.api.http) = { post: "/api/fra/config/checks" body: "*" };
+  }
 }
 
 message SearchDutyToursRequest {
@@ -172,6 +188,7 @@ message CreateEmployeeCertificationRequest {
   string certification_type = 3;
   string certification_date = 4;
   optional string certification_number = 5;
+  optional int64 parent_ctrl_nbr = 6;
 }
 
 message UpdateEmployeeCertificationRequest {
@@ -180,6 +197,7 @@ message UpdateEmployeeCertificationRequest {
   string certification_type = 3;
   string certification_date = 4;
   optional string certification_number = 5;
+  optional int64 parent_ctrl_nbr = 6;
 }
 
 message DeleteEmployeeCertificationRequest {
@@ -257,6 +275,7 @@ message AddCertificationEligibilityCheckRequest {
   string evaluation_date = 3;
   string result = 4;
   optional string evaluator_name = 5;
+  optional int64 parent_ctrl_nbr = 6;
 }
 
 message UpdateCertificationEligibilityCheckRequest {
@@ -265,6 +284,7 @@ message UpdateCertificationEligibilityCheckRequest {
   string evaluation_date = 3;
   string result = 4;
   optional string evaluator_name = 5;
+  optional int64 parent_ctrl_nbr = 6;
 }
 
 message DeleteCertificationEligibilityCheckRequest {
@@ -279,6 +299,7 @@ message AddEmployeeRequirementResultRequest {
   string evaluation_date = 5;
   string result = 6;
   optional string evaluator_name = 7;
+  optional int64 parent_ctrl_nbr = 8;
 }
 
 message AddEmployeeRequirementResultResponse {
@@ -377,4 +398,54 @@ message UpdateVoluntaryReferralRequest {
   string action_type = 2;
   optional google.protobuf.Timestamp action_date = 3;
   optional string return_to_duty_result = 4;
+}
+
+message GetCertificationConfigRequest {
+  int64 parent_ctrl_nbr = 1;
+  optional int64 railroad_ctrl_nbr = 2;
+}
+
+message FraCertificationConfigResponse {
+  int64 ctrl_nbr = 1;
+  int64 parent_ctrl_nbr = 2;
+  optional int64 railroad_ctrl_nbr = 3;
+  int32 cert_cycle_months = 4;
+  int32 recert_window_days = 5;
+  int32 renew_window_days = 6;
+}
+
+message GetCertificationCheckConfigsRequest {
+  int64 parent_ctrl_nbr = 1;
+  optional int64 railroad_ctrl_nbr = 2;
+}
+
+message FraCertificationCheckConfigResponse {
+  int64 ctrl_nbr = 1;
+  int64 parent_ctrl_nbr = 2;
+  optional int64 railroad_ctrl_nbr = 3;
+  string check_type = 4;
+  int32 staleness_limit_days = 5;
+  bool is_enforced = 6;
+  bool is_enforcement_locked = 7;
+  string display_name = 8;
+}
+
+message GetCertificationCheckConfigsResponse {
+  repeated FraCertificationCheckConfigResponse configs = 1;
+}
+
+message UpsertCertificationConfigRequest {
+  int64 parent_ctrl_nbr = 1;
+  optional int64 railroad_ctrl_nbr = 2;
+  int32 cert_cycle_months = 3;
+  int32 recert_window_days = 4;
+  int32 renew_window_days = 5;
+}
+
+message UpsertCertificationCheckConfigRequest {
+  int64 parent_ctrl_nbr = 1;
+  optional int64 railroad_ctrl_nbr = 2;
+  string check_type = 3;
+  int32 staleness_limit_days = 4;
+  bool is_enforced = 5;
 }

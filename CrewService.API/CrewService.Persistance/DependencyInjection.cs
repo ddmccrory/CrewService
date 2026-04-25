@@ -17,6 +17,8 @@ using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.HolidayManagement;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.RailroadInfo;
@@ -53,8 +55,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using HolidayPayrollInterfaces = CrewService.Application.Payroll;
-using PayrollEngineInterfaces = CrewService.Application.Payroll;
 
 namespace CrewService.Persistance;
 
@@ -193,12 +193,14 @@ public static class DependencyInjection
         services.AddScoped<IPayrollRecordRepository, PayrollRecordRepository>();
 
         // Holiday / HolidayManagement Repositories
-        services.AddScoped<HolidayPayrollInterfaces.IHolidayRepository, HolidayRepository>();
-        services.AddScoped<HolidayPayrollInterfaces.IHolidayQualificationRuleRepository, HolidayQualificationRuleRepository>();
-        services.AddScoped<HolidayPayrollInterfaces.IHolidayPayrollRecordRepository, HolidayPayrollRecordRepository>();
+        services.AddScoped<IHolidayRepository, HolidayRepository>();
+        services.AddScoped<IHolidayQualificationRuleRepository, HolidayQualificationRuleRepository>();
+        services.AddScoped<IHolidayPayrollRecordRepository, HolidayPayrollRecordRepository>();
         services.AddScoped<IRailroadHolidaySelectionRepository, RailroadHolidaySelectionRepository>();
 
         // FRA Compliance Repositories (B01)
+        services.AddScoped<IFraCertificationConfigRepository, FraCertificationConfigRepository>();
+        services.AddScoped<IFraCertificationCheckConfigRepository, FraCertificationCheckConfigRepository>();
         services.AddScoped<IFraDutyTourRepository, FraDutyTourRepository>();
         services.AddScoped<IRegulatoryStandardRepository, RegulatoryStandardRepository>();
         services.AddScoped<IRegulatoryQualificationRepository, RegulatoryQualificationRepository>();
@@ -228,8 +230,8 @@ public static class DependencyInjection
         services.AddScoped<ISkipContextProvider, SkipContextProvider>();
 
         // Payroll Engine Repositories (B05)
-        services.AddScoped<PayrollEngineInterfaces.IEarningCodeRuleRepository, EarningCodeRuleRepository>();
-        services.AddScoped<PayrollEngineInterfaces.IPayRateRepository, PayRateRepository>();
+        services.AddScoped<IEarningCodeRuleRepository, EarningCodeRuleRepository>();
+        services.AddScoped<IPayRateRepository, PayRateRepository>();
 
         // Electronic Calling Repositories (B06)
         services.AddScoped<INotificationRequestRepository, NotificationRequestRepository>();
@@ -277,3 +279,4 @@ public static class DependencyInjection
         return services;
     }
 }
+

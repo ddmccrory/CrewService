@@ -112,7 +112,7 @@ else
                SearchFilter="@((c, term) => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveEmployeeName(c).Contains(term, StringComparison.OrdinalIgnoreCase) || c.CertificationType.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search certifications..."
                EmptyMessage="No certifications found."
-               RowClass="@(c => GetRowClass(c.Status))">
+               RowClass="@(c => GetRowClass(c))">
         <ToolbarContent>
                 <div class="d-flex flex-column align-items-start">
                     @if (!IsFeatureReadOnly)
@@ -129,7 +129,9 @@ else
             <td>@c.CertificationType</td>
             <td>@c.EffectiveDate</td>
             <td>@c.ExpirationDate</td>
-            <td><span class="badge @GetStatusBadgeClass(c.Status)">@c.Status</span></td>
+            <td>
+                <span class="badge @GetStatusBadgeClass(c)">@GetStatusBadgeLabel(c)</span>
+            </td>
             <td>@(string.IsNullOrWhiteSpace(c.CertificationNumber) ? "—" : c.CertificationNumber)</td>
             <td>
                 @if (!IsFeatureReadOnly)
@@ -137,7 +139,7 @@ else
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenDetails(c)">Details</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRevocationWorkflow(c)">
-                            @(c.Status is "Revoked" or "Suspended" ? "Resolve" : "Revoke")
+                            @(c.Status is CertificationStatuses.Revoked or CertificationStatuses.Suspended ? "Resolve" : "Revoke")
                         </button>
                         <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditModal(c)">Edit</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeleteModal(c)">Delete</button>
@@ -244,43 +246,49 @@ else
 
         var response = await FraComplianceClient.GetCertificationsByClientAsync(
             SelectedParentCtrlNbr!.Value,
-            "Pending",
-            "Active",
-            "Expired",
-            "Suspended");
+            CertificationStatuses.Pending,
+            CertificationStatuses.Active,
+            CertificationStatuses.Renew,
+            CertificationStatuses.Expired,
+            CertificationStatuses.Suspended);
 
         certifications = response.Certifications
-            .OrderBy(c => GetStatusPriority(c.Status))
-            .ThenBy(c => ResolveRegulatoryCode(c.RegulatoryQualificationCtrlNbr), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => GetStatusPriority(c))
             .ThenBy(c => DateTime.TryParse(c.ExpirationDate, out var d) ? d : DateTime.MaxValue)
-            .ThenBy(c => c.EmployeeNameLnf, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
-    private static int GetStatusPriority(string status) => status switch
+    private static int GetStatusPriority(CertificationResponse c) => c.Status switch
     {
-        "Expired" => 0,
-        "Pending" => 1,
-        "Active" => 2,
-        _ => 3
+        CertificationStatuses.Expired   => 0,
+        CertificationStatuses.Pending   => 1,
+        CertificationStatuses.Renew     => 2,
+        CertificationStatuses.Active    => 3,
+        CertificationStatuses.Suspended => 4,
+        CertificationStatuses.Revoked   => 5,
+        _ => 6
     };
 
-    private static string? GetRowClass(string status) => status switch
+    private static string? GetRowClass(CertificationResponse c) => c.Status switch
     {
-        "Expired" => "row-attention-expired",
-        "Pending" => "row-attention-pending",
+        CertificationStatuses.Expired => "row-attention-expired",
+        CertificationStatuses.Pending => "row-attention-pending",
+        CertificationStatuses.Renew   => "row-attention-renew",
         _ => null
     };
 
-    private static string GetStatusBadgeClass(string status) => status switch
+    private static string GetStatusBadgeClass(CertificationResponse c) => c.Status switch
     {
-        "Expired" => "text-bg-danger",
-        "Pending" => "text-bg-warning",
-        "Active" => "text-bg-success",
-        "Suspended" => "text-bg-secondary",
-        "Revoked" => "text-bg-dark",
+        CertificationStatuses.Expired   => "text-bg-danger",
+        CertificationStatuses.Pending   => "text-bg-info",
+        CertificationStatuses.Renew     => "text-bg-warning",
+        CertificationStatuses.Active    => "text-bg-success",
+        CertificationStatuses.Suspended => "text-bg-secondary",
+        CertificationStatuses.Revoked   => "text-bg-dark",
         _ => "text-bg-light"
     };
+
+    private static string GetStatusBadgeLabel(CertificationResponse c) => c.Status;
 
     private async Task OpenCreateModal()
     {
@@ -349,7 +357,8 @@ else
                     RegulatoryQualificationCtrlNbr = saveModel.RegulatoryQualificationCtrlNbr,
                     CertificationType = saveModel.CertificationType ?? string.Empty,
                     CertificationDate = saveModel.CertificationDate.ToString("yyyy-MM-dd"),
-                    CertificationNumber = saveModel.CertificationNumber ?? string.Empty
+                    CertificationNumber = saveModel.CertificationNumber ?? string.Empty,
+                    ParentCtrlNbr = SelectedParentCtrlNbr ?? 0
                 });
                 successMessage = "Certification updated.";
             }
@@ -361,7 +370,8 @@ else
                     RegulatoryQualificationCtrlNbr = saveModel.RegulatoryQualificationCtrlNbr,
                     CertificationType = saveModel.CertificationType ?? string.Empty,
                     CertificationDate = saveModel.CertificationDate.ToString("yyyy-MM-dd"),
-                    CertificationNumber = saveModel.CertificationNumber ?? string.Empty
+                    CertificationNumber = saveModel.CertificationNumber ?? string.Empty,
+                    ParentCtrlNbr = SelectedParentCtrlNbr ?? 0
                 });
                 successMessage = "Certification created.";
             }

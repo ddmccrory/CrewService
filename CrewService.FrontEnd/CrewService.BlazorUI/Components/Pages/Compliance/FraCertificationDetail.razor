@@ -23,8 +23,14 @@ else
     <BackNavButton Text="FRA Certification" OnClick="@(() => NavigationManager.NavigateTo("/compliance/fra"))" />
 
     <h1>@ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant() - @certification.CertificationType</h1>
+    @if (!string.IsNullOrWhiteSpace(certification.EmployeeNumber) || !string.IsNullOrWhiteSpace(certification.EmployeeNameLnf))
+    {
+        <p class="text-muted mb-1">
+            <strong>Employee:</strong> @certification.EmployeeNumber — @certification.EmployeeNameLnf
+        </p>
+    }
     <p class="text-muted mb-2">
-        <strong>Status:</strong> @certification.Status
+        <strong>Status:</strong> <span class="badge @GetDetailStatusBadgeClass(certification)">@GetDetailStatusBadgeLabel(certification)</span>
         <span class="ms-3"><strong>Effective:</strong> @certification.EffectiveDate</span>
         <span class="ms-3"><strong>Renewal:</strong> @certification.ExpirationDate</span>
     </p>
@@ -174,7 +180,7 @@ else
 
         @if (availableEligibilityCheckTypes.Count > 0)
         {
-            var isExpired = string.Equals(certification.Status, "Expired", StringComparison.OrdinalIgnoreCase);
+            var isExpired = string.Equals(certification.Status, CertificationStatuses.Expired, StringComparison.OrdinalIgnoreCase);
             var alertClass = isExpired ? "alert-danger" : "alert-warning";
             var badgeClass = isExpired ? "text-bg-danger" : "text-bg-warning";
             <div class="alert @alertClass py-2">
@@ -199,7 +205,13 @@ else
                 <td>@ec.CheckType.ToUpperInvariant()</td>
                 <td><span class="badge @GetResultBadgeClass(ec.Result)">@ec.Result</span></td>
                 <td>@ec.EvaluationDate</td>
-                <td>@ec.ExpiresAtDate</td>
+                <td>
+                    @ec.ExpiresAtDate
+                    @if (!ec.IsStale && IsRequirementRenewing(ec))
+                    {
+                        <span class="badge text-bg-warning ms-1">Renew</span>
+                    }
+                </td>
                 <td>
                     @if (ec.IsStale)
                     {
@@ -244,7 +256,7 @@ else
             <RowContent Context="r">
                 <td>@r.ViolationType.ToUpperInvariant()</td>
                 <td>@FormatDate(r.ViolationDate.ToDateTime().ToString("o"))</td>
-                <td><span class="badge @GetDecisionBadgeClass(r.Decision)">@(r.Decision ?? "Pending")</span></td>
+                <td><span class="badge @GetDecisionBadgeClass(r.Decision)">@(r.Decision ?? CertificationStatuses.Pending)</span></td>
                 <td>@(r.RevocationEndsUtc is null ? "—" : FormatDate(r.RevocationEndsUtc.ToDateTime().ToString("o")))</td>
                 <td>
                     @if (!IsFeatureReadOnly && string.IsNullOrWhiteSpace(r.Decision))
@@ -252,7 +264,7 @@ else
                         <div class="d-flex gap-1">
                             <button class="btn btn-sm btn-outline-warning" @onclick="() => RecordRevocationNotice(r.CtrlNbr)">Notice</button>
                             <button class="btn btn-sm btn-outline-primary" @onclick="() => ScheduleRevocationHearing(r.CtrlNbr)">Hearing +7d</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick='@(() => DecideRevocation(r.CtrlNbr, "Revoked", 12))'>Revoke 12m</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick='@(() => DecideRevocation(r.CtrlNbr, CertificationStatuses.Revoked, 12))'>Revoke 12m</button>
                             <button class="btn btn-sm btn-outline-success" @onclick='@(() => DecideRevocation(r.CtrlNbr, "Reinstated", null))'>Reinstate</button>
                         </div>
                     }
@@ -361,6 +373,26 @@ else
         return item?.Code ?? regulatoryQualificationCtrlNbr.ToString();
     }
 
+    private const int RequirementRenewWindowDays = 60;
+
+    private static string GetDetailStatusBadgeClass(CertificationResponse c) => c.Status switch
+    {
+        CertificationStatuses.Expired   => "text-bg-danger",
+        CertificationStatuses.Pending   => "text-bg-info",
+        CertificationStatuses.Renew     => "text-bg-warning",
+        CertificationStatuses.Active    => "text-bg-success",
+        CertificationStatuses.Suspended => "text-bg-secondary",
+        CertificationStatuses.Revoked   => "text-bg-dark",
+        _ => "text-bg-light"
+    };
+
+    private static string GetDetailStatusBadgeLabel(CertificationResponse c) => c.Status;
+
+    private static bool IsRequirementRenewing(CertificationEligibilityCheckResponse c) =>
+        DateTime.TryParse(c.ExpiresAtDate, out var exp) &&
+        exp.Date > DateTime.UtcNow.Date &&
+        exp.Date <= DateTime.UtcNow.Date.AddDays(RequirementRenewWindowDays);
+
     private static int GetRequirementPriority(CertificationEligibilityCheckResponse c)
     {
         var isExpired = DateTime.TryParse(c.ExpiresAtDate, out var exp) && exp.Date < DateTime.UtcNow.Date;
@@ -387,7 +419,7 @@ else
     private static int GetRevocationPriority(CertificationRevocationResponse r)
     {
         if (string.IsNullOrWhiteSpace(r.Decision)) return 0;
-        if (string.Equals(r.Decision, "Revoked", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(r.Decision, CertificationStatuses.Revoked, StringComparison.OrdinalIgnoreCase))
         {
             var endsInPast = r.RevocationEndsUtc is not null && r.RevocationEndsUtc.ToDateTime() < DateTime.UtcNow;
             return endsInPast ? 1 : 2;
@@ -405,7 +437,7 @@ else
     private static string GetDecisionBadgeClass(string? decision) => decision switch
     {
         null or "" => "text-bg-warning",
-        "Revoked" => "text-bg-danger",
+        CertificationStatuses.Revoked => "text-bg-danger",
         "Reinstated" => "text-bg-success",
         _ => "text-bg-secondary"
     };
@@ -436,7 +468,8 @@ else
                 CheckType = addRequirementModel.CheckType ?? string.Empty,
                 EvaluationDate = addRequirementModel.EvaluationDate.ToString("yyyy-MM-dd"),
                 Result = addRequirementModel.Result ?? string.Empty,
-                EvaluatorName = addRequirementModel.EvaluatorName ?? string.Empty
+                EvaluatorName = addRequirementModel.EvaluatorName ?? string.Empty,
+                ParentCtrlNbr = SelectedParentCtrlNbr ?? 0
             });
 
             showAddRequirementModal = false;
@@ -481,7 +514,8 @@ else
                 CheckType = editRequirementModel.CheckType ?? string.Empty,
                 EvaluationDate = editRequirementModel.EvaluationDate.ToString("yyyy-MM-dd"),
                 Result = editRequirementModel.Result ?? string.Empty,
-                EvaluatorName = editRequirementModel.EvaluatorName ?? string.Empty
+                EvaluatorName = editRequirementModel.EvaluatorName ?? string.Empty,
+                ParentCtrlNbr = SelectedParentCtrlNbr ?? 0
             });
 
             showEditRequirementModal = false;
