@@ -242,6 +242,25 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
         return reorderResult;
     }
 
+    // ── Position Assignment Lookups ──────────────────────────────────────────
+
+    public async Task<PositionAssignment?> GetPositionAssignmentAsync(
+        ControlNumber staffablePositionCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.PositionAssignments.GetByStaffablePositionAsync(staffablePositionCtrlNbr);
+    }
+
+    public async Task<Dictionary<ControlNumber, PositionAssignment>> GetPositionAssignmentsBatchAsync(
+        IEnumerable<ControlNumber?> staffablePositionCtrlNbrs, CancellationToken ct = default)
+    {
+        var ctrlNbrs = staffablePositionCtrlNbrs.Where(c => c is not null).Distinct().ToList();
+        if (ctrlNbrs.Count == 0) return [];
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var assignments = await uow.PositionAssignments.GetByStaffablePositionsAsync(ctrlNbrs!);
+        return assignments.ToDictionary(a => a.StaffablePositionCtrlNbr);
+    }
+
     // ── Eligibility ──────────────────────────────────────────────────────────
 
     public async Task<List<Employee>> GetEligibleEmployeesForRosterBoardAsync(

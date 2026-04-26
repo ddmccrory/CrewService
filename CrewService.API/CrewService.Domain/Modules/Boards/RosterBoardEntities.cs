@@ -64,6 +64,10 @@ public sealed class RosterBoard : Entity
     public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder,
         ControlNumber staffablePositionCtrlNbr)
     {
+        if (_positions.Any(p => p.EmployeeCtrlNbr == employeeCtrlNbr))
+            throw new InvalidOperationException(
+                $"Employee {employeeCtrlNbr} already has a position on board {CtrlNbr}. An employee can only have one position per board.");
+
         var position = RosterBoardPosition.Create(CtrlNbr, employeeCtrlNbr, positionOrder, staffablePositionCtrlNbr);
         _positions.Add(position);
         return position;

@@ -14,6 +14,7 @@ using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 
 namespace CrewService.Domain.Interfaces;
@@ -40,6 +41,17 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ──────────────────────────────────────────────────────────────────
     IEmployeeRepository Employees { get; }
     IParentRepository Parents { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // UserAccess
+    // ──────────────────────────────────────────────────────────────────
+    IUserParentAssignmentRepository UserParentAssignments { get; }
+    IInvitationRepository Invitations { get; }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Payroll Tiers
+    // ──────────────────────────────────────────────────────────────────
+    IPayrollTierRepository PayrollTiers { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // ContactTypes

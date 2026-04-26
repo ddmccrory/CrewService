@@ -13,6 +13,11 @@ namespace CrewService.Persistance.Modules.Boards;
 internal sealed class RosterBoardRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<RosterBoard>(dbContext, currentUserService), IRosterBoardRepository
 {
+    public override async Task<List<RosterBoard>> GetAllAsync(CancellationToken ct = default) =>
+        await DbContext.Set<RosterBoard>()
+            .Include(b => b.Positions)
+            .ToListAsync(ct);
+
     public override async Task<RosterBoard?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<RosterBoard>()
             .Include(b => b.Positions)

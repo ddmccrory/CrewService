@@ -1,6 +1,7 @@
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.Payroll;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.HolidayManagement;
 using CrewService.Domain.Modules.Payroll;
@@ -175,6 +176,9 @@ public class HolidayQualificationServiceTests
         public IPositionVacancyRepository PositionVacancies => null!;
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
+        public IUserParentAssignmentRepository UserParentAssignments => null!;
+        public IInvitationRepository Invitations => null!;
+        public IPayrollTierRepository PayrollTiers => null!;
     }
 
     private sealed class FakeHolidayQualUoWFactory(
@@ -536,6 +540,9 @@ public class HolidayAutoGenerationServiceTests
         public IPositionVacancyRepository PositionVacancies => null!;
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
+        public IUserParentAssignmentRepository UserParentAssignments => null!;
+        public IInvitationRepository Invitations => null!;
+        public IPayrollTierRepository PayrollTiers => null!;
     }
 
     private sealed class FakeAutoGenUoWFactory(

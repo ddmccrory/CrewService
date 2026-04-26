@@ -1,6 +1,7 @@
 using CrewService.Application.Qualifications;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.AbsenceVacancy;
@@ -247,6 +248,9 @@ public class NewHireServiceTests
         public IRegulatoryQualificationRepository RegulatoryQualifications => null!;
         public IRegulatoryStandardRepository RegulatoryStandards => null!;
         public IVoluntaryReferralRepository VoluntaryReferrals => null!;
+        public IUserParentAssignmentRepository UserParentAssignments => null!;
+        public IInvitationRepository Invitations => null!;
+        public IPayrollTierRepository PayrollTiers => null!;
     }
 
     private abstract class FakeRepositoryBase<TEntity> : IRepository<TEntity> where TEntity : Entity
