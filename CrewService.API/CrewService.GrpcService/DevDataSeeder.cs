@@ -22,10 +22,14 @@ using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Domain.Interfaces;
-using CrewService.Presentation;
-using CrewService.Presentation.Services;
+
+using CrewService.Application.Parents;
 using CrewService.Application.Qualifications;
+using CrewService.Application.Assignments;
+using CrewService.Application.Crews;
 using CrewService.Application.RosterBoardOps;
+using CrewService.Application.SeniorityOps;
+using CrewService.Application.WorkManagement;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
@@ -58,7 +62,7 @@ internal static class DevDataSeeder
         void SetParent(long ctrlNbr) =>
             httpContextAccessor.HttpContext!.Request.Headers["x-parent-ctrl-nbr"] = ctrlNbr.ToString();
 
-        var parentService = sp.GetRequiredService<ParentService>();
+        var parentAppService = sp.GetRequiredService<ParentAppService>();
         var groupTypeRepo = sp.GetRequiredService<IGroupTypeRepository>();
         var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
         var parentRepo = sp.GetRequiredService<IParentRepository>();
@@ -70,9 +74,9 @@ internal static class DevDataSeeder
         {
 
         // ?? Parents (via ParentService — auto-seeds system types + attribute definitions) ??
-        var simpleCorpResp = await parentService.CreateParentAsync(new CreateParentRequest { Name = "Simple Corp" }, null!);
-        var ptraCorpResp = await parentService.CreateParentAsync(new CreateParentRequest { Name = "Port Terminal Railroad Association" }, null!);
-        var holdingCorpResp = await parentService.CreateParentAsync(new CreateParentRequest { Name = "CSX Corporation" }, null!);
+        var simpleCorpResp = await parentAppService.CreateAsync("Simple Corp");
+        var ptraCorpResp = await parentAppService.CreateAsync("Port Terminal Railroad Association");
+        var holdingCorpResp = await parentAppService.CreateAsync("CSX Corporation");
 
         // Look up auto-created system types for subsequent group creation
         var autoCreatedTypes = await groupTypeRepo.GetAllAsync();
@@ -81,15 +85,15 @@ internal static class DevDataSeeder
         var csxRailroadType = autoCreatedTypes.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == holdingCorpResp.CtrlNbr);
 
         // Railroads (as DynamicGroups)
-        SetParent(simpleCorpResp.CtrlNbr);
+        SetParent(simpleCorpResp.CtrlNbr.Value);
         var simpleRR = DynamicGroup.Create(simpleRailroadType.CtrlNbr.Value, "Simple Railroad", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "SMPL", parentCtrlNbr: simpleCorpResp.CtrlNbr);
         await groupRepo.AddAsync(simpleRR);
 
-        SetParent(ptraCorpResp.CtrlNbr);
+        SetParent(ptraCorpResp.CtrlNbr.Value);
         var ptraRR = DynamicGroup.Create(ptraRailroadType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraCorpResp.CtrlNbr);
         await groupRepo.AddAsync(ptraRR);
 
-        SetParent(holdingCorpResp.CtrlNbr);
+        SetParent(holdingCorpResp.CtrlNbr.Value);
         var csxRR = DynamicGroup.Create(csxRailroadType.CtrlNbr.Value, "CSX Transportation", parentGroupCtrlNbr: null, path: null, isWorkArea: false, code: "CSX", parentCtrlNbr: holdingCorpResp.CtrlNbr);
         await groupRepo.AddAsync(csxRR);
 
@@ -116,8 +120,8 @@ internal static class DevDataSeeder
 
         // ?? Scenario 2: PTRA (Legacy Railroad) ??????????????????????
         // Railroad is the work area; hierarchy: Railroad -> Location
-        SetParent(ptraCorpResp.CtrlNbr);
-        var ptraLocationType = GroupType.Create("Location", "On duty locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
+        SetParent(ptraCorpResp.CtrlNbr.Value);
+        var ptraLocationType = GroupType.Create("Location", "PTRA operational locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr);
         await groupTypeRepo.AddAsync(ptraLocationType);
 
         var northYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "North Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "NOYD", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
@@ -131,7 +135,7 @@ internal static class DevDataSeeder
 
         // ?? Scenario 3: Holding Company (CSX) ????????????????????????
         // Parent -> Region -> Subdivision (user will add work areas)
-        SetParent(holdingCorpResp.CtrlNbr);
+        SetParent(holdingCorpResp.CtrlNbr.Value);
         var southeast = DynamicGroup.Create(
             regionType.CtrlNbr.Value,
             "Southeast Region",
@@ -169,13 +173,13 @@ internal static class DevDataSeeder
         var allParentsCore = await parentRepo.GetAllAsync();
 
         if (!allParentsCore.Any(p => p.Name.Value == "Simple Corp"))
-            await parentService.CreateParentAsync(new CreateParentRequest { Name = "Simple Corp" }, null!);
+            await parentAppService.CreateAsync("Simple Corp");
 
         if (!allParentsCore.Any(p => p.Name.Value == "Port Terminal Railroad Association"))
-            await parentService.CreateParentAsync(new CreateParentRequest { Name = "Port Terminal Railroad Association" }, null!);
+            await parentAppService.CreateAsync("Port Terminal Railroad Association");
 
         if (!allParentsCore.Any(p => p.Name.Value == "CSX Corporation"))
-            await parentService.CreateParentAsync(new CreateParentRequest { Name = "CSX Corporation" }, null!);
+            await parentAppService.CreateAsync("CSX Corporation");
 
         // Re-read after potential service-based creations
         allParentsCore = await parentRepo.GetAllAsync();
@@ -678,6 +682,7 @@ internal static class DevDataSeeder
         var uowFactory = sp.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
         var newHireSvc = sp.GetRequiredService<NewHireService>();
         var regQualRepoForNewHires = sp.GetRequiredService<IRegulatoryQualificationRepository>();
+        var craftAppSvc = sp.GetRequiredService<CraftAppService>();
 
         var existingCrafts = await craftRepo.GetAllAsync();
         if (existingCrafts.Count == 0)
@@ -695,133 +700,57 @@ internal static class DevDataSeeder
 
         // CSX Crafts (owned by CSX railroad under CSX Corporation parent)
         SetParent(csxParentCtrlNbr);
-        var csxEngineer = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
+        var (csxEngineer, csxEngRosterNullable, _) = await craftAppSvc.CreateCraftAsync(
+            csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
-        var csxEngRoster = Roster.Create(csxEngineer.CtrlNbr, csxWorkArea.CtrlNbr, null, csxEngineer.CraftName, csxEngineer.CraftPluralName, 1);
-        var csxEngExtraBoard = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var csxEngHangout = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Hangout", BoardType.Hangout);
-        var csxEngExtAbsBoard = RosterBoard.Create(csxEngineer.CtrlNbr, csxEngRoster.CtrlNbr, $"{csxEngineer.CraftName} Extended Absence", BoardType.ExtendedAbsence);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crafts.Add(csxEngineer);
-            uow.Rosters.Add(csxEngRoster);
-            uow.RosterBoards.Add(csxEngExtraBoard);
-            uow.RosterBoards.Add(csxEngHangout);
-            uow.RosterBoards.Add(csxEngExtAbsBoard);
-            var csxEngTrainingRoster = Roster.Create(csxEngineer.CtrlNbr, csxEngRoster.WorkAreaGroupCtrlNbr, null, $"{csxEngineer.CraftName} Trainees", $"{csxEngineer.CraftPluralName} Trainees", 99, RosterType.Training);
-            uow.Rosters.Add(csxEngTrainingRoster);
-            uow.RosterBoards.Add(RosterBoard.Create(csxEngineer.CtrlNbr, csxEngTrainingRoster.CtrlNbr, $"{csxEngineer.CraftName} New Hires", BoardType.NewHire));
-            await uow.CommitAsync();
-        }
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1,
+            departmentCtrlNbr: csxTransDept.CtrlNbr, workAreaCtrlNbr: csxWorkArea.CtrlNbr);
+        var csxEngRoster = csxEngRosterNullable ?? throw new InvalidOperationException("Roster not created for CSX Engineer craft.");
 
-        var csxConductor = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Trainman", "Trainmen", 2,
+        var (csxConductor, csxCondRosterNullable, _) = await craftAppSvc.CreateCraftAsync(
+            csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Trainman", "Trainmen", 2,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: csxTransDept.CtrlNbr);
-        var csxCondRoster = Roster.Create(csxConductor.CtrlNbr, csxWorkArea.CtrlNbr, null, csxConductor.CraftName, csxConductor.CraftPluralName, 1);
-        var csxCondExtraBoard = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var csxCondHangout = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Hangout", BoardType.Hangout);
-        var csxCondExtAbsBoard = RosterBoard.Create(csxConductor.CtrlNbr, csxCondRoster.CtrlNbr, $"{csxConductor.CraftName} Extended Absence", BoardType.ExtendedAbsence);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crafts.Add(csxConductor);
-            uow.Rosters.Add(csxCondRoster);
-            uow.RosterBoards.Add(csxCondExtraBoard);
-            uow.RosterBoards.Add(csxCondHangout);
-            uow.RosterBoards.Add(csxCondExtAbsBoard);
-            var csxCondTrainingRoster = Roster.Create(csxConductor.CtrlNbr, csxCondRoster.WorkAreaGroupCtrlNbr, null, $"{csxConductor.CraftName} Trainees", $"{csxConductor.CraftPluralName} Trainees", 99, RosterType.Training);
-            uow.Rosters.Add(csxCondTrainingRoster);
-            uow.RosterBoards.Add(RosterBoard.Create(csxConductor.CtrlNbr, csxCondTrainingRoster.CtrlNbr, $"{csxConductor.CraftName} New Hires", BoardType.NewHire));
-            await uow.CommitAsync();
-        }
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1,
+            departmentCtrlNbr: csxTransDept.CtrlNbr, workAreaCtrlNbr: csxWorkArea.CtrlNbr);
+        var csxCondRoster = csxCondRosterNullable ?? throw new InvalidOperationException("Roster not created for CSX Trainman craft.");
 
-        var csxClerical = Craft.Create(csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
+        var (csxClerical, csxClericalRosterNullable, _) = await craftAppSvc.CreateCraftAsync(
+            csxParentCtrlNbr, csxRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
-            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: csxClericalDept.CtrlNbr);
-        var csxClericalRoster = Roster.Create(csxClerical.CtrlNbr, csxWorkArea.CtrlNbr, null, csxClerical.CraftName, csxClerical.CraftPluralName, 1);
-        var csxClericalExtraBoard = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var csxClericalHangout = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Hangout", BoardType.Hangout);
-        var csxClericalExtAbsBoard = RosterBoard.Create(csxClerical.CtrlNbr, csxClericalRoster.CtrlNbr, $"{csxClerical.CraftName} Extended Absence", BoardType.ExtendedAbsence);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crafts.Add(csxClerical);
-            uow.Rosters.Add(csxClericalRoster);
-            uow.RosterBoards.Add(csxClericalExtraBoard);
-            uow.RosterBoards.Add(csxClericalHangout);
-            uow.RosterBoards.Add(csxClericalExtAbsBoard);
-            var csxClericalTrainingRoster = Roster.Create(csxClerical.CtrlNbr, csxClericalRoster.WorkAreaGroupCtrlNbr, null, $"{csxClerical.CraftName} Trainees", $"{csxClerical.CraftPluralName} Trainees", 99, RosterType.Training);
-            uow.Rosters.Add(csxClericalTrainingRoster);
-            uow.RosterBoards.Add(RosterBoard.Create(csxClerical.CtrlNbr, csxClericalTrainingRoster.CtrlNbr, $"{csxClerical.CraftName} New Hires", BoardType.NewHire));
-            await uow.CommitAsync();
-        }
+            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0,
+            departmentCtrlNbr: csxClericalDept.CtrlNbr, workAreaCtrlNbr: csxWorkArea.CtrlNbr);
+        var csxClericalRoster = csxClericalRosterNullable ?? throw new InvalidOperationException("Roster not created for CSX Clerical craft.");
 
-        // PTRA Crafts (owned by PTRA railroad under PTRA parent)
+        // PTRA Crafts
         SetParent(ptraParentCore.CtrlNbr.Value);
-        var ptraEngineer = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
+        var (ptraEngineer, ptraEngRosterNullable, _) = await craftAppSvc.CreateCraftAsync(
+            ptraParentCore.CtrlNbr, ptraRailroadForCraft.CtrlNbr, "Engineer", "Engineers", 1,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
-        var ptraEngRoster = Roster.Create(ptraEngineer.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraEngineer.CraftName, ptraEngineer.CraftPluralName, 1);
-        var ptraEngExtraBoard = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var ptraEngHangout = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Hangout", BoardType.Hangout);
-        var ptraEngExtAbsBoard = RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngRoster.CtrlNbr, $"{ptraEngineer.CraftName} Extended Absence", BoardType.ExtendedAbsence);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crafts.Add(ptraEngineer);
-            uow.Rosters.Add(ptraEngRoster);
-            uow.RosterBoards.Add(ptraEngExtraBoard);
-            uow.RosterBoards.Add(ptraEngHangout);
-            uow.RosterBoards.Add(ptraEngExtAbsBoard);
-            var ptraEngTrainingRoster = Roster.Create(ptraEngineer.CtrlNbr, ptraEngRoster.WorkAreaGroupCtrlNbr, null, $"{ptraEngineer.CraftName} Trainees", $"{ptraEngineer.CraftPluralName} Trainees", 99, RosterType.Training);
-            uow.Rosters.Add(ptraEngTrainingRoster);
-            uow.RosterBoards.Add(RosterBoard.Create(ptraEngineer.CtrlNbr, ptraEngTrainingRoster.CtrlNbr, $"{ptraEngineer.CraftName} New Hires", BoardType.NewHire));
-            await uow.CommitAsync();
-        }
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1,
+            departmentCtrlNbr: ptraTransDept.CtrlNbr, workAreaCtrlNbr: ptraWorkArea.CtrlNbr);
+        var ptraEngRoster = ptraEngRosterNullable ?? throw new InvalidOperationException("Roster not created for PTRA Engineer craft.");
 
-        var ptraConductor = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Trainman", "Trainmen", 2,
+        var (ptraConductor, ptraCondRosterNullable, _) = await craftAppSvc.CreateCraftAsync(
+            ptraParentCore.CtrlNbr, ptraRailroadForCraft.CtrlNbr, "Trainman", "Trainmen", 2,
             autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 10, markUpHours: 10,
             requiredRestHours: 10, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 0,
-            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1, departmentCtrlNbr: ptraTransDept.CtrlNbr);
-        var ptraCondRoster = Roster.Create(ptraConductor.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraConductor.CraftName, ptraConductor.CraftPluralName, 1);
-        var ptraCondExtraBoard = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var ptraCondHangout = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Hangout", BoardType.Hangout);
-        var ptraCondExtAbsBoard = RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondRoster.CtrlNbr, $"{ptraConductor.CraftName} Extended Absence", BoardType.ExtendedAbsence);
-        var ptraCondTrainingRoster = Roster.Create(ptraConductor.CtrlNbr, ptraCondRoster.WorkAreaGroupCtrlNbr, null, $"{ptraConductor.CraftName} Trainees", $"{ptraConductor.CraftPluralName} Trainees", 99, RosterType.Training);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crafts.Add(ptraConductor);
-            uow.Rosters.Add(ptraCondRoster);
-            uow.RosterBoards.Add(ptraCondExtraBoard);
-            uow.RosterBoards.Add(ptraCondHangout);
-            uow.RosterBoards.Add(ptraCondExtAbsBoard);
-            uow.Rosters.Add(ptraCondTrainingRoster);
-            uow.RosterBoards.Add(RosterBoard.Create(ptraConductor.CtrlNbr, ptraCondTrainingRoster.CtrlNbr, $"{ptraConductor.CraftName} New Hires", BoardType.NewHire));
-            await uow.CommitAsync();
-        }
+            hoursofService: true, processPayroll: true, showNotifications: true, vacationAssignmentType: 1,
+            departmentCtrlNbr: ptraTransDept.CtrlNbr, workAreaCtrlNbr: ptraWorkArea.CtrlNbr);
+        var ptraCondRoster = ptraCondRosterNullable ?? throw new InvalidOperationException("Roster not created for PTRA Trainman craft.");
+        var ptraCondTrainingRoster = await rosterRepo.GetTrainingRosterByCraftAsync(ptraConductor.CtrlNbr)
+            ?? throw new InvalidOperationException("Training roster not created for PTRA Conductor craft.");
 
-        var ptraClerical = Craft.Create(ptraParentCore.CtrlNbr.Value, ptraRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
+        var (ptraClerical, ptraClericalRosterNullable, _) = await craftAppSvc.CreateCraftAsync(
+            ptraParentCore.CtrlNbr, ptraRailroadForCraft.CtrlNbr, "Clerical", "Clerical", 3,
             autoMarkUp: true, approveAllMarkOffs: true, markOffHours: 0, markUpHours: 0,
             requiredRestHours: 0, maximumVacationDayTime: 480, unpaidMealPeriodMinutes: 30,
-            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0, departmentCtrlNbr: ptraClericalDept.CtrlNbr);
-        var ptraClericalRoster = Roster.Create(ptraClerical.CtrlNbr, ptraWorkArea.CtrlNbr, null, ptraClerical.CraftName, ptraClerical.CraftPluralName, 1);
-        var ptraClericalExtraBoard = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut);
-        var ptraClericalHangout = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Hangout", BoardType.Hangout);
-        var ptraClericalExtAbsBoard = RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalRoster.CtrlNbr, $"{ptraClerical.CraftName} Extended Absence", BoardType.ExtendedAbsence);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crafts.Add(ptraClerical);
-            uow.Rosters.Add(ptraClericalRoster);
-            uow.RosterBoards.Add(ptraClericalExtraBoard);
-            uow.RosterBoards.Add(ptraClericalHangout);
-            uow.RosterBoards.Add(ptraClericalExtAbsBoard);
-            var ptraClericalTrainingRoster = Roster.Create(ptraClerical.CtrlNbr, ptraClericalRoster.WorkAreaGroupCtrlNbr, null, $"{ptraClerical.CraftName} Trainees", $"{ptraClerical.CraftPluralName} Trainees", 99, RosterType.Training);
-            uow.Rosters.Add(ptraClericalTrainingRoster);
-            uow.RosterBoards.Add(RosterBoard.Create(ptraClerical.CtrlNbr, ptraClericalTrainingRoster.CtrlNbr, $"{ptraClerical.CraftName} New Hires", BoardType.NewHire));
-            await uow.CommitAsync();
-        }
+            hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0,
+            departmentCtrlNbr: ptraClericalDept.CtrlNbr, workAreaCtrlNbr: ptraWorkArea.CtrlNbr);
+        var ptraClericalRoster = ptraClericalRosterNullable ?? throw new InvalidOperationException("Roster not created for PTRA Clerical craft.");
 
         SetParent(csxParentCtrlNbr);
         // Seniority entries: 40 Engineer, 50 Trainman, 10 Clerical
@@ -1096,85 +1025,39 @@ internal static class DevDataSeeder
         var crewTransDept = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == csxRailroadForCrews.CtrlNbr);
         // Regular crews
         var crewEffective = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var crewA = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew A", departmentCtrlNbr: crewTransDept?.CtrlNbr, effectiveDate: crewEffective);
-        var crewB = Crew.Create("REGULAR", jaxSub2.CtrlNbr, "Jax Turn Crew B", departmentCtrlNbr: crewTransDept?.CtrlNbr, effectiveDate: crewEffective);
-        var extraCrew = Crew.Create("EXTRA", jaxSub2.CtrlNbr, "Jax Extra Board Crew", departmentCtrlNbr: crewTransDept?.CtrlNbr, effectiveDate: crewEffective);
+        var crewsAppSvcCsx = sp.GetRequiredService<CrewsAppService>();
+        var crewA = await crewsAppSvcCsx.CreateCrewAsync("REGULAR", jaxSub2.CtrlNbr.Value, "Jax Turn Crew A", true, crewTransDept?.CtrlNbr, crewEffective, null);
+        var crewB = await crewsAppSvcCsx.CreateCrewAsync("REGULAR", jaxSub2.CtrlNbr.Value, "Jax Turn Crew B", true, crewTransDept?.CtrlNbr, crewEffective, null);
+        var extraCrew = await crewsAppSvcCsx.CreateCrewAsync("EXTRA", jaxSub2.CtrlNbr.Value, "Jax Extra Board Crew", true, crewTransDept?.CtrlNbr, crewEffective, null);
 
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crews.Add(crewA);
-            uow.Crews.Add(crewB);
-            uow.Crews.Add(extraCrew);
-            await uow.CommitAsync();
-        }
-
-        // Staffable Positions — one per crew slot (PositionType = "Crew")
-        var sp1 = StaffablePosition.Create("Crew");
-        var sp2 = StaffablePosition.Create("Crew");
-        var sp3 = StaffablePosition.Create("Crew");
-        var sp4 = StaffablePosition.Create("Crew");
-        var sp5 = StaffablePosition.Create("Crew");
-        var sp6 = StaffablePosition.Create("Crew");
-
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.StaffablePositions.Add(sp1);
-            uow.StaffablePositions.Add(sp2);
-            uow.StaffablePositions.Add(sp3);
-            uow.StaffablePositions.Add(sp4);
-            uow.StaffablePositions.Add(sp5);
-            uow.StaffablePositions.Add(sp6);
-            await uow.CommitAsync();
-        }
-
-        // Crew Positions — 2 per crew (Trainman + Engineer)
-        var crewAPos1 = CrewPosition.Create(crewA.CtrlNbr, condRole.CtrlNbr, 1, sp1.CtrlNbr);
-        var crewAPos2 = CrewPosition.Create(crewA.CtrlNbr, engRole.CtrlNbr, 2, sp2.CtrlNbr);
-        var crewBPos1 = CrewPosition.Create(crewB.CtrlNbr, condRole.CtrlNbr, 1, sp3.CtrlNbr);
-        var crewBPos2 = CrewPosition.Create(crewB.CtrlNbr, engRole.CtrlNbr, 2, sp4.CtrlNbr);
-        var extraPos1 = CrewPosition.Create(extraCrew.CtrlNbr, condRole.CtrlNbr, 1, sp5.CtrlNbr);
-        var extraPos2 = CrewPosition.Create(extraCrew.CtrlNbr, engRole.CtrlNbr, 2, sp6.CtrlNbr);
-
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.CrewPositions.Add(crewAPos1);
-            uow.CrewPositions.Add(crewAPos2);
-            uow.CrewPositions.Add(crewBPos1);
-            uow.CrewPositions.Add(crewBPos2);
-            uow.CrewPositions.Add(extraPos1);
-            uow.CrewPositions.Add(extraPos2);
-            await uow.CommitAsync();
-        }
+        // Crew Positions — 2 per crew (Trainman + Engineer); app service creates StaffablePosition internally
+        var crewAPos1 = await crewsAppSvcCsx.CreateCrewPositionAsync(crewA.CtrlNbr.Value, condRole.CtrlNbr.Value, 1);
+        var crewAPos2 = await crewsAppSvcCsx.CreateCrewPositionAsync(crewA.CtrlNbr.Value, engRole.CtrlNbr.Value, 2);
+        var crewBPos1 = await crewsAppSvcCsx.CreateCrewPositionAsync(crewB.CtrlNbr.Value, condRole.CtrlNbr.Value, 1);
+        var crewBPos2 = await crewsAppSvcCsx.CreateCrewPositionAsync(crewB.CtrlNbr.Value, engRole.CtrlNbr.Value, 2);
+        var extraPos1 = await crewsAppSvcCsx.CreateCrewPositionAsync(extraCrew.CtrlNbr.Value, condRole.CtrlNbr.Value, 1);
+        var extraPos2 = await crewsAppSvcCsx.CreateCrewPositionAsync(extraCrew.CtrlNbr.Value, engRole.CtrlNbr.Value, 2);
 
         // Incumbencies � assign employees to crew positions
+        // Incumbencies — assign employees to crew positions
         var now = DateTime.UtcNow;
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewAPos1.CtrlNbr, empList2[40].CtrlNbr, now));
-            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewAPos2.CtrlNbr, empList2[0].CtrlNbr, now));
-            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewBPos1.CtrlNbr, empList2[41].CtrlNbr, now));
-            uow.CrewIncumbencies.Add(CrewIncumbency.Create(crewBPos2.CtrlNbr, empList2[1].CtrlNbr, now));
-            uow.CrewIncumbencies.Add(CrewIncumbency.Create(extraPos1.CtrlNbr, empList2[42].CtrlNbr, now));
-            uow.CrewIncumbencies.Add(CrewIncumbency.Create(extraPos2.CtrlNbr, empList2[2].CtrlNbr, now));
-            await uow.CommitAsync();
-        }
+        await crewsAppSvcCsx.CreateCrewIncumbencyAsync(crewAPos1.CtrlNbr.Value, empList2[40].CtrlNbr.Value, now, null);
+        await crewsAppSvcCsx.CreateCrewIncumbencyAsync(crewAPos2.CtrlNbr.Value, empList2[0].CtrlNbr.Value, now, null);
+        await crewsAppSvcCsx.CreateCrewIncumbencyAsync(crewBPos1.CtrlNbr.Value, empList2[41].CtrlNbr.Value, now, null);
+        await crewsAppSvcCsx.CreateCrewIncumbencyAsync(crewBPos2.CtrlNbr.Value, empList2[1].CtrlNbr.Value, now, null);
+        await crewsAppSvcCsx.CreateCrewIncumbencyAsync(extraPos1.CtrlNbr.Value, empList2[42].CtrlNbr.Value, now, null);
+        await crewsAppSvcCsx.CreateCrewIncumbencyAsync(extraPos2.CtrlNbr.Value, empList2[2].CtrlNbr.Value, now, null);
 
         // Shift Definitions for Jacksonville Sub
+        var workMgmtSvcCsx = sp.GetRequiredService<WorkManagementService>();
         var shiftDefRepo = sp.GetRequiredService<IShiftDefinitionRepository>();
         var existingShifts = await shiftDefRepo.GetByWorkAreaAsync(jaxSub2.CtrlNbr);
         ShiftDefinition shiftFirst, shiftSecond, shiftThird;
         if (existingShifts.Count == 0)
         {
-            shiftFirst = ShiftDefinition.Create(jaxSub2.CtrlNbr, "1ST", "First Shift", 1, true);
-            shiftSecond = ShiftDefinition.Create(jaxSub2.CtrlNbr, "2ND", "Second Shift", 2, true);
-            shiftThird = ShiftDefinition.Create(jaxSub2.CtrlNbr, "3RD", "Third Shift", 3, true);
-            await using (var uow = await uowFactory.CreateAsync())
-            {
-                uow.ShiftDefinitions.Add(shiftFirst);
-                uow.ShiftDefinitions.Add(shiftSecond);
-                uow.ShiftDefinitions.Add(shiftThird);
-                await uow.CommitAsync();
-            }
+            shiftFirst = await workMgmtSvcCsx.CreateShiftDefinitionAsync(jaxSub2.CtrlNbr, "1ST", "First Shift", 1, true);
+            shiftSecond = await workMgmtSvcCsx.CreateShiftDefinitionAsync(jaxSub2.CtrlNbr, "2ND", "Second Shift", 2, true);
+            shiftThird = await workMgmtSvcCsx.CreateShiftDefinitionAsync(jaxSub2.CtrlNbr, "3RD", "Third Shift", 3, true);
         }
         else
         {
@@ -1185,21 +1068,15 @@ internal static class DevDataSeeder
 
         // Shift Definitions for PTRA
         SetParent(ptraParentCore.CtrlNbr.Value);
+        var workMgmtSvcPtra = sp.GetRequiredService<WorkManagementService>();
         var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
         ShiftDefinition ptraShift1, ptraShift2, ptraShift3;
         if (existingPtraShifts.Count == 0)
         {
-            ptraShift1 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "1", "First Shift", 1, true);
-            ptraShift2 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "2", "Second Shift", 2, true);
-            ptraShift3 = ShiftDefinition.Create(ptraRRForShifts.CtrlNbr, "3", "Third Shift", 3, true);
-            await using (var uow = await uowFactory.CreateAsync())
-            {
-                uow.ShiftDefinitions.Add(ptraShift1);
-                uow.ShiftDefinitions.Add(ptraShift2);
-                uow.ShiftDefinitions.Add(ptraShift3);
-                await uow.CommitAsync();
-            }
+            ptraShift1 = await workMgmtSvcPtra.CreateShiftDefinitionAsync(ptraRRForShifts.CtrlNbr, "1", "First Shift", 1, true);
+            ptraShift2 = await workMgmtSvcPtra.CreateShiftDefinitionAsync(ptraRRForShifts.CtrlNbr, "2", "Second Shift", 2, true);
+            ptraShift3 = await workMgmtSvcPtra.CreateShiftDefinitionAsync(ptraRRForShifts.CtrlNbr, "3", "Third Shift", 3, true);
         }
         else
         {
@@ -1210,33 +1087,23 @@ internal static class DevDataSeeder
 
         // Assignments
         SetParent(csxParentCtrlNbr);
-        var asgn1 = Assignment.Create(jaxSub2.CtrlNbr, "JAX-101", "Jax Turn 101", departmentCtrlNbr: crewTransDept?.CtrlNbr);
-        var asgn2 = Assignment.Create(jaxSub2.CtrlNbr, "JAX-102", "Jax Turn 102", departmentCtrlNbr: crewTransDept?.CtrlNbr);
-        var asgnExtra = Assignment.Create(jaxSub2.CtrlNbr, "JAX-XB", "Jax Extra Board", isExtra: true, departmentCtrlNbr: crewTransDept?.CtrlNbr);
-
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Assignments.Add(asgn1);
-            uow.Assignments.Add(asgn2);
-            uow.Assignments.Add(asgnExtra);
-            await uow.CommitAsync();
-        }
+        var assignmentsSvcCsx = sp.GetRequiredService<AssignmentsService>();
+        var (asgn1, _, _) = await assignmentsSvcCsx.CreateAssignmentAsync(jaxSub2.CtrlNbr, "JAX-101", "Jax Turn 101", false, true, crewTransDept?.CtrlNbr);
+        var (asgn2, _, _) = await assignmentsSvcCsx.CreateAssignmentAsync(jaxSub2.CtrlNbr, "JAX-102", "Jax Turn 102", false, true, crewTransDept?.CtrlNbr);
+        var (asgnExtra, _, _) = await assignmentsSvcCsx.CreateAssignmentAsync(jaxSub2.CtrlNbr, "JAX-XB", "Jax Extra Board", true, true, crewTransDept?.CtrlNbr);
 
         // Assignment Schedules — weekday bitmask: Mon-Fri = 0b0111110 = 62
         const int weekdays = 0b0111110;
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn1.CtrlNbr, shiftFirst.CtrlNbr, weekdays, new TimeOnly(6, 0), new TimeOnly(14, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgn2.CtrlNbr, shiftSecond.CtrlNbr, weekdays, new TimeOnly(14, 0), new TimeOnly(22, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(asgnExtra.CtrlNbr, shiftFirst.CtrlNbr, weekdays, new TimeOnly(6, 0), new TimeOnly(14, 0)));
-            uow.CrewAssignments.Add(CrewAssignment.Create(crewA.CtrlNbr, asgn1.CtrlNbr, weekdays, now));
-            uow.CrewAssignments.Add(CrewAssignment.Create(crewB.CtrlNbr, asgn2.CtrlNbr, weekdays, now));
-            uow.CrewAssignments.Add(CrewAssignment.Create(extraCrew.CtrlNbr, asgnExtra.CtrlNbr, weekdays, now));
-            await uow.CommitAsync();
-        }
+        await assignmentsSvcCsx.CreateAssignmentScheduleAsync(asgn1.CtrlNbr, shiftFirst.CtrlNbr, weekdays, new TimeOnly(6, 0), new TimeOnly(14, 0));
+        await assignmentsSvcCsx.CreateAssignmentScheduleAsync(asgn2.CtrlNbr, shiftSecond.CtrlNbr, weekdays, new TimeOnly(14, 0), new TimeOnly(22, 0));
+        await assignmentsSvcCsx.CreateAssignmentScheduleAsync(asgnExtra.CtrlNbr, shiftFirst.CtrlNbr, weekdays, new TimeOnly(6, 0), new TimeOnly(14, 0));
+        await crewsAppSvcCsx.CreateCrewAssignmentAsync(crewA.CtrlNbr.Value, asgn1.CtrlNbr.Value, weekdays, now, null);
+        await crewsAppSvcCsx.CreateCrewAssignmentAsync(crewB.CtrlNbr.Value, asgn2.CtrlNbr.Value, weekdays, now, null);
+        await crewsAppSvcCsx.CreateCrewAssignmentAsync(extraCrew.CtrlNbr.Value, asgnExtra.CtrlNbr.Value, weekdays, now, null);
 
         // ── PTRA Assignments ────────────────────────────────────────────
         SetParent(ptraParentCore.CtrlNbr.Value);
+        var assignmentsSvcPtra = sp.GetRequiredService<AssignmentsService>();
         var ptraLocNOYD = allGroups2.First(g => g.Code == "NOYD");
         var ptraLocMCYD = allGroups2.First(g => g.Code == "MCYD");
         var ptraLocPSYD = allGroups2.First(g => g.Code == "PSYD");
@@ -1246,135 +1113,86 @@ internal static class DevDataSeeder
         var ptraTransDeptCrew = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
 
         // 9 assignments — 3 per shift, one per location (PSYD, MCYD, NOYD)
-        var ptraAsgn130 = Assignment.Create(ptraLocPSYD.CtrlNbr, "130", "Assignment 130", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn140 = Assignment.Create(ptraLocMCYD.CtrlNbr, "140", "Assignment 140", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn150 = Assignment.Create(ptraLocNOYD.CtrlNbr, "150", "Assignment 150", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn230 = Assignment.Create(ptraLocPSYD.CtrlNbr, "230", "Assignment 230", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn240 = Assignment.Create(ptraLocMCYD.CtrlNbr, "240", "Assignment 240", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn250 = Assignment.Create(ptraLocNOYD.CtrlNbr, "250", "Assignment 250", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn330 = Assignment.Create(ptraLocPSYD.CtrlNbr, "330", "Assignment 330", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn340 = Assignment.Create(ptraLocMCYD.CtrlNbr, "340", "Assignment 340", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-        var ptraAsgn350 = Assignment.Create(ptraLocNOYD.CtrlNbr, "350", "Assignment 350", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr);
-
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Assignments.Add(ptraAsgn130);
-            uow.Assignments.Add(ptraAsgn140);
-            uow.Assignments.Add(ptraAsgn150);
-            uow.Assignments.Add(ptraAsgn230);
-            uow.Assignments.Add(ptraAsgn240);
-            uow.Assignments.Add(ptraAsgn250);
-            uow.Assignments.Add(ptraAsgn330);
-            uow.Assignments.Add(ptraAsgn340);
-            uow.Assignments.Add(ptraAsgn350);
-            await uow.CommitAsync();
-        }
+        var (ptraAsgn130, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "130", "Assignment 130", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn140, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "140", "Assignment 140", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn150, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "150", "Assignment 150", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn230, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "230", "Assignment 230", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn240, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "240", "Assignment 240", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn250, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "250", "Assignment 250", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn330, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "330", "Assignment 330", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn340, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "340", "Assignment 340", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn350, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "350", "Assignment 350", false, true, ptraTransDeptCrew?.CtrlNbr);
 
         // ── PTRA Crews — 9 regular + 3 relief ───────────────────────────
         var ptraCrewEffective = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var ptraCrew130 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "130", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew140 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "140", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew150 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "150", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew230 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "230", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew240 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "240", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew250 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "250", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew330 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "330", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew340 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "340", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrew350 = Crew.Create("REGULAR", ptraRRForShifts.CtrlNbr, "350", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrewRlfA = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-A", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrewRlfB = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-B", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-        var ptraCrewRlfC = Crew.Create("RELIEF", ptraRRForShifts.CtrlNbr, "RLF-C", departmentCtrlNbr: ptraTransDeptCrew?.CtrlNbr, effectiveDate: ptraCrewEffective);
-
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            uow.Crews.Add(ptraCrew130);
-            uow.Crews.Add(ptraCrew140);
-            uow.Crews.Add(ptraCrew150);
-            uow.Crews.Add(ptraCrew230);
-            uow.Crews.Add(ptraCrew240);
-            uow.Crews.Add(ptraCrew250);
-            uow.Crews.Add(ptraCrew330);
-            uow.Crews.Add(ptraCrew340);
-            uow.Crews.Add(ptraCrew350);
-            uow.Crews.Add(ptraCrewRlfA);
-            uow.Crews.Add(ptraCrewRlfB);
-            uow.Crews.Add(ptraCrewRlfC);
-            await uow.CommitAsync();
-        }
+        var crewsAppSvcPtra = sp.GetRequiredService<CrewsAppService>();
+        var ptraCrew130 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "130", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew140 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "140", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew150 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "150", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew230 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "230", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew240 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "240", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew250 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "250", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew330 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "330", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew340 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "340", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrew350 = await crewsAppSvcPtra.CreateCrewAsync("REGULAR", ptraRRForShifts.CtrlNbr.Value, "350", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrewRlfA = await crewsAppSvcPtra.CreateCrewAsync("RELIEF", ptraRRForShifts.CtrlNbr.Value, "RLF-A", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrewRlfB = await crewsAppSvcPtra.CreateCrewAsync("RELIEF", ptraRRForShifts.CtrlNbr.Value, "RLF-B", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
+        var ptraCrewRlfC = await crewsAppSvcPtra.CreateCrewAsync("RELIEF", ptraRRForShifts.CtrlNbr.Value, "RLF-C", true, ptraTransDeptCrew?.CtrlNbr, ptraCrewEffective, null);
 
         // ── PTRA StaffablePositions ─────────────────────────────────────
         // 3-position crews (E, F, H): 130, 150, 230, 250, 330, 350
         // 2-position crews (E, F): 140, 240, 340, RLF-A, RLF-B, RLF-C
         var ptra3PosCrews = new[] { ptraCrew130, ptraCrew150, ptraCrew230, ptraCrew250, ptraCrew330, ptraCrew350 };
         var ptra2PosCrews = new[] { ptraCrew140, ptraCrew240, ptraCrew340, ptraCrewRlfA, ptraCrewRlfB, ptraCrewRlfC };
-        var ptraSPs = new List<StaffablePosition>();
-        for (int i = 0; i < (ptra3PosCrews.Length * 3) + (ptra2PosCrews.Length * 2); i++)
-            ptraSPs.Add(StaffablePosition.Create("Crew"));
-
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            foreach (var ptraSP in ptraSPs)
-                uow.StaffablePositions.Add(ptraSP);
-            await uow.CommitAsync();
-        }
 
         // ── PTRA CrewPositions ───────────────────────────────────────────
-        int ptraSpIdx = 0;
-        await using (var uow = await uowFactory.CreateAsync())
+        foreach (var crew in ptra3PosCrews)
         {
-            foreach (var crew in ptra3PosCrews)
-            {
-                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraEngRole.CtrlNbr, 1, ptraSPs[ptraSpIdx++].CtrlNbr));
-                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraFmnRole.CtrlNbr, 2, ptraSPs[ptraSpIdx++].CtrlNbr));
-                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraHlpRole.CtrlNbr, 3, ptraSPs[ptraSpIdx++].CtrlNbr));
-            }
-            foreach (var crew in ptra2PosCrews)
-            {
-                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraEngRole.CtrlNbr, 1, ptraSPs[ptraSpIdx++].CtrlNbr));
-                uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, ptraFmnRole.CtrlNbr, 2, ptraSPs[ptraSpIdx++].CtrlNbr));
-            }
-            await uow.CommitAsync();
+            await crewsAppSvcPtra.CreateCrewPositionAsync(crew.CtrlNbr.Value, ptraEngRole.CtrlNbr.Value, 1);
+            await crewsAppSvcPtra.CreateCrewPositionAsync(crew.CtrlNbr.Value, ptraFmnRole.CtrlNbr.Value, 2);
+            await crewsAppSvcPtra.CreateCrewPositionAsync(crew.CtrlNbr.Value, ptraHlpRole.CtrlNbr.Value, 3);
+        }
+        foreach (var crew in ptra2PosCrews)
+        {
+            await crewsAppSvcPtra.CreateCrewPositionAsync(crew.CtrlNbr.Value, ptraEngRole.CtrlNbr.Value, 1);
+            await crewsAppSvcPtra.CreateCrewPositionAsync(crew.CtrlNbr.Value, ptraFmnRole.CtrlNbr.Value, 2);
         }
 
         // ── PTRA AssignmentSchedules + CrewAssignments ───────────────────
         var ptraStart = new DateTime(2026, 1, 1);
-        await using (var uow = await uowFactory.CreateAsync())
-        {
-            // Schedules: mask 62 = weekdays (Mon–Fri), 63 = 6-day (Sun–Fri), 127 = every day
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn130.CtrlNbr, ptraShift1.CtrlNbr, 63, new TimeOnly(7, 0), new TimeOnly(15, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn140.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn150.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn230.CtrlNbr, ptraShift2.CtrlNbr, 63, new TimeOnly(15, 0), new TimeOnly(23, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn240.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn250.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn330.CtrlNbr, ptraShift3.CtrlNbr, 63, new TimeOnly(23, 0), new TimeOnly(7, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn340.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0)));
-            uow.AssignmentSchedules.Add(AssignmentSchedule.Create(ptraAsgn350.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0)));
 
-            // Regular crew → assignment links
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew130.CtrlNbr, ptraAsgn130.CtrlNbr, 62, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew140.CtrlNbr, ptraAsgn140.CtrlNbr, 121, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew150.CtrlNbr, ptraAsgn150.CtrlNbr, 103, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew230.CtrlNbr, ptraAsgn230.CtrlNbr, 62, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew240.CtrlNbr, ptraAsgn240.CtrlNbr, 121, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew250.CtrlNbr, ptraAsgn250.CtrlNbr, 103, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew330.CtrlNbr, ptraAsgn330.CtrlNbr, 62, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew340.CtrlNbr, ptraAsgn340.CtrlNbr, 121, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrew350.CtrlNbr, ptraAsgn350.CtrlNbr, 103, ptraStart));
+        // Schedules: mask 62 = weekdays (Mon–Fri), 63 = 6-day (Sun–Fri), 127 = every day
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn130.CtrlNbr, ptraShift1.CtrlNbr, 63, new TimeOnly(7, 0), new TimeOnly(15, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn140.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn150.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn230.CtrlNbr, ptraShift2.CtrlNbr, 63, new TimeOnly(15, 0), new TimeOnly(23, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn240.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn250.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn330.CtrlNbr, ptraShift3.CtrlNbr, 63, new TimeOnly(23, 0), new TimeOnly(7, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn340.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn350.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0));
 
-            // Relief crew → assignment links (cover remaining days per shift)
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfA.CtrlNbr, ptraAsgn130.CtrlNbr, 1, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfA.CtrlNbr, ptraAsgn140.CtrlNbr, 6, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfA.CtrlNbr, ptraAsgn150.CtrlNbr, 24, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfB.CtrlNbr, ptraAsgn230.CtrlNbr, 1, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfB.CtrlNbr, ptraAsgn240.CtrlNbr, 6, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfB.CtrlNbr, ptraAsgn250.CtrlNbr, 24, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfC.CtrlNbr, ptraAsgn330.CtrlNbr, 1, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfC.CtrlNbr, ptraAsgn340.CtrlNbr, 6, ptraStart));
-            uow.CrewAssignments.Add(CrewAssignment.Create(ptraCrewRlfC.CtrlNbr, ptraAsgn350.CtrlNbr, 24, ptraStart));
+        // Regular crew → assignment links
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew130.CtrlNbr.Value, ptraAsgn130.CtrlNbr.Value, 62, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew140.CtrlNbr.Value, ptraAsgn140.CtrlNbr.Value, 121, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew150.CtrlNbr.Value, ptraAsgn150.CtrlNbr.Value, 103, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew230.CtrlNbr.Value, ptraAsgn230.CtrlNbr.Value, 62, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew240.CtrlNbr.Value, ptraAsgn240.CtrlNbr.Value, 121, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew250.CtrlNbr.Value, ptraAsgn250.CtrlNbr.Value, 103, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew330.CtrlNbr.Value, ptraAsgn330.CtrlNbr.Value, 62, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew340.CtrlNbr.Value, ptraAsgn340.CtrlNbr.Value, 121, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew350.CtrlNbr.Value, ptraAsgn350.CtrlNbr.Value, 103, ptraStart, null);
 
-            await uow.CommitAsync();
-        }
+        // Relief crew → assignment links (cover remaining days per shift)
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfA.CtrlNbr.Value, ptraAsgn130.CtrlNbr.Value, 1, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfA.CtrlNbr.Value, ptraAsgn140.CtrlNbr.Value, 6, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfA.CtrlNbr.Value, ptraAsgn150.CtrlNbr.Value, 24, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfB.CtrlNbr.Value, ptraAsgn230.CtrlNbr.Value, 1, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfB.CtrlNbr.Value, ptraAsgn240.CtrlNbr.Value, 6, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfB.CtrlNbr.Value, ptraAsgn250.CtrlNbr.Value, 24, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfC.CtrlNbr.Value, ptraAsgn330.CtrlNbr.Value, 1, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfC.CtrlNbr.Value, ptraAsgn340.CtrlNbr.Value, 6, ptraStart, null);
+        await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrewRlfC.CtrlNbr.Value, ptraAsgn350.CtrlNbr.Value, 24, ptraStart, null);
 
         } // end crews guard
 
@@ -1781,7 +1599,7 @@ internal static class DevDataSeeder
 
         // ?? Section 15b: Extended Absence Board Assignments (expired FRA certs) ??????????????
         // Employees seeded with expired certifications are placed on their craft's Extended Absence
-        // board. Uses the same UoW+StaffablePosition+PositionAssignment pattern as other board seeding.
+        // board. Uses the app service (same path as the UI) to enforce all business rules and checks.
         var allCerts15b = await empCertRepo.GetAllAsync();
         var employeesWithExpiredCerts = allCerts15b
             .Where(c => c.Status == CertificationStatuses.Expired)
@@ -1791,6 +1609,8 @@ internal static class DevDataSeeder
 
         if (employeesWithExpiredCerts.Count > 0)
         {
+            var rosterBoardAppSvc = sp.GetRequiredService<RosterBoardAppService>();
+
             var allBoards15b = await rosterBoardRepo.GetAllAsync();
             var extAbsBoards = allBoards15b.Where(b => b.BoardType == BoardType.ExtendedAbsence).ToList();
 
@@ -1812,25 +1632,19 @@ internal static class DevDataSeeder
                 var extBoard = extAbsBoards.FirstOrDefault(b => b.CraftCtrlNbr == craftCtrlNbr);
                 if (extBoard is null) continue;
 
-                // Skip if employee is already on this board
-                if (extBoard.Positions.Any(p => p.EmployeeCtrlNbr == empCtrlNbr)) continue;
-
-                var extAbsSp = StaffablePosition.Create("Board");
-                await using (var uow = await uowFactory.CreateAsync())
+                var nextOrder = extBoard.Positions.Count + 1;
+                try
                 {
-                    var boardToUpdate = await uow.RosterBoards.GetByCtrlNbrAsync(extBoard.CtrlNbr)
-                        ?? throw new InvalidOperationException($"Extended Absence board {extBoard.CtrlNbr} not found.");
-                    var nextOrder = boardToUpdate.Positions.Count + 1;
-                    var position = boardToUpdate.AddPosition(empCtrlNbr, nextOrder, extAbsSp.CtrlNbr);
-                    var pa = PositionAssignment.Create(extAbsSp.CtrlNbr, empCtrlNbr, "Board", position.CtrlNbr);
-                    uow.StaffablePositions.Add(extAbsSp);
-                    uow.PositionAssignments.Add(pa);
-                    uow.RosterBoards.Update(boardToUpdate);
-                    await uow.CommitAsync();
+                    await rosterBoardAppSvc.AddRosterBoardPositionAsync(extBoard.CtrlNbr, empCtrlNbr, nextOrder);
                 }
-                // Refresh local snapshot of this board so the next employee gets the correct nextOrder
+                catch (InvalidOperationException)
+                {
+                    // Employee already has a position on this board — skip
+                    continue;
+                }
+
+                // Refresh local snapshot so the next employee gets the correct nextOrder
                 extBoard = (await rosterBoardRepo.GetAllAsync()).First(b => b.CtrlNbr == extBoard.CtrlNbr);
-                // Update local list reference too
                 var idx = extAbsBoards.FindIndex(b => b.CtrlNbr == extBoard.CtrlNbr);
                 if (idx >= 0) extAbsBoards[idx] = extBoard;
             }
@@ -2079,18 +1893,15 @@ internal static class DevDataSeeder
                 }
 
                 // ── Crew Incumbencies ───────────────────────────────────────────
+                var crewsAppSvc = sp.GetRequiredService<CrewsAppService>();
+
                 // Engineer crew slots — only as many as we have eligible employees
                 int engCrewAssigned = 0;
                 for (int i = 0; i < engPositions.Count && i < ptraEngEmps.Count; i++)
                 {
                     var pos = engPositions[i];
                     var emp = ptraEngEmps[i];
-                    var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
-                    var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
-                    await using var uow = await uowFactory.CreateAsync();
-                    uow.CrewIncumbencies.Add(incumbency);
-                    uow.PositionAssignments.Add(pa);
-                    await uow.CommitAsync();
+                    await crewsAppSvc.CreateCrewIncumbencyAsync(pos.CtrlNbr.Value, emp.CtrlNbr.Value, RandomIncumbencyDate(), null);
                     engCrewAssigned++;
                 }
 
@@ -2100,12 +1911,7 @@ internal static class DevDataSeeder
                 {
                     var pos = fmnPositions[i];
                     var emp = ptraTrnEmps[i];
-                    var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
-                    var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
-                    await using var uow = await uowFactory.CreateAsync();
-                    uow.CrewIncumbencies.Add(incumbency);
-                    uow.PositionAssignments.Add(pa);
-                    await uow.CommitAsync();
+                    await crewsAppSvc.CreateCrewIncumbencyAsync(pos.CtrlNbr.Value, emp.CtrlNbr.Value, RandomIncumbencyDate(), null);
                     fmnCrewAssigned++;
                 }
 
@@ -2115,12 +1921,7 @@ internal static class DevDataSeeder
                 {
                     var pos = hlpPositions[i];
                     var emp = ptraTrnEmps[fmnCrewAssigned + i];
-                    var incumbency = CrewIncumbency.Create(pos.CtrlNbr, emp.CtrlNbr, RandomIncumbencyDate());
-                    var pa = PositionAssignment.Create(pos.StaffablePositionCtrlNbr, emp.CtrlNbr, "Crew", pos.CtrlNbr);
-                    await using var uow = await uowFactory.CreateAsync();
-                    uow.CrewIncumbencies.Add(incumbency);
-                    uow.PositionAssignments.Add(pa);
-                    await uow.CommitAsync();
+                    await crewsAppSvc.CreateCrewIncumbencyAsync(pos.CtrlNbr.Value, emp.CtrlNbr.Value, RandomIncumbencyDate(), null);
                     hlpCrewAssigned++;
                 }
 
@@ -2129,43 +1930,20 @@ internal static class DevDataSeeder
                 var allBoardsF = await rosterBoardRepo.GetAllAsync();
                 var ptraEngBoardCtrlNbr = allBoardsF.First(b => b.CraftCtrlNbr == ptraEngCraftF.CtrlNbr && b.BoardType == BoardType.ExtraBoard).CtrlNbr;
                 var ptraTrnBoardCtrlNbr = allBoardsF.First(b => b.CraftCtrlNbr == ptraTrnCraftF.CtrlNbr && b.BoardType == BoardType.ExtraBoard).CtrlNbr;
+                var rosterBoardAppSvcF = sp.GetRequiredService<RosterBoardAppService>();
 
                 // Remaining eligible engineers go to extra board (those not placed in crew slots)
                 var boardEngEmps = ptraEngEmps.Skip(engCrewAssigned).ToList();
-                await using (var uow = await uowFactory.CreateAsync())
+                for (int i = 0; i < boardEngEmps.Count; i++)
                 {
-                    var ptraEngBoardF = await uow.RosterBoards.GetByCtrlNbrAsync(ptraEngBoardCtrlNbr)
-                        ?? throw new InvalidOperationException("PTRA engineer extra board not found.");
-                    for (int i = 0; i < boardEngEmps.Count; i++)
-                    {
-                        var emp = boardEngEmps[i];
-                        var spEng = StaffablePosition.Create("Board");
-                        var position = ptraEngBoardF.AddPosition(emp.CtrlNbr, i + 1, spEng.CtrlNbr);
-                        var pa = PositionAssignment.Create(spEng.CtrlNbr, emp.CtrlNbr, "Board", position.CtrlNbr);
-                        uow.StaffablePositions.Add(spEng);
-                        uow.PositionAssignments.Add(pa);
-                    }
-                    uow.RosterBoards.Update(ptraEngBoardF);
-                    await uow.CommitAsync();
+                    await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraEngBoardCtrlNbr, boardEngEmps[i].CtrlNbr, i + 1);
                 }
 
                 // Remaining eligible trainmen go to extra board (those not placed in crew slots)
                 var boardTrnEmps = ptraTrnEmps.Skip(fmnCrewAssigned + hlpCrewAssigned).ToList();
-                await using (var uow = await uowFactory.CreateAsync())
+                for (int i = 0; i < boardTrnEmps.Count; i++)
                 {
-                    var ptraTrnBoardF = await uow.RosterBoards.GetByCtrlNbrAsync(ptraTrnBoardCtrlNbr)
-                        ?? throw new InvalidOperationException("PTRA trainman extra board not found.");
-                    for (int i = 0; i < boardTrnEmps.Count; i++)
-                    {
-                        var emp = boardTrnEmps[i];
-                        var spTrn = StaffablePosition.Create("Board");
-                        var position = ptraTrnBoardF.AddPosition(emp.CtrlNbr, i + 1, spTrn.CtrlNbr);
-                        var pa = PositionAssignment.Create(spTrn.CtrlNbr, emp.CtrlNbr, "Board", position.CtrlNbr);
-                        uow.StaffablePositions.Add(spTrn);
-                        uow.PositionAssignments.Add(pa);
-                    }
-                    uow.RosterBoards.Update(ptraTrnBoardF);
-                    await uow.CommitAsync();
+                    await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraTrnBoardCtrlNbr, boardTrnEmps[i].CtrlNbr, i + 1);
                 }
             }
         }

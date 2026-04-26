@@ -1,73 +1,74 @@
-using CrewService.Domain.Interfaces.Repositories;
+using CrewService.Application.SeniorityOps;
 using CrewService.Domain.Models.Seniority;
-using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class SeniorityStateService(ISeniorityStateRepository repository) : SeniorityStateSrvc.SeniorityStateSrvcBase
+public class SeniorityStateService(SeniorityStateAppService seniorityStateAppService) : SeniorityStateSrvc.SeniorityStateSrvcBase
 {
-    private readonly ISeniorityStateRepository _repository = repository;
-
     public override async Task<GetAllSeniorityStateResponse> GetAllAsync(GetAllSeniorityStateRequest request, ServerCallContext context)
     {
-        var states = request.ParentCtrlNbr > 0
-            ? await _repository.GetByParentCtrlNbrAsync(ControlNumber.Create(request.ParentCtrlNbr))
-            : request.PageSize > 0
-                ? await _repository.GetAllAsync(request.PageNumber, request.PageSize)
-                : await _repository.GetAllAsync();
+        ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        var states = await seniorityStateAppService.GetAllAsync(
+            parentCtrlNbr, request.PageNumber, request.PageSize, context.CancellationToken);
 
         var response = new GetAllSeniorityStateResponse { TotalCount = states.Count };
-
         foreach (var state in states)
-        {
             response.States.Add(MapToResponse(state));
-        }
-
         return response;
     }
 
     public override async Task<SeniorityStateResponse> GetAsync(GetSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
-
-        return MapToResponse(state);
+        try
+        {
+            var state = await seniorityStateAppService.GetAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return MapToResponse(state);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<SeniorityStateResponse> CreateAsync(CreateSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = SeniorityState.Create(
-            request.StateDescription,
-            Enum.Parse<StateType>(request.StateType),
-            request.ParentCtrlNbr);
-
-        _repository.Add(state);
-
+        var state = await seniorityStateAppService.CreateAsync(
+            request.StateDescription, Enum.Parse<StateType>(request.StateType), request.ParentCtrlNbr,
+            context.CancellationToken);
         return MapToResponse(state, true, "Seniority state created successfully.");
     }
 
     public override async Task<SeniorityStateResponse> UpdateAsync(UpdateSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
-
-        state.Update(request.StateDescription, Enum.Parse<StateType>(request.StateType));
-
-        _repository.Update(state);
-
-        return MapToResponse(state, true, "Seniority state updated successfully.");
+        try
+        {
+            var state = await seniorityStateAppService.UpdateAsync(
+                ControlNumber.Create(request.CtrlNbr),
+                request.StateDescription, Enum.Parse<StateType>(request.StateType),
+                context.CancellationToken);
+            return MapToResponse(state, true, "Seniority state updated successfully.");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteSeniorityStateRequest request, ServerCallContext context)
     {
-        var state = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Seniority state with control number {request.CtrlNbr} was not found."));
-
-        _repository.Remove(state);
-
-        return new DeleteResponse { Success = true, Messages = { "Seniority state deleted successfully." } };
+        try
+        {
+            await seniorityStateAppService.DeleteAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { "Seniority state deleted successfully." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     private static SeniorityStateResponse MapToResponse(SeniorityState state, bool success = false, string? message = null)
@@ -79,9 +80,7 @@ public class SeniorityStateService(ISeniorityStateRepository repository) : Senio
             StateType = state.StateType.ToString(),
             Success = success
         };
-
         if (message is not null) response.Messages.Add(message);
-
         return response;
     }
 }

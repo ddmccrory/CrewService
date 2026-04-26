@@ -1,77 +1,77 @@
-using CrewService.Domain.Interfaces.Repositories;
-using CrewService.Domain.Models.ContactTypes;
-using CrewService.Domain.Modules.Employees;
+using CrewService.Application.ContactTypes;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class EmailAddressTypeService(IEmailAddressTypeRepository repository) : EmailAddressTypeSrvc.EmailAddressTypeSrvcBase
+public class EmailAddressTypeService(ContactTypesAppService contactTypesAppService) : EmailAddressTypeSrvc.EmailAddressTypeSrvcBase
 {
-    private readonly IEmailAddressTypeRepository _repository = repository;
-
     public override async Task<GetAllEmailAddressTypeResponse> GetAllAsync(GetAllEmailAddressTypeRequest request, ServerCallContext context)
     {
-        var types = request.PageSize > 0
-            ? await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize)
-            : await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
+        var types = await contactTypesAppService.GetAllEmailAddressTypesAsync(
+            ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize,
+            context.CancellationToken);
 
-        var response = new GetAllEmailAddressTypeResponse { TotalCount = types.Count };
-
+        var response = new GetAllEmailAddressTypeResponse();
         foreach (var type in types)
-        {
             response.EmaiAddressTypeList.Add(MapToResponse(type));
-        }
-
         response.TotalCount = response.EmaiAddressTypeList.Count;
-
         return response;
     }
 
     public override async Task<EmailAddressTypeResponse> GetAsync(GetEmailAddressTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Email address type with control number {request.CtrlNbr} was not found."));
-
-        return MapToResponse(type);
+        try
+        {
+            var type = await contactTypesAppService.GetEmailAddressTypeAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return MapToResponse(type);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<EmailAddressTypeResponse> CreateAsync(CreateEmailAddressTypeRequest request, ServerCallContext context)
     {
-        var type = EmailAddressType.Create(
-            request.ClientCtrlNbr,
-            request.Name,
-            request.Number,
-            request.EmergencyType);
-
-        _repository.Add(type);
-
+        var type = await contactTypesAppService.CreateEmailAddressTypeAsync(
+            ControlNumber.Create(request.ClientCtrlNbr), request.Name, request.Number, request.EmergencyType,
+            context.CancellationToken);
         return MapToResponse(type, true, "Email address type created successfully.");
     }
 
     public override async Task<EmailAddressTypeResponse> UpdateAsync(UpdateEmailAddressTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Email address type with control number {request.CtrlNbr} was not found."));
-
-        type.Update(request.Name, request.Number, request.EmergencyType);
-
-        _repository.Update(type);
-
-        return MapToResponse(type, true, "Email address type updated successfully.");
+        try
+        {
+            var type = await contactTypesAppService.UpdateEmailAddressTypeAsync(
+                ControlNumber.Create(request.CtrlNbr), request.Name, request.Number, request.EmergencyType,
+                context.CancellationToken);
+            return MapToResponse(type, true, "Email address type updated successfully.");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteEmailAddressTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Email address type with control number {request.CtrlNbr} was not found."));
-
-        _repository.Remove(type);
-
-        return new DeleteResponse { Success = true, Messages = { "Email address type deleted successfully." } };
+        try
+        {
+            await contactTypesAppService.DeleteEmailAddressTypeAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { "Email address type deleted successfully." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
-    private static EmailAddressTypeResponse MapToResponse(EmailAddressType type, bool success = false, string? message = null)
+    private static EmailAddressTypeResponse MapToResponse(
+        Domain.Models.ContactTypes.EmailAddressType type, bool success = false, string? message = null)
     {
         var response = new EmailAddressTypeResponse
         {
@@ -82,9 +82,7 @@ public class EmailAddressTypeService(IEmailAddressTypeRepository repository) : E
             EmergencyType = type.EmergencyType,
             Success = success
         };
-
         if (message is not null) response.Messages.Add(message);
-
         return response;
     }
 }

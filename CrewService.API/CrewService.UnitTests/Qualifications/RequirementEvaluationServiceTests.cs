@@ -1,5 +1,6 @@
 using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Primitives;
@@ -172,6 +173,9 @@ public sealed class RequirementEvaluationServiceTests
         public IPositionVacancyRepository PositionVacancies => null!;
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
+        public IUserParentAssignmentRepository UserParentAssignments => null!;
+        public IInvitationRepository Invitations => null!;
+        public IPayrollTierRepository PayrollTiers => null!;
     }
 
     private sealed class FakeRequirementEvalUoWFactory(

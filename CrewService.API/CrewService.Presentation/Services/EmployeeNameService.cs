@@ -1,3 +1,4 @@
+using CrewService.Application.Employees;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.ValueObjects;
 using CrewService.Application.Modules.UserAccount;
@@ -11,7 +12,7 @@ namespace CrewService.Presentation.Services;
 /// </summary>
 public sealed class EmployeeNameService(
     IUserAccountService userAccountService,
-    IEmployeeRepository employeeRepository)
+    EmployeeAppService employeeAppService)
 {
     /// <summary>
     /// Returns <c>LastName, FirstName M.</c> for the given ASP.NET Identity user ID.
@@ -48,9 +49,15 @@ public sealed class EmployeeNameService(
     /// </summary>
     public async Task<string> GetFullNameLnfAsync(ControlNumber employeeCtrlNbr)
     {
-        var employee = await employeeRepository.GetByCtrlNbrAsync(employeeCtrlNbr);
-        if (employee is null) return string.Empty;
-        return await GetFullNameLnfAsync(employee.UserId);
+        try
+        {
+            var employee = await employeeAppService.GetAsync(employeeCtrlNbr);
+            return await GetFullNameLnfAsync(employee.UserId);
+        }
+        catch (KeyNotFoundException)
+        {
+            return string.Empty;
+        }
     }
 
     /// <summary>
@@ -59,10 +66,16 @@ public sealed class EmployeeNameService(
     /// </summary>
     public async Task<(string FullNameLnf, string EmployeeNumber)> GetEmployeeInfoAsync(ControlNumber employeeCtrlNbr)
     {
-        var employee = await employeeRepository.GetByCtrlNbrAsync(employeeCtrlNbr);
-        if (employee is null) return (string.Empty, string.Empty);
-        var fullNameLnf = await GetFullNameLnfAsync(employee.UserId);
-        return (fullNameLnf, employee.EmployeeNumber ?? string.Empty);
+        try
+        {
+            var employee = await employeeAppService.GetAsync(employeeCtrlNbr);
+            var fullNameLnf = await GetFullNameLnfAsync(employee.UserId);
+            return (fullNameLnf, employee.EmployeeNumber ?? string.Empty);
+        }
+        catch (KeyNotFoundException)
+        {
+            return (string.Empty, string.Empty);
+        }
     }
 
     /// <summary>
@@ -76,7 +89,7 @@ public sealed class EmployeeNameService(
         var distinct = ctrlNbrs.Distinct().ToList();
         if (distinct.Count == 0) return [];
 
-        var employees = await employeeRepository.GetByCtrlNbrsAsync(distinct);
+        var employees = await employeeAppService.GetByCtrlNbrsAsync(distinct);
 
         var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct();
         var nameMap = await GetFullNameLnfBatchAsync(userIds!);

@@ -2,40 +2,23 @@ using CrewService.Domain.Constants;
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.UserAccess;
-using CrewService.Application.Modules.UserAccess;
+using CrewService.Application.UserAccess;
 using CrewService.Application.Modules.UserAccount;
-using CrewService.Domain.Modules.TenantConfig;
-using CrewService.Domain.Modules.Employees;
-using CrewService.Domain.Modules.UserAccess;
-using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
-using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 
 namespace CrewService.Presentation.Services;
 
 public class InvitationService(
-    IInvitationRepository invitationRepository,
+    InvitationAppService invitationAppService,
     ICurrentUserService currentUserService,
-    IUserParentAssignmentRepository assignmentRepository,
-    IParentRepository parentRepository,
-    IDynamicGroupRepository dynamicGroupRepository,
-    IRoleRepository roleRepository,
-    IUserAccountService userAccountService,
-    IInvitationEmailService emailService,
-    IConfiguration configuration)
+    IUserAccountService userAccountService)
     : InvitationSrvc.InvitationSrvcBase
 {
-    private readonly IInvitationRepository _invitationRepository = invitationRepository;
+    private readonly InvitationAppService _invitationAppService = invitationAppService;
     private readonly ICurrentUserService _currentUserService = currentUserService;
-    private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
-    private readonly IParentRepository _parentRepository = parentRepository;
-    private readonly IDynamicGroupRepository _dynamicGroupRepository = dynamicGroupRepository;
-    private readonly IRoleRepository _roleRepository = roleRepository;
     private readonly IUserAccountService _userAccountService = userAccountService;
-    private readonly IInvitationEmailService _emailService = emailService;
-    private readonly string _baseUrl = configuration["AppSettings:BaseUrl"] ?? "https://localhost:7132";
 
     public override async Task<InvitationResponse> CreateInvitation(CreateInvitationRequest request, ServerCallContext context)
     {
@@ -51,12 +34,6 @@ public class InvitationService(
 
         if (string.IsNullOrEmpty(request.Role))
             errors.Add("Role", ["Required"]);
-        else
-        {
-            var role = await _roleRepository.GetByNameAsync(request.Role);
-            if (role is null)
-                errors.Add("Role", [$"Unknown role '{request.Role}'."]);
-        }
 
         if (Roles.RequiresRailroad(request.Role) && request.RailroadCtrlNbr <= 0)
             errors.Add("RailroadCtrlNbr", ["Required for the selected role"]);
@@ -74,7 +51,6 @@ public class InvitationService(
             var callerRole = await GetCallerRoleForParentAsync(context, request.ParentCtrlNbr);
             EnsureCanCreateRole(callerRole, request.Role);
 
-            // RailroadAdmin can only invite for their assigned railroad(s)
             if (callerRole == Roles.RailroadAdmin && request.RailroadCtrlNbr > 0)
             {
                 var callerRailroads = GetCallerRailroadsForParent(context, request.ParentCtrlNbr);
@@ -84,59 +60,35 @@ public class InvitationService(
             }
         }
 
-        // Validate railroad belongs to the parent when required
+        // Validate railroad belongs to parent
         if (request.RailroadCtrlNbr > 0)
         {
-            var railroads = await _dynamicGroupRepository.GetByGroupTypeNameAsync("Railroad", request.ParentCtrlNbr);
-            if (!railroads.Any(rr => rr.CtrlNbr.Value == request.RailroadCtrlNbr))
+            var valid = await _invitationAppService.ValidateRailroadBelongsToParentAsync(
+                request.ParentCtrlNbr, request.RailroadCtrlNbr, context.CancellationToken);
+            if (!valid)
                 throw new ValidationException("RailroadCtrlNbr", "Railroad does not belong to the selected parent");
         }
 
         ControlNumber? parentCtrlNbr = request.ParentCtrlNbr > 0
-            ? ControlNumber.Create(request.ParentCtrlNbr)
-            : null;
-
-        var existing = await _invitationRepository.GetPendingByEmailAndParentAsync(request.Email, parentCtrlNbr);
-        if (existing is not null)
-            throw new ConflictException(nameof(Invitation), $"A pending invitation already exists for {request.Email}.");
+            ? ControlNumber.Create(request.ParentCtrlNbr) : null;
+        ControlNumber? railroadCtrlNbr = request.RailroadCtrlNbr > 0
+            ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
 
         var expirationDays = request.ExpirationDays > 0 ? request.ExpirationDays : 7;
+        var parentName = await _invitationAppService.GetParentNameAsync(parentCtrlNbr, context.CancellationToken);
 
-        var railroadCtrlNbr = request.RailroadCtrlNbr > 0
-            ? ControlNumber.Create(request.RailroadCtrlNbr)
-            : null;
-
-        var invitation = Invitation.Create(
-            request.Email,
-            parentCtrlNbr,
-            request.Role,
-            _currentUserService.GetUserId().ToString(),
-            expirationDays,
-            railroadCtrlNbr);
-
-        await _invitationRepository.AddAsync(invitation);
-
-        // Send invitation email
-        string parentName = "CrewService";
-        if (invitation.ParentCtrlNbr is not null)
-        {
-            var parent = await _parentRepository.GetByCtrlNbrAsync(invitation.ParentCtrlNbr);
-            parentName = parent?.Name.Value ?? $"Parent {invitation.ParentCtrlNbr.Value}";
-        }
-        var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(invitation.Token)}";
-
-        await _emailService.SendInvitationAsync(
-            invitation.Email, invitation.Role, parentName, acceptUrl, invitation.ExpiresAt);
+        var invitation = await _invitationAppService.CreateAsync(
+            request.Email, parentCtrlNbr, request.Role, railroadCtrlNbr,
+            expirationDays, parentName, context.CancellationToken);
 
         return MapToResponse(invitation);
     }
 
     public override async Task<InvitationResponse> GetInvitation(GetInvitationRequest request, ServerCallContext context)
     {
-        var invitation = await _invitationRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Invitation with control number {request.CtrlNbr} was not found."));
+        var invitation = await _invitationAppService.GetAsync(
+            ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
 
-        // SystemAdmin can view any; others must have a role for the invitation's parent
         if (invitation.ParentCtrlNbr is null)
             EnsureSystemAdmin(context);
         else
@@ -150,11 +102,10 @@ public class InvitationService(
 
     public override async Task<GetInvitationsResponse> GetInvitationsByParent(GetInvitationsByParentRequest request, ServerCallContext context)
     {
-        // ParentCtrlNbr == 0 means "global SystemAdmin invitations only"
         if (request.ParentCtrlNbr == 0)
         {
             EnsureSystemAdmin(context);
-            var sysAdminInvitations = await _invitationRepository.GetByRoleAsync(Roles.SystemAdmin);
+            var sysAdminInvitations = await _invitationAppService.GetByRoleAsync(Roles.SystemAdmin, context.CancellationToken);
             var globalResponse = new GetInvitationsResponse();
             foreach (var inv in sysAdminInvitations)
                 globalResponse.Invitations.Add(MapToResponse(inv, includeToken: false));
@@ -164,12 +115,11 @@ public class InvitationService(
         var callerRole = await GetCallerRoleForParentAsync(context, request.ParentCtrlNbr);
         EnsureCanView(callerRole);
 
-        var invitations = await _invitationRepository.GetByParentCtrlNbrAsync(request.ParentCtrlNbr);
+        var invitations = await _invitationAppService.GetByParentAsync(request.ParentCtrlNbr, context.CancellationToken);
 
-        // SystemAdmin invitations are global — show them regardless of parent context
         if (callerRole == Roles.SystemAdmin)
         {
-            var sysAdminInvitations = await _invitationRepository.GetByRoleAsync(Roles.SystemAdmin);
+            var sysAdminInvitations = await _invitationAppService.GetByRoleAsync(Roles.SystemAdmin, context.CancellationToken);
             var existingCtrlNbrs = invitations.Select(i => i.CtrlNbr).ToHashSet();
             invitations.AddRange(sysAdminInvitations.Where(i => !existingCtrlNbrs.Contains(i.CtrlNbr)));
         }
@@ -177,7 +127,6 @@ public class InvitationService(
         var response = new GetInvitationsResponse();
         foreach (var invitation in invitations)
             response.Invitations.Add(MapToResponse(invitation, includeToken: false));
-
         return response;
     }
 
@@ -186,15 +135,13 @@ public class InvitationService(
         if (string.IsNullOrEmpty(request.Email))
             throw new ValidationException("Email", "Required");
 
-        // Only SystemAdmin can query across all parents by email
         EnsureSystemAdmin(context);
 
-        var invitations = await _invitationRepository.GetByEmailAsync(request.Email);
+        var invitations = await _invitationAppService.GetByEmailAsync(request.Email, context.CancellationToken);
 
         var response = new GetInvitationsResponse();
         foreach (var invitation in invitations)
             response.Invitations.Add(MapToResponse(invitation, includeToken: false));
-
         return response;
     }
 
@@ -203,8 +150,8 @@ public class InvitationService(
         if (request.CtrlNbr <= 0)
             throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
-        var invitation = await _invitationRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Invitation with control number {request.CtrlNbr} was not found."));
+        var invitation = await _invitationAppService.GetAsync(
+            ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
 
         if (invitation.ParentCtrlNbr is null)
             EnsureSystemAdmin(context);
@@ -214,10 +161,9 @@ public class InvitationService(
             EnsureCanView(callerRole);
         }
 
-        invitation.Revoke();
-        await _invitationRepository.UpdateAsync(invitation);
-
-        return MapToResponse(invitation);
+        var revoked = await _invitationAppService.RevokeAsync(
+            ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+        return MapToResponse(revoked);
     }
 
     public override async Task<InvitationResponse> ResendInvitation(ResendInvitationRequest request, ServerCallContext context)
@@ -225,8 +171,8 @@ public class InvitationService(
         if (request.CtrlNbr <= 0)
             throw new ValidationException("CtrlNbr", "Must be greater than 0");
 
-        var existing = await _invitationRepository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Invitation with control number {request.CtrlNbr} was not found."));
+        var existing = await _invitationAppService.GetAsync(
+            ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
 
         if (existing.Status != InvitationStatus.Pending)
             throw new RpcException(new Status(StatusCode.FailedPrecondition, $"Cannot resend invitation with status '{existing.Status}'."));
@@ -239,31 +185,9 @@ public class InvitationService(
             EnsureCanView(callerRole);
         }
 
-        // Revoke the old invitation and create a new one
-        existing.Revoke();
-        await _invitationRepository.UpdateAsync(existing);
-
-        var newInvitation = Invitation.Create(
-            existing.Email,
-            existing.ParentCtrlNbr,
-            existing.Role,
-            _currentUserService.GetUserId().ToString(),
-            railroadCtrlNbr: existing.RailroadCtrlNbr);
-
-        await _invitationRepository.AddAsync(newInvitation);
-
-        // Send reminder email
-        string parentName = "CrewService";
-        if (newInvitation.ParentCtrlNbr is not null)
-        {
-            var parent = await _parentRepository.GetByCtrlNbrAsync(newInvitation.ParentCtrlNbr);
-            parentName = parent?.Name.Value ?? $"Parent {newInvitation.ParentCtrlNbr.Value}";
-        }
-        var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(newInvitation.Token)}";
-
-        await _emailService.SendReminderAsync(
-            newInvitation.Email, newInvitation.Role, parentName, acceptUrl, newInvitation.ExpiresAt);
-
+        var parentName = await _invitationAppService.GetParentNameAsync(existing.ParentCtrlNbr, context.CancellationToken);
+        var newInvitation = await _invitationAppService.ResendAsync(
+            ControlNumber.Create(request.CtrlNbr), parentName, context.CancellationToken);
         return MapToResponse(newInvitation);
     }
 
@@ -274,41 +198,23 @@ public class InvitationService(
         if (string.IsNullOrEmpty(request.Token))
             return new ValidateInvitationTokenReply { IsValid = false };
 
-        var invitation = await _invitationRepository.GetByTokenAsync(request.Token);
-
-        if (invitation is null)
+        var info = await _invitationAppService.ValidateTokenAsync(request.Token, context.CancellationToken);
+        if (!info.IsValid && string.IsNullOrEmpty(info.Email))
             return new ValidateInvitationTokenReply { IsValid = false };
 
-        // Persist expired status if detected
-        if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
-        {
-            invitation.MarkExpired();
-            await _invitationRepository.UpdateAsync(invitation);
-        }
+        var parentName = await _invitationAppService.GetParentNameAsync(info.ParentCtrlNbr, context.CancellationToken);
+        var railroadName = await _invitationAppService.GetRailroadNameAsync(
+            info.ParentCtrlNbr, null, context.CancellationToken);
 
-        var parentName = "CrewService";
-        if (invitation.ParentCtrlNbr is not null)
-        {
-            var parent = await _parentRepository.GetByCtrlNbrAsync(invitation.ParentCtrlNbr);
-            parentName = parent?.Name.Value ?? $"Parent {invitation.ParentCtrlNbr.Value}";
-        }
-
-        var existingUser = await _userAccountService.FindByEmailAsync(invitation.Email);
-
-        var railroadName = string.Empty;
-        if (invitation.RailroadCtrlNbr is not null && invitation.ParentCtrlNbr is not null)
-        {
-            var railroads = await _dynamicGroupRepository.GetByGroupTypeNameAsync("Railroad", invitation.ParentCtrlNbr.Value);
-            railroadName = railroads.FirstOrDefault(rr => rr.CtrlNbr == invitation.RailroadCtrlNbr)?.Name ?? string.Empty;
-        }
+        var existingUser = await _userAccountService.FindByEmailAsync(info.Email);
 
         return new ValidateInvitationTokenReply
         {
-            IsValid = invitation.IsValid,
-            Email = invitation.Email,
-            Role = invitation.Role,
+            IsValid = info.IsValid,
+            Email = info.Email,
+            Role = info.Role,
             ParentName = parentName,
-            Status = invitation.Status.ToString(),
+            Status = info.Status,
             UserAlreadyExists = existingUser is not null,
             RailroadName = railroadName
         };

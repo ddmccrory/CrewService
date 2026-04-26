@@ -1,77 +1,77 @@
-using CrewService.Domain.Interfaces.Repositories;
-using CrewService.Domain.Models.ContactTypes;
-using CrewService.Domain.Modules.Employees;
+using CrewService.Application.ContactTypes;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class PhoneNumberTypeService(IPhoneNumberTypeRepository repository) : PhoneNumberTypeSrvc.PhoneNumberTypeSrvcBase
+public class PhoneNumberTypeService(ContactTypesAppService contactTypesAppService) : PhoneNumberTypeSrvc.PhoneNumberTypeSrvcBase
 {
-    private readonly IPhoneNumberTypeRepository _repository = repository;
-
     public override async Task<GetAllPhoneNumberTypeResponse> GetAllAsync(GetAllPhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var types = request.PageSize > 0
-            ? await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize)
-            : await _repository.GetByClientCtrlNbrAsync(ControlNumber.Create(request.ClientCtrlNbr));
+        var types = await contactTypesAppService.GetAllPhoneNumberTypesAsync(
+            ControlNumber.Create(request.ClientCtrlNbr), request.PageNumber, request.PageSize,
+            context.CancellationToken);
 
-        var response = new GetAllPhoneNumberTypeResponse { TotalCount = types.Count };
-
+        var response = new GetAllPhoneNumberTypeResponse();
         foreach (var type in types)
-        {
             response.PhoneNumberTypeList.Add(MapToResponse(type));
-        }
-
         response.TotalCount = response.PhoneNumberTypeList.Count;
-
         return response;
     }
 
     public override async Task<PhoneNumberTypeResponse> GetAsync(GetPhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Phone number type with control number {request.CtrlNbr} was not found."));
-
-        return MapToResponse(type);
+        try
+        {
+            var type = await contactTypesAppService.GetPhoneNumberTypeAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return MapToResponse(type);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<PhoneNumberTypeResponse> CreateAsync(CreatePhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = PhoneNumberType.Create(
-            request.ClientCtrlNbr,
-            request.Name,
-            request.Number,
-            request.EmergencyType);
-
-        _repository.Add(type);
-
+        var type = await contactTypesAppService.CreatePhoneNumberTypeAsync(
+            ControlNumber.Create(request.ClientCtrlNbr), request.Name, request.Number, request.EmergencyType,
+            context.CancellationToken);
         return MapToResponse(type, true, "Phone number type created successfully.");
     }
 
     public override async Task<PhoneNumberTypeResponse> UpdateAsync(UpdatePhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Phone number type with control number {request.CtrlNbr} was not found."));
-
-        type.Update(request.Name, request.Number, request.EmergencyType);
-
-        _repository.Update(type);
-
-        return MapToResponse(type, true, "Phone number type updated successfully.");
+        try
+        {
+            var type = await contactTypesAppService.UpdatePhoneNumberTypeAsync(
+                ControlNumber.Create(request.CtrlNbr), request.Name, request.Number, request.EmergencyType,
+                context.CancellationToken);
+            return MapToResponse(type, true, "Phone number type updated successfully.");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<DeleteResponse> DeleteAsync(DeletePhoneNumberTypeRequest request, ServerCallContext context)
     {
-        var type = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Phone number type with control number {request.CtrlNbr} was not found."));
-
-        _repository.Remove(type);
-
-        return new DeleteResponse { Success = true, Messages = { "Phone number type deleted successfully." } };
+        try
+        {
+            await contactTypesAppService.DeletePhoneNumberTypeAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { "Phone number type deleted successfully." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
-    private static PhoneNumberTypeResponse MapToResponse(PhoneNumberType type, bool success = false, string? message = null)
+    private static PhoneNumberTypeResponse MapToResponse(
+        Domain.Models.ContactTypes.PhoneNumberType type, bool success = false, string? message = null)
     {
         var response = new PhoneNumberTypeResponse
         {
@@ -82,9 +82,7 @@ public class PhoneNumberTypeService(IPhoneNumberTypeRepository repository) : Pho
             EmergencyType = type.EmergencyType,
             Success = success
         };
-
         if (message is not null) response.Messages.Add(message);
-
         return response;
     }
 }

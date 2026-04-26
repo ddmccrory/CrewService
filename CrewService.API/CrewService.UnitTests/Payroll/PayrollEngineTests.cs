@@ -1,5 +1,6 @@
 using CrewService.Application.Payroll;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.ValueObjects;
@@ -140,6 +141,9 @@ public class EarningCodeResolverTests
         public IPositionVacancyRepository PositionVacancies => null!;
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
+        public IUserParentAssignmentRepository UserParentAssignments => null!;
+        public IInvitationRepository Invitations => null!;
+        public IPayrollTierRepository PayrollTiers => null!;
     }
 
     private sealed class FakePayrollUoWFactory(IEarningCodeRuleRepository earningCodeRules) : IOrchestrationUnitOfWorkFactory

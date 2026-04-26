@@ -1,63 +1,64 @@
-using CrewService.Domain.Interfaces.Repositories;
-using CrewService.Domain.Models.Employment;
-using CrewService.Domain.Modules.Employees;
+using CrewService.Application.Employment;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
 namespace CrewService.Presentation.Services;
 
-public class EmploymentStatusHistoryService(IEmploymentStatusHistoryRepository repository) : EmploymentStatusHistorySrvc.EmploymentStatusHistorySrvcBase
+public class EmploymentStatusHistoryService(EmploymentAppService employmentAppService) : EmploymentStatusHistorySrvc.EmploymentStatusHistorySrvcBase
 {
-    private readonly IEmploymentStatusHistoryRepository _repository = repository;
-
     public override async Task<GetAllStatusHistoryResponse> GetAllByEmployeeAsync(GetAllStatusHistoryRequest request, ServerCallContext context)
     {
-        var history = request.PageSize > 0
-            ? await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr), request.PageNumber, request.PageSize)
-            : await _repository.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(request.EmployeeCtrlNbr));
+        var history = await employmentAppService.GetAllHistoryAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), request.PageNumber, request.PageSize,
+            context.CancellationToken);
 
         var response = new GetAllStatusHistoryResponse { TotalCount = history.Count };
-
         foreach (var record in history)
-        {
             response.History.Add(MapToResponse(record));
-        }
-
         return response;
     }
 
     public override async Task<StatusHistoryResponse> GetAsync(GetStatusHistoryRequest request, ServerCallContext context)
     {
-        var record = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status history with control number {request.CtrlNbr} was not found."));
-
-        return MapToResponse(record);
+        try
+        {
+            var record = await employmentAppService.GetHistoryRecordAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return MapToResponse(record);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
     public override async Task<StatusHistoryResponse> CreateAsync(CreateStatusHistoryRequest request, ServerCallContext context)
     {
-        var record = EmploymentStatusHistory.Create(
-            request.EmployeeCtrlNbr,
-            request.EmploymentStatusCtrlNbr,
-            request.StatusChangeDate.ToDateTime());
-
-        _repository.Add(record);
-
+        var record = await employmentAppService.CreateHistoryRecordAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr),
+            ControlNumber.Create(request.EmploymentStatusCtrlNbr),
+            request.StatusChangeDate.ToDateTime(),
+            context.CancellationToken);
         return MapToResponse(record, true, "Employment status history created successfully.");
     }
 
     public override async Task<DeleteResponse> DeleteAsync(DeleteStatusHistoryRequest request, ServerCallContext context)
     {
-        var record = await _repository.GetByCtrlNbrAsync(ControlNumber.Create(request.CtrlNbr))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employment status history with control number {request.CtrlNbr} was not found."));
-
-        _repository.Remove(record);
-
-        return new DeleteResponse { Success = true, Messages = { "Employment status history deleted successfully." } };
+        try
+        {
+            await employmentAppService.DeleteHistoryRecordAsync(
+                ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            return new DeleteResponse { Success = true, Messages = { "Employment status history deleted successfully." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
     }
 
-    private static StatusHistoryResponse MapToResponse(EmploymentStatusHistory record, bool success = false, string? message = null)
+    private static StatusHistoryResponse MapToResponse(
+        Domain.Models.Employment.EmploymentStatusHistory record, bool success = false, string? message = null)
     {
         var response = new StatusHistoryResponse
         {
@@ -67,9 +68,7 @@ public class EmploymentStatusHistoryService(IEmploymentStatusHistoryRepository r
             StatusChangeDate = Timestamp.FromDateTime(DateTime.SpecifyKind(record.StatusChangeDate, DateTimeKind.Utc)),
             Success = success
         };
-
         if (message is not null) response.Messages.Add(message);
-
         return response;
     }
 }

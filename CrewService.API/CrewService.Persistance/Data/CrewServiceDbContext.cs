@@ -11,6 +11,7 @@ using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
+using CrewService.Infrastructure.Outbox;
 using CrewService.Persistance.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
