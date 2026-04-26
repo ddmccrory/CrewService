@@ -1,9 +1,8 @@
 using CrewService.Domain.Constants;
 using CrewService.Domain.Models.UserAccess;
-using CrewService.Domain.Interfaces;
-using CrewService.Domain.Modules.UserAccess;
 using CrewService.Application.Models.UserAccount;
 using CrewService.Application.Modules.UserAccount;
+using CrewService.Application.UserAccess;
 using Grpc.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -17,15 +16,13 @@ namespace CrewService.Presentation.Services;
 public sealed class AuthService(
     IConfiguration configuration,
     IUserAccountService userAccountService,
-    IUserParentAssignmentRepository assignmentRepository,
-    IInvitationRepository invitationRepository,
-    ICurrentUserService currentUserService) : AuthSrvc.AuthSrvcBase
+    AuthAppService authAppService,
+    UserAccessAppService userAccessAppService) : AuthSrvc.AuthSrvcBase
 {
     private readonly IUserAccountService _userAccountService = userAccountService;
     private readonly IConfiguration _configuration = configuration;
-    private readonly IUserParentAssignmentRepository _assignmentRepository = assignmentRepository;
-    private readonly IInvitationRepository _invitationRepository = invitationRepository;
-    private readonly ICurrentUserService _currentUserService = currentUserService;
+    private readonly AuthAppService _authAppService = authAppService;
+    private readonly UserAccessAppService _userAccessAppService = userAccessAppService;
 
     public override async Task<AcceptInvitationResponse> AcceptInvitation(AcceptInvitationRequest request, ServerCallContext context)
     {
@@ -38,160 +35,15 @@ public sealed class AuthService(
             return response;
         }
 
-        var invitation = await _invitationRepository.GetByTokenAsync(request.InvitationToken);
+        var (success, errorMessage) = await _authAppService.AcceptInvitationAsync(
+            request.InvitationToken, request.Password, context.CancellationToken);
 
-        if (invitation is null)
-        {
-            response.Success = false;
-            response.Message.Add("Invalid invitation token.");
-            return response;
-        }
-
-        // Set audit context for this unauthenticated endpoint
-        _currentUserService.SetAuditOverride(invitation.Email);
-
-        if (!invitation.IsValid)
-        {
-            response.Success = false;
-            response.Message.Add($"Invitation is no longer valid (status: {invitation.Status}).");
-
-            // Persist expired status if detected
-            if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
-            {
-                invitation.MarkExpired();
-                await _invitationRepository.UpdateAsync(invitation);
-            }
-
-            return response;
-        }
-
-        // Check if user already exists (e.g., invited to a second parent)
-        var existingUser = await _userAccountService.FindByEmailAsync(invitation.Email);
-
-        if (existingUser is null)
-        {
-            if (string.IsNullOrEmpty(request.Password))
-            {
-                response.Success = false;
-                response.Message.Add("Password is required.");
-                return response;
-            }
-
-            var createResult = await _userAccountService.CreateAsync(new CreateUserRequest
-            {
-                UserName = invitation.Email,
-                Email = invitation.Email,
-                Password = request.Password
-            });
-
-            if (!createResult.Result.Succeeded)
-            {
-                response.Success = false;
-                foreach (var error in createResult.Result.Errors)
-                    response.Message.Add(error);
-                return response;
-            }
-
-            existingUser = await _userAccountService.FindByIdAsync(createResult.UserId);
-        }
-
-        // Accept the invitation
-        invitation.Accept();
-        await _invitationRepository.UpdateAsync(invitation);
-
-        // Global SystemAdmin invitation (no parent) — set PrimaryRoleId
-        if (invitation.ParentCtrlNbr is null)
-        {
-            await _userAccountService.UpdatePrimaryRoleAsync(existingUser!.Id, Roles.SystemAdmin);
-
-            // Supersede prior SystemAdmin invitations for this email
-            var oldInvitations = await _invitationRepository.GetAcceptedByEmailAndParentAsync(invitation.Email, null);
-            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
-            {
-                oldInv.MarkSuperseded();
-                await _invitationRepository.UpdateAsync(oldInv);
-            }
-
-            response.Success = true;
+        response.Success = success;
+        if (!success && errorMessage is not null)
+            response.Message.Add(errorMessage);
+        else if (success)
             response.Message.Add("Invitation accepted successfully.");
-            return response;
-        }
 
-        // Create or update the UserParentAssignment from the invitation
-        var existingAssignments = await _assignmentRepository.GetByUserAndParentAsync(existingUser!.Id, invitation.ParentCtrlNbr!);
-        var isParentScoped = !Roles.RequiresRailroad(invitation.Role);
-
-        if (existingAssignments.Count > 0)
-        {
-            var hasRailroadScoped = existingAssignments.Any(a => Roles.RequiresRailroad(a.Role));
-            var hasParentScoped = existingAssignments.Any(a => !Roles.RequiresRailroad(a.Role));
-
-            if (isParentScoped && hasRailroadScoped)
-            {
-                // Upgrading from railroad-scoped to parent-scoped: replace all railroad assignments
-                foreach (var old in existingAssignments)
-                    await _assignmentRepository.DeleteAsync(old.CtrlNbr);
-
-                var newAssignment = UserParentAssignment.Create(
-                    existingUser.Id,
-                    invitation.ParentCtrlNbr.Value,
-                    invitation.Role);
-                await _assignmentRepository.AddAsync(newAssignment);
-            }
-            else if (!isParentScoped && hasParentScoped)
-            {
-                // Downgrading from parent-scoped to railroad-scoped: replace parent assignment
-                foreach (var old in existingAssignments)
-                    await _assignmentRepository.DeleteAsync(old.CtrlNbr);
-
-                var newAssignment = UserParentAssignment.Create(
-                    existingUser.Id,
-                    invitation.ParentCtrlNbr.Value,
-                    invitation.Role,
-                    invitation.RailroadCtrlNbr);
-                await _assignmentRepository.AddAsync(newAssignment);
-            }
-            else
-            {
-                // Same scope type: update matching assignment or add new railroad
-                var matchingAssignment = existingAssignments.FirstOrDefault(a => a.RailroadCtrlNbr == invitation.RailroadCtrlNbr);
-                if (matchingAssignment is not null)
-                {
-                    matchingAssignment.UpdateRole(invitation.Role, invitation.RailroadCtrlNbr);
-                    await _assignmentRepository.UpdateAsync(matchingAssignment);
-                }
-                else
-                {
-                    var newAssignment = UserParentAssignment.Create(
-                        existingUser.Id,
-                        invitation.ParentCtrlNbr.Value,
-                        invitation.Role,
-                        invitation.RailroadCtrlNbr);
-                    await _assignmentRepository.AddAsync(newAssignment);
-                }
-            }
-
-            // Mark all prior accepted invitations for this parent as superseded
-            var oldInvitations = await _invitationRepository.GetAcceptedByEmailAndParentAsync(invitation.Email, invitation.ParentCtrlNbr);
-            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
-            {
-                oldInv.MarkSuperseded();
-                await _invitationRepository.UpdateAsync(oldInv);
-            }
-        }
-        else
-        {
-            // No existing assignments - create new
-            var assignment = UserParentAssignment.Create(
-                existingUser.Id,
-                invitation.ParentCtrlNbr.Value,
-                invitation.Role,
-                invitation.RailroadCtrlNbr);
-            await _assignmentRepository.AddAsync(assignment);
-        }
-
-        response.Success = true;
-        response.Message.Add("Invitation accepted successfully.");
         return response;
     }
 
@@ -315,7 +167,7 @@ public sealed class AuthService(
         else
         {
             // Per-parent roles from UserParentAssignment
-            var assignments = await _assignmentRepository.GetByUserIdAsync(user.Id);
+                var assignments = await _userAccessAppService.GetByUserAsync(user.Id);
 
             if (assignments.Count > 0)
             {
