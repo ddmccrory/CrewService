@@ -1,7 +1,7 @@
 using CrewService.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
 
-namespace CrewService.Domain.Interfaces;
+namespace CrewService.Infrastructure.Outbox;
 
 /// <summary>
 /// Abstraction for database contexts that support outbox message persistence.
