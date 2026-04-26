@@ -1,22 +1,29 @@
 using CrewService.Application.RosterBoardOps;
+using CrewService.Application.SeniorityOps;
 using CrewService.Application.AbsenceVacancy;
 using CrewService.Application.Assignments;
 using CrewService.Application.Authorization;
 using CrewService.Application.Boards;
+using CrewService.Application.Bootstrap;
 using CrewService.Application.Bulletins;
+using CrewService.Application.ContactTypes;
 using CrewService.Application.Crews;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.Dispatching;
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.ElectronicCalling.Providers;
+using CrewService.Application.Employees;
+using CrewService.Application.Employment;
 using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
+using CrewService.Application.Parents;
 using CrewService.Application.Payroll;
 using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
 using CrewService.Application.RailroadInfo;
 using CrewService.Application.TenantConfig;
+using CrewService.Application.UserAccess;
 using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.ReportingExports;
 using CrewService.Application.ReportingExports.Formatters;
@@ -51,6 +58,36 @@ public static class DependencyInjection
         services.AddScoped<OnDutyPlacementService>();
         services.AddScoped<TieUpService>();
         services.AddScoped<DispatchingService>();
+
+        // Seniority
+        services.AddScoped<CraftAppService>();
+        services.AddScoped<RosterAppService>();
+        services.AddScoped<SeniorityStateAppService>();
+        services.AddScoped<SeniorityAppService>();
+
+        // Employees
+        services.AddScoped<EmployeeAppService>();
+        services.AddScoped<PriorServiceCreditAppService>();
+
+        // ContactTypes
+        services.AddScoped<ContactTypesAppService>();
+
+        // Employment
+        services.AddScoped<EmploymentAppService>();
+
+        // Payroll Tiers
+        services.AddScoped<PayrollTierAppService>();
+
+        // Parents
+        services.AddScoped<ParentAppService>();
+
+        // UserAccess
+        services.AddScoped<UserAccessAppService>();
+        services.AddScoped<InvitationAppService>();
+        services.AddScoped<AuthAppService>();
+
+        // Bootstrap
+        services.AddScoped<BootstrapQueryService>();
 
         // Assignments
         services.AddScoped<AssignmentsService>();
