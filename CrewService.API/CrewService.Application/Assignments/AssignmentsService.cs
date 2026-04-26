@@ -87,10 +87,11 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
 
         var assignment = Assignment.Create(groupCtrlNbr, code, name, isExtra, isActive, departmentCtrlNbr);
         uow.Assignments.Add(assignment);
-        await uow.CommitAsync(ct);
 
         var group = await uow.DynamicGroups.GetByCtrlNbrAsync(groupCtrlNbr);
         long waVal = workAreaCtrlNbr?.Value ?? 0;
+        await uow.CommitAsync(ct);
+
         return (assignment, group, waVal);
     }
 
@@ -111,10 +112,11 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
 
         assignment.Update(code, name, isExtra, isActive, departmentCtrlNbr, groupCtrlNbr);
         uow.Assignments.Update(assignment);
-        await uow.CommitAsync(ct);
 
         var group = await uow.DynamicGroups.GetByCtrlNbrAsync(assignment.GroupCtrlNbr);
         long waVal = workAreaCtrlNbr?.Value ?? 0;
+        await uow.CommitAsync(ct);
+
         return (assignment, group, waVal);
     }
 
