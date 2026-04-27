@@ -176,10 +176,43 @@ public sealed class QualificationsService(IServiceProvider serviceProvider) : Qu
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
-        var qualifications = await svc.GetEmployeeQualificationsAsync(
+        var (computedStatuses, manualQualifications) = await svc.GetEmployeeQualificationsAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
+
         var response = new GetEmployeeQualificationsResponse();
-        response.Qualifications.AddRange(qualifications.Select(MapEmployeeQualification));
+
+        // Computed (non-Manual) qualifications — display-only
+        foreach (var cs in computedStatuses)
+        {
+            var item = new EmployeeQualificationResponse
+            {
+                CtrlNbr = 0,
+                EmployeeCtrlNbr = request.EmployeeCtrlNbr,
+                QualificationTypeCtrlNbr = cs.QualificationType.CtrlNbr.Value,
+                AchievedAtUtc = cs.AchievedAtUtc.HasValue
+                    ? Timestamp.FromDateTime(DateTime.SpecifyKind(cs.AchievedAtUtc.Value, DateTimeKind.Utc))
+                    : null,
+                ExpiresAtUtc = cs.ExpiresAtUtc.HasValue
+                    ? Timestamp.FromDateTime(DateTime.SpecifyKind(cs.ExpiresAtUtc.Value, DateTimeKind.Utc))
+                    : null,
+                Status = cs.Status,
+                IsComputed = true,
+                IsSuspended = cs.IsSuspended,
+                SuspensionCtrlNbr = cs.SuspensionCtrlNbr?.Value ?? 0,
+                SuspensionReason = cs.SuspensionReason ?? string.Empty,
+                AutoReinstateAtUtc = cs.AutoReinstateAtUtc.HasValue
+                    ? Timestamp.FromDateTime(DateTime.SpecifyKind(cs.AutoReinstateAtUtc.Value, DateTimeKind.Utc))
+                    : null,
+                RelatedCertificationCtrlNbr = cs.RelatedCertificationCtrlNbr ?? 0,
+            };
+            item.RequirementDetails.AddRange(cs.RequirementResults.Select(r =>
+                $"{r.Kind}: {(r.IsSatisfied ? "\u2713" : "\u2717")} {r.Description}"));
+            response.Qualifications.Add(item);
+        }
+
+        // Manual qualifications — stored, grantable/revocable
+        response.Qualifications.AddRange(manualQualifications.Select(MapEmployeeQualification));
+
         return response;
     }
 
@@ -237,6 +270,51 @@ public sealed class QualificationsService(IServiceProvider serviceProvider) : Qu
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
+    public override async Task<SuspendComputedQualificationResponse> SuspendComputedQualification(
+        SuspendComputedQualificationRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            DateTime? autoReinstateAtUtc = request.AutoReinstateAtUtc is not null
+                ? request.AutoReinstateAtUtc.ToDateTime()
+                : null;
+            DateTime? suspendedAtUtc = request.SuspendedAtUtc is not null
+                ? request.SuspendedAtUtc.ToDateTime()
+                : null;
+            var suspension = await svc.SuspendComputedQualificationAsync(
+                ControlNumber.Create(request.EmployeeCtrlNbr),
+                ControlNumber.Create(request.QualificationTypeCtrlNbr),
+                string.IsNullOrWhiteSpace(request.SuspendedBy) ? SystemActors.System : request.SuspendedBy,
+                request.Reason,
+                autoReinstateAtUtc,
+                suspendedAtUtc,
+                context.CancellationToken);
+            return MapSuspension(suspension);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message)); }
+    }
+
+    public override async Task<SuspendComputedQualificationResponse> LiftQualificationSuspension(
+        LiftQualificationSuspensionRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
+        try
+        {
+            var suspension = await svc.LiftQualificationSuspensionAsync(
+                ControlNumber.Create(request.SuspensionCtrlNbr),
+                string.IsNullOrWhiteSpace(request.ReinstatedBy) ? SystemActors.System : request.ReinstatedBy,
+                string.IsNullOrWhiteSpace(request.Note) ? null : request.Note,
+                context.CancellationToken);
+            return MapSuspension(suspension);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message)); }
+    }
+
     public override async Task<CheckEligibilityResponse> CheckEligibility(
         CheckEligibilityRequest request,
         ServerCallContext context)
@@ -268,39 +346,23 @@ public sealed class QualificationsService(IServiceProvider serviceProvider) : Qu
         var svc = serviceProvider.GetRequiredService<Application.Qualifications.QualificationsService>();
         var employeeNameSvc = serviceProvider.GetRequiredService<EmployeeNameService>();
 
-        var (employees, _, requiredQuals, qualsByEmployee) = await svc.GetEligibleEmployeesDataAsync(
+        var eligibilityService = serviceProvider.GetRequiredService<EmployeeEligibilityService>();
+        var (employees, _, _, eligibleCtrlNbrs) = await svc.GetEligibleEmployeesDataAsync(
             ControlNumber.Create(request.CraftRoleCtrlNbr),
             ControlNumber.Create(request.ClientCtrlNbr),
+            eligibilityService,
             context.CancellationToken);
 
         var nameMap = await employeeNameSvc.GetFullNameLnfBatchAsync(employees.Select(e => e.UserId));
-        var requiredTypeCtrlNbrs = requiredQuals.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
 
-        IEnumerable<EligibleEmployeeItem> eligible;
-        if (requiredQuals.Count == 0)
-        {
-            eligible = employees.Select(e => new EligibleEmployeeItem
+        var eligible = employees
+            .Where(e => eligibleCtrlNbrs.Contains(e.CtrlNbr))
+            .Select(e => new EligibleEmployeeItem
             {
                 CtrlNbr = e.CtrlNbr.Value,
                 EmployeeNumber = e.EmployeeNumber,
                 FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? "", string.Empty)
             });
-        }
-        else
-        {
-            eligible = employees
-                .Where(e =>
-                {
-                    var held = qualsByEmployee.GetValueOrDefault(e.CtrlNbr, []);
-                    return requiredTypeCtrlNbrs.IsSubsetOf(held);
-                })
-                .Select(e => new EligibleEmployeeItem
-                {
-                    CtrlNbr = e.CtrlNbr.Value,
-                    EmployeeNumber = e.EmployeeNumber,
-                    FullNameLnf = nameMap.GetValueOrDefault(e.UserId ?? "", string.Empty)
-                });
-        }
 
         var sorted = eligible.OrderBy(e => e.FullNameLnf, StringComparer.OrdinalIgnoreCase).ToList();
         var response = new GetEligibleEmployeesForCraftRoleResponse();
@@ -386,6 +448,26 @@ public sealed class QualificationsService(IServiceProvider serviceProvider) : Qu
         if (requirement.RequiredRegulatoryQualCtrlNbr is not null)
             response.RequiredRegulatoryQualCtrlNbr = requirement.RequiredRegulatoryQualCtrlNbr.Value;
 
+        return response;
+    }
+
+    private static SuspendComputedQualificationResponse MapSuspension(EmployeeQualificationSuspension s)
+    {
+        var response = new SuspendComputedQualificationResponse
+        {
+            CtrlNbr = s.CtrlNbr.Value,
+            EmployeeCtrlNbr = s.EmployeeCtrlNbr.Value,
+            QualificationTypeCtrlNbr = s.QualificationTypeCtrlNbr.Value,
+            SuspendedBy = s.SuspendedBy,
+            Reason = s.Reason,
+            SuspendedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(s.SuspendedAtUtc, DateTimeKind.Utc)),
+            ReinstatedBy = s.ReinstatedBy ?? string.Empty,
+            ReinstatementNote = s.ReinstatementNote ?? string.Empty,
+        };
+        if (s.AutoReinstateAtUtc.HasValue)
+            response.AutoReinstateAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(s.AutoReinstateAtUtc.Value, DateTimeKind.Utc));
+        if (s.ReinstatedAtUtc.HasValue)
+            response.ReinstatedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(s.ReinstatedAtUtc.Value, DateTimeKind.Utc));
         return response;
     }
 }

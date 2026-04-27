@@ -1,5 +1,7 @@
 @* Consistent back-navigation button used on detail pages *@
-<button class="btn btn-outline-primary btn-sm mb-2" @onclick="OnClick">
+@inject NavigationHistoryService NavigationHistory
+
+<button class="btn btn-outline-primary btn-sm mb-2" @onclick="HandleClick">
     <span class="bi bi-chevron-left me-1"></span> @Text
 </button>
 
@@ -7,6 +9,23 @@
     [Parameter, EditorRequired]
     public string Text { get; set; } = string.Empty;
 
-    [Parameter, EditorRequired]
+    /// <summary>
+    /// Optional override. When not provided, navigates to the previous page via NavigationHistoryService.
+    /// </summary>
+    [Parameter]
     public EventCallback OnClick { get; set; }
+
+    /// <summary>
+    /// Fallback URL used when there is no navigation history and no OnClick override.
+    /// </summary>
+    [Parameter]
+    public string FallbackUrl { get; set; } = "/";
+
+    private void HandleClick()
+    {
+        if (OnClick.HasDelegate)
+            OnClick.InvokeAsync();
+        else
+            NavigationHistory.GoBack(FallbackUrl);
+    }
 }

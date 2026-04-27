@@ -1,4 +1,4 @@
-using CrewService.Application.Qualifications;
+﻿using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
@@ -27,7 +27,7 @@ namespace CrewService.UnitTests.Qualifications;
 public sealed class RequirementEvaluationServiceTests
 {
     [Fact]
-    public async Task EvaluateAsync_WhenAllPrerequisitesSatisfied_CreatesPendingQualificationWithEvidence()
+    public async Task EvaluateAsync_WhenAllPrerequisitesSatisfied_ReturnsAllSatisfiedWithAchievedAt()
     {
         var employeeCtrlNbr = ControlNumber.Create(10);
         var parentCtrlNbr = ControlNumber.Create(20);
@@ -40,13 +40,13 @@ public sealed class RequirementEvaluationServiceTests
             expirationMonths: 12,
             isBlocking: true);
 
-        var Requirement = qualificationType.AddRequirement(
+        var requirement = qualificationType.AddRequirement(
             requirementKind: RequirementKinds.ActivityCount,
             threshold: 90,
             thresholdUnit: ThresholdUnits.Count,
             description: "90 trips required");
 
-        var prerequisiteRepository = new FakeQualificationRequirementRepository([Requirement]);
+        var prerequisiteRepository = new FakeQualificationRequirementRepository([requirement]);
         var qualificationRepository = new FakeEmployeeQualificationRepository();
 
         var sut = new RequirementEvaluationService(
@@ -59,13 +59,15 @@ public sealed class RequirementEvaluationServiceTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.AllSatisfied);
-        Assert.True(result.QualificationCreated);
+        Assert.NotNull(result.AchievedAtUtc);
+        Assert.NotNull(result.ExpiresAtUtc); // 12-month expiry configured
 
-        var created = Assert.Single(qualificationRepository.AddedQualifications);
-        Assert.Equal(employeeCtrlNbr, created.EmployeeCtrlNbr);
-        Assert.Equal(qualificationType.CtrlNbr, created.QualificationTypeCtrlNbr);
-        Assert.Equal("Active", created.Status);
-        Assert.Single(created.Evidence);
+        var check = Assert.Single(result.Results);
+        Assert.True(check.IsSatisfied);
+        Assert.Equal(RequirementKinds.ActivityCount, check.Kind);
+
+        // Pure compute -- no DB rows written
+        Assert.Empty(qualificationRepository.AddedQualifications);
     }
 
     private sealed class AlwaysSatisfiedEvaluator(string kind, string description) : IRequirementEvaluator
@@ -84,8 +86,9 @@ public sealed class RequirementEvaluationServiceTests
         public string OrchestrationId => string.Empty;
         public IQualificationRequirementRepository QualificationRequirements => qualificationRequirements;
         public IEmployeeQualificationRepository EmployeeQualifications => employeeQualifications;
+        public IEmployeeQualificationSuspensionRepository QualificationSuspensions => new FakeEmptySuspensionRepo();
         public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
-                public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         public void Dispose() { }
@@ -186,6 +189,18 @@ public sealed class RequirementEvaluationServiceTests
             OrchestrationUnitOfWorkOptions? options = null, CancellationToken ct = default)
             => Task.FromResult<IOrchestrationUnitOfWork>(
                 new FakeRequirementEvalUoW(qualificationRequirements, employeeQualifications));
+    }
+
+    private sealed class FakeEmptySuspensionRepo
+        : FakeRepositoryBase<EmployeeQualificationSuspension>, IEmployeeQualificationSuspensionRepository
+    {
+        public Task<EmployeeQualificationSuspension?> GetActiveByEmployeeAndTypeAsync(
+            ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<EmployeeQualificationSuspension?>(null);
+
+        public Task<List<EmployeeQualificationSuspension>> GetByEmployeeCtrlNbrAsync(
+            ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<EmployeeQualificationSuspension>());
     }
 
     private abstract class FakeRepositoryBase<TEntity> : IRepository<TEntity> where TEntity : Entity

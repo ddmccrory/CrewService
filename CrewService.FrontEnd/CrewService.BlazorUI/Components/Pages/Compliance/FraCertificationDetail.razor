@@ -20,7 +20,7 @@
 }
 else
 {
-    <BackNavButton Text="FRA Certification" OnClick="@(() => NavigationManager.NavigateTo("/compliance/fra"))" />
+    <BackNavButton Text="@BackButtonText" FallbackUrl="@(ReturnUrl ?? "/compliance/fra")" />
 
     <h1>@ResolveRegulatoryCode(certification.RegulatoryQualificationCtrlNbr).ToUpperInvariant() - @certification.CertificationType</h1>
     @if (!string.IsNullOrWhiteSpace(certification.EmployeeNumber) || !string.IsNullOrWhiteSpace(certification.EmployeeNameLnf))
@@ -188,7 +188,7 @@ else
                 <div class="d-flex flex-wrap gap-2">
                     @foreach (var checkType in availableEligibilityCheckTypes)
                     {
-                        <span class="badge @badgeClass">@checkType.ToUpperInvariant()</span>
+                        <span class="badge @badgeClass">@ResolveCheckTypeName(checkType)</span>
                     }
                 </div>
             </div>
@@ -202,7 +202,7 @@ else
                    EmptyMessage="No requirement results found."
                    RowClass="@(c => GetRequirementRowClass(c))">
             <RowContent Context="ec">
-                <td>@ec.CheckType.ToUpperInvariant()</td>
+                <td>@ResolveCheckTypeName(ec.CheckType)</td>
                 <td><span class="badge @GetResultBadgeClass(ec.Result)">@ec.Result</span></td>
                 <td>@ec.EvaluationDate</td>
                 <td>
@@ -278,6 +278,10 @@ else
     [Parameter] public long EmployeeCtrlNbr { get; set; }
     [Parameter] public long CertificationCtrlNbr { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "returnLabel")] public string? ReturnLabel { get; set; }
+
+    private string BackButtonText => ReturnLabel ?? "FRA Certification";
 
     protected override string? FeatureKey => "compliance/fra";
 
@@ -286,8 +290,24 @@ else
     private IReadOnlyList<CertificationEligibilityCheckResponse> eligibilityChecks = [];
     private IReadOnlyList<CertificationRevocationResponse> revocationHistory = [];
 
-    private readonly IReadOnlyList<string> eligibilityCheckTypes = ["SafetyConduct", "MotorVehicle", "SubstanceAbuse", "Vision", "Hearing", "Knowledge", "Performance"];
+    private readonly IReadOnlyList<string> eligibilityCheckTypes = ["SafetyConduct", "MotorVehicle", "SubstanceAbuse", "Vision", "Hearing", "Knowledge", "Performance", "OperationalMonitoring", "ComplianceTest"];
     private readonly IReadOnlyList<string> eligibilityResults = ["Pass", "Fail", "Conditional"];
+
+    private static readonly Dictionary<string, string> checkTypeNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["SafetyConduct"]        = "Safety Conduct",
+        ["MotorVehicle"]         = "Motor Vehicle",
+        ["SubstanceAbuse"]       = "Substance Abuse",
+        ["Vision"]               = "Vision",
+        ["Hearing"]              = "Hearing",
+        ["Knowledge"]            = "Knowledge",
+        ["Performance"]          = "Performance",
+        ["OperationalMonitoring"] = "Operational Monitoring",
+        ["ComplianceTest"]       = "Compliance Test",
+    };
+
+    private static string ResolveCheckTypeName(string checkType) =>
+        checkTypeNames.GetValueOrDefault(checkType, checkType);
     private IReadOnlyList<string> availableEligibilityCheckTypes = [];
 
     private bool showAddRequirementModal;
@@ -307,7 +327,7 @@ else
 
     private static readonly IReadOnlyList<DataTableColumn<CertificationEligibilityCheckResponse>> eligibilityColumns =
     [
-        new("Code", c => c.CheckType.ToUpperInvariant()),
+        new("Code", c => ResolveCheckTypeName(c.CheckType)),
         new("Result", c => c.Result),
         new("Evaluation Date", c => c.EvaluationDate),
         new("Expires", c => c.ExpiresAtDate),

@@ -22,7 +22,7 @@
 }
 else
 {
-    <BackNavButton Text="Craft Roles" OnClick="@(() => Nav.NavigateTo("/work-management/craft-roles"))" />
+    <BackNavButton Text="Craft Roles" FallbackUrl="/work-management/craft-roles" />
 
     <h1>@role.Name</h1>
     @if (!string.IsNullOrEmpty(role.Code))

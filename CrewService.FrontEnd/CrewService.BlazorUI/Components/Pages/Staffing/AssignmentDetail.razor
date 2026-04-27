@@ -12,7 +12,7 @@
 
 <PageTitle>Assignment Detail</PageTitle>
 
-<BackNavButton Text="Assignments" OnClick="@(() => Nav.NavigateTo("daily/assignments"))" />
+<BackNavButton Text="Assignments" FallbackUrl="/daily/assignments" />
 
 @if (assignment is null)
 {

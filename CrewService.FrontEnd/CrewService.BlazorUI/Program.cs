@@ -58,6 +58,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<AppThemeService>();
 builder.Services.AddSingleton<PermissionCatalogCache>();
+builder.Services.AddScoped<NavigationHistoryService>();
 builder.Services.AddScoped<AppContextService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<UserPermissionService>();

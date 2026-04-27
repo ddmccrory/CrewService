@@ -241,4 +241,59 @@ public sealed class QualificationsClient(
             throw;
         }
     }
+
+    public async Task<SuspendComputedQualificationResponse> SuspendComputedQualificationAsync(
+        long employeeCtrlNbr,
+        long qualificationTypeCtrlNbr,
+        string suspendedBy,
+        string reason,
+        DateTime? suspendedAtUtc = null,
+        DateTime? autoReinstateAtUtc = null)
+    {
+        try
+        {
+            var request = new SuspendComputedQualificationRequest
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                QualificationTypeCtrlNbr = qualificationTypeCtrlNbr,
+                SuspendedBy = suspendedBy,
+                Reason = reason
+            };
+            if (suspendedAtUtc.HasValue)
+                request.SuspendedAtUtc = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                    DateTime.SpecifyKind(suspendedAtUtc.Value, DateTimeKind.Utc));
+            if (autoReinstateAtUtc.HasValue)
+                request.AutoReinstateAtUtc = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                    DateTime.SpecifyKind(autoReinstateAtUtc.Value, DateTimeKind.Utc));
+            return await _client.SuspendComputedQualificationAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<SuspendComputedQualificationResponse> LiftQualificationSuspensionAsync(
+        long suspensionCtrlNbr,
+        string reinstatedBy,
+        string? note = null)
+    {
+        try
+        {
+            var request = new LiftQualificationSuspensionRequest
+            {
+                SuspensionCtrlNbr = suspensionCtrlNbr,
+                ReinstatedBy = reinstatedBy
+            };
+            if (note is not null)
+                request.Note = note;
+            return await _client.LiftQualificationSuspensionAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }
