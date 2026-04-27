@@ -1,4 +1,4 @@
-using CrewService.Application.DailyOperations;
+﻿using CrewService.Application.DailyOperations;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
@@ -199,6 +199,7 @@ public class CallSheetGenerationServiceTests
         public IQualificationTypeRepository QualificationTypes => null!;
         public IQualificationRequirementRepository QualificationRequirements => null!;
         public IEmployeeQualificationRepository EmployeeQualifications => null!;
+    public IEmployeeQualificationSuspensionRepository QualificationSuspensions => null!;
         public IAbsenceRequestRepository AbsenceRequests => null!;
         public IVacancyImpactRepository VacancyImpacts => null!;
         public ISafetyObservationRepository SafetyObservations => null!;

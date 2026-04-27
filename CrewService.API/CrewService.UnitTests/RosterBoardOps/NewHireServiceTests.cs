@@ -1,4 +1,4 @@
-using CrewService.Application.Qualifications;
+﻿using CrewService.Application.Qualifications;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
@@ -119,8 +119,7 @@ public class NewHireServiceTests
     private static NewHireService BuildService(FakeOrchestrationUnitOfWork uow)
     {
         var uowFactory = new FakeUowFactory(uow);
-        var requirementEvalSvc = new RequirementEvaluationService(uowFactory, []);
-        var qualReactiveSvc = new QualificationReactiveService(uowFactory, requirementEvalSvc);
+        var qualReactiveSvc = new QualificationReactiveService();
         return new NewHireService(uowFactory, qualReactiveSvc);
     }
 
@@ -238,6 +237,7 @@ public class NewHireServiceTests
         public IQualificationTypeRepository QualificationTypes => null!;
         public IQualificationRequirementRepository QualificationRequirements => null!;
         public IEmployeeQualificationRepository EmployeeQualifications => null!;
+    public IEmployeeQualificationSuspensionRepository QualificationSuspensions => null!;
         public ICertificationRevocationRepository CertificationRevocations => null!;
         public IDrugAlcoholActionRepository DrugAlcoholActions => null!;
         public IDrugAlcoholTestRepository DrugAlcoholTests => null!;

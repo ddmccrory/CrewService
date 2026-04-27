@@ -108,6 +108,7 @@ public interface IRosterRepository : IRepository<Roster>
 {
     Task<List<Roster>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr);
     Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs);
+    Task<List<Roster>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default);
     Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default);
 }
 
@@ -146,4 +147,12 @@ public interface IEmployeeQualificationRepository : IRepository<EmployeeQualific
     Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrAsync(ControlNumber employeeCtrlNbr);
     Task<List<EmployeeQualification>> GetActiveByEmployeeCtrlNbrsAsync(IEnumerable<ControlNumber> employeeCtrlNbrs);
     Task<List<EmployeeQualification>> GetExpiringBeforeAsync(DateTime cutoffUtc);
+}
+
+public interface IEmployeeQualificationSuspensionRepository : IRepository<EmployeeQualificationSuspension>
+{
+    Task<EmployeeQualificationSuspension?> GetActiveByEmployeeAndTypeAsync(
+        ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr, CancellationToken ct = default);
+    Task<List<EmployeeQualificationSuspension>> GetByEmployeeCtrlNbrAsync(
+        ControlNumber employeeCtrlNbr, CancellationToken ct = default);
 }

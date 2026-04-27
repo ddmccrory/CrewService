@@ -1,3 +1,4 @@
+using CrewService.Infrastructure.Outbox;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.ElectronicCalling;
@@ -93,6 +94,8 @@ public static class DependencyInjection
         services.AddDbContext<UserAccessDbContext>(options => options.UseSqlite(connectionString));
 
         services.AddDbContext<CrewServiceDbContext>(options => options.UseSqlite(connectionString));
+
+        services.AddScoped<IOutboxDbContext>(sp => sp.GetRequiredService<CrewServiceDbContext>());
 
         services.AddIdentityCore<User>(options =>
         {

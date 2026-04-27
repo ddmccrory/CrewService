@@ -125,3 +125,31 @@ internal sealed class EmployeeQualificationRepository(CrewServiceDbContext dbCon
             .ToListAsync();
     }
 }
+
+internal sealed class EmployeeQualificationSuspensionRepository(
+    CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<EmployeeQualificationSuspension>(dbContext, currentUserService),
+      IEmployeeQualificationSuspensionRepository
+{
+    public async Task<EmployeeQualificationSuspension?> GetActiveByEmployeeAndTypeAsync(
+        ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await DbContext.Set<EmployeeQualificationSuspension>()
+            .Where(s => s.EmployeeCtrlNbr == employeeCtrlNbr
+                     && s.QualificationTypeCtrlNbr == qualificationTypeCtrlNbr
+                     && s.ReinstatedAtUtc == null
+                     && s.SuspendedAtUtc <= now
+                     && (s.AutoReinstateAtUtc == null || s.AutoReinstateAtUtc > now))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<List<EmployeeQualificationSuspension>> GetByEmployeeCtrlNbrAsync(
+        ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<EmployeeQualificationSuspension>()
+            .Where(s => s.EmployeeCtrlNbr == employeeCtrlNbr)
+            .OrderByDescending(s => s.SuspendedAtUtc)
+            .ToListAsync(ct);
+    }
+}

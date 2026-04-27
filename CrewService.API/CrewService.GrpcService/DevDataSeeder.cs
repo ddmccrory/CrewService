@@ -1,4 +1,4 @@
-using CrewService.Domain.Models.ContactTypes;
+﻿using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;

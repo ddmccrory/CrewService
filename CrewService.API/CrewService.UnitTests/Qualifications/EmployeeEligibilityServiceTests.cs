@@ -134,8 +134,9 @@ public sealed class EmployeeEligibilityServiceTests
         public IRosterRepository Rosters => rosters;
         public IQualificationTypeRepository QualificationTypes => qualificationTypes;
         public IEmployeeQualificationRepository EmployeeQualifications => employeeQualifications;
+        public IEmployeeQualificationSuspensionRepository QualificationSuspensions => new FakeEmptySuspensionRepo();
         public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
-                public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         public void Dispose() { }
@@ -239,6 +240,18 @@ public sealed class EmployeeEligibilityServiceTests
                     craftRoleQualifications, seniority, rosters, qualificationTypes, employeeQualifications));
     }
 
+    private sealed class FakeEmptySuspensionRepo
+        : FakeRepositoryBase<EmployeeQualificationSuspension>, IEmployeeQualificationSuspensionRepository
+    {
+        public Task<EmployeeQualificationSuspension?> GetActiveByEmployeeAndTypeAsync(
+            ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<EmployeeQualificationSuspension?>(null);
+
+        public Task<List<EmployeeQualificationSuspension>> GetByEmployeeCtrlNbrAsync(
+            ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<EmployeeQualificationSuspension>());
+    }
+
     private abstract class FakeRepositoryBase<TEntity> : IRepository<TEntity> where TEntity : Entity
     {
         public virtual Task<List<TEntity>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<TEntity>());
@@ -328,6 +341,12 @@ public sealed class EmployeeEligibilityServiceTests
         {
             var set = craftCtrlNbrs.ToHashSet();
             return Task.FromResult(rosters.Where(r => set.Contains(r.CraftCtrlNbr)).ToList());
+        }
+
+        public Task<List<Roster>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default)
+        {
+            var set = ctrlNbrs.ToHashSet();
+            return Task.FromResult(rosters.Where(r => set.Contains(r.CtrlNbr)).ToList());
         }
 
         public Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)

@@ -190,6 +190,7 @@ IDomainEventReactor? domainEventReactor = null) : DbContext(options), IOutboxDbC
     public DbSet<Domain.Modules.Employees.QualificationRequirement> QualificationRequirements => Set<Domain.Modules.Employees.QualificationRequirement>();
     public DbSet<Domain.Modules.Employees.EmployeeQualification> EmployeeQualifications => Set<Domain.Modules.Employees.EmployeeQualification>();
     public DbSet<Domain.Modules.Employees.QualificationEvidence> QualificationEvidence => Set<Domain.Modules.Employees.QualificationEvidence>();
+    public DbSet<Domain.Modules.Employees.EmployeeQualificationSuspension> QualificationSuspensions => Set<Domain.Modules.Employees.EmployeeQualificationSuspension>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

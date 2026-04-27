@@ -1,4 +1,4 @@
-using CrewService.Application.HolidayManagement;
+﻿using CrewService.Application.HolidayManagement;
 using CrewService.Application.Payroll;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
@@ -154,6 +154,7 @@ public class HolidayQualificationServiceTests
         public IQualificationTypeRepository QualificationTypes => null!;
         public IQualificationRequirementRepository QualificationRequirements => null!;
         public IEmployeeQualificationRepository EmployeeQualifications => null!;
+    public IEmployeeQualificationSuspensionRepository QualificationSuspensions => null!;
         public IAbsenceRequestRepository AbsenceRequests => null!;
         public IVacancyImpactRepository VacancyImpacts => null!;
         public ISafetyObservationRepository SafetyObservations => null!;
@@ -518,6 +519,7 @@ public class HolidayAutoGenerationServiceTests
         public IQualificationTypeRepository QualificationTypes => null!;
         public IQualificationRequirementRepository QualificationRequirements => null!;
         public IEmployeeQualificationRepository EmployeeQualifications => null!;
+    public IEmployeeQualificationSuspensionRepository QualificationSuspensions => null!;
         public IAbsenceRequestRepository AbsenceRequests => null!;
         public IVacancyImpactRepository VacancyImpacts => null!;
         public ISafetyObservationRepository SafetyObservations => null!;

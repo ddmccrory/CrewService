@@ -171,6 +171,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IQualificationTypeRepository? _qualificationTypes;
     private IQualificationRequirementRepository? _qualificationRequirements;
     private IEmployeeQualificationRepository? _employeeQualifications;
+    private IEmployeeQualificationSuspensionRepository? _qualificationSuspensions;
 
     // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: Absence & Vacancy
@@ -335,6 +336,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IQualificationTypeRepository QualificationTypes => _qualificationTypes ??= new QualificationTypeRepository(_crewContext, _currentUserService);
     public IQualificationRequirementRepository QualificationRequirements => _qualificationRequirements ??= new QualificationRequirementRepository(_crewContext, _currentUserService);
     public IEmployeeQualificationRepository EmployeeQualifications => _employeeQualifications ??= new EmployeeQualificationRepository(_crewContext, _currentUserService);
+    public IEmployeeQualificationSuspensionRepository QualificationSuspensions => _qualificationSuspensions ??= new EmployeeQualificationSuspensionRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Absence & Vacancy

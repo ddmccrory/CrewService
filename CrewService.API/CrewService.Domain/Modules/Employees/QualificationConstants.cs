@@ -8,6 +8,7 @@ public static class RequirementKinds
     public const string TimeInRole = "TimeInRole";
     public const string QualificationHeld = "QualificationHeld";
     public const string FraCertificationHeld = "FraCertificationHeld";
+    public const string Suspended = "Suspended";
 }
 
 public static class ThresholdUnits
@@ -54,10 +55,12 @@ public static class EvidenceTypes
 public static class QualificationStatuses
 {
     public const string Active       = "Active";
+    public const string Renew        = "Renew";
     public const string ExpiringSoon = "ExpiringSoon";
     public const string Pending      = "Pending";
     public const string Revoked      = "Revoked";
     public const string Expired      = "Expired";
+    public const string Suspended    = "Suspended";
 }
 
 public static class SystemActors
