@@ -435,7 +435,9 @@ else
             $"status={Uri.EscapeDataString(cert.Status)}",
             $"eff={Uri.EscapeDataString(cert.EffectiveDate)}",
             $"exp={Uri.EscapeDataString(cert.ExpirationDate)}",
-            $"rqcn={cert.RegulatoryQualificationCtrlNbr}"
+            $"rqcn={cert.RegulatoryQualificationCtrlNbr}",
+            $"returnUrl={Uri.EscapeDataString("/compliance/fra")}",
+            $"returnLabel={Uri.EscapeDataString("FRA Certification")}"
         };
         if (tab is not null)
             qs.Add($"tab={tab}");

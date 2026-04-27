@@ -20,7 +20,7 @@
 }
 else
 {
-    <BackNavButton Text="Drug & Alcohol" OnClick="@(() => NavigationManager.NavigateTo("/compliance/drug-alcohol"))" />
+    <BackNavButton Text="Drug & Alcohol" FallbackUrl="/compliance/drug-alcohol" />
 
     <h1>Drug & Alcohol - @employeeName</h1>
 

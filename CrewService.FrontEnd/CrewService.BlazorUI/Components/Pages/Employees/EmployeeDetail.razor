@@ -1,4 +1,4 @@
-@page "/employees/{CtrlNbr:long}"
+﻿@page "/employees/{CtrlNbr:long}"
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
@@ -28,7 +28,7 @@
 }
 else
 {
-    <BackNavButton Text="Employees" OnClick="@(() => Nav.NavigateTo("employees"))" />
+    <BackNavButton Text="Employees" FallbackUrl="/employees" />
 
     <h1>@employee.FullNameLnf</h1>
     <p class="text-muted mb-1">
@@ -363,7 +363,7 @@ else
                                     <label class="form-label fw-semibold">Qualification Type</label>
                                     <SelectInput TItem="QualificationTypeResponse" TValue="long"
                                                  @bind-Value="grantModel.QualificationTypeCtrlNbr"
-                                         Items="@qualificationTypes.Where(q => q.IsActive && !string.Equals(q.EvaluationStrategy, "FraCertification", StringComparison.Ordinal)).ToList()"
+                                         Items="@qualificationTypes.Where(q => q.IsActive && string.Equals(q.EvaluationStrategy, "Manual", StringComparison.OrdinalIgnoreCase)).ToList()"
                                                  ValueSelector="@(q => q.CtrlNbr)"
                                                  TextSelector="@(q => $"{q.Code.ToUpperInvariant()} - {q.Name}")"
                                                  Placeholder="-- Select Qualification --"
@@ -401,6 +401,94 @@ else
                 <ConfirmModal Visible="showRevokeModal" ItemName="@revokeQualLabel" IsSaving="isSaving"
                               OnConfirm="ConfirmRevokeQual" OnCancel="() => showRevokeModal = false" />
 
+                <Modal Visible="showSuspendModal"
+                       Title="Suspend Qualification"
+                       Icon="bi bi-slash-circle"
+                       Size="lg"
+                       OnClose="CloseSuspendModal">
+                    <BodyContent>
+                        <EditForm Model="suspendModel" OnValidSubmit="ConfirmSuspendQual" id="suspend-qual-form">
+                            <DataAnnotationsValidator />
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Qualification</label>
+                                    <p class="form-control-plaintext fw-bold">@suspendQualLabel</p>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Reason <span class="text-danger">*</span></label>
+                                    <InputText @bind-Value="suspendModel.Reason" class="form-control" placeholder="Reason for suspension" />
+                                    <ValidationMessage For="() => suspendModel.Reason" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-semibold">Suspend Date</label>
+                                    <InputDate @bind-Value="suspendModel.SuspendedAtUtc" class="form-control" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-semibold">Auto-Reinstate Date <span class="text-muted fw-normal">(optional)</span></label>
+                                    <InputDate @bind-Value="suspendModel.AutoReinstateAtUtc" class="form-control" />
+                                </div>
+                            </div>
+                        </EditForm>
+                    </BodyContent>
+                    <Footer>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseSuspendModal">Cancel</button>
+                        <button type="submit" form="suspend-qual-form" class="btn btn-warning" disabled="@isSaving">
+                            <span class="bi bi-slash-circle me-1"></span> Suspend
+                        </button>
+                    </Footer>
+                </Modal>
+
+                <Modal Visible="showLiftModal"
+                       Title="Lift Suspension"
+                       Icon="bi bi-check-circle"
+                       OnClose="CloseLiftModal">
+                    <BodyContent>
+                        <EditForm Model="liftModel" OnValidSubmit="ConfirmLiftSuspension" id="lift-suspension-form">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Qualification</label>
+                                    <p class="form-control-plaintext fw-bold">@suspendQualLabel</p>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Note (optional)</label>
+                                    <InputText @bind-Value="liftModel.Note" class="form-control" placeholder="Reason for lifting suspension" />
+                                </div>
+                            </div>
+                        </EditForm>
+                    </BodyContent>
+                    <Footer>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseLiftModal">Cancel</button>
+                        <button type="submit" form="lift-suspension-form" class="btn btn-success" disabled="@isSaving">
+                            <span class="bi bi-check-circle me-1"></span> Lift Suspension
+                        </button>
+                    </Footer>
+                </Modal>
+
+                <Modal Visible="showRequirementsModal"
+                       Title="Requirement Details"
+                       Icon="bi bi-list-check"
+                       OnClose="CloseRequirementsModal">
+                    <BodyContent>
+                        <p class="fw-bold mb-2">@requirementsQualLabel</p>
+                        @if (requirementDetails.Count == 0)
+                        {
+                            <p class="text-muted">No requirement details available.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var detail in requirementDetails)
+                                {
+                                    <li class="mb-1">@detail</li>
+                                }
+                            </ul>
+                        }
+                    </BodyContent>
+                    <Footer>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseRequirementsModal">Close</button>
+                    </Footer>
+                </Modal>
+
                 @* Railroad Qualifications — CRUD *@
                 <h5 class="mt-3">Railroad Qualifications</h5>
 
@@ -420,26 +508,57 @@ else
                 <DataTable TItem="EmployeeQualificationResponse"
                            Items="GetRailroadQualifications()"
                            Columns="qualColumns"
-                           SearchFilter="@((q, term) => ResolveQualCode(q.QualificationTypeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || q.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
-                           SearchPlaceholder="Search by code or status..."
+                           SearchFilter="@((q, term) => ResolveQualCode(q.QualificationTypeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveQualName(q.QualificationTypeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase) || q.Status.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                           SearchPlaceholder="Search by code, name or status..."
                            EmptyMessage="No qualifications found."
                            DefaultSortColumn="Code">
                     <RowContent Context="eq">
-                        <td>@ResolveQualCode(eq.QualificationTypeCtrlNbr)</td>
+                        <td>@ResolveQualName(eq.QualificationTypeCtrlNbr)</td>
                         <td>
-                            <span class="badge @(eq.Status == "Active" ? "bg-success" : eq.Status == "ExpiringSoon" ? "bg-warning text-dark" : eq.Status == "Revoked" ? "bg-danger" : "bg-secondary")">
-                                @eq.Status
-                            </span>
+                            @if (eq.IsSuspended)
+                            {
+                                <span class="badge text-bg-secondary">Suspended</span>
+                            }
+                            else
+                            {
+                                <span class="badge @GetQualStatusBadgeClass(eq.Status)">@eq.Status</span>
+                            }
                         </td>
                         <td>@FormatDate(eq.AchievedAtUtc?.ToDateTime().ToString("o"))</td>
                         <td>@(eq.ExpiresAtUtc is null ? "—" : FormatDate(eq.ExpiresAtUtc.ToDateTime().ToString("o")))</td>
                         <td>
-                            @if (!IsFeatureReadOnly && eq.Status is "Active" or "ExpiringSoon" or "Pending")
-                            {
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRevokeModal(eq)">
-                                    <span class="bi bi-x-circle"></span> Revoke
-                                </button>
-                            }
+                            <div class="d-flex gap-1 flex-nowrap">
+                                @if (eq.IsComputed && eq.RelatedCertificationCtrlNbr > 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenFraDetail(eq)">
+                                        <span class="bi bi-file-earmark-text"></span> Details
+                                    </button>
+                                }
+                                else if (eq.IsComputed && eq.RequirementDetails.Count > 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenRequirementsModal(eq)">
+                                        <span class="bi bi-list-check"></span> Requirements
+                                    </button>
+                                }
+                                @if (!IsFeatureReadOnly && !eq.IsComputed && eq.Status is "Active" or "ExpiringSoon" or "Pending")
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRevokeModal(eq)">
+                                        <span class="bi bi-x-circle"></span> Revoke
+                                    </button>
+                                }
+                                @if (!IsFeatureReadOnly && eq.IsComputed && !eq.IsSuspended)
+                                {
+                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenSuspendModal(eq)">
+                                        <span class="bi bi-slash-circle"></span> Suspend
+                                    </button>
+                                }
+                                @if (!IsFeatureReadOnly && eq.IsComputed && eq.IsSuspended)
+                                {
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => OpenLiftModal(eq)">
+                                        <span class="bi bi-check-circle"></span> Lift Suspension
+                                    </button>
+                                }
+                            </div>
                         </td>
                     </RowContent>
                 </DataTable>
@@ -687,6 +806,16 @@ else
     private bool showRevokeModal;
     private long revokeQualCtrlNbr;
     private string revokeQualLabel = "";
+    private bool showSuspendModal;
+    private bool showLiftModal;
+    private bool showRequirementsModal;
+    private long suspendQualTypeCtrlNbr;
+    private long liftSuspensionCtrlNbr;
+    private string suspendQualLabel = "";
+    private string requirementsQualLabel = "";
+    private List<string> requirementDetails = [];
+    private SuspendQualificationModel suspendModel = new();
+    private LiftSuspensionModel liftModel = new();
     private GrantQualificationModel grantModel = new();
 
     private static readonly IReadOnlyList<string> grantStatuses = ["Active", "Pending"];
@@ -697,7 +826,7 @@ else
         new("Status", q => q.Status),
         new("Achieved", q => q.AchievedAtUtc?.ToDateTime().ToString("yyyy-MM-dd") ?? ""),
         new("Expires", q => q.ExpiresAtUtc is null ? "" : q.ExpiresAtUtc.ToDateTime().ToString("yyyy-MM-dd")),
-        DataTableColumn<EmployeeQualificationResponse>.Actions()
+        DataTableColumn<EmployeeQualificationResponse>.Actions("220px")
     ];
 
     private string ResolveQualCode(long qualTypeCtrlNbr)
@@ -719,6 +848,57 @@ else
     }
 
     private void CloseGrantModal() { showGrantModal = false; grantModel = new(); }
+
+    private void OpenSuspendModal(EmployeeQualificationResponse eq)
+    {
+        suspendQualTypeCtrlNbr = eq.QualificationTypeCtrlNbr;
+        suspendQualLabel = ResolveQualCode(eq.QualificationTypeCtrlNbr);
+        suspendModel = new SuspendQualificationModel { SuspendedBy = CurrentUser.Username ?? "SYSTEM", SuspendedAtUtc = DateTime.Today };
+        showSuspendModal = true;
+    }
+
+    private void CloseSuspendModal() { showSuspendModal = false; suspendModel = new(); }
+
+    private void OpenLiftModal(EmployeeQualificationResponse eq)
+    {
+        liftSuspensionCtrlNbr = eq.SuspensionCtrlNbr;
+        suspendQualLabel = ResolveQualCode(eq.QualificationTypeCtrlNbr);
+        liftModel = new LiftSuspensionModel { ReinstatedBy = CurrentUser.Username ?? "SYSTEM" };
+        showLiftModal = true;
+    }
+
+    private void CloseLiftModal() { showLiftModal = false; liftModel = new(); }
+
+    private void OpenRequirementsModal(EmployeeQualificationResponse eq)
+    {
+        requirementsQualLabel = ResolveQualCode(eq.QualificationTypeCtrlNbr);
+        requirementDetails = [.. eq.RequirementDetails];
+        showRequirementsModal = true;
+    }
+
+    private void CloseRequirementsModal() { showRequirementsModal = false; requirementDetails = []; }
+
+    private void OpenFraDetail(EmployeeQualificationResponse eq)
+    {
+        var qualType = qualificationTypes.FirstOrDefault(q => q.CtrlNbr == eq.QualificationTypeCtrlNbr);
+        var qualCode = qualType?.Code.ToUpperInvariant() ?? eq.QualificationTypeCtrlNbr.ToString();
+        var url = $"/compliance/fra/{eq.EmployeeCtrlNbr}/{eq.RelatedCertificationCtrlNbr}";
+        var returnUrl = Uri.EscapeDataString($"/employees/{eq.EmployeeCtrlNbr}?tab=qualifications");
+        var qs = $"emp={Uri.EscapeDataString(employee?.FullNameLnf ?? "")}&qual={Uri.EscapeDataString(qualCode)}&returnUrl={returnUrl}&returnLabel={Uri.EscapeDataString(employee?.FullNameLnf ?? "Employee")}";
+        Nav.NavigateTo($"{url}?{qs}");
+    }
+
+    private static string GetQualStatusBadgeClass(string status) => status switch
+    {
+        "Active"      => "text-bg-success",
+        "ExpiringSoon"=> "text-bg-warning",
+        "Renew"       => "text-bg-warning",
+        "Expired"     => "text-bg-danger",
+        "Revoked"     => "text-bg-dark",
+        "Suspended"   => "text-bg-secondary",
+        "Pending"     => "text-bg-info",
+        _             => "text-bg-secondary"
+    };
 
     private void OpenRevokeModal(EmployeeQualificationResponse eq)
     {
@@ -773,6 +953,47 @@ else
         finally { isSaving = false; }
     }
 
+    private async Task ConfirmSuspendQual()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null;
+            await QualificationsClient.SuspendComputedQualificationAsync(
+                employee.CtrlNbr,
+                suspendQualTypeCtrlNbr,
+                suspendModel.SuspendedBy ?? CurrentUser.Username ?? "SYSTEM",
+                suspendModel.Reason ?? string.Empty,
+                suspendModel.SuspendedAtUtc.HasValue ? suspendModel.SuspendedAtUtc.Value.ToUniversalTime() : (DateTime?)null,
+                suspendModel.AutoReinstateAtUtc.HasValue ? suspendModel.AutoReinstateAtUtc.Value.ToUniversalTime() : (DateTime?)null);
+            CloseSuspendModal();
+            successMessage = "Qualification suspended.";
+            var r = await QualificationsClient.GetEmployeeQualificationsAsync(employee.CtrlNbr);
+            employeeQualifications = [.. r.Qualifications.OrderByDescending(q => q.AchievedAtUtc?.ToDateTime())];
+        }
+        catch (Exception ex) { errorMessage = $"Failed to suspend qualification: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmLiftSuspension()
+    {
+        if (employee is null) return;
+        try
+        {
+            isSaving = true; errorMessage = null;
+            await QualificationsClient.LiftQualificationSuspensionAsync(
+                liftSuspensionCtrlNbr,
+                liftModel.ReinstatedBy ?? CurrentUser.Username ?? "SYSTEM",
+                liftModel.Note);
+            CloseLiftModal();
+            successMessage = "Suspension lifted.";
+            var r = await QualificationsClient.GetEmployeeQualificationsAsync(employee.CtrlNbr);
+            employeeQualifications = [.. r.Qualifications.OrderByDescending(q => q.AchievedAtUtc?.ToDateTime())];
+        }
+        catch (Exception ex) { errorMessage = $"Failed to lift suspension: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
     private List<EmployeeQualificationResponse> GetRailroadQualifications()
     {
         var fraTypeCtrlNbrs = qualificationTypes
@@ -789,5 +1010,20 @@ else
         public string? GrantedBy { get; set; }
         public DateTime? ExpiresAtUtc { get; set; }
         public string? EvidenceValue { get; set; }
+    }
+
+    private sealed class SuspendQualificationModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Reason is required.")]
+        public string? Reason { get; set; }
+        public string? SuspendedBy { get; set; }
+        public DateTime? SuspendedAtUtc { get; set; }
+        public DateTime? AutoReinstateAtUtc { get; set; }
+    }
+
+    private sealed class LiftSuspensionModel
+    {
+        public string? Note { get; set; }
+        public string? ReinstatedBy { get; set; }
     }
 }

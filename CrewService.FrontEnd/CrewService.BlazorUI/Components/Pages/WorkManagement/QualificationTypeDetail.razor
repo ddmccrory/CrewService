@@ -21,7 +21,7 @@
 }
 else
 {
-    <BackNavButton Text="Qualification Types" OnClick="NavigateBack" />
+    <BackNavButton Text="Qualification Types" FallbackUrl="/work-management/qualification-types" />
 
     <h1>@qualificationType.Name</h1>
     <p class="text-muted mb-1">
@@ -355,7 +355,7 @@ else
         qualificationType = response.QualificationTypes.FirstOrDefault(q => q.CtrlNbr == CtrlNbr);
         if (qualificationType is null)
         {
-            NavigateBack();
+            Nav.NavigateTo("/work-management/qualification-types");
             return;
         }
         otherQualificationTypes =
@@ -377,8 +377,6 @@ else
         var response = await QualificationsClient.GetQualificationRequirementsAsync(CtrlNbr);
         requirements = [.. response.Requirements.OrderBy(p => p.RequirementKind, StringComparer.OrdinalIgnoreCase)];
     }
-
-    private void NavigateBack() => Nav.NavigateTo("/work-management/qualification-types");
 
     private void OpenCreatePrereqModal()
     {

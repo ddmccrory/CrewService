@@ -21,7 +21,7 @@
 }
 else
 {
-    <BackNavButton Text="Roster Boards" OnClick="@(() => Nav.NavigateTo("staffing/roster-boards"))" />
+    <BackNavButton Text="Roster Boards" FallbackUrl="/staffing/roster-boards" />
 
     <h1>@board.Name</h1>
     <p class="text-muted mb-1">
