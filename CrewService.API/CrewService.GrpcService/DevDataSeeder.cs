@@ -23,6 +23,7 @@ using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Domain.Interfaces;
 
+using CrewService.Application.Employees;
 using CrewService.Application.Parents;
 using CrewService.Application.Qualifications;
 using CrewService.Application.Assignments;
@@ -325,6 +326,7 @@ internal static class DevDataSeeder
 
         // ?? Employees with Addresses, Phone Numbers, Email Addresses ?????
         var employeeRepo = sp.GetRequiredService<IEmployeeRepository>();
+        var employeeAppService = sp.GetRequiredService<EmployeeAppService>();
         var userMgr = sp.GetRequiredService<UserManager<User>>();
         var invitationRepo = sp.GetRequiredService<IInvitationRepository>();
         var assignmentRepo = sp.GetRequiredService<IUserParentAssignmentRepository>();
@@ -394,61 +396,56 @@ internal static class DevDataSeeder
             var empNumber = $"EMP{i + 1:D4}";
             var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@csx.example.com";
 
-            // Auto-accept invitation flow: create invitation, accept it, create user + assignment
-            var invitation = Invitation.Create(
+            // Create passwordless user + employee + email address atomically via the app service.
+            // sendInvitation: false — seeded accounts get dev passwords via userMgr, invitations are not needed.
+            var employee = await employeeAppService.CreateAsync(
+                csxParent.CtrlNbr,
                 email,
-                csxParent.CtrlNbr.Value,
-                Roles.Employee,
-                "SYSTEM",
-                railroadCtrlNbr: csxRailroadCore.CtrlNbr);
-            invitation.Accept();
-            await invitationRepo.AddAsync(invitation);
-
-            var user = new User
-            {
-                UserName       = email,
-                Email          = email,
-                EmailConfirmed = true,
-                FirstName      = firstName,
-                LastName       = lastName,
-                FullName       = $"{firstName} {lastName}",
-                FullNameLNF    = $"{lastName}, {firstName}",
-                EmployeeNumber = empNumber
-            };
-            await userMgr.CreateAsync(user, "Seed@123");
-
-            var assignment = UserParentAssignment.Create(user.Id, csxParent.CtrlNbr.Value, invitation.Role, csxRailroadCore.CtrlNbr);
-            await assignmentRepo.AddAsync(assignment);
-
-            var employee = Employee.Create(
-                csxParent.CtrlNbr.Value,
-                userId: user.Id,
-                employeeNumber: empNumber,
-                ssn: $"{100 + i:D3}-{50 + i % 100:D2}-{1000 + i:D4}",
+                empNumber,
+                socialSecurityNumber: $"{100 + i:D3}-{50 + i % 100:D2}-{1000 + i:D4}",
                 gender: genders[i % genders.Length],
                 race: races[i % races.Length],
                 birthDate: new DateTime(1965, 1, 1).AddDays(i * 73),
                 employmentDate: new DateTime(2015, 1, 1).AddDays(i * 12),
-                activeStatus.CtrlNbr.Value);
+                activeStatus.CtrlNbr,
+                sendInvitation: false);
 
-            employee.AddAddress(
-                $"{100 + i} {streets[i % streets.Length]}",
-                cities[i % cities.Length],
-                states[i % states.Length],
-                zips[i % zips.Length],
-                homeAddressType.CtrlNbr.Value);
+            // Set a known dev password so seed accounts can log in without accepting the invitation.
+            var seededUser = await userMgr.FindByEmailAsync(email);
+            if (seededUser is not null)
+            {
+                seededUser.FirstName      = firstName;
+                seededUser.LastName       = lastName;
+                seededUser.FullName       = $"{firstName} {lastName}";
+                seededUser.FullNameLNF    = $"{lastName}, {firstName}";
+                seededUser.EmployeeNumber = empNumber;
+                await userMgr.UpdateAsync(seededUser);
+                await userMgr.AddPasswordAsync(seededUser, "Seed@123");
 
-            employee.AddPhoneNumber(
-                $"555-{100 + i:D3}-{1000 + i:D4}",
-                callingOrder: 1,
-                dialOne: true,
-                mobilePhoneType.CtrlNbr.Value);
+                // Create Employee parent assignment — mirrors what AcceptInvitationAsync does.
+                var csxEmpAssignment = UserParentAssignment.Create(seededUser.Id, csxParent.CtrlNbr, Roles.Employee);
+                await assignmentRepo.AddAsync(csxEmpAssignment);
+            }
 
-            employee.AddEmailAddress(
-                email,
-                workEmailType.CtrlNbr.Value);
+            // Add address and phone — seeder-specific enrichment beyond the app service.
+            var freshEmployee = await employeeRepo.GetByCtrlNbrAsync(employee.CtrlNbr);
+            if (freshEmployee is not null)
+            {
+                freshEmployee.AddAddress(
+                    $"{100 + i} {streets[i % streets.Length]}",
+                    cities[i % cities.Length],
+                    states[i % states.Length],
+                    zips[i % zips.Length],
+                    homeAddressType.CtrlNbr);
 
-            await employeeRepo.AddAsync(employee);
+                freshEmployee.AddPhoneNumber(
+                    $"555-{100 + i:D3}-{1000 + i:D4}",
+                    callingOrder: 1,
+                    dialOne: true,
+                    mobilePhoneType.CtrlNbr);
+
+                await employeeRepo.UpdateAsync(freshEmployee);
+            }
         }
 
         } // end employee guard
@@ -534,60 +531,56 @@ internal static class DevDataSeeder
             var empNumber = $"PTRA{i + 1:D4}";
             var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@ptra.example.com";
 
-            var invitation = Invitation.Create(
+            // Create passwordless user + employee + email address atomically via the app service.
+            // sendInvitation: false — seeded accounts get dev passwords via userMgr, invitations are not needed.
+            var employee = await employeeAppService.CreateAsync(
+                ptraParentCore.CtrlNbr,
                 email,
-                ptraParentCore.CtrlNbr.Value,
-                Roles.Employee,
-                "SYSTEM",
-                railroadCtrlNbr: ptraRailroadForEmp.CtrlNbr);
-            invitation.Accept();
-            await invitationRepo.AddAsync(invitation);
-
-            var user = new User
-            {
-                UserName       = email,
-                Email          = email,
-                EmailConfirmed = true,
-                FirstName      = firstName,
-                LastName       = lastName,
-                FullName       = $"{firstName} {lastName}",
-                FullNameLNF    = $"{lastName}, {firstName}",
-                EmployeeNumber = empNumber
-            };
-            await userMgr.CreateAsync(user, "Seed@123");
-
-            var assignment = UserParentAssignment.Create(user.Id, ptraParentCore.CtrlNbr.Value, invitation.Role, ptraRailroadForEmp.CtrlNbr);
-            await assignmentRepo.AddAsync(assignment);
-
-            var employee = Employee.Create(
-                ptraParentCore.CtrlNbr.Value,
-                userId: user.Id,
-                employeeNumber: empNumber,
-                ssn: $"{200 + i:D3}-{50 + i % 100:D2}-{2000 + i:D4}",
+                empNumber,
+                socialSecurityNumber: $"{200 + i:D3}-{50 + i % 100:D2}-{2000 + i:D4}",
                 gender: ptraGenders[i % ptraGenders.Length],
                 race: ptraRaces[i % ptraRaces.Length],
                 birthDate: new DateTime(1968, 1, 1).AddDays(i * 73),
                 employmentDate: new DateTime(2016, 1, 1).AddDays(i * 12),
-                ptraActiveStatus.CtrlNbr.Value);
+                ptraActiveStatus.CtrlNbr,
+                sendInvitation: false);
 
-            employee.AddAddress(
-                $"{200 + i} {ptraStreets[i % ptraStreets.Length]}",
-                ptraCities[i % ptraCities.Length],
-                "TX",
-                ptraZips[i % ptraZips.Length],
-                ptraHomeAddressType.CtrlNbr.Value);
+            // Set a known dev password so seed accounts can log in without accepting the invitation.
+            var seededUser = await userMgr.FindByEmailAsync(email);
+            if (seededUser is not null)
+            {
+                seededUser.FirstName      = firstName;
+                seededUser.LastName       = lastName;
+                seededUser.FullName       = $"{firstName} {lastName}";
+                seededUser.FullNameLNF    = $"{lastName}, {firstName}";
+                seededUser.EmployeeNumber = empNumber;
+                await userMgr.UpdateAsync(seededUser);
+                await userMgr.AddPasswordAsync(seededUser, "Seed@123");
 
-            employee.AddPhoneNumber(
-                $"713-{200 + i:D3}-{2000 + i:D4}",
-                callingOrder: 1,
-                dialOne: true,
-                ptraMobilePhoneType.CtrlNbr.Value);
+                // Create Employee parent assignment — mirrors what AcceptInvitationAsync does.
+                var ptraEmpAssignment = UserParentAssignment.Create(seededUser.Id, ptraParentCore.CtrlNbr, Roles.Employee);
+                await assignmentRepo.AddAsync(ptraEmpAssignment);
+            }
 
-            employee.AddEmailAddress(
-                email,
-                ptraWorkEmailType.CtrlNbr.Value);
+            // Add address and phone — seeder-specific enrichment beyond the app service.
+            var freshEmployee = await employeeRepo.GetByCtrlNbrAsync(employee.CtrlNbr);
+            if (freshEmployee is not null)
+            {
+                freshEmployee.AddAddress(
+                    $"{200 + i} {ptraStreets[i % ptraStreets.Length]}",
+                    ptraCities[i % ptraCities.Length],
+                    "TX",
+                    ptraZips[i % ptraZips.Length],
+                    ptraHomeAddressType.CtrlNbr);
 
-            await employeeRepo.AddAsync(employee);
+                freshEmployee.AddPhoneNumber(
+                    $"713-{200 + i:D3}-{2000 + i:D4}",
+                    callingOrder: 1,
+                    dialOne: true,
+                    ptraMobilePhoneType.CtrlNbr);
+
+                await employeeRepo.UpdateAsync(freshEmployee);
+            }
         }
 
         } // end PTRA employee guard
