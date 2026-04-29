@@ -53,6 +53,7 @@ using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,6 +72,17 @@ public static class DependencyInjection
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
 
+        // Open the shared connection once and set WAL before any migrations run
+        var connection = sp.GetRequiredService<SqliteConnection>();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;";
+            await cmd.ExecuteNonQueryAsync();
+        }
+
         var crewDb = sp.GetRequiredService<CrewServiceDbContext>();
         await crewDb.Database.MigrateAsync();
 
@@ -83,17 +95,18 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IFieldEncryptor, AesFieldEncryptor>();
 
-        string? connectionString = configuration.GetConnectionString("SQLiteConnection");
+        string? connectionString = configuration.GetConnectionString("SQLiteConnection")
+            ?? throw new InvalidOperationException("SQLiteConnection connection string not configured.");
 
-        //services.AddDbContext<UserAccessDbContext>(options => options
-        //        .UseSqlServer(connectionString, o => o.MigrationsHistoryTable(HistoryRepository.DefaultTableName, "identity")));
+        // One scoped connection shared by both DbContexts — EF Core transactions require
+        // both contexts to be on the same connection instance, not just the same file.
+        services.AddScoped<SqliteConnection>(_ => new SqliteConnection(connectionString));
 
-        //services.AddDbContext<CrewAssignmentDbContext>(options => options
-        //        .UseSqlServer(connectionString, o => o.MigrationsHistoryTable(HistoryRepository.DefaultTableName, "crew_assignment")));
+        services.AddDbContext<UserAccessDbContext>((sp, options) =>
+            options.UseSqlite(sp.GetRequiredService<SqliteConnection>()));
 
-        services.AddDbContext<UserAccessDbContext>(options => options.UseSqlite(connectionString));
-
-        services.AddDbContext<CrewServiceDbContext>(options => options.UseSqlite(connectionString));
+        services.AddDbContext<CrewServiceDbContext>((sp, options) =>
+            options.UseSqlite(sp.GetRequiredService<SqliteConnection>()));
 
         services.AddScoped<IOutboxDbContext>(sp => sp.GetRequiredService<CrewServiceDbContext>());
 
@@ -104,8 +117,8 @@ public static class DependencyInjection
         }).AddRoles<IdentityRole>()
           .AddEntityFrameworkStores<UserAccessDbContext>();
 
-        // Orchestration UoW Factory (transient - creates new UoW per request)
-        services.AddTransient<IOrchestrationUnitOfWorkFactory, OrchestrationUnitOfWorkFactory>();
+        // Orchestration UoW Factory (scoped - shares the request-scoped DbContexts)
+        services.AddScoped<IOrchestrationUnitOfWorkFactory, OrchestrationUnitOfWorkFactory>();
 
         // Core Repositories
         services.AddScoped<IParentRepository, ParentRepository>();

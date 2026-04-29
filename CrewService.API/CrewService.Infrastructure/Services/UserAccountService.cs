@@ -94,6 +94,37 @@ internal sealed class UserAccountService(UserManager<User> userManager) : IUserA
         return ToResult(await _userManager.UpdateAsync(user));
     }
 
+
+    public async Task<(IdentityOperationResult Result, string UserId)> CreateWithoutPasswordAsync(string email)
+    {
+        var user = new User
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true
+        };
+
+        var result = await _userManager.CreateAsync(user);
+
+        return result.Succeeded
+            ? (IdentityOperationResult.Success, user.Id)
+            : (IdentityOperationResult.Failure(result.Errors.Select(e => e.Description)), string.Empty);
+    }
+
+    public async Task<bool> HasPasswordAsync(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return false;
+        return await _userManager.HasPasswordAsync(user);
+    }
+
+    public async Task<IdentityOperationResult> SetPasswordAsync(string userId, string password)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return IdentityOperationResult.Failure("User not found.");
+        var result = await _userManager.AddPasswordAsync(user, password);
+        return ToResult(result);
+    }
     public async Task<bool> CheckPasswordAsync(string userId, string password)
     {
         var user = await _userManager.FindByIdAsync(userId);

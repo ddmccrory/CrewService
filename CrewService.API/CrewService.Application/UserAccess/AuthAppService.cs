@@ -34,23 +34,35 @@ public sealed class AuthAppService(
         }
 
         var existingUser = await userAccountService.FindByEmailAsync(invitation.Email);
+        var needsPassword = existingUser is null || !await userAccountService.HasPasswordAsync(existingUser.Id);
 
-        if (existingUser is null)
+        if (needsPassword)
         {
             if (string.IsNullOrEmpty(password))
                 return (false, "Password is required.");
 
-            var createResult = await userAccountService.CreateAsync(new CreateUserRequest
+            if (existingUser is null)
             {
-                UserName = invitation.Email,
-                Email = invitation.Email,
-                Password = password
-            });
+                // New user (e.g. admin invitation) -- create account with password
+                var createResult = await userAccountService.CreateAsync(new CreateUserRequest
+                {
+                    UserName = invitation.Email,
+                    Email = invitation.Email,
+                    Password = password
+                });
 
-            if (!createResult.Result.Succeeded)
-                return (false, string.Join("; ", createResult.Result.Errors));
+                if (!createResult.Result.Succeeded)
+                    return (false, string.Join("; ", createResult.Result.Errors));
 
-            existingUser = await userAccountService.FindByIdAsync(createResult.UserId);
+                existingUser = await userAccountService.FindByIdAsync(createResult.UserId);
+            }
+            else
+            {
+                // Pre-created employee account -- set the password now
+                var setResult = await userAccountService.SetPasswordAsync(existingUser.Id, password);
+                if (!setResult.Succeeded)
+                    return (false, string.Join("; ", setResult.Errors));
+            }
         }
 
         invitation.Accept();

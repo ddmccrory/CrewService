@@ -153,6 +153,7 @@ public static class DependencyInjection
         services.AddScoped<RequirementEvaluationService>();
         services.AddScoped<EmployeeEligibilityService>();
         services.AddScoped<QualificationReactiveService>();
+        services.AddScoped<EmployeeReactiveService>();
         services.AddScoped<IRequirementEvaluator, ManualCompletionEvaluator>();
         services.AddScoped<IRequirementEvaluator, TimeFromEventEvaluator>();
         services.AddScoped<IRequirementEvaluator, ActivityCountEvaluator>();

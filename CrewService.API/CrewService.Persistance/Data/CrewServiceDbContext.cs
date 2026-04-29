@@ -23,8 +23,7 @@ namespace CrewService.Persistance.Data;
 internal sealed class CrewServiceDbContext(
 DbContextOptions<CrewServiceDbContext> options,
 ICurrentUserService currentUserService,
-IFieldEncryptor fieldEncryptor,
-IDomainEventReactor? domainEventReactor = null) : DbContext(options), IOutboxDbContext
+IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 {
     private static readonly JsonSerializerOptions s_camelCase = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly string[] s_auditPrefixes = ["CreatedBy", "ModifiedBy", "DeletedBy", "IsDeleted", "DeletedAt"];
@@ -229,14 +228,9 @@ IDomainEventReactor? domainEventReactor = null) : DbContext(options), IOutboxDbC
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditableEntities();
-        var explicitDomainEvents = CollectDomainEventLogs();
+        CollectDomainEventLogs();
         await CascadeSoftDeletesAsync(cancellationToken);
-        var rows = await base.SaveChangesAsync(cancellationToken);
-
-        if (domainEventReactor is not null && explicitDomainEvents.Count > 0)
-            await domainEventReactor.ReactAsync(explicitDomainEvents, cancellationToken);
-
-        return rows;
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -397,7 +391,7 @@ IDomainEventReactor? domainEventReactor = null) : DbContext(options), IOutboxDbC
                     $"WHERE \"{fkCol}\" = {{5}} AND IsDeleted = 0";
                 await Database.ExecuteSqlRawAsync(
                     updateSql,
-                    new object[] { now, auditUser, now, auditUser, now, parentPk },
+                    [now, auditUser, now, auditUser, now, parentPk],
                     cancellationToken);
 
                 foreach (var depPk in dependentPks)
