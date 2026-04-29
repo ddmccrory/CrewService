@@ -6,15 +6,18 @@ using CrewService.Application.Employees;
 using CrewService.Application.Modules.UserAccount;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Presentation.Services;
 
 public class EmployeeService(
     EmployeeAppService employeeAppService,
-    IUserAccountService userAccountService) : EmployeeSrvc.EmployeeSrvcBase
+    IUserAccountService userAccountService,
+    ILogger<EmployeeService> logger) : EmployeeSrvc.EmployeeSrvcBase
 {
     private readonly EmployeeAppService _employeeAppService = employeeAppService;
     private readonly IUserAccountService _userAccountService = userAccountService;
+    private readonly ILogger<EmployeeService> _logger = logger;
     #region Employee Operations
 
     public override async Task<GetAllEmployeesResponse> GetAllEmployeesAsync(GetAllEmployeesRequest request, ServerCallContext context)
@@ -76,31 +79,45 @@ public class EmployeeService(
     {
         ValidateCreateRequest(request);
 
-        MaritalStatus? maritalStatus = string.IsNullOrEmpty(request.MaritalStatus)
-            ? null : System.Enum.Parse<MaritalStatus>(request.MaritalStatus, ignoreCase: true);
-
-        var employee = await _employeeAppService.CreateAsync(
-            ControlNumber.Create(request.ClientCtrlNbr),
-            request.UserId,
-            request.EmployeeNumber,
-            request.SocialSecurityNumber,
-            System.Enum.Parse<Gender>(request.Gender, ignoreCase: true),
-            System.Enum.Parse<Race>(request.Race, ignoreCase: true),
-            request.BirthDate.ToDateTime(),
-            request.EmploymentDate.ToDateTime(),
-            ControlNumber.Create(request.EmploymentStatusCtrlNbr),
-            string.IsNullOrEmpty(request.DriversLicenseNumber) ? null : request.DriversLicenseNumber,
-            string.IsNullOrEmpty(request.IssuingState) ? null : request.IssuingState,
-            maritalStatus,
-            context.CancellationToken);
-
-        return new CreateEmployeeResponse
+        try
         {
-            CtrlNbr = employee.CtrlNbr.Value,
-            EmployeeNumber = employee.EmployeeNumber,
-            Success = true,
-            Messages = { "Employee created successfully." }
-        };
+            MaritalStatus? maritalStatus = string.IsNullOrEmpty(request.MaritalStatus)
+                ? null : System.Enum.Parse<MaritalStatus>(request.MaritalStatus, ignoreCase: true);
+
+            var employee = await _employeeAppService.CreateAsync(
+                ControlNumber.Create(request.ClientCtrlNbr),
+                request.Email,
+                request.EmployeeNumber,
+                request.SocialSecurityNumber,
+                System.Enum.Parse<Gender>(request.Gender, ignoreCase: true),
+                System.Enum.Parse<Race>(request.Race, ignoreCase: true),
+                request.BirthDate.ToDateTime(),
+                request.EmploymentDate.ToDateTime(),
+                ControlNumber.Create(request.EmploymentStatusCtrlNbr),
+                string.IsNullOrEmpty(request.DriversLicenseNumber) ? null : request.DriversLicenseNumber,
+                string.IsNullOrEmpty(request.IssuingState) ? null : request.IssuingState,
+                maritalStatus,
+                string.IsNullOrEmpty(request.FirstName) ? null : request.FirstName,
+                string.IsNullOrEmpty(request.MiddleName) ? null : request.MiddleName,
+                string.IsNullOrEmpty(request.LastName) ? null : request.LastName,
+                ct: context.CancellationToken);
+
+            return new CreateEmployeeResponse
+            {
+                CtrlNbr = employee.CtrlNbr.Value,
+                EmployeeNumber = employee.EmployeeNumber,
+                Success = true,
+                Messages = { "Employee created successfully." }
+            };
+        }
+        catch (RpcException) { throw; }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message)); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in CreateEmployeeAsync");
+            throw new RpcException(new Status(StatusCode.Internal, ex.Message));
+        }
     }
 
     public override async Task<UpdateEmployeeResponse> UpdateEmployeeAsync(UpdateEmployeeRequest request, ServerCallContext context)
@@ -418,8 +435,8 @@ public class EmployeeService(
         if (request.ClientCtrlNbr <= 0)
             errors.Add("ClientCtrlNbr", ["Must be greater than 0"]);
 
-        if (string.IsNullOrEmpty(request.UserId))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid user ID."));
+        if (string.IsNullOrEmpty(request.Email))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid email address."));
 
         if (string.IsNullOrEmpty(request.EmployeeNumber))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid employee number."));

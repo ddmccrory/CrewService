@@ -131,17 +131,19 @@ else
                 <td>@inv.Email</td>
                 <td>@inv.Role</td>
                 <td>@(inv.RailroadCtrlNbr > 0 ? GetRailroadName(inv.RailroadCtrlNbr) : "—")</td>
-                <td>@(new DateTime(inv.ExpiresAt, DateTimeKind.Utc).AddDays(-7).ToString("MMM d, yyyy"))</td>
+                <td>@(inv.CreatedAt > 0 ? new DateTime(inv.CreatedAt, DateTimeKind.Utc).ToString("MMM d, yyyy") : "—")</td>
                 <td>@FormatStatusDate(inv)</td>
                 @if (activeTab == "Pending")
                 {
                     <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ResendInvitation(inv.CtrlNbr)">
-                            <span class="bi bi-arrow-repeat"></span> Resend
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeInvitation(inv.CtrlNbr)">
-                            <span class="bi bi-x-circle"></span> Revoke
-                        </button>
+                        <div class="d-flex flex-nowrap gap-1">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => ResendInvitation(inv.CtrlNbr)">
+                                <span class="bi bi-arrow-repeat"></span> Resend
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeInvitation(inv.CtrlNbr)">
+                                <span class="bi bi-x-circle"></span> Revoke
+                            </button>
+                        </div>
                     </td>
                 }
             </RowContent>
@@ -179,7 +181,7 @@ else
                 new("Email", i => i.Email),
                 new("Role", i => i.Role),
                 new("Railroad", i => GetRailroadName(i.RailroadCtrlNbr)),
-                new("Created", i => (object)i.ExpiresAt, sortKey: "Created"),
+                new("Created", i => (object)i.CreatedAt, sortKey: "Created"),
                 new(statusDateTitle, i => (object)GetStatusTicks(i), sortKey: "StatusDate"),
             };
 

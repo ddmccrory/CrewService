@@ -93,6 +93,7 @@ public sealed class RequirementEvaluationServiceTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         public void Dispose() { }
         public IEmployeeRepository Employees => null!;
+        public IEmailAddressRepository EmailAddresses => null!;
         public IParentRepository Parents => null!;
         public IAddressTypeRepository AddressTypes => null!;
         public IPhoneNumberTypeRepository PhoneNumberTypes => null!;

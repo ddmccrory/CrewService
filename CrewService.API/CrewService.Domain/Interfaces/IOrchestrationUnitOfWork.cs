@@ -37,9 +37,26 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     string OrchestrationId { get; }
 
     // ──────────────────────────────────────────────────────────────────
+    // Identity User Profile
+    // ──────────────────────────────────────────────────────────────────
+    Task UpdateUserProfileAsync(
+        string userId,
+        string firstName, string? middleName, string lastName,
+        string fullName, string fullNameLnf,
+        CancellationToken cancellationToken = default);
+
+    Task UpdateUserProfileAsync(
+        string userId,
+        string firstName, string? middleName, string lastName,
+        string fullName, string fullNameLnf,
+        string employeeNumber,
+        CancellationToken cancellationToken = default);
+
+    // ──────────────────────────────────────────────────────────────────
     // Core Employee Orchestration
     // ──────────────────────────────────────────────────────────────────
     IEmployeeRepository Employees { get; }
+    IEmailAddressRepository EmailAddresses { get; }
     IParentRepository Parents { get; }
 
     // ──────────────────────────────────────────────────────────────────
@@ -163,6 +180,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IQualificationTypeRepository QualificationTypes { get; }
     IQualificationRequirementRepository QualificationRequirements { get; }
     IEmployeeQualificationRepository EmployeeQualifications { get; }
+    IEmployeeQualificationSuspensionRepository QualificationSuspensions { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // Absence & Vacancy

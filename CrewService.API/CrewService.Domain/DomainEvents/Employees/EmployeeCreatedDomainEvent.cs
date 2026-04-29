@@ -5,6 +5,21 @@ namespace CrewService.Domain.DomainEvents.Employees;
 
 public sealed record EmployeeCreatedDomainEvent : DomainEvent
 {
-    public EmployeeCreatedDomainEvent(ControlNumber aggregateCtrlNbr)
-        : base(nameof(Employee), aggregateCtrlNbr.Value, payload: new { AggregateCtrlNbr = aggregateCtrlNbr.Value }) { }
+    public EmployeeCreatedDomainEvent(
+        ControlNumber aggregateCtrlNbr,
+        ControlNumber clientCtrlNbr,
+        string email,
+        string invitedByUserId,
+        string invitedByUserName,
+        string parentName)
+        : base(nameof(Employee), aggregateCtrlNbr.Value,
+            payload: new
+            {
+                AggregateCtrlNbr = aggregateCtrlNbr.Value,
+                ClientCtrlNbr = clientCtrlNbr.Value,
+                Email = email,
+                InvitedByUserId = invitedByUserId,
+                InvitedByUserName = invitedByUserName,
+                ParentName = parentName
+            }) { }
 }

@@ -1,10 +1,14 @@
+using CrewService.Application.Modules.UserAccount;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Employees;
 
-public sealed class EmployeeAppService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class EmployeeAppService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IUserAccountService userAccountService,
+    ICurrentUserService currentUserService)
 {
     // ── Employee CRUD ────────────────────────────────────────────────────────
 
@@ -34,22 +38,70 @@ public sealed class EmployeeAppService(IOrchestrationUnitOfWorkFactory uowFactor
     }
 
     public async Task<Employee> CreateAsync(
-        ControlNumber clientCtrlNbr, string userId, string employeeNumber,
+        ControlNumber clientCtrlNbr, string email, string employeeNumber,
         string socialSecurityNumber, Gender gender, Race race,
         DateTime birthDate, DateTime employmentDate, ControlNumber employmentStatusCtrlNbr,
         string? driversLicenseNumber = null, string? issuingState = null, MaritalStatus? maritalStatus = null,
+        string? firstName = null, string? middleName = null, string? lastName = null,
+        bool sendInvitation = true,
         CancellationToken ct = default)
     {
+        // Step 1 — Create Identity user (idempotent: reuse if already exists)
+        var existingUser = await userAccountService.FindByEmailAsync(email);
+        string userId;
+        if (existingUser is not null)
+        {
+            userId = existingUser.Id;
+        }
+        else
+        {
+            var (createResult, newUserId) = await userAccountService.CreateWithoutPasswordAsync(email);
+            if (!createResult.Succeeded)
+                throw new InvalidOperationException($"Failed to create user account: {string.Join("; ", createResult.Errors)}");
+            userId = newUserId;
+        }
+
+        // Step 2 — Build employee aggregate (after UoW so parentName is available)
+        var invitedByUserId = currentUserService.GetUserId().ToString();
+        var invitedByUserName = currentUserService.GetUserName();
+
+        // Step 3 — Persist employee and update name atomically in one transaction
+        await using var uow = await uowFactory.CreateAsync(
+            new OrchestrationUnitOfWorkOptions { SuppressReactor = !sendInvitation },
+            ct);
+
+        var parent = await uow.Parents.GetByCtrlNbrAsync(clientCtrlNbr)
+            ?? throw new InvalidOperationException($"Client {clientCtrlNbr.Value} not found.");
+        var parentName = parent.Name.Value;
+
         var employee = Employee.Create(
             clientCtrlNbr, userId, employeeNumber, socialSecurityNumber,
-            gender, race, birthDate, employmentDate, employmentStatusCtrlNbr);
+            gender, race, birthDate, employmentDate, employmentStatusCtrlNbr,
+            email, invitedByUserId, invitedByUserName, parentName);
 
         if (!string.IsNullOrEmpty(driversLicenseNumber))
             employee.Update(driversLicenseNumber: driversLicenseNumber, issuingState: issuingState, maritalStatus: maritalStatus);
 
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var emailTypes = await uow.EmailAddressTypes.GetByClientCtrlNbrAsync(clientCtrlNbr);
+        var emailType = emailTypes.FirstOrDefault()
+            ?? throw new InvalidOperationException($"No email address types configured for client {clientCtrlNbr.Value}.");
+        employee.AddEmailAddress(email, emailType.CtrlNbr);
+
         uow.Employees.Add(employee);
+
+        // Step 4 — Update Identity user name in the same transaction (shared connection, no lock contention)
+        if (!string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(lastName))
+        {
+            var fn = firstName?.Trim() ?? string.Empty;
+            var mn = middleName?.Trim();
+            var ln = lastName?.Trim() ?? string.Empty;
+            var fullName = string.Join(" ", new[] { fn, ln }.Where(s => !string.IsNullOrEmpty(s)));
+            var fullNameLnf = string.IsNullOrEmpty(ln) ? fn : $"{ln}, {fn}";
+            await uow.UpdateUserProfileAsync(userId, fn, mn, ln, fullName, fullNameLnf, employeeNumber, ct);
+        }
+
         await uow.CommitAsync(ct);
+
         return employee;
     }
 

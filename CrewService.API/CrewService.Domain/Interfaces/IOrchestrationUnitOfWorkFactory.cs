@@ -40,4 +40,10 @@ public sealed class OrchestrationUnitOfWorkOptions
     /// Optional idempotency key for duplicate prevention.
     /// </summary>
     public string? IdempotencyKey { get; init; }
+
+    /// <summary>
+    /// When true, the domain event reactor will not fire after commit.
+    /// Use for bulk seeding or batch operations where side effects (e.g. emails) are not wanted.
+    /// </summary>
+    public bool SuppressReactor { get; init; } = false;
 }

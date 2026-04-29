@@ -74,20 +74,18 @@ public sealed class Employee : Entity
         Race race,
         DateTime birthDate,
         DateTime employmentDate,
-        ControlNumber employmentStatusCtrlNbr)
+        ControlNumber employmentStatusCtrlNbr,
+        string email,
+        string invitedByUserId,
+        string invitedByUserName,
+        string parentName = "")
     {
         var employee = new Employee(
-            clientCtrlNbr,
-            userId,
-            employeeNumber,
-            ssn,
-            gender,
-            race,
-            birthDate,
-            employmentDate,
-            employmentStatusCtrlNbr);
+            clientCtrlNbr, userId, employeeNumber, ssn,
+            gender, race, birthDate, employmentDate, employmentStatusCtrlNbr);
 
-        employee.Raise(new EmployeeCreatedDomainEvent(employee.CtrlNbr));
+        employee.Raise(new EmployeeCreatedDomainEvent(
+            employee.CtrlNbr, clientCtrlNbr, email, invitedByUserId, invitedByUserName, parentName));
 
         return employee;
     }

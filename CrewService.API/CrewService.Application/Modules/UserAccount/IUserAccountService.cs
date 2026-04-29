@@ -13,5 +13,8 @@ public interface IUserAccountService
     Task<IdentityOperationResult> UpdatePrimaryRoleAsync(string userId, string roleId);
     Task<IdentityOperationResult> UpdateEmployeeInfoAsync(string userId, string? employeeNumber, string? onProperty);
     Task<bool> CheckPasswordAsync(string userId, string password);
+    Task<(IdentityOperationResult Result, string UserId)> CreateWithoutPasswordAsync(string email);
+    Task<bool> HasPasswordAsync(string userId);
+    Task<IdentityOperationResult> SetPasswordAsync(string userId, string password);
     Task<IReadOnlyList<UserNameDto>> GetNamesByIdsAsync(IEnumerable<string> userIds);
 }

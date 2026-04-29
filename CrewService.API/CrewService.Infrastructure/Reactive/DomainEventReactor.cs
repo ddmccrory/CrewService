@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CrewService.Application.Employees;
 using CrewService.Application.Qualifications;
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
@@ -18,27 +19,56 @@ public sealed class DomainEventReactor(
             return;
 
         using var scope = scopeFactory.CreateScope();
-        var reactiveService = scope.ServiceProvider.GetRequiredService<QualificationReactiveService>();
+        var qualificationService = scope.ServiceProvider.GetRequiredService<QualificationReactiveService>();
+        var employeeService = scope.ServiceProvider.GetRequiredService<EmployeeReactiveService>();
 
         foreach (var domainEvent in events)
         {
             switch (domainEvent.EventType)
             {
+                case "EmployeeCreatedDomainEvent":
+                    await employeeService.HandleEmployeeCreatedAsync(domainEvent, cancellationToken);
+                    break;
+
                 case "OnDutyRecordCreatedDomainEvent":
                 {
-                    var employeeCtrlNbr = TryGetEmployeeCtrlNbr(domainEvent);
+                    var employeeCtrlNbr = TryGetLongProperty(domainEvent, "employeeCtrlNbr");
                     if (employeeCtrlNbr is null)
                         continue;
 
-                    await reactiveService.HandleOnDutyRecordCreatedAsync(employeeCtrlNbr, cancellationToken);
+                    await qualificationService.HandleOnDutyRecordCreatedAsync(ControlNumber.Create(employeeCtrlNbr.Value), cancellationToken);
                     break;
                 }
-
             }
         }
     }
 
-    private ControlNumber? TryGetEmployeeCtrlNbr(DomainEvent domainEvent)
+    private (ControlNumber? Aggregate, ControlNumber? Client) TryGetAggregateAndClientCtrlNbr(DomainEvent domainEvent)
+    {
+        if (string.IsNullOrWhiteSpace(domainEvent.PayloadJson))
+            return (null, null);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(domainEvent.PayloadJson);
+            doc.RootElement.TryGetProperty("aggregateCtrlNbr", out var aggProp);
+            doc.RootElement.TryGetProperty("clientCtrlNbr", out var clientProp);
+
+            if (!aggProp.TryGetInt64(out var agg) || !clientProp.TryGetInt64(out var client))
+                return (null, null);
+
+            return (ControlNumber.Create(agg), ControlNumber.Create(client));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to parse payload from domain event. EventType: {EventType}, EventId: {EventId}",
+                domainEvent.EventType, domainEvent.EventId);
+            return (null, null);
+        }
+    }
+
+    private long? TryGetLongProperty(DomainEvent domainEvent, string propertyName)
     {
         if (string.IsNullOrWhiteSpace(domainEvent.PayloadJson))
             return null;
@@ -46,20 +76,16 @@ public sealed class DomainEventReactor(
         try
         {
             using var doc = JsonDocument.Parse(domainEvent.PayloadJson);
-            if (!doc.RootElement.TryGetProperty("employeeCtrlNbr", out var employeeProp))
+            if (!doc.RootElement.TryGetProperty(propertyName, out var prop))
                 return null;
 
-            if (!employeeProp.TryGetInt64(out var employeeCtrlNbr))
-                return null;
-
-            return ControlNumber.Create(employeeCtrlNbr);
+            return prop.TryGetInt64(out var value) ? value : null;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Failed to parse employee control number from domain event payload. EventType: {EventType}, EventId: {EventId}",
-                domainEvent.EventType,
-                domainEvent.EventId);
+                "Failed to parse {Property} from domain event. EventType: {EventType}, EventId: {EventId}",
+                propertyName, domainEvent.EventType, domainEvent.EventId);
             return null;
         }
     }

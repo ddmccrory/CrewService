@@ -38,6 +38,7 @@ using CrewService.Persistance.Modules.Payroll;
 using CrewService.Persistance.Modules.Policies;
 using CrewService.Persistance.Repositories;
 using CrewService.Domain.Modules.UserAccess;
+using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -50,9 +51,10 @@ namespace CrewService.Persistance.UnitOfWork;
 /// </summary>
 internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
 {
-    private readonly DbConnection _connection;
     private readonly DbTransaction _transaction;
     private readonly CrewServiceDbContext _crewContext;
+    private readonly UserAccessDbContext _userContext;
+    private readonly IDomainEventReactor? _reactor;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<OrchestrationUnitOfWork> _logger;
     private readonly string _idempotencyKey;
@@ -65,6 +67,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // Lazy-initialized repositories: Core Employee
     // ──────────────────────────────────────────────────────────────────
     private IEmployeeRepository? _employees;
+    private IEmailAddressRepository? _emailAddresses;
     private IParentRepository? _parents;
 
     // ──────────────────────────────────────────────────────────────────
@@ -223,6 +226,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // Repository Properties: Core Employee
     // ──────────────────────────────────────────────────────────────────
     public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_crewContext, _currentUserService);
+    public IEmailAddressRepository EmailAddresses => _emailAddresses ??= new EmailAddressRepository(_crewContext, _currentUserService);
     public IParentRepository Parents => _parents ??= new ParentRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
@@ -390,25 +394,69 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IPayrollTierRepository PayrollTiers => _payrollTiers ??= new PayrollTierRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
-        DbConnection connection,
         DbTransaction transaction,
         CrewServiceDbContext crewContext,
+        UserAccessDbContext userContext,
         ICurrentUserService currentUserService,
         string correlationId,
         string orchestrationId,
         string? idempotencyKey,
         ILogger<OrchestrationUnitOfWork> logger,
-        IOutboxDispatcher? dispatcher = null)
+        IOutboxDispatcher? dispatcher = null,
+        IDomainEventReactor? reactor = null)
     {
-        _connection = connection;
         _transaction = transaction;
         _crewContext = crewContext;
+        _userContext = userContext;
         _currentUserService = currentUserService;
         CorrelationId = correlationId;
         OrchestrationId = orchestrationId;
         _idempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();
         _logger = logger;
         _dispatcher = dispatcher;
+        _reactor = reactor;
+    }
+
+    public async Task UpdateUserProfileAsync(
+        string userId,
+        string firstName, string? middleName, string lastName,
+        string fullName, string fullNameLnf,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, typeof(OrchestrationUnitOfWork));
+
+        var user = await _userContext.Users.FindAsync([userId], cancellationToken)
+            ?? throw new KeyNotFoundException($"Identity user '{userId}' not found.");
+
+        user.FirstName = firstName;
+        user.MiddleName = middleName;
+        user.LastName = lastName;
+        user.FullName = fullName;
+        user.FullNameLNF = fullNameLnf;
+
+        await _userContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateUserProfileAsync(
+        string userId,
+        string firstName, string? middleName, string lastName,
+        string fullName, string fullNameLnf,
+        string employeeNumber,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, typeof(OrchestrationUnitOfWork));
+
+        var user = await _userContext.Users.FindAsync([userId], cancellationToken)
+            ?? throw new KeyNotFoundException($"Identity user '{userId}' not found.");
+
+        user.FirstName = firstName;
+        user.MiddleName = middleName;
+        user.LastName = lastName;
+        user.FullName = fullName;
+        user.FullNameLNF = fullNameLnf;
+        user.EmployeeNumber = employeeNumber;
+
+        await _userContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task SaveAsync(CancellationToken cancellationToken = default)
@@ -465,6 +513,15 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             await _transaction.CommitAsync(cancellationToken);
 
             _committed = true;
+
+            // Fire domain event reactions in the background so the request is not blocked
+            // by side effects (e.g. SMTP calls). The transaction is already committed here.
+            if (_reactor is not null && domainEvents.Count > 0)
+            {
+                var reactor = _reactor;
+                var capturedEvents = domainEvents;
+                _ = Task.Run(() => reactor.ReactAsync(capturedEvents, CancellationToken.None));
+            }
 
             // Dispatch messages for immediate publishing (if dispatcher available)
             if (_dispatcher is not null && outboxMessages.Count > 0)
@@ -545,10 +602,11 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
                 {
                     CorrelationId = CorrelationId,
                     OrchestrationId = OrchestrationId,
-                    IdempotencyKey = $"{_idempotencyKey}:{domainEvent.EventType}:{domainEvent.AggregateId}"
+                    IdempotencyKey = $"{_idempotencyKey}:{domainEvent.EventType}:{domainEvent.AggregateId}:{domainEvent.EventId}"
                 };
                 domainEvents.Add(enrichedEvent);
             }
+            entity.ClearDomainEvents();
         }
 
         return domainEvents;
@@ -592,8 +650,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             await RollbackAsync();
         }
 
-        await _crewContext.DisposeAsync();
+        await _crewContext.Database.UseTransactionAsync(null);
+        await _userContext.Database.UseTransactionAsync(null);
         await _transaction.DisposeAsync();
-        await _connection.DisposeAsync();
     }
 }

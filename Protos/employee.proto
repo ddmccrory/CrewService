@@ -101,7 +101,7 @@ message GetEmployeeResponse {
 
 message CreateEmployeeRequest {
   int64 client_ctrl_nbr = 1;
-  string user_id = 2;
+  string email = 2;
   string employee_number = 3;
   string social_security_number = 4;
   string gender = 5;
@@ -112,6 +112,9 @@ message CreateEmployeeRequest {
   string drivers_license_number = 10;
   string issuing_state = 11;
   string marital_status = 12;
+  string first_name = 13;
+  string middle_name = 14;
+  string last_name = 15;
 }
 
 message CreateEmployeeResponse {

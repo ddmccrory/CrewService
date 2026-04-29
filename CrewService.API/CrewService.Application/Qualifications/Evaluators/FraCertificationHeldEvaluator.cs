@@ -20,9 +20,33 @@ public sealed class FraCertificationHeldEvaluator(IEmployeeCertificationReposito
         var cert = await certificationRepository.GetByEmployeeAndRegulatoryQualAsync(
             employeeCtrlNbr, rule.RequiredRegulatoryQualCtrlNbr);
 
-        if (cert is null || cert.Status != CertificationStatuses.Active)
-            return EvaluationResult.NotSatisfied("Required FRA certification not held or not active");
+        if (cert is null)
+            return EvaluationResult.NotSatisfied("Required FRA certification not held");
 
-        return EvaluationResult.Satisfied($"Holds active FRA certification (certified {cert.CertificationDate:yyyy-MM-dd})");
+        var certCtrlNbr = cert.CtrlNbr.Value;
+
+        if (cert.Status == CertificationStatuses.Expired)
+            return EvaluationResult.NotSatisfied(
+                $"FRA certification expired on {cert.ExpirationDate:yyyy-MM-dd}",
+                failureKind: QualificationStatuses.Expired,
+                relatedCertificationCtrlNbr: certCtrlNbr);
+
+        if (cert.Status is CertificationStatuses.Suspended or CertificationStatuses.Revoked)
+            return EvaluationResult.NotSatisfied(
+                $"FRA certification is {cert.Status}",
+                failureKind: cert.Status,
+                relatedCertificationCtrlNbr: certCtrlNbr);
+
+        // Translate cert status into qualification vocabulary here, at the source.
+        // Renew = cert still valid but due for renewal; Active = fully current.
+        // Any other future cert status defaults to Active.
+        string qualStatus = cert.Status == CertificationStatuses.Renew
+            ? QualificationStatuses.Renew
+            : QualificationStatuses.Active;
+
+        return EvaluationResult.Satisfied(
+            $"Holds FRA certification ({cert.Status}, certified {cert.CertificationDate:yyyy-MM-dd})",
+            relatedCertificationCtrlNbr: certCtrlNbr,
+            satisfiedStatus: qualStatus);
     }
 }

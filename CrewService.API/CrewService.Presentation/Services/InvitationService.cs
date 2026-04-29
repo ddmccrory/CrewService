@@ -207,6 +207,7 @@ public class InvitationService(
             info.ParentCtrlNbr, null, context.CancellationToken);
 
         var existingUser = await _userAccountService.FindByEmailAsync(info.Email);
+        var hasPassword = existingUser is not null && await _userAccountService.HasPasswordAsync(existingUser.Id);
 
         return new ValidateInvitationTokenReply
         {
@@ -215,7 +216,7 @@ public class InvitationService(
             Role = info.Role,
             ParentName = parentName,
             Status = info.Status,
-            UserAlreadyExists = existingUser is not null,
+            UserAlreadyExists = hasPassword,
             RailroadName = railroadName
         };
     }
@@ -317,7 +318,8 @@ public class InvitationService(
             ParentCtrlNbr = invitation.ParentCtrlNbr?.Value ?? 0,
             Role = invitation.Role,
             Status = invitation.Status.ToString(),
-            ExpiresAt = invitation.ExpiresAt.Ticks
+            ExpiresAt = invitation.ExpiresAt.Ticks,
+            CreatedAt = invitation.CreatedBy?.AuditDateTime.Ticks ?? 0
         };
 
         if (includeToken)

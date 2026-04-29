@@ -14,6 +14,7 @@
 
 @inject EmployeeClient EmployeeClient
 @inject EmployeeProfileService ProfileService
+@inject EmploymentStatusClient EmploymentStatusClient
 
 <PageTitle>Employees</PageTitle>
 
@@ -43,12 +44,15 @@ else
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Employee Number</label>
-                        <InputText @bind-Value="createModel!.EmployeeNumber" class="form-control" placeholder="Employee Number" />
+                        <InputText @bind-Value="createModel!.EmployeeNumber" class="form-control" placeholder="Employee Number" style="text-transform:uppercase" />
                         <ValidationMessage For="() => createModel!.EmployeeNumber" class="text-danger" />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Social Security Number</label>
-                        <InputText @bind-Value="createModel!.SocialSecurityNumber" class="form-control" placeholder="SSN" />
+                        <input type="text" class="form-control" placeholder="XXX-XX-XXXX"
+                               maxlength="11"
+                               value="@createModel!.SocialSecurityNumber"
+                               @oninput="OnSsnInput" />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Birth Date</label>
@@ -58,6 +62,22 @@ else
                         <label class="form-label fw-semibold">Employment Date</label>
                         <InputDate @bind-Value="createModel!.EmploymentDate" class="form-control" />
                         <ValidationMessage For="() => createModel!.EmploymentDate" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Employment Status</label>
+                        <SelectInput TItem="EmploymentStatusResponse" TValue="long"
+                            @bind-Value="createModel!.EmploymentStatusCtrlNbr"
+                            Items="employmentStatuses"
+                            ValueSelector="s => s.CtrlNbr"
+                            TextSelector="s => s.StatusName"
+                            Placeholder="-- Select Status --" />
+                        <ValidationMessage For="() => createModel!.EmploymentStatusCtrlNbr" class="text-danger" />
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Email Address</label>
+                        <InputText @bind-Value="createModel!.Email" class="form-control" placeholder="employee@example.com" />
+                        <div class="form-text">Used to create the employee login account and send the activation invitation.</div>
+                        <ValidationMessage For="() => createModel!.Email" class="text-danger" />
                     </div>
                 </div>
                 <hr class="my-3" />
@@ -142,7 +162,7 @@ else
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Issuing State</label>
-                        <InputText @bind-Value="saveModel.IssuingState" class="form-control" placeholder="State" />
+                        <InputText @bind-Value="saveModel.IssuingState" class="form-control" placeholder="State" style="text-transform:uppercase" />
                     </div>
                 </div>
 
@@ -246,6 +266,7 @@ else
     protected override string? FeatureKey => "employees";
 
     private IReadOnlyList<GetEmployeeResponse>? employees;
+    private IReadOnlyList<EmploymentStatusResponse> employmentStatuses = [];
 
     private static readonly IReadOnlyList<DataTableColumn<GetEmployeeResponse>> columns =
     [
@@ -272,15 +293,24 @@ else
     protected override async Task LoadDataAsync()
     {
         if (HasParent)
+        {
             await LoadEmployees();
+            await LoadEmploymentStatuses();
+        }
     }
 
     protected override async Task OnAppContextChangedAsync()
     {
         if (HasParent)
+        {
             await LoadEmployees();
+            await LoadEmploymentStatuses();
+        }
         else
+        {
             employees = null;
+            employmentStatuses = [];
+        }
     }
 
     private async Task LoadEmployees()
@@ -297,12 +327,25 @@ else
         }
     }
 
+    private async Task LoadEmploymentStatuses()
+    {
+        try
+        {
+            var response = await EmploymentStatusClient.GetAllAsync(SelectedParentCtrlNbr!.Value);
+            employmentStatuses = response.Statuses;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load employment statuses: {ex.Message}";
+        }
+    }
+
     private void NavigateToDetail(long ctrlNbr) => NavigationManager.NavigateTo($"/employees/{ctrlNbr}");
 
     private void OpenCreateModal()
     {
         editCtrlNbr = 0;
-        createModel = new EmployeeCreateModel();
+        createModel = new EmployeeCreateModel { EmploymentDate = DateTime.Today };
         saveModel = createModel;
         showSaveModal = true;
     }
@@ -353,13 +396,18 @@ else
                 var request = new CreateEmployeeRequest
                 {
                     ClientCtrlNbr = SelectedParentCtrlNbr!.Value,
-                    EmployeeNumber = createModel!.EmployeeNumber ?? string.Empty,
+                    Email = createModel!.Email ?? string.Empty,
+                    EmployeeNumber = (createModel.EmployeeNumber ?? string.Empty).ToUpperInvariant(),
                     SocialSecurityNumber = createModel.SocialSecurityNumber ?? string.Empty,
                     Gender = saveModel.Gender ?? string.Empty,
                     Race = saveModel.Race ?? string.Empty,
                     MaritalStatus = saveModel.MaritalStatus ?? string.Empty,
                     DriversLicenseNumber = saveModel.DriversLicenseNumber ?? string.Empty,
-                    IssuingState = saveModel.IssuingState ?? string.Empty
+                    IssuingState = (saveModel.IssuingState ?? string.Empty).ToUpperInvariant(),
+                    EmploymentStatusCtrlNbr = createModel.EmploymentStatusCtrlNbr,
+                    FirstName = saveModel.FirstName ?? string.Empty,
+                    MiddleName = saveModel.MiddleName ?? string.Empty,
+                    LastName = saveModel.LastName ?? string.Empty
                 };
 
                 if (createModel.BirthDate.HasValue)
@@ -403,6 +451,19 @@ else
         finally { isSaving = false; }
     }
 
+    private void OnSsnInput(ChangeEventArgs e)
+    {
+        if (createModel is null) return;
+        var digits = new string((e.Value?.ToString() ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (digits.Length > 9) digits = digits[..9];
+        createModel.SocialSecurityNumber = digits.Length switch
+        {
+            >= 5 => $"{digits[..3]}-{digits[3..5]}-{digits[5..]}",
+            >= 3 => $"{digits[..3]}-{digits[3..]}",
+            _    => digits
+        };
+    }
+
     private sealed class EmployeeCreateModel : EmployeeProfileModel
     {
         [Required(ErrorMessage = "Employee Number is required.")]
@@ -414,5 +475,12 @@ else
 
         [Required(ErrorMessage = "Employment Date is required.")]
         public DateTime? EmploymentDate { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Employment Status is required.")]
+        public long EmploymentStatusCtrlNbr { get; set; }
+
+        [Required(ErrorMessage = "Email Address is required.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+        public string? Email { get; set; }
     }
 }

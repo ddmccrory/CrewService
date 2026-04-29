@@ -5,6 +5,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.UserAccess;
 
@@ -12,7 +13,8 @@ public sealed class InvitationAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     ICurrentUserService currentUserService,
     IInvitationEmailService emailService,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ILogger<InvitationAppService> logger)
 {
     private readonly string _baseUrl = configuration["AppSettings:BaseUrl"] ?? "https://localhost:7132";
 
@@ -46,22 +48,68 @@ public sealed class InvitationAppService(
         ControlNumber? railroadCtrlNbr, int expirationDays, string parentName,
         CancellationToken ct = default)
     {
+        return await CreateCoreAsync(email, parentCtrlNbr, role, railroadCtrlNbr,
+            expirationDays, parentName, currentUserService.GetUserId().ToString(), ct);
+    }
+
+    // Called from the reactor — invitedByUserId/invitedByUserName are baked into the domain event payload,
+    // captured from the HTTP context at the time the employee was created.
+    public async Task CreateFromSystemAsync(
+        string email, ControlNumber? parentCtrlNbr, string role,
+        string invitedByUserId, string invitedByUserName, string parentName, int expirationDays, CancellationToken ct = default)
+    {
+        // Running in a background reactor scope — override audit identity with the user captured at event time.
+        currentUserService.SetAuditOverride(invitedByUserName);
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var existing = await uow.Invitations.GetPendingByEmailAndParentAsync(email, parentCtrlNbr);
+        if (existing is not null)
+        {
+            logger.LogWarning("InvitationAppService: Pending invitation already exists for {Email}.", email);
+            return;
+        }
+
+        var invitation = Invitation.Create(email, parentCtrlNbr, role, invitedByUserId, expirationDays, null);
+        uow.Invitations.Add(invitation);
+        await uow.CommitAsync(ct);
+
+        try
+        {
+            var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(invitation.Token)}";
+            await emailService.SendInvitationAsync(invitation.Email, invitation.Role, parentName, acceptUrl, invitation.ExpiresAt);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "InvitationAppService: Failed to send invitation email to {Email}.", invitation.Email);
+        }
+    }
+
+    private async Task<Invitation> CreateCoreAsync(
+        string email, ControlNumber? parentCtrlNbr, string role,
+        ControlNumber? railroadCtrlNbr, int expirationDays, string parentName,
+        string invitedByUserId, CancellationToken ct)
+    {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
         var existing = await uow.Invitations.GetPendingByEmailAndParentAsync(email, parentCtrlNbr);
         if (existing is not null)
             throw new ConflictException(nameof(Invitation), $"A pending invitation already exists for {email}.");
 
-        var invitation = Invitation.Create(
-            email, parentCtrlNbr, role,
-            currentUserService.GetUserId().ToString(),
-            expirationDays, railroadCtrlNbr);
+        var invitation = Invitation.Create(email, parentCtrlNbr, role, invitedByUserId, expirationDays, railroadCtrlNbr);
 
         await uow.Invitations.AddAsync(invitation);
         await uow.CommitAsync(ct);
 
-        var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(invitation.Token)}";
-        await emailService.SendInvitationAsync(invitation.Email, invitation.Role, parentName, acceptUrl, invitation.ExpiresAt);
+        try
+        {
+            var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(invitation.Token)}";
+            await emailService.SendInvitationAsync(invitation.Email, invitation.Role, parentName, acceptUrl, invitation.ExpiresAt);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "InvitationAppService: Failed to send invitation email to {Email}.", invitation.Email);
+        }
 
         return invitation;
     }
