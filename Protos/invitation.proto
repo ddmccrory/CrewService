@@ -92,6 +92,7 @@ message InvitationResponse {
 	int64 railroad_ctrl_nbr = 9;
 	int64 revoked_at = 10;
 	int64 superseded_at = 11;
+	int64 created_at = 12;
 }
 
 message GetInvitationsResponse {
@@ -110,4 +111,5 @@ message ValidateInvitationTokenReply {
 	string status = 5;
 	bool user_already_exists = 6;
 	string railroad_name = 7;
+	bool requires_password_creation = 8;
 }

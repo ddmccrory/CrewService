@@ -8,6 +8,6 @@ public sealed class DataTableColumn<TItem>(string title, Func<TItem, object?>? s
     public string? Width { get; } = width;
     public bool IsSortable => SortValue is not null;
 
-    public static DataTableColumn<TItem> Actions(string width = "180px")
+    public static DataTableColumn<TItem> Actions(string width = "200px")
         => new("", width: width);
 }
