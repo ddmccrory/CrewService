@@ -22,6 +22,7 @@ builder.Services.AddScoped<AuthorizationClient>();
 builder.Services.AddScoped<CraftClient>();
 builder.Services.AddScoped<EmailAddressTypeClient>();
 builder.Services.AddScoped<EmployeeClient>();
+builder.Services.AddScoped<EmploymentStatusClient>();
 builder.Services.AddScoped<InvitationsClient>();
 builder.Services.AddScoped<InvitationTokenClient>();
 builder.Services.AddScoped<ParentsClient>();

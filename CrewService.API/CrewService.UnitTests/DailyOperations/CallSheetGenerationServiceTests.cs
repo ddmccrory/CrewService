@@ -142,6 +142,7 @@ public class CallSheetGenerationServiceTests
 
         // Remaining members not used by CallSheetGenerationService
         public IEmployeeRepository Employees => null!;
+        public IEmailAddressRepository EmailAddresses => null!;
         public IParentRepository Parents => null!;
         public IAddressTypeRepository AddressTypes => null!;
         public IPhoneNumberTypeRepository PhoneNumberTypes => null!;

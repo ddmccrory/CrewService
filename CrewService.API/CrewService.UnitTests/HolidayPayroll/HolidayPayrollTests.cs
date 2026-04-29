@@ -93,6 +93,7 @@ public class HolidayQualificationServiceTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         public void Dispose() { }
         public IEmployeeRepository Employees => null!;
+        public IEmailAddressRepository EmailAddresses => null!;
         public IParentRepository Parents => null!;
         public IAddressTypeRepository AddressTypes => null!;
         public IPhoneNumberTypeRepository PhoneNumberTypes => null!;
@@ -459,6 +460,7 @@ public class HolidayAutoGenerationServiceTests
         public void Dispose() { }
         public IEmployeeRepository Employees => null!;
         public IParentRepository Parents => null!;
+        public IEmailAddressRepository EmailAddresses => null!;
         public IAddressTypeRepository AddressTypes => null!;
         public IPhoneNumberTypeRepository PhoneNumberTypes => null!;
         public IEmailAddressTypeRepository EmailAddressTypes => null!;
