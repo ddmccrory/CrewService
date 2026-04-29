@@ -63,6 +63,7 @@ else if (tokenValid)
             <StatusMessage Message="@errorMessage" />
             <EditForm Model="Input!" method="post" OnValidSubmit="HandleAcceptInvitation" FormName="accept-invitation">
                 <DataAnnotationsValidator />
+                <input type="hidden" name="Input.InvitationToken" value="@Input!.InvitationToken" />
                 <h5>Create your password</h5>
                 <hr />
                 <ValidationSummary class="text-danger" role="alert" />
@@ -88,12 +89,13 @@ else if (tokenValid)
     private bool isLoading = true;
     private bool tokenValid;
     private bool userAlreadyExists;
+    private bool requiresPasswordCreation;
     private string? invitationEmail;
     private string? invitationRole;
     private string? invitationParentName;
     private string? invitationRailroadName;
 
-    [SupplyParameterFromForm]
+    [SupplyParameterFromForm(FormName = "accept-invitation")]
     private AcceptInvitationInputModel? Input { get; set; }
 
     [SupplyParameterFromQuery(Name = "token")]
@@ -170,8 +172,31 @@ else if (tokenValid)
         }
         else
         {
-            // POST — we still need the display values but skip re-validation
-            tokenValid = true;
+            // POST — re-fetch display values so the invitation details render correctly
+            try
+            {
+                var result = await InvitationTokenClient.ValidateTokenAsync(Token);
+                invitationEmail = result.Email;
+                invitationRole = result.Role;
+                invitationParentName = result.ParentName;
+                invitationRailroadName = string.IsNullOrEmpty(result.RailroadName) ? null : result.RailroadName;
+                tokenValid = result.IsValid;
+                if (!tokenValid)
+                {
+                    statusError = result.Status switch
+                    {
+                        "Expired" => "This invitation has expired. Please contact your administrator for a new invitation.",
+                        "Revoked" => "This invitation has been revoked. Please contact your administrator.",
+                        "Accepted" => "This invitation has already been accepted.",
+                        _ => $"This invitation is no longer valid (status: {result.Status})."
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to validate invitation token on POST");
+                statusError = "Unable to validate the invitation token. Please try again later.";
+            }
         }
 
         isLoading = false;
