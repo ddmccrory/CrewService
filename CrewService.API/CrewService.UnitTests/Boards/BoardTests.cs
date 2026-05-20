@@ -40,7 +40,7 @@ public class RosterBoardTests
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Main Roster");
 
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
 
         Assert.Single(board.Positions);
         Assert.Equal(200, pos.EmployeeCtrlNbr.Value);
@@ -77,8 +77,8 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
-        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, StaffablePosition.Create("Board").CtrlNbr);
+        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
+        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
 
         board.ReorderPositions([(pos1.CtrlNbr, 2), (pos2.CtrlNbr, 1)]);
 
@@ -93,8 +93,8 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
-        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, StaffablePosition.Create("Board").CtrlNbr);
+        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
+        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
 
         board.ReorderPositions([(pos1.CtrlNbr, 1), (pos2.CtrlNbr, 2)]);
 
@@ -110,7 +110,7 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
 
         pos.Hangout();
 
@@ -123,7 +123,7 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
 
         pos.MarkOff();
 
@@ -135,7 +135,7 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
         pos.Hangout();
 
         pos.RestoreFromHangout();

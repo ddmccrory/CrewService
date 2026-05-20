@@ -112,6 +112,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ──────────────────────────────────────────────────────────────────
     IBoardCascadePolicyRepository BoardCascadePolicies { get; }
     IRosterBoardRepository RosterBoards { get; }
+    IRequiredPositionsStrategyRepository RequiredPositionsStrategies { get; }
+    ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // Crews
@@ -226,6 +228,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IPositionVacancyRepository PositionVacancies { get; }
     IBulletinRepository Bulletins { get; }
     IBulletinBidRepository BulletinBids { get; }
+    IBulletinRuleRepository BulletinRules { get; }
 
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,

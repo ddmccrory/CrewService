@@ -177,6 +177,8 @@ public static class DependencyInjection
         
         // Boards Module Repositories
         services.AddScoped<IBoardCascadePolicyRepository, BoardCascadePolicyRepository>();
+        services.AddScoped<IRequiredPositionsStrategyRepository, RequiredPositionsStrategyRepository>();
+        services.AddScoped<ICraftRequiredPositionsStrategyRepository, CraftRequiredPositionsStrategyRepository>();
 
         // Policies Module Repositories
         services.AddScoped<ICraftDisplacementPolicyRepository, CraftDisplacementPolicyRepository>();
@@ -190,6 +192,7 @@ public static class DependencyInjection
         services.AddScoped<IPositionVacancyRepository, PositionVacancyRepository>();
         services.AddScoped<IBulletinRepository, BulletinRepository>();
         services.AddScoped<IBulletinBidRepository, BulletinBidRepository>();
+        services.AddScoped<IBulletinRuleRepository, BulletinRuleRepository>();
 
         // Dispatching Module Repositories
         services.AddScoped<IDispatchProjectionRepository, DispatchProjectionRepository>();

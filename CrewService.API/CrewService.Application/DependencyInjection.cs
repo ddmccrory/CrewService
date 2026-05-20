@@ -4,6 +4,7 @@ using CrewService.Application.AbsenceVacancy;
 using CrewService.Application.Assignments;
 using CrewService.Application.Authorization;
 using CrewService.Application.Boards;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Application.Bootstrap;
 using CrewService.Application.Bulletins;
 using CrewService.Application.ContactTypes;
@@ -172,6 +173,10 @@ public static class DependencyInjection
 
         // Boards
         services.AddScoped<BoardCascadePolicyService>();
+        services.AddScoped<RequiredPositionsStrategyAppService>();
+        services.AddSingleton<IRequiredPositionsFormula, StaticFormula>();
+        services.AddSingleton<IRequiredPositionsFormula, AnnualizedAverageFormula>();
+        services.AddSingleton<IRequiredPositionsFormulaRegistry, RequiredPositionsFormulaRegistry>();
 
         // WorkManagement
         services.AddScoped<DepartmentService>();
