@@ -6,6 +6,7 @@ namespace CrewService.Domain.Modules.Bulletins;
 public interface IPositionVacancyRepository : IRepository<PositionVacancy>
 {
     Task<List<PositionVacancy>> GetOpenAsync();
+    Task<List<PositionVacancy>> GetOpenByRailroadAsync(ControlNumber railroadCtrlNbr);
     Task<List<PositionVacancy>> GetByTargetAsync(string targetType, ControlNumber targetCtrlNbr);
     Task<List<PositionVacancy>> GetByCraftAsync(ControlNumber craftCtrlNbr);
     Task<List<PositionVacancy>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);
@@ -20,6 +21,7 @@ public interface IBulletinRepository : IRepository<Bulletin>
 {
     Task<Bulletin?> GetByVacancyAsync(ControlNumber positionVacancyCtrlNbr);
     Task<List<Bulletin>> GetPostedAsync();
+    Task<List<Bulletin>> GetPostedByRailroadAsync(ControlNumber railroadCtrlNbr);
     Task<List<Bulletin>> GetPostedByCraftAsync(ControlNumber craftCtrlNbr);
     Task<List<Bulletin>> GetByStatusAsync(string status);
     Task<List<Bulletin>> GetByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr);

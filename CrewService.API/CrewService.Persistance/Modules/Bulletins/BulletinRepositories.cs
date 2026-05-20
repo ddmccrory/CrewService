@@ -1,6 +1,7 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Staffing;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Repositories;
@@ -14,6 +15,12 @@ internal sealed class PositionVacancyRepository(CrewServiceDbContext dbContext, 
     public async Task<List<PositionVacancy>> GetOpenAsync() =>
         await DbContext.Set<PositionVacancy>()
             .Where(v => v.Status == "Open" || v.Status == "Bulletined")
+            .ToListAsync();
+
+    public async Task<List<PositionVacancy>> GetOpenByRailroadAsync(ControlNumber railroadCtrlNbr) =>
+        await DbContext.Set<PositionVacancy>()
+            .Where(v => (v.Status == "Open" || v.Status == "Bulletined") &&
+                        DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr))
             .ToListAsync();
 
     public async Task<List<PositionVacancy>> GetByTargetAsync(string targetType, ControlNumber targetCtrlNbr) =>
@@ -49,6 +56,13 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
 
     public async Task<List<Bulletin>> GetPostedAsync() =>
         await DbContext.Set<Bulletin>().Where(b => b.Status == "Posted").ToListAsync();
+
+    public async Task<List<Bulletin>> GetPostedByRailroadAsync(ControlNumber railroadCtrlNbr) =>
+        await DbContext.Set<Bulletin>()
+            .Where(b => b.Status == "Posted" &&
+                        DbContext.Set<PositionVacancy>().Any(v => v.CtrlNbr == b.PositionVacancyCtrlNbr &&
+                            DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)))
+            .ToListAsync();
 
     public async Task<List<Bulletin>> GetPostedByCraftAsync(ControlNumber craftCtrlNbr) =>
         await DbContext.Set<Bulletin>()
