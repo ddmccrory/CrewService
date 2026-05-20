@@ -1,4 +1,4 @@
-@page "/staffing/roster-boards"
+﻿@page "/staffing/roster-boards"
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
@@ -100,6 +100,11 @@ else
                         <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="board-active-switch" />
                         <label class="form-check-label" for="board-active-switch">Active</label>
                     </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Required Positions</label>
+                    <InputNumber @bind-Value="saveModel.RequiredPositions" class="form-control" min="0" />
+                    <div class="form-text text-muted">Board vacancies are bulletined when occupied positions fall below this count. Set to 0 to disable auto-bulletining.</div>
                 </div>
             </EditForm>
         </BodyContent>
@@ -211,6 +216,7 @@ else
         new("Roster", b => b.RosterName),
         new("Status", b => b.IsActive ? "Active" : "Inactive", width: "100px"),
         new("Positions", b => b.Positions.Count, width: "100px"),
+        new("Required", b => b.RequiredPositions > 0 ? b.RequiredPositions.ToString() : "—", width: "90px"),
         DataTableColumn<RosterBoardResponse>.Actions()
     ];
 
@@ -348,7 +354,8 @@ else
             BoardType = board.BoardType,
             RotationType = board.RotationType,
             RosterCtrlNbr = board.RosterCtrlNbr,
-            IsActive = board.IsActive
+            IsActive = board.IsActive,
+            RequiredPositions = board.RequiredPositions
         };
         showSaveModal = true;
     }
@@ -474,5 +481,8 @@ else
         public long RosterCtrlNbr { get; set; }
 
         public bool IsActive { get; set; } = true;
+
+        [Range(0, int.MaxValue)]
+        public int RequiredPositions { get; set; }
     }
 }
