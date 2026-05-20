@@ -86,6 +86,15 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
             }
         }
 
+        // Assign the system-wide Static strategy as the default for the new craft
+        var staticStrategy = await uow.RequiredPositionsStrategies.GetStaticAsync(ct);
+        if (staticStrategy is not null)
+        {
+            var existingAssignment = await uow.CraftRequiredPositionsStrategies.GetByCraftAsync(craft.CtrlNbr!, ct);
+            if (existingAssignment is null)
+                uow.CraftRequiredPositionsStrategies.Add(CraftRequiredPositionsStrategy.Create(craft.CtrlNbr!, staticStrategy.CtrlNbr!));
+        }
+
         await uow.CommitAsync(ct);
         return (craft, roster, boards);
     }

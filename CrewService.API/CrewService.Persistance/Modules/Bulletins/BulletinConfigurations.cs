@@ -11,8 +11,10 @@ internal class PositionVacancyConfiguration : IEntityTypeConfiguration<PositionV
     {
         builder.HasKey(v => v.CtrlNbr);
         builder.Property(v => v.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(v => v.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(v => v.TargetType).HasMaxLength(30).IsRequired();
         builder.Property(v => v.TargetCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(v => v.TargetName).HasMaxLength(200).IsRequired();
         builder.Property(v => v.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(v => v.VacancyReasonCode).HasMaxLength(50).IsRequired();
         builder.Property(v => v.PreviousIncumbentCtrlNbr).HasConversion(c => c == null ? (long?)null : c.Value, v => v.HasValue ? ControlNumber.Create(v.Value) : null);
@@ -34,12 +36,35 @@ internal class BulletinConfiguration : IEntityTypeConfiguration<Bulletin>
         builder.Property(b => b.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(b => b.BidWindowOpensUtc).IsRequired();
         builder.Property(b => b.BidWindowClosesUtc).IsRequired();
+        builder.Property(b => b.EffectiveUtc).IsRequired();
         builder.Property(b => b.Status).HasMaxLength(30).IsRequired();
         builder.Property(b => b.AwardedEmployeeCtrlNbr).HasConversion(c => c == null ? (long?)null : c.Value, v => v.HasValue ? ControlNumber.Create(v.Value) : null);
         builder.Property(b => b.AwardType).HasMaxLength(20);
+        builder.Property(b => b.ForceAssignDeadlineUtc);
         builder.OwnsOne(b => b.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(b => b.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class BulletinRuleConfiguration : IEntityTypeConfiguration<BulletinRule>
+{
+    public void Configure(EntityTypeBuilder<BulletinRule> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(r => r.CraftCtrlNbr).IsUnique();
+        builder.Property(r => r.BidWindowHours).IsRequired();
+        builder.Property(r => r.BidWindowStartTime).IsRequired();
+        builder.Property(r => r.BidWindowCloseTime).IsRequired();
+        builder.Property(r => r.EffectiveOffsetDays).IsRequired();
+        builder.Property(r => r.EffectiveTime).IsRequired();
+        builder.Property(r => r.ForceAssignHours).IsRequired();
+        builder.Property(r => r.ForceAssignSelectionMode).HasMaxLength(50).IsRequired();
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
 

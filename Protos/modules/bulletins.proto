@@ -8,11 +8,14 @@ service BulletinsSrvc {
   rpc GetOpenVacancies(GetOpenVacanciesRequest) returns (GetVacanciesResponse) {
     option (google.api.http) = { get: "/v1/bulletins/vacancies/open" };
   }
-  rpc GetVacanciesByCraft(GetVacanciesByCraftRequest) returns (GetVacanciesResponse) {
-    option (google.api.http) = { get: "/v1/bulletins/vacancies/craft/{craft_ctrl_nbr}" };
+  rpc GetVacanciesByWorkArea(GetVacanciesByWorkAreaRequest) returns (GetVacanciesResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/vacancies/workarea/{work_area_ctrl_nbr}" };
   }
   rpc GetVacancy(GetVacancyRequest) returns (PositionVacancyResponse) {
     option (google.api.http) = { get: "/v1/bulletins/vacancies/{ctrl_nbr}" };
+  }
+  rpc OpenVacancy(OpenVacancyRequest) returns (OpenVacancyResponse) {
+    option (google.api.http) = { post: "/v1/bulletins/vacancies" body: "*" };
   }
   rpc AbolishVacancy(AbolishVacancyRequest) returns (PositionVacancyResponse) {
     option (google.api.http) = { put: "/v1/bulletins/vacancies/{ctrl_nbr}/abolish" };
@@ -25,8 +28,23 @@ service BulletinsSrvc {
   rpc GetPostedBulletinsByCraft(GetPostedBulletinsByCraftRequest) returns (GetBulletinsResponse) {
     option (google.api.http) = { get: "/v1/bulletins/posted/craft/{craft_ctrl_nbr}" };
   }
+  rpc GetBulletinsByWorkArea(GetBulletinsByWorkAreaRequest) returns (GetBulletinsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/workarea/{work_area_ctrl_nbr}" };
+  }
   rpc GetBulletin(GetBulletinRequest) returns (BulletinResponse) {
     option (google.api.http) = { get: "/v1/bulletins/{ctrl_nbr}" };
+  }
+  rpc PostBulletinForVacancy(PostBulletinForVacancyRequest) returns (BulletinResponse) {
+    option (google.api.http) = { post: "/v1/bulletins/vacancies/{vacancy_ctrl_nbr}/bulletin" body: "*" };
+  }
+  rpc AwardBulletin(AwardBulletinRequest) returns (BulletinResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/award" body: "*" };
+  }
+  rpc ForceAssignBulletin(ForceAssignBulletinRequest) returns (BulletinResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/force-assign" body: "*" };
+  }
+  rpc SetBulletinNoBid(SetBulletinNoBidRequest) returns (BulletinResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/no-bid" };
   }
 
   // Bids
@@ -42,33 +60,73 @@ service BulletinsSrvc {
   rpc GetBidsByEmployee(GetBidsByEmployeeRequest) returns (GetBidsResponse) {
     option (google.api.http) = { get: "/v1/bulletins/bids/employee/{employee_ctrl_nbr}" };
   }
+
+  // Bulletin Rules
+  rpc GetBulletinRule(GetBulletinRuleRequest) returns (BulletinRuleResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/rules/craft/{craft_ctrl_nbr}" };
+  }
+  rpc SaveBulletinRule(SaveBulletinRuleRequest) returns (BulletinRuleResponse) {
+    option (google.api.http) = { post: "/v1/bulletins/rules" body: "*" };
+  }
 }
 
 // Vacancy messages
 message GetOpenVacanciesRequest {}
-message GetVacanciesByCraftRequest { int64 craft_ctrl_nbr = 1; }
+message GetVacanciesByWorkAreaRequest { int64 work_area_ctrl_nbr = 1; }
 message GetVacancyRequest { int64 ctrl_nbr = 1; }
 message AbolishVacancyRequest { int64 ctrl_nbr = 1; }
+message OpenVacancyRequest {
+  int64 work_area_ctrl_nbr = 1;
+  string target_type = 2;
+  int64 target_ctrl_nbr = 3;
+  int64 craft_ctrl_nbr = 4;
+  string vacancy_reason_code = 5;
+  int64 previous_incumbent_ctrl_nbr = 6;
+  string target_name = 7;
+}
+message OpenVacancyResponse {
+  PositionVacancyResponse vacancy = 1;
+  BulletinResponse bulletin = 2;
+}
 message GetVacanciesResponse {
   repeated PositionVacancyResponse vacancies = 1;
   int32 total_count = 2;
 }
 message PositionVacancyResponse {
   int64 ctrl_nbr = 1;
-  string target_type = 2;
-  int64 target_ctrl_nbr = 3;
-  int64 craft_ctrl_nbr = 4;
-  string vacancy_reason_code = 5;
-  int64 previous_incumbent_ctrl_nbr = 6;
-  string status = 7;
-  string opened_utc = 8;
-  string closed_utc = 9;
+  int64 work_area_ctrl_nbr = 2;
+  string target_type = 3;
+  int64 target_ctrl_nbr = 4;
+  int64 craft_ctrl_nbr = 5;
+  string vacancy_reason_code = 6;
+  int64 previous_incumbent_ctrl_nbr = 7;
+  string status = 8;
+  string opened_utc = 9;
+  string closed_utc = 10;
+  string target_name = 11;
+  int64 bulletin_ctrl_nbr = 12;
 }
 
 // Bulletin messages
 message GetPostedBulletinsRequest {}
 message GetPostedBulletinsByCraftRequest { int64 craft_ctrl_nbr = 1; }
+message GetBulletinsByWorkAreaRequest { int64 work_area_ctrl_nbr = 1; }
 message GetBulletinRequest { int64 ctrl_nbr = 1; }
+message PostBulletinForVacancyRequest {
+  int64 vacancy_ctrl_nbr = 1;
+  string bid_window_opens_utc = 2;
+  string bid_window_closes_utc = 3;
+  string effective_utc = 4;
+}
+message AwardBulletinRequest {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+}
+message ForceAssignBulletinRequest {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+}
+message SetBulletinNoBidRequest { int64 ctrl_nbr = 1; }
 message GetBulletinsResponse {
   repeated BulletinResponse bulletins = 1;
   int32 total_count = 2;
@@ -79,9 +137,11 @@ message BulletinResponse {
   int64 craft_ctrl_nbr = 3;
   string bid_window_opens_utc = 4;
   string bid_window_closes_utc = 5;
-  string status = 6;
-  int64 awarded_employee_ctrl_nbr = 7;
-  string award_type = 8;
+  string effective_utc = 6;
+  string status = 7;
+  int64 awarded_employee_ctrl_nbr = 8;
+  string award_type = 9;
+  string position_name = 10;
 }
 
 // Bid messages
@@ -106,4 +166,28 @@ message BulletinBidResponse {
   string submitted_utc = 5;
   int32 seniority_rank = 6;
   string status = 7;
+}
+
+// BulletinRule messages
+message GetBulletinRuleRequest { int64 craft_ctrl_nbr = 1; }
+message SaveBulletinRuleRequest {
+  int64 craft_ctrl_nbr = 1;
+  int32 bid_window_hours = 2;
+  string bid_window_start_time = 3;
+  string bid_window_close_time = 4;
+  int32 effective_offset_days = 5;
+  string effective_time = 6;
+  int32 force_assign_hours = 7;
+  string force_assign_selection_mode = 8;
+}
+message BulletinRuleResponse {
+  int64 ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  int32 bid_window_hours = 3;
+  string bid_window_start_time = 4;
+  string bid_window_close_time = 5;
+  int32 effective_offset_days = 6;
+  string effective_time = 7;
+  int32 force_assign_hours = 8;
+  string force_assign_selection_mode = 9;
 }

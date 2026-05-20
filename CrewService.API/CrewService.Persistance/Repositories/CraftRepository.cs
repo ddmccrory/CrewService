@@ -18,4 +18,12 @@ internal sealed class CraftRepository(CrewServiceDbContext dbContext, ICurrentUs
             .OrderBy(c => c.CraftNumber)
             .ToListAsync();
     }
+
+    public async Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs)
+    {
+        var ids = ctrlNbrs.ToList();
+        return await DbContext.Set<Craft>()
+            .Where(c => ids.Contains(c.CtrlNbr))
+            .ToListAsync();
+    }
 }

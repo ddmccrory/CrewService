@@ -1,0 +1,304 @@
+@page "/staffing/bulletins/{CtrlNbr:long}"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject BulletinsClient BulletinsClient
+
+<PageTitle>Bulletin Detail</PageTitle>
+
+@if (isLoading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (bulletin is null)
+{
+    <div class="alert alert-warning">Bulletin not found.</div>
+    <BackNavButton Text="Bulletins" FallbackUrl="/staffing/bulletins" />
+}
+else
+{
+    <BackNavButton Text="Bulletins" FallbackUrl="/staffing/bulletins" />
+
+    <h1>@(string.IsNullOrEmpty(bulletin.PositionName) ? "Bulletin Detail" : bulletin.PositionName)</h1>
+    <p class="text-muted mb-1">
+        <span class="badge @BulletinStatusBadge(bulletin.Status)">@bulletin.Status</span>
+    </p>
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header fw-semibold"><span class="bi bi-info-circle me-1"></span> Bulletin Info</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        @if (!string.IsNullOrEmpty(bulletin.PositionName))
+                        {
+                            <dt class="col-sm-5">Position</dt>
+                            <dd class="col-sm-7">@bulletin.PositionName</dd>
+                        }
+                        <dt class="col-sm-5">Bid Window Opens</dt>
+                        <dd class="col-sm-7">@FormatDateTime(bulletin.BidWindowOpensUtc)</dd>
+                        <dt class="col-sm-5">Bid Window Closes</dt>
+                        <dd class="col-sm-7">@FormatDateTime(bulletin.BidWindowClosesUtc)</dd>
+                        <dt class="col-sm-5">Effective Date</dt>
+                        <dd class="col-sm-7">@FormatDateTime(bulletin.EffectiveUtc)</dd>
+                        @if (bulletin.AwardedEmployeeCtrlNbr > 0)
+                        {
+                            <dt class="col-sm-5">Awarded To</dt>
+                            <dd class="col-sm-7">@bulletin.AwardedEmployeeCtrlNbr (@bulletin.AwardType)</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header fw-semibold"><span class="bi bi-gear me-1"></span> Actions</div>
+                <div class="card-body d-flex flex-wrap gap-2 align-items-start">
+                    @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "Posted")
+                    {
+                        <button class="btn btn-success" @onclick="OpenAwardModal">
+                            <span class="bi bi-trophy"></span> Award
+                        </button>
+                        <button class="btn btn-warning" @onclick="OpenForceAssignModal">
+                            <span class="bi bi-person-fill-exclamation"></span> Force Assign
+                        </button>
+                        <button class="btn btn-secondary" @onclick="OnSetNoBid">
+                            <span class="bi bi-dash-circle"></span> Set No-Bid
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3"><span class="bi bi-hand-index me-1"></span> Bids</h4>
+
+    <DataTable TItem="BulletinBidResponse"
+               Items="bids"
+               Columns="bidColumns"
+               EmptyMessage="No bids submitted.">
+        <RowContent Context="bid">
+            <td>@bid.Priority</td>
+            <td>@bid.EmployeeCtrlNbr</td>
+            <td>@bid.SeniorityRank</td>
+            <td>@FormatDateTime(bid.SubmittedUtc)</td>
+            <td><span class="badge @BidStatusBadge(bid.Status)">@bid.Status</span></td>
+            <td class="text-end">
+                @if (!Permissions.IsReadOnly("staffing/bulletins") && bid.Status == "Submitted")
+                {
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => WithdrawBid(bid.CtrlNbr)">
+                        <span class="bi bi-x"></span> Withdraw
+                    </button>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+
+    @* ── Award Modal ── *@
+    <Modal Visible="showAwardModal" Title="Award Bulletin" Icon="bi bi-trophy-fill"
+           OnClose="() => showAwardModal = false" StaticBackdrop="true">
+        <BodyContent>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Employee Control Number</label>
+                <input type="number" class="form-control" @bind="actionEmployeeCtrlNbr" placeholder="Enter employee #" />
+            </div>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="() => showAwardModal = false">Cancel</button>
+            <button class="btn btn-success" @onclick="ConfirmAward" disabled="@(isSaving || actionEmployeeCtrlNbr <= 0)">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Award Position
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Force Assign Modal ── *@
+    <Modal Visible="showForceModal" Title="Force Assign" Icon="bi bi-person-fill-exclamation"
+           OnClose="() => showForceModal = false" StaticBackdrop="true">
+        <BodyContent>
+            <div class="alert alert-warning">
+                <span class="bi bi-exclamation-triangle me-1"></span>
+                Force assign bypasses the normal bid award process.
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Employee Control Number</label>
+                <input type="number" class="form-control" @bind="actionEmployeeCtrlNbr" placeholder="Enter employee #" />
+            </div>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="() => showForceModal = false">Cancel</button>
+            <button class="btn btn-warning" @onclick="ConfirmForceAssign" disabled="@(isSaving || actionEmployeeCtrlNbr <= 0)">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Force Assign
+            </button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    [Parameter] public long CtrlNbr { get; set; }
+
+    private bool isLoading;
+    private new bool isSaving;
+    private new string? errorMessage;
+    private new string? successMessage;
+
+    private BulletinResponse? bulletin;
+    private List<BulletinBidResponse>? bids;
+
+    private bool showAwardModal;
+    private bool showForceModal;
+    private long actionEmployeeCtrlNbr;
+
+    private static readonly IReadOnlyList<DataTableColumn<BulletinBidResponse>> bidColumns =
+    [
+        new("Priority",       b => (object?)b.Priority),
+        new("Employee",       b => (object?)b.EmployeeCtrlNbr),
+        new("Seniority Rank", b => (object?)b.SeniorityRank),
+        new("Submitted",      b => b.SubmittedUtc),
+        new("Status",         b => b.Status),
+        DataTableColumn<BulletinBidResponse>.Actions(),
+    ];
+
+    protected override string? FeatureKey => "staffing/bulletins";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var result = await BulletinsClient.GetBulletinAsync(CtrlNbr);
+            if (ComponentToken.IsCancellationRequested) return;
+            bulletin = result;
+            await LoadBidsAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                errorMessage = $"Failed to load bulletin: {ex.Message}";
+        }
+        finally
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                isLoading = false;
+        }
+    }
+
+    private async Task LoadBidsAsync()
+    {
+        try
+        {
+            var result = await BulletinsClient.GetBidsByBulletinAsync(CtrlNbr);
+            if (ComponentToken.IsCancellationRequested) return;
+            bids = [.. result.Bids];
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                errorMessage = $"Failed to load bids: {ex.Message}";
+        }
+    }
+
+    private void OpenAwardModal() { actionEmployeeCtrlNbr = 0; showAwardModal = true; }
+    private void OpenForceAssignModal() { actionEmployeeCtrlNbr = 0; showForceModal = true; }
+
+    private async Task ConfirmAward()
+    {
+        try
+        {
+            isSaving = true;
+            bulletin = await BulletinsClient.AwardBulletinAsync(CtrlNbr, actionEmployeeCtrlNbr);
+            successMessage = "Bulletin awarded successfully.";
+            showAwardModal = false;
+            await LoadBidsAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to award: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmForceAssign()
+    {
+        try
+        {
+            isSaving = true;
+            bulletin = await BulletinsClient.ForceAssignBulletinAsync(CtrlNbr, actionEmployeeCtrlNbr);
+            successMessage = "Force assigned successfully.";
+            showForceModal = false;
+        }
+        catch (Exception ex) { errorMessage = $"Failed to force assign: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task OnSetNoBid()
+    {
+        try
+        {
+            isSaving = true;
+            bulletin = await BulletinsClient.SetNoBidAsync(CtrlNbr);
+            successMessage = "Bulletin marked as no-bid.";
+        }
+        catch (Exception ex) { errorMessage = $"Failed to set no-bid: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task WithdrawBid(long bidCtrlNbr)
+    {
+        try
+        {
+            await BulletinsClient.WithdrawBidAsync(bidCtrlNbr);
+            await LoadBidsAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to withdraw bid: {ex.Message}"; }
+    }
+
+    private static string FormatDateTime(string iso)
+        => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
+            ? dt.ToString("MM/dd/yyyy HH:mm")
+            : iso;
+
+    private static string BulletinStatusBadge(string status) => status switch
+    {
+        "Posted" => "bg-primary",
+        "Awarded" => "bg-success",
+        "Forced" => "bg-warning text-dark",
+        "NoBid" => "bg-secondary",
+        "Cancelled" => "bg-danger",
+        _ => "bg-light text-dark"
+    };
+
+    private static string BidStatusBadge(string status) => status switch
+    {
+        "Submitted" => "bg-primary",
+        "Winner" => "bg-success",
+        "Loser" => "bg-secondary",
+        "Withdrawn" => "bg-danger",
+        _ => "bg-light text-dark"
+    };
+}

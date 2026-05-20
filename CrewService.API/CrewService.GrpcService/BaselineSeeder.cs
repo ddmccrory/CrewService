@@ -1,6 +1,7 @@
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.Authorization;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.TenantConfig;
@@ -8,7 +9,6 @@ using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
-
 namespace CrewService.GrpcService;
 
 /// <summary>
@@ -93,7 +93,8 @@ internal static class BaselineSeeder
         ("admin/jobs", "Background Jobs", "Administration", "/admin/jobs"),
         ("admin/roles", "Roles", "Administration", "/admin/roles"),
         ("admin/permissions", "Permissions", "Administration", "/admin/permissions"),
-        ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log")
+        ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log"),
+        ("admin/required-positions-strategies", "Position Formulas", "Administration", "/admin/required-positions-strategies")
     ];
 
     // -- Default permission mapping --------------------------------------
@@ -160,7 +161,8 @@ internal static class BaselineSeeder
         ["admin/jobs"] = ["SystemAdmin"],
         ["admin/roles"] = ["SystemAdmin"],
         ["admin/permissions"] = ["SystemAdmin"],
-        ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
+        ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["admin/required-positions-strategies"] = ["SystemAdmin"]
     };
 
     public static async Task SeedAsync(IServiceProvider services)
@@ -182,6 +184,7 @@ internal static class BaselineSeeder
         await SeedDefaultPermissionsAsync(sp);
         await SeedRegulatoryQualificationsAsync(sp);
         await SeedSystemAdminAsync(sp);
+        await SeedStaticRequiredPositionsStrategyAsync(sp);
     }
 
     private static async Task SeedRegulatoryQualificationsAsync(IServiceProvider sp)
@@ -321,5 +324,20 @@ internal static class BaselineSeeder
                     Permission.Create(role.CtrlNbr, feature.CtrlNbr, accessLevel));
             }
         }
+    }
+
+    private static async Task SeedStaticRequiredPositionsStrategyAsync(IServiceProvider sp)
+    {
+        var repo = sp.GetRequiredService<IRequiredPositionsStrategyRepository>();
+
+        var existing = await repo.GetStaticAsync();
+        if (existing is not null)
+            return;
+
+        await repo.AddAsync(RequiredPositionsStrategy.Create(
+            code: "STATIC",
+            name: "Static",
+            description: "Fixed required-position count set manually per board. Default for all crafts.",
+            formulaType: "Static"));
     }
 }

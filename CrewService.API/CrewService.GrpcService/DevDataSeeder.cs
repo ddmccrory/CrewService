@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
@@ -744,6 +744,7 @@ internal static class DevDataSeeder
             hoursofService: false, processPayroll: true, showNotifications: true, vacationAssignmentType: 0,
             departmentCtrlNbr: ptraClericalDept.CtrlNbr, workAreaCtrlNbr: ptraWorkArea.CtrlNbr);
         var ptraClericalRoster = ptraClericalRosterNullable ?? throw new InvalidOperationException("Roster not created for PTRA Clerical craft.");
+        // Assign Annualized Average strategy to PTRA Transportation crafts — moved outside guard, see below
 
         SetParent(csxParentCtrlNbr);
         // Seniority entries: 40 Engineer, 50 Trainman, 10 Clerical
@@ -898,11 +899,11 @@ internal static class DevDataSeeder
             ptraClrDate = ptraClrDate.AddDays(60);
         }
 
-        } // end PTRA seniority guard
+        }
 
         } // end seniority guard
 
-        // ?? Section 5: Work Management � Roles, Templates, Instances, Slots ??
+        // ?? Section 5: Work Management
         var craftRoleRepo = sp.GetRequiredService<ICraftRoleRepository>();
         var workInstanceRepo = sp.GetRequiredService<IWorkInstanceRepository>();
         var positionSlotRepo = sp.GetRequiredService<IPositionSlotRepository>();
@@ -1214,11 +1215,11 @@ internal static class DevDataSeeder
         // Board Positions - 5 engineers, 5 trainmen
         for (int i = 0; i < 5; i++)
         {
-            var engPos = StaffablePosition.Create("Board");
+            var engPos = StaffablePosition.Create(StaffablePositionType.Board);
             await staffPosRepo.AddAsync(engPos);
             engBoard.AddPosition(empList3[3 + i].CtrlNbr, i + 1, engPos.CtrlNbr);
 
-            var condPos = StaffablePosition.Create("Board");
+            var condPos = StaffablePosition.Create(StaffablePositionType.Board);
             await staffPosRepo.AddAsync(condPos);
             condBoard.AddPosition(empList3[43 + i].CtrlNbr, i + 1, condPos.CtrlNbr);
         }
@@ -1248,6 +1249,8 @@ internal static class DevDataSeeder
         var empList4 = await employeeRepo.GetAllAsync();
         var allSlots = await positionSlotRepo.GetAllAsync();
         var now3 = DateTime.UtcNow;
+        var workAreas4 = (await groupRepo.GetAllAsync()).Where(g => g.IsWorkArea).ToList();
+        var bulletinWorkArea = workAreas4.First();
 
         // Create vacancies targeting position slots (use an unbound tomorrow slot)
         var unboundCondSlot = allSlots.FirstOrDefault(s => s.Status == "Open");
@@ -1255,12 +1258,12 @@ internal static class DevDataSeeder
 
         if (unboundCondSlot is not null)
         {
-            var condVacancy = PositionVacancy.Create("PositionSlot", unboundCondSlot.CtrlNbr, condCraft3.CtrlNbr, "RESIGNATION");
+            var condVacancy = PositionVacancy.Create(bulletinWorkArea.CtrlNbr, StaffablePositionType.Crew, unboundCondSlot.CtrlNbr, condCraft3.CtrlNbr, "RESIGNATION", targetName: $"{condCraft3.CraftName} — Position {unboundCondSlot.CtrlNbr.Value}");
             condVacancy.MarkBulletined();
             await vacancyRepo.AddAsync(condVacancy);
 
             var condBulletin = Bulletin.Create(condVacancy.CtrlNbr, condCraft3.CtrlNbr,
-                now3, now3.AddDays(5));
+                now3, now3.AddDays(5), now3.AddDays(7));
             await bulletinRepo.AddAsync(condBulletin);
 
             await bidRepo.AddAsync(BulletinBid.Create(condBulletin.CtrlNbr, empList4[50].CtrlNbr, 1, 50));
@@ -1269,12 +1272,12 @@ internal static class DevDataSeeder
 
         if (unboundEngSlot is not null && unboundEngSlot != unboundCondSlot)
         {
-            var engVacancy = PositionVacancy.Create("PositionSlot", unboundEngSlot.CtrlNbr, engCraft3.CtrlNbr, "PROMOTION");
+            var engVacancy = PositionVacancy.Create(bulletinWorkArea.CtrlNbr, StaffablePositionType.Crew, unboundEngSlot.CtrlNbr, engCraft3.CtrlNbr, "PROMOTION", targetName: $"{engCraft3.CraftName} — Position {unboundEngSlot.CtrlNbr.Value}");
             engVacancy.MarkBulletined();
             await vacancyRepo.AddAsync(engVacancy);
 
             var engBulletin = Bulletin.Create(engVacancy.CtrlNbr, engCraft3.CtrlNbr,
-                now3, now3.AddDays(7));
+                now3, now3.AddDays(7), now3.AddDays(9));
             await bulletinRepo.AddAsync(engBulletin);
 
             await bidRepo.AddAsync(BulletinBid.Create(engBulletin.CtrlNbr, empList4[10].CtrlNbr, 1, 10));
@@ -1808,7 +1811,7 @@ internal static class DevDataSeeder
         if (ptraEmpListFinal.Count > 0)
         {
             // Check if any PTRA employee already has a Crew position assignment (excludes Board assignments)
-            var assignedSet = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync("Crew");
+            var assignedSet = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync(PositionAssignmentType.Direct);
             bool anyPtraAssigned = ptraEmpListFinal.Any(e => assignedSet.Contains(e.CtrlNbr.Value));
 
             if (!anyPtraAssigned)
@@ -1848,7 +1851,7 @@ internal static class DevDataSeeder
 
                 // Exclude any employee already on a board (e.g. Extended Absence from Section 15b).
                 // An employee can only hold one staffable position at a time.
-                var alreadyBoardAssigned = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync("Board");
+                var alreadyBoardAssigned = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync(PositionAssignmentType.Board);
 
                 // Derive board candidates from the active seniority roster — not hardcoded counts.
                 // Anyone on the active seniority roster who does not yet hold a staffable position is eligible.
@@ -1938,6 +1941,115 @@ internal static class DevDataSeeder
                 {
                     await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraTrnBoardCtrlNbr, boardTrnEmps[i].CtrlNbr, i + 1);
                 }
+            }
+        }
+
+        await SeedPtraAnnualizedStrategyAsync(sp);
+    }
+
+    private static async Task SeedPtraAnnualizedStrategyAsync(IServiceProvider sp)
+    {
+        var parentRepo        = sp.GetRequiredService<IParentRepository>();
+        var groupRepo         = sp.GetRequiredService<IDynamicGroupRepository>();
+        var strategyRepo      = sp.GetRequiredService<IRequiredPositionsStrategyRepository>();
+        var craftStrategyRepo = sp.GetRequiredService<ICraftRequiredPositionsStrategyRepository>();
+        var craftRepo         = sp.GetRequiredService<ICraftRepository>();
+
+        var ptraParent = (await parentRepo.GetAllAsync())
+            .FirstOrDefault(p => p.Name.Value == "Port Terminal Railroad Association");
+        if (ptraParent is null) return;
+
+        var ptraRailroad = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParent.CtrlNbr))
+            .FirstOrDefault(g => g.Code == "PTRA");
+        if (ptraRailroad is null) return;
+
+        // Seed ANNUALIZED_AVG as a system-level strategy
+        // Formula: ceiling((avgDailyVacancies * daysPerYear) / payPeriodsPerYear / daysPerPayPeriod)
+        const string annualizedName = "Annualized Average";
+        const string annualizedDesc = "Calculates required board positions using: ceiling((avgDailyVacancies * daysPerYear) / payPeriodsPerYear / daysPerPayPeriod).";
+        const string annualizedParams = """{"daysPerYear":365,"payPeriodsPerYear":24,"daysPerPayPeriod":12}""";
+        var annualized = await strategyRepo.GetByCodeAsync("ANNUALIZED_AVG");
+        if (annualized is null)
+        {
+            annualized = RequiredPositionsStrategy.Create(
+                code: "ANNUALIZED_AVG",
+                name: annualizedName,
+                description: annualizedDesc,
+                formulaType: "AnnualizedAverage",
+                parametersJson: annualizedParams);
+            await strategyRepo.AddAsync(annualized);
+        }
+        else
+        {
+            annualized.Update(annualizedName, annualizedDesc, annualized.FormulaType, annualized.ParametersJson);
+            await strategyRepo.UpdateAsync(annualized);
+        }
+
+        // Assign PTRA Engineer and Trainman crafts to the annualized strategy
+        var ptraCrafts = await craftRepo.GetByParentAndRailroadAsync(ptraParent.CtrlNbr, ptraRailroad.CtrlNbr);
+        foreach (var craft in ptraCrafts.Where(c => c.CraftName is "Engineer" or "Trainman"))
+        {
+            var existing = await craftStrategyRepo.GetByCraftAsync(craft.CtrlNbr!);
+            if (existing is null)
+                await craftStrategyRepo.AddAsync(
+                    CraftRequiredPositionsStrategy.Create(craft.CtrlNbr!, annualized.CtrlNbr!));
+        }
+
+        // Assign PTRA Clerical craft to STATIC strategy
+        var staticStrategy = await strategyRepo.GetStaticAsync();
+        if (staticStrategy is not null)
+        {
+            foreach (var craft in ptraCrafts.Where(c => c.CraftName == "Clerical"))
+            {
+                var existing = await craftStrategyRepo.GetByCraftAsync(craft.CtrlNbr!);
+                if (existing is null)
+                    await craftStrategyRepo.AddAsync(
+                        CraftRequiredPositionsStrategy.Create(craft.CtrlNbr!, staticStrategy.CtrlNbr!));
+            }
+        }
+
+        // Seed PTRA bulletin rules — Engineer: 72h bid window, Trainman: 24h bid window
+        // All other times match legacy RosterBulletinRule defaults (04:00 start/close/effective)
+        var bulletinRuleRepo = sp.GetRequiredService<IBulletinRuleRepository>();
+        var legacyStartTime    = new TimeSpan(04, 00, 00);
+        var legacyCloseTime    = new TimeSpan(04, 00, 00);
+        var legacyEffectiveTime = new TimeSpan(04, 00, 00);
+
+        var (engineerBidHours, trainmanBidHours) = (72, 24);
+
+        foreach (var craft in ptraCrafts.Where(c => c.CraftName is "Engineer" or "Trainman"))
+        {
+            var existingRule = await bulletinRuleRepo.GetByCraftAsync(craft.CtrlNbr!);
+            int bidHours = craft.CraftName == "Engineer" ? engineerBidHours : trainmanBidHours;
+
+            // Trainman uses JuniorHelperOrExtraBoard: foreman vacancies are filled by the youngest
+            // helper regardless of whether they are on the extra board or in an assigned helper position.
+            // Engineer uses the default JuniorExtraBoard.
+            var selectionMode = craft.CraftName == "Trainman"
+                ? ForceAssignSelectionMode.JuniorHelperOrExtraBoard
+                : ForceAssignSelectionMode.JuniorExtraBoard;
+
+            if (existingRule is null)
+                await bulletinRuleRepo.AddAsync(BulletinRule.Create(
+                    craft.CtrlNbr!,
+                    bidWindowHours: bidHours,
+                    bidWindowStartTime: legacyStartTime,
+                    bidWindowCloseTime: legacyCloseTime,
+                    effectiveOffsetDays: 0,
+                    effectiveTime: legacyEffectiveTime,
+                    forceAssignHours: 0,
+                    forceAssignSelectionMode: selectionMode));
+            else
+            {
+                existingRule.Update(
+                    bidWindowHours: bidHours,
+                    bidWindowStartTime: legacyStartTime,
+                    bidWindowCloseTime: legacyCloseTime,
+                    effectiveOffsetDays: 0,
+                    effectiveTime: legacyEffectiveTime,
+                    forceAssignHours: 0,
+                    forceAssignSelectionMode: selectionMode);
+                await bulletinRuleRepo.UpdateAsync(existingRule);
             }
         }
     }
