@@ -69,7 +69,7 @@ public class CascadingSoftDeleteTests : IDisposable
         await ctx.SaveChangesAsync(ct);
         var crew = Crew.Create("REGULAR", group.CtrlNbr, "Test Crew");
         ctx.Crews.Add(crew);
-        var sp = StaffablePosition.Create("Crew");
+        var sp = StaffablePosition.Create(StaffablePositionType.Crew);
         ctx.StaffablePositions.Add(sp);
         await ctx.SaveChangesAsync(ct);
         var pos = CrewPosition.Create(crew.CtrlNbr, role.CtrlNbr, 1, sp.CtrlNbr);
@@ -101,11 +101,11 @@ public class CascadingSoftDeleteTests : IDisposable
         var empStatus = EmploymentStatus.Create(group.CtrlNbr, "ACT", "Active", 1, "A");
         ctx.EmploymentStatuses.Add(empStatus);
         await ctx.SaveChangesAsync(ct);
-        var employee = Employee.Create(group.CtrlNbr, "jdoe", "E001", "000-00-0001", Gender.Male, Race.White, new DateTime(1990, 1, 1), DateTime.UtcNow, empStatus.CtrlNbr);
+        var employee = Employee.Create(group.CtrlNbr, "jdoe", "E001", "000-00-0001", Gender.Male, Race.White, new DateTime(1990, 1, 1), DateTime.UtcNow, empStatus.CtrlNbr, "jdoe@example.com", "admin", "Admin User");
         ctx.Employees.Add(employee);
         var crew = Crew.Create("REGULAR", group.CtrlNbr, "Test Crew");
         ctx.Crews.Add(crew);
-        var sp = StaffablePosition.Create("Crew");
+        var sp = StaffablePosition.Create(StaffablePositionType.Crew);
         ctx.StaffablePositions.Add(sp);
         await ctx.SaveChangesAsync(ct);
         var pos = CrewPosition.Create(crew.CtrlNbr, role.CtrlNbr, 1, sp.CtrlNbr);

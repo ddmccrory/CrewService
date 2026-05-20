@@ -1,4 +1,4 @@
-﻿using CrewService.Application.DailyOperations;
+using CrewService.Application.DailyOperations;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
@@ -161,6 +161,8 @@ public class CallSheetGenerationServiceTests
         public IStaffablePositionRepository StaffablePositions => null!;
         public IPositionAssignmentRepository PositionAssignments => null!;
         public IBoardCascadePolicyRepository BoardCascadePolicies => null!;
+        public IRequiredPositionsStrategyRepository RequiredPositionsStrategies => throw new NotImplementedException();
+        public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => throw new NotImplementedException();
         public IRosterBoardRepository RosterBoards => null!;
         public ICrewRepository Crews => null!;
         public ICrewPositionRepository CrewPositions => null!;
@@ -225,6 +227,9 @@ public class CallSheetGenerationServiceTests
         public IPositionVacancyRepository PositionVacancies => null!;
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
+        public IBulletinRuleRepository BulletinRules => null!;
+        public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public IUserParentAssignmentRepository UserParentAssignments => null!;
         public IInvitationRepository Invitations => null!;
         public IPayrollTierRepository PayrollTiers => null!;
