@@ -81,6 +81,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Bulletins.PositionVacancy> PositionVacancies => Set<Domain.Modules.Bulletins.PositionVacancy>();
     public DbSet<Domain.Modules.Bulletins.Bulletin> Bulletins => Set<Domain.Modules.Bulletins.Bulletin>();
     public DbSet<Domain.Modules.Bulletins.BulletinBid> BulletinBids => Set<Domain.Modules.Bulletins.BulletinBid>();
+    public DbSet<Domain.Modules.Bulletins.BulletinRule> BulletinRules => Set<Domain.Modules.Bulletins.BulletinRule>();
 
     // Dispatching Module
     public DbSet<Domain.Modules.Dispatching.ChangeNotification> ChangeNotifications => Set<Domain.Modules.Dispatching.ChangeNotification>();

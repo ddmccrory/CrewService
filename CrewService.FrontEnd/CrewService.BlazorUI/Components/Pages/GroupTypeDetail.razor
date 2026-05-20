@@ -85,6 +85,20 @@ else
                     <InputCheckbox @bind-Value="groupSaveModel.IsWorkArea" class="form-check-input" id="groupIsWorkArea" disabled />
                     <label class="form-check-label text-muted" for="groupIsWorkArea">Work Area (inherited from group type)</label>
                 </div>
+                @if (groupSaveModel.IsWorkArea)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Time Zone</label>
+                        <select class="form-select" @bind="groupSaveModel.TimeZoneId">
+                            <option value="">(Not set)</option>
+                            @foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
+                            {
+                                <option value="@tz.Id">@tz.DisplayName</option>
+                            }
+                        </select>
+                        <div class="form-text">Select the local time zone for this work area.</div>
+                    </div>
+                }
                 @if (groupSaveModel.Attributes.Count > 0)
                 {
                     <hr />
@@ -562,7 +576,8 @@ else
             Name = g.Name,
             Code = g.Code,
             ParentGroupCtrlNbr = g.ParentGroupCtrlNbr,
-            IsWorkArea = groupType?.IsWorkArea ?? false
+            IsWorkArea = groupType?.IsWorkArea ?? false,
+            TimeZoneId = g.TimeZoneId
         };
 
         // Build attribute entries from definitions, populated with existing values
@@ -618,13 +633,13 @@ else
 
             if (editGroupCtrlNbr > 0)
             {
-                var result = await ConfigClient.UpdateGroupAsync(editGroupCtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
+                var result = await ConfigClient.UpdateGroupAsync(editGroupCtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0, groupSaveModel.TimeZoneId);
                 savedGroupCtrlNbr = result.CtrlNbr;
                 successMessage = "Group updated.";
             }
             else
             {
-                var result = await ConfigClient.CreateGroupAsync(CtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
+                var result = await ConfigClient.CreateGroupAsync(CtrlNbr, groupSaveModel.Name ?? string.Empty, groupSaveModel.ParentGroupCtrlNbr, groupSaveModel.IsWorkArea, groupSaveModel.Code, SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0, groupSaveModel.TimeZoneId);
                 savedGroupCtrlNbr = result.CtrlNbr;
                 successMessage = "Group added.";
             }
@@ -778,6 +793,7 @@ else
 
         public long ParentGroupCtrlNbr { get; set; }
         public bool IsWorkArea { get; set; }
+        public string? TimeZoneId { get; set; }
         public List<GroupAttributeEntry> Attributes { get; set; } = new();
     }
 

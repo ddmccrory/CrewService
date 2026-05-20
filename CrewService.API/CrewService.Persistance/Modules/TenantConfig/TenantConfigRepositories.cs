@@ -111,18 +111,8 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
         if (root is null)
             return [];
 
-        // When the root has a materialized path, use prefix matching (with "/" delimiter
-        // to avoid collisions like "/100" matching "/1001").
-        if (root.Path is not null)
-        {
-            var prefix = root.Path + "/";
-            return await DbContext.Set<DynamicGroup>()
-                .Where(g => g.Path != null && (g.Path == root.Path || g.Path.StartsWith(prefix)))
-                .OrderBy(g => g.Path)
-                .ToListAsync();
-        }
-
-        // Fallback: root has no path — BFS via ParentGroupCtrlNbr so descendants are
+        // BFS via ParentGroupCtrlNbr — works regardless of whether materialized paths
+        // have been populated, so mixed-state trees are handled correctly.
         // still returned even when materialized paths haven't been backfilled.
         var result = new List<DynamicGroup> { root };
         var queue = new Queue<ControlNumber>();

@@ -164,6 +164,7 @@ message CreateGroupRequest {
   string code = 6;
   int64 parent_ctrl_nbr = 7;
   int64 railroad_ctrl_nbr = 8;
+  string time_zone_id = 9;
 }
 
 message UpdateGroupRequest {
@@ -175,6 +176,7 @@ message UpdateGroupRequest {
   string code = 6;
   int64 parent_ctrl_nbr = 7;
   int64 railroad_ctrl_nbr = 8;
+  string time_zone_id = 9;
 }
 
 message DeleteGroupRequest {
@@ -191,6 +193,7 @@ message GroupResponse {
   string code = 7;
   int64 parent_ctrl_nbr = 8;
   int64 railroad_ctrl_nbr = 9;
+  string time_zone_id = 10;
 }
 
 message GetGroupsByTypeNameRequest {

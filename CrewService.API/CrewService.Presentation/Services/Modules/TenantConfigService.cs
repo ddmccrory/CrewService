@@ -139,6 +139,7 @@ public class TenantConfigService(IServiceProvider serviceProvider) : TenantConfi
                 string.IsNullOrEmpty(request.Code) ? null : request.Code,
                 request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
                 request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null,
+                string.IsNullOrEmpty(request.TimeZoneId) ? null : request.TimeZoneId,
                 context.CancellationToken);
             return MapGroup(group);
         }
@@ -160,6 +161,7 @@ public class TenantConfigService(IServiceProvider serviceProvider) : TenantConfi
                 string.IsNullOrEmpty(request.Code) ? null : request.Code,
                 request.ParentCtrlNbr > 0 ? ControlNumber.Create(request.ParentCtrlNbr) : null,
                 request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null,
+                string.IsNullOrEmpty(request.TimeZoneId) ? null : request.TimeZoneId,
                 context.CancellationToken);
             return MapGroup(group);
         }
@@ -361,7 +363,8 @@ public class TenantConfigService(IServiceProvider serviceProvider) : TenantConfi
         Path = g.Path ?? string.Empty,
         IsWorkArea = g.IsWorkArea,
         ParentCtrlNbr = g.ParentCtrlNbr?.Value ?? 0,
-        RailroadCtrlNbr = g.RailroadCtrlNbr?.Value ?? 0
+        RailroadCtrlNbr = g.RailroadCtrlNbr?.Value ?? 0,
+        TimeZoneId = g.TimeZoneId ?? string.Empty
     };
 
     private static AttributeDefinitionResponse MapAttributeDefinition(GroupAttributeDefinition ad) => new()

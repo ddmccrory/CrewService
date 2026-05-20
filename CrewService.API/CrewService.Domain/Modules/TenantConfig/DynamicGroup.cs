@@ -13,6 +13,12 @@ public sealed class DynamicGroup : Entity
     public bool IsWorkArea { get; private set; }
     public ControlNumber? ParentCtrlNbr { get; private set; }
     public ControlNumber? RailroadCtrlNbr { get; private set; }
+    /// <summary>
+    /// IANA or Windows timezone identifier for this work area (e.g. "America/Chicago" or "Central Standard Time").
+    /// Only meaningful when <see cref="IsWorkArea"/> is <c>true</c>.
+    /// Used to convert bulletin times between local work-area time and UTC.
+    /// </summary>
+    public string? TimeZoneId { get; private set; }
 
     private DynamicGroup()
     {
@@ -27,7 +33,8 @@ public sealed class DynamicGroup : Entity
         string? path,
         bool isWorkArea,
         ControlNumber? parentCtrlNbr,
-        ControlNumber? railroadCtrlNbr)
+        ControlNumber? railroadCtrlNbr,
+        string? timeZoneId)
     {
         GroupTypeCtrlNbr = groupTypeCtrlNbr;
         Name = name;
@@ -37,6 +44,7 @@ public sealed class DynamicGroup : Entity
         IsWorkArea = isWorkArea;
         ParentCtrlNbr = parentCtrlNbr;
         RailroadCtrlNbr = railroadCtrlNbr;
+        TimeZoneId = timeZoneId;
     }
 
     public static DynamicGroup Create(
@@ -47,7 +55,8 @@ public sealed class DynamicGroup : Entity
         bool isWorkArea,
         string? code = null,
         ControlNumber? parentCtrlNbr = null,
-        ControlNumber? railroadCtrlNbr = null)
+        ControlNumber? railroadCtrlNbr = null,
+        string? timeZoneId = null)
     {
         var group = new DynamicGroup(
             groupTypeCtrlNbr,
@@ -57,12 +66,13 @@ public sealed class DynamicGroup : Entity
             path,
             isWorkArea,
             parentCtrlNbr,
-            railroadCtrlNbr);
+            railroadCtrlNbr,
+            timeZoneId);
         group.Raise(new DynamicGroupCreatedDomainEvent(group));
         return group;
     }
 
-    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null, ControlNumber? parentCtrlNbr = null, ControlNumber? railroadCtrlNbr = null)
+    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null, ControlNumber? parentCtrlNbr = null, ControlNumber? railroadCtrlNbr = null, string? timeZoneId = null)
     {
         Name = name;
         Code = code;
@@ -71,6 +81,7 @@ public sealed class DynamicGroup : Entity
         IsWorkArea = isWorkArea;
         ParentCtrlNbr = parentCtrlNbr;
         RailroadCtrlNbr = railroadCtrlNbr;
+        TimeZoneId = timeZoneId;
         Raise(new DynamicGroupUpdatedDomainEvent(this));
     }
 
