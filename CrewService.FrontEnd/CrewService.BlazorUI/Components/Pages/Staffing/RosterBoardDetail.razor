@@ -39,6 +39,10 @@ else
     <p class="text-muted small mb-1">
         <strong>Work Area:</strong> @board.WorkAreaName
         <span class="ms-3"><strong>Roster:</strong> @board.RosterName</span>
+        @if (board.RequiredPositions > 0)
+        {
+            <span class="ms-3"><strong>Required Positions:</strong> @board.RequiredPositions</span>
+        }
     </p>
 
     <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
