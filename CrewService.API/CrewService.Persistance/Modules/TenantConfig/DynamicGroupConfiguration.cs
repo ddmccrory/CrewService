@@ -36,6 +36,8 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
             ctrlNbr => ctrlNbr == null ? (long?)null : ctrlNbr.Value,
             value => value == null ? null : ControlNumber.Create(value.Value));
 
+        builder.Property(g => g.TimeZoneId).HasMaxLength(100);
+
         builder.HasIndex(g => new { g.ParentGroupCtrlNbr, g.Name });
         builder.HasIndex(g => g.RailroadCtrlNbr);
         builder.HasIndex(g => g.Path);

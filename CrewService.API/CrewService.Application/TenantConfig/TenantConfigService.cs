@@ -99,6 +99,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task<DynamicGroup> CreateGroupAsync(
         long groupTypeCtrlNbr, string name, long? parentGroupCtrlNbr, bool isWorkArea,
         string? code, ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr,
+        string? timeZoneId = null,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -119,7 +120,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
                 throw new InvalidOperationException($"Group '{name}' already exists.");
             existing.Restore();
             existing.Update(name, parentGroupCtrlNbr > 0 ? ControlNumber.Create(parentGroupCtrlNbr!.Value) : null,
-                null, isWorkArea, code, parentCtrlNbr, railroadCtrlNbr);
+                null, isWorkArea, code, parentCtrlNbr, railroadCtrlNbr, timeZoneId);
             existing.BuildPath(parentPath);
             uow.DynamicGroups.Update(existing);
             await uow.CommitAsync(ct);
@@ -128,7 +129,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
 
         var group = DynamicGroup.Create(groupTypeCtrlNbr, name,
             parentGroupCtrlNbr > 0 ? parentGroupCtrlNbr : null,
-            null, isWorkArea, code, parentCtrlNbr, railroadCtrlNbr);
+            null, isWorkArea, code, parentCtrlNbr, railroadCtrlNbr, timeZoneId);
         group.BuildPath(parentPath);
         uow.DynamicGroups.Add(group);
 
@@ -156,6 +157,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task<DynamicGroup> UpdateGroupAsync(
         ControlNumber ctrlNbr, string name, long? parentGroupCtrlNbr, bool isWorkArea,
         string? code, ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr,
+        string? timeZoneId = null,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -172,13 +174,11 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         }
 
         group.Update(name, parentGroupCtrlNbr > 0 ? ControlNumber.Create(parentGroupCtrlNbr!.Value) : null,
-            null, isWorkArea, code, parentCtrlNbr, railroadCtrlNbr);
+            null, isWorkArea, code, parentCtrlNbr, railroadCtrlNbr, timeZoneId);
         group.BuildPath(parentPath);
         uow.DynamicGroups.Update(group);
 
-        var newParentCtrlNbr = parentGroupCtrlNbr > 0 ? ControlNumber.Create(parentGroupCtrlNbr!.Value) : (ControlNumber?)null;
-        if (oldParentCtrlNbr != newParentCtrlNbr)
-            await RebuildDescendantPathsAsync(group, uow);
+        await RebuildDescendantPathsAsync(group, uow);
 
         await uow.CommitAsync(ct);
         return group;
