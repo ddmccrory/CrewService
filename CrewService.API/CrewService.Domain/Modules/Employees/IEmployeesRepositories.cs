@@ -102,6 +102,7 @@ public interface IPayrollTierRepository : IRepository<PayrollTier>
 public interface ICraftRepository : IRepository<Craft>
 {
     Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr);
+    Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs);
 }
 
 public interface IRosterRepository : IRepository<Roster>

@@ -1,0 +1,552 @@
+@page "/staffing/bulletins"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject BulletinsClient BulletinsClient
+@inject CraftClient CraftClient
+@inject CrewClient CrewClient
+@inject RosterBoardClient RosterBoardClient
+@inject NavigationManager Nav
+
+<PageTitle>Bulletins &amp; Bids</PageTitle>
+
+<h1>Bulletins &amp; Bids</h1>
+<p class="text-muted mb-1">Manage position vacancies, bulletins, and bids.</p>
+
+@if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage bulletins.
+    </div>
+}
+else
+{
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+
+    @if (isLoading)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else if (activeTab == "bulletins")
+    {
+        <DataTable TItem="BulletinResponse"
+                   Items="bulletins"
+                   Columns="bulletinColumns"
+                   EmptyMessage="No active bulletins."
+                   DefaultSortColumn="Position">
+            <RowContent Context="b">
+                <td>@(string.IsNullOrEmpty(b.PositionName) ? "—" : b.PositionName)</td>
+                <td>@FormatDateTime(b.BidWindowOpensUtc)</td>
+                <td>@FormatDateTime(b.BidWindowClosesUtc)</td>
+                <td>@FormatDateTime(b.EffectiveUtc)</td>
+                <td><span class="badge @BulletinStatusBadge(b.Status)">@b.Status</span></td>
+                <td class="text-end">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ViewBulletin(b.CtrlNbr)">
+                        <span class="bi bi-eye"></span> View
+                    </button>
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+    else
+    {
+        <DataTable TItem="PositionVacancyResponse"
+                   Items="vacancies"
+                   Columns="vacancyColumns"
+                   EmptyMessage="No open vacancies."
+                   DefaultSortColumn="Position">
+            <ToolbarContent>
+                @if (!Permissions.IsReadOnly("staffing/bulletins"))
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateVacancyModal">
+                        <span class="bi bi-plus-circle"></span> Open Vacancy
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="v">
+                <td>@(string.IsNullOrEmpty(v.TargetName) ? "—" : v.TargetName)</td>
+                <td>@v.TargetType</td>
+                <td>@v.VacancyReasonCode</td>
+                <td><span class="badge @VacancyStatusBadge(v.Status)">@v.Status</span></td>
+                <td>@FormatDateTime(v.OpenedUtc)</td>
+                <td class="text-end">
+                    <button class="btn btn-outline-secondary btn-sm me-1" @onclick="() => ViewVacancy(v)">
+                        <span class="bi bi-eye"></span> View
+                    </button>
+                    @if (!Permissions.IsReadOnly("staffing/bulletins") && v.Status == "Open")
+                    {
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => OpenAbolishModal(v)">
+                            <span class="bi bi-x-circle"></span> Abolish
+                        </button>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+
+    @* ── Open Vacancy Modal ── *@
+    <Modal Visible="showCreateVacancyModal" Title="Open Vacancy" Icon="bi bi-briefcase-fill"
+           OnClose="CloseCreateVacancyModal" StaticBackdrop="true">
+        <BodyContent>
+            <EditForm Model="vacancyModel" OnValidSubmit="OnOpenVacancy" id="open-vacancy-form">
+                <DataAnnotationsValidator />
+
+                @* Step 1: Craft *@
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft</label>
+                    <select class="form-select" @onchange="OnCraftSelectChanged">
+                        <option value="0">— Select a craft —</option>
+                        @foreach (var c in crafts ?? [])
+                        {
+                            <option value="@c.CtrlNbr" selected="@(vacancyModel.CraftCtrlNbr == c.CtrlNbr)">@c.CraftName</option>
+                        }
+                    </select>
+                    <ValidationMessage For="() => vacancyModel.CraftCtrlNbr" class="text-danger" />
+                </div>
+
+                @* Step 2: Position *@
+                @if (vacancyModel.CraftCtrlNbr > 0)
+                {
+                    @if (isLoadingPositions)
+                    {
+                        <div class="d-flex align-items-center text-muted small mb-3">
+                            <span class="spinner-border spinner-border-sm me-2"></span> Loading positions…
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Position</label>
+                            @if (vacancyPositionOptions.Count == 0)
+                            {
+                                <div class="text-muted small">No positions found for this craft.</div>
+                            }
+                            else
+                            {
+                                <div class="list-group" style="max-height:220px;overflow-y:auto;">
+                                    @foreach (var opt in vacancyPositionOptions)
+                                    {
+                                        <button type="button"
+                                                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(opt.IsOccupied ? "disabled" : "") @(vacancyModel.TargetCtrlNbr == opt.CtrlNbr ? "active" : "")"
+                                                disabled="@opt.IsOccupied"
+                                                @onclick="() => SelectVacancyPosition(opt)">
+                                            <span>
+                                                <span class="badge bg-secondary me-2">@opt.TypeLabel</span>
+                                                @opt.Label
+                                            </span>
+                                            @if (opt.IsOccupied)
+                                            {
+                                                <span class="text-muted small"><span class="bi bi-person-fill me-1"></span>@opt.IncumbentName</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success-subtle text-success">Vacant</span>
+                                            }
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            <ValidationMessage For="() => vacancyModel.TargetCtrlNbr" class="text-danger mt-1" />
+                        </div>
+                    }
+                }
+
+                @* Step 3: Vacancy Reason *@
+                @if (vacancyModel.TargetCtrlNbr > 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Vacancy Reason</label>
+                        <SelectInput TItem="EnumOption" TValue="string"
+                                     Items="reasonCodeOptions"
+                                     @bind-Value="vacancyModel.VacancyReasonCode"
+                                     ValueSelector="@(o => o.Value)"
+                                     TextSelector="@(o => o.Label)"
+                                     Placeholder="— Select a reason —"
+                                     class="form-select" />
+                        <ValidationMessage For="() => vacancyModel.VacancyReasonCode" class="text-danger" />
+                    </div>
+
+                    @* Previous Incumbent (auto-filled if position was occupied) *@
+                    @if (vacancyModel.PreviousIncumbentCtrlNbr > 0)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Previous Incumbent</label>
+                            <input class="form-control" readonly value="@selectedPositionIncumbentName" />
+                        </div>
+                    }
+                }
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="CloseCreateVacancyModal">Cancel</button>
+            <button class="btn btn-primary" type="submit" form="open-vacancy-form"
+                    disabled="@(isSaving || vacancyModel.TargetCtrlNbr == 0)">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Open Vacancy
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Abolish Confirmation Modal ── *@
+    <Modal Visible="showAbolishModal" Title="Abolish Vacancy" Icon="bi bi-exclamation-triangle-fill"
+           OnClose="() => showAbolishModal = false" StaticBackdrop="true">
+        <BodyContent>
+            <p>Are you sure you want to abolish vacancy <strong>#@abolishCtrlNbr</strong>? This action cannot be undone.</p>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="() => showAbolishModal = false">Cancel</button>
+            <button class="btn btn-danger" @onclick="ConfirmAbolish" disabled="@isSaving">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Abolish
+            </button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private string activeTab = "bulletins";
+    private bool isLoading;
+    private new bool isSaving;
+    private new string? errorMessage;
+    private new string? successMessage;
+
+    private List<PositionVacancyResponse>? vacancies;
+    private List<BulletinResponse>? bulletins;
+    private List<CraftResponse>? crafts;
+
+    private IReadOnlyList<TabPanel.TabItem> tabs = [];
+
+    private IReadOnlyList<DataTableColumn<PositionVacancyResponse>> vacancyColumns =
+    [
+        new("Position",       v => v.TargetName),
+        new("Target Type",    v => v.TargetType),
+        new("Vacancy Reason", v => v.VacancyReasonCode),
+        new("Status",         v => v.Status),
+        new("Opened",         v => v.OpenedUtc),
+        DataTableColumn<PositionVacancyResponse>.Actions(),
+    ];
+
+    private IReadOnlyList<DataTableColumn<BulletinResponse>> bulletinColumns =
+    [
+        new("Position",          b => b.PositionName),
+        new("Bid Window Opens",  b => b.BidWindowOpensUtc),
+        new("Bid Window Closes", b => b.BidWindowClosesUtc),
+        new("Effective",         b => b.EffectiveUtc),
+        new("Status",            b => b.Status),
+        DataTableColumn<BulletinResponse>.Actions(),
+    ];
+
+    private bool showCreateVacancyModal;
+    private bool showAbolishModal;
+    private long abolishCtrlNbr;
+    private VacancyInputModel vacancyModel = new();
+    private bool isLoadingPositions;
+    private List<PositionOption> vacancyPositionOptions = [];
+    private string? selectedPositionIncumbentName;
+
+    private static readonly List<EnumOption> reasonCodeOptions =
+    [
+        new("NewPosition", "New Position"),
+        new("IncumbentMove", "Incumbent Move"),
+        new("Retirement", "Retirement"),
+        new("Resignation", "Resignation"),
+        new("Termination", "Termination"),
+        new("LeaveOfAbsence", "Leave of Absence")
+    ];
+
+    protected override string? FeatureKey => "staffing/bulletins";
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (IsContextFullySelected)
+            await LoadDataAsync();
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            var craftsTask = CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
+            var vacanciesTask = BulletinsClient.GetOpenVacanciesAsync();
+            var bulletinsTask = BulletinsClient.GetPostedBulletinsAsync();
+            await Task.WhenAll(craftsTask, vacanciesTask, bulletinsTask);
+
+            if (ComponentToken.IsCancellationRequested) return;
+            crafts = [.. (await craftsTask).Crafts];
+            vacancies = [.. (await vacanciesTask).Vacancies];
+            bulletins = [.. (await bulletinsTask).Bulletins];
+
+            tabs =
+            [
+                new("bulletins", $"Active Bulletins ({bulletins.Count})", "bi bi-megaphone"),
+                new("vacancies", $"Open Vacancies ({vacancies.Count})", "bi bi-briefcase"),
+            ];
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                errorMessage = $"Failed to load data: {ex.Message}";
+        }
+        finally
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                isLoading = false;
+        }
+    }
+
+    private void OpenCreateVacancyModal()
+    {
+        vacancyModel = new();
+        vacancyPositionOptions = [];
+        selectedPositionIncumbentName = null;
+        showCreateVacancyModal = true;
+    }
+
+    private void CloseCreateVacancyModal()
+    {
+        showCreateVacancyModal = false;
+        vacancyModel = new();
+        vacancyPositionOptions = [];
+        selectedPositionIncumbentName = null;
+    }
+
+    private async Task OnCraftSelectChanged(ChangeEventArgs e)
+    {
+        var craftCtrlNbr = long.TryParse(e.Value?.ToString(), out var v) ? v : 0;
+        await OnVacancyCraftChanged(craftCtrlNbr);
+    }
+
+    private async Task OnVacancyCraftChanged(long craftCtrlNbr)
+    {
+        vacancyModel.CraftCtrlNbr = craftCtrlNbr;
+        vacancyModel.TargetCtrlNbr = 0;
+        vacancyModel.TargetType = null;
+        vacancyModel.PreviousIncumbentCtrlNbr = 0;
+        vacancyModel.VacancyReasonCode = null;
+        selectedPositionIncumbentName = null;
+        vacancyPositionOptions = [];
+
+        if (craftCtrlNbr <= 0) return;
+
+        isLoadingPositions = true;
+        try
+        {
+            var options = new List<PositionOption>();
+
+            // Crew positions for this railroad
+            var crewsResp = await CrewClient.GetAllCrewsAsync(SelectedRailroadCtrlNbr ?? 0);
+            if (ComponentToken.IsCancellationRequested) return;
+            foreach (var crew in crewsResp.Crews)
+            {
+                var posResp = await CrewClient.GetCrewPositionsAsync(crew.CtrlNbr);
+                if (ComponentToken.IsCancellationRequested) return;
+                foreach (var pos in posResp.Positions)
+                {
+                    var incResp = await CrewClient.GetCrewIncumbenciesAsync(pos.CtrlNbr);
+                    if (ComponentToken.IsCancellationRequested) return;
+                    var activeInc = incResp.Incumbencies
+                        .FirstOrDefault(i => string.IsNullOrEmpty(i.EndUtc));
+                    options.Add(new PositionOption(
+                        CtrlNbr: pos.CtrlNbr,
+                        Label: $"{crew.Name} — Position {pos.DisplayOrder}",
+                        TypeLabel: "Crew",
+                        TargetType: "C",
+                        IsOccupied: activeInc is not null,
+                        IncumbentName: activeInc is not null
+                            ? $"{activeInc.FullNameLnf} ({activeInc.EmployeeNumber})"
+                            : null,
+                        IncumbentCtrlNbr: activeInc?.EmployeeCtrlNbr ?? 0
+                    ));
+                }
+            }
+
+            // Board positions for this craft
+            var boardsResp = await RosterBoardClient.GetAllAsync(SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
+            if (ComponentToken.IsCancellationRequested) return;
+            foreach (var board in boardsResp.Boards.Where(b => b.CraftCtrlNbr == craftCtrlNbr))
+            {
+                foreach (var bpos in board.Positions)
+                {
+                    options.Add(new PositionOption(
+                        CtrlNbr: bpos.CtrlNbr,
+                        Label: $"{board.Name} — Slot {bpos.PositionOrder}",
+                        TypeLabel: "Board",
+                        TargetType: "B",
+                        IsOccupied: bpos.EmployeeCtrlNbr > 0,
+                        IncumbentName: bpos.EmployeeCtrlNbr > 0 ? bpos.EmployeeFullNameLnf : null,
+                        IncumbentCtrlNbr: bpos.EmployeeCtrlNbr
+                    ));
+                }
+            }
+
+            vacancyPositionOptions = options;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                errorMessage = $"Failed to load positions: {ex.Message}";
+        }
+        finally
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                isLoadingPositions = false;
+        }
+    }
+
+    private void SelectVacancyPosition(PositionOption opt)
+    {
+        vacancyModel.TargetCtrlNbr = opt.CtrlNbr;
+        vacancyModel.TargetType = opt.TargetType;
+        vacancyModel.TargetName = opt.Label;
+        vacancyModel.PreviousIncumbentCtrlNbr = opt.IncumbentCtrlNbr;
+        vacancyModel.VacancyReasonCode = null;
+        selectedPositionIncumbentName = opt.IncumbentName;
+    }
+
+    private void OpenAbolishModal(PositionVacancyResponse v)
+    {
+        abolishCtrlNbr = v.CtrlNbr;
+        showAbolishModal = true;
+    }
+
+    private async Task OnOpenVacancy()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            var result = await BulletinsClient.OpenVacancyAsync(new OpenVacancyRequest
+            {
+                WorkAreaCtrlNbr = SelectedRailroadCtrlNbr ?? 0,
+                TargetType = vacancyModel.TargetType ?? string.Empty,
+                TargetCtrlNbr = vacancyModel.TargetCtrlNbr,
+                CraftCtrlNbr = vacancyModel.CraftCtrlNbr,
+                VacancyReasonCode = vacancyModel.VacancyReasonCode ?? string.Empty,
+                PreviousIncumbentCtrlNbr = vacancyModel.PreviousIncumbentCtrlNbr,
+                TargetName = vacancyModel.TargetName
+            });
+            successMessage = result.Bulletin is not null
+                ? "Vacancy opened and bulletin posted."
+                : "Vacancy opened. No bulletin rule found for this craft — post bulletin manually.";
+            CloseCreateVacancyModal();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to open vacancy: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmAbolish()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            await BulletinsClient.AbolishVacancyAsync(abolishCtrlNbr);
+            successMessage = "Vacancy abolished.";
+            showAbolishModal = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to abolish vacancy: {ex.Message}";
+            showAbolishModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    private void ViewVacancy(PositionVacancyResponse v)
+    {
+        if (v.BulletinCtrlNbr > 0)
+            Nav.NavigateTo($"/staffing/bulletins/{v.BulletinCtrlNbr}");
+        else
+            Nav.NavigateTo($"/staffing/bulletins");
+    }
+    private void ViewBulletin(long ctrlNbr) => Nav.NavigateTo($"/staffing/bulletins/{ctrlNbr}");
+
+    private static string FormatDateTime(string iso)
+        => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
+            ? dt.ToString("MM/dd/yyyy HH:mm")
+            : iso;
+
+    private static string VacancyStatusBadge(string status) => status switch
+    {
+        "Open" => "bg-warning text-dark",
+        "Bulletined" => "bg-info text-dark",
+        "Filled" => "bg-success",
+        "Abolished" => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private static string BulletinStatusBadge(string status) => status switch
+    {
+        "Posted" => "bg-primary",
+        "Awarded" => "bg-success",
+        "Forced" => "bg-warning text-dark",
+        "NoBid" => "bg-secondary",
+        "Cancelled" => "bg-danger",
+        _ => "bg-light text-dark"
+    };
+
+    private sealed record EnumOption(string Value, string Label);
+
+    private sealed record PositionOption(
+        long CtrlNbr,
+        string Label,
+        string TypeLabel,
+        string TargetType,
+        bool IsOccupied,
+        string? IncumbentName,
+        long IncumbentCtrlNbr);
+
+    private sealed class VacancyInputModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Craft is required.")]
+        public long CraftCtrlNbr { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "A position must be selected.")]
+        public long TargetCtrlNbr { get; set; }
+
+        public string? TargetType { get; set; }
+
+        public string TargetName { get; set; } = string.Empty;
+
+        public long PreviousIncumbentCtrlNbr { get; set; }
+
+        [Required(ErrorMessage = "Vacancy reason is required.")]
+        public string? VacancyReasonCode { get; set; }
+    }
+}
