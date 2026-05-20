@@ -60,10 +60,20 @@ else
                         <dd class="col-sm-7">@FormatDateTime(bulletin.BidWindowClosesUtc)</dd>
                         <dt class="col-sm-5">Effective Date</dt>
                         <dd class="col-sm-7">@FormatDateTime(bulletin.EffectiveUtc)</dd>
+                        @if (!string.IsNullOrEmpty(bulletin.VacatedByName))
+                        {
+                            <dt class="col-sm-5">Vacated By</dt>
+                            <dd class="col-sm-7">@bulletin.VacatedByName</dd>
+                        }
+                        <dt class="col-sm-5"># Bids</dt>
+                        <dd class="col-sm-7">@bulletin.BidCount</dd>
                         @if (bulletin.AwardedEmployeeCtrlNbr > 0)
                         {
                             <dt class="col-sm-5">Awarded To</dt>
-                            <dd class="col-sm-7">@bulletin.AwardedEmployeeCtrlNbr (@bulletin.AwardType)</dd>
+                            <dd class="col-sm-7">
+                                @(string.IsNullOrEmpty(bulletin.AwardedEmployeeName) ? bulletin.AwardedEmployeeCtrlNbr.ToString() : bulletin.AwardedEmployeeName)
+                                @if (!string.IsNullOrEmpty(bulletin.AwardType)) { <span class="text-muted ms-1">(@bulletin.AwardType)</span> }
+                            </dd>
                         }
                     </dl>
                 </div>
@@ -98,7 +108,8 @@ else
                EmptyMessage="No bids submitted.">
         <RowContent Context="bid">
             <td>@bid.Priority</td>
-            <td>@bid.EmployeeCtrlNbr</td>
+            <td>@(string.IsNullOrEmpty(bid.EmployeeName) ? bid.EmployeeCtrlNbr.ToString() : bid.EmployeeName)</td>
+            <td>@bid.SeniorityDate</td>
             <td>@bid.SeniorityRank</td>
             <td>@FormatDateTime(bid.SubmittedUtc)</td>
             <td><span class="badge @BidStatusBadge(bid.Status)">@bid.Status</span></td>
@@ -172,7 +183,8 @@ else
     private static readonly IReadOnlyList<DataTableColumn<BulletinBidResponse>> bidColumns =
     [
         new("Priority",       b => (object?)b.Priority),
-        new("Employee",       b => (object?)b.EmployeeCtrlNbr),
+        new("Employee",       b => b.EmployeeName),
+        new("Seniority Date", b => b.SeniorityDate),
         new("Seniority Rank", b => (object?)b.SeniorityRank),
         new("Submitted",      b => b.SubmittedUtc),
         new("Status",         b => b.Status),
