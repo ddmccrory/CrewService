@@ -120,13 +120,25 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     /// </summary>
     protected virtual Task OnAppContextChangedAsync() => Task.CompletedTask;
 
+    private readonly CancellationTokenSource _cts = new();
+
+    /// <summary>
+    /// Cancelled when the component is disposed. Pass to gRPC/async calls in derived pages
+    /// so in-flight operations abort on navigation rather than rendering into a disposed component.
+    /// </summary>
+    protected CancellationToken ComponentToken => _cts.Token;
+
+    protected override bool ShouldRender() => !_cts.IsCancellationRequested;
+
     private void HandleContextChanged()
     {
+        if (_cts.IsCancellationRequested) return;
         InvokeAsync(async () =>
         {
+            if (_cts.IsCancellationRequested) return;
             await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
             await OnAppContextChangedAsync();
-            StateHasChanged();
+            if (!_cts.IsCancellationRequested) StateHasChanged();
         });
     }
 
@@ -158,6 +170,8 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
 
     public virtual void Dispose()
     {
+        _cts.Cancel();
+        _cts.Dispose();
         AppContext.OnContextChanged -= HandleContextChanged;
         GC.SuppressFinalize(this);
     }

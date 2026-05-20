@@ -379,9 +379,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -435,6 +435,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/audit-log">
                                     <span class="bi bi-journal-text" aria-hidden="true"></span> Audit Log
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/required-positions-strategies"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/required-positions-strategies">
+                                    <span class="bi bi-calculator" aria-hidden="true"></span> Position Formulas
                                 </NavLink>
                             </div>
                         }
