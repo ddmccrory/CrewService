@@ -13,7 +13,7 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
         return await uow.PositionVacancies.GetOpenAsync();
     }
 
-    public async Task<PositionVacancy> GetVacancyAsync
+    public async Task<PositionVacancy> GetVacancyAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         return await uow.PositionVacancies.GetByCtrlNbrAsync(ctrlNbr, ct)

@@ -21,7 +21,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         return response;
     }
 
-    public override async Task<GetVacanciesResponse> GetVacanciesByWorkArea
+    public override async Task<GetVacanciesResponse> GetVacanciesByWorkArea(GetVacanciesByWorkAreaRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
         var vacancies = await svc.GetVacanciesByWorkAreaAsync(ControlNumber.Create(request.WorkAreaCtrlNbr), context.CancellationToken);
