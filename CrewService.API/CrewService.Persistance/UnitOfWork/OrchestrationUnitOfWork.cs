@@ -112,6 +112,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     private IBoardCascadePolicyRepository? _boardCascadePolicies;
     private IRosterBoardRepository? _rosterBoards;
+    private IRequiredPositionsStrategyRepository? _requiredPositionsStrategies;
+    private ICraftRequiredPositionsStrategyRepository? _craftRequiredPositionsStrategies;
 
     // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: Crews
@@ -215,6 +217,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IPositionVacancyRepository? _positionVacancies;
     private IBulletinRepository? _bulletins;
     private IBulletinBidRepository? _bulletinBids;
+    private IBulletinRuleRepository? _bulletinRules;
     private IUserParentAssignmentRepository? _userParentAssignments;
     private IInvitationRepository? _invitations;
     private IPayrollTierRepository? _payrollTiers;
@@ -271,6 +274,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // ──────────────────────────────────────────────────────────────────
     public IBoardCascadePolicyRepository BoardCascadePolicies => _boardCascadePolicies ??= new BoardCascadePolicyRepository(_crewContext, _currentUserService);
     public IRosterBoardRepository RosterBoards => _rosterBoards ??= new RosterBoardRepository(_crewContext, _currentUserService);
+    public IRequiredPositionsStrategyRepository RequiredPositionsStrategies => _requiredPositionsStrategies ??= new RequiredPositionsStrategyRepository(_crewContext, _currentUserService);
+    public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => _craftRequiredPositionsStrategies ??= new CraftRequiredPositionsStrategyRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Crews
@@ -389,6 +394,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IPositionVacancyRepository PositionVacancies => _positionVacancies ??= new PositionVacancyRepository(_crewContext, _currentUserService);
     public IBulletinRepository Bulletins => _bulletins ??= new BulletinRepository(_crewContext, _currentUserService);
     public IBulletinBidRepository BulletinBids => _bulletinBids ??= new BulletinBidRepository(_crewContext, _currentUserService);
+    public IBulletinRuleRepository BulletinRules => _bulletinRules ??= new BulletinRuleRepository(_crewContext, _currentUserService);
     public IUserParentAssignmentRepository UserParentAssignments => _userParentAssignments ??= new UserParentAssignmentRepository(_crewContext, _currentUserService);
     public IInvitationRepository Invitations => _invitations ??= new InvitationRepository(_crewContext, _currentUserService);
     public IPayrollTierRepository PayrollTiers => _payrollTiers ??= new PayrollTierRepository(_crewContext, _currentUserService);

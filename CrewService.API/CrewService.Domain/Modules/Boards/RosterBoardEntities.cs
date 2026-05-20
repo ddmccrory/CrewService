@@ -16,6 +16,10 @@ public sealed class RosterBoard : Entity
     public RotationType RotationType { get; private set; }
     public bool IsActive { get; private set; }
 
+    public int RequiredPositions { get; private set; }
+    /// <summary>Board-level strategy override. Null = inherit from craft's assigned strategy.</summary>
+    public ControlNumber? RequiredPositionsStrategyCtrlNbr { get; private set; }
+
     public IReadOnlyList<RosterBoardPosition> Positions => _positions.AsReadOnly();
 
     private RosterBoard()
@@ -29,7 +33,8 @@ public sealed class RosterBoard : Entity
         ControlNumber rosterCtrlNbr, string name,
         BoardType boardType = BoardType.ExtraBoard,
         RotationType rotationType = RotationType.StandardRotation,
-        bool isActive = true)
+        bool isActive = true,
+        int requiredPositions = 0)
     {
         // Hangout and ExtendedAbsence boards have no rotation
         if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence or BoardType.NewHire)
@@ -42,13 +47,14 @@ public sealed class RosterBoard : Entity
             Name = name,
             BoardType = boardType,
             RotationType = rotationType,
-            IsActive = isActive
+            IsActive = isActive,
+            RequiredPositions = requiredPositions
         };
         board.Raise(new RosterBoardCreatedDomainEvent(board.CtrlNbr, name));
         return board;
     }
 
-    public void Update(string name, BoardType boardType, RotationType rotationType, bool isActive)
+    public void Update(string name, BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0)
     {
         // Hangout and ExtendedAbsence boards have no rotation
         if (boardType is BoardType.Hangout or BoardType.ExtendedAbsence or BoardType.NewHire)
@@ -58,7 +64,13 @@ public sealed class RosterBoard : Entity
         BoardType = boardType;
         RotationType = rotationType;
         IsActive = isActive;
+        RequiredPositions = requiredPositions;
     }
+
+    public void UpdateRequiredPositions(int value) => RequiredPositions = value;
+
+    public void SetRequiredPositionsStrategy(ControlNumber? strategyCtrlNbr) =>
+        RequiredPositionsStrategyCtrlNbr = strategyCtrlNbr;
 
 
     public RosterBoardPosition AddPosition(ControlNumber employeeCtrlNbr, int positionOrder,

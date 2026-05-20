@@ -1,0 +1,460 @@
+@page "/admin/required-positions-strategies"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject RequiredPositionsStrategyClient StrategyClient
+
+<PageTitle>Required Positions Strategies — Crew Service</PageTitle>
+
+<h1>Position Formulas</h1>
+<p class="text-muted">Manage the formulas used to calculate the required number of extra board positions per craft. Each strategy defines a formula type and its parameters. Assign a strategy to a craft to override the default static behavior.</p>
+
+@if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage strategies.
+    </div>
+}
+else
+{
+    @* ── Create / Edit Modal ── *@
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Strategy" : "Create Strategy")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-strategy-form">
+                <DataAnnotationsValidator />
+                @if (editCtrlNbr == 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Code</label>
+                        <InputText @bind-Value="saveModel.Code" class="form-control text-uppercase" placeholder="e.g. ANNUALIZED" />
+                        <ValidationMessage For="() => saveModel.Code" class="text-danger" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <InputText @bind-Value="saveModel.Name" class="form-control" placeholder="e.g. PTRA Annualized Average" />
+                    <ValidationMessage For="() => saveModel.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Description</label>
+                    <InputTextArea @bind-Value="saveModel.Description" class="form-control" rows="2" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Formula Type</label>
+                    <SelectInput TItem="FormulaTypeInfo" TValue="string" @bind-Value="FormulaTypeSelection"
+                                 Items="formulaTypes"
+                                 TextSelector="f => f.DisplayName"
+                                 ValueSelector="f => f.FormulaType"
+                                 Placeholder="— Select formula type —"
+                                 class="form-select" />
+                    <ValidationMessage For="() => saveModel.FormulaType" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Parameters (JSON)</label>
+                    <InputTextArea @bind-Value="saveModel.ParametersJson" class="form-control font-monospace" rows="4" />
+                    @if (SelectedFormulaType is { } ft)
+                    {
+                        <div class="form-text">@ft.ParametersDescription</div>
+                    }
+                    <ValidationMessage For="() => saveModel.ParametersJson" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-strategy-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Assign to Craft Modal ── *@
+    <Modal Visible="showAssignModal" Title="Assign Strategy to Craft"
+           Icon="bi bi-link-45deg" OnClose="CloseAssignModal">
+        <BodyContent>
+            <EditForm Model="assignModel" OnValidSubmit="OnAssign" id="assign-strategy-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft</label>
+                    <SelectInput TItem="AvailableCraftResponse" TValue="long" @bind-Value="assignModel.CraftCtrlNbr"
+                                 Items="availableCrafts"
+                                 TextSelector="c => c.CraftName"
+                                 ValueSelector="c => c.CtrlNbr"
+                                 Placeholder="— Select craft —"
+                                 class="form-select" />
+                    <ValidationMessage For="() => assignModel.CraftCtrlNbr" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <p class="mb-1">Assigning strategy: <strong>@assignStrategyName</strong></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Parameter Overrides (JSON) <span class="text-muted fw-normal">(optional — leave empty to use strategy defaults)</span></label>
+                    <InputTextArea @bind-Value="assignModel.ParametersJson" class="form-control font-monospace" rows="3" placeholder="{}"/>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAssignModal">Cancel</button>
+            <button type="submit" form="assign-strategy-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Assign
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Delete Modal ── *@
+    <Modal Visible="showDeleteModal" Title="Confirm Delete" Icon="bi bi-exclamation-triangle"
+           OnClose="() => showDeleteModal = false" Size="sm">
+        <BodyContent>
+            <p>Are you sure you want to delete strategy <strong>@deleteStrategyName</strong>?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showDeleteModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@isSaving" @onclick="ConfirmDelete">
+                <span class="bi bi-trash me-1"></span> Delete
+            </button>
+        </Footer>
+    </Modal>
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (strategies is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <DataTable TItem="RequiredPositionsStrategyResponse" Items="strategies" Columns="Columns"
+                   SearchFilter="@((s, term) => s.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || s.Code.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search strategies..."
+                   EmptyMessage="No required positions strategies defined yet."
+                   DefaultSortColumn="CODE">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Create Strategy
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="s">
+                <td class="text-uppercase fw-semibold font-monospace">@s.Code</td>
+                <td>@s.Name</td>
+                <td>@FormatFormulaType(s.FormulaType)</td>
+                <td>
+                    @{
+                        var assigned = craftAssignments.Where(a => a.StrategyCtrlNbr == s.CtrlNbr).ToList();
+                    }
+                    @if (assigned.Count == 0)
+                    {
+                        <span class="text-muted fst-italic">None</span>
+                    }
+                    else
+                    {
+                        @foreach (var a in assigned)
+                        {
+                            <span class="badge bg-secondary me-1">@a.CraftName</span>
+                        }
+                    }
+                </td>
+                <td><small class="text-muted">@s.Description</small></td>
+                <td>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="() => OpenAssignModal(s)">
+                                <span class="bi bi-link-45deg"></span> Assign
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(s)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(s)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </div>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "admin/required-positions-strategies";
+
+    private IReadOnlyList<RequiredPositionsStrategyResponse>? strategies;
+    private List<AvailableCraftResponse> availableCrafts = [];
+    private List<FormulaTypeInfo> formulaTypes = [];
+    private List<CraftStrategyResponse> craftAssignments = [];
+
+    private FormulaTypeInfo? SelectedFormulaType =>
+        formulaTypes.FirstOrDefault(f => f.FormulaType == saveModel.FormulaType);
+
+    private string? FormulaTypeSelection
+    {
+        get => saveModel.FormulaType;
+        set
+        {
+            if (saveModel.FormulaType == value) return;
+            saveModel.FormulaType = value;
+            // Pre-populate parameters template only when creating (not editing)
+            if (editCtrlNbr == 0)
+                saveModel.ParametersJson = formulaTypes.FirstOrDefault(f => f.FormulaType == value)?.ParametersTemplate ?? "{}";
+        }
+    }
+
+    private IReadOnlyList<DataTableColumn<RequiredPositionsStrategyResponse>> Columns =>
+    [
+        new("CODE",            s => s.Code),
+        new("Name",            s => s.Name),
+        new("Formula",         s => FormatFormulaType(s.FormulaType)),
+        new("Assigned Crafts", s => string.Join(", ", craftAssignments
+            .Where(a => a.StrategyCtrlNbr == s.CtrlNbr)
+            .Select(a => a.CraftName))),
+        new("Description",     s => s.Description),
+        DataTableColumn<RequiredPositionsStrategyResponse>.Actions()
+    ];
+
+    private static string FormatFormulaType(string t) => t switch
+    {
+        "AnnualizedAverage" => "Annualized Average",
+        "Static"            => "Static",
+        _                   => t
+    };
+
+    // ── Save modal ───────────────────────────────────────────────────────────
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private StrategyInputModel saveModel = new();
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel   = new();
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(RequiredPositionsStrategyResponse s)
+    {
+        editCtrlNbr = s.CtrlNbr;
+        saveModel = new()
+        {
+            Code           = s.Code,
+            Name           = s.Name,
+            Description    = s.Description,
+            FormulaType    = s.FormulaType,
+            ParametersJson = s.ParametersJson
+        };
+        showSaveModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr   = 0;
+        saveModel     = new();
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving      = true;
+            errorMessage  = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await StrategyClient.UpdateAsync(new UpdateRequiredPositionsStrategyRequest
+                {
+                    CtrlNbr        = editCtrlNbr,
+                    Name           = saveModel.Name ?? string.Empty,
+                    Description    = saveModel.Description ?? string.Empty,
+                    FormulaType    = saveModel.FormulaType ?? string.Empty,
+                    ParametersJson = saveModel.ParametersJson ?? "{}"
+                });
+                successMessage = "Strategy updated.";
+            }
+            else
+            {
+                await StrategyClient.CreateAsync(new CreateRequiredPositionsStrategyRequest
+                {
+                    Code           = saveModel.Code ?? string.Empty,
+                    Name           = saveModel.Name ?? string.Empty,
+                    Description    = saveModel.Description ?? string.Empty,
+                    FormulaType    = saveModel.FormulaType ?? string.Empty,
+                    ParametersJson = saveModel.ParametersJson ?? "{}"
+                });
+                successMessage = "Strategy created.";
+            }
+            CloseSaveModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save strategy: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Assign modal ─────────────────────────────────────────────────────────
+
+    private bool showAssignModal;
+    private long assignStrategyCtrlNbr;
+    private string assignStrategyName = string.Empty;
+    private AssignInputModel assignModel = new();
+
+    private async Task OpenAssignModal(RequiredPositionsStrategyResponse s)
+    {
+        assignStrategyCtrlNbr = s.CtrlNbr;
+        assignStrategyName    = s.Name;
+        assignModel           = new();
+        try
+        {
+            var result   = await StrategyClient.GetCraftsForAssignmentAsync(SelectedRailroadCtrlNbr ?? 0, s.CtrlNbr);
+            availableCrafts = result.Crafts.ToList();
+        }
+        catch { availableCrafts = []; }
+        showAssignModal = true;
+    }
+
+    private void CloseAssignModal()
+    {
+        showAssignModal = false;
+        assignModel     = new();
+    }
+
+    private async Task OnAssign()
+    {
+        try
+        {
+            isSaving      = true;
+            errorMessage  = null;
+            successMessage = null;
+            await StrategyClient.AssignToCraftAsync(
+                assignModel.CraftCtrlNbr,
+                assignStrategyCtrlNbr,
+                string.IsNullOrWhiteSpace(assignModel.ParametersJson) ? null : assignModel.ParametersJson);
+            successMessage = "Strategy assigned to craft.";
+            CloseAssignModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to assign strategy: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Delete modal ──────────────────────────────────────────────────────────
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteStrategyName = string.Empty;
+
+    private void OpenDeleteModal(RequiredPositionsStrategyResponse s)
+    {
+        deleteCtrlNbr      = s.CtrlNbr;
+        deleteStrategyName = s.Name;
+        showDeleteModal    = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving      = true;
+            errorMessage  = null;
+            successMessage = null;
+            await StrategyClient.DeleteAsync(deleteCtrlNbr);
+            successMessage  = "Strategy deleted.";
+            showDeleteModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            errorMessage    = $"Failed to delete strategy: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Data loading ──────────────────────────────────────────────────────────
+
+    protected override async Task LoadDataAsync()  => await LoadData();
+    protected override async Task OnAppContextChangedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        try
+        {
+            if (SelectedParentCtrlNbr is not long)
+            {
+                strategies       = [];
+                craftAssignments = [];
+                return;
+            }
+            var strategyTask     = StrategyClient.GetAllAsync();
+            var formulaTypesTask = StrategyClient.GetFormulaTypesAsync();
+            var assignmentsTask  = StrategyClient.GetCraftAssignmentsAsync(SelectedRailroadCtrlNbr ?? 0);
+            await Task.WhenAll(strategyTask, formulaTypesTask, assignmentsTask);
+            strategies       = strategyTask.Result.Strategies.ToList();
+            formulaTypes     = formulaTypesTask.Result.FormulaTypes.ToList();
+            craftAssignments = assignmentsTask.Result.Assignments.ToList();
+            availableCrafts  = [];
+        }
+        catch
+        {
+            strategies       = [];
+            craftAssignments = [];
+        }
+    }
+
+    // ── Input models ──────────────────────────────────────────────────────────
+
+    private sealed class StrategyInputModel
+    {
+        [Required(ErrorMessage = "Code is required.")]
+        [StringLength(20, MinimumLength = 1)]
+        public string? Code { get; set; }
+
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Name { get; set; }
+
+        public string? Description { get; set; }
+
+        [Required(ErrorMessage = "Formula type is required.")]
+        public string? FormulaType { get; set; }
+
+        public string? ParametersJson { get; set; } = "{}";
+    }
+
+    private sealed class AssignInputModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Please select a craft.")]
+        public long CraftCtrlNbr { get; set; }
+
+        public string? ParametersJson { get; set; }
+    }
+}

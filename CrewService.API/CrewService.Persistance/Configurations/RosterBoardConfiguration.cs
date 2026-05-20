@@ -20,11 +20,16 @@ internal class RosterBoardConfiguration : IEntityTypeConfiguration<RosterBoard>
         builder.Property(r => r.Name).HasMaxLength(100).IsRequired();
         builder.Property(r => r.BoardType).HasConversion(v => v.ToString(), v => Enum.Parse<BoardType>(v)).HasMaxLength(20).IsRequired();
         builder.Property(r => r.RotationType).HasConversion(v => v.ToString(), v => Enum.Parse<RotationType>(v)).HasMaxLength(30).IsRequired();
+        builder.Property(r => r.RequiredPositions).HasDefaultValue(0);
+        builder.Property(r => r.RequiredPositionsStrategyCtrlNbr)
+            .HasConversion(c => c == null ? (long?)null : c.Value, v => v == null ? null : ControlNumber.Create(v.Value));
 
         builder.HasMany(r => r.Positions).WithOne().HasForeignKey(p => p.RosterBoardCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Roster>().WithMany().HasForeignKey(r => r.RosterCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RequiredPositionsStrategy>().WithMany()
+            .HasForeignKey(r => r.RequiredPositionsStrategyCtrlNbr).OnDelete(DeleteBehavior.SetNull);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

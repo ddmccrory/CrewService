@@ -1,6 +1,7 @@
 syntax = "proto3";
 option csharp_namespace = "CrewService.Presentation";
 import "google/api/annotations.proto";
+import "common.proto";
 package boards;
 
 service BoardsSrvc {
@@ -10,8 +11,76 @@ service BoardsSrvc {
   rpc UpsertCascadePolicy(UpsertCascadePolicyRequest) returns (CascadePolicyResponse) {
     option (google.api.http) = { put: "/v1/boards/cascade-policy" body: "*" };
   }
+  rpc GetAllRequiredPositionsStrategies(GetAllRequiredPositionsStrategiesRequest) returns (GetAllRequiredPositionsStrategiesResponse) {
+    option (google.api.http) = { get: "/v1/boards/required-positions-strategies" };
+  }
+  rpc GetRequiredPositionsStrategy(GetRequiredPositionsStrategyRequest) returns (RequiredPositionsStrategyResponse) {
+    option (google.api.http) = { get: "/v1/boards/required-positions-strategies/{ctrl_nbr}" };
+  }
+  rpc CreateRequiredPositionsStrategy(CreateRequiredPositionsStrategyRequest) returns (RequiredPositionsStrategyResponse) {
+    option (google.api.http) = { post: "/v1/boards/required-positions-strategies" body: "*" };
+  }
+  rpc UpdateRequiredPositionsStrategy(UpdateRequiredPositionsStrategyRequest) returns (RequiredPositionsStrategyResponse) {
+    option (google.api.http) = { put: "/v1/boards/required-positions-strategies/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteRequiredPositionsStrategy(DeleteRequiredPositionsStrategyRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/boards/required-positions-strategies/{ctrl_nbr}" };
+  }
+  rpc AssignStrategyToCraft(AssignStrategyToCraftRequest) returns (CraftStrategyResponse) {
+    option (google.api.http) = { put: "/v1/boards/required-positions-strategies/assign-craft" body: "*" };
+  }
+  rpc GetCraftStrategy(GetCraftStrategyRequest) returns (CraftStrategyResponse) {
+    option (google.api.http) = { get: "/v1/boards/required-positions-strategies/craft/{craft_ctrl_nbr}" };
+  }
+  rpc GetFormulaTypes(GetFormulaTypesRequest) returns (GetFormulaTypesResponse) {
+    option (google.api.http) = { get: "/v1/boards/formula-types" };
+  }
+  rpc GetCraftAssignments(GetCraftAssignmentsRequest) returns (GetCraftAssignmentsResponse) {
+    option (google.api.http) = { get: "/v1/boards/required-positions-strategies/craft-assignments/{railroad_ctrl_nbr}" };
+  }
+  rpc GetCraftsForAssignment(GetCraftsForAssignmentRequest) returns (GetCraftsForAssignmentResponse) {
+    option (google.api.http) = { get: "/v1/boards/required-positions-strategies/available-crafts/{railroad_ctrl_nbr}/{strategy_ctrl_nbr}" };
+  }
 }
 
 message GetCascadePolicyRequest { int64 work_area_group_ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; }
 message UpsertCascadePolicyRequest { int64 work_area_group_ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; string cascade_mode = 3; int32 max_levels = 4; bool aux_enabled = 5; int32 aux_max_levels = 6; string selection_strategy = 7; }
 message CascadePolicyResponse { int64 ctrl_nbr = 1; int64 work_area_group_ctrl_nbr = 2; int64 craft_ctrl_nbr = 3; string cascade_mode = 4; int32 max_levels = 5; bool aux_enabled = 6; int32 aux_max_levels = 7; string selection_strategy = 8; }
+
+message GetAllRequiredPositionsStrategiesRequest { }
+message GetAllRequiredPositionsStrategiesResponse { repeated RequiredPositionsStrategyResponse strategies = 1; }
+message GetRequiredPositionsStrategyRequest { int64 ctrl_nbr = 1; }
+message CreateRequiredPositionsStrategyRequest {
+  string code = 1;
+  string name = 2;
+  string description = 3;
+  string formula_type = 4;
+  string parameters_json = 5;
+}
+message UpdateRequiredPositionsStrategyRequest {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  string description = 3;
+  string formula_type = 4;
+  string parameters_json = 5;
+}
+message DeleteRequiredPositionsStrategyRequest { int64 ctrl_nbr = 1; }
+message RequiredPositionsStrategyResponse {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  string formula_type = 5;
+  string parameters_json = 6;
+}
+message AssignStrategyToCraftRequest { int64 craft_ctrl_nbr = 1; int64 strategy_ctrl_nbr = 2; string parameters_json = 3; }
+message GetCraftStrategyRequest { int64 craft_ctrl_nbr = 1; }
+message CraftStrategyResponse { int64 ctrl_nbr = 1; int64 craft_ctrl_nbr = 2; int64 strategy_ctrl_nbr = 3; string strategy_code = 4; string strategy_name = 5; string formula_type = 6; string craft_name = 7; string parameters_json = 8; }
+message GetCraftsForAssignmentRequest { int64 railroad_ctrl_nbr = 1; int64 strategy_ctrl_nbr = 2; }
+message AvailableCraftResponse { int64 ctrl_nbr = 1; string craft_name = 2; }
+message GetCraftsForAssignmentResponse { repeated AvailableCraftResponse crafts = 1; }
+message GetFormulaTypesRequest { }
+message FormulaTypeInfo { string formula_type = 1; string display_name = 2; string parameters_template = 3; string parameters_description = 4; }
+message GetFormulaTypesResponse { repeated FormulaTypeInfo formula_types = 1; }
+message GetCraftAssignmentsRequest { int64 railroad_ctrl_nbr = 1; }
+message GetCraftAssignmentsResponse { repeated CraftStrategyResponse assignments = 1; }
