@@ -7,10 +7,12 @@ namespace CrewService.Application.Bulletins;
 
 public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
-    public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.PositionVacancies.GetOpenAsync();
+        return railroadCtrlNbr is not null
+            ? await uow.PositionVacancies.GetOpenByRailroadAsync(railroadCtrlNbr)
+            : await uow.PositionVacancies.GetOpenAsync();
     }
 
     public async Task<PositionVacancy> GetVacancyAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
@@ -31,10 +33,12 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
         return vacancy;
     }
 
-    public async Task<IReadOnlyList<Bulletin>> GetPostedBulletinsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<Bulletin>> GetPostedBulletinsAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Bulletins.GetPostedAsync();
+        return railroadCtrlNbr is not null
+            ? await uow.Bulletins.GetPostedByRailroadAsync(railroadCtrlNbr)
+            : await uow.Bulletins.GetPostedAsync();
     }
 
     public async Task<IReadOnlyList<Bulletin>> GetPostedBulletinsByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)

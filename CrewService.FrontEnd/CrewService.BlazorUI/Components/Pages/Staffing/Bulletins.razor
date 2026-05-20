@@ -60,6 +60,7 @@ else
                 <td>@FormatDateTime(b.BidWindowOpensUtc)</td>
                 <td>@FormatDateTime(b.BidWindowClosesUtc)</td>
                 <td>@FormatDateTime(b.EffectiveUtc)</td>
+                <td>@b.BidCount</td>
                 <td><span class="badge @BulletinStatusBadge(b.Status)">@b.Status</span></td>
                 <td class="text-end">
                     <button class="btn btn-outline-secondary btn-sm" @onclick="() => ViewBulletin(b.CtrlNbr)">
@@ -253,6 +254,7 @@ else
         new("Bid Window Opens",  b => b.BidWindowOpensUtc),
         new("Bid Window Closes", b => b.BidWindowClosesUtc),
         new("Effective",         b => b.EffectiveUtc),
+        new("# Bids",            b => b.BidCount.ToString()),
         new("Status",            b => b.Status),
         DataTableColumn<BulletinResponse>.Actions(),
     ];
@@ -296,8 +298,8 @@ else
         try
         {
             var craftsTask = CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
-            var vacanciesTask = BulletinsClient.GetOpenVacanciesAsync();
-            var bulletinsTask = BulletinsClient.GetPostedBulletinsAsync();
+            var vacanciesTask = BulletinsClient.GetOpenVacanciesAsync(SelectedRailroadCtrlNbr ?? 0);
+            var bulletinsTask = BulletinsClient.GetPostedBulletinsAsync(SelectedRailroadCtrlNbr ?? 0);
             await Task.WhenAll(craftsTask, vacanciesTask, bulletinsTask);
 
             if (ComponentToken.IsCancellationRequested) return;

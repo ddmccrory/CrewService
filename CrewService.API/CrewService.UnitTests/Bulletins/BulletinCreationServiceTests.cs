@@ -249,6 +249,7 @@ public class BulletinCreationServiceTests
     private sealed class FakeVacancyRepo : FakeRepoBase<PositionVacancy>, IPositionVacancyRepository
     {
         public Task<List<PositionVacancy>> GetOpenAsync() => Task.FromResult(new List<PositionVacancy>());
+        public Task<List<PositionVacancy>> GetOpenByRailroadAsync(ControlNumber r) => Task.FromResult(new List<PositionVacancy>());
         public Task<List<PositionVacancy>> GetByTargetAsync(string t, ControlNumber c) => Task.FromResult(new List<PositionVacancy>());
         public Task<List<PositionVacancy>> GetByCraftAsync(ControlNumber c) => Task.FromResult(new List<PositionVacancy>());
         public Task<List<PositionVacancy>> GetByWorkAreaAsync(ControlNumber w) => Task.FromResult(new List<PositionVacancy>());
@@ -259,6 +260,7 @@ public class BulletinCreationServiceTests
     {
         public Task<Bulletin?> GetByVacancyAsync(ControlNumber v) => Task.FromResult<Bulletin?>(null);
         public Task<List<Bulletin>> GetPostedAsync() => Task.FromResult(new List<Bulletin>());
+        public Task<List<Bulletin>> GetPostedByRailroadAsync(ControlNumber r) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetPostedByCraftAsync(ControlNumber c) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetByStatusAsync(string s) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetByWorkAreaAsync(ControlNumber w) => Task.FromResult(new List<Bulletin>());

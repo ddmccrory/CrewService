@@ -71,7 +71,7 @@ service BulletinsSrvc {
 }
 
 // Vacancy messages
-message GetOpenVacanciesRequest {}
+message GetOpenVacanciesRequest { int64 railroad_ctrl_nbr = 1; }
 message GetVacanciesByWorkAreaRequest { int64 work_area_ctrl_nbr = 1; }
 message GetVacancyRequest { int64 ctrl_nbr = 1; }
 message AbolishVacancyRequest { int64 ctrl_nbr = 1; }
@@ -108,7 +108,7 @@ message PositionVacancyResponse {
 }
 
 // Bulletin messages
-message GetPostedBulletinsRequest {}
+message GetPostedBulletinsRequest { int64 railroad_ctrl_nbr = 1; }
 message GetPostedBulletinsByCraftRequest { int64 craft_ctrl_nbr = 1; }
 message GetBulletinsByWorkAreaRequest { int64 work_area_ctrl_nbr = 1; }
 message GetBulletinRequest { int64 ctrl_nbr = 1; }
@@ -142,6 +142,9 @@ message BulletinResponse {
   int64 awarded_employee_ctrl_nbr = 8;
   string award_type = 9;
   string position_name = 10;
+  int32 bid_count = 11;
+  string vacated_by_name = 12;
+  string awarded_employee_name = 13;
 }
 
 // Bid messages
@@ -166,6 +169,8 @@ message BulletinBidResponse {
   string submitted_utc = 5;
   int32 seniority_rank = 6;
   string status = 7;
+  string employee_name = 8;
+  string seniority_date = 9;
 }
 
 // BulletinRule messages

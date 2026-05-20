@@ -9,9 +9,9 @@ public sealed class BulletinsClient(GrpcChannelProvider channelProvider, Circuit
 {
     // ── Vacancies ──────────────────────────────────────────────────────
 
-    public async Task<GetVacanciesResponse> GetOpenVacanciesAsync()
+    public async Task<GetVacanciesResponse> GetOpenVacanciesAsync(long railroadCtrlNbr = 0)
     {
-        try { return await _client.GetOpenVacanciesAsync(new GetOpenVacanciesRequest()); }
+        try { return await _client.GetOpenVacanciesAsync(new GetOpenVacanciesRequest { RailroadCtrlNbr = railroadCtrlNbr }); }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
@@ -41,9 +41,9 @@ public sealed class BulletinsClient(GrpcChannelProvider channelProvider, Circuit
 
     // ── Bulletins ──────────────────────────────────────────────────────
 
-    public async Task<GetBulletinsResponse> GetPostedBulletinsAsync()
+    public async Task<GetBulletinsResponse> GetPostedBulletinsAsync(long railroadCtrlNbr = 0)
     {
-        try { return await _client.GetPostedBulletinsAsync(new GetPostedBulletinsRequest()); }
+        try { return await _client.GetPostedBulletinsAsync(new GetPostedBulletinsRequest { RailroadCtrlNbr = railroadCtrlNbr }); }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
