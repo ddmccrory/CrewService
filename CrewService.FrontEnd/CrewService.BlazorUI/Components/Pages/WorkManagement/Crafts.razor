@@ -13,6 +13,7 @@
 @inject CraftClient CraftClient
 @inject DepartmentClient DepartmentClient
 @inject TenantConfigClient TenantConfigClient
+@inject BulletinsClient BulletinsClient
 
 <PageTitle>Crafts</PageTitle>
 
@@ -168,6 +169,75 @@ else
         </Footer>
     </Modal>
 
+    <Modal Visible="showBulletinRuleModal" Title="@($"Bulletin Rules — {bulletinRuleCraftName}")"
+           Icon="bi bi-clock-history" OnClose="CloseBulletinRuleModal" Size="lg">
+        <BodyContent>
+            <EditForm Model="bulletinRuleModel" OnValidSubmit="OnSaveBulletinRule" id="bulletin-rule-form">
+                <DataAnnotationsValidator />
+                <h6 class="text-muted mb-3">Bid Window</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Window Hours</label>
+                        <InputNumber @bind-Value="bulletinRuleModel.BidWindowHours" class="form-control" />
+                        <div class="form-text">Total hours the bid window stays open.</div>
+                        <ValidationMessage For="() => bulletinRuleModel.BidWindowHours" class="text-danger" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Opens At (HH:mm)</label>
+                        <InputText @bind-Value="bulletinRuleModel.BidWindowStartTime" class="form-control" placeholder="04:00" />
+                        <ValidationMessage For="() => bulletinRuleModel.BidWindowStartTime" class="text-danger" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Closes At (HH:mm)</label>
+                        <InputText @bind-Value="bulletinRuleModel.BidWindowCloseTime" class="form-control" placeholder="04:00" />
+                        <ValidationMessage For="() => bulletinRuleModel.BidWindowCloseTime" class="text-danger" />
+                    </div>
+                </div>
+                <hr class="my-3" />
+                <h6 class="text-muted mb-3">Effective Date</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Offset Days After Close</label>
+                        <InputNumber @bind-Value="bulletinRuleModel.EffectiveOffsetDays" class="form-control" />
+                        <div class="form-text">Calendar days after bid close before position becomes effective.</div>
+                        <ValidationMessage For="() => bulletinRuleModel.EffectiveOffsetDays" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Effective Time (HH:mm)</label>
+                        <InputText @bind-Value="bulletinRuleModel.EffectiveTime" class="form-control" placeholder="04:00" />
+                        <ValidationMessage For="() => bulletinRuleModel.EffectiveTime" class="text-danger" />
+                    </div>
+                </div>
+                <hr class="my-3" />
+                <h6 class="text-muted mb-3">Force Assign</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Force Assign Hours</label>
+                        <InputNumber @bind-Value="bulletinRuleModel.ForceAssignHours" class="form-control" />
+                        <div class="form-text">Hours before effective on-duty time to force-assign a no-bid position.</div>
+                        <ValidationMessage For="() => bulletinRuleModel.ForceAssignHours" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Candidate Pool</label>
+                        <SelectInput TItem="(string Value, string Label)" TValue="string"
+                                     @bind-Value="bulletinRuleModel.ForceAssignSelectionMode"
+                                     Items="forceAssignModes"
+                                     ValueSelector="@(m => m.Value)"
+                                     TextSelector="@(m => m.Label)"
+                                     class="form-select" />
+                        <div class="form-text">How to select the forced-assigned employee when no bids are received.</div>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseBulletinRuleModal">Cancel</button>
+            <button type="submit" form="bulletin-rule-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-floppy me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
     <SuccessAlert @bind-Message="successMessage" />
 
     @if (errorMessage is not null)
@@ -212,6 +282,9 @@ else
                 @if (!IsFeatureReadOnly && IsOwnedByRailroad(craft))
                 {
                     <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-info flex-fill" @onclick="() => OpenBulletinRuleModal(craft)">
+                            <span class="bi bi-clock-history"></span> Bulletin Rules
+                        </button>
                         <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(craft)">
                             <span class="bi bi-pencil"></span> Edit
                         </button>
@@ -251,6 +324,17 @@ else
     private bool showDeleteModal;
     private long deleteCtrlNbr;
     private string deleteName = "";
+
+    private bool showBulletinRuleModal;
+    private long bulletinRuleCraftCtrlNbr;
+    private string bulletinRuleCraftName = "";
+    private BulletinRuleInputModel bulletinRuleModel = new();
+
+    private static readonly List<(string Value, string Label)> forceAssignModes =
+    [
+        ("JuniorExtraBoard",          "Junior — Extra Board only"),
+        ("JuniorHelperOrExtraBoard",  "Junior — Helper or Extra Board (Foreman vacancies)")
+    ];
 
     protected override async Task LoadDataAsync()
     {
@@ -457,9 +541,74 @@ else
     private bool IsOwnedByRailroad(CraftResponse craft) =>
         craft.DynamicGroupCtrlNbr > 0 && craft.DynamicGroupCtrlNbr == SelectedRailroadCtrlNbr;
 
-    private sealed class CraftInputModel
+    // Strips seconds from a HH:mm:ss or HH:mm string → HH:mm
+    private static string StripSeconds(string time) =>
+        TimeSpan.TryParse(time, out var ts) ? $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}" : time;
+
+    // Expands HH:mm to HH:mm:ss for the backend TimeSpan.Parse
+    private static string ExpandTime(string time) =>
+        time.Count(c => c == ':') == 1 ? time + ":00" : time;
+
+    private async Task OpenBulletinRuleModal(CraftResponse craft)
     {
-        [Required, StringLength(100)]
+        bulletinRuleCraftCtrlNbr = craft.CtrlNbr;
+        bulletinRuleCraftName = craft.CraftName;
+        var existing = await BulletinsClient.GetBulletinRuleAsync(craft.CtrlNbr);
+        bulletinRuleModel = existing is not null
+            ? new BulletinRuleInputModel
+            {
+                BidWindowHours = existing.BidWindowHours,
+                BidWindowStartTime = StripSeconds(existing.BidWindowStartTime),
+                BidWindowCloseTime = StripSeconds(existing.BidWindowCloseTime),
+                EffectiveOffsetDays = existing.EffectiveOffsetDays,
+                EffectiveTime = StripSeconds(existing.EffectiveTime),
+                ForceAssignHours = existing.ForceAssignHours,
+                ForceAssignSelectionMode = string.IsNullOrWhiteSpace(existing.ForceAssignSelectionMode)
+                    ? "JuniorExtraBoard"
+                    : existing.ForceAssignSelectionMode
+            }
+            : new BulletinRuleInputModel();
+        showBulletinRuleModal = true;
+    }
+
+    private void CloseBulletinRuleModal()
+    {
+        showBulletinRuleModal = false;
+        bulletinRuleCraftCtrlNbr = 0;
+        bulletinRuleCraftName = "";
+        bulletinRuleModel = new();
+    }
+
+    private async Task OnSaveBulletinRule()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+            await BulletinsClient.SaveBulletinRuleAsync(new SaveBulletinRuleRequest
+            {
+                CraftCtrlNbr = bulletinRuleCraftCtrlNbr,
+                BidWindowHours = bulletinRuleModel.BidWindowHours,
+                BidWindowStartTime = ExpandTime(bulletinRuleModel.BidWindowStartTime),
+                BidWindowCloseTime = ExpandTime(bulletinRuleModel.BidWindowCloseTime),
+                EffectiveOffsetDays = bulletinRuleModel.EffectiveOffsetDays,
+                EffectiveTime = ExpandTime(bulletinRuleModel.EffectiveTime),
+                ForceAssignHours = bulletinRuleModel.ForceAssignHours,
+                ForceAssignSelectionMode = bulletinRuleModel.ForceAssignSelectionMode
+            });
+            successMessage = $"Bulletin rules saved for {bulletinRuleCraftName}.";
+            CloseBulletinRuleModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save bulletin rules: {ex.Message}";
+        }
+        finally { isSaving = false; }
+    }
+
+    private sealed class CraftInputModel
+    {        [Required, StringLength(100)]
         public string? CraftName { get; set; }
 
         [Required, StringLength(100)]
@@ -481,5 +630,29 @@ else
         public int VacationAssignmentType { get; set; }
         public long DepartmentCtrlNbr { get; set; }
         public long OwnerCtrlNbr { get; set; }
+    }
+
+    private sealed class BulletinRuleInputModel
+    {
+        [Range(1, 8760, ErrorMessage = "Bid window hours must be between 1 and 8760.")]
+        public int BidWindowHours { get; set; } = 24;
+
+        [Required(ErrorMessage = "Opens At time is required.")]
+        public string BidWindowStartTime { get; set; } = "04:00";
+
+        [Required(ErrorMessage = "Closes At time is required.")]
+        public string BidWindowCloseTime { get; set; } = "04:00";
+
+        [Range(0, 365, ErrorMessage = "Effective offset days must be between 0 and 365.")]
+        public int EffectiveOffsetDays { get; set; } = 0;
+
+        [Required(ErrorMessage = "Effective time is required.")]
+        public string EffectiveTime { get; set; } = "04:00";
+
+        [Range(0, 8760, ErrorMessage = "Force assign hours must be between 0 and 8760.")]
+        public int ForceAssignHours { get; set; } = 0;
+
+        [Required]
+        public string ForceAssignSelectionMode { get; set; } = "JuniorExtraBoard";
     }
 }
