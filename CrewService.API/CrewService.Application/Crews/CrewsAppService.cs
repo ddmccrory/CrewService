@@ -1,11 +1,15 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.Crews;
 
-public sealed class CrewsAppService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class CrewsAppService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    ILogger<CrewsAppService> logger)
 {
     // ── Crews ────────────────────────────────────────────────────────────────
 
@@ -91,11 +95,40 @@ public sealed class CrewsAppService(IOrchestrationUnitOfWorkFactory uowFactory)
     public async Task<CrewPosition> CreateCrewPositionAsync(
         long crewCtrlNbr, long craftRoleCtrlNbr, int displayOrder, CancellationToken ct = default)
     {
-        var staffablePosition = StaffablePosition.Create("Crew");
+        var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
         var position = CrewPosition.Create(crewCtrlNbr, craftRoleCtrlNbr, displayOrder, staffablePosition.CtrlNbr);
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.StaffablePositions.Add(staffablePosition);
         uow.CrewPositions.Add(position);
+
+        // Crew positions are always bulletined when vacant. A newly created position has no incumbent.
+        var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(ControlNumber.Create(craftRoleCtrlNbr), ct);
+        var crew = await uow.Crews.GetByCtrlNbrAsync(ControlNumber.Create(crewCtrlNbr), ct);
+        if (craftRole is not null && crew is not null)
+        {
+            var rule = await uow.BulletinRules.GetByCraftAsync(craftRole.CraftCtrlNbr);
+            if (rule is not null)
+            {
+                var vacancy = PositionVacancy.Create(
+                    crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, staffablePosition.CtrlNbr,
+                    craftRole.CraftCtrlNbr, "POSITION_CREATED",
+                    targetName: $"{crew.Name} - {craftRole.Name}");
+                var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+                var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
+                var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
+                var bulletin = Bulletin.Create(vacancy.CtrlNbr, craftRole.CraftCtrlNbr, opens, closes, effective);
+                vacancy.MarkBulletined();
+                await uow.PositionVacancies.AddAsync(vacancy, ct);
+                await uow.Bulletins.AddAsync(bulletin, ct);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "No BulletinRule configured for craft {CraftCtrlNbr}. Bulletin not created for new crew position {StaffablePositionCtrlNbr}.",
+                    craftRole.CraftCtrlNbr.Value, staffablePosition.CtrlNbr.Value);
+            }
+        }
+
         await uow.CommitAsync(ct);
         return position;
     }
@@ -136,7 +169,7 @@ public sealed class CrewsAppService(IOrchestrationUnitOfWorkFactory uowFactory)
 
         var incumbency = CrewIncumbency.Create(crewPositionCtrlNbr, employeeCtrlNbr, startUtc, endUtc);
         var positionAssignment = PositionAssignment.Create(
-            crewPosition.StaffablePositionCtrlNbr, empCtrlNbr, "Crew", crewPosition.CtrlNbr);
+            crewPosition.StaffablePositionCtrlNbr, empCtrlNbr, PositionAssignmentType.Direct, crewPosition.CtrlNbr);
 
         uow.CrewIncumbencies.Add(incumbency);
         uow.PositionAssignments.Add(positionAssignment);
@@ -158,6 +191,34 @@ public sealed class CrewsAppService(IOrchestrationUnitOfWorkFactory uowFactory)
             var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
             if (positionAssignment is not null)
                 uow.PositionAssignments.Remove(positionAssignment);
+
+            // Crew positions are always bulletined when vacated.
+            var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPosition.CraftRoleCtrlNbr, ct);
+            var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct);
+            if (craftRole is not null && crew is not null)
+            {
+                var rule = await uow.BulletinRules.GetByCraftAsync(craftRole.CraftCtrlNbr);
+                if (rule is not null)
+                {
+                    var vacancy = PositionVacancy.Create(
+                        crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, crewPosition.StaffablePositionCtrlNbr,
+                        craftRole.CraftCtrlNbr, "INCUMBENT_VACATED", incumbency.EmployeeCtrlNbr,
+                        targetName: $"{crew.Name} - {craftRole.Name}");
+                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+                    var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
+                    var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
+                    var bulletin = Bulletin.Create(vacancy.CtrlNbr, craftRole.CraftCtrlNbr, opens, closes, effective);
+                    vacancy.MarkBulletined();
+                    await uow.PositionVacancies.AddAsync(vacancy, ct);
+                    await uow.Bulletins.AddAsync(bulletin, ct);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "No BulletinRule configured for craft {CraftCtrlNbr}. Bulletin not created for vacated crew position {StaffablePositionCtrlNbr}.",
+                        craftRole.CraftCtrlNbr.Value, crewPosition.StaffablePositionCtrlNbr.Value);
+                }
+            }
         }
         await uow.CommitAsync(ct);
     }
@@ -312,10 +373,37 @@ public sealed class CrewsAppService(IOrchestrationUnitOfWorkFactory uowFactory)
             var craftRoleCtrlNbr = ControlNumber.Create(pos.CraftRoleCtrlNbr);
             var match = unmatchedPositions.FindIndex(ep => ep.CraftRoleCtrlNbr == craftRoleCtrlNbr && ep.DisplayOrder == pos.DisplayOrder);
             if (match >= 0) { unmatchedPositions.RemoveAt(match); positionsExisting++; continue; }
-            var sp = StaffablePosition.Create("Crew");
+            var sp = StaffablePosition.Create(StaffablePositionType.Crew);
             uow.StaffablePositions.Add(sp);
             uow.CrewPositions.Add(CrewPosition.Create(crew.CtrlNbr, craftRoleCtrlNbr, pos.DisplayOrder, sp.CtrlNbr));
             positionsCreated++;
+
+            // Crew positions are always bulletined when vacant; a newly created position has no incumbent.
+            var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(craftRoleCtrlNbr, ct);
+            if (craftRole is not null)
+            {
+                var rule = await uow.BulletinRules.GetByCraftAsync(craftRole.CraftCtrlNbr);
+                if (rule is not null)
+                {
+                    var vacancy = PositionVacancy.Create(
+                        crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, sp.CtrlNbr,
+                        craftRole.CraftCtrlNbr, "POSITION_CREATED",
+                        targetName: $"{crew.Name} - {craftRole.Name}");
+                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+                    var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
+                    var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
+                    var bulletin = Bulletin.Create(vacancy.CtrlNbr, craftRole.CraftCtrlNbr, opens, closes, effective);
+                    vacancy.MarkBulletined();
+                    uow.PositionVacancies.Add(vacancy);
+                    uow.Bulletins.Add(bulletin);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "No BulletinRule configured for craft {CraftCtrlNbr}. Bulletin not created for new crew position {StaffablePositionCtrlNbr}.",
+                        craftRole.CraftCtrlNbr.Value, sp.CtrlNbr.Value);
+                }
+            }
         }
         foreach (var removed in unmatchedPositions) { uow.CrewPositions.Remove(removed); positionsDeleted++; }
 

@@ -77,6 +77,7 @@ public class RosterBoardService(
                 RosterName = rosterName,
                 CraftName = craftName
             };
+            boardResponse.RequiredPositions = board.RequiredPositions;
 
             foreach (var position in board.Positions)
             {
@@ -123,7 +124,7 @@ public class RosterBoardService(
         var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
         var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
             await svc.CreateRosterBoardAsync(request.CraftCtrlNbr, request.RosterCtrlNbr, request.Name,
-                boardType, rotationType, request.IsActive, context.CancellationToken);
+                boardType, rotationType, request.IsActive, request.RequiredPositions, context.CancellationToken);
         return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
     }
 
@@ -137,7 +138,7 @@ public class RosterBoardService(
             var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
             var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
                 await svc.UpdateRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
-                    boardType, rotationType, request.IsActive, context.CancellationToken);
+                    boardType, rotationType, request.IsActive, request.RequiredPositions, context.CancellationToken);
             return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
@@ -293,6 +294,7 @@ public class RosterBoardService(
             RosterName = rosterName,
             CraftName = craftName
         };
+        response.RequiredPositions = board.RequiredPositions;
         foreach (var position in board.Positions)
             response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, svc, ct));
         return response;

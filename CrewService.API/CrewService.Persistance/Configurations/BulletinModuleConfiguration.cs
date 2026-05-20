@@ -1,6 +1,7 @@
-﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -22,6 +23,9 @@ internal class PositionVacancyConfiguration : IEntityTypeConfiguration<PositionV
         builder.Property(v => v.VacancyReasonCode).HasMaxLength(30).IsRequired();
         builder.Property(v => v.Status).HasMaxLength(20).IsRequired();
 
+        builder.Property(v => v.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(v => v.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(v => v.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(v => v.PreviousIncumbentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
@@ -72,4 +76,21 @@ internal class BulletinBidConfiguration : IEntityTypeConfiguration<BulletinBid>
         builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(b => b.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
+
+}
+internal class BulletinRuleConfiguration : IEntityTypeConfiguration<BulletinRule>
+{
+	public void Configure(EntityTypeBuilder<BulletinRule> builder)
+	{
+		builder.HasKey(r => r.CtrlNbr);
+		builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+		builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+
+		builder.HasIndex(r => r.CraftCtrlNbr).IsUnique();
+		builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+		builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+		builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+		builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+	}
 }

@@ -22,8 +22,8 @@ public class RosterBoardTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(2), ControlNumber.Create(100), "Yard Board");
-        board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
-        board.AddPosition(ControlNumber.Create(11), 2, StaffablePosition.Create("Board").CtrlNbr);
+        board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
+        board.AddPosition(ControlNumber.Create(11), 2, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
 
         Assert.Equal(2, board.Positions.Count);
     }
@@ -45,7 +45,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(2), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
         pos.Hangout();
 
         Assert.Equal("HungOut", pos.HangoutStatus);
@@ -57,7 +57,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(2), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
         pos.MarkOff();
 
         Assert.Equal("MarkedOff", pos.HangoutStatus);
@@ -68,7 +68,7 @@ public class RosterBoardPositionTests
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(2), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create("Board").CtrlNbr);
+        var pos = board.AddPosition(ControlNumber.Create(10), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
         pos.Hangout();
         pos.RestoreFromHangout();
 
