@@ -64,7 +64,7 @@ public sealed class NewHireService(
         var newHireBoard = boards.FirstOrDefault(b => b.BoardType == BoardType.NewHire);
         if (newHireBoard is not null)
         {
-            var staffablePosition = StaffablePosition.Create("Board");
+            var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
             uow.StaffablePositions.Add(staffablePosition);
             var nextOrder = newHireBoard.Positions.Count + 1;
             newHireBoard.AddPosition(employeeCtrlNbr, nextOrder, staffablePosition.CtrlNbr);

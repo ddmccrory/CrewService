@@ -1,4 +1,4 @@
-syntax = "proto3";
+﻿syntax = "proto3";
 
 option csharp_namespace = "CrewService.Presentation";
 
@@ -67,6 +67,7 @@ message CreateRosterBoardRequest {
   string board_type = 4;
   string rotation_type = 5;
   bool is_active = 6;
+  int32 required_positions = 7;
 }
 
 message UpdateRosterBoardRequest {
@@ -75,6 +76,7 @@ message UpdateRosterBoardRequest {
   string board_type = 3;
   string rotation_type = 4;
   bool is_active = 5;
+  int32 required_positions = 6;
 }
 
 message DeleteRosterBoardRequest {
@@ -106,6 +108,7 @@ message RosterBoardResponse {
   string roster_name = 12;
   string work_area_name = 13;
   string craft_name = 14;
+  int32 required_positions = 15;
 }
 
 message RosterBoardPositionResponse {

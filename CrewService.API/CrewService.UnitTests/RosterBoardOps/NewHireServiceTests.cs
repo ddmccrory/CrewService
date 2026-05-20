@@ -1,4 +1,4 @@
-﻿using CrewService.Application.Qualifications;
+using CrewService.Application.Qualifications;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
@@ -151,6 +151,8 @@ public class NewHireServiceTests
         public ISeniorityRepository Seniority => FakeSeniority;
         public IEmployeeCertificationRepository EmployeeCertifications => FakeCertifications;
         public IBoardCascadePolicyRepository BoardCascadePolicies => throw new NotImplementedException();
+        public IRequiredPositionsStrategyRepository RequiredPositionsStrategies => throw new NotImplementedException();
+        public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => throw new NotImplementedException();
         public IRosterBoardRepository RosterBoards => FakeBoards;
         public IAbsenceRequestRepository AbsenceRequests => throw new NotImplementedException();
         public IVacancyImpactRepository VacancyImpacts => throw new NotImplementedException();
@@ -175,6 +177,9 @@ public class NewHireServiceTests
         public IPositionVacancyRepository PositionVacancies => throw new NotImplementedException();
         public IBulletinRepository Bulletins => throw new NotImplementedException();
         public IBulletinBidRepository BulletinBids => throw new NotImplementedException();
+        public IBulletinRuleRepository BulletinRules => null!;
+        public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public IDispatchProjectionRepository DispatchProjections => throw new NotImplementedException();
         public IDispatchDecisionLogRepository DispatchDecisionLogs => throw new NotImplementedException();
         public IDispatchOverrideRepository DispatchOverrides => throw new NotImplementedException();

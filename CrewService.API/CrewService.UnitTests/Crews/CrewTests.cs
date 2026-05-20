@@ -34,7 +34,7 @@ public class CrewPositionTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var sp = StaffablePosition.Create("Crew");
+        var sp = StaffablePosition.Create(StaffablePositionType.Crew);
         var position = CrewPosition.Create(1, 10, 2, sp.CtrlNbr);
 
         Assert.Equal(1, position.CrewCtrlNbr.Value);

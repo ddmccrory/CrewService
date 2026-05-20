@@ -1,4 +1,5 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
@@ -6,10 +7,14 @@ using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.RosterBoardOps;
 
-public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class RosterBoardAppService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IRequiredPositionsFormulaRegistry formulaRegistry,
+    ILogger<RosterBoardAppService> logger)
 {
     // ── Single Board ─────────────────────────────────────────────────────────
 
@@ -117,11 +122,11 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
 
     public async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
         CreateRosterBoardAsync(long craftCtrlNbr, long rosterCtrlNbr, string name,
-            BoardType boardType, RotationType rotationType, bool isActive, CancellationToken ct = default)
+            BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0, CancellationToken ct = default)
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(craftCtrlNbr), ControlNumber.Create(rosterCtrlNbr),
-            name, boardType, rotationType, isActive);
+            name, boardType, rotationType, isActive, requiredPositions);
 
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.RosterBoards.Add(board);
@@ -133,12 +138,12 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
 
     public async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
         UpdateRosterBoardAsync(ControlNumber ctrlNbr, string name,
-            BoardType boardType, RotationType rotationType, bool isActive, CancellationToken ct = default)
+            BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Roster board {ctrlNbr.Value} not found.");
-        board.Update(name, boardType, rotationType, isActive);
+        board.Update(name, boardType, rotationType, isActive, requiredPositions);
         uow.RosterBoards.Update(board);
         var updateResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
@@ -170,10 +175,10 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
             throw new InvalidOperationException(
                 "This employee is already assigned to a staffable position. Unassign them first.");
 
-        var staffablePosition = StaffablePosition.Create("Board");
+        var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
         var position = board.AddPosition(employeeCtrlNbr, positionOrder, staffablePosition.CtrlNbr);
         var positionAssignment = PositionAssignment.Create(
-            staffablePosition.CtrlNbr, employeeCtrlNbr, "Board", position.CtrlNbr);
+            staffablePosition.CtrlNbr, employeeCtrlNbr, PositionAssignmentType.Board, position.CtrlNbr);
 
         uow.StaffablePositions.Add(staffablePosition);
         uow.PositionAssignments.Add(positionAssignment);
@@ -197,6 +202,47 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
         uow.RosterBoards.Update(board);
         if (positionAssignment is not null)
             uow.PositionAssignments.Remove(positionAssignment);
+
+        // Refresh the required-position threshold using the craft's assigned strategy (ExtraBoard only).
+        if (board.BoardType == BoardType.ExtraBoard && board.CraftCtrlNbr is not null)
+        {
+            var recalcRoster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+            if (recalcRoster is not null)
+                await RecalculateRequiredPositionsAsync(uow, board, recalcRoster.WorkAreaGroupCtrlNbr, ct);
+        }
+
+        // Board positions are bulletined when occupied positions fall below RequiredPositions.
+        // Positions count after removal is board.Positions.Count (already removed above).
+        if (board.RequiredPositions > 0 && board.Positions.Count < board.RequiredPositions)
+        {
+            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+            if (roster is not null)
+            {
+                var rule = await uow.BulletinRules.GetByCraftAsync(roster.CraftCtrlNbr);
+                if (rule is not null)
+                {
+                    var vacancy = PositionVacancy.Create(
+                        roster.WorkAreaGroupCtrlNbr, StaffablePositionType.Board,
+                        position.StaffablePositionCtrlNbr,
+                        roster.CraftCtrlNbr, "BOARD_UNDERSTAFFED",
+                        targetName: $"{board.Name} \u2014 Slot {position.PositionOrder}");
+                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+                    var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
+                    var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
+                    var bulletin = Bulletin.Create(vacancy.CtrlNbr, roster.CraftCtrlNbr, opens, closes, effective);
+                    vacancy.MarkBulletined();
+                    await uow.PositionVacancies.AddAsync(vacancy, ct);
+                    await uow.Bulletins.AddAsync(bulletin, ct);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "No BulletinRule configured for craft {CraftCtrlNbr}. Bulletin not created for board position {StaffablePositionCtrlNbr} falling below required count.",
+                        roster.CraftCtrlNbr.Value, position.StaffablePositionCtrlNbr.Value);
+                }
+            }
+        }
+
         await uow.CommitAsync(ct);
         return positionCtrlNbr;
     }
@@ -395,5 +441,49 @@ public sealed class RosterBoardAppService(IOrchestrationUnitOfWorkFactory uowFac
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Resolves the craft's required-positions strategy (or the board-level override),
+    /// calculates the current threshold, and persists it back to the board if it changed.
+    /// Only called for ExtraBoard boards.
+    /// </summary>
+    private async Task RecalculateRequiredPositionsAsync(
+        IOrchestrationUnitOfWork uow,
+        RosterBoard board,
+        ControlNumber workAreaCtrlNbr,
+        CancellationToken ct)
+    {
+        // Prefer a board-level strategy override, then fall back to the craft assignment.
+        RequiredPositionsStrategy? strategy = null;
+
+        if (board.RequiredPositionsStrategyCtrlNbr is not null)
+        {
+            strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(board.RequiredPositionsStrategyCtrlNbr);
+        }
+
+        if (strategy is null && board.CraftCtrlNbr is not null)
+        {
+            var craftAssignment = await uow.CraftRequiredPositionsStrategies.GetByCraftAsync(board.CraftCtrlNbr, ct);
+            if (craftAssignment is not null)
+                strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(craftAssignment.StrategyCtrlNbr);
+        }
+
+        if (strategy is null)
+            return;
+
+        var formula = formulaRegistry.GetFormula(strategy.FormulaType);
+        if (formula is null)
+            return;
+
+        var avgVacancies = await uow.PositionVacancies.GetAverageDailyBoardVacanciesAsync(workAreaCtrlNbr, board.CraftCtrlNbr!, ct);
+        var parameters = strategy.GetParameters();
+        var newRequired = formula.Calculate(avgVacancies, parameters);
+
+        if (board.RequiredPositions != newRequired)
+        {
+            board.UpdateRequiredPositions(newRequired);
+            uow.RosterBoards.Update(board);
+        }
     }
 }
