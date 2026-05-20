@@ -9,7 +9,8 @@ public class EmployeeTests
     public void Create_SetsPropertiesAndRaisesEvent()
     {
         var emp = Employee.Create(1, "user1", "EMP001", "123-45-6789",
-            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100);
+            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100,
+            "user1@example.com", "user1", "User One");
 
         Assert.Equal("EMP001", emp.EmployeeNumber);
         Assert.Equal("user1", emp.UserId);
@@ -24,7 +25,8 @@ public class EmployeeTests
     public void Update_ChangesOnlySpecifiedFields()
     {
         var emp = Employee.Create(1, "user1", "EMP001", "123-45-6789",
-            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100);
+            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100,
+            "user1@example.com", "user1", "User One");
 
         emp.Update(driversLicenseNumber: "DL12345", issuingState: "tx", callForOvertime: false);
 
@@ -38,7 +40,8 @@ public class EmployeeTests
     public void Update_NoChanges_DoesNotRaiseEvent()
     {
         var emp = Employee.Create(1, "user1", "EMP001", "123-45-6789",
-            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100);
+            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100,
+            "user1@example.com", "user1", "User One");
         var eventCountBefore = emp.DomainEvents.Count;
 
         emp.Update();
@@ -50,7 +53,8 @@ public class EmployeeTests
     public void AddAddress_AddsToCollection()
     {
         var emp = Employee.Create(1, "user1", "EMP001", "123-45-6789",
-            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100);
+            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100,
+            "user1@example.com", "user1", "User One");
 
         var address = emp.AddAddress("123 Main St", "Dallas", "TX", "75001", 1);
 
@@ -62,7 +66,8 @@ public class EmployeeTests
     public void AddPhoneNumber_AddsToCollection()
     {
         var emp = Employee.Create(1, "user1", "EMP001", "123-45-6789",
-            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100);
+            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100,
+            "user1@example.com", "user1", "User One");
 
         var phone = emp.AddPhoneNumber("555-0100", 1, true, 1);
 
@@ -74,7 +79,8 @@ public class EmployeeTests
     public void AddEmailAddress_AddsToCollection()
     {
         var emp = Employee.Create(1, "user1", "EMP001", "123-45-6789",
-            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100);
+            Gender.Male, Race.White, new DateTime(1990, 1, 1), new DateTime(2020, 6, 15), 100,
+            "user1@example.com", "user1", "User One");
 
         var email = emp.AddEmailAddress("test@example.com", 1);
 
