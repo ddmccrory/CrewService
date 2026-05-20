@@ -19,3 +19,6 @@ CrewService.API/CrewService.Persistance/Data/*.db-wal
 
 # Legacy system code
 StrategicApplications/
+
+CrewService.FrontEnd/CrewService.API/
+CrewService.FrontEnd/Protos/
