@@ -14,12 +14,21 @@
 @inject CraftClient CraftClient
 @inject CrewClient CrewClient
 @inject RosterBoardClient RosterBoardClient
+@inject EmployeeClient EmployeeClient
+@inject QualificationsClient QualificationsClient
 @inject NavigationManager Nav
 
 <PageTitle>Bulletins &amp; Bids</PageTitle>
 
 <h1>Bulletins &amp; Bids</h1>
 <p class="text-muted mb-1">Manage position vacancies, bulletins, and bids.</p>
+
+@if (nextBulletinEventFormatted is not null)
+{
+    <p class="text-muted mb-1 small">
+        <span class="bi bi-clock me-1"></span>Next processing event: <strong>@nextBulletinEventFormatted</strong>
+    </p>
+}
 
 @if (!IsContextFullySelected)
 {
@@ -50,11 +59,27 @@ else
     }
     else if (activeTab == "bulletins")
     {
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showAllBulletins" @bind="showAllBulletins" @bind:after="OnBulletinFilterChanged" />
+                <label class="form-check-label" for="showAllBulletins">Show History</label>
+            </div>
+            @if (showAllBulletins)
+            {
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 fw-semibold">From</label>
+                    <input type="date" class="form-control form-control-sm" style="width:160px"
+                           value="@bulletinHistoryFrom.ToString("yyyy-MM-dd")"
+                           @onchange="OnHistoryFromChanged" />
+                </div>
+            }
+        </div>
         <DataTable TItem="BulletinResponse"
                    Items="bulletins"
                    Columns="bulletinColumns"
-                   EmptyMessage="No active bulletins."
-                   DefaultSortColumn="Position">
+                   EmptyMessage="@(showAllBulletins ? "No bulletins found for selected date range." : "No active bulletins.")"
+                   DefaultSortColumn="Bid Window Closes"
+                   DefaultSortAscending="true">
             <RowContent Context="b">
                 <td>@(string.IsNullOrEmpty(b.PositionName) ? "—" : b.PositionName)</td>
                 <td>@FormatDateTime(b.BidWindowOpensUtc)</td>
@@ -63,9 +88,15 @@ else
                 <td>@b.BidCount</td>
                 <td><span class="badge @BulletinStatusBadge(b.Status)">@b.Status</span></td>
                 <td class="text-end">
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ViewBulletin(b.CtrlNbr)">
+                    <button class="btn btn-outline-secondary btn-sm me-1" @onclick="() => ViewBulletin(b.CtrlNbr)">
                         <span class="bi bi-eye"></span> View
                     </button>
+                    @if (!Permissions.IsReadOnly("staffing/bulletins") && b.Status == "Posted")
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddBidModal(b.CtrlNbr)">
+                            <span class="bi bi-plus-circle"></span> Add Bid
+                        </button>
+                    }
                 </td>
             </RowContent>
         </DataTable>
@@ -105,6 +136,40 @@ else
             </RowContent>
         </DataTable>
     }
+
+    @* ── Add Bid Modal ── *@
+    <Modal Visible="showAddBidModal" Title="Add Bid" Icon="bi bi-plus-circle-fill"
+           OnClose="CloseAddBidModal" StaticBackdrop="true">
+        <BodyContent>
+            <EditForm Model="listBidModel" OnValidSubmit="ConfirmAddBid" id="list-add-bid-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Employee</label>
+                    <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
+                                 @bind-Value="listBidModel.EmployeeCtrlNbr"
+                                 Items="employees"
+                                 ValueSelector="@(e => e.CtrlNbr)"
+                                 TextSelector="@FormatEmployeeLabel"
+                                 Placeholder="— Select employee —"
+                                 Searchable="true"
+                                 class="form-select" />
+                    <ValidationMessage For="() => listBidModel.EmployeeCtrlNbr" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Priority</label>
+                    <InputNumber class="form-control" @bind-Value="listBidModel.Priority" min="1" />
+                    <ValidationMessage For="() => listBidModel.Priority" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="CloseAddBidModal">Cancel</button>
+            <button class="btn btn-primary" type="submit" form="list-add-bid-form" disabled="@(isSaving || listBidModel.EmployeeCtrlNbr <= 0)">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Add Bid
+            </button>
+        </Footer>
+    </Modal>
 
     @* ── Open Vacancy Modal ── *@
     <Modal Visible="showCreateVacancyModal" Title="Open Vacancy" Icon="bi bi-briefcase-fill"
@@ -227,6 +292,20 @@ else
 
 @code {
     private string activeTab = "bulletins";
+    private bool showAllBulletins;
+    private DateTime bulletinHistoryFrom = DateTime.Today.AddDays(-7);
+    private string? nextBulletinEventFormatted;
+
+    private async Task OnBulletinFilterChanged() => await LoadDataAsync();
+
+    private async Task OnHistoryFromChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var d))
+        {
+            bulletinHistoryFrom = d;
+            await LoadDataAsync();
+        }
+    }
     private bool isLoading;
     private new bool isSaving;
     private new string? errorMessage;
@@ -261,6 +340,10 @@ else
 
     private bool showCreateVacancyModal;
     private bool showAbolishModal;
+    private bool showAddBidModal;
+    private long addBidBulletinCtrlNbr;
+    private List<EligibleEmployeeItem> employees = [];
+    private AddBidModel listBidModel = new();
     private long abolishCtrlNbr;
     private VacancyInputModel vacancyModel = new();
     private bool isLoadingPositions;
@@ -299,17 +382,23 @@ else
         {
             var craftsTask = CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
             var vacanciesTask = BulletinsClient.GetOpenVacanciesAsync(SelectedRailroadCtrlNbr ?? 0);
-            var bulletinsTask = BulletinsClient.GetPostedBulletinsAsync(SelectedRailroadCtrlNbr ?? 0);
-            await Task.WhenAll(craftsTask, vacanciesTask, bulletinsTask);
-
+            var bulletinsTask = showAllBulletins
+                ? BulletinsClient.GetBulletinsInDateRangeAsync(bulletinHistoryFrom.ToUniversalTime(), SelectedRailroadCtrlNbr ?? 0)
+                : BulletinsClient.GetActiveBulletinsAsync(SelectedRailroadCtrlNbr ?? 0);
+            var nextEventTask = BulletinsClient.GetNextBulletinEventUtcAsync(SelectedRailroadCtrlNbr ?? 0);
+            await Task.WhenAll(craftsTask, vacanciesTask, bulletinsTask, nextEventTask);
             if (ComponentToken.IsCancellationRequested) return;
             crafts = [.. (await craftsTask).Crafts];
             vacancies = [.. (await vacanciesTask).Vacancies];
             bulletins = [.. (await bulletinsTask).Bulletins];
+            var nextUtc = await nextEventTask;
+            nextBulletinEventFormatted = string.IsNullOrEmpty(nextUtc?.NextEventUtc)
+                ? null
+                : FormatDateTime(nextUtc.NextEventUtc);
 
             tabs =
             [
-                new("bulletins", $"Active Bulletins ({bulletins.Count})", "bi bi-megaphone"),
+                new("bulletins", showAllBulletins ? $"Bulletins ({bulletins.Count})" : $"Active Bulletins ({bulletins.Count})", "bi bi-megaphone"),
                 new("vacancies", $"Open Vacancies ({vacancies.Count})", "bi bi-briefcase"),
             ];
         }
@@ -324,6 +413,47 @@ else
             if (!ComponentToken.IsCancellationRequested)
                 isLoading = false;
         }
+    }
+
+    private async Task OpenAddBidModal(long bulletinCtrlNbr)
+    {
+        addBidBulletinCtrlNbr = bulletinCtrlNbr;
+        listBidModel = new AddBidModel { Priority = 1 };
+        employees = [];
+        try
+        {
+            var b = bulletins?.FirstOrDefault(x => x.CtrlNbr == bulletinCtrlNbr);
+            if (b is not null && b.CraftRoleCtrlNbr > 0)
+            {
+                var eligibleTask = QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
+                    b.CraftRoleCtrlNbr, SelectedParentCtrlNbr ?? 0);
+                var bidsTask = BulletinsClient.GetBidsByBulletinAsync(bulletinCtrlNbr);
+                await Task.WhenAll(eligibleTask, bidsTask);
+                var alreadyBid = (await bidsTask).Bids
+                    .Where(bid => bid.Status != "Withdrawn")
+                    .Select(bid => bid.EmployeeCtrlNbr)
+                    .ToHashSet();
+                employees = [.. (await eligibleTask).Employees.Where(e => !alreadyBid.Contains(e.CtrlNbr))];
+            }
+        }
+        catch (Exception ex) { errorMessage = $"Failed to load employees: {ex.Message}"; return; }
+        showAddBidModal = true;
+    }
+
+    private void CloseAddBidModal() { showAddBidModal = false; }
+
+    private async Task ConfirmAddBid()
+    {
+        try
+        {
+            isSaving = true;
+            await BulletinsClient.SubmitBidAsync(addBidBulletinCtrlNbr, listBidModel.EmployeeCtrlNbr, listBidModel.Priority);
+            successMessage = "Bid added successfully.";
+            CloseAddBidModal();
+            await LoadDataAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to add bid: {ex.Message}"; }
+        finally { isSaving = false; }
     }
 
     private void OpenCreateVacancyModal()
@@ -533,6 +663,17 @@ else
         bool IsOccupied,
         string? IncumbentName,
         long IncumbentCtrlNbr);
+
+    private static string FormatEmployeeLabel(EligibleEmployeeItem e) => $"{e.EmployeeNumber}  {e.FullNameLnf}";
+
+    private sealed class AddBidModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Priority must be at least 1.")]
+        public int Priority { get; set; } = 1;
+    }
 
     private sealed class VacancyInputModel
     {
