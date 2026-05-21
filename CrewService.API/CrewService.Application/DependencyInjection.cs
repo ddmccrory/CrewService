@@ -7,6 +7,7 @@ using CrewService.Application.Boards;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Application.Bootstrap;
 using CrewService.Application.Bulletins;
+using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.ContactTypes;
 using CrewService.Application.Crews;
 using CrewService.Application.DailyOperations;
@@ -112,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<Application.Authorization.AuthorizationService>();
 
         // Bulletins
+        services.AddSingleton<IBulletinScheduleSignal, BulletinScheduleSignal>();
         services.AddScoped<BulletinsService>();
 
         // B03 – Mark-Off

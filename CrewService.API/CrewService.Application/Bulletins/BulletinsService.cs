@@ -1,11 +1,17 @@
+using CrewService.Application.BackgroundWorkers;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.Bulletins;
 
-public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class BulletinsService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    ILogger<BulletinsService> logger,
+    IBulletinScheduleSignal scheduleSignal)
 {
     public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
@@ -41,6 +47,20 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
             : await uow.Bulletins.GetPostedAsync();
     }
 
+    public async Task<IReadOnlyList<Bulletin>> GetBulletinsInDateRangeAsync(DateTime fromUtc, ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.Bulletins.GetInDateRangeAsync(fromUtc, railroadCtrlNbr);
+    }
+
+        public async Task<IReadOnlyList<Bulletin>> GetActiveBulletinsAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return railroadCtrlNbr is not null
+            ? await uow.Bulletins.GetActiveByRailroadAsync(railroadCtrlNbr)
+            : await uow.Bulletins.GetActiveAsync();
+    }
+
     public async Task<IReadOnlyList<Bulletin>> GetPostedBulletinsByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -60,9 +80,11 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
             ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
     }
 
-    public async Task<BulletinBid> SubmitBidAsync(long bulletinCtrlNbr, long employeeCtrlNbr, int priority, int seniorityRank, CancellationToken ct = default)
+    public async Task<BulletinBid> SubmitBidAsync(long bulletinCtrlNbr, long employeeCtrlNbr, int priority, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(employeeCtrlNbr));
+        var seniorityRank = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster)?.Rank ?? 0;
         var bid = BulletinBid.Create(bulletinCtrlNbr, employeeCtrlNbr, priority, seniorityRank);
         await uow.BulletinBids.AddAsync(bid, ct);
         await uow.CommitAsync(ct);
@@ -98,47 +120,70 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
         var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
         bulletin.Award(employeeCtrlNbr);
-        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-        vacancy?.Fill();
-        if (vacancy is not null) await uow.PositionVacancies.UpdateAsync(vacancy, ct);
-        await uow.Bulletins.UpdateAsync(bulletin, ct);
+        await FillBulletinAsync(uow, bulletin, employeeCtrlNbr, PositionAssignmentType.BulletinAssignment, ct);
         await uow.CommitAsync(ct);
         return bulletin;
     }
 
-    public async Task<Bulletin> ForceAssignBulletinAsync(ControlNumber ctrlNbr, ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    /// <summary>
+    /// Force assigns a NoBid bulletin. If <paramref name="overrideEmployee"/> is provided the
+    /// dispatcher's explicit choice is used; otherwise the selection rules on the craft's
+    /// BulletinRule are run to find the most junior eligible employee automatically.
+    /// </summary>
+    public async Task<Bulletin> ForceAssignBulletinAsync(ControlNumber ctrlNbr, ControlNumber? overrideEmployee = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
-        bulletin.ForceAssign(employeeCtrlNbr);
-        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-        vacancy?.Fill();
-        if (vacancy is not null) await uow.PositionVacancies.UpdateAsync(vacancy, ct);
-        await uow.Bulletins.UpdateAsync(bulletin, ct);
+        if (bulletin.Status != "NoBid")
+            throw new InvalidOperationException($"Cannot force assign bulletin {ctrlNbr}: status is '{bulletin.Status}'. Only NoBid bulletins can be force assigned.");
+
+        ControlNumber? candidateCtrlNbr = overrideEmployee;
+        if (candidateCtrlNbr is null)
+        {
+            var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr)
+                ?? throw new InvalidOperationException($"No BulletinRule configured for craft {bulletin.CraftCtrlNbr}.");
+            candidateCtrlNbr = rule.ForceAssignSelectionMode switch
+            {
+                Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorHelperOrExtraBoard =>
+                    await SelectJuniorHelperOrExtraBoardAsync(uow, bulletin, ct),
+                _ =>
+                    await SelectJuniorExtraBoardAsync(uow, bulletin, ct)
+            };
+            if (candidateCtrlNbr is null)
+                throw new InvalidOperationException("No eligible candidate found for force assignment. Ensure extra board members exist for this craft.");
+        }
+
+        bulletin.ForceAssign(candidateCtrlNbr);
+        await FillBulletinAsync(uow, bulletin, candidateCtrlNbr, PositionAssignmentType.ForceAssignment, ct);
         await uow.CommitAsync(ct);
         return bulletin;
     }
-
     public async Task<Bulletin> SetBulletinNoBidAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
 
-        // For crew-position bulletins, compute the force-assign deadline from the bulletin rule.
+        var activeBids = await uow.BulletinBids.GetByBulletinAsync(ctrlNbr);
+        if (activeBids.Any(b => b.Status == "Submitted"))
+            throw new InvalidOperationException("Cannot mark a bulletin as No Bid when there are active bids. Withdraw all bids first.");
+
+        // For crew-position bulletins, compute a schedule-aware force-assign deadline.
         DateTime? forceAssignDeadline = null;
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
         if (vacancy?.TargetType == StaffablePositionType.Crew)
         {
             var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
             if (rule is not null)
-                forceAssignDeadline = rule.CalculateForceAssignDeadline(bulletin.EffectiveUtc);
+                forceAssignDeadline = await CalculateScheduleAwareForceAssignDeadlineAsync(uow, bulletin, vacancy, rule, ct);
         }
 
         bulletin.SetAsNoBid(forceAssignDeadline);
         await uow.Bulletins.UpdateAsync(bulletin, ct);
         await uow.CommitAsync(ct);
+        if (forceAssignDeadline.HasValue)
+            scheduleSignal.Notify(forceAssignDeadline.Value);
         return bulletin;
     }
 
@@ -182,6 +227,7 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
         await uow.Bulletins.AddAsync(bulletin, ct);
         await uow.CommitAsync(ct);
 
+        scheduleSignal.Notify(closes);
         return (vacancy, bulletin);
     }
 
@@ -243,10 +289,11 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
         await uow.PositionVacancies.UpdateAsync(vacancy, ct);
         await uow.CommitAsync(ct);
 
+        scheduleSignal.Notify(bidWindowClosesUtc);
         return bulletin;
     }
 
-    // ── WorkArea-scoped queries ───────────────────────────────────────
+    // ── WorkArea-scoped queries
 
     public async Task<IReadOnlyList<PositionVacancy>> GetVacanciesByWorkAreaAsync(
         ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
@@ -331,10 +378,7 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
             if (candidateCtrlNbr is null) continue;
 
             bulletin.ForceAssign(candidateCtrlNbr);
-            var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-            vacancy?.Fill();
-            if (vacancy is not null) await uow.PositionVacancies.UpdateAsync(vacancy, ct);
-            await uow.Bulletins.UpdateAsync(bulletin, ct);
+            await FillBulletinAsync(uow, bulletin, candidateCtrlNbr, PositionAssignmentType.ForceAssignment, ct);
             assigned.Add(bulletin);
         }
 
@@ -342,6 +386,31 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
             await uow.CommitAsync(ct);
 
         return assigned;
+    }
+
+    /// <summary>
+    /// Returns the earliest UTC time the bulletin worker needs to wake up to process a pending
+    /// event — whichever comes first among bid-window closes (Posted bulletins) and force-assign
+    /// deadlines (NoBid bulletins). Returns <c>null</c> when there are no pending events.
+    /// </summary>
+    public async Task<DateTime?> GetNextBulletinEventUtcAsync(CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.Bulletins.GetNextPendingEventUtcAsync(ct);
+    }
+
+    /// <summary>
+    /// Returns the next pending bulletin event time (UTC) and the work-area ctrl nbr of the
+    /// bulletin that drives it, so the caller can convert to the correct local timezone.
+    /// </summary>
+    public async Task<(DateTime? NextUtc, long? WorkAreaCtrlNbr)> GetNextBulletinEventAsync(CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var bulletin = await uow.Bulletins.GetNextPendingEventBulletinAsync(ct);
+        if (bulletin is null) return (null, null);
+        var eventUtc = bulletin.Status == "NoBid" ? bulletin.ForceAssignDeadlineUtc : (DateTime?)bulletin.BidWindowClosesUtc;
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        return (eventUtc, vacancy?.WorkAreaGroupCtrlNbr.Value);
     }
 
     /// <summary>
@@ -452,6 +521,268 @@ public sealed class BulletinsService(IOrchestrationUnitOfWorkFactory uowFactory)
     /// Returns <c>null</c> if the id is blank or unrecognised, which causes callers to fall
     /// back to naive UTC arithmetic.
     /// </summary>
+    /// <summary>
+    /// If the vacancy targets a crew position (TargetType == Crew), creates a
+    /// CrewIncumbency and PositionAssignment for the awarded employee within the
+    /// supplied unit-of-work. Safe to call inside any existing transaction.
+    /// </summary>
+    // Fills the bulletin vacancy, persists the update, and (for crew positions) creates the crew incumbency.
+    private async Task FillBulletinAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        Bulletin bulletin,
+        ControlNumber employeeCtrlNbr,
+        string assignmentType,
+        CancellationToken ct)
+    {
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        if (vacancy is not null)
+        {
+            vacancy.Fill();
+            await uow.PositionVacancies.UpdateAsync(vacancy, ct);
+            await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, ct);
+        }
+        await uow.Bulletins.UpdateAsync(bulletin, ct);
+    }
+
+    private static async Task PlaceEmployeeOnCrewPositionAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        PositionVacancy vacancy,
+        ControlNumber employeeCtrlNbr,
+        string assignmentType,
+        CancellationToken ct)
+    {
+        if (vacancy.TargetType != StaffablePositionType.Crew) return;
+
+        var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
+        if (crewPosition is null) return;
+
+        // End any existing active incumbency on this position first.
+        var existingIncumbency = await uow.CrewIncumbencies.GetActiveByPositionAsync(crewPosition.CtrlNbr, DateTime.UtcNow);
+        if (existingIncumbency is not null)
+        {
+            existingIncumbency.End(DateTime.UtcNow);
+            uow.CrewIncumbencies.Update(existingIncumbency);
+            var oldAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
+            if (oldAssignment is not null) uow.PositionAssignments.Remove(oldAssignment);
+        }
+
+        var incumbency = CrewIncumbency.Create(crewPosition.CtrlNbr.Value, employeeCtrlNbr.Value, DateTime.UtcNow, null);
+        var positionAssignment = PositionAssignment.Create(
+            crewPosition.StaffablePositionCtrlNbr, employeeCtrlNbr, assignmentType, crewPosition.CtrlNbr);
+
+        uow.CrewIncumbencies.Add(incumbency);
+        uow.PositionAssignments.Add(positionAssignment);
+    }
+    /// <summary>
+    /// Computes the force-assign deadline for a crew-position bulletin using the
+    /// position's actual work schedule (AssignmentSchedule.OnDutyTime and OperatingDaysMask),
+    /// mirroring the legacy AssignDateTime logic. Falls back to a flat offset if schedule
+    /// data is unavailable.
+    /// </summary>
+    private static async Task<DateTime?> CalculateScheduleAwareForceAssignDeadlineAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        Bulletin bulletin,
+        PositionVacancy vacancy,
+        BulletinRule rule,
+        CancellationToken ct)
+    {
+        // Try to get the crew position's schedule via: vacancy → crewPosition → crew → crewAssignment → assignment → schedule
+        var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
+        if (crewPosition is not null)
+        {
+            var crewAssignments = await uow.CrewAssignments.GetByCrewAsync(crewPosition.CrewCtrlNbr);
+            var activeCrewAssignment = crewAssignments
+                .Where(ca => ca.StartUtc <= DateTime.UtcNow && (ca.EndUtc is null || ca.EndUtc > DateTime.UtcNow))
+                .FirstOrDefault();
+
+            if (activeCrewAssignment is not null)
+            {
+                var schedules = await uow.AssignmentSchedules.GetByAssignmentAsync(activeCrewAssignment.AssignmentCtrlNbr);
+                var schedule = schedules.FirstOrDefault();
+                if (schedule is not null)
+                {
+                    // Find the next work date on or after the effective date using the OperatingDaysMask
+                    var effectiveLocal = bulletin.EffectiveUtc.Date;
+                    DateTime nextWorkDate = effectiveLocal;
+                    for (int i = 0; i < 14; i++)
+                    {
+                        int dayBit = 1 << (int)nextWorkDate.DayOfWeek;
+                        if ((schedule.OperatingDaysMask & dayBit) != 0) break;
+                        nextWorkDate = nextWorkDate.AddDays(1);
+                    }
+
+                    // The force-assign deadline = first on-duty time on the next work day minus ForceAssignHours
+                    var onDutyUtc = new DateTime(nextWorkDate.Year, nextWorkDate.Month, nextWorkDate.Day,
+                        schedule.OnDutyTime.Hour, schedule.OnDutyTime.Minute, schedule.OnDutyTime.Second,
+                        DateTimeKind.Utc);
+                    return onDutyUtc.AddHours(-rule.ForceAssignHours);
+                }
+            }
+        }
+
+        // Fallback: flat offset from effective date
+        return rule.CalculateForceAssignDeadline(bulletin.EffectiveUtc);
+    }
+
+    /// <summary>
+    /// Selects the winning bidder for a closed bulletin using seniority order (senior first),
+    /// respecting bid <c>Priority</c> preference chains. If an employee bids on this bulletin
+    /// at a lower priority than another bulletin, that higher-preference bulletin is checked
+    /// first; if the employee already won their preferred bulletin they are skipped here.
+    /// Employees who have lost qualification since submitting their bid are skipped with a
+    /// warning log rather than a hard error.
+    /// Returns the winning <see cref="BulletinBid"/>, or <c>null</c> if no qualified bidder exists.
+    /// </summary>
+    private async Task<BulletinBid?> SelectBulletinWinnerAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        Bulletin bulletin,
+        CancellationToken ct)
+    {
+        var bids = await uow.BulletinBids.GetByBulletinAsync(bulletin.CtrlNbr);
+        var activeBids = bids
+            .Where(b => b.Status == "Submitted")
+            .OrderBy(b => b.SeniorityRank)
+            .ToList();
+
+        if (activeBids.Count == 0) return null;
+
+        // Load required qualification types for this craft once
+        var requiredQualTypes = await uow.QualificationTypes.GetActiveByCraftCtrlNbrAsync(bulletin.CraftCtrlNbr);
+        var requiredQualTypeCtrlNbrs = requiredQualTypes
+            .Where(q => q.IsBlocking)
+            .Select(q => q.CtrlNbr)
+            .ToHashSet();
+
+        foreach (var bid in activeBids)
+        {
+            // Qualification safety net: check the employee still has all required qualifications
+            if (requiredQualTypeCtrlNbrs.Count > 0)
+            {
+                var empQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrAsync(bid.EmployeeCtrlNbr);
+                var empQualTypeCtrlNbrs = empQuals.Select(q => q.QualificationTypeCtrlNbr).ToHashSet();
+                var missing = requiredQualTypeCtrlNbrs.Except(empQualTypeCtrlNbrs).ToList();
+                if (missing.Count > 0)
+                {
+                    logger.LogWarning(
+                        "Bulletin {BulletinCtrlNbr}: Employee {EmployeeCtrlNbr} bid skipped at award time — " +
+                        "lost required qualification(s) [{MissingQuals}] since bid was submitted.",
+                        bulletin.CtrlNbr, bid.EmployeeCtrlNbr, string.Join(", ", missing));
+                    continue;
+                }
+            }
+
+            // Preference chain: if this bid has Priority > 1, check whether the employee has
+            // a higher-priority (lower Priority number) bid on another bulletin that is ready
+            // to award. If so, process that one first; if it awards to this employee, skip here.
+            if (bid.Priority > 1)
+            {
+                var higherPriorityBids = await uow.BulletinBids.GetActiveByEmployeeAsync(bid.EmployeeCtrlNbr);
+                var higherPref = higherPriorityBids
+                    .Where(b => b.BulletinCtrlNbr != bulletin.CtrlNbr && b.Priority < bid.Priority && b.Status == "Submitted")
+                    .ToList();
+
+                foreach (var prefBid in higherPref)
+                {
+                    var prefBulletin = await uow.Bulletins.GetByCtrlNbrAsync(prefBid.BulletinCtrlNbr, ct);
+                    if (prefBulletin is null) continue;
+                    // Only process if that bulletin's bid window is also closed and not yet awarded
+                    if (prefBulletin.BidWindowClosesUtc > DateTime.UtcNow) continue;
+                    if (prefBulletin.AwardedEmployeeCtrlNbr is not null) continue;
+
+                    // Recursively try to award the higher-preference bulletin
+                    var prefWinner = await SelectBulletinWinnerAsync(uow, prefBulletin, ct);
+                    if (prefWinner is not null && prefWinner.EmployeeCtrlNbr == bid.EmployeeCtrlNbr)
+                    {
+                        // Employee won their preferred bulletin — award it and skip them here
+                        prefBulletin.Award(bid.EmployeeCtrlNbr);
+                        await FillBulletinAsync(uow, prefBulletin, bid.EmployeeCtrlNbr, PositionAssignmentType.BulletinAssignment, ct);
+                        logger.LogInformation(
+                            "Bulletin {BulletinCtrlNbr}: Employee {EmployeeCtrlNbr} won higher-preference bulletin {PreferredBulletinCtrlNbr} — skipped on this bulletin.",
+                            bulletin.CtrlNbr, bid.EmployeeCtrlNbr, prefBulletin.CtrlNbr);
+                        goto nextBid;
+                    }
+                }
+            }
+
+            return bid;
+
+            nextBid:;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Processes all Posted bulletins whose bid window has closed and that have not yet been
+    /// awarded. For each: selects a winner, awards the position, or transitions to NoBid if
+    /// no qualified bidder exists. Returns the list of bulletins that were acted on.
+    /// </summary>
+    public async Task<IReadOnlyList<Bulletin>> AutoAwardClosedBulletinsAsync(CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var candidates = await uow.Bulletins.GetClosedUnawardedAsync(ct);
+        var processed = new List<Bulletin>();
+
+        // Process in effective-date ascending order — seniority/preference chains work best
+        // when earlier-effective bulletins are resolved first.
+        foreach (var bulletin in candidates.OrderBy(b => b.EffectiveUtc))
+        {
+            // Skip bulletins already acted on in this batch (e.g., awarded via preference chain)
+            if (bulletin.AwardedEmployeeCtrlNbr is not null || bulletin.Status == "NoBid") continue;
+
+            var winner = await SelectBulletinWinnerAsync(uow, bulletin, ct);
+            if (winner is not null)
+            {
+                winner.MarkWinner();
+                await uow.BulletinBids.UpdateAsync(winner, ct);
+
+                // Mark all other bids as losers
+                var allBids = await uow.BulletinBids.GetByBulletinAsync(bulletin.CtrlNbr);
+                foreach (var loserBid in allBids.Where(b => b.CtrlNbr != winner.CtrlNbr && b.Status == "Submitted"))
+                {
+                    loserBid.MarkLoser();
+                    await uow.BulletinBids.UpdateAsync(loserBid, ct);
+                }
+
+                bulletin.Award(winner.EmployeeCtrlNbr);
+                await FillBulletinAsync(uow, bulletin, winner.EmployeeCtrlNbr, PositionAssignmentType.BulletinAssignment, ct);
+                logger.LogInformation(
+                    "Bulletin {BulletinCtrlNbr}: Auto-awarded to employee {EmployeeCtrlNbr}.",
+                    bulletin.CtrlNbr, winner.EmployeeCtrlNbr);
+            }
+            else
+            {
+                // No qualified winner — transition to NoBid with schedule-aware force-assign deadline
+                var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+                DateTime? forceAssignDeadline = null;
+                if (vacancy?.TargetType == StaffablePositionType.Crew)
+                {
+                    var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
+                    if (rule is not null)
+                        forceAssignDeadline = await CalculateScheduleAwareForceAssignDeadlineAsync(uow, bulletin, vacancy, rule, ct);
+                }
+
+                bulletin.SetAsNoBid(forceAssignDeadline);
+                await uow.Bulletins.UpdateAsync(bulletin, ct);
+                logger.LogInformation(
+                    "Bulletin {BulletinCtrlNbr}: No qualified winner — transitioned to NoBid. Force-assign deadline: {Deadline}.",
+                    bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
+            }
+
+            processed.Add(bulletin);
+        }
+
+        if (processed.Count > 0)
+        {
+            await uow.CommitAsync(ct);
+            // Notify the worker of any newly assigned force-assign deadlines so it wakes precisely.
+            foreach (var b in processed.Where(b => b.Status == "NoBid" && b.ForceAssignDeadlineUtc.HasValue))
+                scheduleSignal.Notify(b.ForceAssignDeadlineUtc!.Value);
+        }
+
+        return processed;
+    }
+
     private static TimeZoneInfo? ResolveTimeZone(string? timeZoneId)
     {
         if (string.IsNullOrWhiteSpace(timeZoneId)) return null;

@@ -1,4 +1,5 @@
-using CrewService.Domain.Models.ContactTypes;
+﻿using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.ValueObjects;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
@@ -1239,53 +1240,6 @@ internal static class DevDataSeeder
         var bulletinRepo = sp.GetRequiredService<IBulletinRepository>();
         var bidRepo = sp.GetRequiredService<IBulletinBidRepository>();
 
-        var existingVacancies = await vacancyRepo.GetAllAsync();
-        if (existingVacancies.Count == 0)
-        {
-        var crafts3 = await craftRepo.GetAllAsync();
-        var csxRailroad4 = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
-        var engCraft3 = crafts3.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == csxRailroad4.CtrlNbr);
-        var condCraft3 = crafts3.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroad4.CtrlNbr);
-        var empList4 = await employeeRepo.GetAllAsync();
-        var allSlots = await positionSlotRepo.GetAllAsync();
-        var now3 = DateTime.UtcNow;
-        var workAreas4 = (await groupRepo.GetAllAsync()).Where(g => g.IsWorkArea).ToList();
-        var bulletinWorkArea = workAreas4.First();
-
-        // Create vacancies targeting position slots (use an unbound tomorrow slot)
-        var unboundCondSlot = allSlots.FirstOrDefault(s => s.Status == "Open");
-        var unboundEngSlot = allSlots.LastOrDefault(s => s.Status == "Open");
-
-        if (unboundCondSlot is not null)
-        {
-            var condVacancy = PositionVacancy.Create(bulletinWorkArea.CtrlNbr, StaffablePositionType.Crew, unboundCondSlot.CtrlNbr, condCraft3.CtrlNbr, "RESIGNATION", targetName: $"{condCraft3.CraftName} — Position {unboundCondSlot.CtrlNbr.Value}");
-            condVacancy.MarkBulletined();
-            await vacancyRepo.AddAsync(condVacancy);
-
-            var condBulletin = Bulletin.Create(condVacancy.CtrlNbr, condCraft3.CtrlNbr,
-                now3, now3.AddDays(5), now3.AddDays(7));
-            await bulletinRepo.AddAsync(condBulletin);
-
-            await bidRepo.AddAsync(BulletinBid.Create(condBulletin.CtrlNbr, empList4[50].CtrlNbr, 1, 50));
-            await bidRepo.AddAsync(BulletinBid.Create(condBulletin.CtrlNbr, empList4[51].CtrlNbr, 1, 51));
-        }
-
-        if (unboundEngSlot is not null && unboundEngSlot != unboundCondSlot)
-        {
-            var engVacancy = PositionVacancy.Create(bulletinWorkArea.CtrlNbr, StaffablePositionType.Crew, unboundEngSlot.CtrlNbr, engCraft3.CtrlNbr, "PROMOTION", targetName: $"{engCraft3.CraftName} — Position {unboundEngSlot.CtrlNbr.Value}");
-            engVacancy.MarkBulletined();
-            await vacancyRepo.AddAsync(engVacancy);
-
-            var engBulletin = Bulletin.Create(engVacancy.CtrlNbr, engCraft3.CtrlNbr,
-                now3, now3.AddDays(7), now3.AddDays(9));
-            await bulletinRepo.AddAsync(engBulletin);
-
-            await bidRepo.AddAsync(BulletinBid.Create(engBulletin.CtrlNbr, empList4[10].CtrlNbr, 1, 10));
-            await bidRepo.AddAsync(BulletinBid.Create(engBulletin.CtrlNbr, empList4[11].CtrlNbr, 1, 11));
-        }
-
-        } // end bulletins guard
-
         // ?? Section 9: Dispatching � Projections, Bookings ???????????????????
         var projectionRepo = sp.GetRequiredService<IDispatchProjectionRepository>();
         var bookingRepo = sp.GetRequiredService<IEmployeeBookingRepository>();
@@ -1301,7 +1255,7 @@ internal static class DevDataSeeder
         var openSlots = allSlots2.Where(s => s.Status == "Open").Take(4).ToList();
         for (int i = 0; i < openSlots.Count; i++)
         {
-            var projected = i < empList5.Count ? empList5[i + 5].CtrlNbr : (Domain.ValueObjects.ControlNumber?)null;
+            ControlNumber? projected = i < empList5.Count ? empList5[i + 5].CtrlNbr : null;
             await projectionRepo.AddAsync(DispatchProjection.Create(openSlots[i].CtrlNbr, now4, projected, null));
         }
 

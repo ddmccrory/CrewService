@@ -1,5 +1,6 @@
 using CrewService.Domain.Modules.Infrastructure;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Application.Bulletins;
 using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Application.Qualifications;
@@ -57,13 +58,57 @@ public sealed class AutoMarkUpWorker(
 
 public sealed class BulletinProcessingWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<BulletinProcessingWorker> logger)
+    ILogger<BulletinProcessingWorker> logger,
+    IBulletinScheduleSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "Bulletin", TimeSpan.FromMinutes(5))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    /// <summary>
+    /// Before the poll loop starts, seed the signal with the earliest known bulletin event
+    /// so the worker wakes at exactly the right time on the first iteration.
+    /// </summary>
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        return Task.CompletedTask;
+        using var scope = scopeFactory.CreateScope();
+        var bulletinsService = scope.ServiceProvider.GetRequiredService<BulletinsService>();
+        var nextEvent = await bulletinsService.GetNextBulletinEventUtcAsync(cancellationToken);
+
+        if (nextEvent.HasValue)
+        {
+            scheduleSignal.Notify(nextEvent.Value);
+            logger.LogInformation(
+                "BulletinProcessingWorker: Startup — next bulletin event at {NextEvent:u}.", nextEvent.Value);
+        }
+        else
+        {
+            logger.LogInformation("BulletinProcessingWorker: Startup — no pending bulletin events.");
+        }
+
+        await base.StartAsync(cancellationToken);
     }
+
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var bulletinsService = services.GetRequiredService<BulletinsService>();
+
+        // 1. Auto-award all closed bulletins whose bid window has passed
+        //    (or transition to NoBid if no qualified bidder exists — Notify is called inside)
+        var awarded = await bulletinsService.AutoAwardClosedBulletinsAsync(ct);
+        if (awarded.Count > 0)
+            logger.LogInformation("BulletinProcessingWorker: Auto-awarded {Count} bulletin(s).", awarded.Count);
+
+        // 2. Auto-force-assign all NoBid bulletins that have passed their force-assign deadline
+        var forceAssigned = await bulletinsService.AutoForceAssignNoBidsAsync(ct);
+        if (forceAssigned.Count > 0)
+            logger.LogInformation("BulletinProcessingWorker: Auto-force-assigned {Count} NoBid bulletin(s).", forceAssigned.Count);
+    }
+
+    /// <summary>
+    /// Instead of sleeping a fixed interval, wait on the schedule signal.
+    /// The signal wakes exactly when the next bulletin event time arrives, or sooner
+    /// if a new bulletin is posted with an earlier close time.
+    /// </summary>
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
 }
 
 public sealed class SeniorityMoveWorker(
