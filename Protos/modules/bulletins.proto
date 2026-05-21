@@ -22,6 +22,12 @@ service BulletinsSrvc {
   }
 
   // Bulletins
+  rpc GetActiveBulletins(GetActiveBulletinsRequest) returns (GetBulletinsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/active" };
+  }
+  rpc GetBulletinsInDateRange(GetBulletinsInDateRangeRequest) returns (GetBulletinsResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/history" };
+  }
   rpc GetPostedBulletins(GetPostedBulletinsRequest) returns (GetBulletinsResponse) {
     option (google.api.http) = { get: "/v1/bulletins/posted" };
   }
@@ -42,6 +48,9 @@ service BulletinsSrvc {
   }
   rpc ForceAssignBulletin(ForceAssignBulletinRequest) returns (BulletinResponse) {
     option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/force-assign" body: "*" };
+  }
+  rpc AutoForceAssignBulletin(AutoForceAssignBulletinRequest) returns (BulletinResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/auto-force-assign" };
   }
   rpc SetBulletinNoBid(SetBulletinNoBidRequest) returns (BulletinResponse) {
     option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/no-bid" };
@@ -67,6 +76,11 @@ service BulletinsSrvc {
   }
   rpc SaveBulletinRule(SaveBulletinRuleRequest) returns (BulletinRuleResponse) {
     option (google.api.http) = { post: "/v1/bulletins/rules" body: "*" };
+  }
+
+  // Scheduling
+  rpc GetNextBulletinEvent(GetNextBulletinEventRequest) returns (GetNextBulletinEventResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/next-event" };
   }
 }
 
@@ -108,6 +122,11 @@ message PositionVacancyResponse {
 }
 
 // Bulletin messages
+message GetActiveBulletinsRequest { int64 railroad_ctrl_nbr = 1; }
+message GetBulletinsInDateRangeRequest {
+  int64 railroad_ctrl_nbr = 1;
+  string from_utc = 2;
+}
 message GetPostedBulletinsRequest { int64 railroad_ctrl_nbr = 1; }
 message GetPostedBulletinsByCraftRequest { int64 craft_ctrl_nbr = 1; }
 message GetBulletinsByWorkAreaRequest { int64 work_area_ctrl_nbr = 1; }
@@ -126,6 +145,7 @@ message ForceAssignBulletinRequest {
   int64 ctrl_nbr = 1;
   int64 employee_ctrl_nbr = 2;
 }
+message AutoForceAssignBulletinRequest { int64 ctrl_nbr = 1; }
 message SetBulletinNoBidRequest { int64 ctrl_nbr = 1; }
 message GetBulletinsResponse {
   repeated BulletinResponse bulletins = 1;
@@ -145,6 +165,7 @@ message BulletinResponse {
   int32 bid_count = 11;
   string vacated_by_name = 12;
   string awarded_employee_name = 13;
+  int64 craft_role_ctrl_nbr = 14;
 }
 
 // Bid messages
@@ -152,7 +173,6 @@ message SubmitBidRequest {
   int64 bulletin_ctrl_nbr = 1;
   int64 employee_ctrl_nbr = 2;
   int32 priority = 3;
-  int32 seniority_rank = 4;
 }
 message WithdrawBidRequest { int64 ctrl_nbr = 1; }
 message GetBidsByBulletinRequest { int64 bulletin_ctrl_nbr = 1; }
@@ -196,3 +216,6 @@ message BulletinRuleResponse {
   int32 force_assign_hours = 8;
   string force_assign_selection_mode = 9;
 }
+
+message GetNextBulletinEventRequest { int64 railroad_ctrl_nbr = 1; }
+message GetNextBulletinEventResponse { string next_event_utc = 1; }

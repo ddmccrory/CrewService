@@ -1,6 +1,7 @@
 @page "/staffing/bulletins/{CtrlNbr:long}"
 @rendermode InteractiveServer
 
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
@@ -10,6 +11,7 @@
 @attribute [Authorize]
 
 @inject BulletinsClient BulletinsClient
+@inject QualificationsClient QualificationsClient
 
 <PageTitle>Bulletin Detail</PageTitle>
 
@@ -85,14 +87,21 @@ else
                 <div class="card-body d-flex flex-wrap gap-2 align-items-start">
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "Posted")
                     {
-                        <button class="btn btn-success" @onclick="OpenAwardModal">
+                        var bidWindowClosed = DateTime.TryParse(bulletin.BidWindowClosesUtc, out var closesUtc) && DateTime.UtcNow >= closesUtc;
+                        <button class="btn btn-success" @onclick="OpenAwardModal" disabled="@(!bidWindowClosed)">
                             <span class="bi bi-trophy"></span> Award
                         </button>
+                        <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(!bidWindowClosed)">
+                            <span class="bi bi-dash-circle"></span> Set No-Bid
+                        </button>
+                        <button class="btn btn-primary" @onclick="OpenAddBidModal">
+                            <span class="bi bi-plus-circle"></span> Add Bid
+                        </button>
+                    }
+                    @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "NoBid")
+                    {
                         <button class="btn btn-warning" @onclick="OpenForceAssignModal">
                             <span class="bi bi-person-fill-exclamation"></span> Force Assign
-                        </button>
-                        <button class="btn btn-secondary" @onclick="OnSetNoBid">
-                            <span class="bi bi-dash-circle"></span> Set No-Bid
                         </button>
                     }
                 </div>
@@ -124,6 +133,40 @@ else
         </RowContent>
     </DataTable>
 
+    @* ── Add Bid Modal ── *@
+    <Modal Visible="showAddBidModal" Title="Add Bid" Icon="bi bi-plus-circle-fill"
+           OnClose="CloseAddBidModal" StaticBackdrop="true">
+        <BodyContent>
+            <EditForm Model="bidModel" OnValidSubmit="ConfirmAddBid" id="add-bid-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Employee</label>
+                    <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
+                                 @bind-Value="bidModel.EmployeeCtrlNbr"
+                                 Items="employees"
+                                 ValueSelector="@(e => e.CtrlNbr)"
+                                 TextSelector="@FormatEmployeeLabel"
+                                 Placeholder="— Select employee —"
+                                 Searchable="true"
+                                 class="form-select" />
+                    <ValidationMessage For="() => bidModel.EmployeeCtrlNbr" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Priority</label>
+                    <InputNumber class="form-control" @bind-Value="bidModel.Priority" min="1" />
+                    <ValidationMessage For="() => bidModel.Priority" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="CloseAddBidModal">Cancel</button>
+            <button class="btn btn-primary" type="submit" form="add-bid-form" disabled="@(isSaving || bidModel.EmployeeCtrlNbr <= 0)">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Add Bid
+            </button>
+        </Footer>
+    </Modal>
+
     @* ── Award Modal ── *@
     <Modal Visible="showAwardModal" Title="Award Bulletin" Icon="bi bi-trophy-fill"
            OnClose="() => showAwardModal = false" StaticBackdrop="true">
@@ -148,16 +191,13 @@ else
         <BodyContent>
             <div class="alert alert-warning">
                 <span class="bi bi-exclamation-triangle me-1"></span>
-                Force assign bypasses the normal bid award process.
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Employee Control Number</label>
-                <input type="number" class="form-control" @bind="actionEmployeeCtrlNbr" placeholder="Enter employee #" />
+                <strong>Force Assign</strong> will automatically select the most junior eligible employee
+                from the extra board based on the craft's force assignment rules.
             </div>
         </BodyContent>
         <Footer>
             <button class="btn btn-secondary" @onclick="() => showForceModal = false">Cancel</button>
-            <button class="btn btn-warning" @onclick="ConfirmForceAssign" disabled="@(isSaving || actionEmployeeCtrlNbr <= 0)">
+            <button class="btn btn-warning" @onclick="ConfirmForceAssign" disabled="@isSaving">
                 @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
                 Force Assign
             </button>
@@ -178,7 +218,11 @@ else
 
     private bool showAwardModal;
     private bool showForceModal;
+    private bool showAddBidModal;
     private long actionEmployeeCtrlNbr;
+
+    private List<EligibleEmployeeItem> employees = [];
+    private AddBidModel bidModel = new();
 
     private static readonly IReadOnlyList<DataTableColumn<BulletinBidResponse>> bidColumns =
     [
@@ -239,7 +283,46 @@ else
     }
 
     private void OpenAwardModal() { actionEmployeeCtrlNbr = 0; showAwardModal = true; }
-    private void OpenForceAssignModal() { actionEmployeeCtrlNbr = 0; showForceModal = true; }
+
+    private void OpenForceAssignModal() => showForceModal = true;
+
+    private async Task OpenAddBidModal()
+    {
+        bidModel = new AddBidModel { Priority = 1 };
+        employees = [];
+        try
+        {
+            if (bulletin is not null && bulletin.CraftRoleCtrlNbr > 0)
+            {
+                var result = await QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
+                    bulletin.CraftRoleCtrlNbr, SelectedParentCtrlNbr ?? 0);
+                var alreadyBid = (bids ?? [])
+                    .Where(b => b.Status != "Withdrawn")
+                    .Select(b => b.EmployeeCtrlNbr)
+                    .ToHashSet();
+                employees = [.. result.Employees.Where(e => !alreadyBid.Contains(e.CtrlNbr))];
+            }
+        }
+        catch (Exception ex) { errorMessage = $"Failed to load employees: {ex.Message}"; return; }
+        showAddBidModal = true;
+    }
+
+    private void CloseAddBidModal() { showAddBidModal = false; }
+
+    private async Task ConfirmAddBid()
+    {
+        try
+        {
+            isSaving = true;
+            await BulletinsClient.SubmitBidAsync(CtrlNbr, bidModel.EmployeeCtrlNbr, bidModel.Priority);
+            successMessage = "Bid added successfully.";
+            CloseAddBidModal();
+            await LoadBidsAsync();
+            bulletin = await BulletinsClient.GetBulletinAsync(CtrlNbr);
+        }
+        catch (Exception ex) { errorMessage = $"Failed to add bid: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
 
     private async Task ConfirmAward()
     {
@@ -260,7 +343,7 @@ else
         try
         {
             isSaving = true;
-            bulletin = await BulletinsClient.ForceAssignBulletinAsync(CtrlNbr, actionEmployeeCtrlNbr);
+            bulletin = await BulletinsClient.AutoForceAssignBulletinAsync(CtrlNbr);
             successMessage = "Force assigned successfully.";
             showForceModal = false;
         }
@@ -304,6 +387,17 @@ else
         "Cancelled" => "bg-danger",
         _ => "bg-light text-dark"
     };
+
+    private static string FormatEmployeeLabel(EligibleEmployeeItem e) => $"{e.EmployeeNumber}  {e.FullNameLnf}";
+
+    private sealed class AddBidModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Priority must be at least 1.")]
+        public int Priority { get; set; } = 1;
+    }
 
     private static string BidStatusBadge(string status) => status switch
     {
