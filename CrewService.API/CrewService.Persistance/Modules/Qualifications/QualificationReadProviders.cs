@@ -51,7 +51,7 @@ internal sealed class FraCertificationChecker(CrewServiceDbContext dbContext) : 
         return await dbContext.Set<EmployeeCertification>()
             .AnyAsync(c => c.EmployeeCtrlNbr == employeeCtrlNbr
                         && c.RegulatoryQualificationCtrlNbr == regulatoryQualificationCtrlNbr
-                        && c.Status == "Active", ct);
+                        && (c.Status == "Active" || c.Status == "Renew"), ct);
     }
 }
 
