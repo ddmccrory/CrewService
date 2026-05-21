@@ -50,6 +50,9 @@ internal sealed class CrewPositionRepository(CrewServiceDbContext dbContext, ICu
 
     public async Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs) =>
         await DbContext.Set<CrewPosition>().Where(p => crewCtrlNbrs.Contains(p.CrewCtrlNbr)).ToListAsync();
+
+    public async Task<CrewPosition?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr) =>
+        await DbContext.Set<CrewPosition>().FirstOrDefaultAsync(p => p.StaffablePositionCtrlNbr == staffablePositionCtrlNbr);
 }
 
 internal sealed class CrewIncumbencyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

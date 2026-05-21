@@ -64,6 +64,16 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
                             DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)))
             .ToListAsync();
 
+    public async Task<List<Bulletin>> GetActiveAsync() =>
+        await DbContext.Set<Bulletin>().Where(b => b.Status == "Posted" || b.Status == "NoBid").ToListAsync();
+
+    public async Task<List<Bulletin>> GetActiveByRailroadAsync(ControlNumber railroadCtrlNbr) =>
+        await DbContext.Set<Bulletin>()
+            .Where(b => (b.Status == "Posted" || b.Status == "NoBid") &&
+                        DbContext.Set<PositionVacancy>().Any(v => v.CtrlNbr == b.PositionVacancyCtrlNbr &&
+                            DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)))
+            .ToListAsync();
+
     public async Task<List<Bulletin>> GetPostedByCraftAsync(ControlNumber craftCtrlNbr) =>
         await DbContext.Set<Bulletin>()
             .Where(b => b.CraftCtrlNbr == craftCtrlNbr && b.Status == "Posted")
@@ -82,6 +92,16 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
             .Select(x => x.Bulletin)
             .ToListAsync();
 
+    public async Task<List<Bulletin>> GetClosedUnawardedAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await DbContext.Set<Bulletin>()
+            .Where(b => b.Status == "Posted"
+                     && b.AwardedEmployeeCtrlNbr == null
+                     && b.BidWindowClosesUtc <= now)
+            .ToListAsync(ct);
+    }
+
     public async Task<List<Bulletin>> GetNoBidPastDeadlineAsync(CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
@@ -91,6 +111,56 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
                      && b.ForceAssignDeadlineUtc != null
                      && b.ForceAssignDeadlineUtc <= now)
             .ToListAsync(ct);
+    }
+
+    public async Task<List<Bulletin>> GetInDateRangeAsync(DateTime fromUtc, ControlNumber? railroadCtrlNbr = null)
+    {
+        var query = DbContext.Set<Bulletin>().Where(b => b.BidWindowOpensUtc >= fromUtc);
+        if (railroadCtrlNbr is not null)
+            query = query.Where(b =>
+                DbContext.Set<PositionVacancy>().Any(v => v.CtrlNbr == b.PositionVacancyCtrlNbr &&
+                    DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)));
+        return await query.OrderByDescending(b => b.BidWindowOpensUtc).ToListAsync();
+    }
+
+    public async Task<DateTime?> GetNextPendingEventUtcAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // Earliest future bid-window close among Posted bulletins
+        var nextBidClose = await DbContext.Set<Bulletin>()
+            .Where(b => b.Status == "Posted" && b.BidWindowClosesUtc > now)
+            .MinAsync(b => (DateTime?)b.BidWindowClosesUtc, ct);
+
+        // Earliest future force-assign deadline among NoBid bulletins
+        var nextForceAssign = await DbContext.Set<Bulletin>()
+            .Where(b => b.Status == "NoBid" && b.ForceAssignDeadlineUtc != null && b.ForceAssignDeadlineUtc > now)
+            .MinAsync(b => b.ForceAssignDeadlineUtc, ct);
+
+        if (nextBidClose is null) return nextForceAssign;
+        if (nextForceAssign is null) return nextBidClose;
+        return nextBidClose < nextForceAssign ? nextBidClose : nextForceAssign;
+    }
+
+    public async Task<Bulletin?> GetNextPendingEventBulletinAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var nextBidClose = await DbContext.Set<Bulletin>()
+            .Where(b => b.Status == "Posted" && b.BidWindowClosesUtc > now)
+            .OrderBy(b => b.BidWindowClosesUtc)
+            .FirstOrDefaultAsync(ct);
+
+        var nextForceAssign = await DbContext.Set<Bulletin>()
+            .Where(b => b.Status == "NoBid" && b.ForceAssignDeadlineUtc != null && b.ForceAssignDeadlineUtc > now)
+            .OrderBy(b => b.ForceAssignDeadlineUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (nextBidClose is null) return nextForceAssign;
+        if (nextForceAssign is null) return nextBidClose;
+        return nextBidClose.BidWindowClosesUtc <= nextForceAssign.ForceAssignDeadlineUtc
+            ? nextBidClose
+            : nextForceAssign;
     }
 }
 

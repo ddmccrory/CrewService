@@ -83,7 +83,7 @@ public abstract class WorkerBase(
                 logger.LogError(ex, "Worker {WorkerType} encountered an unexpected error", workerType);
             }
 
-            await Task.Delay(checkInterval, stoppingToken);
+            await WaitForNextRunAsync(stoppingToken);
         }
     }
 
@@ -91,4 +91,12 @@ public abstract class WorkerBase(
 
     protected virtual DateTime? CalculateNextFire(WorkerSchedule schedule) =>
         schedule.NextFireUtc?.Add(checkInterval);
+
+    /// <summary>
+    /// Called at the end of each loop iteration to sleep until the next run.
+    /// Default behaviour is a fixed <c>checkInterval</c> delay.
+    /// Override to implement event-driven wakeup (e.g. waiting on a schedule signal).
+    /// </summary>
+    protected virtual Task WaitForNextRunAsync(CancellationToken ct) =>
+        Task.Delay(checkInterval, ct);
 }

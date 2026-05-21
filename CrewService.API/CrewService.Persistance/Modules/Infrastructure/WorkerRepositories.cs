@@ -10,10 +10,15 @@ namespace CrewService.Persistance.Modules.Infrastructure;
 internal sealed class WorkerScheduleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<WorkerSchedule>(dbContext, currentUserService), IWorkerScheduleRepository
 {
-    public async Task<IReadOnlyList<WorkerSchedule>> GetDueByTypeAsync(string workerType, CancellationToken ct = default) =>
-        await DbContext.Set<WorkerSchedule>()
-            .Where(s => s.WorkerType == workerType && s.IsEnabled)
+    public async Task<IReadOnlyList<WorkerSchedule>> GetDueByTypeAsync(string workerType, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await DbContext.Set<WorkerSchedule>()
+            .Where(s => s.WorkerType == workerType
+                     && s.IsEnabled
+                     && (s.NextFireUtc == null || s.NextFireUtc <= now))
             .ToListAsync(ct);
+    }
 }
 
 internal sealed class WorkerExecutionLogRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

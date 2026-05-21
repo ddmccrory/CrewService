@@ -15,6 +15,7 @@ public interface ICrewPositionRepository : IRepository<CrewPosition>
 {
     Task<List<CrewPosition>> GetByCrewAsync(ControlNumber crewCtrlNbr);
     Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
+    Task<CrewPosition?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr);
 }
 
 public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>

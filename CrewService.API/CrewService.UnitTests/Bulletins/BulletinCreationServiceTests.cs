@@ -262,9 +262,12 @@ public class BulletinCreationServiceTests
         public Task<List<Bulletin>> GetPostedAsync() => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetPostedByRailroadAsync(ControlNumber r) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetPostedByCraftAsync(ControlNumber c) => Task.FromResult(new List<Bulletin>());
+        public Task<List<Bulletin>> GetActiveAsync() => Task.FromResult(new List<Bulletin>());
+        public Task<List<Bulletin>> GetActiveByRailroadAsync(ControlNumber r) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetByStatusAsync(string s) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetByWorkAreaAsync(ControlNumber w) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetNoBidPastDeadlineAsync(CancellationToken ct = default) => Task.FromResult(new List<Bulletin>());
+        public Task<List<Bulletin>> GetInDateRangeAsync(DateTime fromUtc, ControlNumber? railroadCtrlNbr = null) => Task.FromResult(new List<Bulletin>());
     }
 
     private sealed class FakePositionAssignmentRepo(PositionAssignment? assignment) : FakeRepoBase<PositionAssignment>, IPositionAssignmentRepository
