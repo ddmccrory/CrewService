@@ -197,25 +197,25 @@ public sealed class QualificationsService(
         HashSet<ControlNumber> EligibleEmployeeCtrlNbrs)>
         GetEligibleEmployeesDataAsync(
             ControlNumber craftRoleCtrlNbr, ControlNumber clientCtrlNbr,
-            EmployeeEligibilityService eligibilityService, CancellationToken ct = default)
+            EmployeeEligibilityService eligibilityService, bool excludeAssigned = true, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var requiredQuals = await uow.CraftRoleQualifications.GetByCraftRoleAsync(craftRoleCtrlNbr);
         var employees = await uow.Employees.GetListByClientCtrlNbrAsync(clientCtrlNbr);
         var assignedCtrlNbrs = await uow.PositionAssignments.GetAssignedEmployeeCtrlNbrsAsync();
-        var unassigned = assignedCtrlNbrs.Count == 0
-            ? employees
-            : employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList();
+        var candidates = excludeAssigned && assignedCtrlNbrs.Count > 0
+            ? employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList()
+            : employees;
 
         var eligibleCtrlNbrs = new HashSet<ControlNumber>();
-        foreach (var emp in unassigned)
+        foreach (var emp in candidates)
         {
-            var result = await eligibilityService.CheckEligibilityByCraftRoleAsync(emp.CtrlNbr, craftRoleCtrlNbr, ct);
+            var result = await eligibilityService.CheckEligibilityByCraftRoleAsync(uow, emp.CtrlNbr, craftRoleCtrlNbr, ct);
             if (result.IsEligible)
                 eligibleCtrlNbrs.Add(emp.CtrlNbr);
         }
 
-        return (unassigned, assignedCtrlNbrs, requiredQuals, eligibleCtrlNbrs);
+        return (candidates, assignedCtrlNbrs, requiredQuals, eligibleCtrlNbrs);
     }
 
     public async Task<QualificationType> CreateQualificationTypeAsync(

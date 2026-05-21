@@ -351,6 +351,7 @@ public sealed class QualificationsService(IServiceProvider serviceProvider) : Qu
             ControlNumber.Create(request.CraftRoleCtrlNbr),
             ControlNumber.Create(request.ClientCtrlNbr),
             eligibilityService,
+            excludeAssigned: false,
             context.CancellationToken);
 
         var nameMap = await employeeNameSvc.GetFullNameLnfBatchAsync(employees.Select(e => e.UserId));

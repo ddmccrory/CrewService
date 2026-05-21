@@ -91,6 +91,15 @@ public sealed class EmployeeEligibilityService(
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await CheckEligibilityByCraftRoleAsync(uow, employeeCtrlNbr, craftRoleCtrlNbr, ct);
+    }
+
+    internal async Task<EligibilityResult> CheckEligibilityByCraftRoleAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber craftRoleCtrlNbr,
+        CancellationToken ct = default)
+    {
         var blockingReasons = new List<BlockingReason>();
 
         var roleQualifications = await uow.CraftRoleQualifications.GetByCraftRoleAsync(craftRoleCtrlNbr);
@@ -114,25 +123,26 @@ public sealed class EmployeeEligibilityService(
         if (qualType is null || !qualType.IsActive)
             return;
 
-        if (qualType.EvaluationStrategy == "FraCertification")
+        // Both "FraCertification" and "QualificationHeld" backed by an FRA cert are evaluated
+        // on demand via IFraCertificationChecker. QualificationReactiveService is a no-op, so
+        // no materialized EmployeeQualification rows exist for these strategies.
+        var isFraBacked = qualType.RegulatoryQualificationCtrlNbr is not null
+            && (qualType.EvaluationStrategy == "FraCertification"
+                || qualType.EvaluationStrategy == "QualificationHeld");
+
+        if (isFraBacked)
         {
-            if (qualType.RegulatoryQualificationCtrlNbr is null)
+            if (fraCertificationChecker is null)
+                return; // checker not available — skip rather than incorrectly block
+
+            var hasCert = await fraCertificationChecker
+                .HasActiveCertificationAsync(employeeCtrlNbr, qualType.RegulatoryQualificationCtrlNbr!, ct);
+
+            if (!hasCert)
             {
                 blockingReasons.Add(new BlockingReason(
-                    "FRA_CERT_REQUIREMENT_INVALID",
-                    $"FRA certification requirement is not configured for {qualType.Name}"));
-            }
-            else if (fraCertificationChecker is not null)
-            {
-                var hasCert = await fraCertificationChecker
-                    .HasActiveCertificationAsync(employeeCtrlNbr, qualType.RegulatoryQualificationCtrlNbr, ct);
-
-                if (!hasCert)
-                {
-                    blockingReasons.Add(new BlockingReason(
-                        "FRA_CERT_MISSING",
-                        $"Missing or inactive FRA certification for {qualType.Name}"));
-                }
+                    "FRA_CERT_MISSING",
+                    $"Missing or inactive FRA certification for {qualType.Name}"));
             }
         }
         else
