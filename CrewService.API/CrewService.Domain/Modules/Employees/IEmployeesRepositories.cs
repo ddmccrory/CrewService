@@ -124,6 +124,21 @@ public interface ISeniorityStateRepository : IRepository<SeniorityState>
     Task<List<SeniorityState>> GetByParentCtrlNbrAsync(ControlNumber parentCtrlNbr);
 }
 
+public interface IPendingSeniorityStateChangeRepository : IRepository<PendingSeniorityStateChange>
+{
+    /// <summary>Returns all Pending records for the given railroad, ordered by EffectiveDateUtc.</summary>
+    Task<List<PendingSeniorityStateChange>> GetAllPendingByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>Returns the single Pending record for the employee, or null.</summary>
+    Task<PendingSeniorityStateChange?> GetPendingByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>Returns all records whose EffectiveDateUtc is on or before <paramref name="asOfUtc"/> and are still Pending.</summary>
+    Task<List<PendingSeniorityStateChange>> GetDueAsync(DateTime asOfUtc, CancellationToken ct = default);
+
+    /// <summary>Returns the earliest EffectiveDateUtc of any Pending record, or null if none exist.</summary>
+    Task<DateTime?> GetNextEffectiveDateUtcAsync(CancellationToken ct = default);
+}
+
 // ??????????????????????????????????????????????????????????????????
 // Qualifications
 // ??????????????????????????????????????????????????????????????????
@@ -156,4 +171,10 @@ public interface IEmployeeQualificationSuspensionRepository : IRepository<Employ
         ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr, CancellationToken ct = default);
     Task<List<EmployeeQualificationSuspension>> GetByEmployeeCtrlNbrAsync(
         ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+}
+
+public interface ISeniorityStateVacancyConfigRepository : IRepository<SeniorityStateVacancyConfig>
+{
+    Task<List<SeniorityStateVacancyConfig>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+    Task<SeniorityStateVacancyConfig?> GetBySeniorityStateAsync(ControlNumber railroadCtrlNbr, ControlNumber seniorityStateCtrlNbr, CancellationToken ct = default);
 }

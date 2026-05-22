@@ -23,6 +23,21 @@ service SenioritySrvc {
   rpc GetActiveCraftForEmployee(GetActiveCraftRequest) returns (ActiveCraftResponse) {
     option (google.api.http) = { get: "/v1/seniority/active-craft/{employee_ctrl_nbr}" };
   }
+  rpc ScheduleStateChangeAsync(ScheduleStateChangeRequest) returns (PendingStateChangeResponse) {
+    option (google.api.http) = { post: "/v1/seniority/schedule-state-change" body: "*" };
+  }
+  rpc GetPendingStateChangeAsync(GetPendingStateChangeRequest) returns (PendingStateChangeResponse) {
+    option (google.api.http) = { get: "/v1/seniority/{seniority_ctrl_nbr}/pending-state-change" };
+  }
+  rpc CancelPendingStateChangeAsync(CancelPendingStateChangeRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/seniority/pending-state-change/{pending_change_ctrl_nbr}" };
+  }
+  rpc GetAllPendingStateChangesAsync(GetAllPendingStateChangesRequest) returns (GetAllPendingStateChangesResponse) {
+    option (google.api.http) = { get: "/v1/seniority/pending-state-changes" };
+  }
+  rpc GetNextStateChangeEventAsync(GetNextStateChangeEventRequest) returns (GetNextStateChangeEventResponse) {
+    option (google.api.http) = { get: "/v1/seniority/pending-state-changes/next-event" };
+  }
 }
 
 message GetAllSeniorityRequest {
@@ -88,4 +103,65 @@ message ActiveCraftResponse {
   int64 craft_ctrl_nbr = 1;
   string craft_name = 2;
   bool found = 3;
+}
+
+message ScheduleStateChangeRequest {
+  int64 seniority_ctrl_nbr = 1;
+  int64 to_state_ctrl_nbr = 2;
+  string effective_date_utc = 3;
+}
+
+message GetPendingStateChangeRequest {
+  int64 seniority_ctrl_nbr = 1;
+}
+
+message CancelPendingStateChangeRequest {
+  int64 pending_change_ctrl_nbr = 1;
+}
+
+message PendingStateChangeResponse {
+  int64 ctrl_nbr = 1;
+  int64 seniority_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  int64 from_state_ctrl_nbr = 4;
+  int64 to_state_ctrl_nbr = 5;
+  string effective_date_utc = 6;
+  string status = 7;
+  string scheduled_by_user_id = 8;
+  string scheduled_at_utc = 9;
+  bool found = 10;
+  bool success = 11;
+  repeated string messages = 12;
+}
+
+message GetAllPendingStateChangesRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message PendingStateChangeListItem {
+  int64 ctrl_nbr = 1;
+  int64 seniority_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string employee_number = 4;
+  string employee_full_name_lnf = 5;
+  int64 from_state_ctrl_nbr = 6;
+  string from_state_name = 7;
+  int64 to_state_ctrl_nbr = 8;
+  string to_state_name = 9;
+  string effective_date_utc = 10;
+  string scheduled_by_user_id = 11;
+  string scheduled_at_utc = 12;
+  string scheduled_by_user_name = 13;
+}
+
+message GetAllPendingStateChangesResponse {
+  repeated PendingStateChangeListItem pending_changes = 1;
+}
+
+message GetNextStateChangeEventRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message GetNextStateChangeEventResponse {
+  string next_event_local = 1;
 }

@@ -45,6 +45,8 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Roster> Rosters => Set<Roster>();
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
+    public DbSet<SeniorityStateVacancyConfig> SeniorityStateVacancyConfigs => Set<SeniorityStateVacancyConfig>();
+    public DbSet<PendingSeniorityStateChange> PendingSeniorityStateChanges => Set<PendingSeniorityStateChange>();
     public DbSet<UserParentAssignment> UserParentAssignments => Set<UserParentAssignment>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();

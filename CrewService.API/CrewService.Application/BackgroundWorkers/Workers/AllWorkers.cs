@@ -4,6 +4,7 @@ using CrewService.Application.Bulletins;
 using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Application.Qualifications;
+using CrewService.Application.SeniorityOps;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -120,6 +121,50 @@ public sealed class SeniorityMoveWorker(
     {
         return Task.CompletedTask;
     }
+}
+
+public sealed class SeniorityStateChangeWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<SeniorityStateChangeWorker> logger,
+    ISeniorityStateChangeSignal scheduleSignal)
+    : WorkerBase(scopeFactory, logger, "SeniorityStateChange", TimeSpan.FromMinutes(5))
+{
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var seniorityService = scope.ServiceProvider.GetRequiredService<SeniorityAppService>();
+        var nextEvent = await seniorityService.GetNextPendingChangeUtcAsync(cancellationToken);
+
+        if (nextEvent.HasValue)
+        {
+            scheduleSignal.Notify(nextEvent.Value);
+            logger.LogInformation(
+                "SeniorityStateChangeWorker: Startup — next pending state change at {NextEvent:u}.", nextEvent.Value);
+        }
+        else
+        {
+            logger.LogInformation("SeniorityStateChangeWorker: Startup — no pending state changes.");
+        }
+
+        await base.StartAsync(cancellationToken);
+    }
+
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var seniorityService = services.GetRequiredService<SeniorityAppService>();
+
+        var applied = await seniorityService.ApplyDuePendingChangesAsync(ct);
+        if (applied > 0)
+            logger.LogInformation("SeniorityStateChangeWorker: Applied {Count} pending state change(s).", applied);
+
+        // Re-seed the signal with the next remaining pending change, if any.
+        var nextEvent = await seniorityService.GetNextPendingChangeUtcAsync(ct);
+        if (nextEvent.HasValue)
+            scheduleSignal.Notify(nextEvent.Value);
+    }
+
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
 }
 
 public sealed class FraComplianceWorker(

@@ -78,4 +78,84 @@ public sealed class SeniorityClient(GrpcChannelProvider channelProvider, Circuit
             throw;
         }
     }
+
+    public async Task<PendingStateChangeResponse> ScheduleStateChangeAsync(
+        long seniorityCtrlNbr, long toStateCtrlNbr, DateTime effectiveDateUtc)
+    {
+        try
+        {
+            return await _client.ScheduleStateChangeAsyncAsync(new ScheduleStateChangeRequest
+            {
+                SeniorityCtrlNbr = seniorityCtrlNbr,
+                ToStateCtrlNbr = toStateCtrlNbr,
+                EffectiveDateUtc = effectiveDateUtc.ToString("O")
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<PendingStateChangeResponse> GetPendingStateChangeAsync(long seniorityCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetPendingStateChangeAsyncAsync(new GetPendingStateChangeRequest
+            {
+                SeniorityCtrlNbr = seniorityCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<DeleteResponse> CancelPendingStateChangeAsync(long pendingChangeCtrlNbr)
+    {
+        try
+        {
+            return await _client.CancelPendingStateChangeAsyncAsync(new CancelPendingStateChangeRequest
+            {
+                PendingChangeCtrlNbr = pendingChangeCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetAllPendingStateChangesResponse> GetAllPendingStateChangesAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetAllPendingStateChangesAsyncAsync(new GetAllPendingStateChangesRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetNextStateChangeEventResponse?> GetNextStateChangeEventAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetNextStateChangeEventAsyncAsync(new GetNextStateChangeEventRequest { RailroadCtrlNbr = railroadCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }

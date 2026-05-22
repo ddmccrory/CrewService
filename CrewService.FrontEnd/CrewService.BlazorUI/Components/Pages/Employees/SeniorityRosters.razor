@@ -23,7 +23,14 @@
 <h1>Seniority Rosters</h1>
 <p class="text-muted">Manage employees ranked on seniority rosters.</p>
 
-@if (!IsContextFullySelected)
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>
@@ -80,6 +87,36 @@ else
                                  class="form-select" />
                     <ValidationMessage For="() => saveModel.SeniorityStateCtrlNbr" class="text-danger" />
                 </div>
+                @if (editCtrlNbr > 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            Effective Date &amp; Time
+                            <span class="text-muted fw-normal small ms-1">(leave blank to apply immediately)</span>
+                        </label>
+                        <div class="input-group">
+                            <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="saveModel.StateEffectiveDate" class="form-control" />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => saveModel.StateEffectiveDate = DateTime.Now" title="Set to now">Now</button>
+                        </div>
+                    </div>
+                    @if (pendingChange is not null)
+                    {
+                        <div class="alert alert-info d-flex align-items-center gap-2 py-2" role="alert">
+                            <span class="bi bi-clock-history"></span>
+                            <div class="flex-grow-1">
+                                <strong>Scheduled:</strong>
+                                → <strong>@(seniorityStates?.FirstOrDefault(s => s.CtrlNbr == pendingChange.ToStateCtrlNbr)?.StateDescription ?? pendingChange.ToStateCtrlNbr.ToString())</strong>
+                                on <strong>@DateTime.Parse(pendingChange.EffectiveDateUtc).ToLocalTime().ToString("g")</strong>
+                            </div>
+                            @if (IsAdminUser)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" disabled="@isSaving" @onclick="CancelPendingChange">
+                                    <span class="bi bi-x-circle me-1"></span> Cancel
+                                </button>
+                            }
+                        </div>
+                    }
+                }
                 <div class="mb-3 form-check form-switch">
                     <InputCheckbox @bind-Value="saveModel.CanTrain" class="form-check-input" id="canTrainCheck" />
                     <label class="form-check-label" for="canTrainCheck">Can Train</label>
@@ -335,6 +372,8 @@ else
     private bool showRosterModal;
     private RosterInputModel rosterModel = new();
 
+    private PendingStateChangeResponse? pendingChange;
+
     private IReadOnlyList<RosterResponse> filteredRosters =>
         rosters is null || selectedWorkAreaCtrlNbr == 0
             ? []
@@ -545,9 +584,22 @@ else
                 Rank = entry.Rank,
                 RosterDate = DateTime.TryParse(entry.RosterDate, out var dt) ? dt : DateTime.Today,
                 SeniorityStateCtrlNbr = entry.SeniorityStateCtrlNbr,
+                OriginalSeniorityStateCtrlNbr = entry.SeniorityStateCtrlNbr,
                 CanTrain = entry.CanTrain,
                 LastActiveRoster = entry.LastActiveRoster
             };
+
+            // Load any existing pending state change so the banner shows in the modal.
+            try
+            {
+                var pending = await SeniorityClient.GetPendingStateChangeAsync(entry.CtrlNbr);
+                pendingChange = pending.Found ? pending : null;
+            }
+            catch
+            {
+                pendingChange = null;
+            }
+
             showSaveModal = true;
         }
         finally { isLoading = false; }
@@ -559,6 +611,7 @@ else
         editCtrlNbr = 0;
         editEmployeeDisplay = "";
         saveModel = new();
+        pendingChange = null;
     }
 
     private void OpenDeleteModal(SeniorityResponse entry)
@@ -578,16 +631,52 @@ else
 
             if (editCtrlNbr > 0)
             {
+                var isScheduling = saveModel.StateEffectiveDate.HasValue
+                    && saveModel.StateEffectiveDate.Value > DateTime.Now
+                    && saveModel.SeniorityStateCtrlNbr != saveModel.OriginalSeniorityStateCtrlNbr;
+
+                // Always update rank, date, canTrain, lastActiveRoster immediately.
+                // When scheduling a future state change, keep the current (original) state so it
+                // is NOT applied right now — only the scheduled worker should apply it.
                 await SeniorityClient.UpdateAsync(new UpdateSeniorityRequest
                 {
                     CtrlNbr = editCtrlNbr,
                     Rank = saveModel.Rank,
                     RosterDate = saveModel.RosterDate.ToString("yyyy-MM-dd"),
-                    SeniorityStateCtrlNbr = saveModel.SeniorityStateCtrlNbr,
+                    SeniorityStateCtrlNbr = isScheduling ? saveModel.OriginalSeniorityStateCtrlNbr : saveModel.SeniorityStateCtrlNbr,
                     CanTrain = saveModel.CanTrain,
                     LastActiveRoster = saveModel.LastActiveRoster
                 });
-                successMessage = "Seniority entry updated.";
+
+                // If a future effective date was provided for the state change, schedule it.
+                if (isScheduling)
+                {
+                    // Convert the locally-entered datetime to UTC using the work area's configured
+                    // timezone. Fall back to treating it as UTC if no timezone is set.
+                    var workAreaTzId = workAreas?.FirstOrDefault(w => w.CtrlNbr == selectedWorkAreaCtrlNbr)?.TimeZoneId;
+                    DateTime effectiveDateUtc;
+                    if (!string.IsNullOrWhiteSpace(workAreaTzId) &&
+                        TimeZoneInfo.TryFindSystemTimeZoneById(workAreaTzId, out var workAreaTz))
+                    {
+                        effectiveDateUtc = TimeZoneInfo.ConvertTimeToUtc(
+                            DateTime.SpecifyKind(saveModel.StateEffectiveDate!.Value, DateTimeKind.Unspecified),
+                            workAreaTz);
+                    }
+                    else
+                    {
+                        effectiveDateUtc = DateTime.SpecifyKind(saveModel.StateEffectiveDate!.Value, DateTimeKind.Utc);
+                    }
+
+                    await SeniorityClient.ScheduleStateChangeAsync(
+                        editCtrlNbr,
+                        saveModel.SeniorityStateCtrlNbr,
+                        effectiveDateUtc);
+                    successMessage = $"Seniority entry updated. State change scheduled for {saveModel.StateEffectiveDate.Value:g}.";
+                }
+                else
+                {
+                    successMessage = "Seniority entry updated.";
+                }
             }
             else
             {
@@ -650,8 +739,38 @@ else
         [Range(1, long.MaxValue, ErrorMessage = "Seniority state is required.")]
         public long SeniorityStateCtrlNbr { get; set; }
 
+        /// <summary>The state as it was when the modal opened — used to avoid applying the new state immediately when scheduling.</summary>
+        public long OriginalSeniorityStateCtrlNbr { get; set; }
+
+        /// <summary>When set to a future time, the state change is scheduled rather than applied immediately.</summary>
+        public DateTime? StateEffectiveDate { get; set; } = DateTime.Today.AddDays(1).AddMinutes(1);
+
         public bool CanTrain { get; set; }
         public bool LastActiveRoster { get; set; } = true;
+    }
+
+    // ── Schedule state change ────────────────────────────────────────────
+
+    private bool IsAdminUser => CurrentUser.IsAdmin;
+
+    private async Task CancelPendingChange()
+    {
+        if (pendingChange is null) return;
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await SeniorityClient.CancelPendingStateChangeAsync(pendingChange.CtrlNbr);
+            successMessage = "Scheduled state change cancelled.";
+            pendingChange = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to cancel pending change: {ex.Message}";
+        }
+        finally { isSaving = false; }
     }
 
     // ── Roster quick-create ─────────────────────────────────────────────

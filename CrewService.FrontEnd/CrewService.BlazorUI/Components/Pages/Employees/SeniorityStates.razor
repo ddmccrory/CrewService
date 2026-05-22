@@ -18,7 +18,14 @@
 <h1>Seniority States</h1>
 <p class="text-muted">Manage seniority states for employees (e.g., Active, Cut Back, Terminated, Retired).</p>
 
-@if (!IsContextFullySelected)
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>

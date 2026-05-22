@@ -1,7 +1,9 @@
 using CrewService.Application.SeniorityOps;
 using CrewService.Domain.Exceptions;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using System.Security.Claims;
 
 namespace CrewService.Presentation.Services;
 
@@ -127,6 +129,175 @@ public class SeniorityService(
 
         if (!found) return new ActiveCraftResponse { Found = false };
         return new ActiveCraftResponse { CraftCtrlNbr = craftCtrlNbr, CraftName = craftName, Found = true };
+    }
+
+    public override async Task<PendingStateChangeResponse> ScheduleStateChangeAsync(ScheduleStateChangeRequest request, ServerCallContext context)
+    {
+        var userId = context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? throw new RpcException(new Status(StatusCode.Unauthenticated, "No authenticated user."));
+
+        if (!DateTime.TryParse(request.EffectiveDateUtc, out var effectiveDateUtc))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid effective_date_utc format. Use ISO 8601."));
+
+        try
+        {
+            var pending = await seniorityAppService.ScheduleStateChangeAsync(
+                ControlNumber.Create(request.SeniorityCtrlNbr),
+                ControlNumber.Create(request.ToStateCtrlNbr),
+                effectiveDateUtc.ToUniversalTime(),
+                userId,
+                context.CancellationToken);
+            return MapPendingToResponse(pending, found: true);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
+        }
+    }
+
+    public override async Task<PendingStateChangeResponse> GetPendingStateChangeAsync(GetPendingStateChangeRequest request, ServerCallContext context)
+    {
+        try
+        {
+            var pending = await seniorityAppService.GetPendingChangeAsync(
+                ControlNumber.Create(request.SeniorityCtrlNbr), context.CancellationToken);
+
+            return pending is null
+                ? new PendingStateChangeResponse { Found = false }
+                : MapPendingToResponse(pending, found: true);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<DeleteResponse> CancelPendingStateChangeAsync(CancelPendingStateChangeRequest request, ServerCallContext context)
+    {
+        var user = context.GetHttpContext().User;
+        if (!user.IsInRole(Roles.SystemAdmin) && !user.IsInRole(Roles.ParentAdmin) && !user.IsInRole(Roles.RailroadAdmin))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Only administrators can cancel scheduled state changes."));
+
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? throw new RpcException(new Status(StatusCode.Unauthenticated, "No authenticated user."));
+
+        try
+        {
+            await seniorityAppService.CancelPendingChangeAsync(
+                ControlNumber.Create(request.PendingChangeCtrlNbr),
+                userId,
+                context.CancellationToken);
+            return new DeleteResponse { Success = true };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+    }
+
+    public override async Task<GetAllPendingStateChangesResponse> GetAllPendingStateChangesAsync(
+        GetAllPendingStateChangesRequest request, ServerCallContext context)
+    {
+        var user = context.GetHttpContext().User;
+        if (!user.IsInRole(Roles.SystemAdmin) && !user.IsInRole(Roles.ParentAdmin) && !user.IsInRole(Roles.RailroadAdmin))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Only administrators can view scheduled state changes."));
+
+        var railroadCtrlNbr = ControlNumber.Create(request.RailroadCtrlNbr);
+        var items = await seniorityAppService.GetAllPendingAsync(railroadCtrlNbr, context.CancellationToken);
+
+        // Resolve employee display names in batch
+        var employeeUserIds = items.Select(i => i.EmployeeUserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+        var employeeNameMap = await employeeNameService.GetFullNameLnfBatchAsync(employeeUserIds!);
+
+        // Resolve scheduler display names in batch
+        var schedulerUserIds = items.Select(i => i.Pending.ScheduledByUserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+        var schedulerNameMap = await employeeNameService.GetFullNameLnfBatchAsync(schedulerUserIds!);
+
+        var response = new GetAllPendingStateChangesResponse();
+        foreach (var item in items)
+        {
+            employeeNameMap.TryGetValue(item.EmployeeUserId, out var fullName);
+            schedulerNameMap.TryGetValue(item.Pending.ScheduledByUserId, out var scheduledByName);
+            var tz = ResolveTimeZone(item.WorkAreaTimeZoneId);
+            response.PendingChanges.Add(new PendingStateChangeListItem
+            {
+                CtrlNbr = item.Pending.CtrlNbr.Value,
+                SeniorityCtrlNbr = item.Pending.SeniorityCtrlNbr.Value,
+                EmployeeCtrlNbr = item.Pending.EmployeeCtrlNbr.Value,
+                EmployeeNumber = item.EmployeeNumber,
+                EmployeeFullNameLnf = fullName ?? item.EmployeeUserId,
+                FromStateCtrlNbr = item.Pending.FromSeniorityStateCtrlNbr.Value,
+                FromStateName = item.FromStateName,
+                ToStateCtrlNbr = item.Pending.ToSeniorityStateCtrlNbr.Value,
+                ToStateName = item.ToStateName,
+                EffectiveDateUtc = FormatLocalTime(item.Pending.EffectiveDateUtc, tz),
+                ScheduledByUserId = item.Pending.ScheduledByUserId,
+                ScheduledByUserName = scheduledByName ?? item.Pending.ScheduledByUserId,
+                ScheduledAtUtc = FormatLocalTime(item.Pending.ScheduledAtUtc, tz)
+            });
+        }
+        return response;
+    }
+
+    private static string FormatLocalTime(DateTime utc, TimeZoneInfo? tz)
+    {
+        if (tz is null) return utc.ToString("O");
+        var local = TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
+        return local.ToString("O");
+    }
+
+    private static TimeZoneInfo? ResolveTimeZone(string? timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId)) return null;
+        try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
+        catch (TimeZoneNotFoundException) { return null; }
+    }
+
+    public override async Task<GetNextStateChangeEventResponse> GetNextStateChangeEventAsync(
+        GetNextStateChangeEventRequest request, ServerCallContext context)
+    {
+        var railroadCtrlNbr = ControlNumber.Create(request.RailroadCtrlNbr);
+        var (nextUtc, tzId) = await seniorityAppService.GetNextPendingChangeForRailroadAsync(railroadCtrlNbr, context.CancellationToken);
+        if (!nextUtc.HasValue)
+            return new GetNextStateChangeEventResponse { NextEventLocal = string.Empty };
+
+        var tz = ResolveTimeZone(tzId);
+        return new GetNextStateChangeEventResponse
+        {
+            NextEventLocal = FormatLocalTime(nextUtc.Value, tz)
+        };
+    }
+
+    private static PendingStateChangeResponse MapPendingToResponse(
+        Domain.Models.Seniority.PendingSeniorityStateChange pending, bool found)
+    {
+        return new PendingStateChangeResponse
+        {
+            CtrlNbr = pending.CtrlNbr.Value,
+            SeniorityCtrlNbr = pending.SeniorityCtrlNbr.Value,
+            EmployeeCtrlNbr = pending.EmployeeCtrlNbr.Value,
+            FromStateCtrlNbr = pending.FromSeniorityStateCtrlNbr.Value,
+            ToStateCtrlNbr = pending.ToSeniorityStateCtrlNbr.Value,
+            EffectiveDateUtc = pending.EffectiveDateUtc.ToString("O"),
+            Status = pending.Status.ToString(),
+            ScheduledByUserId = pending.ScheduledByUserId,
+            ScheduledAtUtc = pending.ScheduledAtUtc.ToString("O"),
+            Found = found,
+            Success = true
+        };
     }
 
     private static SeniorityResponse MapToResponse(Domain.Models.Seniority.Seniority seniority)

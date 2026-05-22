@@ -317,9 +317,9 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations", "employees/scheduled-state-changes"))
                 {
-                    <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations")">
+                    <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations", "employees/scheduled-state-changes")">
                         @if (Permissions.HasAccess("employees"))
                         {
                             <div class="nav-item">
@@ -333,6 +333,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="employees/seniority">
                                     <span class="bi bi-sort-numeric-down" aria-hidden="true"></span> Seniority Rosters
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("employees/scheduled-state-changes"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="employees/scheduled-state-changes">
+                                    <span class="bi bi-calendar-event" aria-hidden="true"></span> Scheduled State Changes
                                 </NavLink>
                             </div>
                         }
@@ -379,9 +387,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -446,9 +454,17 @@
                                 </NavLink>
                             </div>
                         }
-                    </NavMenuGroup>
-                }
-                } @* end parent-scoped *@
+                        @if (Permissions.HasAccess("admin/seniority-vacancy-configs"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/seniority-vacancy-configs">
+                                    <span class="bi bi-arrow-left-right" aria-hidden="true"></span> Vacancy Actions
+                                </NavLink>
+                            </div>
+                        }
+                            </NavMenuGroup>
+                        }
+                        } @* end parent-scoped *@
                 } @* end Permissions.IsLoaded *@
 
                 @* ── Logout ── *@
