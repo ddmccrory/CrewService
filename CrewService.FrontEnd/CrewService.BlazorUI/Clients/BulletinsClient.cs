@@ -95,6 +95,12 @@ public sealed class BulletinsClient(GrpcChannelProvider channelProvider, Circuit
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<GetForceAssignCandidateResponse> GetForceAssignCandidateAsync(long ctrlNbr)
+    {
+        try { return await _client.GetForceAssignCandidateAsync(new GetForceAssignCandidateRequest { CtrlNbr = ctrlNbr }); }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     public async Task<BulletinResponse> SetNoBidAsync(long ctrlNbr)
     {
         try { return await _client.SetBulletinNoBidAsync(new SetBulletinNoBidRequest { CtrlNbr = ctrlNbr }); }

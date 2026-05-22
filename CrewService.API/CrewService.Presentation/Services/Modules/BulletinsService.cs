@@ -364,6 +364,9 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
     public override async Task<BulletinRuleResponse> SaveBulletinRule(SaveBulletinRuleRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        TimeSpan? cutOff = string.IsNullOrWhiteSpace(request.BulletinCutoffTime)
+            ? null
+            : TimeSpan.TryParse(request.BulletinCutoffTime, out var ts) ? ts : null;
         var rule = await svc.SaveBulletinRuleAsync(
             ControlNumber.Create(request.CraftCtrlNbr),
             request.BidWindowHours,
@@ -375,7 +378,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             string.IsNullOrWhiteSpace(request.ForceAssignSelectionMode)
                 ? Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorExtraBoard
                 : request.ForceAssignSelectionMode,
-            context.CancellationToken);
+            context.CancellationToken,
+            cutOff);
         return MapRule(rule);
     }
 
@@ -392,7 +396,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         OpenedUtc = FormatLocalTime(v.OpenedUtc, tz),
         ClosedUtc = v.ClosedUtc.HasValue ? FormatLocalTime(v.ClosedUtc.Value, tz) : string.Empty,
         TargetName = v.TargetName,
-        BulletinCtrlNbr = bulletinCtrlNbr
+        BulletinCtrlNbr = bulletinCtrlNbr,
+        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForVacancy(v.Status)
     };
 
     private static BulletinResponse MapBulletin(Bulletin b, string positionName = "", TimeZoneInfo? tz = null, int bidCount = 0, string vacatedByName = "", string awardedEmployeeName = "", long craftRoleCtrlNbr = 0) => new()
@@ -410,7 +415,9 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         BidCount = bidCount,
         VacatedByName = vacatedByName,
         AwardedEmployeeName = awardedEmployeeName,
-        CraftRoleCtrlNbr = craftRoleCtrlNbr
+        CraftRoleCtrlNbr = craftRoleCtrlNbr,
+        ForceAssignDeadlineUtc = b.ForceAssignDeadlineUtc.HasValue ? FormatLocalTime(b.ForceAssignDeadlineUtc.Value, tz) : string.Empty,
+        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBulletin(b.Status)
     };
 
     /// <summary>
@@ -464,7 +471,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         SeniorityRank = b.SeniorityRank,
         Status = b.Status,
         EmployeeName = employeeName,
-        SeniorityDate = seniorityDate
+        SeniorityDate = seniorityDate,
+        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBid(b.Status)
     };
 
     private static BulletinRuleResponse MapRule(BulletinRule r) => new()
@@ -477,7 +485,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         EffectiveOffsetDays = r.EffectiveOffsetDays,
         EffectiveTime = r.EffectiveTime.ToString(),
         ForceAssignHours = r.ForceAssignHours,
-        ForceAssignSelectionMode = r.ForceAssignSelectionMode
+        ForceAssignSelectionMode = r.ForceAssignSelectionMode,
+        BulletinCutoffTime = r.BulletinCutOffTime.HasValue ? r.BulletinCutOffTime.Value.ToString() : string.Empty
     };
 
     /// <summary>
@@ -557,6 +566,22 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         if (tz is null || dt.Kind == DateTimeKind.Utc) return dt.ToUniversalTime();
         // Input is local — convert to UTC
         return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(dt, DateTimeKind.Unspecified), tz);
+    }
+
+    public override async Task<GetForceAssignCandidateResponse> GetForceAssignCandidate(GetForceAssignCandidateRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try
+        {
+            var candidate = await svc.GetForceAssignCandidateAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            var name = candidate is not null ? await ResolveEmployeeNameAsync(candidate.Value, context.CancellationToken) : string.Empty;
+            return new GetForceAssignCandidateResponse
+            {
+                EmployeeCtrlNbr = candidate?.Value ?? 0,
+                EmployeeName = name
+            };
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<GetNextBulletinEventResponse> GetNextBulletinEvent(GetNextBulletinEventRequest request, ServerCallContext context)

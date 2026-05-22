@@ -27,6 +27,41 @@ public static class ForceAssignSelectionMode
         mode is JuniorExtraBoard or JuniorHelperOrExtraBoard;
 }
 
+/// <summary>
+/// Maps domain status strings to Bootstrap badge CSS classes.
+/// Single authoritative source — no badge logic should exist in any UI layer.
+/// </summary>
+public static class BulletinStatusBadge
+{
+    public static string ForBulletin(string status) => status switch
+    {
+        "Posted"    => "bg-primary",
+        "Awarded"   => "bg-success",
+        "Forced"    => "bg-warning text-dark",
+        "NoBid"     => "bg-secondary",
+        "Cancelled" => "bg-danger",
+        _           => "bg-light text-dark"
+    };
+
+    public static string ForBid(string status) => status switch
+    {
+        "Submitted" => "bg-primary",
+        "Winner"    => "bg-success",
+        "Loser"     => "bg-secondary",
+        "Withdrawn" => "bg-danger",
+        _           => "bg-light text-dark"
+    };
+
+    public static string ForVacancy(string status) => status switch
+    {
+        "Open"      => "bg-warning text-dark",
+        "Bulletined"=> "bg-info text-dark",
+        "Filled"    => "bg-success",
+        "Abolished" => "bg-secondary",
+        _           => "bg-light text-dark"
+    };
+}
+
 public sealed class PositionVacancy : Entity
 {
     public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
@@ -234,6 +269,13 @@ public sealed class BulletinRule : Entity
     /// <summary>Time of day (UTC offset from midnight) the bid window closes.</summary>
     public TimeSpan BidWindowCloseTime { get; private set; }
 
+    /// <summary>
+    /// If a vacancy is opened after this time of day (local work-area time), the bid
+    /// window rolls to the next posting cycle (open date advances by one day).
+    /// When null, there is no cutoff and bulletins always open on the same day.
+    /// </summary>
+    public TimeSpan? BulletinCutOffTime { get; private set; }
+
     /// <summary>Calendar days after close date before the position becomes effective.</summary>
     public int EffectiveOffsetDays { get; private set; }
 
@@ -259,7 +301,8 @@ public sealed class BulletinRule : Entity
         int effectiveOffsetDays,
         TimeSpan effectiveTime,
         int forceAssignHours,
-        string forceAssignSelectionMode = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard)
+        string forceAssignSelectionMode = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
+        TimeSpan? bulletinCutOffTime = null)
     {
         if (!Bulletins.ForceAssignSelectionMode.IsValid(forceAssignSelectionMode))
             throw new ArgumentException($"Invalid ForceAssignSelectionMode '{forceAssignSelectionMode}'.", nameof(forceAssignSelectionMode));
@@ -273,7 +316,8 @@ public sealed class BulletinRule : Entity
             EffectiveOffsetDays = effectiveOffsetDays,
             EffectiveTime = effectiveTime,
             ForceAssignHours = forceAssignHours,
-            ForceAssignSelectionMode = forceAssignSelectionMode
+            ForceAssignSelectionMode = forceAssignSelectionMode,
+            BulletinCutOffTime = bulletinCutOffTime
         };
         rule.Raise(new BulletinRuleCreatedDomainEvent(rule));
         return rule;
@@ -286,7 +330,8 @@ public sealed class BulletinRule : Entity
         int effectiveOffsetDays,
         TimeSpan effectiveTime,
         int forceAssignHours,
-        string forceAssignSelectionMode = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard)
+        string forceAssignSelectionMode = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
+        TimeSpan? bulletinCutOffTime = null)
     {
         if (!Bulletins.ForceAssignSelectionMode.IsValid(forceAssignSelectionMode))
             throw new ArgumentException($"Invalid ForceAssignSelectionMode '{forceAssignSelectionMode}'.", nameof(forceAssignSelectionMode));
@@ -298,6 +343,7 @@ public sealed class BulletinRule : Entity
         EffectiveTime = effectiveTime;
         ForceAssignHours = forceAssignHours;
         ForceAssignSelectionMode = forceAssignSelectionMode;
+        BulletinCutOffTime = bulletinCutOffTime;
         Raise(new BulletinRuleUpdatedDomainEvent(this));
     }
 
@@ -316,7 +362,10 @@ public sealed class BulletinRule : Entity
         {
             // Work in the work-area's local date so DST transitions are handled correctly.
             var localNow = TimeZoneInfo.ConvertTimeFromUtc(vacancyDateUtc, workAreaTimeZone);
-            var localOpenDate = localNow.Date;
+            // If a cutoff time is configured and it's already past that time, roll to tomorrow.
+            var localOpenDate = BulletinCutOffTime.HasValue && localNow.TimeOfDay > BulletinCutOffTime.Value
+                ? localNow.Date.AddDays(1)
+                : localNow.Date;
 
             // Build local DateTimeOffset values so ConvertTimeToUtc can resolve DST ambiguity.
             var localOpens = localOpenDate + BidWindowStartTime;
@@ -333,7 +382,9 @@ public sealed class BulletinRule : Entity
         }
 
         // Fallback: naive UTC arithmetic (no work-area timezone configured).
-        var openDate = vacancyDateUtc.Date;
+        var openDate = BulletinCutOffTime.HasValue && vacancyDateUtc.TimeOfDay > BulletinCutOffTime.Value
+            ? vacancyDateUtc.Date.AddDays(1)
+            : vacancyDateUtc.Date;
         var opens = openDate + BidWindowStartTime;
         var closes = opens.AddHours(BidWindowHours);
         var closeDate = closes.Date;
