@@ -121,6 +121,8 @@ public sealed class BulletinsService(
             ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
         bulletin.Award(employeeCtrlNbr);
         await FillBulletinAsync(uow, bulletin, employeeCtrlNbr, PositionAssignmentType.BulletinAssignment, ct);
+        // Mark any other submitted bids for this employee on other bulletins as Loser (cross-bulletin resolution)
+        await MarkOtherEmployeeBidsAsLoserAsync(uow, ctrlNbr, employeeCtrlNbr, ct);
         await uow.CommitAsync(ct);
         return bulletin;
     }
@@ -156,9 +158,34 @@ public sealed class BulletinsService(
 
         bulletin.ForceAssign(candidateCtrlNbr);
         await FillBulletinAsync(uow, bulletin, candidateCtrlNbr, PositionAssignmentType.ForceAssignment, ct);
+        // Mark any other submitted bids for this employee on other bulletins as Loser (cross-bulletin resolution)
+        await MarkOtherEmployeeBidsAsLoserAsync(uow, ctrlNbr, candidateCtrlNbr, ct);
         await uow.CommitAsync(ct);
         return bulletin;
     }
+
+    /// <summary>
+    /// Previews the force-assign candidate for a NoBid bulletin without committing any changes.
+    /// Returns the candidate's ControlNumber, or null if no eligible candidate exists.
+    /// </summary>
+    public async Task<ControlNumber?> GetForceAssignCandidateAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
+
+        var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
+        if (rule is null) return null;
+
+        return rule.ForceAssignSelectionMode switch
+        {
+            Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorHelperOrExtraBoard =>
+                await SelectJuniorHelperOrExtraBoardAsync(uow, bulletin, ct),
+            _ =>
+                await SelectJuniorExtraBoardAsync(uow, bulletin, ct)
+        };
+    }
+
     public async Task<Bulletin> SetBulletinNoBidAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -328,7 +355,8 @@ public sealed class BulletinsService(
         TimeSpan effectiveTime,
         int forceAssignHours,
         string forceAssignSelectionMode = Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        TimeSpan? bulletinCutOffTime = null)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
@@ -336,14 +364,14 @@ public sealed class BulletinsService(
         if (existing is not null)
         {
             existing.Update(bidWindowHours, bidWindowStartTime, bidWindowCloseTime,
-                effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode);
+                effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode, bulletinCutOffTime);
             await uow.BulletinRules.UpdateAsync(existing, ct);
             await uow.CommitAsync(ct);
             return existing;
         }
 
         var rule = BulletinRule.Create(craftCtrlNbr, bidWindowHours, bidWindowStartTime,
-            bidWindowCloseTime, effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode);
+            bidWindowCloseTime, effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode, bulletinCutOffTime);
         await uow.BulletinRules.AddAsync(rule, ct);
         await uow.CommitAsync(ct);
         return rule;
@@ -411,6 +439,27 @@ public sealed class BulletinsService(
         var eventUtc = bulletin.Status == "NoBid" ? bulletin.ForceAssignDeadlineUtc : (DateTime?)bulletin.BidWindowClosesUtc;
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
         return (eventUtc, vacancy?.WorkAreaGroupCtrlNbr.Value);
+    }
+
+    /// <summary>
+    /// Marks all submitted bids on other bulletins for the given employee as Loser.
+    /// Called after awarding or force-assigning a bulletin so an employee's remaining
+    /// active bids are resolved in the same transaction.
+    /// </summary>
+    private static async Task MarkOtherEmployeeBidsAsLoserAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        ControlNumber awardedBulletinCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        var allBids = await uow.BulletinBids.GetByEmployeeAsync(employeeCtrlNbr);
+        foreach (var bid in allBids)
+        {
+            if (bid.Status != "Submitted") continue;
+            if (bid.BulletinCtrlNbr == awardedBulletinCtrlNbr) continue;
+            bid.MarkLoser();
+            await uow.BulletinBids.UpdateAsync(bid, ct);
+        }
     }
 
     /// <summary>

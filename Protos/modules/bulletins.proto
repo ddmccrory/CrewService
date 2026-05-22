@@ -70,6 +70,10 @@ service BulletinsSrvc {
     option (google.api.http) = { get: "/v1/bulletins/bids/employee/{employee_ctrl_nbr}" };
   }
 
+  rpc GetForceAssignCandidate(GetForceAssignCandidateRequest) returns (GetForceAssignCandidateResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/{ctrl_nbr}/force-assign-candidate" };
+  }
+
   // Bulletin Rules
   rpc GetBulletinRule(GetBulletinRuleRequest) returns (BulletinRuleResponse) {
     option (google.api.http) = { get: "/v1/bulletins/rules/craft/{craft_ctrl_nbr}" };
@@ -119,6 +123,7 @@ message PositionVacancyResponse {
   string closed_utc = 10;
   string target_name = 11;
   int64 bulletin_ctrl_nbr = 12;
+  string status_badge = 13;
 }
 
 // Bulletin messages
@@ -166,6 +171,8 @@ message BulletinResponse {
   string vacated_by_name = 12;
   string awarded_employee_name = 13;
   int64 craft_role_ctrl_nbr = 14;
+  string force_assign_deadline_utc = 15;
+  string status_badge = 16;
 }
 
 // Bid messages
@@ -191,6 +198,7 @@ message BulletinBidResponse {
   string status = 7;
   string employee_name = 8;
   string seniority_date = 9;
+  string status_badge = 10;
 }
 
 // BulletinRule messages
@@ -204,6 +212,7 @@ message SaveBulletinRuleRequest {
   string effective_time = 6;
   int32 force_assign_hours = 7;
   string force_assign_selection_mode = 8;
+  string bulletin_cutoff_time = 9;
 }
 message BulletinRuleResponse {
   int64 ctrl_nbr = 1;
@@ -215,7 +224,14 @@ message BulletinRuleResponse {
   string effective_time = 7;
   int32 force_assign_hours = 8;
   string force_assign_selection_mode = 9;
+  string bulletin_cutoff_time = 10;
 }
 
 message GetNextBulletinEventRequest { int64 railroad_ctrl_nbr = 1; }
 message GetNextBulletinEventResponse { string next_event_utc = 1; }
+
+message GetForceAssignCandidateRequest { int64 ctrl_nbr = 1; }
+message GetForceAssignCandidateResponse {
+  int64 employee_ctrl_nbr = 1;
+  string employee_name = 2;
+}

@@ -30,7 +30,14 @@
     </p>
 }
 
-@if (!IsContextFullySelected)
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>
@@ -86,16 +93,16 @@ else
                 <td>@FormatDateTime(b.BidWindowClosesUtc)</td>
                 <td>@FormatDateTime(b.EffectiveUtc)</td>
                 <td>@b.BidCount</td>
-                <td><span class="badge @BulletinStatusBadge(b.Status)">@b.Status</span></td>
+                <td><span class="badge @b.StatusBadge">@b.Status</span></td>
                 <td class="text-end">
                     <button class="btn btn-outline-secondary btn-sm me-1" @onclick="() => ViewBulletin(b.CtrlNbr)">
                         <span class="bi bi-eye"></span> View
                     </button>
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && b.Status == "Posted")
                     {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddBidModal(b.CtrlNbr)">
-                            <span class="bi bi-plus-circle"></span> Add Bid
-                        </button>
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddBidModal(b.CtrlNbr)" disabled="@isSaving">
+                             <span class="bi bi-plus-circle"></span> Add Bid
+                         </button>
                     }
                 </td>
             </RowContent>
@@ -111,7 +118,7 @@ else
             <ToolbarContent>
                 @if (!Permissions.IsReadOnly("staffing/bulletins"))
                 {
-                    <button class="btn btn-primary" @onclick="OpenCreateVacancyModal">
+                    <button class="btn btn-primary" @onclick="OpenCreateVacancyModal" disabled="@isSaving">
                         <span class="bi bi-plus-circle"></span> Open Vacancy
                     </button>
                 }
@@ -120,7 +127,7 @@ else
                 <td>@(string.IsNullOrEmpty(v.TargetName) ? "—" : v.TargetName)</td>
                 <td>@v.TargetType</td>
                 <td>@v.VacancyReasonCode</td>
-                <td><span class="badge @VacancyStatusBadge(v.Status)">@v.Status</span></td>
+                <td><span class="badge @v.StatusBadge">@v.Status</span></td>
                 <td>@FormatDateTime(v.OpenedUtc)</td>
                 <td class="text-end">
                     <button class="btn btn-outline-secondary btn-sm me-1" @onclick="() => ViewVacancy(v)">
@@ -128,7 +135,7 @@ else
                     </button>
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && v.Status == "Open")
                     {
-                        <button class="btn btn-outline-danger btn-sm" @onclick="() => OpenAbolishModal(v)">
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => OpenAbolishModal(v)" disabled="@isSaving">
                             <span class="bi bi-x-circle"></span> Abolish
                         </button>
                     }
@@ -417,11 +424,13 @@ else
 
     private async Task OpenAddBidModal(long bulletinCtrlNbr)
     {
+        if (isSaving) return;
         addBidBulletinCtrlNbr = bulletinCtrlNbr;
         listBidModel = new AddBidModel { Priority = 1 };
         employees = [];
         try
         {
+            isSaving = true;
             var b = bulletins?.FirstOrDefault(x => x.CtrlNbr == bulletinCtrlNbr);
             if (b is not null && b.CraftRoleCtrlNbr > 0)
             {
@@ -437,6 +446,7 @@ else
             }
         }
         catch (Exception ex) { errorMessage = $"Failed to load employees: {ex.Message}"; return; }
+        finally { isSaving = false; }
         showAddBidModal = true;
     }
 
@@ -444,6 +454,7 @@ else
 
     private async Task ConfirmAddBid()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -574,6 +585,7 @@ else
 
     private async Task OnOpenVacancy()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -603,6 +615,7 @@ else
 
     private async Task ConfirmAbolish()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -633,25 +646,6 @@ else
         => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
             ? dt.ToString("MM/dd/yyyy HH:mm")
             : iso;
-
-    private static string VacancyStatusBadge(string status) => status switch
-    {
-        "Open" => "bg-warning text-dark",
-        "Bulletined" => "bg-info text-dark",
-        "Filled" => "bg-success",
-        "Abolished" => "bg-secondary",
-        _ => "bg-light text-dark"
-    };
-
-    private static string BulletinStatusBadge(string status) => status switch
-    {
-        "Posted" => "bg-primary",
-        "Awarded" => "bg-success",
-        "Forced" => "bg-warning text-dark",
-        "NoBid" => "bg-secondary",
-        "Cancelled" => "bg-danger",
-        _ => "bg-light text-dark"
-    };
 
     private sealed record EnumOption(string Value, string Label);
 

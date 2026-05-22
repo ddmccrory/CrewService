@@ -82,6 +82,15 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
 
     // ── Lifecycle ───────────────────────────────────────────────────────
 
+    // ── Initialization guard ────────────────────────────────────────────
+
+    /// <summary>
+    /// <c>true</c> until <see cref="LoadDataAsync"/> completes for the first time.
+    /// Use this in page templates to suppress the "no context selected" warning
+    /// during the brief window where the context switcher hasn't yet restored from session.
+    /// </summary>
+    protected bool IsInitializing { get; private set; } = true;
+
     protected override void OnInitialized()
     {
         AppContext.OnContextChanged += HandleContextChanged;
@@ -104,6 +113,8 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
             await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
             await LoadDataAsync();
         }
+
+        IsInitializing = false;
     }
 
     /// <summary>

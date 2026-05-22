@@ -62,6 +62,7 @@ internal class BulletinRuleConfiguration : IEntityTypeConfiguration<BulletinRule
         builder.Property(r => r.EffectiveTime).IsRequired();
         builder.Property(r => r.ForceAssignHours).IsRequired();
         builder.Property(r => r.ForceAssignSelectionMode).HasMaxLength(50).IsRequired();
+        builder.Property(r => r.BulletinCutOffTime);
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

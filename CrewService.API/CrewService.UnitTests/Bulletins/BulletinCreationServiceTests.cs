@@ -220,6 +220,7 @@ public class BulletinCreationServiceTests
             => Task.FromResult(pos);
         public Task<List<CrewPosition>> GetByCrewAsync(ControlNumber c) => Task.FromResult(new List<CrewPosition>());
         public Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> cs) => Task.FromResult(new List<CrewPosition>());
+        public Task<CrewPosition?> GetByStaffablePositionAsync(ControlNumber s) => Task.FromResult<CrewPosition?>(null);
     }
 
     private sealed class FakeCrewIncumbencyRepo(CrewIncumbency? incumbency) : FakeRepoBase<CrewIncumbency>, ICrewIncumbencyRepository
@@ -268,6 +269,9 @@ public class BulletinCreationServiceTests
         public Task<List<Bulletin>> GetByWorkAreaAsync(ControlNumber w) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetNoBidPastDeadlineAsync(CancellationToken ct = default) => Task.FromResult(new List<Bulletin>());
         public Task<List<Bulletin>> GetInDateRangeAsync(DateTime fromUtc, ControlNumber? railroadCtrlNbr = null) => Task.FromResult(new List<Bulletin>());
+        public Task<Bulletin?> GetNextPendingEventBulletinAsync(CancellationToken ct = default) => Task.FromResult<Bulletin?>(null);
+        public Task<List<Bulletin>> GetClosedUnawardedAsync(CancellationToken ct = default) => Task.FromResult(new List<Bulletin>());
+        public Task<DateTime?> GetNextPendingEventUtcAsync(CancellationToken ct = default) => Task.FromResult<DateTime?>(null);
     }
 
     private sealed class FakePositionAssignmentRepo(PositionAssignment? assignment) : FakeRepoBase<PositionAssignment>, IPositionAssignmentRepository
@@ -423,5 +427,7 @@ public class BulletinCreationServiceTests
         public IUserParentAssignmentRepository           UserParentAssignments        => null!;
         public IInvitationRepository                     Invitations                  => null!;
         public IPayrollTierRepository                    PayrollTiers                 => null!;
+        public ISeniorityStateVacancyConfigRepository    SeniorityStateVacancyConfigs => throw new NotImplementedException();
+        public IPendingSeniorityStateChangeRepository    PendingSeniorityStateChanges => throw new NotImplementedException();
     }
 }

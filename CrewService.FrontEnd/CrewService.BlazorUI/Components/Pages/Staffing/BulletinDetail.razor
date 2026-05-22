@@ -30,7 +30,7 @@ else
 
     <h1>@(string.IsNullOrEmpty(bulletin.PositionName) ? "Bulletin Detail" : bulletin.PositionName)</h1>
     <p class="text-muted mb-1">
-        <span class="badge @BulletinStatusBadge(bulletin.Status)">@bulletin.Status</span>
+        <span class="badge @bulletin.StatusBadge">@bulletin.Status</span>
     </p>
 
     <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
@@ -77,6 +77,11 @@ else
                                 @if (!string.IsNullOrEmpty(bulletin.AwardType)) { <span class="text-muted ms-1">(@bulletin.AwardType)</span> }
                             </dd>
                         }
+                        @if (bulletin.Status == "NoBid" && !string.IsNullOrEmpty(bulletin.ForceAssignDeadlineUtc))
+                        {
+                            <dt class="col-sm-5">Force Assign By</dt>
+                            <dd class="col-sm-7 text-warning fw-semibold">@FormatDateTime(bulletin.ForceAssignDeadlineUtc)</dd>
+                        }
                     </dl>
                 </div>
             </div>
@@ -88,21 +93,21 @@ else
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "Posted")
                     {
                         var bidWindowClosed = DateTime.TryParse(bulletin.BidWindowClosesUtc, out var closesUtc) && DateTime.UtcNow >= closesUtc;
-                        <button class="btn btn-success" @onclick="OpenAwardModal" disabled="@(!bidWindowClosed)">
-                            <span class="bi bi-trophy"></span> Award
-                        </button>
-                        <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(!bidWindowClosed)">
-                            <span class="bi bi-dash-circle"></span> Set No-Bid
-                        </button>
-                        <button class="btn btn-primary" @onclick="OpenAddBidModal">
-                            <span class="bi bi-plus-circle"></span> Add Bid
-                        </button>
+                        <button class="btn btn-success" @onclick="OpenAwardModal" disabled="@(isSaving || !bidWindowClosed)">
+                             <span class="bi bi-trophy"></span> Award
+                         </button>
+                         <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(isSaving || !bidWindowClosed)">
+                             <span class="bi bi-dash-circle"></span> Set No-Bid
+                         </button>
+                         <button class="btn btn-primary" @onclick="OpenAddBidModal" disabled="@isSaving">
+                             <span class="bi bi-plus-circle"></span> Add Bid
+                         </button>
                     }
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "NoBid")
                     {
-                        <button class="btn btn-warning" @onclick="OpenForceAssignModal">
-                            <span class="bi bi-person-fill-exclamation"></span> Force Assign
-                        </button>
+                        <button class="btn btn-warning" @onclick="OpenForceAssignModal" disabled="@isSaving">
+                             <span class="bi bi-person-fill-exclamation"></span> Force Assign
+                         </button>
                     }
                 </div>
             </div>
@@ -121,11 +126,11 @@ else
             <td>@bid.SeniorityDate</td>
             <td>@bid.SeniorityRank</td>
             <td>@FormatDateTime(bid.SubmittedUtc)</td>
-            <td><span class="badge @BidStatusBadge(bid.Status)">@bid.Status</span></td>
+            <td><span class="badge @bid.StatusBadge">@bid.Status</span></td>
             <td class="text-end">
                 @if (!Permissions.IsReadOnly("staffing/bulletins") && bid.Status == "Submitted")
                 {
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => WithdrawBid(bid.CtrlNbr)">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => WithdrawBid(bid.CtrlNbr)" disabled="@isSaving">
                         <span class="bi bi-x"></span> Withdraw
                     </button>
                 }
@@ -172,8 +177,22 @@ else
            OnClose="() => showAwardModal = false" StaticBackdrop="true">
         <BodyContent>
             <div class="mb-3">
-                <label class="form-label fw-semibold">Employee Control Number</label>
-                <input type="number" class="form-control" @bind="actionEmployeeCtrlNbr" placeholder="Enter employee #" />
+                <label class="form-label fw-semibold">Select Winning Bidder</label>
+                @if (awardableBids.Count > 0)
+                {
+                    <FilterSelect TItem="BulletinBidResponse" TValue="long"
+                                 @bind-Value="actionEmployeeCtrlNbr"
+                                 Items="awardableBids"
+                                 ValueSelector="@(b => b.EmployeeCtrlNbr)"
+                                 TextSelector="@(b => $"{b.EmployeeName} — Priority {b.Priority}, Seniority {b.SeniorityDate}")"
+                                 Placeholder="— Select employee —"
+                                 Searchable="true"
+                                 class="form-select" />
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0">No submitted bids available to award. Use Force Assign instead.</div>
+                }
             </div>
         </BodyContent>
         <Footer>
@@ -194,10 +213,28 @@ else
                 <strong>Force Assign</strong> will automatically select the most junior eligible employee
                 from the extra board based on the craft's force assignment rules.
             </div>
+            @if (isLoadingCandidate)
+            {
+                <p><span class="spinner-border spinner-border-sm me-1"></span> Resolving candidate...</p>
+            }
+            else if (!string.IsNullOrEmpty(forceAssignCandidateName))
+            {
+                <div class="alert alert-info mb-0">
+                    <span class="bi bi-person-check me-1"></span>
+                    <strong>Candidate:</strong> @forceAssignCandidateName
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-danger mb-0">
+                    <span class="bi bi-exclamation-circle me-1"></span>
+                    No eligible candidate found. Ensure extra board members exist for this craft.
+                </div>
+            }
         </BodyContent>
         <Footer>
             <button class="btn btn-secondary" @onclick="() => showForceModal = false">Cancel</button>
-            <button class="btn btn-warning" @onclick="ConfirmForceAssign" disabled="@isSaving">
+            <button class="btn btn-warning" @onclick="ConfirmForceAssign" disabled="@(isSaving || isLoadingCandidate || string.IsNullOrEmpty(forceAssignCandidateName))">
                 @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
                 Force Assign
             </button>
@@ -220,6 +257,10 @@ else
     private bool showForceModal;
     private bool showAddBidModal;
     private long actionEmployeeCtrlNbr;
+
+    private List<BulletinBidResponse> awardableBids = [];
+    private string? forceAssignCandidateName;
+    private bool isLoadingCandidate;
 
     private List<EligibleEmployeeItem> employees = [];
     private AddBidModel bidModel = new();
@@ -282,16 +323,36 @@ else
         }
     }
 
-    private void OpenAwardModal() { actionEmployeeCtrlNbr = 0; showAwardModal = true; }
+    private void OpenAwardModal()
+    {
+        actionEmployeeCtrlNbr = 0;
+        awardableBids = [.. (bids ?? []).Where(b => b.Status == "Submitted").OrderBy(b => b.Priority)];
+        if (awardableBids.Count == 1) actionEmployeeCtrlNbr = awardableBids[0].EmployeeCtrlNbr;
+        showAwardModal = true;
+    }
 
-    private void OpenForceAssignModal() => showForceModal = true;
+    private async Task OpenForceAssignModal()
+    {
+        forceAssignCandidateName = null;
+        isLoadingCandidate = true;
+        showForceModal = true;
+        try
+        {
+            var result = await BulletinsClient.GetForceAssignCandidateAsync(CtrlNbr);
+            forceAssignCandidateName = result.EmployeeCtrlNbr > 0 ? result.EmployeeName : null;
+        }
+        catch { forceAssignCandidateName = null; }
+        finally { isLoadingCandidate = false; }
+    }
 
     private async Task OpenAddBidModal()
     {
+        if (isSaving) return;
         bidModel = new AddBidModel { Priority = 1 };
         employees = [];
         try
         {
+            isSaving = true;
             if (bulletin is not null && bulletin.CraftRoleCtrlNbr > 0)
             {
                 var result = await QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
@@ -304,6 +365,7 @@ else
             }
         }
         catch (Exception ex) { errorMessage = $"Failed to load employees: {ex.Message}"; return; }
+        finally { isSaving = false; }
         showAddBidModal = true;
     }
 
@@ -311,6 +373,7 @@ else
 
     private async Task ConfirmAddBid()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -326,6 +389,7 @@ else
 
     private async Task ConfirmAward()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -340,6 +404,7 @@ else
 
     private async Task ConfirmForceAssign()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -353,6 +418,7 @@ else
 
     private async Task OnSetNoBid()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -365,28 +431,22 @@ else
 
     private async Task WithdrawBid(long bidCtrlNbr)
     {
+        if (isSaving) return;
         try
         {
+            isSaving = true;
+            StateHasChanged();
             await BulletinsClient.WithdrawBidAsync(bidCtrlNbr);
             await LoadBidsAsync();
         }
         catch (Exception ex) { errorMessage = $"Failed to withdraw bid: {ex.Message}"; }
+        finally { isSaving = false; }
     }
 
     private static string FormatDateTime(string iso)
         => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
             ? dt.ToString("MM/dd/yyyy HH:mm")
             : iso;
-
-    private static string BulletinStatusBadge(string status) => status switch
-    {
-        "Posted" => "bg-primary",
-        "Awarded" => "bg-success",
-        "Forced" => "bg-warning text-dark",
-        "NoBid" => "bg-secondary",
-        "Cancelled" => "bg-danger",
-        _ => "bg-light text-dark"
-    };
 
     private static string FormatEmployeeLabel(EligibleEmployeeItem e) => $"{e.EmployeeNumber}  {e.FullNameLnf}";
 
@@ -399,12 +459,4 @@ else
         public int Priority { get; set; } = 1;
     }
 
-    private static string BidStatusBadge(string status) => status switch
-    {
-        "Submitted" => "bg-primary",
-        "Winner" => "bg-success",
-        "Loser" => "bg-secondary",
-        "Withdrawn" => "bg-danger",
-        _ => "bg-light text-dark"
-    };
-}
+    }

@@ -193,6 +193,14 @@ else
                         <ValidationMessage For="() => bulletinRuleModel.BidWindowCloseTime" class="text-danger" />
                     </div>
                 </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Bulletin Cutoff Time (HH:mm)</label>
+                        <InputText @bind-Value="bulletinRuleModel.BulletinCutoffTime" class="form-control" placeholder="04:00" />
+                        <div class="form-text">Daily time of day after which a new bulletin posts for the next day instead of today.</div>
+                        <ValidationMessage For="() => bulletinRuleModel.BulletinCutoffTime" class="text-danger" />
+                    </div>
+                </div>
                 <hr class="my-3" />
                 <h6 class="text-muted mb-3">Effective Date</h6>
                 <div class="row g-3 mb-3">
@@ -449,6 +457,7 @@ else
 
     private async Task OnSave()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -515,6 +524,7 @@ else
 
     private async Task ConfirmDelete()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -562,6 +572,9 @@ else
                 BidWindowCloseTime = StripSeconds(existing.BidWindowCloseTime),
                 EffectiveOffsetDays = existing.EffectiveOffsetDays,
                 EffectiveTime = StripSeconds(existing.EffectiveTime),
+                BulletinCutoffTime = string.IsNullOrWhiteSpace(existing.BulletinCutoffTime)
+                    ? "04:00"
+                    : StripSeconds(existing.BulletinCutoffTime),
                 ForceAssignHours = existing.ForceAssignHours,
                 ForceAssignSelectionMode = string.IsNullOrWhiteSpace(existing.ForceAssignSelectionMode)
                     ? "JuniorExtraBoard"
@@ -581,6 +594,7 @@ else
 
     private async Task OnSaveBulletinRule()
     {
+        if (isSaving) return;
         try
         {
             isSaving = true;
@@ -594,6 +608,7 @@ else
                 BidWindowCloseTime = ExpandTime(bulletinRuleModel.BidWindowCloseTime),
                 EffectiveOffsetDays = bulletinRuleModel.EffectiveOffsetDays,
                 EffectiveTime = ExpandTime(bulletinRuleModel.EffectiveTime),
+                BulletinCutoffTime = ExpandTime(bulletinRuleModel.BulletinCutoffTime),
                 ForceAssignHours = bulletinRuleModel.ForceAssignHours,
                 ForceAssignSelectionMode = bulletinRuleModel.ForceAssignSelectionMode
             });
@@ -648,6 +663,9 @@ else
 
         [Required(ErrorMessage = "Effective time is required.")]
         public string EffectiveTime { get; set; } = "04:00";
+
+        [Required(ErrorMessage = "Bulletin cutoff time is required.")]
+        public string BulletinCutoffTime { get; set; } = "04:00";
 
         [Range(0, 8760, ErrorMessage = "Force assign hours must be between 0 and 8760.")]
         public int ForceAssignHours { get; set; } = 0;
