@@ -131,7 +131,6 @@ else
 @code {
     private List<PendingStateChangeListItem> pendingChanges = [];
     private string? nextEventFormatted;
-    private bool isLoading = true;
 
     private bool showCancelModal;
     private PendingStateChangeListItem? cancelTarget;
@@ -146,7 +145,6 @@ else
     {
         if (!IsContextFullySelected) return;
 
-        isLoading = true;
         errorMessage = null;
         StateHasChanged();
 
@@ -176,7 +174,6 @@ else
         {
             if (!ct.IsCancellationRequested)
             {
-                isLoading = false;
                 StateHasChanged();
             }
         }
