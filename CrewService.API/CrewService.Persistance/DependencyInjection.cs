@@ -256,6 +256,7 @@ public static class DependencyInjection
         // Background Services Repositories (B07)
         services.AddScoped<IWorkerScheduleRepository, WorkerScheduleRepository>();
         services.AddScoped<IWorkerExecutionLogRepository, WorkerExecutionLogRepository>();
+        services.AddScoped<IProcessingLockService, ProcessingLockService>();
 
         // Roster Board Repositories (B08)
         services.AddScoped<IRosterBoardRepository, RosterBoardRepository>();
