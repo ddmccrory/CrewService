@@ -65,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<CraftAppService>();
         services.AddScoped<RosterAppService>();
         services.AddScoped<SeniorityStateAppService>();
+        services.AddScoped<SeniorityStateVacancyConfigService>();
         services.AddScoped<SeniorityAppService>();
 
         // Employees
@@ -115,6 +116,11 @@ public static class DependencyInjection
         // Bulletins
         services.AddSingleton<IBulletinScheduleSignal, BulletinScheduleSignal>();
         services.AddScoped<BulletinsService>();
+        services.AddHostedService<BackgroundWorkers.Workers.BulletinProcessingWorker>();
+
+        // Seniority state change scheduling
+        services.AddSingleton<ISeniorityStateChangeSignal, SeniorityStateChangeSignal>();
+        services.AddHostedService<BackgroundWorkers.Workers.SeniorityStateChangeWorker>();
 
         // B03 – Mark-Off
         services.AddScoped<AutoMarkUpService>();

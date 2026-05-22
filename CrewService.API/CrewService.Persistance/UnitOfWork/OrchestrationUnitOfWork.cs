@@ -91,6 +91,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IRosterRepository? _rosters;
     private ISeniorityRepository? _seniority;
     private ISeniorityStateRepository? _seniorityStates;
+    private ISeniorityStateVacancyConfigRepository? _seniorityStateVacancyConfigs;
+    private IPendingSeniorityStateChangeRepository? _pendingSeniorityStateChanges;
 
     // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: TenantConfig
@@ -253,6 +255,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IRosterRepository Rosters => _rosters ??= new RosterRepository(_crewContext, _currentUserService);
     public ISeniorityRepository Seniority => _seniority ??= new SeniorityRepository(_crewContext, _currentUserService);
     public ISeniorityStateRepository SeniorityStates => _seniorityStates ??= new SeniorityStateRepository(_crewContext, _currentUserService);
+    public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => _seniorityStateVacancyConfigs ??= new SeniorityStateVacancyConfigRepository(_crewContext, _currentUserService);
+    public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => _pendingSeniorityStateChanges ??= new PendingSeniorityStateChangeRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: TenantConfig

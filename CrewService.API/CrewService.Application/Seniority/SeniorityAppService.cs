@@ -7,7 +7,8 @@ namespace CrewService.Application.SeniorityOps;
 
 public sealed class SeniorityAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
-    QualificationReactiveService qualificationReactiveService)
+    QualificationReactiveService qualificationReactiveService,
+    SeniorityStateVacancyConfigService vacancyConfigService)
 {
     public sealed record SeniorityListItem(
         Domain.Models.Seniority.Seniority Seniority,
@@ -130,9 +131,19 @@ public sealed class SeniorityAppService(
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var seniority = await uow.Seniority.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Seniority {ctrlNbr.Value} not found.");
+
+        var previousStateCtrlNbr = seniority.SeniorityStateCtrlNbr;
         seniority.Update(lastActiveRoster, rosterDate, rank, seniorityStateCtrlNbr, canTrain);
         uow.Seniority.Update(seniority);
         await uow.CommitAsync(ct);
+
+        // Apply vacancy action when the seniority state changes
+        if (previousStateCtrlNbr != seniorityStateCtrlNbr)
+        {
+            await vacancyConfigService.ApplyVacancyActionAsync(
+                seniority.EmployeeCtrlNbr, seniorityStateCtrlNbr, seniority.RosterCtrlNbr, ct);
+        }
+
         return seniority;
     }
 
@@ -160,5 +171,222 @@ public sealed class SeniorityAppService(
         if (craft is null) return (false, 0, string.Empty);
 
         return (true, craft.CtrlNbr.Value, craft.CraftName);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Pending / Scheduled state changes
+    // ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Schedules a future state change. Throws if <paramref name="effectiveDateUtc"/> is in the past
+    /// or if the employee already has a pending change.
+    /// </summary>
+    public async Task<Domain.Models.Seniority.PendingSeniorityStateChange> ScheduleStateChangeAsync(
+        ControlNumber seniorityCtrlNbr,
+        ControlNumber toStateCtrlNbr,
+        DateTime effectiveDateUtc,
+        string scheduledByUserId,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var seniority = await uow.Seniority.GetByCtrlNbrAsync(seniorityCtrlNbr)
+            ?? throw new KeyNotFoundException($"Seniority {seniorityCtrlNbr.Value} not found.");
+
+        var existing = await uow.PendingSeniorityStateChanges
+            .GetPendingByEmployeeAsync(seniority.EmployeeCtrlNbr, ct);
+        if (existing is not null)
+            throw new InvalidOperationException(
+                "This employee already has a pending state change scheduled. Cancel it before scheduling a new one.");
+
+        var pending = Domain.Models.Seniority.PendingSeniorityStateChange.Schedule(
+            seniorityCtrlNbr,
+            seniority.EmployeeCtrlNbr,
+            seniority.SeniorityStateCtrlNbr,
+            toStateCtrlNbr,
+            effectiveDateUtc,
+            scheduledByUserId);
+
+        uow.PendingSeniorityStateChanges.Add(pending);
+        await uow.CommitAsync(ct);
+        return pending;
+    }
+
+    /// <summary>
+    /// Returns the pending change for the given employee's active seniority record, or null.
+    /// </summary>
+    public async Task<Domain.Models.Seniority.PendingSeniorityStateChange?> GetPendingChangeAsync(
+        ControlNumber seniorityCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var seniority = await uow.Seniority.GetByCtrlNbrAsync(seniorityCtrlNbr)
+            ?? throw new KeyNotFoundException($"Seniority {seniorityCtrlNbr.Value} not found.");
+        return await uow.PendingSeniorityStateChanges
+            .GetPendingByEmployeeAsync(seniority.EmployeeCtrlNbr, ct);
+    }
+
+    /// <summary>
+    /// Admin-only: cancels a pending state change.
+    /// </summary>
+    public async Task CancelPendingChangeAsync(
+        ControlNumber pendingChangeCtrlNbr,
+        string cancelledByUserId,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var pending = await uow.PendingSeniorityStateChanges.GetByCtrlNbrAsync(pendingChangeCtrlNbr)
+            ?? throw new KeyNotFoundException($"PendingSeniorityStateChange {pendingChangeCtrlNbr.Value} not found.");
+
+        pending.Cancel(cancelledByUserId);
+        uow.PendingSeniorityStateChanges.Update(pending);
+        await uow.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Called by the worker: applies all pending changes whose effective date has passed.
+    /// </summary>
+    public async Task<int> ApplyDuePendingChangesAsync(CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var due = await uow.PendingSeniorityStateChanges.GetDueAsync(DateTime.UtcNow, ct);
+        if (due.Count == 0) return 0;
+
+        foreach (var pending in due)
+        {
+            var seniority = await uow.Seniority.GetByCtrlNbrAsync(pending.SeniorityCtrlNbr, ct);
+            if (seniority is null)
+            {
+                pending.Cancel("system:seniority-not-found");
+                uow.PendingSeniorityStateChanges.Update(pending);
+                continue;
+            }
+
+            var previousState = seniority.SeniorityStateCtrlNbr;
+            seniority.Update(
+                seniority.LastActiveRoster,
+                seniority.RosterDate,
+                seniority.Rank,
+                pending.ToSeniorityStateCtrlNbr,
+                seniority.CanTrain);
+            uow.Seniority.Update(seniority);
+
+            pending.MarkApplied();
+            uow.PendingSeniorityStateChanges.Update(pending);
+
+            await uow.CommitAsync(ct);
+
+            if (previousState != pending.ToSeniorityStateCtrlNbr)
+            {
+                await vacancyConfigService.ApplyVacancyActionAsync(
+                    seniority.EmployeeCtrlNbr,
+                    pending.ToSeniorityStateCtrlNbr,
+                    seniority.RosterCtrlNbr,
+                    ct);
+            }
+        }
+
+        return due.Count;
+    }
+
+    /// <summary>
+    /// Returns the earliest UTC effective date of any pending change — used by the worker to seed its signal.
+    /// </summary>
+    public async Task<DateTime?> GetNextPendingChangeUtcAsync(CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.PendingSeniorityStateChanges.GetNextEffectiveDateUtcAsync(ct);
+    }
+
+    /// <summary>
+    /// Returns the UTC datetime and resolved work-area timezone ID for the next pending
+    /// state change within the given railroad. Used so the banner can be displayed in the
+    /// same local time as the individual scheduled-change rows.
+    /// </summary>
+    public async Task<(DateTime? EffectiveDateUtc, string? WorkAreaTimeZoneId)> GetNextPendingChangeForRailroadAsync(
+        ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var pending = await uow.PendingSeniorityStateChanges.GetAllPendingByRailroadAsync(railroadCtrlNbr, ct);
+        var earliest = pending.OrderBy(p => p.EffectiveDateUtc).FirstOrDefault();
+        if (earliest is null) return (null, null);
+
+        // Resolve work-area timezone via the employee's active seniority roster.
+        string? tzId = null;
+        var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(earliest.EmployeeCtrlNbr);
+        var activeEntry = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster) ?? seniorityEntries.FirstOrDefault();
+        if (activeEntry is not null)
+        {
+            var roster = await uow.Rosters.GetByCtrlNbrAsync(activeEntry.RosterCtrlNbr, ct);
+            if (roster is not null)
+            {
+                var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+                tzId = workArea?.TimeZoneId;
+            }
+        }
+
+        return (earliest.EffectiveDateUtc, tzId);
+    }
+
+    public sealed record PendingChangeListItem(
+        Domain.Models.Seniority.PendingSeniorityStateChange Pending,
+        string EmployeeNumber,
+        string EmployeeUserId,
+        string FromStateName,
+        string ToStateName,
+        string? WorkAreaTimeZoneId = null);
+
+    /// <summary>
+    /// Returns all pending scheduled state changes for the given railroad, enriched with display names.
+    /// </summary>
+    public async Task<List<PendingChangeListItem>> GetAllPendingAsync(
+        ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var pending = await uow.PendingSeniorityStateChanges.GetAllPendingByRailroadAsync(railroadCtrlNbr, ct);
+        if (pending.Count == 0) return [];
+
+        var employeeCtrlNbrs = pending.Select(p => p.EmployeeCtrlNbr).Distinct().ToList();
+        var employees = await uow.Employees.GetByCtrlNbrsAsync(employeeCtrlNbrs, ct);
+        var employeeMap = employees.ToDictionary(e => e.CtrlNbr.Value);
+
+        // Resolve work area timezone per employee via their active seniority roster
+        var tzMap = new Dictionary<long, string?>();
+        foreach (var empCtrlNbr in employeeCtrlNbrs)
+        {
+            var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(empCtrlNbr);
+            var activeEntry = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster) ?? seniorityEntries.FirstOrDefault();
+            if (activeEntry is not null)
+            {
+                var roster = await uow.Rosters.GetByCtrlNbrAsync(activeEntry.RosterCtrlNbr, ct);
+                if (roster is not null)
+                {
+                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+                    tzMap[empCtrlNbr.Value] = workArea?.TimeZoneId;
+                }
+            }
+        }
+
+        var stateCtrlNbrs = pending
+            .SelectMany(p => new[] { p.FromSeniorityStateCtrlNbr, p.ToSeniorityStateCtrlNbr })
+            .Distinct().ToList();
+        var stateMap = new Dictionary<long, string>();
+        foreach (var stateCtrlNbr in stateCtrlNbrs)
+        {
+            var state = await uow.SeniorityStates.GetByCtrlNbrAsync(stateCtrlNbr);
+            stateMap[stateCtrlNbr.Value] = state?.StateDescription ?? stateCtrlNbr.Value.ToString();
+        }
+
+        return pending.Select(p =>
+        {
+            employeeMap.TryGetValue(p.EmployeeCtrlNbr.Value, out var emp);
+            tzMap.TryGetValue(p.EmployeeCtrlNbr.Value, out var tzId);
+            return new PendingChangeListItem(
+                p,
+                emp?.EmployeeNumber ?? string.Empty,
+                emp?.UserId ?? string.Empty,
+                stateMap.GetValueOrDefault(p.FromSeniorityStateCtrlNbr.Value, string.Empty),
+                stateMap.GetValueOrDefault(p.ToSeniorityStateCtrlNbr.Value, string.Empty),
+                tzId);
+        }).ToList();
     }
 }

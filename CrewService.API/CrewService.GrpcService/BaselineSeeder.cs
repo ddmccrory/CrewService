@@ -94,7 +94,9 @@ internal static class BaselineSeeder
         ("admin/roles", "Roles", "Administration", "/admin/roles"),
         ("admin/permissions", "Permissions", "Administration", "/admin/permissions"),
         ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log"),
-        ("admin/required-positions-strategies", "Position Formulas", "Administration", "/admin/required-positions-strategies")
+        ("admin/required-positions-strategies", "Position Formulas", "Administration", "/admin/required-positions-strategies"),
+        ("admin/seniority-vacancy-configs", "Vacancy Actions", "Administration", "/admin/seniority-vacancy-configs"),
+        ("employees/scheduled-state-changes", "Scheduled State Changes", "Employee Management", "/employees/scheduled-state-changes")
     ];
 
     // -- Default permission mapping --------------------------------------
@@ -162,7 +164,9 @@ internal static class BaselineSeeder
         ["admin/roles"] = ["SystemAdmin"],
         ["admin/permissions"] = ["SystemAdmin"],
         ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
-        ["admin/required-positions-strategies"] = ["SystemAdmin"]
+        ["admin/required-positions-strategies"] = ["SystemAdmin"],
+        ["admin/seniority-vacancy-configs"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["employees/scheduled-state-changes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
     };
 
     public static async Task SeedAsync(IServiceProvider services)

@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521123037_AddPendingSeniorityStateChange")]
+    partial class AddPendingSeniorityStateChange
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
@@ -798,9 +801,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("SeniorityStateCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("TargetBoardType")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("TargetBoardCtrlNbr")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("VacancyAction")
                         .IsRequired()
@@ -812,6 +814,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("ParentCtrlNbr");
 
                     b.HasIndex("SeniorityStateCtrlNbr");
+
+                    b.HasIndex("TargetBoardCtrlNbr");
 
                     b.HasIndex("RailroadCtrlNbr", "SeniorityStateCtrlNbr")
                         .IsUnique();
@@ -1641,9 +1645,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.Property<TimeSpan>("BidWindowStartTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<TimeSpan?>("BulletinCutOffTime")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("CraftCtrlNbr")
@@ -7023,6 +7024,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasForeignKey("SeniorityStateCtrlNbr")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Boards.RosterBoard", null)
+                        .WithMany()
+                        .HasForeignKey("TargetBoardCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {

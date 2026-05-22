@@ -1,0 +1,46 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+import "common.proto";
+package seniority;
+
+service SeniorityStateVacancyConfigSrvc {
+  rpc GetByRailroadAsync(GetVacancyConfigsByRailroadRequest) returns (GetVacancyConfigsResponse) {
+	option (google.api.http) = { get: "/v1/seniority-vacancy-configs/railroad/{railroad_ctrl_nbr}" };
+  }
+  rpc UpsertAsync(UpsertVacancyConfigRequest) returns (VacancyConfigResponse) {
+	option (google.api.http) = { put: "/v1/seniority-vacancy-configs" body: "*" };
+  }
+  rpc DeleteAsync(DeleteVacancyConfigRequest) returns (common.DeleteResponse) {
+	option (google.api.http) = { delete: "/v1/seniority-vacancy-configs/{ctrl_nbr}" };
+  }
+}
+
+message GetVacancyConfigsByRailroadRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message GetVacancyConfigsResponse {
+  repeated VacancyConfigResponse configs = 1;
+}
+
+message UpsertVacancyConfigRequest {
+  int64 parent_ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  int64 seniority_state_ctrl_nbr = 3;
+  string vacancy_action = 4;
+  string target_board_type = 5;
+}
+
+message DeleteVacancyConfigRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message VacancyConfigResponse {
+  int64 ctrl_nbr = 1;
+  int64 parent_ctrl_nbr = 2;
+  int64 railroad_ctrl_nbr = 3;
+  int64 seniority_state_ctrl_nbr = 4;
+  string vacancy_action = 5;
+  string target_board_type = 6;
+}

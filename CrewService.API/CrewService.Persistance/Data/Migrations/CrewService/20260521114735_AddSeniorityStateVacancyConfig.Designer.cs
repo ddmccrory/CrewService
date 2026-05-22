@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521114735_AddSeniorityStateVacancyConfig")]
+    partial class AddSeniorityStateVacancyConfig
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
@@ -593,70 +596,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.ToTable("Crafts");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Models.Seniority.PendingSeniorityStateChange", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("CancelledByUserId")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("EffectiveDateUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("FromSeniorityStateCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("ProcessedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("ScheduledAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ScheduledByUserId")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("SeniorityCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("ToSeniorityStateCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("EmployeeCtrlNbr")
-                        .IsUnique()
-                        .HasDatabaseName("UIX_PendingSeniorityStateChange_Employee_Pending")
-                        .HasFilter("[Status] = 'Pending'");
-
-                    b.HasIndex("FromSeniorityStateCtrlNbr");
-
-                    b.HasIndex("SeniorityCtrlNbr");
-
-                    b.HasIndex("ToSeniorityStateCtrlNbr");
-
-                    b.HasIndex("Status", "EffectiveDateUtc")
-                        .HasDatabaseName("IX_PendingSeniorityStateChange_Status_EffectiveDate");
-
-                    b.ToTable("PendingSeniorityStateChanges");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Roster", b =>
                 {
                     b.Property<long>("CtrlNbr")
@@ -798,9 +737,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("SeniorityStateCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("TargetBoardType")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("TargetBoardCtrlNbr")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("VacancyAction")
                         .IsRequired()
@@ -812,6 +750,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("ParentCtrlNbr");
 
                     b.HasIndex("SeniorityStateCtrlNbr");
+
+                    b.HasIndex("TargetBoardCtrlNbr");
 
                     b.HasIndex("RailroadCtrlNbr", "SeniorityStateCtrlNbr")
                         .IsUnique();
@@ -1641,9 +1581,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.Property<TimeSpan>("BidWindowStartTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<TimeSpan?>("BulletinCutOffTime")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("CraftCtrlNbr")
@@ -6665,93 +6602,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Navigation("ModifiedBy");
                 });
 
-            modelBuilder.Entity("CrewService.Domain.Models.Seniority.PendingSeniorityStateChange", b =>
-                {
-                    b.HasOne("CrewService.Domain.Models.Seniority.SeniorityState", null)
-                        .WithMany()
-                        .HasForeignKey("FromSeniorityStateCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Models.Seniority.Seniority", null)
-                        .WithMany()
-                        .HasForeignKey("SeniorityCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Models.Seniority.SeniorityState", null)
-                        .WithMany()
-                        .HasForeignKey("ToSeniorityStateCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("PendingSeniorityStateChangeCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PendingSeniorityStateChangeCtrlNbr");
-
-                            b1.ToTable("PendingSeniorityStateChanges");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PendingSeniorityStateChangeCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("PendingSeniorityStateChangeCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PendingSeniorityStateChangeCtrlNbr");
-
-                            b1.ToTable("PendingSeniorityStateChanges");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PendingSeniorityStateChangeCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("PendingSeniorityStateChangeCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("PendingSeniorityStateChangeCtrlNbr");
-
-                            b1.ToTable("PendingSeniorityStateChanges");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PendingSeniorityStateChangeCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
             modelBuilder.Entity("CrewService.Domain.Models.Seniority.Roster", b =>
                 {
                     b.HasOne("CrewService.Domain.Models.Seniority.Craft", null)
@@ -7023,6 +6873,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasForeignKey("SeniorityStateCtrlNbr")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Boards.RosterBoard", null)
+                        .WithMany()
+                        .HasForeignKey("TargetBoardCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
                         {

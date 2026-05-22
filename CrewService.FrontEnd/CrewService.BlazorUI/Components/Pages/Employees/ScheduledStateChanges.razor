@@ -1,0 +1,226 @@
+@page "/employees/scheduled-state-changes"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject SeniorityClient SeniorityClient
+
+<PageTitle>Scheduled State Changes — Crew Service</PageTitle>
+
+<h1>Scheduled State Changes</h1>
+<p class="text-muted mb-1">Pending seniority state changes scheduled for future processing.</p>
+
+@if (nextEventFormatted is not null)
+{
+    <p class="text-muted mb-1 small">
+        <span class="bi bi-clock me-1"></span>Next processing event: <strong>@nextEventFormatted</strong>
+    </p>
+}
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage scheduled state changes.
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible mt-2" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (pendingChanges.Count == 0)
+    {
+        <div class="alert alert-info mt-3">No scheduled state changes found for this railroad.</div>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Employee #</th>
+                        <th>Employee</th>
+                        <th>From State</th>
+                        <th>To State</th>
+                        <th>Effective Date</th>
+                        <th>Scheduled By</th>
+                        <th>Scheduled At</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in pendingChanges)
+                    {
+                        <tr>
+                            <td class="text-uppercase fw-semibold">@item.EmployeeNumber.ToUpperInvariant()</td>
+                            <td>@item.EmployeeFullNameLnf</td>
+                            <td>@item.FromStateName</td>
+                            <td><span class="badge bg-primary">@item.ToStateName</span></td>
+                            <td>@FormatDateTime(item.EffectiveDateUtc)</td>
+                            <td>@item.ScheduledByUserName</td>
+                            <td>@FormatDateTime(item.ScheduledAtUtc)</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => ConfirmCancel(item)"
+                                        title="Cancel">
+                                    <span class="bi bi-x-circle me-1"></span>Cancel
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@* ── Confirm Cancel Modal ── *@
+<Modal Visible="showCancelModal"
+       Title="Cancel Scheduled Change"
+       Icon="bi bi-x-circle"
+       OnClose="CloseCancelModal">
+    <BodyContent>
+        @if (cancelTarget is not null)
+        {
+            <p>Are you sure you want to cancel the scheduled state change for <strong>@cancelTarget.EmployeeFullNameLnf</strong>?</p>
+            <p class="mb-0 text-muted small">
+                <strong>@cancelTarget.FromStateName</strong> → <strong>@cancelTarget.ToStateName</strong><br />
+                Effective: @FormatDateTime(cancelTarget.EffectiveDateUtc)
+            </p>
+        }
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-secondary" @onclick="CloseCancelModal">No, Keep It</button>
+        <button type="button" class="btn btn-danger" @onclick="OnCancelConfirmed" disabled="@isSaving">
+            @if (isSaving)
+            {
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+            }
+            Yes, Cancel It
+        </button>
+    </Footer>
+</Modal>
+
+@code {
+    private List<PendingStateChangeListItem> pendingChanges = [];
+    private string? nextEventFormatted;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading = true;
+    private bool isSaving;
+
+    private bool showCancelModal;
+    private PendingStateChangeListItem? cancelTarget;
+
+    protected override async Task LoadDataAsync()
+        => await LoadDataAsync(default);
+
+    protected override async Task OnAppContextChangedAsync()
+        => await LoadDataAsync(ComponentToken);
+
+    private async Task LoadDataAsync(CancellationToken ct = default)
+    {
+        if (!IsContextFullySelected) return;
+
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var listTask = SeniorityClient.GetAllPendingStateChangesAsync(SelectedRailroadCtrlNbr ?? 0);
+            var nextTask = SeniorityClient.GetNextStateChangeEventAsync(SelectedRailroadCtrlNbr ?? 0);
+
+            await Task.WhenAll(listTask, nextTask);
+
+            pendingChanges = [.. (await listTask).PendingChanges
+                .OrderBy(p => DateTime.TryParse(p.EffectiveDateUtc, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var d) ? d : DateTime.MaxValue)];
+
+            var nextResp = await nextTask;
+            nextEventFormatted = string.IsNullOrEmpty(nextResp?.NextEventLocal)
+                ? null
+                : FormatDateTime(nextResp.NextEventLocal);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (!ct.IsCancellationRequested)
+                errorMessage = $"Failed to load data: {ex.Message}";
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void ConfirmCancel(PendingStateChangeListItem item)
+    {
+        cancelTarget = item;
+        showCancelModal = true;
+    }
+
+    private void CloseCancelModal()
+    {
+        showCancelModal = false;
+        cancelTarget = null;
+    }
+
+    private async Task OnCancelConfirmed()
+    {
+        if (cancelTarget is null) return;
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await SeniorityClient.CancelPendingStateChangeAsync(cancelTarget.CtrlNbr);
+            successMessage = $"Scheduled change for {cancelTarget.EmployeeFullNameLnf} has been cancelled.";
+            CloseCancelModal();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to cancel: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static string FormatDateTime(string iso)
+        => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
+            ? dt.ToString("MM/dd/yyyy HH:mm")
+            : iso;
+}

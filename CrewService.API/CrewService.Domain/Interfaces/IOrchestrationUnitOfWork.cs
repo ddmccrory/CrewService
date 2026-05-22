@@ -91,6 +91,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IRosterRepository Rosters { get; }
     ISeniorityRepository Seniority { get; }
     ISeniorityStateRepository SeniorityStates { get; }
+    ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs { get; }
+    IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges { get; }
 
     // ──────────────────────────────────────────────────────────────────
     // TenantConfig
