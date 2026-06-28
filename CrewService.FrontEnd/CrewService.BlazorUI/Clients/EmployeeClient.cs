@@ -221,4 +221,27 @@ public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitT
     }
 
     #endregion
+
+    #region Work Profile
+
+    public async Task<EmployeeWorkProfileResponse> GetWorkProfileAsync(
+        long employeeCtrlNbr, long parentCtrlNbr = 0, long railroadCtrlNbr = 0)
+    {
+        try
+        {
+            return await _client.GetEmployeeWorkProfileAsync(new GetEmployeeWorkProfileRequest
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                ParentCtrlNbr   = parentCtrlNbr,
+                RailroadCtrlNbr = railroadCtrlNbr,
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    #endregion
 }

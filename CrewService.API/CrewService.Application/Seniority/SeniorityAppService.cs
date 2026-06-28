@@ -1,6 +1,9 @@
 using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.SeniorityOps;
@@ -16,10 +19,14 @@ public sealed class SeniorityAppService(
         string? EmployeeUserId,
         string FullNameLnf,
         string SeniorityStateName,
-        List<string> RestrictionLabels);
+        List<string> RestrictionLabels,
+        string PositionName = "",
+        string PositionType = "",
+        long StaffablePositionCtrlNbr = 0,
+        bool CanExerciseSeniority = false);
 
     public async Task<List<SeniorityListItem>> GetAllAsync(
-        ControlNumber? rosterCtrlNbr = null, CancellationToken ct = default)
+        ControlNumber? rosterCtrlNbr = null, ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
@@ -42,12 +49,22 @@ public sealed class SeniorityAppService(
         }
 
         var empRestrictionLabels = new Dictionary<ControlNumber, List<string>>();
+        int? policyEligibilityDays = null; // null = no policy configured = ineligible
+        int  policyRequestHours     = 0;    // used for early-submission window
         var firstRosterCtrlNbr = seniorities.Select(s => s.RosterCtrlNbr).FirstOrDefault();
         if (firstRosterCtrlNbr is not null)
         {
             var roster = await uow.Rosters.GetByCtrlNbrAsync(firstRosterCtrlNbr);
             if (roster is not null)
             {
+                var policy = railroadCtrlNbr is not null
+                    ? await uow.SeniorityMovePolicies.GetByRailroadAndCraftAsync(railroadCtrlNbr, roster.CraftCtrlNbr)
+                    : null;
+                if (policy is not null)
+                {
+                    policyEligibilityDays = policy.EligibilityDays;
+                    policyRequestHours   = policy.RequestHours;
+                }
                 var restrictingQualTypes = (await uow.QualificationTypes.GetActiveByCraftCtrlNbrAsync(roster.CraftCtrlNbr))
                     .Where(qt => qt.RestrictionLabel is not null).ToList();
 
@@ -79,18 +96,80 @@ public sealed class SeniorityAppService(
             }
         }
 
+        // Resolve current position for each employee (crew or board position name)
+        var empPositionMap = new Dictionary<ControlNumber, (string PositionName, string PositionType, long StaffablePositionCtrlNbr, DateTime AssignedDateUtc)>();
+        foreach (var empCtrlNbr in uniqueEmpCtrlNbrs)
+        {
+            var positionAssignments = await uow.PositionAssignments.GetByEmployeeAsync(empCtrlNbr);
+            if (positionAssignments.Count == 0) continue;
+            var pa = positionAssignments[0];
+            var staffPos = await uow.StaffablePositions.GetByCtrlNbrAsync(pa.StaffablePositionCtrlNbr, ct);
+            if (staffPos is null) continue;
+
+            string posName;
+            if (staffPos.PositionType == StaffablePositionType.Board)
+            {
+                RosterBoard? board = null;
+                if (pa.AssignmentSourceCtrlNbr is not null)
+                    board = await uow.RosterBoards.GetByPositionCtrlNbrAsync(pa.AssignmentSourceCtrlNbr, ct);
+                posName = board?.Name ?? staffPos.PositionType;
+            }
+            else
+            {
+                CrewPosition? crewPos = null;
+                if (pa.AssignmentSourceCtrlNbr is not null)
+                    crewPos = await uow.CrewPositions.GetByCtrlNbrAsync(pa.AssignmentSourceCtrlNbr, ct);
+                crewPos ??= await uow.CrewPositions.GetByStaffablePositionAsync(pa.StaffablePositionCtrlNbr);
+
+                if (crewPos is not null)
+                {
+                    var crew      = await uow.Crews.GetByCtrlNbrAsync(crewPos.CrewCtrlNbr, ct);
+                    var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPos.CraftRoleCtrlNbr, ct);
+                    var crewName  = crew?.Name ?? string.Empty;
+                    var roleName  = craftRole?.Name ?? string.Empty;
+                    posName = (crewName, roleName) switch
+                    {
+                        ({ Length: > 0 }, { Length: > 0 }) => $"{crewName} / {roleName}",
+                        ({ Length: > 0 }, _)               => crewName,
+                        (_, { Length: > 0 })               => roleName,
+                        _                                  => staffPos.PositionType
+                    };
+                }
+                else
+                {
+                    posName = staffPos.PositionType;
+                }
+            }
+
+            empPositionMap[empCtrlNbr] = (posName, staffPos.PositionType, pa.StaffablePositionCtrlNbr.Value, pa.AssignedDateUtc);
+        }
+
         return seniorities.Select(s =>
         {
             employeeMap.TryGetValue(s.EmployeeCtrlNbr.Value, out var emp);
             var stateName = stateMap.GetValueOrDefault(s.SeniorityStateCtrlNbr.Value, string.Empty);
             empRestrictionLabels.TryGetValue(s.EmployeeCtrlNbr, out var restrictionLabels);
+            empPositionMap.TryGetValue(s.EmployeeCtrlNbr, out var pos);
+            var hasPosition = pos.AssignedDateUtc != default;
+            var daysOnPosition = hasPosition
+                ? (int)(DateTime.UtcNow - pos.AssignedDateUtc).TotalDays
+                : 0;
+            // Employee can submit (RequestHours/24) days before fully qualifying (legacy early-submission window).
+            var earlySubmitDays = policyRequestHours / 24;
+            var canExercise = hasPosition
+                && policyEligibilityDays is not null
+                && daysOnPosition >= (policyEligibilityDays.Value - earlySubmitDays);
             return new SeniorityListItem(
                 s,
                 emp?.EmployeeNumber ?? string.Empty,
                 emp?.UserId,
                 string.Empty, // name resolved in presentation via EmployeeNameService
                 stateName,
-                restrictionLabels ?? []);
+                restrictionLabels ?? [],
+                pos.PositionName,
+                pos.PositionType,
+                pos.StaffablePositionCtrlNbr,
+                canExercise);
         }).ToList();
     }
 

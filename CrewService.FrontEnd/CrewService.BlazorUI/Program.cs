@@ -42,7 +42,9 @@ builder.Services.AddScoped<AuditLogClient>();
 builder.Services.AddScoped<QualificationsClient>();
 builder.Services.AddScoped<FraComplianceClient>();
 builder.Services.AddScoped<BulletinsClient>();
+builder.Services.AddScoped<PoliciesClient>();
 builder.Services.AddScoped<RequiredPositionsStrategyClient>();
+builder.Services.AddScoped<NotificationsClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 

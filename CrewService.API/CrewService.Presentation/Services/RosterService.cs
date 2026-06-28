@@ -88,6 +88,7 @@ public class RosterService(RosterAppService rosterAppService) : RosterSrvc.Roste
         RailroadPayrollDepartmentCtrlNbr = roster.RailroadPayrollDepartmentCtrlNbr?.Value ?? 0,
         RosterName = roster.RosterName,
         RosterPluralName = roster.RosterPluralName,
-        RosterNumber = roster.RosterNumber
+        RosterNumber = roster.RosterNumber,
+        RosterType = roster.RosterType.ToString()
     };
 }

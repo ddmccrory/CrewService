@@ -78,6 +78,9 @@ public class RosterBoardService(
                 CraftName = craftName
             };
             boardResponse.RequiredPositions = board.RequiredPositions;
+            boardResponse.AllowBulletinBidding = board.AllowBulletinBidding;
+            boardResponse.AllowSeniorityMove = board.AllowSeniorityMove;
+            boardResponse.AllowForceAssign = board.AllowForceAssign;
 
             foreach (var position in board.Positions)
             {
@@ -124,7 +127,9 @@ public class RosterBoardService(
         var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
         var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
             await svc.CreateRosterBoardAsync(request.CraftCtrlNbr, request.RosterCtrlNbr, request.Name,
-                boardType, rotationType, request.IsActive, request.RequiredPositions, context.CancellationToken);
+                boardType, rotationType, request.IsActive, request.RequiredPositions,
+                request.AllowBulletinBidding, request.AllowSeniorityMove,
+                request.AllowForceAssign, context.CancellationToken);
         return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
     }
 
@@ -138,7 +143,9 @@ public class RosterBoardService(
             var rotationType = Enum.Parse<RotationType>(request.RotationType, ignoreCase: true);
             var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
                 await svc.UpdateRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
-                    boardType, rotationType, request.IsActive, request.RequiredPositions, context.CancellationToken);
+                    boardType, rotationType, request.IsActive, request.RequiredPositions,
+                    request.AllowBulletinBidding, request.AllowSeniorityMove,
+                    request.AllowForceAssign, context.CancellationToken);
             return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
@@ -295,6 +302,9 @@ public class RosterBoardService(
             CraftName = craftName
         };
         response.RequiredPositions = board.RequiredPositions;
+        response.AllowBulletinBidding = board.AllowBulletinBidding;
+        response.AllowSeniorityMove = board.AllowSeniorityMove;
+        response.AllowForceAssign = board.AllowForceAssign;
         foreach (var position in board.Positions)
             response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, svc, ct));
         return response;

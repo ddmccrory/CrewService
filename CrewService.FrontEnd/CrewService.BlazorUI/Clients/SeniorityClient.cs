@@ -7,13 +7,14 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class SeniorityClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<SeniorityClient> logger)
     : BaseGrpcClient<SenioritySrvc.SenioritySrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new SenioritySrvc.SenioritySrvcClient(callInvoker), logger)
 {
-    public async Task<GetAllSeniorityResponse> GetAllByRosterAsync(long rosterCtrlNbr)
+    public async Task<GetAllSeniorityResponse> GetAllByRosterAsync(long rosterCtrlNbr, long railroadCtrlNbr = 0)
     {
         try
         {
             return await _client.GetAllAsyncAsync(new GetAllSeniorityRequest
             {
                 RosterCtrlNbr = rosterCtrlNbr,
+                RailroadCtrlNbr = railroadCtrlNbr,
                 PageSize = 1000
             });
         }

@@ -4,41 +4,6 @@ using Xunit;
 
 namespace CrewService.UnitTests.Dispatching;
 
-public class ChangeNotificationTests
-{
-    [Fact]
-    public void Create_DefaultsToPending()
-    {
-        var cn = ChangeNotification.Create(
-            ControlNumber.Create(1), "ShiftChange", DateOnly.FromDateTime(DateTime.Today), "Test change");
-
-        Assert.Equal("Pending", cn.Status);
-        Assert.Equal("ShiftChange", cn.ChangeType);
-    }
-
-    [Fact]
-    public void Apply_SetsAppliedStatus()
-    {
-        var cn = ChangeNotification.Create(
-            ControlNumber.Create(1), "ShiftChange", DateOnly.FromDateTime(DateTime.Today), "Test");
-
-        cn.Apply("admin@example.com");
-
-        Assert.Equal("Applied", cn.Status);
-    }
-
-    [Fact]
-    public void Cancel_SetsCancelledStatus()
-    {
-        var cn = ChangeNotification.Create(
-            ControlNumber.Create(1), "ShiftChange", DateOnly.FromDateTime(DateTime.Today), "Test");
-
-        cn.Cancel("admin@example.com");
-
-        Assert.Equal("Cancelled", cn.Status);
-    }
-}
-
 public class OnDutyRecordTests
 {
     [Fact]

@@ -1,0 +1,137 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inject NotificationsClient NotificationsClient
+@inject CurrentUserService CurrentUser
+@inject CircuitBootstrapService CircuitBootstrap
+@inject AuthenticationStateProvider AuthStateProvider
+
+@if (_loaded && _openNotices.Count > 0)
+{
+    <div class="notification-gate-backdrop">
+        <div class="notification-gate-dialog card shadow-lg">
+            <div class="card-header bg-primary text-white d-flex align-items-center">
+                <span class="bi bi-bell-fill me-2"></span>
+                <h5 class="mb-0">Action Required — Review Notifications</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    You must review and accept the following @(_openNotices.Count == 1 ? "notification" : "notifications")
+                    before continuing to the system.
+                </p>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="alert alert-danger alert-dismissible" role="alert">
+                        @_errorMessage
+                        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+                    </div>
+                }
+
+                <ul class="list-group">
+                    @foreach (var n in _openNotices)
+                    {
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div>
+                                    <span class="badge bg-secondary mb-1">@NotificationCategories.Label(n.Category)</span>
+                                    <div>@n.Message</div>
+                                    <small class="text-muted">@FormatTimestamp(n.CreatedAt)</small>
+                                    @if (n.EffectiveAt is not null)
+                                    {
+                                        <small class="text-muted d-block">Effective: @FormatTimestamp(n.EffectiveAt)</small>
+                                    }
+                                </div>
+                                <button type="button" class="btn btn-success flex-shrink-0"
+                                        disabled="@_isBusy" @onclick="() => AcceptAsync(n.CtrlNbr)">
+                                    <span class="bi bi-check2-circle me-1"></span> Accept
+                                </button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+            <div class="card-footer d-flex justify-content-end">
+                <form action="Account/Logout" method="post" data-enhance="false">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="" />
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <span class="bi bi-arrow-bar-left me-1"></span> Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly List<NotificationResponse> _openNotices = [];
+    private bool _loaded;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // gRPC requires an interactive circuit; skip during prerender.
+        if (!RendererInfo.IsInteractive) return;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            _loaded = true;
+            return;
+        }
+
+        await CircuitBootstrap.EnsureInitializedAsync(authState.User);
+        await CurrentUser.InitializeAsync(authState.User);
+
+        // Only employees have a notification surface; admins without a linked
+        // employee record are never gated.
+        if (CurrentUser.IsEmployee)
+        {
+            await LoadOpenNoticesAsync();
+        }
+
+        _loaded = true;
+    }
+
+    private async Task LoadOpenNoticesAsync()
+    {
+        try
+        {
+            var response = await NotificationsClient.GetMyUnacknowledgedAsync();
+            _openNotices.Clear();
+            _openNotices.AddRange(response.Notifications);
+        }
+        catch
+        {
+            // Fail open: if the notice list cannot be loaded, do not trap the
+            // user behind an empty gate.
+            _openNotices.Clear();
+        }
+    }
+
+    private async Task AcceptAsync(long ctrlNbr)
+    {
+        if (_isBusy) return;
+        try
+        {
+            _isBusy = true;
+            _errorMessage = null;
+            await NotificationsClient.AcknowledgeNotificationAsync(ctrlNbr);
+            _openNotices.RemoveAll(n => n.CtrlNbr == ctrlNbr);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to accept notification: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
+        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+}

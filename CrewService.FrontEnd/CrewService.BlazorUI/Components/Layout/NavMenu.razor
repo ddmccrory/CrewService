@@ -5,6 +5,7 @@
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
 @inject CrewService.BlazorUI.Services.UserPermissionService Permissions
 @inject CrewService.BlazorUI.Services.CircuitBootstrapService CircuitBootstrap
+@inject CrewService.BlazorUI.Services.CurrentUserService CurrentUser
 
 <div class="bg-primary">
 <div class="top-row ps-3 navbar navbar-dark">
@@ -24,6 +25,15 @@
                         <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
                     </NavLink>
                 </div>
+
+                @if (CurrentUser.IsEmployee)
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="notifications">
+                            <span class="bi bi-bell-fill-nav-menu" aria-hidden="true"></span> Notifications
+                        </NavLink>
+                    </div>
+                }
 
                 @if (Permissions.IsLoaded)
                 {
@@ -108,7 +118,7 @@
                 }
 
                 @* ── Crew Staffing ── *@
-                @if (Permissions.HasAccessToAny("staffing/crews", "staffing/bulletins", "staffing/roster-boards"))
+                @if (Permissions.HasAccessToAny("staffing/crews", "staffing/bulletins", "staffing/roster-boards", "staffing/seniority-moves"))
                 {
                     <NavMenuGroup Title="Crew Staffing" Icon="bi-people-fill" IsInitiallyExpanded="@IsCurrentPath("staffing")">
                         @if (Permissions.HasAccess("staffing/crews"))
@@ -132,6 +142,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="staffing/roster-boards">
                                     <span class="bi bi-kanban" aria-hidden="true"></span> Roster Boards
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("staffing/seniority-moves"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="staffing/seniority-moves">
+                                    <span class="bi bi-arrow-left-right" aria-hidden="true"></span> Seniority Moves
                                 </NavLink>
                             </div>
                         }
@@ -387,9 +405,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -462,9 +480,17 @@
                                 </NavLink>
                             </div>
                         }
-                            </NavMenuGroup>
+                        @if (Permissions.HasAccess("admin/seniority-move-policies"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/seniority-move-policies">
+                                    <span class="bi bi-sliders" aria-hidden="true"></span> Seniority Move Policies
+                                </NavLink>
+                            </div>
                         }
-                        } @* end parent-scoped *@
+                    </NavMenuGroup>
+                }
+                } @* end parent-scoped *@
                 } @* end Permissions.IsLoaded *@
 
                 @* ── Logout ── *@
@@ -528,6 +554,7 @@
             // The individual calls below are no-ops if bootstrap succeeded;
             // they run normally as a fallback if bootstrap failed.
             await CircuitBootstrap.EnsureInitializedAsync(authState.User);
+            await CurrentUser.InitializeAsync(authState.User);
             await Permissions.InitializeAsync(authState.User);
             await Permissions.LoadPermissionsAsync(AppContext.SelectedParentCtrlNbr);
         }

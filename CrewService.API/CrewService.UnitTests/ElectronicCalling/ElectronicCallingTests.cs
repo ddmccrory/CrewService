@@ -1,17 +1,18 @@
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.ElectronicCalling.Providers;
 using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.VacancyCalls;
 using CrewService.Domain.ValueObjects;
 using Xunit;
 
 namespace CrewService.UnitTests.ElectronicCalling;
 
-public class NotificationRequestTests
+public class VacancyCallRequestTests
 {
     [Fact]
     public void Create_SetsSentStatus()
     {
-        var req = NotificationRequest.Create(
+        var req = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "AssignmentCall", 6, "EXT-1");
         Assert.Equal("Sent", req.Status);
         Assert.Equal("EXT-1", req.ExternalId);
@@ -20,7 +21,7 @@ public class NotificationRequestTests
     [Fact]
     public void RecordResponse_Accept_SetsAccepted()
     {
-        var req = NotificationRequest.Create(
+        var req = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "AssignmentCall");
         req.RecordResponse("Accept", "Phone");
 
@@ -32,7 +33,7 @@ public class NotificationRequestTests
     [Fact]
     public void RecordResponse_Reject_SetsRejected()
     {
-        var req = NotificationRequest.Create(
+        var req = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "AssignmentCall");
         req.RecordResponse("Reject");
 
@@ -42,7 +43,7 @@ public class NotificationRequestTests
     [Fact]
     public void MarkExpired_SetsExpiredStatus()
     {
-        var req = NotificationRequest.Create(
+        var req = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "AssignmentCall");
         req.MarkExpired();
         Assert.Equal("Expired", req.Status);
@@ -51,7 +52,7 @@ public class NotificationRequestTests
     [Fact]
     public void MarkFailed_SetsFailedStatus()
     {
-        var req = NotificationRequest.Create(
+        var req = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(2), "AssignmentCall");
         req.MarkFailed();
         Assert.Equal("Failed", req.Status);

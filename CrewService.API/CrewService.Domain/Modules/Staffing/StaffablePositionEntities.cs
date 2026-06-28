@@ -40,7 +40,8 @@ public sealed class PositionAssignment : Entity
         ControlNumber staffablePositionCtrlNbr,
         ControlNumber employeeCtrlNbr,
         string assignmentType,
-        ControlNumber? assignmentSourceCtrlNbr = null)
+        ControlNumber? assignmentSourceCtrlNbr = null,
+        DateTime? assignedDateUtc = null)
     {
         var assignment = new PositionAssignment
         {
@@ -48,7 +49,7 @@ public sealed class PositionAssignment : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             AssignmentType = assignmentType,
             AssignmentSourceCtrlNbr = assignmentSourceCtrlNbr,
-            AssignedDateUtc = DateTime.UtcNow
+            AssignedDateUtc = assignedDateUtc?.ToUniversalTime() ?? DateTime.UtcNow
         };
         assignment.Raise(new PositionAssignmentCreatedDomainEvent(
             staffablePositionCtrlNbr, employeeCtrlNbr, assignmentType));

@@ -113,6 +113,27 @@ else
                     <InputNumber @bind-Value="saveModel.RequiredPositions" class="form-control" min="0" />
                     <div class="form-text text-muted">Board vacancies are bulletined when occupied positions fall below this count. Set to 0 to disable auto-bulletining.</div>
                 </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.AllowBulletinBidding" class="form-check-input" id="board-allow-bidding" />
+                        <label class="form-check-label" for="board-allow-bidding">Allow Bulletin Bidding</label>
+                    </div>
+                    <div class="form-text text-muted">When enabled, employees on this board may bid on open bulletins.</div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.AllowSeniorityMove" class="form-check-input" id="board-allow-seniority-move" />
+                        <label class="form-check-label" for="board-allow-seniority-move">Allow Seniority Move</label>
+                    </div>
+                    <div class="form-text text-muted">When enabled, employees may exercise seniority to move to this board.</div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.AllowForceAssign" class="form-check-input" id="board-allow-force-assign" />
+                        <label class="form-check-label" for="board-allow-force-assign">Allow Force Assign</label>
+                    </div>
+                    <div class="form-text text-muted">When enabled, members of this board are eligible to be force-assigned to no-bid bulletin vacancies.</div>
+                </div>
             </EditForm>
         </BodyContent>
         <Footer>
@@ -253,6 +274,12 @@ else
             saveModel.RotationType = "None";
         else if (saveModel.RotationType is "None" or null)
             saveModel.RotationType = "StandardRotation";
+        // Auto-set the default for new boards; on edit the user may override
+        if (editCtrlNbr == 0)
+        {
+            saveModel.AllowBulletinBidding = boardType is "ExtraBoard" or "Hangout";
+            saveModel.AllowForceAssign = boardType is "ExtraBoard" or "Hangout";
+        }
     }
 
     private bool showSaveModal;
@@ -336,7 +363,7 @@ else
     {
         editCtrlNbr = 0;
         rostersForCraft = null;
-        saveModel = new() { IsActive = true, BoardType = "ExtraBoard", RotationType = "StandardRotation" };
+        saveModel = new() { IsActive = true, BoardType = "ExtraBoard", RotationType = "StandardRotation", AllowBulletinBidding = true, AllowSeniorityMove = false, AllowForceAssign = true };
         showSaveModal = true;
     }
 
@@ -362,7 +389,10 @@ else
             RotationType = board.RotationType,
             RosterCtrlNbr = board.RosterCtrlNbr,
             IsActive = board.IsActive,
-            RequiredPositions = board.RequiredPositions
+            RequiredPositions = board.RequiredPositions,
+            AllowBulletinBidding = board.AllowBulletinBidding,
+            AllowSeniorityMove = board.AllowSeniorityMove,
+            AllowForceAssign = board.AllowForceAssign
         };
         showSaveModal = true;
     }
@@ -400,7 +430,11 @@ else
                     Name = saveModel.Name ?? string.Empty,
                     BoardType = saveModel.BoardType ?? "ExtraBoard",
                     RotationType = saveModel.RotationType ?? "StandardRotation",
-                    IsActive = saveModel.IsActive
+                    IsActive = saveModel.IsActive,
+                    RequiredPositions = saveModel.RequiredPositions,
+                    AllowBulletinBidding = saveModel.AllowBulletinBidding,
+                    AllowSeniorityMove = saveModel.AllowSeniorityMove,
+                    AllowForceAssign = saveModel.AllowForceAssign
                 });
                 successMessage = "Roster board updated.";
             }
@@ -413,7 +447,11 @@ else
                     Name = saveModel.Name ?? string.Empty,
                     BoardType = saveModel.BoardType ?? "ExtraBoard",
                     RotationType = saveModel.RotationType ?? "StandardRotation",
-                    IsActive = saveModel.IsActive
+                    IsActive = saveModel.IsActive,
+                    RequiredPositions = saveModel.RequiredPositions,
+                    AllowBulletinBidding = saveModel.AllowBulletinBidding,
+                    AllowSeniorityMove = saveModel.AllowSeniorityMove,
+                    AllowForceAssign = saveModel.AllowForceAssign
                 });
                 successMessage = "Roster board created.";
             }
@@ -491,5 +529,9 @@ else
 
         [Range(0, int.MaxValue)]
         public int RequiredPositions { get; set; }
+
+        public bool AllowBulletinBidding { get; set; } = true;
+        public bool AllowSeniorityMove { get; set; }
+        public bool AllowForceAssign { get; set; } = true;
     }
 }

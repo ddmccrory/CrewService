@@ -1,0 +1,439 @@
+@using System.ComponentModel.DataAnnotations
+@using CrewService.Presentation
+
+@* ─────────────────────────────────────────────────────────────────────────────
+   RequestSeniorityMoveModal
+   Shared dialog for initiating a seniority move request.
+
+   Admin mode  (LockedEmployee = false)
+     - Craft dropdown, Employee dropdown, Target Position dropdown.
+     - The target position identifies the displaced employee (shown in its text),
+       so there is no separate displaced-employee control.
+     - Move Type is always Voluntary.
+     - Effective Date shown read-only (server-calculated preview).
+
+   Employee context (LockedEmployee = true)
+     - Craft / Employee / Target Position shown read-only (pre-supplied by host).
+     - Move Type is always Voluntary.
+     - Effective Date shown read-only (server-calculated preview).
+───────────────────────────────────────────────────────────────────────────── *@
+
+<Modal Visible="Visible"
+       Title="@(BoardMode ? "Move to Board" : "Request Seniority Move")"
+       Icon="@(BoardMode ? "bi bi-box-arrow-in-right" : "bi bi-arrow-left-right")"
+       OnClose="OnCancel">
+    <BodyContent>
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit" id="@_formId">
+            <DataAnnotationsValidator />
+
+            @* ── Craft ───────────────────────────────────────────────── *@
+            @if (LockedIdentity)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft</label>
+                    <p class="form-control-plaintext">@LockedCraftName</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft <span class="text-danger">*</span></label>
+                    <SelectInput TItem="SeniorityMoveNamedItem" TValue="long"
+                                 Items="Crafts"
+                                 Value="_model.CraftCtrlNbr"
+                                 ValueChanged="OnCraftChangedAsync"
+                                 ValueExpression="() => _model.CraftCtrlNbr"
+                                 ValueSelector="@(c => c.CtrlNbr)"
+                                 TextSelector="@(c => c.Name)"
+                                 Placeholder="— Select a craft —"
+                                 class="form-select" />
+                    <ValidationMessage For="() => _model.CraftCtrlNbr" class="text-danger" />
+                </div>
+            }
+
+            @* ── Employee ────────────────────────────────────────────── *@
+            @if (LockedIdentity)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Employee</label>
+                    <p class="form-control-plaintext">@LockedEmployeeName</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Employee <span class="text-danger">*</span></label>
+                    <SelectInput TItem="SeniorityMoveNamedItem" TValue="long"
+                                 Items="ActiveEmployees"
+                                 Value="_model.EmployeeCtrlNbr"
+                                 ValueChanged="OnEmployeeChangedAsync"
+                                 ValueExpression="() => _model.EmployeeCtrlNbr"
+                                 ValueSelector="@(e => e.CtrlNbr)"
+                                 TextSelector="@(e => e.Name)"
+                                 Placeholder="— Select an employee —"
+                                 Searchable="true"
+                                 class="form-select" />
+                    <ValidationMessage For="() => _model.EmployeeCtrlNbr" class="text-danger" />
+                </div>
+            }
+
+            @* ── Target Position / Board ──────────────────────────────── *@
+            @if (BoardMode)
+            {
+                @if (Boards.Count > 1)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Select Board <span class="text-danger">*</span></label>
+                        <SelectInput TItem="SeniorityMoveNamedItem" TValue="long"
+                                     Items="Boards"
+                                     Value="_model.TargetBoardCtrlNbr"
+                                     ValueChanged="OnBoardChangedAsync"
+                                     ValueExpression="() => _model.TargetBoardCtrlNbr"
+                                     ValueSelector="@(b => b.CtrlNbr)"
+                                     TextSelector="@(b => b.Name)"
+                                     Placeholder="— Select a board —"
+                                     class="form-select" />
+                        <ValidationMessage For="() => _model.TargetBoardCtrlNbr" class="text-danger" />
+                    </div>
+                }
+                else if (Boards.Count == 1)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Moving to</label>
+                        <p class="form-control-plaintext">@Boards[0].Name</p>
+                        <div class="form-text">A new position will be created on the board. No one is displaced.</div>
+                    </div>
+                }
+            }
+            else if (LockedEmployee)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Moving to (position held by)</label>
+                    <p class="form-control-plaintext">@LockedDisplacedEmployeeName</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Target Position <span class="text-danger">*</span></label>
+                    <SelectInput TItem="SeniorityMoveNamedItem" TValue="long"
+                                 Items="JuniorPositions"
+                                 Value="_model.TargetPositionCtrlNbr"
+                                 ValueChanged="OnJuniorPositionChangedAsync"
+                                 ValueExpression="() => _model.TargetPositionCtrlNbr"
+                                 ValueSelector="@(p => p.CtrlNbr)"
+                                 TextSelector="@(p => p.Name)"
+                                 Placeholder="@(_model.EmployeeCtrlNbr == 0 ? "— Select an employee first —" : "— Select a target position —")"
+                                 Searchable="true"
+                                 class="form-select" />
+                    <div class="form-text">Only positions the selected employee is senior enough to claim are shown.</div>
+                    <ValidationMessage For="() => _model.TargetPositionCtrlNbr" class="text-danger" />
+                </div>
+            }
+
+            @* ── Displaced Employee ──────────────────────────────────────
+               Intentionally omitted: the Target Position selection already
+               identifies the displaced employee (shown in the option text),
+               so a separate control would be redundant. *@
+
+            @* ── Move Type (always Voluntary) ─────────────────────────── *@
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Move Type</label>
+                <p class="form-control-plaintext">Voluntary</p>
+            </div>
+
+            @* ── Effective Date (read-only, server-calculated) ─────────── *@
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Effective Date</label>
+                @if (!string.IsNullOrEmpty(PreviewError))
+                {
+                    <p class="form-control-plaintext text-danger mb-0">@PreviewError</p>
+                }
+                else if (string.IsNullOrEmpty(PreviewEffectiveUtc))
+                {
+                    <p class="form-control-plaintext text-muted fst-italic">@PreviewPlaceholder</p>
+                }
+                else
+                {
+                    <p class="form-control-plaintext">@FormatEffectiveDate(PreviewEffectiveUtc)</p>
+                }
+            </div>
+
+            @* ── Will Work election (only when offered by the server) ──── *@
+            @if (WillWorkOffered)
+            {
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="willWorkElection" @bind="_model.WillWork" />
+                        <label class="form-check-label" for="willWorkElection">
+                            Work my final shift
+                            <span class="text-muted small d-block">Your move takes effect at the start of a shift you are scheduled to work. Turn on to work that final shift before the move takes effect.</span>
+                        </label>
+                    </div>
+                </div>
+            }
+
+                </EditForm>
+            </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+        @if (BoardMode)
+        {
+            <button type="submit" form="@_formId" class="btn btn-success" disabled="@(IsSaving || _model.EmployeeCtrlNbr == 0 || _model.TargetBoardCtrlNbr == 0)">
+                <span class="bi bi-box-arrow-in-right me-1"></span> Confirm Move
+            </button>
+        }
+        else
+        {
+            <button type="submit" form="@_formId" class="btn btn-primary" disabled="@(IsSaving || _model.TargetPositionCtrlNbr == 0)">
+                <span class="bi bi-arrow-left-right me-1"></span> Request Move
+            </button>
+        }
+    </Footer>
+</Modal>
+
+@code {
+    // ── Public parameters ─────────────────────────────────────────────────
+
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+
+    /// <summary>Railroad context for the move; required so the server can resolve the seniority move policy.</summary>
+    [Parameter] public long RailroadCtrlNbr { get; set; }
+
+    /// <summary>When true the craft/employee/position/move-type fields are shown read-only using the Locked* values.</summary>
+    [Parameter] public bool LockedEmployee { get; set; }
+
+    /// <summary>
+    /// When true the dialog runs in "Move to Board" mode: craft/employee/move-type are locked and the
+    /// target is a board chosen from <see cref="Boards"/> (or the single eligible board) instead of a
+    /// displaced position. No employee is displaced.
+    /// </summary>
+    [Parameter] public bool BoardMode { get; set; }
+
+    /// <summary>Eligible boards for board mode. If more than one, the user must choose.</summary>
+    [Parameter] public IReadOnlyList<SeniorityMoveNamedItem> Boards { get; set; } = [];
+
+    /// <summary>True when the craft/employee/move-type fields should be shown read-only (locked-employee mode).</summary>
+    private bool LockedIdentity => LockedEmployee;
+
+    /// <summary>
+    /// Placeholder shown in the Effective Date area while no preview value is available yet.
+    /// Guides the user to the next required selection so the empty state is not mistaken for a stuck calculation.
+    /// </summary>
+    private string PreviewPlaceholder
+    {
+        get
+        {
+            if (LockedIdentity) return "Calculating…";
+            if (_model.EmployeeCtrlNbr == 0) return "Select an employee to calculate.";
+            if (BoardMode)
+                return _model.TargetBoardCtrlNbr == 0 ? "Select a board to calculate." : "Calculating…";
+            return _model.TargetPositionCtrlNbr == 0 ? "Select a target position to calculate." : "Calculating…";
+        }
+    }
+
+    [Parameter] public string LockedCraftName { get; set; } = string.Empty;
+    [Parameter] public string LockedEmployeeName { get; set; } = string.Empty;
+    /// <summary>Name of the employee being displaced (shown as "Moving to" in locked mode).</summary>
+    [Parameter] public string LockedDisplacedEmployeeName { get; set; } = string.Empty;
+
+    /// <summary>Craft list for admin mode.</summary>
+    [Parameter] public IReadOnlyList<SeniorityMoveNamedItem> Crafts { get; set; } = [];
+    /// <summary>Active employee list for admin mode (loaded by host after craft selection).</summary>
+    [Parameter] public IReadOnlyList<SeniorityMoveNamedItem> ActiveEmployees { get; set; } = [];
+
+    /// <summary>
+    /// Junior positions list for admin mode. Each item's CtrlNbr = StaffablePositionCtrlNbr,
+    /// Name = "Position — Employee Name", SecondaryCtrlNbr = EmployeeCtrlNbr of the junior.
+    /// Loaded by host after employee selection.
+    /// </summary>
+    [Parameter] public IReadOnlyList<SeniorityMoveNamedItem> JuniorPositions { get; set; } = [];
+
+    /// <summary>Raised when the user changes the craft selection so the host can reload the employee list.</summary>
+    [Parameter] public EventCallback<long> OnCraftChanged { get; set; }
+
+    /// <summary>Raised when the employee selection changes so the host can reload junior positions.</summary>
+    [Parameter] public EventCallback<long> OnEmployeeChanged { get; set; }
+
+    /// <summary>Raised when the target position changes so the host can refresh the effective-date preview.</summary>
+    [Parameter] public EventCallback<long> OnPositionChanged { get; set; }
+
+    /// <summary>Raised when the target board changes (board mode) so the host can refresh the effective-date preview.</summary>
+    [Parameter] public EventCallback<long> OnBoardChanged { get; set; }
+
+    /// <summary>Raised on valid submit with the fully-populated request. The host is responsible for calling the API.</summary>
+    [Parameter] public EventCallback<ExerciseSeniorityMoveRequest> OnConfirm { get; set; }
+
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>Server-calculated effective date ISO string. Shown read-only so the employee knows when the move becomes effective.</summary>
+    [Parameter] public string PreviewEffectiveUtc { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message from the most recent effective-date preview attempt. When set it is shown in place of
+    /// the effective date so the user sees why the date could not be calculated (e.g. an unconfigured
+    /// move-policy strategy) instead of a perpetual "Calculating…" placeholder.
+    /// </summary>
+    [Parameter] public string PreviewError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the server determined the "will work" election should be offered for this move
+    /// (policy enabled and the move takes effect at the start of a shift the employee would work).
+    /// </summary>
+    [Parameter] public bool WillWorkOffered { get; set; }
+
+    // ── Internal state ────────────────────────────────────────────────────
+
+    private readonly string _formId = $"request-move-form-{Guid.NewGuid():N}";
+
+    private MoveModel _model = new();
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
+
+    protected override void OnParametersSet()
+    {
+        // When the modal is opened (Visible flips true) in locked mode, seed locked values.
+        // The host should set LockedTargetPositionCtrlNbr / LockedDisplacedEmployeeCtrlNbr before showing.
+        if (!Visible) return;
+        if (LockedIdentity || BoardMode)
+            _model.MoveType = "Voluntary";
+
+        // In board mode with exactly one eligible board, pre-select it so submit is enabled.
+        if (BoardMode && Boards.Count == 1)
+            _model.TargetBoardCtrlNbr = Boards[0].CtrlNbr;
+    }
+
+    // ── Host-callable seed method ─────────────────────────────────────────
+
+    /// <summary>
+    /// Seeds the model with pre-resolved values. Call this before setting Visible = true in locked mode.
+    /// </summary>
+    public void Seed(long craftCtrlNbr, long employeeCtrlNbr, long targetPositionCtrlNbr, long displacedEmployeeCtrlNbr)
+    {
+        _model = new MoveModel
+        {
+            CraftCtrlNbr             = craftCtrlNbr,
+            EmployeeCtrlNbr          = employeeCtrlNbr,
+            TargetPositionCtrlNbr    = targetPositionCtrlNbr,
+            DisplacedEmployeeCtrlNbr = displacedEmployeeCtrlNbr,
+            MoveType                 = "Voluntary"
+        };
+    }
+
+    /// <summary>Seeds the model for admin mode.</summary>
+    public void SeedAdmin(long craftCtrlNbr = 0)
+    {
+        _model = new MoveModel
+        {
+            CraftCtrlNbr = craftCtrlNbr,
+            MoveType     = "Voluntary"
+        };
+    }
+
+    /// <summary>
+    /// Seeds the model for board mode (Move to Board). Call this before setting Visible = true.
+    /// Pass <paramref name="targetBoardCtrlNbr"/> = 0 to require the user to pick from multiple boards.
+    /// </summary>
+    public void SeedBoard(long craftCtrlNbr, long employeeCtrlNbr, long targetBoardCtrlNbr = 0)
+    {
+        _model = new MoveModel
+        {
+            CraftCtrlNbr       = craftCtrlNbr,
+            EmployeeCtrlNbr    = employeeCtrlNbr,
+            TargetBoardCtrlNbr = targetBoardCtrlNbr,
+            MoveType           = "Voluntary"
+        };
+    }
+
+    // ── Event handlers ────────────────────────────────────────────────────
+
+    private async Task OnCraftChangedAsync(long ctrlNbr)
+    {
+        _model.CraftCtrlNbr             = ctrlNbr;
+        _model.EmployeeCtrlNbr          = 0;
+        _model.TargetPositionCtrlNbr    = 0;
+        _model.DisplacedEmployeeCtrlNbr = 0;
+        _model.TargetBoardCtrlNbr       = 0;
+        await OnCraftChanged.InvokeAsync(ctrlNbr);
+    }
+
+    private async Task OnEmployeeChangedAsync(long ctrlNbr)
+    {
+        _model.EmployeeCtrlNbr          = ctrlNbr;
+        _model.TargetPositionCtrlNbr    = 0;
+        _model.DisplacedEmployeeCtrlNbr = 0;
+        await OnEmployeeChanged.InvokeAsync(ctrlNbr);
+    }
+
+    private async Task OnJuniorPositionChangedAsync(long staffablePositionCtrlNbr)
+    {
+        _model.TargetPositionCtrlNbr = staffablePositionCtrlNbr;
+        var item = JuniorPositions.FirstOrDefault(p => p.CtrlNbr == staffablePositionCtrlNbr);
+        _model.DisplacedEmployeeCtrlNbr = item?.SecondaryCtrlNbr ?? 0;
+        await OnPositionChanged.InvokeAsync(staffablePositionCtrlNbr);
+    }
+
+    private async Task OnBoardChangedAsync(long boardCtrlNbr)
+    {
+        _model.TargetBoardCtrlNbr = boardCtrlNbr;
+        await OnBoardChanged.InvokeAsync(boardCtrlNbr);
+    }
+
+    private async Task HandleSubmit()
+    {
+        var req = new ExerciseSeniorityMoveRequest
+        {
+            RailroadCtrlNbr          = RailroadCtrlNbr,
+            EmployeeCtrlNbr          = _model.EmployeeCtrlNbr,
+            CraftCtrlNbr             = _model.CraftCtrlNbr,
+            TargetPositionCtrlNbr    = _model.TargetPositionCtrlNbr,
+            DisplacedEmployeeCtrlNbr = _model.DisplacedEmployeeCtrlNbr,
+            MoveType                 = _model.MoveType
+        };
+
+        if (BoardMode)
+            req.TargetBoardCtrlNbr = _model.TargetBoardCtrlNbr;
+
+        if (WillWorkOffered)
+            req.WillWork = _model.WillWork;
+
+        await OnConfirm.InvokeAsync(req);
+    }
+
+    // ── Display helpers ───────────────────────────────────────────────────
+
+    private static string FormatEffectiveDate(string isoUtc)
+    {
+        // The server emits an ISO-8601 value carrying the work area's offset (e.g. "...-05:00").
+        // Its wall-clock component is the railroad-local effective time (derived from the target
+        // schedule's off-duty TimeOnly). Display that wall clock as-is WITHOUT re-converting to the
+        // browser's zone — parsing as DateTimeOffset and reading .DateTime preserves it exactly
+        // (e.g. a 7:00 AM end-of-shift stays 7:00 AM regardless of the viewer's machine zone).
+        if (DateTimeOffset.TryParse(isoUtc, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var dto))
+            return dto.DateTime.ToString("MM/dd/yyyy h:mm tt");
+        return isoUtc;
+    }
+
+    // ── Inner types ───────────────────────────────────────────────────────
+
+    private sealed class MoveModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Craft is required.")]
+        public long CraftCtrlNbr { get; set; }
+
+        [Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+
+        public long TargetPositionCtrlNbr { get; set; }
+
+        public long DisplacedEmployeeCtrlNbr { get; set; }
+
+        public long TargetBoardCtrlNbr { get; set; }
+
+        public string MoveType { get; set; } = "Voluntary";
+
+        public bool WillWork { get; set; }
+    }
+}

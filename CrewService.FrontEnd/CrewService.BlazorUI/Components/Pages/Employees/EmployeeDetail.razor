@@ -1,7 +1,6 @@
 ﻿@page "/employees/{CtrlNbr:long}"
 @rendermode InteractiveServer
 
-@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models
@@ -18,6 +17,7 @@
 @inject EmailAddressTypeClient EmailAddressTypeClient
 @inject EmployeeProfileService ProfileService
 @inject QualificationsClient QualificationsClient
+@inject PoliciesClient PoliciesClient
 @inject NavigationManager Nav
 
 <PageTitle>Employee Detail</PageTitle>
@@ -28,11 +28,19 @@
 }
 else
 {
-    <BackNavButton Text="Employees" FallbackUrl="/employees" />
+    <BackNavButton Text="Employees" OnClick="@(() => Nav.NavigateTo("/employees"))" />
 
     <h1>@employee.FullNameLnf</h1>
     <p class="text-muted mb-1">
         <span class="badge bg-secondary">@employee.EmployeeNumber</span>
+        @if (!string.IsNullOrEmpty(workProfile?.Role))
+        {
+            <span class="badge bg-primary ms-2">@workProfile.Role</span>
+        }
+        @if (!string.IsNullOrEmpty(workProfile?.EmploymentStatus))
+        {
+            <span class="badge bg-light text-dark border ms-1">@workProfile.EmploymentStatus</span>
+        }
     </p>
 
     <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
@@ -47,7 +55,207 @@ else
 
     <hr />
 
-    <TabPanel Tabs="tabs" @bind-ActiveTab="activeTab" />
+    <TabPanel Tabs="tabs" ActiveTab="activeTab" ActiveTabChanged="OnTabChangedAsync" />
+
+    @* ── Work & Staffing Tab ── *@
+    @if (activeTab == "work")
+    {
+        @if (workTabLoading)
+        {
+            <div class="d-flex align-items-center gap-2 mt-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span>Loading work information...</span>
+            </div>
+        }
+        else
+        {
+            @* ── Seniority / Roster section ── *@
+            <h5 class="mt-3">Seniority &amp; Roster</h5>
+
+            @if ((workProfile?.SeniorityEntries.Count ?? 0) == 0)
+            {
+                <p class="text-muted">This employee has no seniority roster entries.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Roster</th>
+                                <th>Seniority Date</th>
+                                <th>Rank</th>
+                                <th>Status</th>
+                                <th>Current Position</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in workProfile!.SeniorityEntries.OrderBy(e => e.RosterDate))
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@entry.RosterName</td>
+                                    <td>@(string.IsNullOrEmpty(entry.RosterDate) ? "—" : FormatDate(entry.RosterDate))</td>
+                                    <td>@entry.Rank</td>
+                                    <td>
+                                        <span class="badge @GetSeniorityStateBadge(entry.SeniorityStateName)">
+                                            @entry.SeniorityStateName
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @(string.IsNullOrEmpty(entry.PositionName) ? "—" : entry.PositionName)
+                                        @if (!string.IsNullOrEmpty(entry.PositionName))
+                                        {
+                                            <br /><small class="text-muted">@entry.DaysOnCurrentPosition day@(entry.DaysOnCurrentPosition == 1 ? "" : "s") on position</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1 flex-nowrap">
+                                            <a class="btn btn-sm btn-outline-primary"
+                                               href="/staffing/bulletins?craft=@entry.CraftCtrlNbr&employee=@CtrlNbr&canbid=@(workProfile?.CanBidOnBulletins ?? true)">
+                                                <span class="bi bi-clipboard-check me-1"></span>Bulletins
+                                                @if ((workProfile?.Bids.Count ?? 0) > 0)
+                                                {
+                                                    <span class="badge bg-secondary ms-1">@workProfile!.Bids.Count</span>
+                                                }
+                                            </a>
+                                            <a class="btn btn-sm btn-outline-primary"
+                                               href="/staffing/seniority-moves">
+                                                <span class="bi bi-arrow-left-right me-1"></span>Seniority Moves
+                                                @if ((workProfile?.Moves.Count(m => m.Status is "Pending" or "Approved") ?? 0) > 0)
+                                                {
+                                                    <span class="badge bg-secondary ms-1">@workProfile!.Moves.Count(m => m.Status is "Pending" or "Approved")</span>
+                                                }
+                                            </a>
+                                            <a class="btn btn-sm btn-outline-secondary"
+                                               href="/employees/seniority?roster=@entry.RosterCtrlNbr&craft=@entry.CraftCtrlNbr&employee=@CtrlNbr">
+                                                <span class="bi bi-list-ol me-1"></span>Seniority List
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <hr />
+
+            @* ── Seniority Moves section ── *@
+            <h5>Seniority Moves</h5>
+
+            @if ((workProfile?.Moves.Count ?? 0) == 0)
+            {
+                <p class="text-muted">No seniority moves on record for this employee.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Move Type</th>
+                                <th>Moving To</th>
+                                <th>Requested</th>
+                                <th>Effective</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var move in workProfile!.Moves.OrderByDescending(m => m.RequestedUtc))
+                            {
+                                <tr>
+                                    <td>@move.MoveType</td>
+                                    <td>@(string.IsNullOrEmpty(move.TargetPositionName) ? "—" : move.TargetPositionName)</td>
+                                    <td>@FormatDate(move.RequestedUtc)</td>
+                                    <td>@(string.IsNullOrEmpty(move.EffectiveUtc) ? "—" : FormatDate(move.EffectiveUtc))</td>
+                                    <td>
+                                        <span class="badge @GetMoveBadgeClass(move.Status)">@move.Status</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1 flex-nowrap">
+                                            @* Cancel is available to staff with write access (admins) OR the
+                                               employee viewing their own record. CanCancel encodes the
+                                               status/cancel-window policy server-side. *@
+                                            @if ((!IsFeatureReadOnly || IsOwnRecord) && move.CanCancel)
+                                            {
+                                                <button class="btn btn-sm btn-outline-warning"
+                                                        @onclick="() => OpenWorkCancelModal(move)">
+                                                    <span class="bi bi-slash-circle"></span> Cancel
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @* ── Open Bulletin Bids section ── *@
+            <hr />
+            <h5>Open Bulletin Bids</h5>
+
+            @if ((workProfile?.Bids.Count ?? 0) == 0)
+            {
+                <p class="text-muted">No bulletin bids on record for this employee.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Bulletin</th>
+                                <th>Position</th>
+                                <th>Priority</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var bid in workProfile!.Bids.OrderBy(b => b.Priority))
+                            {
+                                <tr>
+                                    <td>@(string.IsNullOrEmpty(bid.BulletinCode) ? bid.BulletinCtrlNbr.ToString() : bid.BulletinCode)</td>
+                                    <td>@(string.IsNullOrEmpty(bid.PositionName) ? "—" : bid.PositionName)</td>
+                                    <td>@bid.Priority</td>
+                                    <td>@FormatDate(bid.SubmittedUtc)</td>
+                                    <td>
+                                        <span class="badge @GetBidStatusBadge(bid.Status)">@bid.Status</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    }
+
+    @* ── Cancel Move Modal (Work tab) ── *@
+    <Modal Visible="showWorkCancelModal"
+           Title="Cancel Seniority Move"
+           Icon="bi bi-slash-circle"
+           OnClose="() => showWorkCancelModal = false">
+        <BodyContent>
+            <p>Cancel this seniority move for <strong>@employee?.FullNameLnf</strong>?</p>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Reason <span class="text-danger">*</span></label>
+                <textarea class="form-control" rows="3" @bind="workActionReason" placeholder="Reason for cancellation..."></textarea>
+            </div>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showWorkCancelModal = false">Cancel</button>
+            <button type="button" class="btn btn-warning" @onclick="ConfirmWorkCancel"
+                    disabled="@(isSaving || string.IsNullOrWhiteSpace(workActionReason))">
+                <span class="bi bi-slash-circle me-1"></span> Cancel Move
+            </button>
+        </Footer>
+    </Modal>
 
     @* ── Addresses Tab ── *@
     @if (activeTab == "addresses")
@@ -570,6 +778,12 @@ else
 
     protected override string? FeatureKey => "employees";
 
+    /// <summary>True when the signed-in user is viewing their own employee record.
+    /// Self-service move cancellation is available here to the employee themselves
+    /// (read-only on the feature) as well as to staff with write access; administrative
+    /// approve/reject/process actions live on the staffing admin pages.</summary>
+    private bool IsOwnRecord => CurrentUser.Employee?.CtrlNbr == CtrlNbr;
+
     private GetEmployeeResponse? employee;
 
     private List<AddressTypeResponse> addressTypes = [];
@@ -578,19 +792,27 @@ else
     private List<QualificationTypeResponse> qualificationTypes = [];
     private List<EmployeeQualificationResponse> employeeQualifications = [];
 
-    private string activeTab = "addresses";
+    // ── Work & Staffing tab ──
+    private EmployeeWorkProfileResponse? workProfile;
+    private bool workTabLoaded;
+    private bool workTabLoading;
+
+    private string activeTab = "work";
 
     private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
     [
-        new("addresses", "Addresses", "bi-geo-alt"),
-        new("emails", "Email Addresses", "bi-envelope"),
-        new("phones", "Phone Numbers", "bi-telephone"),
-        new("qualifications", "Qualifications", "bi-award")
+        new("work",          "Work & Staffing",  "bi-person-badge"),
+        new("addresses",     "Addresses",         "bi-geo-alt"),
+        new("emails",        "Email Addresses",   "bi-envelope"),
+        new("phones",        "Phone Numbers",     "bi-telephone"),
+        new("qualifications","Qualifications",    "bi-award")
     ];
 
     protected override async Task LoadDataAsync()
     {
         await LoadEmployee();
+        // Pre-load work tab since it is the default
+        await LoadWorkTabAsync();
     }
 
     private async Task LoadEmployee()
@@ -631,6 +853,92 @@ else
             errorMessage = $"Failed to reload employee: {ex.Message}";
         }
     }
+
+    private async Task OnTabChangedAsync(string tab)
+    {
+        activeTab = tab;
+        if (tab == "work" && !workTabLoaded)
+            await LoadWorkTabAsync();
+    }
+
+    private async Task LoadWorkTabAsync()
+    {
+        if (workTabLoading) return;
+        workTabLoading = true;
+        try
+        {
+            errorMessage = null;
+            workProfile = await EmployeeClient.GetWorkProfileAsync(
+                CtrlNbr,
+                SelectedParentCtrlNbr ?? 0,
+                SelectedRailroadCtrlNbr ?? 0);
+            workTabLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load work information: {ex.Message}";
+        }
+        finally
+        {
+            workTabLoading = false;
+        }
+    }
+
+    // ── Work tab — move actions ──
+
+    private bool showWorkCancelModal;
+    private long workActionMoveCtrlNbr;
+    private string workActionReason = "";
+
+    private void OpenWorkCancelModal(WorkProfileSeniorityMove move)
+    {
+        workActionMoveCtrlNbr = move.CtrlNbr;
+        workActionReason = "";
+        showWorkCancelModal = true;
+    }
+
+    private async Task ConfirmWorkCancel()
+    {
+        try
+        {
+            isSaving = true; errorMessage = null;
+            await PoliciesClient.CancelSeniorityMoveAsync(workActionMoveCtrlNbr, workActionReason);
+            showWorkCancelModal = false;
+            successMessage = "Seniority move cancelled.";
+            workTabLoaded = false;
+            await LoadWorkTabAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to cancel move: {ex.Message}"; showWorkCancelModal = false; }
+        finally { isSaving = false; }
+    }
+
+
+    private static string GetSeniorityStateBadge(string? state) => state switch
+    {
+        "Active"   => "text-bg-success",
+        "Leave"    => "text-bg-warning",
+        "Furlough" => "text-bg-secondary",
+        "Inactive" => "text-bg-dark",
+        _          => "text-bg-secondary"
+    };
+
+    private static string GetMoveBadgeClass(string? status) => status switch
+    {
+        "Pending"   => "text-bg-warning",
+        "Approved"  => "text-bg-success",
+        "Completed" => "text-bg-primary",
+        "Rejected"  => "text-bg-danger",
+        "Cancelled" => "text-bg-secondary",
+        _           => "text-bg-secondary"
+    };
+
+    private static string GetBidStatusBadge(string? status) => status switch
+    {
+        "Submitted" => "text-bg-info",
+        "Awarded"   => "text-bg-success",
+        "Withdrawn" => "text-bg-secondary",
+        _           => "text-bg-secondary"
+    };
 
     // ── Address CRUD ──
 

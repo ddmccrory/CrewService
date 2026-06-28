@@ -7,14 +7,13 @@ using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
-using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.RosterBoardOps;
 
 public sealed class RosterBoardAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IRequiredPositionsFormulaRegistry formulaRegistry,
-    ILogger<RosterBoardAppService> logger)
+    VacancyAssignment.VacancyRepostService vacancyRepostService)
 {
     // ── Single Board ─────────────────────────────────────────────────────────
 
@@ -122,11 +121,19 @@ public sealed class RosterBoardAppService(
 
     public async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
         CreateRosterBoardAsync(long craftCtrlNbr, long rosterCtrlNbr, string name,
-            BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0, CancellationToken ct = default)
+            BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0,
+            bool? allowBulletinBidding = null, bool? allowSeniorityMove = null,
+            bool? allowForceAssign = null, CancellationToken ct = default)
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(craftCtrlNbr), ControlNumber.Create(rosterCtrlNbr),
             name, boardType, rotationType, isActive, requiredPositions);
+        if (allowBulletinBidding.HasValue)
+            board.SetAllowBulletinBidding(allowBulletinBidding.Value);
+        if (allowSeniorityMove.HasValue)
+            board.SetAllowSeniorityMove(allowSeniorityMove.Value);
+        if (allowForceAssign.HasValue)
+            board.SetAllowForceAssign(allowForceAssign.Value);
 
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.RosterBoards.Add(board);
@@ -138,12 +145,20 @@ public sealed class RosterBoardAppService(
 
     public async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
         UpdateRosterBoardAsync(ControlNumber ctrlNbr, string name,
-            BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0, CancellationToken ct = default)
+            BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0,
+            bool? allowBulletinBidding = null, bool? allowSeniorityMove = null,
+            bool? allowForceAssign = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Roster board {ctrlNbr.Value} not found.");
         board.Update(name, boardType, rotationType, isActive, requiredPositions);
+        if (allowBulletinBidding.HasValue)
+            board.SetAllowBulletinBidding(allowBulletinBidding.Value);
+        if (allowSeniorityMove.HasValue)
+            board.SetAllowSeniorityMove(allowSeniorityMove.Value);
+        if (allowForceAssign.HasValue)
+            board.SetAllowForceAssign(allowForceAssign.Value);
         uow.RosterBoards.Update(board);
         var updateResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
@@ -164,7 +179,7 @@ public sealed class RosterBoardAppService(
 
     public async Task<(RosterBoardPosition Position, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
         AddRosterBoardPositionAsync(ControlNumber boardCtrlNbr, ControlNumber employeeCtrlNbr,
-            int positionOrder, CancellationToken ct = default)
+            int positionOrder, CancellationToken ct = default, DateTime? assignedDateUtc = null)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr)
@@ -178,7 +193,8 @@ public sealed class RosterBoardAppService(
         var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
         var position = board.AddPosition(employeeCtrlNbr, positionOrder, staffablePosition.CtrlNbr);
         var positionAssignment = PositionAssignment.Create(
-            staffablePosition.CtrlNbr, employeeCtrlNbr, PositionAssignmentType.Board, position.CtrlNbr);
+            staffablePosition.CtrlNbr, employeeCtrlNbr, PositionAssignmentType.Board, position.CtrlNbr,
+            assignedDateUtc: assignedDateUtc);
 
         uow.StaffablePositions.Add(staffablePosition);
         uow.PositionAssignments.Add(positionAssignment);
@@ -190,60 +206,49 @@ public sealed class RosterBoardAppService(
 
     public async Task<ControlNumber> RemoveRosterBoardPositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var boards = await uow.RosterBoards.GetAllAsync();
-        var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
-            ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found on any board.");
+        ControlNumber boardCtrlNbr;
+        ControlNumber vacatedStaffablePositionCtrlNbr;
+        ControlNumber? previousIncumbentCtrlNbr;
+        bool isExtraBoard;
 
-        var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
-        var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(position.StaffablePositionCtrlNbr);
-
-        board.RemovePosition(position);
-        uow.RosterBoards.Update(board);
-        if (positionAssignment is not null)
-            uow.PositionAssignments.Remove(positionAssignment);
-
-        // Refresh the required-position threshold using the craft's assigned strategy (ExtraBoard only).
-        if (board.BoardType == BoardType.ExtraBoard && board.CraftCtrlNbr is not null)
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            var recalcRoster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
-            if (recalcRoster is not null)
-                await RecalculateRequiredPositionsAsync(uow, board, recalcRoster.WorkAreaGroupCtrlNbr, ct);
-        }
+            var boards = await uow.RosterBoards.GetAllAsync();
+            var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
+                ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found on any board.");
 
-        // Board positions are bulletined when occupied positions fall below RequiredPositions.
-        // Positions count after removal is board.Positions.Count (already removed above).
-        if (board.RequiredPositions > 0 && board.Positions.Count < board.RequiredPositions)
-        {
-            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
-            if (roster is not null)
+            var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
+            var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(position.StaffablePositionCtrlNbr);
+
+            boardCtrlNbr = board.CtrlNbr;
+            vacatedStaffablePositionCtrlNbr = position.StaffablePositionCtrlNbr;
+            previousIncumbentCtrlNbr = position.EmployeeCtrlNbr;
+            isExtraBoard = board.BoardType == BoardType.ExtraBoard && board.CraftCtrlNbr is not null;
+
+            board.RemovePosition(position);
+            uow.RosterBoards.Update(board);
+            if (positionAssignment is not null)
+                uow.PositionAssignments.Remove(positionAssignment);
+
+            // Refresh the required-position threshold using the craft's assigned strategy (ExtraBoard only).
+            if (isExtraBoard)
             {
-                var rule = await uow.BulletinRules.GetByCraftAsync(roster.CraftCtrlNbr);
-                if (rule is not null)
-                {
-                    var vacancy = PositionVacancy.Create(
-                        roster.WorkAreaGroupCtrlNbr, StaffablePositionType.Board,
-                        position.StaffablePositionCtrlNbr,
-                        roster.CraftCtrlNbr, "BOARD_UNDERSTAFFED",
-                        targetName: $"{board.Name} \u2014 Slot {position.PositionOrder}");
-                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
-                    var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
-                    var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
-                    var bulletin = Bulletin.Create(vacancy.CtrlNbr, roster.CraftCtrlNbr, opens, closes, effective);
-                    vacancy.MarkBulletined();
-                    await uow.PositionVacancies.AddAsync(vacancy, ct);
-                    await uow.Bulletins.AddAsync(bulletin, ct);
-                }
-                else
-                {
-                    logger.LogWarning(
-                        "No BulletinRule configured for craft {CraftCtrlNbr}. Bulletin not created for board position {StaffablePositionCtrlNbr} falling below required count.",
-                        roster.CraftCtrlNbr.Value, position.StaffablePositionCtrlNbr.Value);
-                }
+                var recalcRoster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+                if (recalcRoster is not null)
+                    await RecalculateRequiredPositionsAsync(uow, board, recalcRoster.WorkAreaGroupCtrlNbr, ct);
             }
+
+            await uow.CommitAsync(ct);
         }
 
-        await uow.CommitAsync(ct);
+        // Auto-bulletin the vacated slot via the centralized policy (occupancy < RequiredPositions).
+        // The removal is already committed so the occupancy check sees the post-removal state.
+        if (isExtraBoard)
+        {
+            await vacancyRepostService.RepostBoardPositionIfUnderstaffedAsync(
+                boardCtrlNbr, vacatedStaffablePositionCtrlNbr, previousIncumbentCtrlNbr, ct);
+        }
+
         return positionCtrlNbr;
     }
 

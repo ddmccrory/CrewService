@@ -61,6 +61,7 @@
     <Protobuf Include="..\..\Protos\modules\fra_compliance.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\daily_operations.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\qualifications.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\notifications.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
   </ItemGroup>
 
   <ItemGroup>

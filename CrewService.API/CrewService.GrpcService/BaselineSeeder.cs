@@ -47,6 +47,7 @@ internal static class BaselineSeeder
         ("staffing/extra-boards", "Extra Boards", "Crew Staffing", "/staffing/extra-boards"),
         ("staffing/bulletins", "Bulletins & Bids", "Crew Staffing", "/staffing/bulletins"),
         ("staffing/roster-boards", "Roster Boards", "Crew Staffing", "/staffing/roster-boards"),
+        ("staffing/seniority-moves", "Seniority Moves", "Crew Staffing", "/staffing/seniority-moves"),
 
         // Payroll
         ("payroll/dashboard", "Payroll Dashboard", "Payroll", "/payroll"),
@@ -96,6 +97,7 @@ internal static class BaselineSeeder
         ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log"),
         ("admin/required-positions-strategies", "Position Formulas", "Administration", "/admin/required-positions-strategies"),
         ("admin/seniority-vacancy-configs", "Vacancy Actions", "Administration", "/admin/seniority-vacancy-configs"),
+        ("admin/seniority-move-policies", "Seniority Move Policies", "Administration", "/admin/seniority-move-policies"),
         ("employees/scheduled-state-changes", "Scheduled State Changes", "Employee Management", "/employees/scheduled-state-changes")
     ];
 
@@ -117,7 +119,7 @@ internal static class BaselineSeeder
         ["staffing/extra-boards"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager"],
         ["staffing/bulletins"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager"],
         ["staffing/roster-boards"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager"],
-
+        ["staffing/seniority-moves"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager", "CraftManager"],
         // Payroll
         ["payroll/dashboard"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "PayrollClerk"],
         ["payroll/rates"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "PayrollClerk"],
@@ -166,6 +168,7 @@ internal static class BaselineSeeder
         ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/required-positions-strategies"] = ["SystemAdmin"],
         ["admin/seniority-vacancy-configs"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["admin/seniority-move-policies"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["employees/scheduled-state-changes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
     };
 

@@ -51,6 +51,74 @@ service EmployeeSrvc {
   rpc DeleteEmailAddressAsync(DeleteEmailAddressRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/employees/{employee_ctrl_nbr}/emails/{ctrl_nbr}" };
   }
+  rpc GetEmployeeWorkProfile(GetEmployeeWorkProfileRequest) returns (EmployeeWorkProfileResponse) {
+    option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/work-profile" };
+  }
+}
+
+// ── Work Profile ─────────────────────────────────────────────────────────────
+message GetEmployeeWorkProfileRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 parent_ctrl_nbr   = 2;
+  int64 railroad_ctrl_nbr = 3;
+}
+
+message EmployeeWorkProfileResponse {
+  // Header enrichment
+  string role              = 1;
+  string employment_date   = 2;
+  string employment_status = 3;
+  // Whether the employee is currently permitted to bid on bulletins (based on their board position rules)
+  bool   can_bid_on_bulletins = 7;
+  // Work & Staffing tab data
+  repeated WorkProfileSeniorityEntry seniority_entries = 4;
+  repeated WorkProfileSeniorityMove  moves             = 5;
+  repeated WorkProfileBulletinBid    bids              = 6;
+}
+
+message WorkProfileSeniorityEntry {
+  int64  ctrl_nbr                 = 1;
+  int64  roster_ctrl_nbr          = 2;
+  string roster_name              = 3;
+  string roster_date              = 4;
+  int32  rank                     = 5;
+  int64  seniority_state_ctrl_nbr = 6;
+  string seniority_state_name     = 7;
+  bool   last_active_roster       = 8;
+  // Current position — empty strings if unassigned
+  string position_name          = 9;
+  string position_type          = 10;
+  string position_assigned_date = 11;
+  int64  craft_ctrl_nbr         = 12;
+  int32  days_on_current_position = 13;
+}
+
+message WorkProfileSeniorityMove {
+  int64  ctrl_nbr                  = 1;
+  int64  craft_ctrl_nbr            = 2;
+  int64  target_position_ctrl_nbr  = 3;
+  int64  displaced_employee_ctrl_nbr = 4;
+  string requested_utc             = 5;
+  string effective_utc             = 6;
+  int32  days_on_current_position  = 7;
+  string move_type                 = 8;
+  string status                    = 9;
+  string rejection_reason          = 10;
+  string cancellation_reason       = 11;
+  // True when the move may still be cancelled (status- and cancel-window-aware).
+  bool   can_cancel                = 12;
+  // Display name of the target position (e.g. "350 / Engineer"); empty if unresolved.
+  string target_position_name      = 13;
+}
+
+message WorkProfileBulletinBid {
+  int64  ctrl_nbr         = 1;
+  int64  bulletin_ctrl_nbr = 2;
+  int32  priority         = 3;
+  string submitted_utc    = 4;
+  string status           = 5;
+  string bulletin_code    = 6;
+  string position_name    = 7;
 }
 
 message GetAllEmployeesRequest {

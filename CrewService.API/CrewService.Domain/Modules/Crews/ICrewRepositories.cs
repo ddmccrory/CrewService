@@ -16,6 +16,12 @@ public interface ICrewPositionRepository : IRepository<CrewPosition>
     Task<List<CrewPosition>> GetByCrewAsync(ControlNumber crewCtrlNbr);
     Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs);
     Task<CrewPosition?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr);
+    /// <summary>
+    /// Returns the backing StaffablePosition control numbers of crew positions that currently
+    /// have no active <c>PositionAssignment</c> row. Used by the reconciliation sweep to repost
+    /// vacant crew positions that were missed by the post-commit reactor.
+    /// </summary>
+    Task<List<ControlNumber>> GetVacantStaffablePositionCtrlNbrsAsync(CancellationToken ct = default);
 }
 
 public interface ICrewIncumbencyRepository : IRepository<CrewIncumbency>

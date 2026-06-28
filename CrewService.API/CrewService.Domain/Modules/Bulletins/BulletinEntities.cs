@@ -115,6 +115,17 @@ public sealed class PositionVacancy : Entity
         Status = "Bulletined";
     }
 
+    /// <summary>
+    /// Returns a bulletined vacancy to the Open state when its bulletin is cancelled.
+    /// The position survives and is re-postable; it is NOT auto-reposted by any worker
+    /// (matches legacy behavior where cancelling a bulletin leaves the position unbulletined).
+    /// </summary>
+    public void Reopen()
+    {
+        Status = "Open";
+        ClosedUtc = null;
+    }
+
     public void Fill()
     {
         Status = "Filled";
@@ -148,6 +159,14 @@ public sealed class Bulletin : Entity
     public DateTime? ForceAssignDeadlineUtc { get; private set; }
 
     private Bulletin() { PositionVacancyCtrlNbr = null!; CraftCtrlNbr = null!; }
+
+    /// <summary>
+    /// Whether this bulletin may be cancelled. Mirrors SA's <c>CanCancelBulletin =&gt; !IsClosed</c>:
+    /// cancellation is allowed only while the bid window is still open and the bulletin has not
+    /// been awarded/force-assigned. There is no admin override outside this window (legacy parity).
+    /// </summary>
+    public bool CanCancel(DateTime utcNow) =>
+        Status == "Posted" && AwardedEmployeeCtrlNbr is null && utcNow <= BidWindowClosesUtc;
 
     public static Bulletin Create(
         ControlNumber positionVacancyCtrlNbr,
@@ -213,12 +232,13 @@ public sealed class BulletinBid : Entity
     public ControlNumber EmployeeCtrlNbr { get; private set; }
     public int Priority { get; private set; }
     public DateTime SubmittedUtc { get; private set; }
+    public DateTime SeniorityDate { get; private set; }
     public int SeniorityRank { get; private set; }
     public string Status { get; private set; } = "Submitted";
 
     private BulletinBid() { BulletinCtrlNbr = null!; EmployeeCtrlNbr = null!; }
 
-    public static BulletinBid Create(ControlNumber bulletinCtrlNbr, ControlNumber employeeCtrlNbr, int priority, int seniorityRank)
+    public static BulletinBid Create(ControlNumber bulletinCtrlNbr, ControlNumber employeeCtrlNbr, int priority, DateTime seniorityDate, int seniorityRank)
     {
         return new BulletinBid
         {
@@ -226,6 +246,7 @@ public sealed class BulletinBid : Entity
             EmployeeCtrlNbr = employeeCtrlNbr,
             Priority = priority,
             SubmittedUtc = DateTime.UtcNow,
+            SeniorityDate = seniorityDate,
             SeniorityRank = seniorityRank
         };
     }

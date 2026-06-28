@@ -1,20 +1,20 @@
-using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.VacancyCalls;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.ElectronicCalling;
 
-public interface INotificationRequestRepository
+public interface IVacancyCallRequestRepository
 {
-    Task AddAsync(NotificationRequest request, CancellationToken ct = default);
-    Task<NotificationRequest?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
-    Task<IReadOnlyList<NotificationRequest>> GetPendingAsync(CancellationToken ct = default);
+    Task AddAsync(VacancyCallRequest request, CancellationToken ct = default);
+    Task<VacancyCallRequest?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default);
+    Task<IReadOnlyList<VacancyCallRequest>> GetPendingAsync(CancellationToken ct = default);
 }
 
 public sealed class CrewCallingService(
     ICrewNotificationProvider provider,
-    INotificationRequestRepository requestRepo)
+    IVacancyCallRequestRepository requestRepo)
 {
-    public async Task<NotificationRequest> SendCallAsync(
+    public async Task<VacancyCallRequest> SendCallAsync(
         ControlNumber positionSlotCtrlNbr,
         ControlNumber employeeCtrlNbr,
         string templateType,
@@ -24,7 +24,7 @@ public sealed class CrewCallingService(
     {
         var sendResult = await provider.SendAsync(employeeCtrlNbr, templateType, templateData, ct);
 
-        var request = NotificationRequest.Create(
+        var request = VacancyCallRequest.Create(
             positionSlotCtrlNbr, employeeCtrlNbr, templateType,
             pollingTimeoutMinutes,
             sendResult.Success ? sendResult.ExternalId : null);
@@ -36,7 +36,7 @@ public sealed class CrewCallingService(
         return request;
     }
 
-    public async Task<NotificationRequest?> PollAndUpdateAsync(
+    public async Task<VacancyCallRequest?> PollAndUpdateAsync(
         ControlNumber requestCtrlNbr, CancellationToken ct = default)
     {
         var request = await requestRepo.GetByCtrlNbrAsync(requestCtrlNbr, ct);

@@ -55,6 +55,9 @@ service BulletinsSrvc {
   rpc SetBulletinNoBid(SetBulletinNoBidRequest) returns (BulletinResponse) {
     option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/no-bid" };
   }
+  rpc CancelBulletin(CancelBulletinRequest) returns (BulletinResponse) {
+    option (google.api.http) = { put: "/v1/bulletins/{ctrl_nbr}/cancel" };
+  }
 
   // Bids
   rpc SubmitBid(SubmitBidRequest) returns (BulletinBidResponse) {
@@ -80,6 +83,11 @@ service BulletinsSrvc {
   }
   rpc SaveBulletinRule(SaveBulletinRuleRequest) returns (BulletinRuleResponse) {
     option (google.api.http) = { post: "/v1/bulletins/rules" body: "*" };
+  }
+
+  // Winner selection (preview — does not commit the award)
+  rpc GetBulletinWinner(GetBulletinWinnerRequest) returns (GetBulletinWinnerResponse) {
+    option (google.api.http) = { get: "/v1/bulletins/{ctrl_nbr}/winner" };
   }
 
   // Scheduling
@@ -152,6 +160,7 @@ message ForceAssignBulletinRequest {
 }
 message AutoForceAssignBulletinRequest { int64 ctrl_nbr = 1; }
 message SetBulletinNoBidRequest { int64 ctrl_nbr = 1; }
+message CancelBulletinRequest { int64 ctrl_nbr = 1; }
 message GetBulletinsResponse {
   repeated BulletinResponse bulletins = 1;
   int32 total_count = 2;
@@ -234,4 +243,14 @@ message GetForceAssignCandidateRequest { int64 ctrl_nbr = 1; }
 message GetForceAssignCandidateResponse {
   int64 employee_ctrl_nbr = 1;
   string employee_name = 2;
+}
+
+message GetBulletinWinnerRequest { int64 ctrl_nbr = 1; }
+message GetBulletinWinnerResponse {
+  bool has_winner = 1;
+  int64 employee_ctrl_nbr = 2;
+  string employee_name = 3;
+  string seniority_date = 4;
+  int32 seniority_rank = 5;
+  int32 priority = 6;
 }

@@ -179,6 +179,21 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
         return "\u2014";
     }
 
+    /// <summary>
+    /// Formats an offset-carrying ISO 8601 string as a local date+time (<c>MM/dd/yyyy h:mm tt</c>),
+    /// or "—" when empty. The server emits work-area-local values with an explicit offset
+    /// (e.g. "...-05:00"); parsing as <see cref="DateTimeOffset"/> and reading <c>.DateTime</c>
+    /// preserves that wall clock exactly instead of re-converting into the browser's zone.
+    /// </summary>
+    protected static string FormatLocalDateTime(string? iso)
+    {
+        if (!string.IsNullOrWhiteSpace(iso) &&
+            DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var dto))
+            return dto.DateTime.ToString("MM/dd/yyyy h:mm tt");
+        return "\u2014";
+    }
+
     public virtual void Dispose()
     {
         _cts.Cancel();

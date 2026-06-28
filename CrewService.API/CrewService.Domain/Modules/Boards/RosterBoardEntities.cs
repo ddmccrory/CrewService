@@ -19,6 +19,15 @@ public sealed class RosterBoard : Entity
     public int RequiredPositions { get; private set; }
     /// <summary>Board-level strategy override. Null = inherit from craft's assigned strategy.</summary>
     public ControlNumber? RequiredPositionsStrategyCtrlNbr { get; private set; }
+    /// <summary>Whether employees on this board are permitted to bid on open bulletins. Defaults based on board type.</summary>
+    public bool AllowBulletinBidding { get; private set; }
+    /// <summary>Whether a seniority move can target positions on this board. Defaults based on board type.</summary>
+    public bool AllowSeniorityMove { get; private set; }
+    /// <summary>Whether employees on this board are eligible to be force-assigned to no-bid crew
+    /// vacancies. Mirrors SA's per-board <c>RosterBoard.ForceAssign</c> flag and keeps the
+    /// force-assign candidate pool tenant-configurable rather than hardcoding board types in the
+    /// selection logic. Defaults based on board type.</summary>
+    public bool AllowForceAssign { get; private set; }
 
     public IReadOnlyList<RosterBoardPosition> Positions => _positions.AsReadOnly();
 
@@ -48,7 +57,10 @@ public sealed class RosterBoard : Entity
             BoardType = boardType,
             RotationType = rotationType,
             IsActive = isActive,
-            RequiredPositions = requiredPositions
+            RequiredPositions = requiredPositions,
+            AllowBulletinBidding = DefaultAllowBulletinBidding(boardType),
+            AllowSeniorityMove = DefaultAllowSeniorityMove(boardType),
+            AllowForceAssign = DefaultAllowForceAssign(boardType)
         };
         board.Raise(new RosterBoardCreatedDomainEvent(board.CtrlNbr, name));
         return board;
@@ -68,6 +80,12 @@ public sealed class RosterBoard : Entity
     }
 
     public void UpdateRequiredPositions(int value) => RequiredPositions = value;
+
+    public void SetAllowBulletinBidding(bool value) => AllowBulletinBidding = value;
+
+    public void SetAllowSeniorityMove(bool value) => AllowSeniorityMove = value;
+
+    public void SetAllowForceAssign(bool value) => AllowForceAssign = value;
 
     public void SetRequiredPositionsStrategy(ControlNumber? strategyCtrlNbr) =>
         RequiredPositionsStrategyCtrlNbr = strategyCtrlNbr;
@@ -123,6 +141,21 @@ public sealed class RosterBoard : Entity
     {
         IsActive = false;
     }
+    /// <summary>Returns the conventional default for AllowBulletinBidding based on board type.
+    /// ExtraBoard and Hangout boards allow bidding; all others do not.</summary>
+    public static bool DefaultAllowBulletinBidding(BoardType boardType) =>
+        boardType is BoardType.ExtraBoard or BoardType.Hangout;
+
+    /// <summary>Returns the conventional default for AllowSeniorityMove based on board type.
+    /// Only ExtraBoard allows seniority moves by default.</summary>
+    public static bool DefaultAllowSeniorityMove(BoardType boardType) =>
+        boardType is BoardType.ExtraBoard;
+
+    /// <summary>Returns the conventional default for AllowForceAssign based on board type.
+    /// ExtraBoard and Hangout members form the legacy non-crew force-assign pool, so both are
+    /// eligible by default; all other board types are not.</summary>
+    public static bool DefaultAllowForceAssign(BoardType boardType) =>
+        boardType is BoardType.ExtraBoard or BoardType.Hangout;
 }
 
 public sealed class RosterBoardPosition : Entity

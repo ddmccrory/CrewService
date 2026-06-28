@@ -9,7 +9,7 @@ namespace CrewService.Presentation.Services.Modules;
 public class ElectronicCallingService(IServiceProvider serviceProvider)
     : ElectronicCallingSrvc.ElectronicCallingSrvcBase
 {
-    public override async Task<NotificationRequestResponse> SendCrewCall(
+    public override async Task<VacancyCallResponse> SendCrewCall(
         SendCrewCallRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<CrewCallingService>();
@@ -24,7 +24,7 @@ public class ElectronicCallingService(IServiceProvider serviceProvider)
         return MapResponse(result);
     }
 
-    public override async Task<NotificationRequestResponse> PollCallStatus(
+    public override async Task<VacancyCallResponse> PollCallStatus(
         PollCallStatusRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<CrewCallingService>();
@@ -35,9 +35,9 @@ public class ElectronicCallingService(IServiceProvider serviceProvider)
         return MapResponse(result);
     }
 
-    private static NotificationRequestResponse MapResponse(Domain.Modules.Notifications.NotificationRequest req)
+    private static VacancyCallResponse MapResponse(Domain.Modules.VacancyCalls.VacancyCallRequest req)
     {
-        var resp = new NotificationRequestResponse
+        var resp = new VacancyCallResponse
         {
             CtrlNbr = req.CtrlNbr.Value,
             Status = req.Status,

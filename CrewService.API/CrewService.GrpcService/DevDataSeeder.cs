@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Models.ContactTypes;
+using CrewService.Domain.Models.ContactTypes;
 using CrewService.Domain.ValueObjects;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
@@ -92,7 +92,7 @@ internal static class DevDataSeeder
         await groupRepo.AddAsync(simpleRR);
 
         SetParent(ptraCorpResp.CtrlNbr.Value);
-        var ptraRR = DynamicGroup.Create(ptraRailroadType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraCorpResp.CtrlNbr);
+        var ptraRR = DynamicGroup.Create(ptraRailroadType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraCorpResp.CtrlNbr, timeZoneId: "Central Standard Time");
         await groupRepo.AddAsync(ptraRR);
 
         SetParent(holdingCorpResp.CtrlNbr.Value);
@@ -155,7 +155,8 @@ internal static class DevDataSeeder
             path: "/southeast/jax",
             isWorkArea: true,
             parentCtrlNbr: holdingCorpResp.CtrlNbr,
-            railroadCtrlNbr: csxRR.CtrlNbr.Value);
+            railroadCtrlNbr: csxRR.CtrlNbr.Value,
+            timeZoneId: "Eastern Standard Time");
         await groupRepo.AddAsync(jaxSub);
 
         var midwest = DynamicGroup.Create(
@@ -275,7 +276,7 @@ internal static class DevDataSeeder
         if (allGroupsForRR.All(g => g.Code != "PTRA"))
         {
             var ptraRRType = allTypesForRR.First(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
-            await groupRepo.AddAsync(DynamicGroup.Create(ptraRRType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraParentCore.CtrlNbr.Value));
+            await groupRepo.AddAsync(DynamicGroup.Create(ptraRRType.CtrlNbr.Value, "Port Terminal Railroad Association", parentGroupCtrlNbr: null, path: null, isWorkArea: true, code: "PTRA", parentCtrlNbr: ptraParentCore.CtrlNbr.Value, timeZoneId: "Central Standard Time"));
         }
 
         SetParent(csxParentCore.CtrlNbr.Value);
@@ -321,7 +322,8 @@ internal static class DevDataSeeder
                 path: "/southeast/jax",
                 isWorkArea: true,
                 parentCtrlNbr: csxParentCore.CtrlNbr.Value,
-                railroadCtrlNbr: csxRailroadCore.CtrlNbr.Value);
+                railroadCtrlNbr: csxRailroadCore.CtrlNbr.Value,
+                timeZoneId: "Eastern Standard Time");
             await groupRepo.AddAsync(jaxSubCore);
         }
 
@@ -921,17 +923,17 @@ internal static class DevDataSeeder
         var condCraft = crafts.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
         var clerCraft = crafts.First(c => c.CraftName == "Clerical" && c.DynamicGroupCtrlNbr == csxRailroadWM.CtrlNbr);
 
-        // Craft Roles � Trainman craft
-        var studentTrainman = CraftRole.Create(condCraft.CtrlNbr, "STRN", "Student Trainman");
-        var trainman = CraftRole.Create(condCraft.CtrlNbr, "TRMN", "Trainman");
-        var conductor = CraftRole.Create(condCraft.CtrlNbr, "COND", "Conductor");
+        // Craft Roles � Trainman craft (hierarchy: Student Trainman < Trainman < Conductor)
+        var studentTrainman = CraftRole.Create(condCraft.CtrlNbr, "STRN", "Student Trainman", hierarchyLevel: 0);
+        var trainman = CraftRole.Create(condCraft.CtrlNbr, "TRMN", "Trainman", hierarchyLevel: 1);
+        var conductor = CraftRole.Create(condCraft.CtrlNbr, "COND", "Conductor", hierarchyLevel: 2);
         await craftRoleRepo.AddAsync(studentTrainman);
         await craftRoleRepo.AddAsync(trainman);
         await craftRoleRepo.AddAsync(conductor);
 
-        // Craft Roles � Engineer craft
-        var studentEngineer = CraftRole.Create(engCraft.CtrlNbr, "SENG", "Student Engineer");
-        var engineer = CraftRole.Create(engCraft.CtrlNbr, "ENGR", "Engineer");
+        // Craft Roles � Engineer craft (hierarchy: Student Engineer < Engineer)
+        var studentEngineer = CraftRole.Create(engCraft.CtrlNbr, "SENG", "Student Engineer", hierarchyLevel: 0);
+        var engineer = CraftRole.Create(engCraft.CtrlNbr, "ENGR", "Engineer", hierarchyLevel: 1);
         await craftRoleRepo.AddAsync(studentEngineer);
         await craftRoleRepo.AddAsync(engineer);
 
@@ -947,9 +949,9 @@ internal static class DevDataSeeder
         var ptraEngineerRole = CraftRole.Create(ptraEngCraft.CtrlNbr, "E", "Engineer");
         await craftRoleRepo.AddAsync(ptraEngineerRole);
 
-        // Craft Roles - PTRA Trainman craft
-        var ptraForeman = CraftRole.Create(ptraCondCraft.CtrlNbr, "F", "Foreman");
-        var ptraHelper = CraftRole.Create(ptraCondCraft.CtrlNbr, "H", "Helper");
+        // Craft Roles - PTRA Trainman craft (hierarchy: Helper < Foreman; Foreman force-assigns from Helper tier)
+        var ptraForeman = CraftRole.Create(ptraCondCraft.CtrlNbr, "F", "Foreman", hierarchyLevel: 1);
+        var ptraHelper = CraftRole.Create(ptraCondCraft.CtrlNbr, "H", "Helper", hierarchyLevel: 0);
         await craftRoleRepo.AddAsync(ptraForeman);
         await craftRoleRepo.AddAsync(ptraHelper);
 
@@ -1289,8 +1291,23 @@ internal static class DevDataSeeder
         await bulletinPolicyRepo.AddAsync(BulletinPolicy.Create(engCraft4.CtrlNbr, 120));
         await bulletinPolicyRepo.AddAsync(BulletinPolicy.Create(condCraft4.CtrlNbr, 120));
 
-        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(engCraft4.CtrlNbr, 90, "ROSTER_DATE"));
-        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(condCraft4.CtrlNbr, 90, "ROSTER_DATE"));
+        // Engineer: moves to board are at end-of-work-week (FirstOffDay), moves to crew use target schedule (FirstOffDay).
+        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
+            csxRailroad5.CtrlNbr, engCraft4.CtrlNbr,
+            eligibilityDays: 90, requestHours: 48, cancelHours: 4, autoApprove: true,
+            crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+            crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+            extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate));
+
+        // Trainman/Conductor: moves to board use lead time only (no schedule), moves to crew use target schedule.
+        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
+            csxRailroad5.CtrlNbr, condCraft4.CtrlNbr,
+            eligibilityDays: 90, requestHours: 48, cancelHours: 4, autoApprove: true,
+            crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+            crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.RequestLeadTime,
+            extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate));
 
         } // end policies guard
 
@@ -1836,10 +1853,12 @@ internal static class DevDataSeeder
                 var today = DateTime.UtcNow.Date;
                 var rng = new Random(42);
 
+                // Position dates: randomly 60–365 days in the past so all crew employees
+                // meet the typical 30-day eligibility requirement during testing.
                 DateTime RandomIncumbencyDate()
                 {
-                    var date = incumbencyBase.AddDays(rng.Next(-365, 365));
-                    return date > today ? today : date;
+                    var daysAgo = rng.Next(60, 366);
+                    return today.AddDays(-daysAgo);
                 }
 
                 // ── Crew Incumbencies ───────────────────────────────────────────
@@ -1886,14 +1905,14 @@ internal static class DevDataSeeder
                 var boardEngEmps = ptraEngEmps.Skip(engCrewAssigned).ToList();
                 for (int i = 0; i < boardEngEmps.Count; i++)
                 {
-                    await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraEngBoardCtrlNbr, boardEngEmps[i].CtrlNbr, i + 1);
+                    await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraEngBoardCtrlNbr, boardEngEmps[i].CtrlNbr, i + 1, assignedDateUtc: RandomIncumbencyDate());
                 }
 
                 // Remaining eligible trainmen go to extra board (those not placed in crew slots)
                 var boardTrnEmps = ptraTrnEmps.Skip(fmnCrewAssigned + hlpCrewAssigned).ToList();
                 for (int i = 0; i < boardTrnEmps.Count; i++)
                 {
-                    await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraTrnBoardCtrlNbr, boardTrnEmps[i].CtrlNbr, i + 1);
+                    await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraTrnBoardCtrlNbr, boardTrnEmps[i].CtrlNbr, i + 1, assignedDateUtc: RandomIncumbencyDate());
                 }
             }
         }
