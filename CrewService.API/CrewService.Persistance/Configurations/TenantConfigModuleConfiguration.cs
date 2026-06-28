@@ -13,10 +13,20 @@ internal class GroupTypeConfiguration : IEntityTypeConfiguration<GroupType>
         builder.Property(g => g.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
         builder.Property(g => g.Description).HasMaxLength(500);
+        builder.Property(g => g.IsWorkArea).IsRequired();
+        builder.Property(g => g.FlagsJson).HasMaxLength(2000);
 
         builder.Property(g => g.ParentGroupTypeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(g => g.ParentCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(g => g.RailroadCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+
+        builder.HasIndex(g => new { g.Name, g.ParentCtrlNbr, g.RailroadCtrlNbr }).IsUnique();
 
         builder.OwnsOne(g => g.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(g => g.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -34,8 +44,11 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
         builder.Property(g => g.ParentGroupCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(g => g.Name).HasMaxLength(100).IsRequired();
-        builder.Property(g => g.Path).HasMaxLength(500);
+        builder.Property(g => g.Name).HasMaxLength(200).IsRequired();
+        builder.Property(g => g.Code).HasMaxLength(50);
+        builder.Property(g => g.Path).HasMaxLength(2000);
+        builder.Property(g => g.IsWorkArea).IsRequired();
+        builder.Property(g => g.TimeZoneId).HasMaxLength(100);
 
         builder.Property(g => g.ParentCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
@@ -43,6 +56,10 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
         builder.Property(g => g.RailroadCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+
+        builder.HasIndex(g => g.Path);
+        builder.HasIndex(g => g.RailroadCtrlNbr);
+        builder.HasIndex(g => new { g.ParentGroupCtrlNbr, g.Name });
 
         builder.HasOne<GroupType>().WithMany().HasForeignKey(g => g.GroupTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(g => g.ParentGroupCtrlNbr).OnDelete(DeleteBehavior.SetNull);
@@ -61,7 +78,7 @@ internal class GroupAttributeDefinitionConfiguration : IEntityTypeConfiguration<
         builder.Property(d => d.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(d => d.GroupTypeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(d => d.AttributeName).HasMaxLength(100).IsRequired();
-        builder.Property(d => d.DataType).HasMaxLength(30).IsRequired();
+        builder.Property(d => d.DataType).HasMaxLength(50).IsRequired();
         builder.Property(d => d.DefaultValue).HasMaxLength(500);
 
         builder.HasOne<GroupType>().WithMany().HasForeignKey(d => d.GroupTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -80,7 +97,7 @@ internal class GroupAttributeValueConfiguration : IEntityTypeConfiguration<Group
         builder.Property(v => v.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(v => v.GroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(v => v.AttributeDefinitionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(v => v.Value).HasMaxLength(1000);
+        builder.Property(v => v.Value).HasMaxLength(2000);
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(v => v.GroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<GroupAttributeDefinition>().WithMany().HasForeignKey(v => v.AttributeDefinitionCtrlNbr).OnDelete(DeleteBehavior.Restrict);

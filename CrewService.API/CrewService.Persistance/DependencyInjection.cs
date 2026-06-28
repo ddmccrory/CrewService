@@ -31,24 +31,6 @@ using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Encryption;
-using CrewService.Persistance.Modules.AbsenceVacancy;
-using CrewService.Persistance.Modules.Authorization;
-using CrewService.Persistance.Modules.Boards;
-using CrewService.Persistance.Modules.Bulletins;
-using CrewService.Persistance.Modules.Crews;
-using CrewService.Persistance.Modules.DailyOperations;
-using CrewService.Persistance.Modules.Dispatching;
-using CrewService.Persistance.Modules.FraCompliance;
-using CrewService.Persistance.Modules.Infrastructure;
-using CrewService.Persistance.Modules.Notifications;
-using CrewService.Persistance.Modules.Payroll;
-using CrewService.Persistance.Modules.Policies;
-using CrewService.Persistance.Modules.Qualifications;
-using CrewService.Persistance.Modules.RailroadInfo;
-using CrewService.Persistance.Modules.Safety;
-using CrewService.Persistance.Modules.Staffing;
-using CrewService.Persistance.Modules.TenantConfig;
-using CrewService.Persistance.Modules.WorkManagement;
 using CrewService.Persistance.Repositories;
 using CrewService.Persistance.Services;
 using CrewService.Persistance.UnitOfWork;
@@ -251,7 +233,7 @@ public static class DependencyInjection
         services.AddScoped<IPayRateRepository, PayRateRepository>();
 
         // Electronic Calling Repositories (B06)
-        services.AddScoped<INotificationRequestRepository, NotificationRequestRepository>();
+        services.AddScoped<IVacancyCallRequestRepository, VacancyCallRequestRepository>();
 
         // Background Services Repositories (B07)
         services.AddScoped<IWorkerScheduleRepository, WorkerScheduleRepository>();

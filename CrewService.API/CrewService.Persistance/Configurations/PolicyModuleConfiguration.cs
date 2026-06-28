@@ -1,6 +1,7 @@
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -13,9 +14,11 @@ internal class CraftDisplacementPolicyConfiguration : IEntityTypeConfiguration<C
     {
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.SeniorityBasis).HasMaxLength(30).IsRequired();
-        builder.Property(p => p.DefaultAction).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(p => p.WindowHours).IsRequired();
+        builder.Property(p => p.SeniorityBasis).HasMaxLength(50).IsRequired();
+        builder.Property(p => p.DefaultAction).HasMaxLength(50).IsRequired();
+        builder.Property(p => p.EligibilitySelectorJson).HasMaxLength(4000);
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(p => p.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
@@ -31,9 +34,11 @@ internal class DisplacementCaseConfiguration : IEntityTypeConfiguration<Displace
     {
         builder.HasKey(c => c.CtrlNbr);
         builder.Property(c => c.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(c => c.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(c => c.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(c => c.Status).HasMaxLength(20).IsRequired();
+        builder.Property(c => c.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(c => c.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(c => c.OpenedUtc).IsRequired();
+        builder.Property(c => c.ExpiresUtc).IsRequired();
+        builder.Property(c => c.Status).HasMaxLength(30).IsRequired();
 
         builder.HasOne<Employee>().WithMany().HasForeignKey(c => c.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(c => c.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -50,9 +55,10 @@ internal class DisplacementClaimConfiguration : IEntityTypeConfiguration<Displac
     {
         builder.HasKey(c => c.CtrlNbr);
         builder.Property(c => c.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(c => c.CaseCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(c => c.TargetEmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(c => c.Decision).HasMaxLength(20);
+        builder.Property(c => c.CaseCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(c => c.TargetEmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(c => c.SubmittedUtc).IsRequired();
+        builder.Property(c => c.Decision).HasMaxLength(30);
         builder.Property(c => c.Reason).HasMaxLength(500);
 
         builder.HasOne<DisplacementCase>().WithMany().HasForeignKey(c => c.CaseCtrlNbr).OnDelete(DeleteBehavior.Cascade);
@@ -70,7 +76,9 @@ internal class BulletinPolicyConfiguration : IEntityTypeConfiguration<BulletinPo
     {
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(p => p.BidWindowHours).IsRequired();
+        builder.Property(p => p.ForcedAssignmentEnabled).IsRequired();
         builder.Property(p => p.ForcedAssignmentBasis).HasMaxLength(30).IsRequired();
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(p => p.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -87,9 +95,23 @@ internal class SeniorityMovePolicyConfiguration : IEntityTypeConfiguration<Senio
     {
         builder.HasKey(p => p.CtrlNbr);
         builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(p => p.SeniorityBasis).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(p => new { p.RailroadCtrlNbr, p.CraftCtrlNbr }).IsUnique();
+        builder.Property(p => p.EligibilityDays).IsRequired();
+        builder.Property(p => p.RequestHours).IsRequired();
+        builder.Property(p => p.CancelHours).IsRequired();
+        builder.Property(p => p.AutoApprove).IsRequired();
+        builder.Property(p => p.WillWorkEnabled).IsRequired();
+        builder.Property(p => p.CrewToCrewStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.CrewToBoardStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.ExtraBoardToCrewStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.HangoutToCrewStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.ExtendedAbsenceToCrewStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.TrainingToCrewStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.NewHireToCrewStrategy).HasMaxLength(30).IsRequired();
 
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(p => p.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -104,13 +126,25 @@ internal class SeniorityMoveConfiguration : IEntityTypeConfiguration<SeniorityMo
     {
         builder.HasKey(m => m.CtrlNbr);
         builder.Property(m => m.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(m => m.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(m => m.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(m => m.TargetPositionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(m => m.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(m => m.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(m => m.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(m => m.TargetPositionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(m => m.DisplacedEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(m => m.RequestedUtc).IsRequired();
+        builder.Property(m => m.EffectiveUtc);
+        builder.Property(m => m.DaysOnCurrentPosition).IsRequired();
+        builder.Property(m => m.MoveType).HasMaxLength(30).IsRequired();
+        builder.Property(m => m.Status).HasMaxLength(30).IsRequired();
+        builder.Property(m => m.RejectionReason).HasMaxLength(500);
+        builder.Property(m => m.CancellationReason).HasMaxLength(500);
+        builder.Property(m => m.WillWork);
+        builder.HasIndex(m => new { m.EmployeeCtrlNbr, m.Status });
+        builder.HasIndex(m => new { m.CraftCtrlNbr, m.Status });
 
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(m => m.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(m => m.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(m => m.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(m => m.DisplacedEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);

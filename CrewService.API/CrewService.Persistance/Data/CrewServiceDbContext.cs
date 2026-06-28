@@ -86,7 +86,6 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Bulletins.BulletinRule> BulletinRules => Set<Domain.Modules.Bulletins.BulletinRule>();
 
     // Dispatching Module
-    public DbSet<Domain.Modules.Dispatching.ChangeNotification> ChangeNotifications => Set<Domain.Modules.Dispatching.ChangeNotification>();
     public DbSet<Domain.Modules.Dispatching.OnDutyRecord> OnDutyRecords => Set<Domain.Modules.Dispatching.OnDutyRecord>();
     public DbSet<Domain.Modules.Dispatching.OffDutyRecord> OffDutyRecords => Set<Domain.Modules.Dispatching.OffDutyRecord>();
     public DbSet<Domain.Modules.Dispatching.OnDutyBillingRecord> OnDutyBillingRecords => Set<Domain.Modules.Dispatching.OnDutyBillingRecord>();
@@ -158,10 +157,14 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Payroll.HolidayPayrollRecord> HolidayPayrollRecords => Set<Domain.Modules.Payroll.HolidayPayrollRecord>();
     public DbSet<Domain.Modules.HolidayManagement.RailroadHolidaySelection> RailroadHolidaySelections => Set<Domain.Modules.HolidayManagement.RailroadHolidaySelection>();
 
-    // Notifications Module
-    public DbSet<Domain.Modules.Notifications.NotificationRequest> NotificationRequests => Set<Domain.Modules.Notifications.NotificationRequest>();
-    public DbSet<Domain.Modules.Notifications.NotificationResponse> NotificationResponses => Set<Domain.Modules.Notifications.NotificationResponse>();
+    // Vacancy Calls Module
+    public DbSet<Domain.Modules.VacancyCalls.VacancyCallRequest> VacancyCallRequests => Set<Domain.Modules.VacancyCalls.VacancyCallRequest>();
+    public DbSet<Domain.Modules.VacancyCalls.VacancyCallResponse> VacancyCallResponses => Set<Domain.Modules.VacancyCalls.VacancyCallResponse>();
     public DbSet<Domain.Modules.Notifications.NotificationProviderConfig> NotificationProviderConfigs => Set<Domain.Modules.Notifications.NotificationProviderConfig>();
+
+    // Notifications Module
+    public DbSet<Domain.Modules.Notifications.EmployeeNotification> EmployeeNotifications => Set<Domain.Modules.Notifications.EmployeeNotification>();
+    public DbSet<Domain.Modules.Notifications.NotificationAcknowledgement> NotificationAcknowledgements => Set<Domain.Modules.Notifications.NotificationAcknowledgement>();
 
     // AbsenceVacancy Module
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCode> AbsenceCodes => Set<Domain.Modules.AbsenceVacancy.AbsenceCode>();

@@ -19,12 +19,14 @@ using CrewService.Application.Employment;
 using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
+using CrewService.Application.Notifications;
 using CrewService.Application.Parents;
 using CrewService.Application.Payroll;
 using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
 using CrewService.Application.RailroadInfo;
 using CrewService.Application.TenantConfig;
+using CrewService.Application.Time;
 using CrewService.Application.UserAccess;
 using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.ReportingExports;
@@ -41,6 +43,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        // Time abstraction (deterministic "now" + work-area timezone resolution)
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IWorkAreaClock, WorkAreaClock>();
+
         // B01 – FRA Compliance
         services.AddScoped<FraRecordSearchService>();
         services.AddScoped<FraDutyTourCalculator>();
@@ -113,14 +119,24 @@ public static class DependencyInjection
         // Authorization
         services.AddScoped<Application.Authorization.AuthorizationService>();
 
+        // Notifications
+        services.AddScoped<EmployeeNotificationService>();
+        services.AddScoped<NotificationQueryService>();
+        services.AddScoped<INotificationDeliveryService, LoggingNotificationDeliveryService>();
+
         // Bulletins
         services.AddSingleton<IBulletinScheduleSignal, BulletinScheduleSignal>();
         services.AddScoped<BulletinsService>();
+        services.AddScoped<VacancyAssignment.VacancyRepostService>();
         services.AddHostedService<BackgroundWorkers.Workers.BulletinProcessingWorker>();
-
         // Seniority state change scheduling
         services.AddSingleton<ISeniorityStateChangeSignal, SeniorityStateChangeSignal>();
         services.AddHostedService<BackgroundWorkers.Workers.SeniorityStateChangeWorker>();
+
+        // Seniority move scheduling and execution
+        services.AddSingleton<ISeniorityMoveSignal, SeniorityMoveSignal>();
+        services.AddScoped<SeniorityMoveExecutionService>();
+        services.AddHostedService<BackgroundWorkers.Workers.SeniorityMoveWorker>();
 
         // B03 – Mark-Off
         services.AddScoped<AutoMarkUpService>();

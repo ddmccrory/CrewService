@@ -21,6 +21,8 @@ internal class RosterBoardConfiguration : IEntityTypeConfiguration<RosterBoard>
         builder.Property(r => r.BoardType).HasConversion(v => v.ToString(), v => Enum.Parse<BoardType>(v)).HasMaxLength(20).IsRequired();
         builder.Property(r => r.RotationType).HasConversion(v => v.ToString(), v => Enum.Parse<RotationType>(v)).HasMaxLength(30).IsRequired();
         builder.Property(r => r.RequiredPositions).HasDefaultValue(0);
+        builder.Property(r => r.AllowBulletinBidding);
+        builder.Property(r => r.AllowForceAssign).HasDefaultValue(false);
         builder.Property(r => r.RequiredPositionsStrategyCtrlNbr)
             .HasConversion(c => c == null ? (long?)null : c.Value, v => v == null ? null : ControlNumber.Create(v.Value));
 
