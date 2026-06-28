@@ -1,0 +1,774 @@
+@page "/staffing/seniority-moves"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject PoliciesClient PoliciesClient
+@inject CraftClient CraftClient
+@inject SeniorityClient SeniorityClient
+@inject RosterClient RosterClient
+@inject RosterBoardClient RosterBoardClient
+
+<PageTitle>Seniority Moves</PageTitle>
+
+<h1>Seniority Moves</h1>
+<p class="text-muted mb-1">Review, approve, reject, or cancel seniority move requests.</p>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage seniority moves.
+    </div>
+}
+else
+{
+    @* ── Request Move Modal ─────────────────────────────────────────── *@
+    <RequestSeniorityMoveModal @ref="requestMoveModal"
+                               Visible="showRequestModal"
+                               IsSaving="isSaving"
+                               LockedEmployee="false"
+                               RailroadCtrlNbr="@(SelectedRailroadCtrlNbr ?? 0)"
+                               Crafts="craftItems"
+                               ActiveEmployees="activeEmployeeItems"
+                               JuniorPositions="juniorPositionItems"
+                               PreviewEffectiveUtc="@previewEffectiveUtc"
+                               PreviewError="@previewError"
+                               OnCraftChanged="OnRequestCraftChangedAsync"
+                               OnEmployeeChanged="OnRequestEmployeeChangedAsync"
+                               OnPositionChanged="OnRequestPositionChangedAsync"
+                               OnConfirm="ConfirmRequest"
+                               OnCancel="CloseRequestModal" />
+
+    @* ── Move to Board Modal (board moves never displace anyone) ─────── *@
+    <RequestSeniorityMoveModal @ref="moveToBoardModal"
+                               Visible="showBoardModal"
+                               IsSaving="isSaving"
+                               BoardMode="true"
+                               RailroadCtrlNbr="@(SelectedRailroadCtrlNbr ?? 0)"
+                               Crafts="craftItems"
+                               ActiveEmployees="activeEmployeeItems"
+                               Boards="boardItems"
+                               PreviewEffectiveUtc="@previewEffectiveUtc"
+                               PreviewError="@previewError"
+                               OnCraftChanged="OnBoardCraftChangedAsync"
+                               OnEmployeeChanged="OnBoardEmployeeChangedAsync"
+                               OnBoardChanged="OnBoardSelectionChangedAsync"
+                               OnConfirm="ConfirmBoardMove"
+                               OnCancel="CloseBoardModal" />
+
+    @* ── Approve Modal ──────────────────────────────────────────────── *@
+    <Modal Visible="showApproveModal"
+           Title="Approve Seniority Move"
+           Icon="bi bi-check-circle"
+           OnClose="CloseApproveModal">
+        <BodyContent>
+            <p>Approve the seniority move for <strong>@actionEmployee</strong>?</p>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Effective Date <span class="text-muted fw-normal small">(optional)</span></label>
+                <input type="date" class="form-control" @bind="approveEffectiveDate" />
+                <div class="form-text">Leave blank to use the requested effective date.</div>
+            </div>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseApproveModal">Cancel</button>
+            <button type="button" class="btn btn-success" @onclick="ConfirmApprove" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Approve
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Reject Modal ───────────────────────────────────────────────── *@
+    <Modal Visible="showRejectModal"
+           Title="Reject Seniority Move"
+           Icon="bi bi-x-circle"
+           OnClose="CloseRejectModal">
+        <BodyContent>
+            <p>Reject the seniority move for <strong>@actionEmployee</strong>?</p>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Reason <span class="text-danger">*</span></label>
+                <textarea class="form-control" rows="3" @bind="actionReason" placeholder="Reason for rejection..."></textarea>
+            </div>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseRejectModal">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmReject"
+                    disabled="@(isSaving || string.IsNullOrWhiteSpace(actionReason))">
+                <span class="bi bi-x-circle me-1"></span> Reject
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Cancel Modal ───────────────────────────────────────────────── *@
+    <Modal Visible="showCancelModal"
+           Title="Cancel Seniority Move"
+           Icon="bi bi-slash-circle"
+           OnClose="CloseCancelModal">
+        <BodyContent>
+            <p>Cancel the seniority move for <strong>@actionEmployee</strong>?</p>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Reason <span class="text-danger">*</span></label>
+                <textarea class="form-control" rows="3" @bind="actionReason" placeholder="Reason for cancellation..."></textarea>
+            </div>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseCancelModal">Cancel</button>
+            <button type="button" class="btn btn-warning" @onclick="ConfirmCancel"
+                    disabled="@(isSaving || string.IsNullOrWhiteSpace(actionReason))">
+                <span class="bi bi-slash-circle me-1"></span> Cancel Move
+            </button>
+        </Footer>
+    </Modal>
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <hr />
+
+    <div class="d-flex align-items-center mb-3">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="showHistory" @bind="showHistory" @bind:after="OnShowHistoryChangedAsync" />
+            <label class="form-check-label" for="showHistory">Show History</label>
+        </div>
+    </div>
+
+    <DataTable TItem="SeniorityMoveResponse"
+               Items="moves"
+               Columns="Columns"
+               SearchFilter="@((m, term) => DisplayEmployee(m).Contains(term, StringComparison.OrdinalIgnoreCase) || DisplayPosition(m).Contains(term, StringComparison.OrdinalIgnoreCase) || m.MoveType.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search moves..."
+               EmptyMessage="@MovesEmptyMessage"
+               DefaultSortColumn="Requested">
+        <ToolbarContent>
+            @if (!Permissions.IsReadOnly(FeatureKey!))
+            {
+                <button class="btn btn-primary" @onclick="OpenRequestModal">
+                    <span class="bi bi-plus-circle"></span> Request Move
+                </button>
+                <button class="btn btn-success" @onclick="OpenBoardModal">
+                    <span class="bi bi-box-arrow-in-right"></span> Move to Board
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="move">
+            <td>@DisplayEmployee(move)</td>
+            <td>@DisplayPosition(move)</td>
+            <td>@FormatMoveType(move.MoveType)</td>
+            <td>@FormatLocalDateTime(move.RequestedUtc)</td>
+            <td>@FormatLocalDateTime(move.EffectiveUtc)</td>
+            <td class="text-end">
+                @if (!Permissions.IsReadOnly(FeatureKey!))
+                {
+                    <div class="d-flex gap-1 flex-nowrap justify-content-end">
+                        @if (move.Status == "Pending")
+                        {
+                            @* Approve/Reject are hidden when the craft policy auto-approves —
+                               the background worker approves these moves automatically. *@
+                            @if (!move.AutoApprove)
+                            {
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => OpenApproveModal(move)">
+                                    <span class="bi bi-check-circle"></span> Approve
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRejectModal(move)">
+                                    <span class="bi bi-x-circle"></span> Reject
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
+                                <span class="bi bi-slash-circle"></span> Cancel
+                            </button>
+                        }
+                        else if (move.Status == "Approved")
+                        {
+                            <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
+                                <span class="bi bi-slash-circle"></span> Cancel
+                            </button>
+                        }
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    // ── state ──────────────────────────────────────────────────────────
+    private bool showRequestModal;
+    private bool showApproveModal;
+    private bool showRejectModal;
+    private bool showCancelModal;
+
+    // Position type code for board (extra board / hangout / etc.) positions; these
+    // never displace an employee and are excluded from the Target Position list.
+    private const string StaffablePositionTypeBoard = "B";
+
+    private bool showHistory;
+    private DateTime? approveEffectiveDate;
+    private string actionReason = string.Empty;
+    private long actionMoveCtrlNbr;
+    private string actionEmployee = string.Empty;
+
+    private RequestSeniorityMoveModal? requestMoveModal;
+    private string previewEffectiveUtc = string.Empty;
+    private string previewError = string.Empty;
+    private long requestCraftCtrlNbr;
+    private long requestEmployeeCtrlNbr;
+    private List<CraftResponse> crafts = [];
+    private List<SeniorityMoveNamedItem> craftItems = [];
+    private List<SeniorityMoveNamedItem> activeEmployeeItems = [];
+    private List<SeniorityMoveNamedItem> juniorPositionItems = [];
+    private List<SeniorityResponse> cachedRosterEntries = [];
+    private List<SeniorityMoveResponse> moves = [];
+
+    // ── move-to-board state ────────────────────────────────────────────
+    private RequestSeniorityMoveModal? moveToBoardModal;
+    private bool showBoardModal;
+    private long boardCraftCtrlNbr;
+    private long boardEmployeeCtrlNbr;
+    private long boardSelectedCtrlNbr;
+    private List<RosterBoardResponse> eligibleBoards = [];
+    private List<SeniorityMoveNamedItem> boardItems = [];
+
+    // ── columns
+    private IReadOnlyList<DataTableColumn<SeniorityMoveResponse>> Columns =>
+    [
+        new("Employee",        DisplayEmployee, sortKey: "Employee"),
+        new("Target Position", DisplayPosition),
+        new("Move Type",       m => FormatMoveType(m.MoveType), width: "140px"),
+        new("Requested",       m => SortableInstant(m.RequestedUtc), sortKey: "Requested", width: "170px"),
+        new("Effective",       m => SortableInstant(m.EffectiveUtc), sortKey: "Effective", width: "170px"),
+        DataTableColumn<SeniorityMoveResponse>.Actions()
+    ];
+
+
+
+    // ── lifecycle ──────────────────────────────────────────────────────
+    protected override string? FeatureKey => "staffing/seniority-moves";
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+        StateHasChanged();
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!IsContextFullySelected || SelectedParentCtrlNbr is null || SelectedRailroadCtrlNbr is null) return;
+
+        try
+        {
+            var craftsResp = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
+            crafts = [.. craftsResp.Crafts.OrderBy(c => c.CraftName)];
+
+            // Only show crafts that have a configured seniority move policy.
+            var policyCtrlNbrs = await PoliciesClient.GetCraftsWithSeniorityMovePolicyAsync(SelectedRailroadCtrlNbr.Value, crafts.Select(c => c.CtrlNbr));
+            craftItems = crafts
+                .Where(c => policyCtrlNbrs.Contains(c.CtrlNbr))
+                .Select(c => new SeniorityMoveNamedItem(c.CtrlNbr, c.CraftName))
+                .ToList();
+
+            await LoadMovesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load data: {ex.Message}";
+        }
+    }
+
+    // ── active employee loading (lazy, per craft) ──────────────────────
+    /// <summary>
+    /// Loads the active seniority roster for the given craft and builds the
+    /// active employee items list. Only employees with
+    /// <c>LastActiveRoster = true</c> are included — these are the employees
+    /// eligible to exercise seniority for that craft.
+    /// </summary>
+    private async Task LoadActiveEmployeesForCraftAsync(long craftCtrlNbr)
+    {
+        activeEmployeeItems = [];
+
+        if (craftCtrlNbr == 0 || SelectedParentCtrlNbr is null || SelectedRailroadCtrlNbr is null) return;
+
+        try
+        {
+            // Get the rosters for this craft and pick the active-service roster.
+            // Each craft also has a Training roster (no seniority-move eligibility),
+            // so we must filter to the Active roster rather than the newest one.
+            var rosterResp = await RosterClient.GetAllAsync(
+                SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value, craftCtrlNbr);
+
+            var lastActiveRoster = rosterResp.Rosters
+                .Where(r => string.Equals(r.RosterType, "Active", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(r => r.CtrlNbr)
+                .FirstOrDefault();
+
+            if (lastActiveRoster is null) return;
+
+            // Load seniority entries for that roster; only keep active entries
+            var seniorityResp = await SeniorityClient.GetAllByRosterAsync(lastActiveRoster.CtrlNbr);
+            cachedRosterEntries = [.. seniorityResp.Seniority];
+
+            // Sort senior-first: earlier RosterDate first, then lower Rank first
+            activeEmployeeItems = seniorityResp.Seniority
+                .Where(s => s.LastActiveRoster)
+                .OrderBy(s => s.RosterDate)
+                .ThenBy(s => s.Rank)
+                .Select(s => new SeniorityMoveNamedItem(
+                    s.EmployeeCtrlNbr,
+                    BuildEmployeeDisplay(s)))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load employees for craft: {ex.Message}";
+        }
+    }
+
+    private static string BuildEmployeeDisplay(SeniorityResponse s)
+    {
+        // The seniority response carries EmployeeFullNameLnf and EmployeeNumber
+        var name = string.IsNullOrWhiteSpace(s.EmployeeFullNameLnf)
+            ? s.EmployeeCtrlNbr.ToString()
+            : s.EmployeeFullNameLnf;
+        var num = string.IsNullOrWhiteSpace(s.EmployeeNumber) ? "" : $" ({s.EmployeeNumber.ToUpperInvariant()})";
+        return $"{name}{num}";
+    }
+
+    /// <summary>
+    /// Produces a user-facing message explaining why an effective-date preview failed.
+    /// The server reports configuration problems (e.g. a missing move-policy strategy) as a
+    /// gRPC FailedPrecondition; surface that message so the user is not left on "Calculating…".
+    /// </summary>
+    private static string DescribePreviewError(Exception ex)
+    {
+        if (ex is Grpc.Core.RpcException rpc)
+            return rpc.Status.Detail;
+        return ex.Message;
+    }
+
+    // ── move loading ───────────────────────────────────────────────────
+    private async Task LoadMovesAsync()
+    {
+        try
+        {
+            var resp = showHistory
+                ? await PoliciesClient.GetAllMovesAsync()
+                : await PoliciesClient.GetActiveMovesAsync();
+
+            moves = [.. resp.Moves];
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load moves: {ex.Message}";
+        }
+    }
+
+    // ── history toggle ─────────────────────────────────────────────────
+    private async Task OnShowHistoryChangedAsync() => await LoadMovesAsync();
+
+    // ── request modal ──────────────────────────────────────────────────
+    private async Task OpenRequestModal()
+    {
+        var craftCtrlNbr = crafts.Count == 1 ? crafts[0].CtrlNbr : 0;
+        requestCraftCtrlNbr = craftCtrlNbr;
+        requestMoveModal?.SeedAdmin(craftCtrlNbr);
+
+        if (craftCtrlNbr > 0 && activeEmployeeItems.Count == 0)
+            await LoadActiveEmployeesForCraftAsync(craftCtrlNbr);
+
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        showRequestModal = true;
+    }
+
+    private void CloseRequestModal()
+    {
+        showRequestModal = false;
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        requestCraftCtrlNbr = 0;
+        requestEmployeeCtrlNbr = 0;
+    }
+
+    private async Task OnRequestCraftChangedAsync(long craftCtrlNbr)
+    {
+        requestCraftCtrlNbr = craftCtrlNbr;
+        juniorPositionItems = [];
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        await LoadActiveEmployeesForCraftAsync(craftCtrlNbr);
+    }
+
+    private async Task OnRequestEmployeeChangedAsync(long employeeCtrlNbr)
+    {
+        requestEmployeeCtrlNbr = employeeCtrlNbr;
+        LoadJuniorPositionsForEmployee(employeeCtrlNbr);
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        if (employeeCtrlNbr > 0)
+        {
+            // Show a preliminary preview before a target position is chosen.
+            var craftCtrlNbr = craftItems.Count == 1 ? craftItems[0].CtrlNbr : requestCraftCtrlNbr;
+            if (craftCtrlNbr > 0)
+            {
+                try
+                {
+                    var preview = await PoliciesClient.PreviewSeniorityMoveEffectiveDateAsync(
+                        new PreviewSeniorityMoveEffectiveDateRequest
+                        {
+                            RailroadCtrlNbr = SelectedRailroadCtrlNbr ?? 0,
+                            EmployeeCtrlNbr = employeeCtrlNbr,
+                            CraftCtrlNbr    = craftCtrlNbr
+                        });
+                    previewEffectiveUtc = preview.EffectiveUtc;
+                }
+                catch (Exception ex)
+                {
+                    previewError = DescribePreviewError(ex);
+                }
+            }
+        }
+    }
+
+    private async Task OnRequestPositionChangedAsync(long staffablePositionCtrlNbr)
+    {
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        if (staffablePositionCtrlNbr > 0 && requestCraftCtrlNbr > 0)
+        {
+            // Re-fetch preview now that we know the actual target position.
+            // requestEmployeeCtrlNbr is tracked from the last OnRequestEmployeeChangedAsync call.
+            try
+            {
+                var preview = await PoliciesClient.PreviewSeniorityMoveEffectiveDateAsync(
+                    new PreviewSeniorityMoveEffectiveDateRequest
+                    {
+                        RailroadCtrlNbr       = SelectedRailroadCtrlNbr ?? 0,
+                        EmployeeCtrlNbr       = requestEmployeeCtrlNbr,
+                        CraftCtrlNbr          = requestCraftCtrlNbr,
+                        TargetPositionCtrlNbr = staffablePositionCtrlNbr
+                    });
+                previewEffectiveUtc = preview.EffectiveUtc;
+            }
+            catch (Exception ex)
+            {
+                previewError = DescribePreviewError(ex);
+            }
+        }
+    }
+
+    private void LoadJuniorPositionsForEmployee(long employeeCtrlNbr)
+    {
+        juniorPositionItems = [];
+        if (employeeCtrlNbr == 0 || cachedRosterEntries.Count == 0) return;
+
+        var selected = cachedRosterEntries.FirstOrDefault(s => s.EmployeeCtrlNbr == employeeCtrlNbr);
+        if (selected is null) return;
+
+        // Junior = later seniority date, OR same date with higher rank number (rank 1 = most senior).
+        // Extra-board / hangout / training positions (PositionType "B") never displace anyone, so they
+        // are excluded here — moving to a board is handled by the separate "Move to Board" flow.
+        juniorPositionItems = cachedRosterEntries
+            .Where(s => s.StaffablePositionCtrlNbr > 0
+                        && !string.Equals(s.PositionType, StaffablePositionTypeBoard, StringComparison.OrdinalIgnoreCase)
+                        && IsJuniorTo(s, selected))
+            .OrderBy(s => s.RosterDate)
+            .ThenBy(s => s.Rank)
+            .Select(s => new SeniorityMoveNamedItem(
+                s.StaffablePositionCtrlNbr,
+                BuildJuniorPositionDisplay(s))
+            {
+                SecondaryCtrlNbr = s.EmployeeCtrlNbr,
+                SecondaryName    = BuildEmployeeDisplay(s)
+            })
+            .ToList();
+    }
+
+    private static string BuildJuniorPositionDisplay(SeniorityResponse s)
+    {
+        var posName = string.IsNullOrWhiteSpace(s.PositionName) ? "(No Position)" : s.PositionName;
+        var empName = string.IsNullOrWhiteSpace(s.EmployeeFullNameLnf)
+            ? s.EmployeeCtrlNbr.ToString()
+            : s.EmployeeFullNameLnf;
+        var empNum = string.IsNullOrWhiteSpace(s.EmployeeNumber) ? "" : $" ({s.EmployeeNumber.ToUpperInvariant()})";
+        return $"{posName} — {empName}{empNum}";
+    }
+
+    /// <summary>
+    /// Returns true if <paramref name="candidate"/> is junior to <paramref name="anchor"/>.
+    /// Junior = later seniority date OR, on the same date, a higher rank number (rank 1 = most senior).
+    /// </summary>
+    private static bool IsJuniorTo(SeniorityResponse candidate, SeniorityResponse anchor)
+    {
+        if (!DateTime.TryParse(candidate.RosterDate, out var candidateDate)) return false;
+        if (!DateTime.TryParse(anchor.RosterDate, out var anchorDate)) return false;
+        var dateCmp = candidateDate.CompareTo(anchorDate);
+        return dateCmp > 0 || (dateCmp == 0 && candidate.Rank > anchor.Rank);
+    }
+
+    private async Task ConfirmRequest(ExerciseSeniorityMoveRequest req)
+    {
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.ExerciseSeniorityMoveAsync(req);
+            showRequestModal = false;
+            successMessage = "Seniority move request submitted.";
+            await LoadMovesAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to submit move: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    // ── move-to-board modal ────────────────────────────────────────────
+    private async Task OpenBoardModal()
+    {
+        var craftCtrlNbr = crafts.Count == 1 ? crafts[0].CtrlNbr : 0;
+        boardCraftCtrlNbr = craftCtrlNbr;
+        boardEmployeeCtrlNbr = 0;
+        boardSelectedCtrlNbr = 0;
+        boardItems = [];
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        moveToBoardModal?.SeedBoard(craftCtrlNbr, employeeCtrlNbr: 0, targetBoardCtrlNbr: 0);
+
+        if (craftCtrlNbr > 0)
+        {
+            if (activeEmployeeItems.Count == 0)
+                await LoadActiveEmployeesForCraftAsync(craftCtrlNbr);
+            await LoadEligibleBoardsForCraftAsync(craftCtrlNbr);
+        }
+
+        showBoardModal = true;
+    }
+
+    private void CloseBoardModal()
+    {
+        showBoardModal = false;
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        boardCraftCtrlNbr = 0;
+        boardEmployeeCtrlNbr = 0;
+        boardSelectedCtrlNbr = 0;
+    }
+
+    private async Task OnBoardCraftChangedAsync(long craftCtrlNbr)
+    {
+        boardCraftCtrlNbr = craftCtrlNbr;
+        boardEmployeeCtrlNbr = 0;
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        await LoadActiveEmployeesForCraftAsync(craftCtrlNbr);
+        await LoadEligibleBoardsForCraftAsync(craftCtrlNbr);
+    }
+
+    private async Task OnBoardEmployeeChangedAsync(long employeeCtrlNbr)
+    {
+        boardEmployeeCtrlNbr = employeeCtrlNbr;
+        await RefreshBoardPreviewAsync();
+    }
+
+    private async Task OnBoardSelectionChangedAsync(long boardCtrlNbr)
+    {
+        boardSelectedCtrlNbr = boardCtrlNbr;
+        await RefreshBoardPreviewAsync();
+    }
+
+    private async Task RefreshBoardPreviewAsync()
+    {
+        previewEffectiveUtc = string.Empty;
+        previewError = string.Empty;
+        if (boardEmployeeCtrlNbr == 0 || boardCraftCtrlNbr == 0) return;
+        try
+        {
+            var preview = await PoliciesClient.PreviewSeniorityMoveEffectiveDateAsync(
+                new PreviewSeniorityMoveEffectiveDateRequest
+                {
+                    RailroadCtrlNbr    = SelectedRailroadCtrlNbr ?? 0,
+                    EmployeeCtrlNbr    = boardEmployeeCtrlNbr,
+                    CraftCtrlNbr       = boardCraftCtrlNbr,
+                    TargetBoardCtrlNbr = boardSelectedCtrlNbr
+                });
+            previewEffectiveUtc = preview.EffectiveUtc;
+        }
+        catch (Exception ex)
+        {
+            previewError = DescribePreviewError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Loads the boards for the given craft that allow seniority moves and
+    /// builds the board option list for the Move to Board dialog.
+    /// </summary>
+    private async Task LoadEligibleBoardsForCraftAsync(long craftCtrlNbr)
+    {
+        eligibleBoards = [];
+        boardItems = [];
+        boardSelectedCtrlNbr = 0;
+        if (craftCtrlNbr == 0 || SelectedParentCtrlNbr is null || SelectedRailroadCtrlNbr is null) return;
+        try
+        {
+            var boardsResp = await RosterBoardClient.GetAllAsync(
+                SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value, craftCtrlNbr);
+
+            eligibleBoards = boardsResp.Boards.Where(b => b.AllowSeniorityMove).ToList();
+            boardItems = eligibleBoards
+                .Select(b => new SeniorityMoveNamedItem(b.CtrlNbr, b.Name))
+                .ToList();
+
+            // The modal shows a single eligible board as read-only (no selection event),
+            // so preset it here to keep the effective-date preview accurate.
+            if (eligibleBoards.Count == 1)
+                boardSelectedCtrlNbr = eligibleBoards[0].CtrlNbr;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load boards for craft: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmBoardMove(ExerciseSeniorityMoveRequest req)
+    {
+        if (req.TargetBoardCtrlNbr == 0) return;
+
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.ExerciseSeniorityMoveAsync(req);
+            showBoardModal = false;
+            successMessage = "Move to board request submitted.";
+            await LoadMovesAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to submit move: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    // ── approve modal ──────────────────────────────────────────────────
+    private void OpenApproveModal(SeniorityMoveResponse move)
+    {
+        actionMoveCtrlNbr = move.CtrlNbr;
+        actionEmployee    = DisplayEmployee(move);
+        approveEffectiveDate = null;
+        showApproveModal  = true;
+    }
+
+    private void CloseApproveModal() => showApproveModal = false;
+
+    private async Task ConfirmApprove()
+    {
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            var effectiveUtc = approveEffectiveDate.HasValue
+                ? approveEffectiveDate.Value.ToUniversalTime().ToString("O")
+                : null;
+            await PoliciesClient.ApproveSeniorityMoveAsync(actionMoveCtrlNbr, effectiveUtc);
+            showApproveModal = false;
+            successMessage   = "Seniority move approved.";
+            await LoadMovesAsync();
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    // ── reject modal ───────────────────────────────────────────────────
+    private void OpenRejectModal(SeniorityMoveResponse move)
+    {
+        actionMoveCtrlNbr = move.CtrlNbr;
+        actionEmployee    = DisplayEmployee(move);
+        actionReason      = string.Empty;
+        showRejectModal   = true;
+    }
+
+    private void CloseRejectModal() => showRejectModal = false;
+
+    private async Task ConfirmReject()
+    {
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.RejectSeniorityMoveAsync(actionMoveCtrlNbr, actionReason);
+            showRejectModal = false;
+            successMessage  = "Seniority move rejected.";
+            await LoadMovesAsync();
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    // ── cancel modal ───────────────────────────────────────────────────
+    private void OpenCancelModal(SeniorityMoveResponse move)
+    {
+        actionMoveCtrlNbr = move.CtrlNbr;
+        actionEmployee    = DisplayEmployee(move);
+        actionReason      = string.Empty;
+        showCancelModal   = true;
+    }
+
+    private void CloseCancelModal() => showCancelModal = false;
+
+    private async Task ConfirmCancel()
+    {
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.CancelSeniorityMoveAsync(actionMoveCtrlNbr, actionReason);
+            showCancelModal = false;
+            successMessage  = "Seniority move cancelled.";
+            await LoadMovesAsync();
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    // ── display helpers ────────────────────────────────────────────────
+    private string MovesEmptyMessage => showHistory ? "No seniority move history found." : "No active seniority moves.";
+
+    // Employee/position names are resolved server-side; fall back to the
+    // control number when the server could not resolve a display name.
+    private static string DisplayEmployee(SeniorityMoveResponse move) =>
+        string.IsNullOrWhiteSpace(move.EmployeeName) ? move.EmployeeCtrlNbr.ToString() : move.EmployeeName;
+
+    private static string DisplayPosition(SeniorityMoveResponse move) =>
+        string.IsNullOrWhiteSpace(move.TargetPositionName) ? move.TargetPositionCtrlNbr.ToString() : move.TargetPositionName;
+
+    private static string FormatMoveType(string moveType) => moveType switch
+    {
+        "Voluntary"   => "Voluntary",
+        "ForceAssign" => "Force Assign",
+        _             => moveType
+    };
+
+    // Parses an offset-carrying ISO instant for chronological column sorting;
+    // empty/unparsable values sort first (MinValue).
+    private static DateTimeOffset SortableInstant(string? iso) =>
+        DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var dto)
+            ? dto
+            : DateTimeOffset.MinValue;
+}

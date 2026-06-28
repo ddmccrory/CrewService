@@ -11,6 +11,7 @@ using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.HolidayManagement;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.RailroadInfo;
@@ -221,6 +222,7 @@ public class BulletinCreationServiceTests
         public Task<List<CrewPosition>> GetByCrewAsync(ControlNumber c) => Task.FromResult(new List<CrewPosition>());
         public Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> cs) => Task.FromResult(new List<CrewPosition>());
         public Task<CrewPosition?> GetByStaffablePositionAsync(ControlNumber s) => Task.FromResult<CrewPosition?>(null);
+        public Task<List<ControlNumber>> GetVacantStaffablePositionCtrlNbrsAsync(CancellationToken ct = default) => Task.FromResult(new List<ControlNumber>());
     }
 
     private sealed class FakeCrewIncumbencyRepo(CrewIncumbency? incumbency) : FakeRepoBase<CrewIncumbency>, ICrewIncumbencyRepository
@@ -245,6 +247,12 @@ public class BulletinCreationServiceTests
     private sealed class FakeBulletinRuleRepo(BulletinRule? rule) : FakeRepoBase<BulletinRule>, IBulletinRuleRepository
     {
         public Task<BulletinRule?> GetByCraftAsync(ControlNumber craftCtrlNbr) => Task.FromResult(rule);
+    }
+
+    private sealed class FakeEmployeeNotificationRepo : FakeRepoBase<EmployeeNotification>, IEmployeeNotificationRepository
+    {
+        public Task<List<EmployeeNotification>> GetByEmployeeAsync(ControlNumber e, CancellationToken ct = default) => Task.FromResult(new List<EmployeeNotification>());
+        public Task<List<EmployeeNotification>> GetUnacknowledgedByEmployeeAsync(ControlNumber e, CancellationToken ct = default) => Task.FromResult(new List<EmployeeNotification>());
     }
 
     private sealed class FakeVacancyRepo : FakeRepoBase<PositionVacancy>, IPositionVacancyRepository
@@ -289,6 +297,20 @@ public class BulletinCreationServiceTests
         public Task<List<StaffablePosition>> GetByPositionTypeAsync(string t) => Task.FromResult(new List<StaffablePosition>());
     }
 
+        private sealed class FakeDynamicGroupRepo(DynamicGroup? workArea) : FakeRepoBase<DynamicGroup>, IDynamicGroupRepository
+    {
+        public override Task<DynamicGroup?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(workArea);
+        public Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? p) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> cs) => Task.FromResult(new List<DynamicGroup>());
+        public Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber g, string n) => Task.FromResult<DynamicGroup?>(null);
+        public Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? r = null) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync() => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber g) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? r = null) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string t, ControlNumber? p = null) => Task.FromResult(new List<DynamicGroup>());
+        public Task BackfillPathsAsync() => Task.CompletedTask;
+    }
+
     private sealed class FakeOrchestrationUnitOfWork : IOrchestrationUnitOfWork
     {
         public bool Committed { get; private set; }
@@ -296,13 +318,14 @@ public class BulletinCreationServiceTests
         public FakeVacancyRepo            FakeVacancies          { get; } = new();
         public FakeBulletinRepo           FakeBulletins          { get; } = new();
         public FakePositionAssignmentRepo FakePositionAssignments { get; }
-
         private readonly FakeCrewRepo            _crews;
         private readonly FakeCrewPositionRepo     _crewPositions;
         private readonly FakeCrewIncumbencyRepo   _incumbencies;
         private readonly FakeCraftRoleRepo        _craftRoles;
         private readonly FakeBulletinRuleRepo     _bulletinRules;
         private readonly FakeStaffablePositionRepo _staffablePositions = new();
+        private readonly FakeDynamicGroupRepo    _dynamicGroups;
+        private readonly FakeEmployeeNotificationRepo _employeeNotifications = new();
 
         public FakeOrchestrationUnitOfWork(
             BulletinRule?        bulletinRule,
@@ -317,6 +340,7 @@ public class BulletinCreationServiceTests
             _incumbencies   = new FakeCrewIncumbencyRepo(incumbency);
             _craftRoles     = new FakeCraftRoleRepo(craftRole);
             _bulletinRules  = new FakeBulletinRuleRepo(bulletinRule);
+            _dynamicGroups  = new FakeDynamicGroupRepo(null);
             FakePositionAssignments = new FakePositionAssignmentRepo(positionAssignment);
         }
 
@@ -332,6 +356,7 @@ public class BulletinCreationServiceTests
         public IBulletinRepository         Bulletins          => FakeBulletins;
         public IPositionAssignmentRepository PositionAssignments => FakePositionAssignments;
         public IStaffablePositionRepository StaffablePositions  => _staffablePositions;
+        public IEmployeeNotificationRepository EmployeeNotifications => _employeeNotifications;
 
         public Task CommitAsync(CancellationToken ct = default) { Committed = true; return Task.CompletedTask; }
         public Task SaveAsync(CancellationToken ct = default)   => Task.CompletedTask;
@@ -397,7 +422,7 @@ public class BulletinCreationServiceTests
         public IRosterRepository                         Rosters                      => null!;
         public ISeniorityStateRepository                 SeniorityStates              => null!;
         public IGroupTypeRepository                      GroupTypes                   => null!;
-        public IDynamicGroupRepository                   DynamicGroups                => null!;
+        public IDynamicGroupRepository                   DynamicGroups                => _dynamicGroups;
         public IGroupAttributeDefinitionRepository       AttributeDefinitions         => null!;
         public IGroupAttributeValueRepository            AttributeValues              => null!;
         public ICrewAssignmentRepository                 CrewAssignments              => null!;

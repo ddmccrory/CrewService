@@ -1,6 +1,6 @@
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
-using CrewService.Persistance.Modules.TenantConfig;
+using CrewService.Persistance.Repositories;
 using CrewService.UnitTests.Fixtures;
 
 namespace CrewService.UnitTests.Modules.TenantConfig;

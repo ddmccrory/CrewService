@@ -22,3 +22,6 @@ StrategicApplications/
 
 CrewService.FrontEnd/CrewService.API/
 CrewService.FrontEnd/Protos/
+
+# EF design-time scratch db
+design_time.db

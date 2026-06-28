@@ -1,6 +1,12 @@
 using CrewService.Application.Modules.UserAccount;
+using CrewService.Application.Staffing;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Employees;
@@ -262,5 +268,213 @@ public sealed class EmployeeAppService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         return await uow.Employees.GetByCtrlNbrsAsync(ctrlNbrs, ct);
+    }
+    // ── Work Profile ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns all data needed by the EmployeeDetail work-profile panel in a single UoW.
+    /// </summary>
+    public async Task<EmployeeWorkProfileResult> GetEmployeeWorkProfileAsync(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber? parentCtrlNbr,
+        ControlNumber? railroadCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(employeeCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Employee {employeeCtrlNbr.Value} not found.");
+
+        // Role — find the matching UserParentAssignment
+        var userAssignments = await uow.UserParentAssignments.GetByUserIdAsync(employee.UserId);
+        var assignment = railroadCtrlNbr is not null
+            ? userAssignments.FirstOrDefault(a => a.RailroadCtrlNbr == railroadCtrlNbr)
+              ?? userAssignments.FirstOrDefault(a => parentCtrlNbr is not null && a.ParentCtrlNbr == parentCtrlNbr)
+            : userAssignments.FirstOrDefault(a => parentCtrlNbr is not null && a.ParentCtrlNbr == parentCtrlNbr);
+        var role = assignment?.Role ?? string.Empty;
+
+        // Employment status name
+        var empStatus = await uow.EmploymentStatuses.GetByCtrlNbrAsync(employee.EmploymentStatusCtrlNbr, ct);
+
+        // Seniority entries with roster names
+        var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        var rosterIds = seniorityEntries.Select(s => s.RosterCtrlNbr).Distinct().ToList();
+        var rosters = await uow.Rosters.GetByCtrlNbrsAsync(rosterIds, ct);
+        var rosterMap = rosters.ToDictionary(r => r.CtrlNbr);
+
+        var stateIds = seniorityEntries.Select(s => s.SeniorityStateCtrlNbr).Distinct().ToList();
+        var states = new Dictionary<ControlNumber, string>();
+        foreach (var id in stateIds)
+        {
+            var state = await uow.SeniorityStates.GetByCtrlNbrAsync(id, ct);
+            if (state is not null) states[id] = state.StateDescription;
+        }
+
+        // Current position assignments for this employee — keyed by StaffablePositionCtrlNbr
+        var positionAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        var positionMap = new Dictionary<ControlNumber, (string Name, string Type, DateTime AssignedDateUtc, bool AllowBulletinBidding)>();
+        foreach (var pa in positionAssignments)
+        {
+            var pos = await uow.StaffablePositions.GetByCtrlNbrAsync(pa.StaffablePositionCtrlNbr, ct);
+            if (pos is null) continue;
+
+            string posName;
+            bool allowBidding = true; // crew positions always allow bidding
+            if (pos.PositionType == StaffablePositionType.Board)
+            {
+                // Board position: resolve display name from the RosterBoard that owns this position
+                RosterBoard? board = null;
+                if (pa.AssignmentSourceCtrlNbr is not null)
+                    board = await uow.RosterBoards.GetByPositionCtrlNbrAsync(pa.AssignmentSourceCtrlNbr, ct);
+                posName = board?.Name ?? pos.PositionType;
+                allowBidding = board?.AllowBulletinBidding ?? true;
+            }
+            else
+            {
+                // Crew position (Direct, BulletinAssignment, SeniorityMove, etc.):
+                // resolve Crew.Name / CraftRole.Name
+                CrewPosition? crewPos = null;
+                if (pa.AssignmentSourceCtrlNbr is not null)
+                    crewPos = await uow.CrewPositions.GetByCtrlNbrAsync(pa.AssignmentSourceCtrlNbr, ct);
+                crewPos ??= await uow.CrewPositions.GetByStaffablePositionAsync(pa.StaffablePositionCtrlNbr);
+
+                if (crewPos is not null)
+                {
+                    var crew      = await uow.Crews.GetByCtrlNbrAsync(crewPos.CrewCtrlNbr, ct);
+                    var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPos.CraftRoleCtrlNbr, ct);
+                    var crewName  = crew?.Name ?? string.Empty;
+                    var roleName  = craftRole?.Name ?? string.Empty;
+                    posName = (crewName, roleName) switch
+                    {
+                        ({ Length: > 0 }, { Length: > 0 }) => $"{crewName} / {roleName}",
+                        ({ Length: > 0 }, _)               => crewName,
+                        (_, { Length: > 0 })               => roleName,
+                        _                                  => pos.PositionType
+                    };
+                }
+                else
+                {
+                    posName = pos.PositionType;
+                }
+            }
+
+            positionMap[pa.StaffablePositionCtrlNbr] = (posName, pos.PositionType, pa.AssignedDateUtc, allowBidding);
+        }
+
+        // Map seniority entries to the result
+        var seniorityResults = seniorityEntries.Select(s =>
+        {
+            rosterMap.TryGetValue(s.RosterCtrlNbr, out var roster);
+            states.TryGetValue(s.SeniorityStateCtrlNbr, out var stateName);
+            // Use the first position assignment found for the employee on this roster
+            string posName = string.Empty, posType = string.Empty, posDate = string.Empty;
+            var firstPos = positionMap.Values.FirstOrDefault();
+            if (firstPos != default)
+            {
+                posName = firstPos.Name;
+                posType = firstPos.Type;
+                posDate = firstPos.AssignedDateUtc.ToString("o");
+            }
+            return new WorkProfileSeniorityEntry(
+                s.CtrlNbr, s.RosterCtrlNbr,
+                roster?.RosterName ?? string.Empty,
+                s.RosterDate.ToString("yyyy-MM-dd"),
+                s.Rank, s.SeniorityStateCtrlNbr,
+                stateName ?? string.Empty,
+                s.LastActiveRoster,
+                posName, posType, posDate,
+                roster?.CraftCtrlNbr ?? ControlNumber.Create(0));
+        }).ToList();
+
+        // Moves and bids
+        var moves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        var bids  = await uow.BulletinBids.GetActiveByEmployeeAsync(employeeCtrlNbr);
+
+        // Project moves, enriching each with the server-computed CanCancel flag so the UI
+        // never has to replicate cancel-window business logic, and the resolved target
+        // position name so the UI can show where the employee is moving to.
+        var policyCache = new Dictionary<ControlNumber, SeniorityMovePolicy?>();
+        var targetNameCache = new Dictionary<ControlNumber, string>();
+        var moveItems = new List<WorkProfileSeniorityMoveItem>();
+        foreach (var m in moves)
+        {
+            if (!policyCache.TryGetValue(m.CraftCtrlNbr, out var policy))
+            {
+                policy = await uow.SeniorityMovePolicies.GetByRailroadAndCraftAsync(m.RailroadCtrlNbr, m.CraftCtrlNbr);
+                policyCache[m.CraftCtrlNbr] = policy;
+            }
+
+            if (!targetNameCache.TryGetValue(m.TargetPositionCtrlNbr, out var targetName))
+            {
+                targetName = await StaffablePositionNameResolver.ResolveAsync(uow, m.TargetPositionCtrlNbr, ct);
+                targetNameCache[m.TargetPositionCtrlNbr] = targetName;
+            }
+
+            moveItems.Add(new WorkProfileSeniorityMoveItem(
+                m.CtrlNbr,
+                m.CraftCtrlNbr,
+                m.TargetPositionCtrlNbr,
+                m.DisplacedEmployeeCtrlNbr,
+                m.RequestedUtc,
+                m.EffectiveUtc,
+                m.DaysOnCurrentPosition,
+                m.MoveType,
+                m.Status,
+                m.RejectionReason,
+                m.CancellationReason,
+                CanCancelMove(m, policy),
+                targetName));
+        }
+
+        // Enrich bids with bulletin/position info
+        var enrichedBids = new List<WorkProfileBulletinBid>();
+        foreach (var bid in bids)
+        {
+            var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(bid.BulletinCtrlNbr, ct);
+            string bulletinCode = string.Empty, positionName = string.Empty;
+            if (bulletin is not null)
+            {
+                bulletinCode = bulletin.CtrlNbr.Value.ToString();
+                var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+                positionName = vacancy?.TargetName ?? string.Empty;
+            }
+            enrichedBids.Add(new WorkProfileBulletinBid(
+                bid.CtrlNbr, bid.BulletinCtrlNbr,
+                bid.Priority, bid.SubmittedUtc,
+                bid.Status, bulletinCode, positionName));
+        }
+
+        return new EmployeeWorkProfileResult(
+            role,
+            employee.EmploymentDate.ToString("yyyy-MM-dd"),
+            empStatus?.StatusName ?? string.Empty,
+            // An employee can bid if they have no board position, or if all their board positions allow bidding.
+            // Crew positions never restrict bidding.
+            positionMap.Values.All(p => p.AllowBulletinBidding),
+            seniorityResults,
+            moveItems,
+            enrichedBids);
+    }
+
+    /// <summary>
+    /// Mirrors the cancel rules enforced by <c>PoliciesService.CancelSeniorityMoveAsync</c>:
+    /// completed/cancelled moves can never be cancelled; an Approved move with an effective
+    /// time cannot be cancelled once inside the policy's cancel window.
+    /// </summary>
+    private static bool CanCancelMove(SeniorityMove move, SeniorityMovePolicy? policy)
+    {
+        if (move.Status == SeniorityMoveStatus.Completed || move.Status == SeniorityMoveStatus.Cancelled
+            || move.Status == SeniorityMoveStatus.Rejected)
+            return false;
+
+        if (move.Status == SeniorityMoveStatus.Approved && move.EffectiveUtc.HasValue
+            && policy is not null && policy.CancelHours > 0)
+        {
+            var cancelDeadline = move.EffectiveUtc.Value.AddHours(-policy.CancelHours);
+            if (DateTime.UtcNow > cancelDeadline)
+                return false;
+        }
+
+        return true;
     }
 }

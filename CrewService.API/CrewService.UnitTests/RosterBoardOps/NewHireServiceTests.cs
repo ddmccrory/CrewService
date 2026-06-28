@@ -15,6 +15,7 @@ using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.HolidayManagement;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
@@ -178,6 +179,7 @@ public class NewHireServiceTests
         public IBulletinRepository Bulletins => throw new NotImplementedException();
         public IBulletinBidRepository BulletinBids => throw new NotImplementedException();
         public IBulletinRuleRepository BulletinRules => null!;
+        public IEmployeeNotificationRepository EmployeeNotifications => null!;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public IDispatchProjectionRepository DispatchProjections => throw new NotImplementedException();
@@ -322,6 +324,10 @@ public class NewHireServiceTests
             var set = craftCtrlNbrs.ToHashSet();
             return Task.FromResult<IReadOnlyList<RosterBoard>>(Boards.Where(b => set.Contains(b.CraftCtrlNbr)).ToList());
         }
+        public Task<RosterBoard?> GetByPositionCtrlNbrAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<RosterBoard?>(null);
+        public Task<RosterBoard?> GetByStaffablePositionCtrlNbrAsync(ControlNumber staffablePositionCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<RosterBoard?>(null);
     }
 
     private sealed class FakeQualificationTypeRepository : FakeRepositoryBase<QualificationType>, IQualificationTypeRepository

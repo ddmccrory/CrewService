@@ -71,4 +71,7 @@ message RosterResponse {
   string craft_name = 9;
   bool success = 10;
   repeated string messages = 11;
+  // Roster type as a string ("Active" or "Training"); used to distinguish the
+  // active service roster from the training/new-hire roster.
+  string roster_type = 12;
 }

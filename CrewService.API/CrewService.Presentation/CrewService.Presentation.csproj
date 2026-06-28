@@ -79,6 +79,7 @@
     <Protobuf Include="..\..\Protos\modules\railroad_info.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\safety.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\qualifications.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\notifications.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
   </ItemGroup>
 
 </Project>

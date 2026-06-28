@@ -1,0 +1,19 @@
+.notification-gate-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    overflow-y: auto;
+}
+
+.notification-gate-dialog {
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border: none;
+}

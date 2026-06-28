@@ -34,6 +34,32 @@ public class RosterBoardTests
         Assert.Equal(RotationType.FirstInFirstOut, board.RotationType);
     }
 
+    [Theory]
+    [InlineData(BoardType.ExtraBoard, true)]
+    [InlineData(BoardType.Hangout, true)]
+    [InlineData(BoardType.ExtendedAbsence, false)]
+    [InlineData(BoardType.Training, false)]
+    [InlineData(BoardType.NewHire, false)]
+    public void Create_SetsAllowForceAssignDefaultByBoardType(BoardType boardType, bool expected)
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Board", boardType);
+
+        Assert.Equal(expected, board.AllowForceAssign);
+    }
+
+    [Fact]
+    public void SetAllowForceAssign_OverridesDefault()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Training", BoardType.Training);
+        Assert.False(board.AllowForceAssign);
+
+        board.SetAllowForceAssign(true);
+
+        Assert.True(board.AllowForceAssign);
+    }
+
     [Fact]
     public void AddPosition_AddsToCollection()
     {

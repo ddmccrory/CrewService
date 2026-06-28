@@ -23,9 +23,10 @@ internal class AbsenceRequestConfiguration : IEntityTypeConfiguration<AbsenceReq
         builder.Property(r => r.PositionSlotCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(r => r.ReasonCode).HasMaxLength(30).IsRequired();
+        builder.Property(r => r.StartUtc).IsRequired();
+        builder.Property(r => r.ReasonCode).HasMaxLength(50).IsRequired();
         builder.Property(r => r.Status).HasMaxLength(20).IsRequired();
-        builder.Property(r => r.Notes).HasMaxLength(500);
+        builder.Property(r => r.Notes).HasMaxLength(1000);
 
         builder.HasMany(r => r.Approvals).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(r => r.MarkUps).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);

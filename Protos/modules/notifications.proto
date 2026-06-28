@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+package notifications;
+
+// Recipient-facing notification surface. All operations target the current
+// authenticated employee ("me"); the server resolves the employee from claims,
+// so no employee id is supplied by the client.
+service NotificationsSrvc {
+  // Full notification history for the current employee, newest first.
+  rpc GetMyNotifications (google.protobuf.Empty) returns (GetNotificationsResponse) {
+	option (google.api.http) = { get: "/v1/notifications/me" };
+  }
+  // Open notices for the current employee (acknowledgement required, unconfirmed).
+  rpc GetMyUnacknowledged (google.protobuf.Empty) returns (GetNotificationsResponse) {
+	option (google.api.http) = { get: "/v1/notifications/me/unacknowledged" };
+  }
+  // Count of open notices for the current employee (notification badge).
+  rpc GetMyUnacknowledgedCount (google.protobuf.Empty) returns (UnacknowledgedCountResponse) {
+	option (google.api.http) = { get: "/v1/notifications/me/unacknowledged/count" };
+  }
+  // Records the current employee's electronic acknowledgement of one of their notices.
+  rpc AcknowledgeNotification (AcknowledgeNotificationRequest) returns (NotificationResponse) {
+	option (google.api.http) = { post: "/v1/notifications/me/{ctrl_nbr}/acknowledge" body: "*" };
+  }
+}
+
+message AcknowledgeNotificationRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message GetNotificationsResponse {
+  repeated NotificationResponse notifications = 1;
+}
+
+message UnacknowledgedCountResponse {
+  int32 count = 1;
+}
+
+message NotificationResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  int64 employee_ctrl_nbr = 3;
+  string category = 4;
+  string message = 5;
+  bool requires_acknowledgement = 6;
+  bool is_acknowledged = 7;
+  google.protobuf.Timestamp created_at = 8;
+  optional google.protobuf.Timestamp effective_at = 9;
+  optional string subject_type = 10;
+  optional int64 subject_ctrl_nbr = 11;
+}

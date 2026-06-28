@@ -1,5 +1,9 @@
+using CrewService.Application.Policies;
+using CrewService.Application.Time;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.ValueObjects;
+using CrewService.Presentation.Services;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -71,7 +75,7 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         try
         {
-            var policy = await svc.GetSeniorityMovePolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
+            var policy = await svc.GetSeniorityMovePolicyAsync(ControlNumber.Create(request.RailroadCtrlNbr), ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
             return MapSeniorityMovePolicy(policy);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
@@ -81,26 +85,123 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
     {
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         var policy = await svc.GetOrUpsertSeniorityMovePolicyAsync(
-            request.CraftCtrlNbr, request.EligibilityDays, request.SeniorityBasis, context.CancellationToken);
+            request.RailroadCtrlNbr, request.CraftCtrlNbr, request.EligibilityDays, request.RequestHours,
+            request.CancelHours, request.AutoApprove,
+            request.CrewToCrewStrategy, request.CrewToBoardStrategy,
+            request.ExtraBoardToCrewStrategy, request.HangoutToCrewStrategy,
+            request.ExtendedAbsenceToCrewStrategy, request.TrainingToCrewStrategy,
+            request.NewHireToCrewStrategy, request.WillWorkEnabled,
+            context.CancellationToken);
         return MapSeniorityMovePolicy(policy);
     }
 
     private static SeniorityMovePolicyResponse MapSeniorityMovePolicy(SeniorityMovePolicy p) => new()
     {
         CtrlNbr = p.CtrlNbr.Value,
+        RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
         CraftCtrlNbr = p.CraftCtrlNbr.Value,
         EligibilityDays = p.EligibilityDays,
-        SeniorityBasis = p.SeniorityBasis
+        RequestHours = p.RequestHours,
+        CancelHours = p.CancelHours,
+        AutoApprove = p.AutoApprove,
+        CrewToCrewStrategy = p.CrewToCrewStrategy,
+        CrewToBoardStrategy = p.CrewToBoardStrategy,
+        ExtraBoardToCrewStrategy = p.ExtraBoardToCrewStrategy,
+        HangoutToCrewStrategy = p.HangoutToCrewStrategy,
+        ExtendedAbsenceToCrewStrategy = p.ExtendedAbsenceToCrewStrategy,
+        TrainingToCrewStrategy = p.TrainingToCrewStrategy,
+        NewHireToCrewStrategy = p.NewHireToCrewStrategy,
+        WillWorkEnabled = p.WillWorkEnabled
     };
 
     public override async Task<SeniorityMoveResponse> ExerciseSeniorityMove(ExerciseSeniorityMoveRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
-        var move = await svc.ExerciseSeniorityMoveAsync(
-            request.EmployeeCtrlNbr, request.CraftCtrlNbr, request.TargetPositionCtrlNbr,
-            request.DisplacedEmployeeCtrlNbr == 0 ? null : request.DisplacedEmployeeCtrlNbr,
-            request.DaysOnCurrentPosition, context.CancellationToken);
-        return MapSeniorityMove(move);
+        try
+        {
+            var move = await svc.ExerciseSeniorityMoveAsync(
+                request.RailroadCtrlNbr, request.EmployeeCtrlNbr, request.CraftCtrlNbr, request.TargetPositionCtrlNbr,
+                request.DisplacedEmployeeCtrlNbr == 0 ? null : request.DisplacedEmployeeCtrlNbr,
+                request.DaysOnCurrentPosition,
+                string.IsNullOrEmpty(request.MoveType) ? SeniorityMoveType.Voluntary : request.MoveType,
+                request.TargetBoardCtrlNbr,
+                request.HasWillWork ? request.WillWork : null,
+                context.CancellationToken);
+            return MapSeniorityMove(move);
+        }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    public override async Task<PreviewSeniorityMoveEffectiveDateResponse> PreviewSeniorityMoveEffectiveDate(
+        PreviewSeniorityMoveEffectiveDateRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var (effectiveUtc, willWorkOffered) = await svc.PreviewEffectiveDateWithWillWorkAsync(
+                request.RailroadCtrlNbr, request.EmployeeCtrlNbr, request.CraftCtrlNbr,
+                request.TargetPositionCtrlNbr, request.TargetBoardCtrlNbr,
+                context.CancellationToken);
+            return new PreviewSeniorityMoveEffectiveDateResponse
+            {
+                // ISO-8601 carrying the work-area offset (e.g. "...-05:00"). The client displays the
+                // wall-clock value as-is; the offset makes the instant unambiguous end-to-end.
+                EffectiveUtc = effectiveUtc.ToString("O"),
+                WillWorkOffered = willWorkOffered
+            };
+        }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    public override async Task<SeniorityMoveResponse> ApproveSeniorityMove(ApproveSeniorityMoveRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        DateTime? effectiveUtc = string.IsNullOrEmpty(request.EffectiveUtc)
+            ? null
+            : DateTime.Parse(request.EffectiveUtc, null, System.Globalization.DateTimeStyles.RoundtripKind);
+        try
+        {
+            var move = await svc.ApproveSeniorityMoveAsync(ControlNumber.Create(request.MoveCtrlNbr), effectiveUtc, context.CancellationToken);
+            return MapSeniorityMove(move);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    public override async Task<SeniorityMoveResponse> RejectSeniorityMove(RejectSeniorityMoveRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var move = await svc.RejectSeniorityMoveAsync(ControlNumber.Create(request.MoveCtrlNbr), request.Reason, context.CancellationToken);
+            return MapSeniorityMove(move);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    public override async Task<SeniorityMoveResponse> CancelSeniorityMove(CancelSeniorityMoveRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var move = await svc.CancelSeniorityMoveAsync(ControlNumber.Create(request.MoveCtrlNbr), request.Reason, context.CancellationToken);
+            return MapSeniorityMove(move);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    public override async Task<SeniorityMoveResponse> CompleteSeniorityMove(CompleteSeniorityMoveRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var move = await svc.CompleteSeniorityMoveAsync(ControlNumber.Create(request.MoveCtrlNbr), context.CancellationToken);
+            return MapSeniorityMove(move);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
     public override async Task<GetSeniorityMovesResponse> GetSeniorityMovesByEmployee(GetSeniorityMovesByEmployeeRequest request, ServerCallContext context)
@@ -108,20 +209,92 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         var moves = await svc.GetSeniorityMovesByEmployeeAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
+        return await BuildMovesResponseAsync(moves, context.CancellationToken);
+    }
+
+    public override async Task<GetSeniorityMovesResponse> GetSeniorityMovesByCraft(GetSeniorityMovesByCraftRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var moves = await svc.GetSeniorityMovesByCraftAsync(
+            ControlNumber.Create(request.CraftCtrlNbr),
+            string.IsNullOrEmpty(request.Status) ? null : request.Status,
+            context.CancellationToken);
+        return await BuildMovesResponseAsync(moves, context.CancellationToken);
+    }
+
+    public override async Task<GetSeniorityMovesResponse> GetPendingSeniorityMoves(GetPendingSeniorityMovesRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var moves = await svc.GetPendingSeniorityMovesAsync(context.CancellationToken);
+        return await BuildMovesResponseAsync(moves, context.CancellationToken);
+    }
+
+    public override async Task<GetSeniorityMovesResponse> GetActiveSeniorityMoves(GetActiveSeniorityMovesRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var moves = await svc.GetActiveSeniorityMovesAsync(context.CancellationToken);
+        return await BuildMovesResponseAsync(moves, context.CancellationToken);
+    }
+
+    public override async Task<GetSeniorityMovesResponse> GetAllSeniorityMoves(GetAllSeniorityMovesRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var moves = await svc.GetAllSeniorityMovesAsync(context.CancellationToken);
+        return await BuildMovesResponseAsync(moves, context.CancellationToken);
+    }
+
+    private async Task<GetSeniorityMovesResponse> BuildMovesResponseAsync(
+        IReadOnlyList<SeniorityMoveListItem> moves, CancellationToken ct)
+    {
+        var nameService = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+        var employeeNames = await nameService.GetEmployeeInfoBatchAsync(moves.Select(m => m.Move.EmployeeCtrlNbr));
+
         var response = new GetSeniorityMovesResponse { TotalCount = moves.Count };
-        foreach (var m in moves) response.Moves.Add(MapSeniorityMove(m));
+        foreach (var item in moves)
+        {
+            var mapped = MapSeniorityMove(item.Move);
+            mapped.AutoApprove = item.AutoApprove;
+            mapped.TargetPositionName = item.TargetPositionName;
+
+            // Re-render the UTC instants as work-area-local, offset-carrying ISO strings
+            // (e.g. "...-05:00") so the UI displays the correct work-area wall clock.
+            var tz = clock.ResolveTimeZone(item.WorkAreaTimeZoneId);
+            mapped.RequestedUtc = clock.FormatLocalIso(item.Move.RequestedUtc, tz);
+            if (item.Move.EffectiveUtc.HasValue)
+                mapped.EffectiveUtc = clock.FormatLocalIso(item.Move.EffectiveUtc.Value, tz);
+            if (employeeNames.TryGetValue(item.Move.EmployeeCtrlNbr, out var info))
+            {
+                var number = string.IsNullOrWhiteSpace(info.EmployeeNumber)
+                    ? string.Empty
+                    : $" ({info.EmployeeNumber.ToUpperInvariant()})";
+                mapped.EmployeeName = $"{info.FullNameLnf}{number}".Trim();
+            }
+            response.Moves.Add(mapped);
+        }
         return response;
     }
 
-    private static SeniorityMoveResponse MapSeniorityMove(SeniorityMove m) => new()
+    private static SeniorityMoveResponse MapSeniorityMove(SeniorityMove m)
     {
-        CtrlNbr = m.CtrlNbr.Value,
-        EmployeeCtrlNbr = m.EmployeeCtrlNbr.Value,
-        CraftCtrlNbr = m.CraftCtrlNbr.Value,
-        TargetPositionCtrlNbr = m.TargetPositionCtrlNbr.Value,
-        DisplacedEmployeeCtrlNbr = m.DisplacedEmployeeCtrlNbr?.Value ?? 0,
-        ExercisedUtc = m.ExercisedUtc.ToString("O"),
-        DaysOnCurrentPosition = m.DaysOnCurrentPosition
-    };
+        var response = new SeniorityMoveResponse
+        {
+            CtrlNbr = m.CtrlNbr.Value,
+            RailroadCtrlNbr = m.RailroadCtrlNbr.Value,
+            EmployeeCtrlNbr = m.EmployeeCtrlNbr.Value,
+            CraftCtrlNbr = m.CraftCtrlNbr.Value,
+            TargetPositionCtrlNbr = m.TargetPositionCtrlNbr.Value,
+            DisplacedEmployeeCtrlNbr = m.DisplacedEmployeeCtrlNbr?.Value ?? 0,
+            RequestedUtc = m.RequestedUtc.ToString("O"),
+            EffectiveUtc = m.EffectiveUtc?.ToString("O") ?? string.Empty,
+            DaysOnCurrentPosition = m.DaysOnCurrentPosition,
+            MoveType = m.MoveType,
+            Status = m.Status,
+            RejectionReason = m.RejectionReason ?? string.Empty,
+            CancellationReason = m.CancellationReason ?? string.Empty
+        };
+        if (m.WillWork.HasValue)
+            response.WillWork = m.WillWork.Value;
+        return response;
+    }
 }
-

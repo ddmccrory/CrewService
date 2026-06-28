@@ -17,16 +17,43 @@ service PoliciesSrvc {
     option (google.api.http) = { put: "/v1/policies/bulletin/{craft_ctrl_nbr}" body: "*" };
   }
   rpc GetSeniorityMovePolicy(GetSeniorityMovePolicyRequest) returns (SeniorityMovePolicyResponse) {
-    option (google.api.http) = { get: "/v1/policies/seniority-move/{craft_ctrl_nbr}" };
+    option (google.api.http) = { get: "/v1/policies/seniority-move/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" };
   }
   rpc UpsertSeniorityMovePolicy(UpsertSeniorityMovePolicyRequest) returns (SeniorityMovePolicyResponse) {
-    option (google.api.http) = { put: "/v1/policies/seniority-move/{craft_ctrl_nbr}" body: "*" };
+    option (google.api.http) = { put: "/v1/policies/seniority-move/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" body: "*" };
   }
   rpc ExerciseSeniorityMove(ExerciseSeniorityMoveRequest) returns (SeniorityMoveResponse) {
     option (google.api.http) = { post: "/v1/policies/seniority-move/exercise" body: "*" };
   }
+  rpc ApproveSeniorityMove(ApproveSeniorityMoveRequest) returns (SeniorityMoveResponse) {
+    option (google.api.http) = { post: "/v1/policies/seniority-move/{move_ctrl_nbr}/approve" body: "*" };
+  }
+  rpc RejectSeniorityMove(RejectSeniorityMoveRequest) returns (SeniorityMoveResponse) {
+    option (google.api.http) = { post: "/v1/policies/seniority-move/{move_ctrl_nbr}/reject" body: "*" };
+  }
+  rpc CancelSeniorityMove(CancelSeniorityMoveRequest) returns (SeniorityMoveResponse) {
+    option (google.api.http) = { post: "/v1/policies/seniority-move/{move_ctrl_nbr}/cancel" body: "*" };
+  }
+  rpc CompleteSeniorityMove(CompleteSeniorityMoveRequest) returns (SeniorityMoveResponse) {
+    option (google.api.http) = { post: "/v1/policies/seniority-move/{move_ctrl_nbr}/complete" body: "*" };
+  }
+  rpc PreviewSeniorityMoveEffectiveDate(PreviewSeniorityMoveEffectiveDateRequest) returns (PreviewSeniorityMoveEffectiveDateResponse) {
+    option (google.api.http) = { post: "/v1/policies/seniority-move/preview-effective-date" body: "*" };
+  }
   rpc GetSeniorityMovesByEmployee(GetSeniorityMovesByEmployeeRequest) returns (GetSeniorityMovesResponse) {
     option (google.api.http) = { get: "/v1/policies/seniority-moves/employee/{employee_ctrl_nbr}" };
+  }
+  rpc GetSeniorityMovesByCraft(GetSeniorityMovesByCraftRequest) returns (GetSeniorityMovesResponse) {
+    option (google.api.http) = { get: "/v1/policies/seniority-moves/craft/{craft_ctrl_nbr}" };
+  }
+  rpc GetPendingSeniorityMoves(GetPendingSeniorityMovesRequest) returns (GetSeniorityMovesResponse) {
+    option (google.api.http) = { get: "/v1/policies/seniority-moves/pending" };
+  }
+  rpc GetActiveSeniorityMoves(GetActiveSeniorityMovesRequest) returns (GetSeniorityMovesResponse) {
+    option (google.api.http) = { get: "/v1/policies/seniority-moves/active" };
+  }
+  rpc GetAllSeniorityMoves(GetAllSeniorityMovesRequest) returns (GetSeniorityMovesResponse) {
+    option (google.api.http) = { get: "/v1/policies/seniority-moves" };
   }
 }
 
@@ -64,37 +91,115 @@ message BulletinPolicyResponse {
 }
 
 // Seniority Move Policy
-message GetSeniorityMovePolicyRequest { int64 craft_ctrl_nbr = 1; }
+message GetSeniorityMovePolicyRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+}
 message UpsertSeniorityMovePolicyRequest {
-  int64 craft_ctrl_nbr = 1;
-  int32 eligibility_days = 2;
-  string seniority_basis = 3;
+  int64 railroad_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  int32 eligibility_days = 3;
+  int32 request_hours = 4;
+  int32 cancel_hours = 5;
+  bool auto_approve = 6;
+  string crew_to_crew_strategy = 7;
+  string crew_to_board_strategy = 8;
+  string extra_board_to_crew_strategy = 9;
+  string hangout_to_crew_strategy = 10;
+  string extended_absence_to_crew_strategy = 11;
+  string training_to_crew_strategy = 12;
+  string new_hire_to_crew_strategy = 13;
+  bool will_work_enabled = 14;
 }
 message SeniorityMovePolicyResponse {
   int64 ctrl_nbr = 1;
-  int64 craft_ctrl_nbr = 2;
-  int32 eligibility_days = 3;
-  string seniority_basis = 4;
+  int64 railroad_ctrl_nbr = 2;
+  int64 craft_ctrl_nbr = 3;
+  int32 eligibility_days = 4;
+  int32 request_hours = 5;
+  int32 cancel_hours = 6;
+  bool auto_approve = 7;
+  string crew_to_crew_strategy = 8;
+  string crew_to_board_strategy = 9;
+  string extra_board_to_crew_strategy = 10;
+  string hangout_to_crew_strategy = 11;
+  string extended_absence_to_crew_strategy = 12;
+  string training_to_crew_strategy = 13;
+  string new_hire_to_crew_strategy = 14;
+  bool will_work_enabled = 15;
 }
 
-// Seniority Move
 message ExerciseSeniorityMoveRequest {
+  int64 railroad_ctrl_nbr = 9;
   int64 employee_ctrl_nbr = 1;
   int64 craft_ctrl_nbr = 2;
   int64 target_position_ctrl_nbr = 3;
   int64 displaced_employee_ctrl_nbr = 4;
   int32 days_on_current_position = 5;
+  string move_type = 6;
+  int64 target_board_ctrl_nbr = 8;
+  optional bool will_work = 10;
+}
+message ApproveSeniorityMoveRequest {
+  int64 move_ctrl_nbr = 1;
+  string effective_utc = 2;
+}
+message RejectSeniorityMoveRequest {
+  int64 move_ctrl_nbr = 1;
+  string reason = 2;
+}
+message CancelSeniorityMoveRequest {
+  int64 move_ctrl_nbr = 1;
+  string reason = 2;
+}
+message CompleteSeniorityMoveRequest {
+  int64 move_ctrl_nbr = 1;
+}
+message PreviewSeniorityMoveEffectiveDateRequest {
+  int64 railroad_ctrl_nbr = 9;
+  int64 employee_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  int64 target_position_ctrl_nbr = 3;
+  int64 displaced_employee_ctrl_nbr = 4;
+  int32 days_on_current_position = 5;
+  string move_type = 6;
+  int64 target_board_ctrl_nbr = 8;
+}
+message PreviewSeniorityMoveEffectiveDateResponse {
+  string effective_utc = 1;
+  bool will_work_offered = 2;
 }
 message SeniorityMoveResponse {
   int64 ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 13;
   int64 employee_ctrl_nbr = 2;
   int64 craft_ctrl_nbr = 3;
   int64 target_position_ctrl_nbr = 4;
   int64 displaced_employee_ctrl_nbr = 5;
-  string exercised_utc = 6;
-  int32 days_on_current_position = 7;
+  string requested_utc = 6;
+  string effective_utc = 7;
+  int32 days_on_current_position = 8;
+  string move_type = 9;
+  string status = 10;
+  string rejection_reason = 11;
+  string cancellation_reason = 12;
+  optional bool will_work = 14;
+  // True when this move's craft policy auto-approves (or it is a NoAccess bump);
+  // the admin UI hides the manual Approve/Reject actions in that case.
+  bool auto_approve = 15;
+  // Resolved display name of the employee ("LastName, FirstName M. (NUMBER)"); empty if unresolved.
+  string employee_name = 16;
+  // Resolved display name of the target position (e.g. "350 / Engineer"); empty if unresolved.
+  string target_position_name = 17;
 }
 message GetSeniorityMovesByEmployeeRequest { int64 employee_ctrl_nbr = 1; }
+message GetSeniorityMovesByCraftRequest {
+  int64 craft_ctrl_nbr = 1;
+  string status = 2;
+}
+message GetPendingSeniorityMovesRequest {}
+message GetActiveSeniorityMovesRequest {}
+message GetAllSeniorityMovesRequest {}
 message GetSeniorityMovesResponse {
   repeated SeniorityMoveResponse moves = 1;
   int32 total_count = 2;

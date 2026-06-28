@@ -20,8 +20,9 @@ internal class PositionVacancyConfiguration : IEntityTypeConfiguration<PositionV
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(v => v.TargetType).HasMaxLength(30).IsRequired();
-        builder.Property(v => v.VacancyReasonCode).HasMaxLength(30).IsRequired();
-        builder.Property(v => v.Status).HasMaxLength(20).IsRequired();
+        builder.Property(v => v.TargetName).HasMaxLength(200).IsRequired();
+        builder.Property(v => v.VacancyReasonCode).HasMaxLength(50).IsRequired();
+        builder.Property(v => v.Status).HasMaxLength(30).IsRequired();
 
         builder.Property(v => v.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
 
@@ -46,7 +47,7 @@ internal class BulletinConfiguration : IEntityTypeConfiguration<Bulletin>
         builder.Property(b => b.AwardedEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(b => b.Status).HasMaxLength(20).IsRequired();
+        builder.Property(b => b.Status).HasMaxLength(30).IsRequired();
         builder.Property(b => b.AwardType).HasMaxLength(20);
 
         builder.HasOne<PositionVacancy>().WithMany().HasForeignKey(b => b.PositionVacancyCtrlNbr).OnDelete(DeleteBehavior.Restrict);

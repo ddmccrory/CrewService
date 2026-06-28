@@ -115,20 +115,23 @@ public class BulletinTests
 
 public class BulletinBidTests
 {
+    private static readonly DateTime TestSeniorityDate = new(2016, 6, 30);
+
     [Fact]
     public void Create_DefaultsToSubmitted()
     {
-        var bid = BulletinBid.Create(1, 100, 1, 5);
+        var bid = BulletinBid.Create(1, 100, 1, TestSeniorityDate, 5);
 
         Assert.Equal("Submitted", bid.Status);
         Assert.Equal(1, bid.Priority);
+        Assert.Equal(TestSeniorityDate, bid.SeniorityDate);
         Assert.Equal(5, bid.SeniorityRank);
     }
 
     [Fact]
     public void MarkWinner_SetsWinnerStatus()
     {
-        var bid = BulletinBid.Create(1, 100, 1, 5);
+        var bid = BulletinBid.Create(1, 100, 1, TestSeniorityDate, 5);
 
         bid.MarkWinner();
 
@@ -138,7 +141,7 @@ public class BulletinBidTests
     [Fact]
     public void MarkLoser_SetsLoserStatus()
     {
-        var bid = BulletinBid.Create(1, 100, 1, 5);
+        var bid = BulletinBid.Create(1, 100, 1, TestSeniorityDate, 5);
 
         bid.MarkLoser();
 
@@ -148,7 +151,7 @@ public class BulletinBidTests
     [Fact]
     public void Withdraw_SetsWithdrawnStatus()
     {
-        var bid = BulletinBid.Create(1, 100, 1, 5);
+        var bid = BulletinBid.Create(1, 100, 1, TestSeniorityDate, 5);
 
         bid.Withdraw();
 

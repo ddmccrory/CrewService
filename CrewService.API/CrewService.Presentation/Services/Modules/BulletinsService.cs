@@ -1,3 +1,4 @@
+using CrewService.Application.Time;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Services;
@@ -8,6 +9,8 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.BulletinsSrvcBase
 {
+    private IWorkAreaClock? _clock;
+    private IWorkAreaClock Clock => _clock ??= serviceProvider.GetRequiredService<IWorkAreaClock>();
     public override async Task<GetVacanciesResponse> GetOpenVacancies(GetOpenVacanciesRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
@@ -301,12 +304,52 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
+    public override async Task<BulletinResponse> CancelBulletin(CancelBulletinRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try
+        {
+            var bulletin = await svc.CancelBulletinAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            var vacancy = await svc.GetVacancyAsync(bulletin.PositionVacancyCtrlNbr, context.CancellationToken);
+            var tz = await GetWorkAreaTimeZoneAsync(vacancy.WorkAreaGroupCtrlNbr.Value, context.CancellationToken);
+            var vacatedByName = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
+            var craftRoleCtrlNbr = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, 0, vacatedByName, craftRoleCtrlNbr: craftRoleCtrlNbr);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
     public override async Task<BulletinBidResponse> SubmitBid(SubmitBidRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
         var bid = await svc.SubmitBidAsync(
             request.BulletinCtrlNbr, request.EmployeeCtrlNbr, request.Priority, context.CancellationToken);
         return MapBid(bid);
+    }
+
+    public override async Task<GetBulletinWinnerResponse> GetBulletinWinner(GetBulletinWinnerRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
+        try
+        {
+            var winner = await svc.GetBulletinWinnerAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            if (winner is null) return new GetBulletinWinnerResponse { HasWinner = false };
+
+            var bulletin = await svc.GetBulletinAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
+            var empName = await ResolveEmployeeNameAsync(winner.EmployeeCtrlNbr.Value, context.CancellationToken);
+            var senDate = await ResolveSeniorityDateAsync(winner.EmployeeCtrlNbr.Value, bulletin.CraftCtrlNbr.Value, context.CancellationToken);
+            return new GetBulletinWinnerResponse
+            {
+                HasWinner = true,
+                EmployeeCtrlNbr = winner.EmployeeCtrlNbr.Value,
+                EmployeeName = empName,
+                SeniorityDate = senDate,
+                SeniorityRank = winner.SeniorityRank,
+                Priority = winner.Priority
+            };
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
     public override async Task<BulletinBidResponse> WithdrawBid(WithdrawBidRequest request, ServerCallContext context)
@@ -383,7 +426,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         return MapRule(rule);
     }
 
-    private static PositionVacancyResponse MapVacancy(PositionVacancy v, TimeZoneInfo? tz = null, long bulletinCtrlNbr = 0) => new()
+    private PositionVacancyResponse MapVacancy(PositionVacancy v, TimeZoneInfo? tz = null, long bulletinCtrlNbr = 0) => new()
     {
         CtrlNbr = v.CtrlNbr.Value,
         WorkAreaCtrlNbr = v.WorkAreaGroupCtrlNbr.Value,
@@ -393,21 +436,21 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         VacancyReasonCode = v.VacancyReasonCode,
         PreviousIncumbentCtrlNbr = v.PreviousIncumbentCtrlNbr?.Value ?? 0,
         Status = v.Status,
-        OpenedUtc = FormatLocalTime(v.OpenedUtc, tz),
-        ClosedUtc = v.ClosedUtc.HasValue ? FormatLocalTime(v.ClosedUtc.Value, tz) : string.Empty,
+        OpenedUtc = Clock.FormatLocalIso(v.OpenedUtc, tz),
+        ClosedUtc = v.ClosedUtc.HasValue ? Clock.FormatLocalIso(v.ClosedUtc.Value, tz) : string.Empty,
         TargetName = v.TargetName,
         BulletinCtrlNbr = bulletinCtrlNbr,
         StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForVacancy(v.Status)
     };
 
-    private static BulletinResponse MapBulletin(Bulletin b, string positionName = "", TimeZoneInfo? tz = null, int bidCount = 0, string vacatedByName = "", string awardedEmployeeName = "", long craftRoleCtrlNbr = 0) => new()
+    private BulletinResponse MapBulletin(Bulletin b, string positionName = "", TimeZoneInfo? tz = null, int bidCount = 0, string vacatedByName = "", string awardedEmployeeName = "", long craftRoleCtrlNbr = 0) => new()
     {
         CtrlNbr = b.CtrlNbr.Value,
         PositionVacancyCtrlNbr = b.PositionVacancyCtrlNbr.Value,
         CraftCtrlNbr = b.CraftCtrlNbr.Value,
-        BidWindowOpensUtc = FormatLocalTime(b.BidWindowOpensUtc, tz),
-        BidWindowClosesUtc = FormatLocalTime(b.BidWindowClosesUtc, tz),
-        EffectiveUtc = FormatLocalTime(b.EffectiveUtc, tz),
+        BidWindowOpensUtc = Clock.FormatLocalIso(b.BidWindowOpensUtc, tz),
+        BidWindowClosesUtc = Clock.FormatLocalIso(b.BidWindowClosesUtc, tz),
+        EffectiveUtc = Clock.FormatLocalIso(b.EffectiveUtc, tz),
         Status = b.Status,
         AwardedEmployeeCtrlNbr = b.AwardedEmployeeCtrlNbr?.Value ?? 0,
         AwardType = b.AwardType ?? string.Empty,
@@ -416,7 +459,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         VacatedByName = vacatedByName,
         AwardedEmployeeName = awardedEmployeeName,
         CraftRoleCtrlNbr = craftRoleCtrlNbr,
-        ForceAssignDeadlineUtc = b.ForceAssignDeadlineUtc.HasValue ? FormatLocalTime(b.ForceAssignDeadlineUtc.Value, tz) : string.Empty,
+        ForceAssignDeadlineUtc = b.ForceAssignDeadlineUtc.HasValue ? Clock.FormatLocalIso(b.ForceAssignDeadlineUtc.Value, tz) : string.Empty,
         StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBulletin(b.Status)
     };
 
@@ -424,13 +467,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
     /// Converts a UTC datetime to the work area's local time for display.
     /// Falls back to a UTC ISO-8601 string when no timezone is configured.
     /// </summary>
-    private static string FormatLocalTime(DateTime utc, TimeZoneInfo? tz)
-    {
-        if (tz is null) return utc.ToString("O");
-        var local = TimeZoneInfo.ConvertTimeFromUtc(
-            DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
-        return local.ToString("O");
-    }
+    private string FormatLocalTime(DateTime utc, TimeZoneInfo? tz) => Clock.FormatLocalIso(utc, tz);
 
     private async Task<(Dictionary<long, (string Name, long WorkAreaCtrlNbr, long CraftRoleCtrlNbr)> Vacancies, Dictionary<long, TimeZoneInfo?> Timezones)> BuildVacancyIndexAsync(
         Application.Bulletins.BulletinsService svc,
@@ -471,7 +508,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         SeniorityRank = b.SeniorityRank,
         Status = b.Status,
         EmployeeName = employeeName,
-        SeniorityDate = seniorityDate,
+        SeniorityDate = !string.IsNullOrEmpty(seniorityDate) ? seniorityDate
+                        : b.SeniorityDate != default ? b.SeniorityDate.ToString("MM/dd/yyyy") : string.Empty,
         StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBid(b.Status)
     };
 
@@ -544,29 +582,14 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         }
         catch { return string.Empty; }
     }
-    private async Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(long workAreaCtrlNbr, CancellationToken ct)
-    {
-        try
-        {
-            var tcSvc = serviceProvider.GetRequiredService<Application.TenantConfig.TenantConfigService>();
-            var workArea = await tcSvc.GetGroupAsync(ControlNumber.Create(workAreaCtrlNbr), ct);
-            if (string.IsNullOrWhiteSpace(workArea?.TimeZoneId)) return null;
-            return TimeZoneInfo.FindSystemTimeZoneById(workArea.TimeZoneId);
-        }
-        catch { return null; }
-    }
+    private Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(long workAreaCtrlNbr, CancellationToken ct) =>
+        Clock.GetWorkAreaTimeZoneAsync(ControlNumber.Create(workAreaCtrlNbr), ct);
 
     /// <summary>
     /// Parses a datetime string that may be in local work-area time and converts it to UTC.
     /// If no timezone is configured, the value is parsed as-is (assumed UTC).
     /// </summary>
-    private static DateTime ParseAsUtc(string value, TimeZoneInfo? tz)
-    {
-        var dt = DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
-        if (tz is null || dt.Kind == DateTimeKind.Utc) return dt.ToUniversalTime();
-        // Input is local — convert to UTC
-        return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(dt, DateTimeKind.Unspecified), tz);
-    }
+    private DateTime ParseAsUtc(string value, TimeZoneInfo? tz) => Clock.ParseToUtc(value, tz);
 
     public override async Task<GetForceAssignCandidateResponse> GetForceAssignCandidate(GetForceAssignCandidateRequest request, ServerCallContext context)
     {

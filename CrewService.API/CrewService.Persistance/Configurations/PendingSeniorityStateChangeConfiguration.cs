@@ -1,3 +1,4 @@
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +59,11 @@ internal class PendingSeniorityStateChangeConfiguration : IEntityTypeConfigurati
         builder.HasOne<SeniorityState>()
             .WithMany()
             .HasForeignKey(p => p.ToSeniorityStateCtrlNbr)
+            .OnDelete(DeleteBehavior.Restrict);
+
+                builder.HasOne<Employee>()
+            .WithMany()
+            .HasForeignKey(p => p.EmployeeCtrlNbr)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, audit =>

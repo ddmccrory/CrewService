@@ -5,7 +5,6 @@ using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Repositories;
-using CrewService.Persistance.Modules.TenantConfig;
 using CrewService.UnitTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 

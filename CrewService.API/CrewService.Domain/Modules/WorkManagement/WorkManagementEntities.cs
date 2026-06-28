@@ -100,29 +100,44 @@ public sealed class CraftRole : Entity
     public string Name { get; private set; } = string.Empty;
     public string? AlternateName { get; private set; }
 
+    /// <summary>
+    /// Tenant-configurable rank of this role within its craft. Higher = more senior
+    /// (e.g. Foreman &gt; Helper). A role can be force-assigned from any role with a
+    /// strictly lower level (its subordinate tiers) plus the extra board. Defaults to
+    /// <c>0</c> (lowest tier), so an unconfigured craft degrades safely to extra-board-only
+    /// force assignment. Replaces hardcoded role-name matching for multi-tenant support.
+    /// </summary>
+    public int HierarchyLevel { get; private set; }
+
     public IReadOnlyList<CraftRoleQualification> RequiredQualifications => _requiredQualifications.AsReadOnly();
 
     private CraftRole() { CraftCtrlNbr = null!; }
 
-    public static CraftRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null)
+    public static CraftRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null, int hierarchyLevel = 0)
     {
         var role = new CraftRole
         {
             CraftCtrlNbr = craftCtrlNbr,
             Code = code,
             Name = name,
-            AlternateName = alternateName
+            AlternateName = alternateName,
+            HierarchyLevel = hierarchyLevel
         };
         role.Raise(new CraftRoleCreatedDomainEvent(role));
         return role;
     }
 
-    public void Update(string? code, string name, string? alternateName)
+    public void Update(string? code, string name, string? alternateName, int? hierarchyLevel = null)
     {
         Code = code;
         Name = name;
         AlternateName = alternateName;
+        if (hierarchyLevel is not null)
+            HierarchyLevel = hierarchyLevel.Value;
     }
+
+    /// <summary>Sets the tenant-configured hierarchy rank of this role within its craft.</summary>
+    public void SetHierarchyLevel(int hierarchyLevel) => HierarchyLevel = hierarchyLevel;
 
     public CraftRoleQualification AddRequiredQualification(ControlNumber qualificationTypeCtrlNbr)
     {

@@ -1,0 +1,393 @@
+@page "/admin/seniority-move-policies"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject PoliciesClient PoliciesClient
+@inject CraftClient CraftClient
+
+<PageTitle>Seniority Move Policies — Crew Service</PageTitle>
+
+<h1>Seniority Move Policies</h1>
+<p class="text-muted">
+    Configure per-craft seniority move eligibility rules. The eligibility days threshold controls
+    how long an employee must hold their current position before requesting a voluntary move.
+    When auto-approve is enabled, pending moves are automatically approved by the background worker.
+</p>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage seniority move policies.
+    </div>
+}
+else
+{
+    @* ── Edit Modal ── *@
+    <Modal Visible="showEditModal"
+           Title="@(editCtrlNbr.HasValue ? "Edit Seniority Move Policy" : "Configure Seniority Move Policy")"
+           Icon="bi bi-sliders"
+           Size="xl"
+           OnClose="CloseEditModal">
+        <BodyContent>
+            <EditForm Model="editModel" OnValidSubmit="OnSave" id="edit-seniority-policy-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft</label>
+                    <p class="form-control-plaintext fw-bold">@editModel.CraftName</p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Eligibility (Days on Current Position)</label>
+                            <input type="number" class="form-control" min="0" @bind="editModel.EligibilityDays" />
+                            <ValidationMessage For="() => editModel.EligibilityDays" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Request Lead Time (Hours)</label>
+                            <input type="number" class="form-control" min="0" @bind="editModel.RequestHours" />
+                            <ValidationMessage For="() => editModel.RequestHours" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Cancellation Window (Hours)</label>
+                            <input type="number" class="form-control" min="0" @bind="editModel.CancelHours" />
+                            <ValidationMessage For="() => editModel.CancelHours" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoApprove" @bind="editModel.AutoApprove" />
+                                <label class="form-check-label" for="autoApprove">
+                                    Auto-Approve Pending Moves
+                                    <span class="text-muted small d-block">When enabled, the background worker approves pending moves automatically.</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="willWorkEnabled" @bind="editModel.WillWorkEnabled" />
+                                <label class="form-check-label" for="willWorkEnabled">
+                                    Offer "Will Work" Election
+                                    <span class="text-muted small d-block">When enabled, an employee whose move takes effect at the start of a shift they would otherwise work may elect whether to work that final shift.</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <p class="fw-semibold mb-2">Effective Date Strategies</p>
+                        <p class="text-muted small mb-3">
+                            Select how the effective date is computed for each transition type.
+                            <strong>Not Allowed</strong> blocks that move type entirely.
+                            <strong>Immediate</strong> = effective now.
+                            <strong>First Off Day</strong> = end-of-shift on the last work day of the relevant schedule week (rolls +7 days if within the lead-time window).
+                            <strong>Request Lead Time</strong> = now + request hours (no schedule lookup — for crafts without fixed weekly schedules).
+                        </p>
+                        @foreach (var (label, getter, setter) in StrategyFields())
+                        {
+                            <div class="mb-3 row align-items-center">
+                                <label class="col-sm-5 col-form-label fw-semibold">@label</label>
+                                <div class="col-sm-7">
+                                    <select class="form-select" value="@getter" @onchange="e => setter(e.Value?.ToString() ?? string.Empty)">
+                                        <option value="">— Not Allowed —</option>
+                                        <option value="Immediate">Immediate</option>
+                                        <option value="FirstOffDay">First Off Day</option>
+                                        <option value="RequestLeadTime">Request Lead Time</option>
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditModal">Cancel</button>
+            <button type="submit" form="edit-seniority-policy-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border" /></div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="alert alert-info">No crafts found for this railroad.</div>
+    }
+    else
+    {
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Craft</th>
+                    <th>Eligibility Days</th>
+                    <th>Request Hours</th>
+                    <th>Cancel Hours</th>
+                    <th>Crew → Crew</th>
+                    <th>Auto-Approve</th>
+                    <th>Will Work</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in rows)
+                {
+                    <tr>
+                        <td>@row.CraftName</td>
+                        <td>@(row.Policy is not null ? row.Policy.EligibilityDays.ToString() : "—")</td>
+                        <td>@(row.Policy is not null ? row.Policy.RequestHours.ToString() : "—")</td>
+                        <td>@(row.Policy is not null ? row.Policy.CancelHours.ToString() : "—")</td>
+                        <td>
+                            @if (row.Policy is null)
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                            else if (string.IsNullOrEmpty(row.Policy.CrewToCrewStrategy))
+                            {
+                                <span class="badge bg-warning text-dark" title="Crew-to-crew moves are blocked until a strategy is configured.">Not configured</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info text-dark">@FormatStrategy(row.Policy.CrewToCrewStrategy)</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.Policy is not null)
+                            {
+                                @if (row.Policy.AutoApprove)
+                                {
+                                    <span class="badge bg-success">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.Policy is not null)
+                            {
+                                @if (row.Policy.WillWorkEnabled)
+                                {
+                                    <span class="badge bg-success">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary px-3" @onclick="() => OpenEditModal(row)">
+                                @(row.Policy is not null ? "Edit" : "Configure")
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private sealed class PolicyRow
+    {
+        public long CraftCtrlNbr { get; init; }
+        public string CraftName { get; init; } = string.Empty;
+        public SeniorityMovePolicyResponse? Policy { get; set; }
+    }
+
+    private sealed class EditModel
+    {
+        public long CraftCtrlNbr { get; set; }
+        public string CraftName { get; set; } = string.Empty;
+        [Range(0, 3650)] public int EligibilityDays { get; set; } = 30;
+        [Range(0, 168)] public int RequestHours { get; set; } = 0;
+        [Range(0, 168)] public int CancelHours { get; set; } = 0;
+        public bool AutoApprove { get; set; } = true;
+        public bool WillWorkEnabled { get; set; }
+        public string CrewToCrewStrategy { get; set; } = string.Empty;
+        public string CrewToBoardStrategy { get; set; } = string.Empty;
+        public string ExtraBoardToCrewStrategy { get; set; } = string.Empty;
+        public string HangoutToCrewStrategy { get; set; } = string.Empty;
+        public string ExtendedAbsenceToCrewStrategy { get; set; } = string.Empty;
+        public string TrainingToCrewStrategy { get; set; } = string.Empty;
+        public string NewHireToCrewStrategy { get; set; } = string.Empty;
+    }
+
+    private bool isLoading = true;
+    private new bool isSaving = false;
+    private bool showEditModal = false;
+    private long? editCtrlNbr;
+    private new string? errorMessage;
+    private new string? successMessage;
+
+    private List<PolicyRow> rows = [];
+    private EditModel editModel = new();
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+        StateHasChanged();
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!IsContextFullySelected || SelectedParentCtrlNbr is null || SelectedRailroadCtrlNbr is null) return;
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var craftsResp = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
+
+            var policyTasks = craftsResp.Crafts.Select(async c =>
+            {
+                try
+                {
+                    var policy = await PoliciesClient.GetSeniorityMovePolicyAsync(SelectedRailroadCtrlNbr.Value, c.CtrlNbr);
+                    return new PolicyRow { CraftCtrlNbr = c.CtrlNbr, CraftName = c.CraftName, Policy = policy };
+                }
+                catch
+                {
+                    return new PolicyRow { CraftCtrlNbr = c.CtrlNbr, CraftName = c.CraftName };
+                }
+            });
+
+            rows = (await Task.WhenAll(policyTasks))
+                .OrderBy(r => r.CraftName)
+                .ToList();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenEditModal(PolicyRow row)
+    {
+        editCtrlNbr = row.Policy?.CtrlNbr;
+        var isNew = row.Policy is null;
+        editModel = new EditModel
+        {
+            CraftCtrlNbr = row.CraftCtrlNbr,
+            CraftName = row.CraftName,
+            EligibilityDays = row.Policy?.EligibilityDays ?? 30,
+            RequestHours = row.Policy?.RequestHours ?? 0,
+            CancelHours = row.Policy?.CancelHours ?? 0,
+            AutoApprove = row.Policy?.AutoApprove ?? true,
+            WillWorkEnabled = row.Policy?.WillWorkEnabled ?? false,
+            // For a brand-new policy, seed the common transitions with sensible working
+            // defaults so "Configure" produces a usable policy instead of one where every
+            // transition is "Not Allowed". Existing policies load their saved values as-is.
+            // Values match the strategy <option> values in the editor markup.
+            CrewToCrewStrategy = isNew ? "FirstOffDay" : row.Policy!.CrewToCrewStrategy,
+            CrewToBoardStrategy = isNew ? "FirstOffDay" : row.Policy!.CrewToBoardStrategy,
+            ExtraBoardToCrewStrategy = isNew ? "FirstOffDay" : row.Policy!.ExtraBoardToCrewStrategy,
+            HangoutToCrewStrategy = isNew ? "Immediate" : row.Policy!.HangoutToCrewStrategy,
+            ExtendedAbsenceToCrewStrategy = row.Policy?.ExtendedAbsenceToCrewStrategy ?? string.Empty,
+            TrainingToCrewStrategy = row.Policy?.TrainingToCrewStrategy ?? string.Empty,
+            NewHireToCrewStrategy = row.Policy?.NewHireToCrewStrategy ?? string.Empty
+        };
+        showEditModal = true;
+    }
+
+    private void CloseEditModal() => showEditModal = false;
+
+    private IEnumerable<(string Label, string Value, Action<string> Setter)> StrategyFields() =>
+    [
+        ("Crew → Crew",              editModel.CrewToCrewStrategy,             v => editModel.CrewToCrewStrategy             = v),
+        ("Crew → Board",             editModel.CrewToBoardStrategy,            v => editModel.CrewToBoardStrategy            = v),
+        ("Extra Board → Crew",       editModel.ExtraBoardToCrewStrategy,       v => editModel.ExtraBoardToCrewStrategy       = v),
+        ("Hangout → Crew",           editModel.HangoutToCrewStrategy,          v => editModel.HangoutToCrewStrategy          = v),
+        ("Extended Absence → Crew",  editModel.ExtendedAbsenceToCrewStrategy,  v => editModel.ExtendedAbsenceToCrewStrategy  = v),
+        ("Training → Crew",          editModel.TrainingToCrewStrategy,         v => editModel.TrainingToCrewStrategy         = v),
+        ("New Hire → Crew",          editModel.NewHireToCrewStrategy,          v => editModel.NewHireToCrewStrategy          = v),
+    ];
+
+    private static string FormatStrategy(string strategy) => strategy switch
+    {
+        "Immediate"       => "Immediate",
+        "FirstOffDay"     => "First Off Day",
+        "RequestLeadTime" => "Request Lead Time",
+        _                 => strategy
+    };
+
+    private async Task OnSave()
+    {
+        if (SelectedRailroadCtrlNbr is not { } railroadCtrlNbr)
+        {
+            errorMessage = "Select a railroad before saving a policy.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.UpsertSeniorityMovePolicyAsync(
+                railroadCtrlNbr,
+                editModel.CraftCtrlNbr,
+                editModel.EligibilityDays,
+                editModel.RequestHours,
+                editModel.CancelHours,
+                editModel.AutoApprove,
+                editModel.CrewToCrewStrategy,
+                editModel.CrewToBoardStrategy,
+                editModel.ExtraBoardToCrewStrategy,
+                editModel.HangoutToCrewStrategy,
+                editModel.ExtendedAbsenceToCrewStrategy,
+                editModel.TrainingToCrewStrategy,
+                editModel.NewHireToCrewStrategy,
+                editModel.WillWorkEnabled);
+
+            showEditModal = false;
+            successMessage = $"Seniority move policy for {editModel.CraftName} saved.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save policy: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    }

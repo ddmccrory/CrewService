@@ -44,6 +44,7 @@ message GetAllSeniorityRequest {
   int64 roster_ctrl_nbr = 1;
   int32 page_number = 2;
   int32 page_size = 3;
+  int64 railroad_ctrl_nbr = 4;
 }
 
 message GetAllSeniorityResponse {
@@ -94,6 +95,10 @@ message SeniorityResponse {
   string seniority_state_name = 13;
   string employee_full_name_lnf = 14;
   repeated string restriction_labels = 15;
+  string position_name = 16;
+  string position_type = 17;
+  int64  staffable_position_ctrl_nbr = 18;
+  bool   can_exercise_seniority = 19;
 }
 message GetActiveCraftRequest {
   int64 employee_ctrl_nbr = 1;

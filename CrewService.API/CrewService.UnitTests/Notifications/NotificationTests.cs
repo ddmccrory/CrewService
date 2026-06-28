@@ -1,15 +1,16 @@
 using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.VacancyCalls;
 using CrewService.Domain.ValueObjects;
 using Xunit;
 
 namespace CrewService.UnitTests.Notifications;
 
-public class NotificationRequestTests
+public class VacancyCallRequestTests
 {
     [Fact]
     public void Create_DefaultsToSent()
     {
-        var request = NotificationRequest.Create(
+        var request = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(100), "CrewCall");
 
         Assert.Equal("Sent", request.Status);
@@ -20,7 +21,7 @@ public class NotificationRequestTests
     [Fact]
     public void RecordResponse_Accept_SetsAccepted()
     {
-        var request = NotificationRequest.Create(
+        var request = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(100), "CrewCall");
 
         var response = request.RecordResponse("Accept", "Mobile");
@@ -33,7 +34,7 @@ public class NotificationRequestTests
     [Fact]
     public void RecordResponse_Reject_SetsRejected()
     {
-        var request = NotificationRequest.Create(
+        var request = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(100), "CrewCall");
 
         request.RecordResponse("Reject");
@@ -44,7 +45,7 @@ public class NotificationRequestTests
     [Fact]
     public void MarkExpired_SetsExpiredStatus()
     {
-        var request = NotificationRequest.Create(
+        var request = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(100), "CrewCall");
 
         request.MarkExpired();
@@ -55,7 +56,7 @@ public class NotificationRequestTests
     [Fact]
     public void MarkFailed_SetsFailedStatus()
     {
-        var request = NotificationRequest.Create(
+        var request = VacancyCallRequest.Create(
             ControlNumber.Create(1), ControlNumber.Create(100), "CrewCall");
 
         request.MarkFailed();

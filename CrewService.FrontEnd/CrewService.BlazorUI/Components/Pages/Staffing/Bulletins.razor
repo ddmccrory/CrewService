@@ -20,6 +20,11 @@
 
 <PageTitle>Bulletins &amp; Bids</PageTitle>
 
+@if (FilterEmployeeCtrlNbr > 0)
+{
+    <BackNavButton Text="Employee" FallbackUrl="@($"/employees/{FilterEmployeeCtrlNbr}")" />
+}
+
 <h1>Bulletins &amp; Bids</h1>
 <p class="text-muted mb-1">Manage position vacancies, bulletins, and bids.</p>
 
@@ -100,7 +105,8 @@ else
                     </button>
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && b.Status == "Posted")
                     {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddBidModal(b.CtrlNbr)" disabled="@isSaving">
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddBidModal(b.CtrlNbr)"
+                                disabled="@(isSaving || (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins))">
                              <span class="bi bi-plus-circle"></span> Add Bid
                          </button>
                     }
@@ -152,15 +158,22 @@ else
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Employee</label>
-                    <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
-                                 @bind-Value="listBidModel.EmployeeCtrlNbr"
-                                 Items="employees"
-                                 ValueSelector="@(e => e.CtrlNbr)"
-                                 TextSelector="@FormatEmployeeLabel"
-                                 Placeholder="— Select employee —"
-                                 Searchable="true"
-                                 class="form-select" />
-                    <ValidationMessage For="() => listBidModel.EmployeeCtrlNbr" class="text-danger" />
+                    @if (lockedEmployeeName is not null)
+                    {
+                        <input class="form-control" value="@lockedEmployeeName" readonly />
+                    }
+                    else
+                    {
+                        <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
+                                     @bind-Value="listBidModel.EmployeeCtrlNbr"
+                                     Items="employees"
+                                     ValueSelector="@(e => e.CtrlNbr)"
+                                     TextSelector="@FormatEmployeeLabel"
+                                     Placeholder="— Select employee —"
+                                     Searchable="true"
+                                     class="form-select" />
+                        <ValidationMessage For="() => listBidModel.EmployeeCtrlNbr" class="text-danger" />
+                    }
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Priority</label>
@@ -298,10 +311,15 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "craft")]    public long FilterCraftCtrlNbr     { get; set; }
+    [SupplyParameterFromQuery(Name = "employee")]  public long FilterEmployeeCtrlNbr  { get; set; }
+    [SupplyParameterFromQuery(Name = "canbid")]    public bool FilterCanBidOnBulletins { get; set; } = true;
+
     private string activeTab = "bulletins";
     private bool showAllBulletins;
     private DateTime bulletinHistoryFrom = DateTime.Today.AddDays(-7);
     private string? nextBulletinEventFormatted;
+    private string? lockedEmployeeName;
 
     private async Task OnBulletinFilterChanged() => await LoadDataAsync();
 
@@ -396,8 +414,14 @@ else
             await Task.WhenAll(craftsTask, vacanciesTask, bulletinsTask, nextEventTask);
             if (ComponentToken.IsCancellationRequested) return;
             crafts = [.. (await craftsTask).Crafts];
-            vacancies = [.. (await vacanciesTask).Vacancies];
-            bulletins = [.. (await bulletinsTask).Bulletins];
+            var allVacancies = (await vacanciesTask).Vacancies;
+            vacancies = FilterCraftCtrlNbr > 0
+                ? [.. allVacancies.Where(v => v.CraftCtrlNbr == FilterCraftCtrlNbr)]
+                : [.. allVacancies];
+            var allBulletins = (await bulletinsTask).Bulletins;
+            bulletins = FilterCraftCtrlNbr > 0
+                ? [.. allBulletins.Where(b => b.CraftCtrlNbr == FilterCraftCtrlNbr)]
+                : [.. allBulletins];
             var nextUtc = await nextEventTask;
             nextBulletinEventFormatted = string.IsNullOrEmpty(nextUtc?.NextEventUtc)
                 ? null
@@ -428,21 +452,34 @@ else
         addBidBulletinCtrlNbr = bulletinCtrlNbr;
         listBidModel = new AddBidModel { Priority = 1 };
         employees = [];
+        lockedEmployeeName = null;
         try
         {
             isSaving = true;
-            var b = bulletins?.FirstOrDefault(x => x.CtrlNbr == bulletinCtrlNbr);
-            if (b is not null && b.CraftRoleCtrlNbr > 0)
+            if (FilterEmployeeCtrlNbr > 0)
             {
-                var eligibleTask = QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
-                    b.CraftRoleCtrlNbr, SelectedParentCtrlNbr ?? 0);
-                var bidsTask = BulletinsClient.GetBidsByBulletinAsync(bulletinCtrlNbr);
-                await Task.WhenAll(eligibleTask, bidsTask);
-                var alreadyBid = (await bidsTask).Bids
-                    .Where(bid => bid.Status != "Withdrawn")
-                    .Select(bid => bid.EmployeeCtrlNbr)
-                    .ToHashSet();
-                employees = [.. (await eligibleTask).Employees.Where(e => !alreadyBid.Contains(e.CtrlNbr))];
+                // Locked to a specific employee — pre-select without showing the dropdown
+                listBidModel.EmployeeCtrlNbr = FilterEmployeeCtrlNbr;
+                var empResp = await EmployeeClient.GetByCtrlNbrAsync(FilterEmployeeCtrlNbr);
+                lockedEmployeeName = empResp is not null
+                    ? $"{empResp.EmployeeNumber}  {empResp.FullNameLnf}"
+                    : FilterEmployeeCtrlNbr.ToString();
+            }
+            else
+            {
+                var b = bulletins?.FirstOrDefault(x => x.CtrlNbr == bulletinCtrlNbr);
+                if (b is not null && b.CraftRoleCtrlNbr > 0)
+                {
+                    var eligibleTask = QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
+                        b.CraftRoleCtrlNbr, SelectedParentCtrlNbr ?? 0);
+                    var bidsTask = BulletinsClient.GetBidsByBulletinAsync(bulletinCtrlNbr);
+                    await Task.WhenAll(eligibleTask, bidsTask);
+                    var alreadyBid = (await bidsTask).Bids
+                        .Where(bid => bid.Status != "Withdrawn")
+                        .Select(bid => bid.EmployeeCtrlNbr)
+                        .ToHashSet();
+                    employees = [.. (await eligibleTask).Employees.Where(e => !alreadyBid.Contains(e.CtrlNbr))];
+                }
             }
         }
         catch (Exception ex) { errorMessage = $"Failed to load employees: {ex.Message}"; return; }
@@ -450,7 +487,7 @@ else
         showAddBidModal = true;
     }
 
-    private void CloseAddBidModal() { showAddBidModal = false; }
+    private void CloseAddBidModal() { showAddBidModal = false; lockedEmployeeName = null; }
 
     private async Task ConfirmAddBid()
     {
@@ -640,7 +677,13 @@ else
         else
             Nav.NavigateTo($"/staffing/bulletins");
     }
-    private void ViewBulletin(long ctrlNbr) => Nav.NavigateTo($"/staffing/bulletins/{ctrlNbr}");
+    private void ViewBulletin(long ctrlNbr)
+    {
+        var url = FilterEmployeeCtrlNbr > 0
+            ? $"/staffing/bulletins/{ctrlNbr}?employee={FilterEmployeeCtrlNbr}&canbid={FilterCanBidOnBulletins}"
+            : $"/staffing/bulletins/{ctrlNbr}";
+        Nav.NavigateTo(url);
+    }
 
     private static string FormatDateTime(string iso)
         => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)

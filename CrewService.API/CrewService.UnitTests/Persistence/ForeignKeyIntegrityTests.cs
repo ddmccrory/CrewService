@@ -135,7 +135,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("FraDutyTourSegment", "FraDutyTour", DeleteBehavior.Cascade)]
     [InlineData("FraTransportationSegment", "FraDutyTour", DeleteBehavior.Cascade)]
     [InlineData("FraOtherServiceSegment", "FraDutyTour", DeleteBehavior.Cascade)]
-    [InlineData("NotificationResponse", "NotificationRequest", DeleteBehavior.Cascade)]
+    [InlineData("VacancyCallResponse", "VacancyCallRequest", DeleteBehavior.Cascade)]
     [InlineData("RosterBoardPosition", "RosterBoard", DeleteBehavior.Cascade)]
     [InlineData("BoardSlotInstance", "ShiftInstance", DeleteBehavior.Cascade)]
     [InlineData("SafetyObservationAction", "SafetyObservation", DeleteBehavior.Cascade)]

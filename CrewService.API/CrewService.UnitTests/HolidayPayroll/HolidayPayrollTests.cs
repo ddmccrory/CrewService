@@ -10,6 +10,7 @@ using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.FraCompliance;
@@ -181,6 +182,7 @@ public class HolidayQualificationServiceTests
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
+        public IEmployeeNotificationRepository EmployeeNotifications => null!;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public IUserParentAssignmentRepository UserParentAssignments => null!;
@@ -554,6 +556,7 @@ public class HolidayAutoGenerationServiceTests
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
+        public IEmployeeNotificationRepository EmployeeNotifications => null!;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public IUserParentAssignmentRepository UserParentAssignments => null!;

@@ -1,4 +1,5 @@
 using CrewService.Application.SeniorityOps;
+using CrewService.Application.Time;
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
@@ -9,7 +10,8 @@ namespace CrewService.Presentation.Services;
 
 public class SeniorityService(
     SeniorityAppService seniorityAppService,
-    EmployeeNameService employeeNameService) : SenioritySrvc.SenioritySrvcBase
+    EmployeeNameService employeeNameService,
+    IWorkAreaClock workAreaClock) : SenioritySrvc.SenioritySrvcBase
 {
     public override async Task<GetAllSeniorityResponse> GetAllAsync(GetAllSeniorityRequest request, ServerCallContext context)
     {
@@ -18,7 +20,10 @@ public class SeniorityService(
         ControlNumber? rosterCtrlNbr = request.RosterCtrlNbr > 0
             ? ControlNumber.Create(request.RosterCtrlNbr) : null;
 
-        var items = await seniorityAppService.GetAllAsync(rosterCtrlNbr, context.CancellationToken);
+        ControlNumber? railroadCtrlNbr = request.RailroadCtrlNbr > 0
+            ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+
+        var items = await seniorityAppService.GetAllAsync(rosterCtrlNbr, railroadCtrlNbr, context.CancellationToken);
         if (items.Count == 0)
         {
             response.TotalCount = 0;
@@ -50,7 +55,11 @@ public class SeniorityService(
                 EmployeeNumber = item.EmployeeNumber,
                 EmployeeUserId = item.EmployeeUserId ?? string.Empty,
                 SeniorityStateName = item.SeniorityStateName,
-                EmployeeFullNameLnf = fullName
+                EmployeeFullNameLnf = fullName,
+                PositionName = item.PositionName,
+                PositionType = item.PositionType,
+                StaffablePositionCtrlNbr = item.StaffablePositionCtrlNbr,
+                CanExerciseSeniority = item.CanExerciseSeniority
             };
             sr.RestrictionLabels.AddRange(item.RestrictionLabels);
             response.Seniority.Add(sr);
@@ -230,7 +239,7 @@ public class SeniorityService(
         {
             employeeNameMap.TryGetValue(item.EmployeeUserId, out var fullName);
             schedulerNameMap.TryGetValue(item.Pending.ScheduledByUserId, out var scheduledByName);
-            var tz = ResolveTimeZone(item.WorkAreaTimeZoneId);
+            var tz = workAreaClock.ResolveTimeZone(item.WorkAreaTimeZoneId);
             response.PendingChanges.Add(new PendingStateChangeListItem
             {
                 CtrlNbr = item.Pending.CtrlNbr.Value,
@@ -242,28 +251,13 @@ public class SeniorityService(
                 FromStateName = item.FromStateName,
                 ToStateCtrlNbr = item.Pending.ToSeniorityStateCtrlNbr.Value,
                 ToStateName = item.ToStateName,
-                EffectiveDateUtc = FormatLocalTime(item.Pending.EffectiveDateUtc, tz),
+                EffectiveDateUtc = workAreaClock.FormatLocalIso(item.Pending.EffectiveDateUtc, tz),
                 ScheduledByUserId = item.Pending.ScheduledByUserId,
                 ScheduledByUserName = scheduledByName ?? item.Pending.ScheduledByUserId,
-                ScheduledAtUtc = FormatLocalTime(item.Pending.ScheduledAtUtc, tz)
+                ScheduledAtUtc = workAreaClock.FormatLocalIso(item.Pending.ScheduledAtUtc, tz)
             });
         }
         return response;
-    }
-
-    private static string FormatLocalTime(DateTime utc, TimeZoneInfo? tz)
-    {
-        if (tz is null) return utc.ToString("O");
-        var local = TimeZoneInfo.ConvertTimeFromUtc(
-            DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
-        return local.ToString("O");
-    }
-
-    private static TimeZoneInfo? ResolveTimeZone(string? timeZoneId)
-    {
-        if (string.IsNullOrWhiteSpace(timeZoneId)) return null;
-        try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
-        catch (TimeZoneNotFoundException) { return null; }
     }
 
     public override async Task<GetNextStateChangeEventResponse> GetNextStateChangeEventAsync(
@@ -274,10 +268,10 @@ public class SeniorityService(
         if (!nextUtc.HasValue)
             return new GetNextStateChangeEventResponse { NextEventLocal = string.Empty };
 
-        var tz = ResolveTimeZone(tzId);
+        var tz = workAreaClock.ResolveTimeZone(tzId);
         return new GetNextStateChangeEventResponse
         {
-            NextEventLocal = FormatLocalTime(nextUtc.Value, tz)
+            NextEventLocal = workAreaClock.FormatLocalIso(nextUtc.Value, tz)
         };
     }
 

@@ -12,6 +12,7 @@
 
 @inject BulletinsClient BulletinsClient
 @inject QualificationsClient QualificationsClient
+@inject EmployeeClient EmployeeClient
 
 <PageTitle>Bulletin Detail</PageTitle>
 
@@ -93,14 +94,23 @@ else
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "Posted")
                     {
                         var bidWindowClosed = DateTime.TryParse(bulletin.BidWindowClosesUtc, out var closesUtc) && DateTime.UtcNow >= closesUtc;
+                        var hasActiveBids   = (bids ?? []).Any(b => b.Status == "Submitted");
                         <button class="btn btn-success" @onclick="OpenAwardModal" disabled="@(isSaving || !bidWindowClosed)">
                              <span class="bi bi-trophy"></span> Award
                          </button>
-                         <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(isSaving || !bidWindowClosed)">
+                         <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(isSaving || hasActiveBids)"
+                                 title="@(hasActiveBids ? "Cannot set no-bid while active bids exist" : "")">
                              <span class="bi bi-dash-circle"></span> Set No-Bid
                          </button>
-                         <button class="btn btn-primary" @onclick="OpenAddBidModal" disabled="@isSaving">
+                         <button class="btn btn-primary" @onclick="OpenAddBidModal"
+                                 disabled="@(isSaving || bidWindowClosed || (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins))"
+                                 title="@(bidWindowClosed ? "Bid window is closed" : (!FilterCanBidOnBulletins && FilterEmployeeCtrlNbr > 0 ? "Your current board does not permit bulletin bidding" : ""))">
                              <span class="bi bi-plus-circle"></span> Add Bid
+                         </button>
+                         <button class="btn btn-outline-danger" @onclick="() => showCancelModal = true"
+                                 disabled="@(isSaving || bidWindowClosed)"
+                                 title="@(bidWindowClosed ? "Cannot cancel after the bid window closes" : "Cancel this bulletin and reopen the position")">
+                             <span class="bi bi-x-circle"></span> Cancel Bulletin
                          </button>
                     }
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && bulletin.Status == "NoBid")
@@ -146,15 +156,22 @@ else
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Employee</label>
-                    <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
-                                 @bind-Value="bidModel.EmployeeCtrlNbr"
-                                 Items="employees"
-                                 ValueSelector="@(e => e.CtrlNbr)"
-                                 TextSelector="@FormatEmployeeLabel"
-                                 Placeholder="— Select employee —"
-                                 Searchable="true"
-                                 class="form-select" />
-                    <ValidationMessage For="() => bidModel.EmployeeCtrlNbr" class="text-danger" />
+                    @if (lockedEmployeeName is not null)
+                    {
+                        <input class="form-control" value="@lockedEmployeeName" readonly />
+                    }
+                    else
+                    {
+                        <FilterSelect TItem="EligibleEmployeeItem" TValue="long"
+                                     @bind-Value="bidModel.EmployeeCtrlNbr"
+                                     Items="employees"
+                                     ValueSelector="@(e => e.CtrlNbr)"
+                                     TextSelector="@FormatEmployeeLabel"
+                                     Placeholder="— Select employee —"
+                                     Searchable="true"
+                                     class="form-select" />
+                        <ValidationMessage For="() => bidModel.EmployeeCtrlNbr" class="text-danger" />
+                    }
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Priority</label>
@@ -174,17 +191,18 @@ else
 
     @* ── Award Modal ── *@
     <Modal Visible="showAwardModal" Title="Award Bulletin" Icon="bi bi-trophy-fill"
-           OnClose="() => showAwardModal = false" StaticBackdrop="true">
+           OnClose="() => showAwardModal = false" StaticBackdrop="true" Size="lg">
         <BodyContent>
             <div class="mb-3">
-                <label class="form-label fw-semibold">Select Winning Bidder</label>
+                <label class="form-label fw-semibold">Winning Bidder</label>
+                <div class="form-text mb-2">The most senior eligible bidder is pre-selected. You may override if needed.</div>
                 @if (awardableBids.Count > 0)
                 {
                     <FilterSelect TItem="BulletinBidResponse" TValue="long"
                                  @bind-Value="actionEmployeeCtrlNbr"
                                  Items="awardableBids"
                                  ValueSelector="@(b => b.EmployeeCtrlNbr)"
-                                 TextSelector="@(b => $"{b.EmployeeName} — Priority {b.Priority}, Seniority {b.SeniorityDate}")"
+                                 TextSelector="@(b => $"{b.EmployeeName} — Priority {b.Priority}, Seniority {b.SeniorityDate} (Rank {b.SeniorityRank})")"
                                  Placeholder="— Select employee —"
                                  Searchable="true"
                                  class="form-select" />
@@ -240,10 +258,31 @@ else
             </button>
         </Footer>
     </Modal>
+
+    @* ── Cancel Bulletin Confirmation Modal ── *@
+    <Modal Visible="showCancelModal" Title="Cancel Bulletin" Icon="bi bi-x-circle-fill"
+           OnClose="() => showCancelModal = false" StaticBackdrop="true">
+        <BodyContent>
+            <div class="alert alert-danger mb-0">
+                <span class="bi bi-exclamation-triangle me-1"></span>
+                Cancelling this bulletin will <strong>withdraw all outstanding bids</strong> and reopen the
+                position. The position will not be re-bulletined automatically. This cannot be undone.
+            </div>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="() => showCancelModal = false">Keep Bulletin</button>
+            <button class="btn btn-danger" @onclick="OnCancelBulletin" disabled="@isSaving">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Cancel Bulletin
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
     [Parameter] public long CtrlNbr { get; set; }
+    [SupplyParameterFromQuery(Name = "employee")] public long FilterEmployeeCtrlNbr      { get; set; }
+    [SupplyParameterFromQuery(Name = "canbid")]    public bool FilterCanBidOnBulletins   { get; set; } = true;
 
     private bool isLoading;
     private new bool isSaving;
@@ -256,7 +295,9 @@ else
     private bool showAwardModal;
     private bool showForceModal;
     private bool showAddBidModal;
+    private bool showCancelModal;
     private long actionEmployeeCtrlNbr;
+    private string? lockedEmployeeName;
 
     private List<BulletinBidResponse> awardableBids = [];
     private string? forceAssignCandidateName;
@@ -323,11 +364,21 @@ else
         }
     }
 
-    private void OpenAwardModal()
+    private async Task OpenAwardModal()
     {
         actionEmployeeCtrlNbr = 0;
         awardableBids = [.. (bids ?? []).Where(b => b.Status == "Submitted").OrderBy(b => b.Priority)];
-        if (awardableBids.Count == 1) actionEmployeeCtrlNbr = awardableBids[0].EmployeeCtrlNbr;
+
+        // Ask the API to run the full winner-selection process (seniority order + cross-bulletin
+        // preference chain) and pre-select the result. The dispatcher can override before confirming.
+        try
+        {
+            var result = await BulletinsClient.GetBulletinWinnerAsync(CtrlNbr);
+            if (result is { HasWinner: true })
+                actionEmployeeCtrlNbr = result.EmployeeCtrlNbr;
+        }
+        catch { /* non-fatal — dispatcher can still select manually */ }
+
         showAwardModal = true;
     }
 
@@ -350,10 +401,19 @@ else
         if (isSaving) return;
         bidModel = new AddBidModel { Priority = 1 };
         employees = [];
+        lockedEmployeeName = null;
         try
         {
             isSaving = true;
-            if (bulletin is not null && bulletin.CraftRoleCtrlNbr > 0)
+            if (FilterEmployeeCtrlNbr > 0)
+            {
+                bidModel.EmployeeCtrlNbr = FilterEmployeeCtrlNbr;
+                var empResp = await EmployeeClient.GetByCtrlNbrAsync(FilterEmployeeCtrlNbr);
+                lockedEmployeeName = empResp is not null
+                    ? $"{empResp.EmployeeNumber}  {empResp.FullNameLnf}"
+                    : FilterEmployeeCtrlNbr.ToString();
+            }
+            else if (bulletin is not null && bulletin.CraftRoleCtrlNbr > 0)
             {
                 var result = await QualificationsClient.GetEligibleEmployeesForCraftRoleAsync(
                     bulletin.CraftRoleCtrlNbr, SelectedParentCtrlNbr ?? 0);
@@ -369,7 +429,7 @@ else
         showAddBidModal = true;
     }
 
-    private void CloseAddBidModal() { showAddBidModal = false; }
+    private void CloseAddBidModal() { showAddBidModal = false; lockedEmployeeName = null; }
 
     private async Task ConfirmAddBid()
     {
@@ -426,6 +486,21 @@ else
             successMessage = "Bulletin marked as no-bid.";
         }
         catch (Exception ex) { errorMessage = $"Failed to set no-bid: {ex.Message}"; }
+        finally { isSaving = false; }
+    }
+
+    private async Task OnCancelBulletin()
+    {
+        if (isSaving) return;
+        try
+        {
+            isSaving = true;
+            bulletin = await BulletinsClient.CancelBulletinAsync(CtrlNbr);
+            showCancelModal = false;
+            successMessage = "Bulletin cancelled. Outstanding bids were withdrawn and the position reopened.";
+            await LoadBidsAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to cancel bulletin: {ex.Message}"; }
         finally { isSaving = false; }
     }
 

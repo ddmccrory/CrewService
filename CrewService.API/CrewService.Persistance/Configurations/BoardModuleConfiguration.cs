@@ -16,7 +16,7 @@ internal class BoardCascadePolicyConfiguration : IEntityTypeConfiguration<BoardC
         builder.Property(p => p.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.CascadeMode).HasMaxLength(30).IsRequired();
-        builder.Property(p => p.SelectionStrategy).HasMaxLength(30);
+        builder.Property(p => p.SelectionStrategy).HasMaxLength(50);
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(p => p.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);

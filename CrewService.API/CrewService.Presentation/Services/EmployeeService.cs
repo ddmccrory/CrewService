@@ -452,4 +452,87 @@ public class EmployeeService(
     }
 
     #endregion
+
+    #region Work Profile
+
+    public override async Task<EmployeeWorkProfileResponse> GetEmployeeWorkProfile(
+        GetEmployeeWorkProfileRequest request, ServerCallContext context)
+    {
+        var parentCtrlNbr   = request.ParentCtrlNbr   > 0 ? ControlNumber.Create(request.ParentCtrlNbr)   : (ControlNumber?)null;
+        var railroadCtrlNbr = request.RailroadCtrlNbr  > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : (ControlNumber?)null;
+
+        var result = await _employeeAppService.GetEmployeeWorkProfileAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr),
+            parentCtrlNbr, railroadCtrlNbr,
+            context.CancellationToken);
+
+        var response = new EmployeeWorkProfileResponse
+        {
+            Role               = result.Role,
+            EmploymentDate     = result.EmploymentDate,
+            EmploymentStatus   = result.EmploymentStatus,
+            CanBidOnBulletins  = result.CanBidOnBulletins,
+        };
+
+        foreach (var s in result.SeniorityEntries)
+        {
+            response.SeniorityEntries.Add(new WorkProfileSeniorityEntry
+            {
+                CtrlNbr               = s.CtrlNbr.Value,
+                RosterCtrlNbr         = s.RosterCtrlNbr.Value,
+                RosterName            = s.RosterName,
+                RosterDate            = s.RosterDate,
+                Rank                  = s.Rank,
+                SeniorityStateCtrlNbr = s.SeniorityStateCtrlNbr.Value,
+                SeniorityStateName    = s.SeniorityStateName,
+                LastActiveRoster      = s.LastActiveRoster,
+                PositionName          = s.PositionName,
+                PositionType          = s.PositionType,
+                PositionAssignedDate  = s.PositionAssignedDate,
+                CraftCtrlNbr          = s.CraftCtrlNbr.Value,
+                DaysOnCurrentPosition = string.IsNullOrEmpty(s.PositionAssignedDate) ? 0
+                    : DateTime.TryParse(s.PositionAssignedDate, out var assignedDate)
+                        ? (int)(DateTime.UtcNow - assignedDate.ToUniversalTime()).TotalDays
+                        : 0,
+            });
+        }
+
+        foreach (var m in result.Moves)
+        {
+            response.Moves.Add(new WorkProfileSeniorityMove
+            {
+                CtrlNbr                  = m.CtrlNbr.Value,
+                CraftCtrlNbr             = m.CraftCtrlNbr.Value,
+                TargetPositionCtrlNbr    = m.TargetPositionCtrlNbr.Value,
+                DisplacedEmployeeCtrlNbr = m.DisplacedEmployeeCtrlNbr?.Value ?? 0,
+                RequestedUtc             = m.RequestedUtc.ToString("o"),
+                EffectiveUtc             = m.EffectiveUtc?.ToString("o") ?? string.Empty,
+                DaysOnCurrentPosition    = m.DaysOnCurrentPosition,
+                MoveType                 = m.MoveType,
+                Status                   = m.Status,
+                RejectionReason          = m.RejectionReason ?? string.Empty,
+                CancellationReason       = m.CancellationReason ?? string.Empty,
+                CanCancel                = m.CanCancel,
+                TargetPositionName       = m.TargetPositionName,
+            });
+        }
+
+        foreach (var b in result.Bids)
+        {
+            response.Bids.Add(new WorkProfileBulletinBid
+            {
+                CtrlNbr         = b.CtrlNbr.Value,
+                BulletinCtrlNbr = b.BulletinCtrlNbr.Value,
+                Priority        = b.Priority,
+                SubmittedUtc    = b.SubmittedUtc.ToString("o"),
+                Status          = b.Status,
+                BulletinCode    = b.BulletinCode,
+                PositionName    = b.PositionName,
+            });
+        }
+
+        return response;
+    }
+
+    #endregion
 }

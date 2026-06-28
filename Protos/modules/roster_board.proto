@@ -68,6 +68,9 @@ message CreateRosterBoardRequest {
   string rotation_type = 5;
   bool is_active = 6;
   int32 required_positions = 7;
+  bool allow_bulletin_bidding = 8;
+  bool allow_seniority_move = 9;
+  bool allow_force_assign = 10;
 }
 
 message UpdateRosterBoardRequest {
@@ -77,6 +80,9 @@ message UpdateRosterBoardRequest {
   string rotation_type = 4;
   bool is_active = 5;
   int32 required_positions = 6;
+  bool allow_bulletin_bidding = 7;
+  bool allow_seniority_move = 8;
+  bool allow_force_assign = 9;
 }
 
 message DeleteRosterBoardRequest {
@@ -109,6 +115,9 @@ message RosterBoardResponse {
   string work_area_name = 13;
   string craft_name = 14;
   int32 required_positions = 15;
+  bool allow_bulletin_bidding = 16;
+  bool allow_seniority_move = 17;
+  bool allow_force_assign = 18;
 }
 
 message RosterBoardPositionResponse {

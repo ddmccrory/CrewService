@@ -30,13 +30,14 @@ public abstract class WorkerBase(
     string workerType,
     TimeSpan checkInterval) : BackgroundService
 {
+    protected IServiceScopeFactory ScopeFactory { get; } = scopeFactory;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
+                using var scope = ScopeFactory.CreateScope();
                 var scheduleRepo = scope.ServiceProvider.GetRequiredService<IWorkerScheduleRepository>();
                 var logRepo = scope.ServiceProvider.GetRequiredService<IWorkerExecutionLogRepository>();
                 var lockService = scope.ServiceProvider.GetRequiredService<IProcessingLockService>();

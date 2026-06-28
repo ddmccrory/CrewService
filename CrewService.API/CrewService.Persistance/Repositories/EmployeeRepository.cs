@@ -56,6 +56,15 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .SingleOrDefaultAsync(e => e.EmployeeNumber == employeeNumber);
     }
 
+    public async Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            throw new ArgumentException("The user id cannot be null or empty", nameof(userId));
+
+        return await DbContext.Set<Employee>()
+            .SingleOrDefaultAsync(e => e.UserId == userId, ct);
+    }
+
     public async Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr)
     {
         return await DbContext.Set<Employee>()

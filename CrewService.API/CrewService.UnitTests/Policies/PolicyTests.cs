@@ -146,43 +146,184 @@ public class SeniorityMovePolicyTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var policy = SeniorityMovePolicy.Create(10, 90, "ROSTER");
+        var policy = SeniorityMovePolicy.Create(ControlNumber.Create(1), ControlNumber.Create(10), 30, requestHours: 24, cancelHours: 4);
 
-        Assert.Equal(90, policy.EligibilityDays);
-        Assert.Equal("ROSTER", policy.SeniorityBasis);
+        Assert.Equal(30, policy.EligibilityDays);
+        Assert.Equal(24, policy.RequestHours);
+        Assert.Equal(4, policy.CancelHours);
+        Assert.True(policy.AutoApprove);
     }
 
     [Fact]
-    public void Update_ChangesFields()
+    public void Create_WithAutoApprove_False()
     {
-        var policy = SeniorityMovePolicy.Create(10, 90, "ROSTER");
+        var policy = SeniorityMovePolicy.Create(ControlNumber.Create(1), ControlNumber.Create(10), 30, autoApprove: false);
 
-        policy.Update(60, "DATE");
+        Assert.False(policy.AutoApprove);
+    }
+
+    [Fact]
+    public void Update_ChangesAllFields()
+    {
+        var policy = SeniorityMovePolicy.Create(ControlNumber.Create(1), ControlNumber.Create(10), 30);
+
+        policy.Update(60, 48, 8, false, "", "", "", "", "", "", "");
 
         Assert.Equal(60, policy.EligibilityDays);
-        Assert.Equal("DATE", policy.SeniorityBasis);
+        Assert.Equal(48, policy.RequestHours);
+        Assert.Equal(8, policy.CancelHours);
+        Assert.False(policy.AutoApprove);
     }
 }
 
 public class SeniorityMoveTests
 {
     [Fact]
-    public void Create_SetsProperties()
+    public void Create_DefaultsToPendingVoluntary()
     {
-        var move = SeniorityMove.Create(100, 10, 50, 200, 30);
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), ControlNumber.Create(200), 30);
 
+        Assert.Equal(SeniorityMoveStatus.Pending, move.Status);
+        Assert.Equal(SeniorityMoveType.Voluntary, move.MoveType);
         Assert.Equal(100, move.EmployeeCtrlNbr.Value);
         Assert.Equal(50, move.TargetPositionCtrlNbr.Value);
         Assert.Equal(200, move.DisplacedEmployeeCtrlNbr!.Value);
         Assert.Equal(30, move.DaysOnCurrentPosition);
         Assert.True(move.DomainEvents.Count > 0);
+        Assert.Contains(move.DomainEvents, e => e is SeniorityMoveRequestedDomainEvent);
     }
 
     [Fact]
     public void Create_WithoutDisplacement_NullDisplaced()
     {
-        var move = SeniorityMove.Create(100, 10, 50, null, 30);
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
 
         Assert.Null(move.DisplacedEmployeeCtrlNbr);
+    }
+
+    [Fact]
+    public void Create_ForceAssignType_SetsType()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30, SeniorityMoveType.ForceAssign);
+
+        Assert.Equal(SeniorityMoveType.ForceAssign, move.MoveType);
+    }
+
+    [Fact]
+    public void Approve_TransitionsToApproved()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+
+        move.Approve();
+
+        Assert.Equal(SeniorityMoveStatus.Approved, move.Status);
+        Assert.Contains(move.DomainEvents, e => e is SeniorityMoveApprovedDomainEvent);
+    }
+
+    [Fact]
+    public void Approve_WithEffectiveUtc_SetsDate()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        var effective = DateTime.UtcNow.AddDays(3);
+
+        move.Approve(effective);
+
+        Assert.Equal(effective, move.EffectiveUtc);
+    }
+
+    [Fact]
+    public void Approve_WhenNotPending_Throws()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        move.Approve();
+
+        Assert.Throws<InvalidOperationException>(() => move.Approve());
+    }
+
+    [Fact]
+    public void Reject_TransitionsToRejected()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+
+        move.Reject("Insufficient seniority");
+
+        Assert.Equal(SeniorityMoveStatus.Rejected, move.Status);
+        Assert.Equal("Insufficient seniority", move.RejectionReason);
+        Assert.Contains(move.DomainEvents, e => e is SeniorityMoveRejectedDomainEvent);
+    }
+
+    [Fact]
+    public void Reject_WhenNotPending_Throws()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        move.Approve();
+
+        Assert.Throws<InvalidOperationException>(() => move.Reject("Too late"));
+    }
+
+    [Fact]
+    public void Cancel_FromPending_TransitionsToCancelled()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+
+        move.Cancel("Employee withdrew request");
+
+        Assert.Equal(SeniorityMoveStatus.Cancelled, move.Status);
+        Assert.Equal("Employee withdrew request", move.CancellationReason);
+        Assert.Contains(move.DomainEvents, e => e is SeniorityMoveCancelledDomainEvent);
+    }
+
+    [Fact]
+    public void Cancel_FromApproved_TransitionsToCancelled()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        move.Approve();
+
+        move.Cancel("Rescinded");
+
+        Assert.Equal(SeniorityMoveStatus.Cancelled, move.Status);
+    }
+
+    [Fact]
+    public void Cancel_WhenCompleted_Throws()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        move.Approve();
+        move.Complete();
+
+        Assert.Throws<InvalidOperationException>(() => move.Cancel("Too late"));
+    }
+
+    [Fact]
+    public void Complete_FromApproved_TransitionsToCompleted()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        move.Approve();
+
+        move.Complete();
+
+        Assert.Equal(SeniorityMoveStatus.Completed, move.Status);
+        Assert.NotNull(move.EffectiveUtc);
+        Assert.Contains(move.DomainEvents, e => e is SeniorityMoveCompletedDomainEvent);
+    }
+
+    [Fact]
+    public void Complete_WhenNotApproved_Throws()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+
+        Assert.Throws<InvalidOperationException>(() => move.Complete());
+    }
+
+    [Fact]
+    public void Complete_WithPresetEffectiveUtc_PreservesDate()
+    {
+        var move = SeniorityMove.Create(ControlNumber.Create(1), ControlNumber.Create(100), ControlNumber.Create(10), ControlNumber.Create(50), null, 30);
+        var effective = DateTime.UtcNow.AddDays(1);
+        move.Approve(effective);
+
+        move.Complete();
+
+        Assert.Equal(effective, move.EffectiveUtc);
     }
 }

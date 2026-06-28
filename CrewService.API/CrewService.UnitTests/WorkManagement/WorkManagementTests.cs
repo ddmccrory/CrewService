@@ -505,4 +505,50 @@ public class CraftRoleTests
         Assert.Equal("Engineer", role.Name);
         Assert.Null(role.AlternateName);
     }
+
+    [Fact]
+    public void Create_DefaultsHierarchyLevelToZero()
+    {
+        var role = CraftRole.Create(1, "H", "Helper");
+
+        Assert.Equal(0, role.HierarchyLevel);
+    }
+
+    [Fact]
+    public void Create_WithHierarchyLevel_SetsHierarchyLevel()
+    {
+        var role = CraftRole.Create(1, "F", "Foreman", hierarchyLevel: 2);
+
+        Assert.Equal(2, role.HierarchyLevel);
+    }
+
+    [Fact]
+    public void SetHierarchyLevel_UpdatesHierarchyLevel()
+    {
+        var role = CraftRole.Create(1, "F", "Foreman");
+
+        role.SetHierarchyLevel(3);
+
+        Assert.Equal(3, role.HierarchyLevel);
+    }
+
+    [Fact]
+    public void Update_WithHierarchyLevel_ChangesHierarchyLevel()
+    {
+        var role = CraftRole.Create(1, "F", "Foreman", hierarchyLevel: 1);
+
+        role.Update("F", "Foreman", null, hierarchyLevel: 5);
+
+        Assert.Equal(5, role.HierarchyLevel);
+    }
+
+    [Fact]
+    public void Update_WithoutHierarchyLevel_PreservesHierarchyLevel()
+    {
+        var role = CraftRole.Create(1, "F", "Foreman", hierarchyLevel: 4);
+
+        role.Update("F", "Lead Foreman", "Crew Foreman");
+
+        Assert.Equal(4, role.HierarchyLevel);
+    }
 }

@@ -1,7 +1,10 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Notifications;
+using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -11,7 +14,9 @@ namespace CrewService.Application.Bulletins;
 public sealed class BulletinsService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     ILogger<BulletinsService> logger,
-    IBulletinScheduleSignal scheduleSignal)
+    IBulletinScheduleSignal scheduleSignal,
+    EmployeeNotificationService notifications,
+    EmployeeEligibilityService eligibility)
 {
     public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
@@ -83,9 +88,28 @@ public sealed class BulletinsService(
     public async Task<BulletinBid> SubmitBidAsync(long bulletinCtrlNbr, long employeeCtrlNbr, int priority, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(ControlNumber.Create(employeeCtrlNbr));
-        var seniorityRank = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster)?.Rank ?? 0;
-        var bid = BulletinBid.Create(bulletinCtrlNbr, employeeCtrlNbr, priority, seniorityRank);
+
+        // Enforce board-level bulletin bidding restriction.
+        // If the employee is currently assigned to a roster board position, check AllowBulletinBidding.
+        // Crew positions are always permitted to bid.
+        var empCtrlNbr = ControlNumber.Create(employeeCtrlNbr);
+        var positionAssignments = await uow.PositionAssignments.GetByEmployeeAsync(empCtrlNbr);
+        foreach (var pa in positionAssignments)
+        {
+            var pos = await uow.StaffablePositions.GetByCtrlNbrAsync(pa.StaffablePositionCtrlNbr, ct);
+            if (pos?.PositionType != StaffablePositionType.Board) continue;
+            if (pa.AssignmentSourceCtrlNbr is null) continue;
+            var board = await uow.RosterBoards.GetByPositionCtrlNbrAsync(pa.AssignmentSourceCtrlNbr, ct);
+            if (board is not null && !board.AllowBulletinBidding)
+                throw new InvalidOperationException(
+                    $"Employees on the '{board.Name}' board are not permitted to bid on bulletins.");
+        }
+
+        var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(empCtrlNbr);
+        var activeEntry = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster);
+        var seniorityDate = activeEntry?.RosterDate ?? DateTime.MinValue;
+        var seniorityRank = activeEntry?.Rank ?? 0;
+        var bid = BulletinBid.Create(bulletinCtrlNbr, employeeCtrlNbr, priority, seniorityDate, seniorityRank);
         await uow.BulletinBids.AddAsync(bid, ct);
         await uow.CommitAsync(ct);
         return bid;
@@ -145,15 +169,10 @@ public sealed class BulletinsService(
         {
             var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr)
                 ?? throw new InvalidOperationException($"No BulletinRule configured for craft {bulletin.CraftCtrlNbr}.");
-            candidateCtrlNbr = rule.ForceAssignSelectionMode switch
-            {
-                Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorHelperOrExtraBoard =>
-                    await SelectJuniorHelperOrExtraBoardAsync(uow, bulletin, ct),
-                _ =>
-                    await SelectJuniorExtraBoardAsync(uow, bulletin, ct)
-            };
+            var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, rule, ct);
+            candidateCtrlNbr = candidates.FirstOrDefault();
             if (candidateCtrlNbr is null)
-                throw new InvalidOperationException("No eligible candidate found for force assignment. Ensure extra board members exist for this craft.");
+                throw new InvalidOperationException("No eligible candidate found for force assignment. Ensure qualified extra board or subordinate-tier members exist for this craft.");
         }
 
         bulletin.ForceAssign(candidateCtrlNbr);
@@ -177,13 +196,8 @@ public sealed class BulletinsService(
         var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
         if (rule is null) return null;
 
-        return rule.ForceAssignSelectionMode switch
-        {
-            Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorHelperOrExtraBoard =>
-                await SelectJuniorHelperOrExtraBoardAsync(uow, bulletin, ct),
-            _ =>
-                await SelectJuniorExtraBoardAsync(uow, bulletin, ct)
-        };
+        var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, rule, ct);
+        return candidates.FirstOrDefault();
     }
 
     public async Task<Bulletin> SetBulletinNoBidAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
@@ -211,6 +225,50 @@ public sealed class BulletinsService(
         await uow.CommitAsync(ct);
         if (forceAssignDeadline.HasValue)
             scheduleSignal.Notify(forceAssignDeadline.Value);
+        return bulletin;
+    }
+
+    /// <summary>
+    /// Cancels a posted bulletin while its bid window is still open and it has not been awarded.
+    /// Mirrors legacy SA bulletin deletion (<c>RemoveRailroadPositionBulletins</c>): outstanding
+    /// bids are withdrawn and the underlying <see cref="PositionVacancy"/> is reopened so the
+    /// position survives un-bulletined (no worker auto-reposts it). The bulletin record is kept
+    /// in <c>Cancelled</c> status for audit rather than hard-deleted. Bidder notifications are
+    /// handled separately by the notification pipeline.
+    /// </summary>
+    public async Task<Bulletin> CancelBulletinAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
+
+        if (!bulletin.CanCancel(DateTime.UtcNow))
+            throw new InvalidOperationException(
+                $"Cannot cancel bulletin {ctrlNbr}: status is '{bulletin.Status}' and the bid window must still be open and the bulletin un-awarded.");
+
+        // Withdraw any outstanding bids so they no longer compete for the (now reopened) position.
+        var bids = await uow.BulletinBids.GetByBulletinAsync(ctrlNbr);
+        foreach (var bid in bids.Where(b => b.Status == "Submitted"))
+        {
+            bid.Withdraw();
+            await uow.BulletinBids.UpdateAsync(bid, ct);
+        }
+
+        bulletin.Cancel();
+        await uow.Bulletins.UpdateAsync(bulletin, ct);
+
+        // Reopen the vacancy so the position is re-postable (legacy leaves it unbulletined).
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        if (vacancy is not null)
+        {
+            vacancy.Reopen();
+            await uow.PositionVacancies.UpdateAsync(vacancy, ct);
+        }
+
+        await uow.CommitAsync(ct);
+        logger.LogInformation(
+            "Bulletin {BulletinCtrlNbr}: Cancelled and vacancy {VacancyCtrlNbr} reopened.",
+            ctrlNbr, bulletin.PositionVacancyCtrlNbr);
         return bulletin;
     }
 
@@ -395,13 +453,8 @@ public sealed class BulletinsService(
             var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
             if (rule is null) continue;
 
-            ControlNumber? candidateCtrlNbr = rule.ForceAssignSelectionMode switch
-            {
-                Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorHelperOrExtraBoard =>
-                    await SelectJuniorHelperOrExtraBoardAsync(uow, bulletin, ct),
-                _ =>
-                    await SelectJuniorExtraBoardAsync(uow, bulletin, ct)
-            };
+            var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, rule, ct);
+            var candidateCtrlNbr = candidates.FirstOrDefault();
 
             if (candidateCtrlNbr is null) continue;
 
@@ -463,72 +516,160 @@ public sealed class BulletinsService(
     }
 
     /// <summary>
-    /// Selects the youngest (most junior) employee on the extra board for the bulletin's craft.
-    /// Mirrors the legacy default force-assign pool.
+    /// Produces the ordered, qualification-filtered force-assign candidate list for a bulletin,
+    /// honouring the craft's configured <see cref="Domain.Modules.Bulletins.ForceAssignSelectionMode"/>.
+    /// The first element is the preferred (junior-most eligible) candidate; callers may fall through
+    /// to later entries. Returns an empty list when no eligible candidate exists.
     /// </summary>
-    private static async Task<ControlNumber?> SelectJuniorExtraBoardAsync(
+    private async Task<IReadOnlyList<ControlNumber>> SelectForceAssignCandidatesAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        Bulletin bulletin,
+        BulletinRule rule,
+        CancellationToken ct)
+    {
+        var targetRole = await ResolveTargetCraftRoleAsync(uow, bulletin, ct);
+        return rule.ForceAssignSelectionMode switch
+        {
+            Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorHelperOrExtraBoard =>
+                await SelectJuniorHelperOrExtraBoardAsync(uow, bulletin, targetRole, ct),
+            _ =>
+                await SelectJuniorExtraBoardAsync(uow, bulletin, targetRole, ct)
+        };
+    }
+
+    /// <summary>
+    /// Resolves the <see cref="Domain.Modules.WorkManagement.CraftRole"/> a bulletin is filling
+    /// when it targets a crew position. Board (extra-board) vacancies are not tied to a single
+    /// craft role, so this returns <c>null</c> for them. The resolved role anchors hierarchy-driven
+    /// candidate pooling and qualification filtering during force assignment, replacing legacy
+    /// hardcoded role-name matching.
+    /// Path: bulletin → vacancy → crew position (by staffable position) → craft role.
+    /// </summary>
+    private static async Task<Domain.Modules.WorkManagement.CraftRole?> ResolveTargetCraftRoleAsync(
         Domain.Interfaces.IOrchestrationUnitOfWork uow,
         Bulletin bulletin,
         CancellationToken ct)
     {
-        var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(bulletin.CraftCtrlNbr, ct);
-        var extraBoards = boards.Where(b => b.BoardType == Domain.Modules.Boards.BoardType.ExtraBoard && b.IsActive).ToList();
-        if (extraBoards.Count == 0) return null;
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        if (vacancy is null || vacancy.TargetType != StaffablePositionType.Crew) return null;
 
-        // All positions on active extra boards for this craft — youngest by RosterDate desc, then Rank desc
-        var allPositions = extraBoards.SelectMany(b => b.Positions).ToList();
-        if (allPositions.Count == 0) return null;
+        var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
+        if (crewPosition is null) return null;
 
-        var seniorityByEmployee = new Dictionary<ControlNumber, Domain.Models.Seniority.Seniority>();
-        foreach (var pos in allPositions)
-        {
-            var entries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(pos.EmployeeCtrlNbr);
-            var relevant = entries.FirstOrDefault(s => s.LastActiveRoster);
-            if (relevant is not null && !seniorityByEmployee.ContainsKey(pos.EmployeeCtrlNbr))
-                seniorityByEmployee[pos.EmployeeCtrlNbr] = relevant;
-        }
-
-        return seniorityByEmployee.Values
-            .OrderByDescending(s => s.RosterDate)
-            .ThenByDescending(s => s.Rank)
-            .FirstOrDefault()?.EmployeeCtrlNbr;
+        return await uow.CraftRoles.GetByCtrlNbrAsync(crewPosition.CraftRoleCtrlNbr, ct);
     }
 
     /// <summary>
-    /// Selects the youngest employee who is either on the extra board OR currently holding
-    /// an active Helper crew incumbency. Used for Foreman no-bid force assignment.
-    /// Mirrors the legacy "case Foreman" pool from Collections.GetForceAssignmentSeniorityList.
+    /// Builds the default force-assign candidate pool: every active board member whose board is
+    /// flagged <see cref="Domain.Modules.Boards.RosterBoard.AllowForceAssign"/> for the bulletin's
+    /// craft, ordered junior-first (RosterDate desc, then Rank desc) and filtered to those qualified
+    /// for <paramref name="targetRole"/>. Board eligibility is tenant-configured (mirroring legacy
+    /// <c>RosterBoard.ForceAssign</c>) rather than hardcoded to a board type, so hangout or other
+    /// boards can participate when a railroad opts in. Returns an ordered list so callers can fall
+    /// through to the next eligible candidate. When <paramref name="targetRole"/> is null
+    /// (board vacancy / unresolved role), no qualification filter is applied.
     /// </summary>
-    private static async Task<ControlNumber?> SelectJuniorHelperOrExtraBoardAsync(
+    private async Task<IReadOnlyList<ControlNumber>> SelectJuniorExtraBoardAsync(
         Domain.Interfaces.IOrchestrationUnitOfWork uow,
         Bulletin bulletin,
+        Domain.Modules.WorkManagement.CraftRole? targetRole,
+        CancellationToken ct)
+    {
+        var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(bulletin.CraftCtrlNbr, ct);
+        var forceAssignMembers = boards
+            .Where(b => b.AllowForceAssign && b.IsActive)
+            .SelectMany(b => b.Positions)
+            .Select(p => p.EmployeeCtrlNbr);
+
+        return await OrderJuniorFirstAndFilterAsync(uow, forceAssignMembers, targetRole, ct);
+    }
+
+    /// <summary>
+    /// Orders a candidate set junior-first (RosterDate desc, then Rank desc) using each employee's
+    /// active-roster seniority, then — when <paramref name="targetRole"/> is supplied — filters out
+    /// anyone not qualified for that role via <see cref="EmployeeEligibilityService"/>. Employees
+    /// without an active-roster seniority entry are excluded, mirroring legacy behaviour. Returns a
+    /// deduplicated, ordered list of eligible candidates (junior-most first).
+    /// </summary>
+    private async Task<IReadOnlyList<ControlNumber>> OrderJuniorFirstAndFilterAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        IEnumerable<ControlNumber> candidateCtrlNbrs,
+        Domain.Modules.WorkManagement.CraftRole? targetRole,
+        CancellationToken ct)
+    {
+        var seniorityByEmployee = new Dictionary<ControlNumber, Domain.Models.Seniority.Seniority>();
+        foreach (var empCtrlNbr in candidateCtrlNbrs)
+        {
+            if (seniorityByEmployee.ContainsKey(empCtrlNbr)) continue;
+            var entries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(empCtrlNbr);
+            var relevant = entries.FirstOrDefault(s => s.LastActiveRoster);
+            if (relevant is not null)
+                seniorityByEmployee[empCtrlNbr] = relevant;
+        }
+
+        var ordered = seniorityByEmployee
+            .OrderByDescending(kvp => kvp.Value.RosterDate)
+            .ThenByDescending(kvp => kvp.Value.Rank)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        if (targetRole is null) return ordered;
+
+        var qualified = new List<ControlNumber>();
+        foreach (var empCtrlNbr in ordered)
+        {
+            var result = await eligibility.CheckEligibilityByCraftRoleAsync(uow, empCtrlNbr, targetRole.CtrlNbr, ct);
+            if (result.IsEligible)
+                qualified.Add(empCtrlNbr);
+        }
+        return qualified;
+    }
+
+    /// <summary>
+    /// Builds the "subordinate tier or extra board" force-assign pool used when a higher-tier
+    /// crew position (e.g. Foreman) goes no-bid. The pool is the union of:
+    /// <list type="number">
+    ///   <item>active members of boards flagged
+    ///   <see cref="Domain.Modules.Boards.RosterBoard.AllowForceAssign"/> for the craft, and</item>
+    ///   <item>employees currently holding an active crew incumbency in a <em>subordinate</em> role —
+    ///   any craft role whose <see cref="Domain.Modules.WorkManagement.CraftRole.HierarchyLevel"/>
+    ///   is strictly lower than the target role's.</item>
+    /// </list>
+    /// Board eligibility and subordinate roles are both derived from tenant-configured data rather
+    /// than hardcoded board types or role names, so the logic works for any craft/railroad. The
+    /// result is ordered junior-first and filtered to employees qualified for
+    /// <paramref name="targetRole"/>. If the target role is unknown its hierarchy cannot be
+    /// evaluated, so this degrades to the force-assign-board-only pool.
+    /// </summary>
+    private async Task<IReadOnlyList<ControlNumber>> SelectJuniorHelperOrExtraBoardAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        Bulletin bulletin,
+        Domain.Modules.WorkManagement.CraftRole? targetRole,
         CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         var candidateCtrlNbrs = new HashSet<ControlNumber>();
 
-        // 1. Extra board members for this craft
+        // 1. Force-assign-eligible board members for this craft (tenant-configured per board).
         var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(bulletin.CraftCtrlNbr, ct);
-        foreach (var board in boards.Where(b => b.BoardType == Domain.Modules.Boards.BoardType.ExtraBoard && b.IsActive))
+        foreach (var board in boards.Where(b => b.AllowForceAssign && b.IsActive))
             foreach (var pos in board.Positions)
                 candidateCtrlNbrs.Add(pos.EmployeeCtrlNbr);
 
-        // 2. Employees currently occupying an active Helper crew incumbency
-        //    (a Helper CrewPosition has a TargetType == StaffablePositionType.Crew and craft == helper craft)
-        //    We look for all active incumbencies whose position belongs to a crew scoped to the same railroad.
-        //    Since we don't have a direct "Helper craft" reference here, we use the vacancy's WorkAreaGroupCtrlNbr
-        //    to scope crew searches, then filter by craft role / position type if available.
+        // 2. Employees currently occupying an active crew incumbency in a subordinate role.
+        //    Subordinate roles are tenant-configured: any role in the same craft whose
+        //    HierarchyLevel is strictly below the target role's. This replaces the legacy
+        //    hardcoded "Helper" name match so the rule holds for any craft/railroad.
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-        if (vacancy is not null)
+        if (vacancy is not null && targetRole is not null)
         {
-            // Load all craft roles for this craft so we can identify helper vs foreman roles
             var craftRoles = await uow.CraftRoles.GetByCraftAsync(bulletin.CraftCtrlNbr);
-            var helperRoleCtrlNbrs = craftRoles
-                .Where(r => r.Name.Contains("Helper", StringComparison.OrdinalIgnoreCase))
+            var subordinateRoleCtrlNbrs = craftRoles
+                .Where(r => r.HierarchyLevel < targetRole.HierarchyLevel)
                 .Select(r => r.CtrlNbr)
                 .ToHashSet();
 
-            if (helperRoleCtrlNbrs.Count > 0)
+            if (subordinateRoleCtrlNbrs.Count > 0)
             {
                 var crewsInWorkArea = await uow.Crews.GetByWorkAreaAsync(vacancy.WorkAreaGroupCtrlNbr);
                 foreach (var crew in crewsInWorkArea)
@@ -536,8 +677,8 @@ public sealed class BulletinsService(
                     var positions = await uow.CrewPositions.GetByCrewAsync(crew.CtrlNbr);
                     foreach (var position in positions)
                     {
-                        // Only include helper role positions
-                        if (!helperRoleCtrlNbrs.Contains(position.CraftRoleCtrlNbr)) continue;
+                        // Only include subordinate-tier role positions
+                        if (!subordinateRoleCtrlNbrs.Contains(position.CraftRoleCtrlNbr)) continue;
 
                         var incumbency = await uow.CrewIncumbencies.GetActiveByPositionAsync(position.CtrlNbr, now);
                         if (incumbency is not null)
@@ -547,22 +688,7 @@ public sealed class BulletinsService(
             }
         }
 
-        if (candidateCtrlNbrs.Count == 0) return null;
-
-        // Select youngest by reverse seniority (RosterDate desc, Rank desc)
-        var seniorityByEmployee = new Dictionary<ControlNumber, Domain.Models.Seniority.Seniority>();
-        foreach (var empCtrlNbr in candidateCtrlNbrs)
-        {
-            var entries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(empCtrlNbr);
-            var relevant = entries.FirstOrDefault(s => s.LastActiveRoster);
-            if (relevant is not null)
-                seniorityByEmployee[empCtrlNbr] = relevant;
-        }
-
-        return seniorityByEmployee.Values
-            .OrderByDescending(s => s.RosterDate)
-            .ThenByDescending(s => s.Rank)
-            .FirstOrDefault()?.EmployeeCtrlNbr;
+        return await OrderJuniorFirstAndFilterAsync(uow, candidateCtrlNbrs, targetRole, ct);
     }
 
     /// <summary>
@@ -583,32 +709,96 @@ public sealed class BulletinsService(
         string assignmentType,
         CancellationToken ct)
     {
+        var forceAssigned = assignmentType == PositionAssignmentType.ForceAssignment;
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
         if (vacancy is not null)
         {
             vacancy.Fill();
             await uow.PositionVacancies.UpdateAsync(vacancy, ct);
-            await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, ct);
+            var displacedEmployeeCtrlNbr = await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, ct);
+
+            // Notify the employee displaced from the crew position (if any).
+            if (displacedEmployeeCtrlNbr is not null && displacedEmployeeCtrlNbr != employeeCtrlNbr)
+            {
+                var displacedRailroad = await ResolveVacancyRailroadAsync(uow, vacancy, ct);
+                if (displacedRailroad is not null)
+                {
+                    await notifications.NotifyDisplacedAsync(
+                        uow, displacedRailroad, displacedEmployeeCtrlNbr,
+                        Domain.Modules.Notifications.NotificationSubject.Create(
+                            Domain.Modules.Notifications.NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr),
+                        ct);
+                }
+            }
         }
+
+        // Notify the awarded/force-assigned employee.
+        await notifications.NotifyBulletinAwardedAsync(uow, bulletin, employeeCtrlNbr, forceAssigned, ct);
+
+        // A bulletin award/force-assign supersedes any pending voluntary seniority moves the
+        // awarded employee had outstanding (legacy: RailroadPoolEmployee.RemoveUnassignedSeniorityMoves).
+        await SupersedePendingSeniorityMovesAsync(uow, employeeCtrlNbr, bulletin.CtrlNbr, ct);
         await uow.Bulletins.UpdateAsync(bulletin, ct);
     }
 
-    private static async Task PlaceEmployeeOnCrewPositionAsync(
+    /// <summary>
+    /// Resolves the railroad (work-area <c>DynamicGroup</c>) that owns a vacancy.
+    /// </summary>
+    private static async Task<ControlNumber?> ResolveVacancyRailroadAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        PositionVacancy vacancy,
+        CancellationToken ct)
+    {
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+        if (workArea is null) return null;
+        return workArea.RailroadCtrlNbr ?? workArea.CtrlNbr;
+    }
+
+    /// <summary>
+    /// Cancels the employee's still-pending voluntary seniority moves because a bulletin award
+    /// or force-assignment now governs their position. Mirrors SA's
+    /// <c>RailroadPoolEmployee.RemoveUnassignedSeniorityMoves</c> (unassigned + voluntary).
+    /// Force-assign moves are left untouched.
+    /// </summary>
+    private async Task SupersedePendingSeniorityMovesAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber bulletinCtrlNbr,
+        CancellationToken ct)
+    {
+        var moves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var move in moves)
+        {
+            if (move.Status != SeniorityMoveStatus.Pending) continue;
+            if (move.MoveType != SeniorityMoveType.Voluntary) continue;
+
+            move.Cancel($"Superseded by bulletin {bulletinCtrlNbr.Value}.");
+            await uow.SeniorityMoves.UpdateAsync(move, ct);
+            logger.LogInformation(
+                "Bulletin {BulletinCtrlNbr}: superseded pending seniority move {MoveCtrlNbr} for employee {EmployeeCtrlNbr}.",
+                bulletinCtrlNbr.Value, move.CtrlNbr.Value, employeeCtrlNbr.Value);
+        }
+    }
+
+    private static async Task<ControlNumber?> PlaceEmployeeOnCrewPositionAsync(
         Domain.Interfaces.IOrchestrationUnitOfWork uow,
         PositionVacancy vacancy,
         ControlNumber employeeCtrlNbr,
         string assignmentType,
         CancellationToken ct)
     {
-        if (vacancy.TargetType != StaffablePositionType.Crew) return;
+        if (vacancy.TargetType != StaffablePositionType.Crew) return null;
 
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
-        if (crewPosition is null) return;
+        if (crewPosition is null) return null;
+
+        ControlNumber? displacedEmployeeCtrlNbr = null;
 
         // End any existing active incumbency on this position first.
         var existingIncumbency = await uow.CrewIncumbencies.GetActiveByPositionAsync(crewPosition.CtrlNbr, DateTime.UtcNow);
         if (existingIncumbency is not null)
         {
+            displacedEmployeeCtrlNbr = existingIncumbency.EmployeeCtrlNbr;
             existingIncumbency.End(DateTime.UtcNow);
             uow.CrewIncumbencies.Update(existingIncumbency);
             var oldAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
@@ -621,6 +811,8 @@ public sealed class BulletinsService(
 
         uow.CrewIncumbencies.Add(incumbency);
         uow.PositionAssignments.Add(positionAssignment);
+
+        return displacedEmployeeCtrlNbr;
     }
     /// <summary>
     /// Computes the force-assign deadline for a crew-position bulletin using the
@@ -674,6 +866,20 @@ public sealed class BulletinsService(
     }
 
     /// <summary>
+    /// Runs the full winner-selection process for the given bulletin without committing any
+    /// changes. Returns the winning <see cref="BulletinBid"/> (seniority order + preference
+    /// chain), or <c>null</c> if no qualified bidder exists. Safe to call for preview / UI
+    /// pre-selection before the dispatcher confirms the award.
+    /// </summary>
+    public async Task<BulletinBid?> GetBulletinWinnerAsync(ControlNumber bulletinCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(bulletinCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Bulletin {bulletinCtrlNbr} not found.");
+        return await SelectBulletinWinnerAsync(uow, bulletin, ct);
+    }
+
+    /// <summary>
     /// Selects the winning bidder for a closed bulletin using seniority order (senior first),
     /// respecting bid <c>Priority</c> preference chains. If an employee bids on this bulletin
     /// at a lower priority than another bulletin, that higher-preference bulletin is checked
@@ -690,7 +896,8 @@ public sealed class BulletinsService(
         var bids = await uow.BulletinBids.GetByBulletinAsync(bulletin.CtrlNbr);
         var activeBids = bids
             .Where(b => b.Status == "Submitted")
-            .OrderBy(b => b.SeniorityRank)
+            .OrderBy(b => b.SeniorityDate)
+            .ThenBy(b => b.SeniorityRank)
             .ToList();
 
         if (activeBids.Count == 0) return null;
@@ -791,6 +998,8 @@ public sealed class BulletinsService(
                 {
                     loserBid.MarkLoser();
                     await uow.BulletinBids.UpdateAsync(loserBid, ct);
+                    // Notify losers (legacy parity); informational, no acknowledgement required.
+                    await notifications.NotifyBulletinLostAsync(uow, bulletin, loserBid.EmployeeCtrlNbr, ct);
                 }
 
                 bulletin.Award(winner.EmployeeCtrlNbr);

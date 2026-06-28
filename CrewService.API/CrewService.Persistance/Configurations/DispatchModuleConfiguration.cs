@@ -37,7 +37,7 @@ internal class DispatchDecisionLogConfiguration : IEntityTypeConfiguration<Dispa
         builder.Property(l => l.SelectedEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(l => l.Phase).HasMaxLength(30).IsRequired();
+        builder.Property(l => l.Phase).HasMaxLength(20).IsRequired();
         builder.Property(l => l.SelectionSource).HasMaxLength(50);
 
         builder.HasOne<PositionSlot>().WithMany().HasForeignKey(l => l.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -60,9 +60,9 @@ internal class DispatchOverrideConfiguration : IEntityTypeConfiguration<Dispatch
         builder.Property(o => o.ApprovedByCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(o => o.OverrideType).HasMaxLength(30).IsRequired();
-        builder.Property(o => o.ReasonCode).HasMaxLength(30).IsRequired();
-        builder.Property(o => o.ReasonText).HasMaxLength(500);
+        builder.Property(o => o.OverrideType).HasMaxLength(50).IsRequired();
+        builder.Property(o => o.ReasonCode).HasMaxLength(64).IsRequired();
+        builder.Property(o => o.ReasonText).HasMaxLength(512);
         builder.Property(o => o.Status).HasMaxLength(20).IsRequired();
 
         builder.HasOne<PositionSlot>().WithMany().HasForeignKey(o => o.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);

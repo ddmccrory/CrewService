@@ -1,10 +1,11 @@
-using CrewService.Domain.Modules.Infrastructure;
+﻿using CrewService.Domain.Modules.Infrastructure;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Application.Bulletins;
 using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Application.Qualifications;
 using CrewService.Application.SeniorityOps;
+using CrewService.Application.Policies;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -69,7 +70,7 @@ public sealed class BulletinProcessingWorker(
     /// </summary>
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        using var scope = scopeFactory.CreateScope();
+        using var scope = ScopeFactory.CreateScope();
         var bulletinsService = scope.ServiceProvider.GetRequiredService<BulletinsService>();
         var nextEvent = await bulletinsService.GetNextBulletinEventUtcAsync(cancellationToken);
 
@@ -101,6 +102,11 @@ public sealed class BulletinProcessingWorker(
         var forceAssigned = await bulletinsService.AutoForceAssignNoBidsAsync(ct);
         if (forceAssigned.Count > 0)
             logger.LogInformation("BulletinProcessingWorker: Auto-force-assigned {Count} NoBid bulletin(s).", forceAssigned.Count);
+
+        // 3. Durable reconciliation: repost any vacant crew/board positions the post-commit
+        //    reactor missed (e.g. process restart before the fire-and-forget reaction ran).
+        var vacancyRepostService = services.GetRequiredService<VacancyAssignment.VacancyRepostService>();
+        await vacancyRepostService.ReconcileUnbulletinedVacantPositionsAsync(ct);
     }
 
     /// <summary>
@@ -114,13 +120,43 @@ public sealed class BulletinProcessingWorker(
 
 public sealed class SeniorityMoveWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<SeniorityMoveWorker> logger)
+    ILogger<SeniorityMoveWorker> logger,
+    ISeniorityMoveSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "SeniorityMove", TimeSpan.FromMinutes(10))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
-        return Task.CompletedTask;
+        var policiesService = services.GetRequiredService<Policies.PoliciesService>();
+        var executionService = services.GetRequiredService<Policies.SeniorityMoveExecutionService>();
+
+        // Auto-approve any pending moves whose craft policy allows it
+        var approved = await policiesService.AutoApprovePendingMovesAsync(ct);
+        if (approved.Count > 0)
+            logger.LogInformation("SeniorityMoveWorker: Auto-approved {Count} pending seniority move(s).", approved.Count);
+
+        // Execute all approved moves whose effective time has arrived
+        var due = await policiesService.GetApprovedDueSeniorityMovesAsync(DateTime.UtcNow, ct);
+        foreach (var move in due)
+        {
+            try
+            {
+                await executionService.ExecuteAsync(move.CtrlNbr, ct);
+                logger.LogInformation("SeniorityMoveWorker: Executed move {MoveCtrlNbr}.", move.CtrlNbr);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "SeniorityMoveWorker: Failed to execute move {MoveCtrlNbr}.", move.CtrlNbr);
+            }
+        }
+
+        // Set the next wakeup to the earliest remaining approved move
+        var nextDue = await policiesService.GetNextApprovedSeniorityMoveEffectiveUtcAsync(ct);
+        if (nextDue.HasValue)
+            scheduleSignal.Notify(nextDue.Value);
     }
+
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
 }
 
 public sealed class SeniorityStateChangeWorker(
@@ -131,7 +167,7 @@ public sealed class SeniorityStateChangeWorker(
 {
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        using var scope = scopeFactory.CreateScope();
+        using var scope = ScopeFactory.CreateScope();
         var seniorityService = scope.ServiceProvider.GetRequiredService<SeniorityAppService>();
         var nextEvent = await seniorityService.GetNextPendingChangeUtcAsync(cancellationToken);
 

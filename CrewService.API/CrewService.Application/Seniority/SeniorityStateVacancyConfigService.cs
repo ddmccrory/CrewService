@@ -3,6 +3,7 @@ using CrewService.Application.RosterBoardOps;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
@@ -111,9 +112,13 @@ public sealed class SeniorityStateVacancyConfigService(
             {
                 try
                 {
+                    var targetType = await ResolveTargetTypeAsync(uow, assignment.StaffablePositionCtrlNbr, ct);
+                    if (targetType is null)
+                        continue;
+
                     await bulletinsService.OpenVacancyAsync(
                         workAreaGroupCtrlNbr: roster.WorkAreaGroupCtrlNbr,
-                        targetType: assignment.AssignmentType,
+                        targetType: targetType,
                         targetCtrlNbr: assignment.StaffablePositionCtrlNbr,
                         craftCtrlNbr: roster.CraftCtrlNbr,
                         vacancyReasonCode: "StatusChange",
@@ -154,9 +159,13 @@ public sealed class SeniorityStateVacancyConfigService(
             {
                 try
                 {
+                    var targetType = await ResolveTargetTypeAsync(uow, assignment.StaffablePositionCtrlNbr, ct);
+                    if (targetType is null)
+                        continue;
+
                     await bulletinsService.OpenVacancyAsync(
                         workAreaGroupCtrlNbr: roster.WorkAreaGroupCtrlNbr,
-                        targetType: assignment.AssignmentType,
+                        targetType: targetType,
                         targetCtrlNbr: assignment.StaffablePositionCtrlNbr,
                         craftCtrlNbr: roster.CraftCtrlNbr,
                         vacancyReasonCode: "StatusChange",
@@ -184,5 +193,27 @@ public sealed class SeniorityStateVacancyConfigService(
                     employeeCtrlNbr.Value, targetBoard.CtrlNbr.Value);
             }
         }
+    }
+
+    /// <summary>
+    /// Resolves the bulletin target type ("C" crew / "B" board) from the backing
+    /// <see cref="Domain.Modules.Staffing.StaffablePosition.PositionType"/>. Returns null
+    /// (and logs) when the position cannot be found or is not a bulletinable crew/board slot.
+    /// </summary>
+    private async Task<string?> ResolveTargetTypeAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        var staffablePosition = await uow.StaffablePositions.GetByCtrlNbrAsync(staffablePositionCtrlNbr, ct);
+        if (staffablePosition is null || !StaffablePositionType.IsValid(staffablePosition.PositionType))
+        {
+            logger.LogWarning(
+                "ApplyVacancyAction: Position {Position} has no bulletinable crew/board type — skipping vacancy.",
+                staffablePositionCtrlNbr.Value);
+            return null;
+        }
+
+        return staffablePosition.PositionType;
     }
 }

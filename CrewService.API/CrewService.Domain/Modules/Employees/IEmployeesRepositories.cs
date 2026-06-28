@@ -16,6 +16,7 @@ namespace CrewService.Domain.Modules.Employees;
 public interface IEmployeeRepository : IRepository<Employee>
 {
     Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber);
+    Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default);
     Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr);
     Task<List<Employee>> GetListByClientCtrlNbrAsync(ControlNumber clientCtrlNbr);
     Task<List<Employee>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default);

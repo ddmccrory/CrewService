@@ -5,6 +5,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.HolidayManagement;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.RailroadInfo;
 using CrewService.Domain.Modules.Safety;
@@ -231,6 +232,11 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IBulletinRepository Bulletins { get; }
     IBulletinBidRepository BulletinBids { get; }
     IBulletinRuleRepository BulletinRules { get; }
+
+    // ────────────────────────────────────────────────────
+    // Notifications
+    // ────────────────────────────────────────────────────
+    IEmployeeNotificationRepository EmployeeNotifications { get; }
 
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,

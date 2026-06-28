@@ -21,7 +21,9 @@ internal class WorkInstanceConfiguration : IEntityTypeConfiguration<WorkInstance
         builder.Property(w => w.AssignmentGroupCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(w => w.Status).HasMaxLength(20).IsRequired();
+        builder.Property(w => w.StartUtc).IsRequired();
+        builder.Property(w => w.EndUtc).IsRequired();
+        builder.Property(w => w.Status).HasMaxLength(30).IsRequired();
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(w => w.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(w => w.AssignmentGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -39,9 +41,10 @@ internal class CraftRoleConfiguration : IEntityTypeConfiguration<CraftRole>
         builder.HasKey(r => r.CtrlNbr);
         builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(r => r.Code).HasMaxLength(30);
+        builder.Property(r => r.Code).HasMaxLength(50);
         builder.Property(r => r.Name).HasMaxLength(100).IsRequired();
         builder.Property(r => r.AlternateName).HasMaxLength(100);
+        builder.Property(r => r.HierarchyLevel).HasDefaultValue(0);
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(r => r.RequiredQualifications).WithOne().HasForeignKey(q => q.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
@@ -82,7 +85,7 @@ internal class PositionSlotConfiguration : IEntityTypeConfiguration<PositionSlot
         builder.Property(s => s.BoundEmployeeCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
+        builder.Property(s => s.Status).HasMaxLength(30).IsRequired();
         builder.Property(s => s.BindingSource).HasMaxLength(50);
 
         builder.HasOne<WorkInstance>().WithMany().HasForeignKey(s => s.WorkInstanceCtrlNbr).OnDelete(DeleteBehavior.Restrict);

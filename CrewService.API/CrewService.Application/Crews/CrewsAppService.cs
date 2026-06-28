@@ -169,7 +169,8 @@ public sealed class CrewsAppService(
 
         var incumbency = CrewIncumbency.Create(crewPositionCtrlNbr, employeeCtrlNbr, startUtc, endUtc);
         var positionAssignment = PositionAssignment.Create(
-            crewPosition.StaffablePositionCtrlNbr, empCtrlNbr, PositionAssignmentType.Direct, crewPosition.CtrlNbr);
+            crewPosition.StaffablePositionCtrlNbr, empCtrlNbr, PositionAssignmentType.Direct, crewPosition.CtrlNbr,
+            assignedDateUtc: startUtc);
 
         uow.CrewIncumbencies.Add(incumbency);
         uow.PositionAssignments.Add(positionAssignment);
