@@ -9,6 +9,7 @@
 - Work in smaller increments rather than large batch changes. When making multiple edits, apply them incrementally and verify each step. When creating large files, NEVER create the entire file in one pass. Always work in very small increments - create a minimal file first, then append/edit in small chunks. Large single create_file calls cause the process to stall. This applies to all file creation, especially documentation and spec files.
 - Fully discuss and agree on design before any code is written. Do not start coding until explicitly told to proceed.
 - Launch wizards from existing list pages via buttons rather than separate pages, and prefer atomic API endpoints (single transaction) over sequential client-side calls for multi-step wizard operations.
+- When the user has explicitly confirmed a fact (e.g., a configuration value or setting), do not re-investigate or re-verify that fact — accept it and move directly to the fix.
 
 ## Code Style
 - Use specific formatting rules
