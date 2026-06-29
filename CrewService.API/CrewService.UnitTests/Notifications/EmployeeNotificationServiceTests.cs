@@ -445,6 +445,13 @@ internal sealed class FakeEmployeeNotificationRepo
     public Task<List<EmployeeNotification>> GetUnacknowledgedByEmployeeAsync(ControlNumber e, CancellationToken ct = default) =>
         Task.FromResult(Seeded.Where(n => n.EmployeeCtrlNbr == e && n.RequiresAcknowledgement && !n.IsAcknowledged)
             .OrderByDescending(n => n.CreatedAtUtc).ToList());
+
+    public Task<List<EmployeeNotification>> GetByRailroadAsync(ControlNumber r, CancellationToken ct = default) =>
+        Task.FromResult(Seeded.Where(n => n.RailroadCtrlNbr == r)
+            .OrderByDescending(n => n.CreatedAtUtc).ToList());
+
+    public Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber r, CancellationToken ct = default) =>
+        Task.FromResult(Seeded.Count(n => n.RailroadCtrlNbr == r && n.RequiresAcknowledgement && !n.IsAcknowledged));
 }
 
 internal sealed class FakeEmployeeRepo(Employee? employeeByUserId) : FakeNotificationRepoBase<Employee>, IEmployeeRepository

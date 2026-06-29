@@ -253,6 +253,8 @@ public class BulletinCreationServiceTests
     {
         public Task<List<EmployeeNotification>> GetByEmployeeAsync(ControlNumber e, CancellationToken ct = default) => Task.FromResult(new List<EmployeeNotification>());
         public Task<List<EmployeeNotification>> GetUnacknowledgedByEmployeeAsync(ControlNumber e, CancellationToken ct = default) => Task.FromResult(new List<EmployeeNotification>());
+        public Task<List<EmployeeNotification>> GetByRailroadAsync(ControlNumber r, CancellationToken ct = default) => Task.FromResult(new List<EmployeeNotification>());
+        public Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber r, CancellationToken ct = default) => Task.FromResult(0);
     }
 
     private sealed class FakeVacancyRepo : FakeRepoBase<PositionVacancy>, IPositionVacancyRepository
