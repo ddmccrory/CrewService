@@ -26,15 +26,6 @@
                     </NavLink>
                 </div>
 
-                @if (CurrentUser.IsEmployee)
-                {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="notifications">
-                            <span class="bi bi-bell-fill-nav-menu" aria-hidden="true"></span> Notifications
-                        </NavLink>
-                    </div>
-                }
-
                 @if (Permissions.IsLoaded)
                 {
                 @* Invitations & Parents — visible when no parent selected *@
@@ -335,9 +326,17 @@
                 @* ══ Parent-scoped sections (require parent only) ══ *@
 
                 @* ── Employee Management ── *@
-                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations", "employees/scheduled-state-changes"))
+                @if (Permissions.HasAccessToAny("employees", "employees/seniority", "employees/prior-service", "admin/invitations", "employees/scheduled-state-changes", "employees/notifications"))
                 {
-                    <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations", "employees/scheduled-state-changes")">
+                    <NavMenuGroup Title="Employee Management" Icon="bi-person-vcard" IsInitiallyExpanded="@IsCurrentPath("employees", "admin/invitations", "employees/scheduled-state-changes", "notifications/review")">
+                        @if (Permissions.HasAccess("employees/notifications"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="notifications/review">
+                                    <span class="bi bi-bell-fill" aria-hidden="true"></span> Notifications
+                                </NavLink>
+                            </div>
+                        }
                         @if (Permissions.HasAccess("employees"))
                         {
                             <div class="nav-item">

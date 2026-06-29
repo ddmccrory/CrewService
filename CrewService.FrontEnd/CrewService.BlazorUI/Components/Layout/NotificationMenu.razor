@@ -1,0 +1,137 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+@implements IDisposable
+
+@inject NotificationsClient NotificationsClient
+@inject UserPermissionService Permissions
+@inject CircuitBootstrapService CircuitBootstrap
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject AppContextService AppContext
+
+@if (_visible)
+{
+    <div class="dropdown notification-menu">
+        <button class="btn btn-outline-light position-relative" type="button"
+                data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                title="Notifications">
+            <span class="bi bi-bell-fill" aria-hidden="true"></span>
+            @if (_openCount > 0)
+            {
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    @(_openCount > 99 ? "99+" : _openCount)
+                    <span class="visually-hidden">open notifications</span>
+                </span>
+            }
+        </button>
+        <div class="dropdown-menu dropdown-menu-end notification-menu-panel p-0 shadow">
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                <strong>Notifications</strong>
+                <button class="btn btn-sm btn-link p-0" @onclick="ReloadAsync" disabled="@_loading">
+                    <span class="bi bi-arrow-clockwise"></span>
+                </button>
+            </div>
+            <div class="notification-menu-list">
+                @if (_loading)
+                {
+                    <div class="px-3 py-3 text-muted small">Loading…</div>
+                }
+                else if (_recent.Count == 0)
+                {
+                    <div class="px-3 py-3 text-muted small">No notifications.</div>
+                }
+                else
+                {
+                    @foreach (var n in _recent)
+                    {
+                        <div class="dropdown-item-text border-bottom py-2">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span>
+                                @if (n.RequiresAcknowledgement)
+                                {
+                                    <span class="badge @(n.IsAcknowledged ? "bg-success" : "bg-warning text-dark")">
+                                        @(n.IsAcknowledged ? "Accepted" : "Open")
+                                    </span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(n.EmployeeName))
+                            {
+                                <div class="fw-semibold small mt-1">@n.EmployeeName</div>
+                            }
+                            <div class="small">@n.Message</div>
+                            <div class="text-muted small">@FormatTimestamp(n.CreatedAt)</div>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="px-3 py-2 text-center border-top">
+                <a class="small" href="notifications">View all</a>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const int RecentLimit = 10;
+    private readonly List<NotificationResponse> _recent = [];
+    private int _openCount;
+    private bool _hasAccess;
+    private bool _visible;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true) return;
+
+        await CircuitBootstrap.EnsureInitializedAsync(authState.User);
+
+        if (!Permissions.HasAccess("employees/notifications")) return;
+
+        _hasAccess = true;
+        AppContext.OnContextChanged += OnContextChanged;
+        await ReloadAsync();
+    }
+
+    private void OnContextChanged() => InvokeAsync(ReloadAsync);
+
+    private async Task ReloadAsync()
+    {
+        if (_loading) return;
+        var railroad = AppContext.SelectedRailroadCtrlNbr;
+        if (!_hasAccess || railroad is null)
+        {
+            _visible = false;
+            _recent.Clear();
+            _openCount = 0;
+            StateHasChanged();
+            return;
+        }
+        _visible = true;
+        try
+        {
+            _loading = true;
+            var response = await NotificationsClient.GetRailroadNotificationsAsync(railroad.Value);
+            _recent.Clear();
+            _recent.AddRange(response.Notifications.Take(RecentLimit));
+            _openCount = await NotificationsClient.GetRailroadUnacknowledgedCountAsync(railroad.Value);
+        }
+        catch
+        {
+            _recent.Clear();
+            _openCount = 0;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
+        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    public void Dispose() => AppContext.OnContextChanged -= OnContextChanged;
+}

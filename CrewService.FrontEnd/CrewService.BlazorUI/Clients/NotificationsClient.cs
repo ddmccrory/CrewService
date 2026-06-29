@@ -68,4 +68,47 @@ public sealed class NotificationsClient(GrpcChannelProvider channelProvider, Cir
             throw;
         }
     }
+
+    /// <summary>Read-only railroad-wide notification feed (newest first) for the reference menu.</summary>
+    public async Task<GetNotificationsResponse> GetRailroadNotificationsAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetRailroadNotificationsAsync(new RailroadNotificationsRequest { RailroadCtrlNbr = railroadCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    /// <summary>Count of open notices across the railroad (reference-menu badge).</summary>
+    public async Task<int> GetRailroadUnacknowledgedCountAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            var response = await _client.GetRailroadUnacknowledgedCountAsync(new RailroadNotificationsRequest { RailroadCtrlNbr = railroadCtrlNbr });
+            return response.Count;
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    /// <summary>Read-only feed of a single employee's notifications (newest first) for managerial review.</summary>
+    public async Task<GetNotificationsResponse> GetEmployeeNotificationsAsync(long employeeCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetEmployeeNotificationsAsync(new EmployeeNotificationsRequest { EmployeeCtrlNbr = employeeCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }
