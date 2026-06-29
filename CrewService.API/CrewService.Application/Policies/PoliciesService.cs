@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Notifications;
 using CrewService.Application.Staffing;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
@@ -11,7 +12,7 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications)
 {
     public async Task<CraftDisplacementPolicy> GetOrUpsertDisplacementPolicyAsync(
         long craftCtrlNbr, int windowHours, string seniorityBasis, string defaultAction,
@@ -190,6 +191,11 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             displacedEmployeeCtrlNbr is null or 0 ? null : ControlNumber.Create(displacedEmployeeCtrlNbr.Value),
             daysOnCurrentPosition, moveType, effectiveUtc, willWorkElection);
         await uow.SeniorityMoves.AddAsync(move, ct);
+
+        // Notify the soon-to-be-displaced employee at request time (position-affecting; requires
+        // acknowledgement). Mirrors the legacy SeniorityMoveNotification raised on creation.
+        await notifications.NotifySeniorityMoveRequestedAsync(uow, move, ct);
+
         await uow.CommitAsync(ct);
         return move;
     }
@@ -242,6 +248,10 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         move.Cancel(reason);
         await uow.SeniorityMoves.UpdateAsync(move, ct);
+
+        // Notify the previously-bumped employee that the move is off, and clear the stale bump notice.
+        await notifications.NotifySeniorityMoveCancelledAsync(uow, move, ct);
+
         await uow.CommitAsync(ct);
         return move;
     }
