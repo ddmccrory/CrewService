@@ -9,9 +9,16 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
 {
     // ── Seniority Move Policy ─────────────────────────────────────────
 
-    public async Task<SeniorityMovePolicyResponse> GetSeniorityMovePolicyAsync(long railroadCtrlNbr, long craftCtrlNbr)
+    /// <summary>
+    /// Returns the configured seniority move policy for the given railroad/craft, or
+    /// <c>null</c> when none has been configured. A missing policy is an expected business
+    /// state (not every craft has one), so <see cref="StatusCode.NotFound"/> is returned as
+    /// <c>null</c> rather than logged and thrown as an error.
+    /// </summary>
+    public async Task<SeniorityMovePolicyResponse?> GetSeniorityMovePolicyAsync(long railroadCtrlNbr, long craftCtrlNbr)
     {
         try { return await _client.GetSeniorityMovePolicyAsync(new GetSeniorityMovePolicyRequest { RailroadCtrlNbr = railroadCtrlNbr, CraftCtrlNbr = craftCtrlNbr }); }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
         catch (Exception ex) { LogException(ex); throw; }
     }
 

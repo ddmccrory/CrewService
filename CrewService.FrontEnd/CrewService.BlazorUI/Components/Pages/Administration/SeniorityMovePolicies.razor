@@ -278,15 +278,9 @@ else
 
             var policyTasks = craftsResp.Crafts.Select(async c =>
             {
-                try
-                {
-                    var policy = await PoliciesClient.GetSeniorityMovePolicyAsync(SelectedRailroadCtrlNbr.Value, c.CtrlNbr);
-                    return new PolicyRow { CraftCtrlNbr = c.CtrlNbr, CraftName = c.CraftName, Policy = policy };
-                }
-                catch
-                {
-                    return new PolicyRow { CraftCtrlNbr = c.CtrlNbr, CraftName = c.CraftName };
-                }
+                // A null policy is the expected "not configured yet" state for a craft.
+                var policy = await PoliciesClient.GetSeniorityMovePolicyAsync(SelectedRailroadCtrlNbr.Value, c.CtrlNbr);
+                return new PolicyRow { CraftCtrlNbr = c.CtrlNbr, CraftName = c.CraftName, Policy = policy };
             });
 
             rows = (await Task.WhenAll(policyTasks))
