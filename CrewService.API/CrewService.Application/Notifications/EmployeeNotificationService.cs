@@ -1,3 +1,6 @@
+using CrewService.Application.Modules.UserAccount;
+using CrewService.Application.Staffing;
+using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.ValueObjects;
@@ -17,7 +20,10 @@ namespace CrewService.Application.Notifications;
 /// External delivery (Teams/email/AtHoc) is driven separately by the
 /// <c>EmployeeNotifiedDomainEvent</c> raised on creation; it is currently stubbed.
 /// </summary>
-public sealed class EmployeeNotificationService(ILogger<EmployeeNotificationService> logger)
+public sealed class EmployeeNotificationService(
+    ILogger<EmployeeNotificationService> logger,
+    IUserAccountService? userAccounts = null,
+    IWorkAreaClock? clock = null)
 {
     /// <summary>
     /// Resolves the railroad (work-area <c>DynamicGroup</c>) that owns a bulletin via its vacancy.
@@ -90,9 +96,13 @@ public sealed class EmployeeNotificationService(ILogger<EmployeeNotificationServ
         }
 
         var category = forceAssigned ? NotificationCategories.ForceAssign : NotificationCategories.BulletinAward;
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        var tz = vacancy is null ? null : await ResolveWorkAreaTimeZoneAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+        var positionName = vacancy?.TargetName ?? string.Empty;
+        var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
         var message = forceAssigned
-            ? $"You have been force-assigned to a position effective {FormatEffective(bulletin.EffectiveUtc)}."
-            : $"You have been awarded the bulletin position effective {FormatEffective(bulletin.EffectiveUtc)}.";
+            ? $"You have been force-assigned to {positionClause} effective {FormatEffectiveLocal(bulletin.EffectiveUtc, tz)}."
+            : $"You have been awarded {positionClause} effective {FormatEffectiveLocal(bulletin.EffectiveUtc, tz)}.";
 
         var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
 
@@ -121,8 +131,71 @@ public sealed class EmployeeNotificationService(ILogger<EmployeeNotificationServ
 
         var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
 
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        var positionName = vacancy?.TargetName ?? string.Empty;
+        var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
+
         Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinAward,
-            "Your bid for a bulletin position was not awarded.",
+            $"Your bid for {positionClause} was not awarded.",
+            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
+    }
+
+    /// <summary>
+    /// Notifies a bidder that the bulletin they bid on was cancelled. Informational only
+    /// (mirrors legacy RemoveRailroadPositionBulletin fanning out to each bidder), so it does
+    /// not require acknowledgement.
+    /// </summary>
+    public async Task NotifyBulletinCancelledAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Bulletins.Bulletin bulletin,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct = default)
+    {
+        var railroadCtrlNbr = await ResolveBulletinRailroadAsync(uow, bulletin, ct);
+        if (railroadCtrlNbr is null)
+        {
+            logger.LogWarning(
+                "Skipping bulletin-cancelled notification for employee {Employee}: railroad could not be resolved for bulletin {Bulletin}.",
+                employeeCtrlNbr.Value, bulletin.CtrlNbr.Value);
+            return;
+        }
+
+        var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        var positionName = vacancy?.TargetName ?? string.Empty;
+        var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
+
+        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinCancellation,
+            $"The bulletin for {positionClause} has been cancelled and your bid is no longer active.",
+            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
+    }
+
+    /// <summary>
+    /// Notifies a bidder that the bulletin they bid on closed with no award (No Bid). Informational
+    /// only, so it does not require acknowledgement.
+    /// </summary>
+    public async Task NotifyBulletinNoBidAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Bulletins.Bulletin bulletin,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct = default)
+    {
+        var railroadCtrlNbr = await ResolveBulletinRailroadAsync(uow, bulletin, ct);
+        if (railroadCtrlNbr is null)
+        {
+            logger.LogWarning(
+                "Skipping bulletin-no-bid notification for employee {Employee}: railroad could not be resolved for bulletin {Bulletin}.",
+                employeeCtrlNbr.Value, bulletin.CtrlNbr.Value);
+            return;
+        }
+
+        var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
+        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+        var positionName = vacancy?.TargetName ?? string.Empty;
+        var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
+
+        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinNoBid,
+            $"The bulletin for {positionClause} closed with no bid and may proceed to force-assignment.",
             requiresAcknowledgement: false, subject, effectiveAtUtc: null);
     }
 
@@ -132,18 +205,126 @@ public sealed class EmployeeNotificationService(ILogger<EmployeeNotificationServ
     /// Notifies the moving employee that their seniority move has been executed. Position-affecting,
     /// so it requires acknowledgement.
     /// </summary>
-    public Task NotifySeniorityMoveExecutedAsync(
+    public async Task NotifySeniorityMoveExecutedAsync(
         IOrchestrationUnitOfWork uow,
         Domain.Modules.Policies.SeniorityMove move,
         CancellationToken ct = default)
     {
         var subject = NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr);
 
-        Emit(uow, move.RailroadCtrlNbr, move.EmployeeCtrlNbr, NotificationCategories.SeniorityMove,
-            $"Your seniority move has been completed effective {FormatEffective(move.EffectiveUtc)}.",
-            requiresAcknowledgement: true, subject, move.EffectiveUtc);
+        var positionName = await StaffablePositionNameResolver.ResolveAsync(uow, move.TargetPositionCtrlNbr, ct);
+        var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
 
-        return Task.CompletedTask;
+        var tz = await ResolvePositionTimeZoneAsync(uow, move.TargetPositionCtrlNbr, ct);
+
+        Emit(uow, move.RailroadCtrlNbr, move.EmployeeCtrlNbr, NotificationCategories.SeniorityMove,
+            $"You have been assigned to {positionClause} effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
+            requiresAcknowledgement: true, subject, move.EffectiveUtc);
+    }
+
+    /// <summary>
+    /// Notifies the soon-to-be-displaced employee that a seniority move targeting their position
+    /// has been requested. Position-affecting, so it requires acknowledgement. Mirrors the legacy
+    /// SeniorityMoveNotification raised at request time (not execution time), including the
+    /// bumping employee's name.
+    /// </summary>
+    public async Task NotifySeniorityMoveRequestedAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Policies.SeniorityMove move,
+        CancellationToken ct = default)
+    {
+        if (move.DisplacedEmployeeCtrlNbr is null)
+            return;
+
+        var subject = NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr);
+
+        var bumpingName = await ResolveEmployeeNameAsync(uow, move.EmployeeCtrlNbr, ct);
+        var byClause = string.IsNullOrEmpty(bumpingName) ? string.Empty : $" by {bumpingName}";
+
+        var positionName = await StaffablePositionNameResolver.ResolveAsync(uow, move.TargetPositionCtrlNbr, ct);
+        var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
+
+        var tz = await ResolvePositionTimeZoneAsync(uow, move.TargetPositionCtrlNbr, ct);
+
+        Emit(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
+            $"You will be bumped from {positionClause}{byClause}, effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
+            requiresAcknowledgement: true, subject, move.EffectiveUtc);
+    }
+
+    /// <summary>
+    /// Notifies the previously-bumped employee that a seniority move targeting their position has
+    /// been cancelled, and auto-completes the stale "you will be bumped" notice so it no longer
+    /// prompts at login. Mirrors the legacy SeniorityMoveCancelNotification /
+    /// CreateAutomaticChangeNotification behavior. Informational only.
+    /// </summary>
+    public async Task NotifySeniorityMoveCancelledAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Policies.SeniorityMove move,
+        CancellationToken ct = default)
+    {
+        if (move.DisplacedEmployeeCtrlNbr is null)
+            return;
+
+        // Auto-complete the original ack-required bump notice so it doesn't linger after cancel.
+        var open = await uow.EmployeeNotifications.GetUnacknowledgedByEmployeeAsync(move.DisplacedEmployeeCtrlNbr, ct);
+        foreach (var stale in open.Where(n =>
+            n.Subject is not null
+            && n.Subject.SubjectType == NotificationSubjectTypes.SeniorityMove
+            && n.Subject.SubjectCtrlNbr == move.CtrlNbr))
+        {
+            stale.RecordAcknowledgement(AcknowledgementMethod.Automatic, confirmed: true, acknowledgedByUser: "system");
+            uow.EmployeeNotifications.Update(stale);
+        }
+
+        var subject = NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr);
+        var positionName = await StaffablePositionNameResolver.ResolveAsync(uow, move.TargetPositionCtrlNbr, ct);
+        var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
+
+        Emit(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
+            $"The seniority move that would have bumped you from {positionClause} has been cancelled.",
+            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
+    }
+
+    /// <summary>
+    /// Resolves the work-area <see cref="TimeZoneInfo"/> that owns a target position via its crew,
+    /// so effective times render in the work-area's local zone. Returns <c>null</c> (UTC) when the
+    /// clock is unavailable or the position is not crew-scoped.
+    /// </summary>
+    private async Task<TimeZoneInfo?> ResolvePositionTimeZoneAsync(
+        IOrchestrationUnitOfWork uow, ControlNumber targetPositionCtrlNbr, CancellationToken ct)
+    {
+        if (clock is null) return null;
+        var crewPos = await uow.CrewPositions.GetByStaffablePositionAsync(targetPositionCtrlNbr);
+        if (crewPos is null) return null;
+        return await clock.GetCrewTimeZoneAsync(uow, crewPos.CrewCtrlNbr, ct);
+    }
+
+    /// <summary>
+    /// Resolves the work-area <see cref="TimeZoneInfo"/> for a work-area group, so effective times
+    /// render in the work-area's local zone. Returns <c>null</c> (UTC) when the clock is unavailable.
+    /// </summary>
+    private async Task<TimeZoneInfo?> ResolveWorkAreaTimeZoneAsync(
+        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct)
+    {
+        if (clock is null) return null;
+        return await clock.GetWorkAreaTimeZoneAsync(workAreaGroupCtrlNbr, ct);
+    }
+
+    /// <summary>
+    /// Resolves an employee's display name (<c>LastName, FirstName M.</c>) via their Identity user
+    /// profile. Returns <see cref="string.Empty"/> when the employee, user, or account service is
+    /// unavailable so the message degrades gracefully.
+    /// </summary>
+    private async Task<string> ResolveEmployeeNameAsync(
+        IOrchestrationUnitOfWork uow, ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        if (userAccounts is null) return string.Empty;
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(employeeCtrlNbr, ct);
+        if (employee is null || string.IsNullOrEmpty(employee.UserId)) return string.Empty;
+
+        var names = await userAccounts.GetNamesByIdsAsync([employee.UserId]);
+        return names.FirstOrDefault()?.FullNameLNF ?? string.Empty;
     }
 
     /// <summary>
@@ -165,8 +346,11 @@ public sealed class EmployeeNotificationService(ILogger<EmployeeNotificationServ
         return Task.CompletedTask;
     }
 
-    private static string FormatEffective(DateTime? effectiveUtc) =>
-        effectiveUtc.HasValue
-            ? effectiveUtc.Value.ToString("g") + " UTC"
-            : "immediately";
+    private string FormatEffectiveLocal(DateTime? effectiveUtc, TimeZoneInfo? tz)
+    {
+        if (!effectiveUtc.HasValue) return "immediately";
+        var utc = DateTime.SpecifyKind(effectiveUtc.Value, DateTimeKind.Utc);
+        var local = tz is null ? utc : TimeZoneInfo.ConvertTimeFromUtc(utc, tz);
+        return local.ToString("g");
+    }
 }

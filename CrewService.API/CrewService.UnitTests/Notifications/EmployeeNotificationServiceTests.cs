@@ -1,4 +1,6 @@
 using CrewService.Application.Notifications;
+using CrewService.Application.Models.UserAccount;
+using CrewService.Application.Modules.UserAccount;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
@@ -56,6 +58,14 @@ public class EmployeeNotificationServiceTests
             TargetPositionCtrlNbr, displacedEmployeeCtrlNbr: null, daysOnCurrentPosition: 30,
             effectiveUtc: DateTime.UtcNow.AddDays(1));
 
+    private static Craft MakeCraft(bool showNotifications) =>
+        Craft.Create(parentCtrlNbr: null, dynamicGroupCtrlNbr: RailroadCtrlNbr,
+            craftName: "Conductor", craftPluralName: "Conductors", craftNumber: 1,
+            autoMarkUp: false, approveAllMarkOffs: false, markOffHours: 0, markUpHours: 0,
+            requiredRestHours: 0, maximumVacationDayTime: 0, unpaidMealPeriodMinutes: 0,
+            hoursofService: false, processPayroll: false, showNotifications: showNotifications,
+            vacationAssignmentType: 0);
+
     // ── Bulletin award ───────────────────────────────────────────────────
 
     [Fact]
@@ -91,6 +101,21 @@ public class EmployeeNotificationServiceTests
     }
 
     [Fact]
+    public async Task NotifyBulletinAwarded_IncludesPositionName()
+    {
+        var vacancy = PositionVacancy.Create(WorkAreaGroupCtrlNbr, StaffablePositionType.Crew,
+            TargetPositionCtrlNbr, CraftCtrlNbr, "POSITION_CREATED", targetName: "Conductor Crew / Position 1");
+        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea());
+        var bulletin = MakeBulletin(vacancy);
+
+        await BuildService().NotifyBulletinAwardedAsync(uow, bulletin, EmployeeCtrlNbr,
+            forceAssigned: false, TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Contains("position Conductor Crew / Position 1", notification.Message);
+    }
+
+    [Fact]
     public async Task NotifyBulletinAwarded_UnresolvableRailroad_AddsNoNotification()
     {
         var vacancy = MakeVacancy();
@@ -120,6 +145,84 @@ public class EmployeeNotificationServiceTests
         Assert.True(notification.IsAcknowledged);
     }
 
+    [Fact]
+    public async Task NotifyBulletinLost_IncludesPositionName()
+    {
+        var vacancy = PositionVacancy.Create(WorkAreaGroupCtrlNbr, StaffablePositionType.Crew,
+            TargetPositionCtrlNbr, CraftCtrlNbr, "POSITION_CREATED", targetName: "Conductor Crew / Position 1");
+        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea());
+        var bulletin = MakeBulletin(vacancy);
+
+        await BuildService().NotifyBulletinLostAsync(uow, bulletin, EmployeeCtrlNbr,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Contains("position Conductor Crew / Position 1", notification.Message);
+    }
+
+    // ── Bulletin cancellation ────────────────────────────────────────────
+
+    [Fact]
+    public async Task NotifyBulletinCancelled_AddsInformationalNotification()
+    {
+        var vacancy = MakeVacancy();
+        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea());
+        var bulletin = MakeBulletin(vacancy);
+
+        await BuildService().NotifyBulletinCancelledAsync(uow, bulletin, EmployeeCtrlNbr,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal(NotificationCategories.BulletinCancellation, notification.Category);
+        Assert.False(notification.RequiresAcknowledgement);
+        Assert.Contains("cancelled", notification.Message);
+    }
+
+    // ── Bulletin no-bid ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task NotifyBulletinNoBid_AddsInformationalNotification()
+    {
+        var vacancy = MakeVacancy();
+        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea());
+        var bulletin = MakeBulletin(vacancy);
+
+        await BuildService().NotifyBulletinNoBidAsync(uow, bulletin, EmployeeCtrlNbr,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal(NotificationCategories.BulletinNoBid, notification.Category);
+        Assert.False(notification.RequiresAcknowledgement);
+    }
+
+    // ── Notifications always persist (ShowNotifications is a login-prompt setting only) ──
+
+    [Fact]
+    public async Task NotifyBulletinCancelled_CraftShowNotificationsFalse_StillPersists()
+    {
+        var vacancy = MakeVacancy();
+        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea(), craft: MakeCraft(showNotifications: false));
+        var bulletin = MakeBulletin(vacancy);
+
+        await BuildService().NotifyBulletinCancelledAsync(uow, bulletin, EmployeeCtrlNbr,
+            TestContext.Current.CancellationToken);
+
+        Assert.Single(uow.Notifications.AddedEntities);
+    }
+
+    [Fact]
+    public async Task NotifyBulletinAwarded_CraftShowsNotifications_AddsNotification()
+    {
+        var vacancy = MakeVacancy();
+        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea(), craft: MakeCraft(showNotifications: true));
+        var bulletin = MakeBulletin(vacancy);
+
+        await BuildService().NotifyBulletinAwardedAsync(uow, bulletin, EmployeeCtrlNbr,
+            forceAssigned: false, TestContext.Current.CancellationToken);
+
+        Assert.Single(uow.Notifications.AddedEntities);
+    }
+
     // ── Seniority move ───────────────────────────────────────────────────
 
     [Fact]
@@ -137,6 +240,23 @@ public class EmployeeNotificationServiceTests
         Assert.True(notification.RequiresAcknowledgement);
     }
 
+    [Fact]
+    public async Task NotifySeniorityMoveExecuted_IncludesPositionName()
+    {
+        var position = StaffablePosition.Create(StaffablePositionType.Board);
+        var board = RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(50), "Extra Board A");
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, position: position, board: board);
+        var move = SeniorityMove.Create(RailroadCtrlNbr, EmployeeCtrlNbr, CraftCtrlNbr,
+            position.CtrlNbr, displacedEmployeeCtrlNbr: null, daysOnCurrentPosition: 30,
+            effectiveUtc: DateTime.UtcNow.AddDays(1));
+
+        await BuildService().NotifySeniorityMoveExecutedAsync(uow, move,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Contains("position Extra Board A", notification.Message);
+    }
+
     // ── Displacement ─────────────────────────────────────────────────────
 
     [Fact]
@@ -151,6 +271,115 @@ public class EmployeeNotificationServiceTests
         Assert.Equal(NotificationCategories.PositionChange, notification.Category);
         Assert.Equal(EmployeeCtrlNbr, notification.EmployeeCtrlNbr);
         Assert.True(notification.RequiresAcknowledgement);
+    }
+
+    // ── Seniority move request ───────────────────────────────────────────
+
+    [Fact]
+    public async Task NotifySeniorityMoveRequested_NoDisplaced_AddsNoNotification()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        var move = MakeMove(); // displaced = null
+
+        await BuildService().NotifySeniorityMoveRequestedAsync(uow, move,
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(uow.Notifications.AddedEntities);
+    }
+
+    [Fact]
+    public async Task NotifySeniorityMoveRequested_IncludesBumpingEmployeeName()
+    {
+        var bumping = Employee.Create(ControlNumber.Create(1), "user-100", "100", "000-00-0000",
+            Gender.Male, Race.Other, DateTime.UtcNow, DateTime.UtcNow, ControlNumber.Create(1),
+            "e@x.com", "admin", "Admin");
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: bumping);
+        var move = SeniorityMove.Create(RailroadCtrlNbr, EmployeeCtrlNbr, CraftCtrlNbr,
+            TargetPositionCtrlNbr, displacedEmployeeCtrlNbr: ControlNumber.Create(101),
+            daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
+        var accounts = new FakeUserAccounts(bumping.UserId, "Smith, John D.");
+
+        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, accounts)
+            .NotifySeniorityMoveRequestedAsync(uow, move, TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal(NotificationCategories.PositionChange, notification.Category);
+        Assert.Equal(ControlNumber.Create(101), notification.EmployeeCtrlNbr);
+        Assert.True(notification.RequiresAcknowledgement);
+        Assert.Contains("by Smith, John D.", notification.Message);
+    }
+
+    [Fact]
+    public async Task NotifySeniorityMoveRequested_IncludesPositionName()
+    {
+        var bumping = Employee.Create(ControlNumber.Create(1), "user-100", "100", "000-00-0000",
+            Gender.Male, Race.Other, DateTime.UtcNow, DateTime.UtcNow, ControlNumber.Create(1),
+            "e@x.com", "admin", "Admin");
+        var position = StaffablePosition.Create(StaffablePositionType.Board);
+        var board = RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(50), "Extra Board A");
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: bumping, position: position, board: board);
+        var move = SeniorityMove.Create(RailroadCtrlNbr, EmployeeCtrlNbr, CraftCtrlNbr,
+            position.CtrlNbr, displacedEmployeeCtrlNbr: ControlNumber.Create(101),
+            daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
+        var accounts = new FakeUserAccounts(bumping.UserId, "Smith, John D.");
+
+        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, accounts)
+            .NotifySeniorityMoveRequestedAsync(uow, move, TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Contains("position Extra Board A", notification.Message);
+        Assert.Contains("by Smith, John D.", notification.Message);
+    }
+
+    // ── Seniority move cancellation ──────────────────────────────────────
+
+    [Fact]
+    public async Task NotifySeniorityMoveCancelled_NoDisplaced_AddsNoNotification()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        var move = MakeMove(); // displaced = null
+
+        await BuildService().NotifySeniorityMoveCancelledAsync(uow, move,
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(uow.Notifications.AddedEntities);
+    }
+
+    [Fact]
+    public async Task NotifySeniorityMoveCancelled_AddsInformationalNotification()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        var move = SeniorityMove.Create(RailroadCtrlNbr, EmployeeCtrlNbr, CraftCtrlNbr,
+            TargetPositionCtrlNbr, displacedEmployeeCtrlNbr: ControlNumber.Create(101),
+            daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
+
+        await BuildService().NotifySeniorityMoveCancelledAsync(uow, move,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal(NotificationCategories.PositionChange, notification.Category);
+        Assert.Equal(ControlNumber.Create(101), notification.EmployeeCtrlNbr);
+        Assert.False(notification.RequiresAcknowledgement);
+        Assert.Contains("cancelled", notification.Message);
+    }
+
+    [Fact]
+    public async Task NotifySeniorityMoveCancelled_AutoCompletesStaleBumpNotice()
+    {
+        var displaced = ControlNumber.Create(101);
+        var move = SeniorityMove.Create(RailroadCtrlNbr, EmployeeCtrlNbr, CraftCtrlNbr,
+            TargetPositionCtrlNbr, displacedEmployeeCtrlNbr: displaced,
+            daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
+        var stale = EmployeeNotification.Create(RailroadCtrlNbr, displaced,
+            NotificationCategories.PositionChange, "You will be bumped...", requiresAcknowledgement: true,
+            NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr));
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        uow.Notifications.Seeded.Add(stale);
+
+        await BuildService().NotifySeniorityMoveCancelledAsync(uow, move,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(stale.IsAcknowledged);
     }
 }
 
@@ -188,8 +417,7 @@ internal sealed class FakePositionVacancyRepo(PositionVacancy? vacancy)
 
 internal sealed class FakeDynamicGroupRepo(DynamicGroup? workArea)
     : FakeNotificationRepoBase<DynamicGroup>, IDynamicGroupRepository
-{
-    public override Task<DynamicGroup?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+{    public override Task<DynamicGroup?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
         => Task.FromResult(workArea);
     public Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? p) => Task.FromResult(new List<DynamicGroup>());
     public Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> cs) => Task.FromResult(new List<DynamicGroup>());
@@ -221,11 +449,52 @@ internal sealed class FakeEmployeeNotificationRepo
 
 internal sealed class FakeEmployeeRepo(Employee? employeeByUserId) : FakeNotificationRepoBase<Employee>, IEmployeeRepository
 {
+    public override Task<Employee?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(employeeByUserId);
     public Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber) => Task.FromResult<Employee?>(null);
     public Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default) => Task.FromResult(employeeByUserId);
     public Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr) => Task.FromResult(new List<Employee>());
     public Task<List<Employee>> GetListByClientCtrlNbrAsync(ControlNumber clientCtrlNbr) => Task.FromResult(new List<Employee>());
     public Task<List<Employee>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default) => Task.FromResult(new List<Employee>());
+}
+
+internal sealed class FakeStaffablePositionRepo(StaffablePosition? position) : FakeNotificationRepoBase<StaffablePosition>, IStaffablePositionRepository
+{
+    public override Task<StaffablePosition?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(position);
+    public Task<List<StaffablePosition>> GetByPositionTypeAsync(string positionType) => Task.FromResult(new List<StaffablePosition>());
+}
+
+internal sealed class FakeRosterBoardRepo(RosterBoard? board) : FakeNotificationRepoBase<RosterBoard>, IRosterBoardRepository
+{
+    public Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(ControlNumber w, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RosterBoard>>([]);
+    public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrAsync(ControlNumber c, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RosterBoard>>([]);
+    public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> c, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RosterBoard>>([]);
+    public Task<RosterBoard?> GetByPositionCtrlNbrAsync(ControlNumber p, CancellationToken ct = default) => Task.FromResult<RosterBoard?>(null);
+    public Task<RosterBoard?> GetByStaffablePositionCtrlNbrAsync(ControlNumber s, CancellationToken ct = default) => Task.FromResult(board);
+}
+
+internal sealed class FakeCraftRepo(Craft? craft) : FakeNotificationRepoBase<Craft>, ICraftRepository
+{
+    public override Task<Craft?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(craft);
+    public Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? p, ControlNumber? r) => Task.FromResult(new List<Craft>());
+    public Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> c) => Task.FromResult(new List<Craft>());
+}
+
+internal sealed class FakeUserAccounts(string userId, string fullNameLnf) : IUserAccountService
+{
+    public Task<IReadOnlyList<UserNameDto>> GetNamesByIdsAsync(IEnumerable<string> userIds) =>
+        Task.FromResult<IReadOnlyList<UserNameDto>>([new UserNameDto { Id = userId, FullNameLNF = fullNameLnf }]);
+    public Task<UserAccountDto?> FindByEmailAsync(string email) => throw new NotImplementedException();
+    public Task<UserAccountDto?> FindByIdAsync(string id) => throw new NotImplementedException();
+    public Task<(IdentityOperationResult Result, string UserId)> CreateAsync(CreateUserRequest request) => throw new NotImplementedException();
+    public Task<IdentityOperationResult> UpdateProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLNF) => throw new NotImplementedException();
+    public Task<IdentityOperationResult> UpdateThemeAsync(string userId, string themeName, string themeMode) => throw new NotImplementedException();
+    public Task<IdentityOperationResult> UpdateRefreshTokenAsync(string userId, string refreshToken, DateTime expiration) => throw new NotImplementedException();
+    public Task<IdentityOperationResult> UpdatePrimaryRoleAsync(string userId, string roleId) => throw new NotImplementedException();
+    public Task<IdentityOperationResult> UpdateEmployeeInfoAsync(string userId, string? employeeNumber, string? onProperty) => throw new NotImplementedException();
+    public Task<bool> CheckPasswordAsync(string userId, string password) => throw new NotImplementedException();
+    public Task<(IdentityOperationResult Result, string UserId)> CreateWithoutPasswordAsync(string email) => throw new NotImplementedException();
+    public Task<bool> HasPasswordAsync(string userId) => throw new NotImplementedException();
+    public Task<IdentityOperationResult> SetPasswordAsync(string userId, string password) => throw new NotImplementedException();
 }
 
 /// <summary>
@@ -234,12 +503,15 @@ internal sealed class FakeEmployeeRepo(Employee? employeeByUserId) : FakeNotific
 /// Employees, PositionVacancies, DynamicGroups, and EmployeeNotifications.
 /// All other members throw to keep the surface intentional.
 /// </summary>
-internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup? workArea, Employee? employee = null) : IOrchestrationUnitOfWork
+internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup? workArea, Employee? employee = null, StaffablePosition? position = null, RosterBoard? board = null, Craft? craft = null) : IOrchestrationUnitOfWork
 {
     public FakePositionVacancyRepo Vacancies { get; } = new(vacancy);
     public FakeDynamicGroupRepo Groups { get; } = new(workArea);
     public FakeEmployeeNotificationRepo Notifications { get; } = new();
     public FakeEmployeeRepo EmployeeRepo { get; } = new(employee);
+    public FakeStaffablePositionRepo StaffablePositionRepo { get; } = new(position);
+    public FakeRosterBoardRepo RosterBoardRepo { get; } = new(board);
+    public FakeCraftRepo CraftRepo { get; } = new(craft);
 
     public string CorrelationId => "test";
     public string OrchestrationId => "test";
@@ -248,6 +520,9 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IDynamicGroupRepository DynamicGroups => Groups;
     public IEmployeeNotificationRepository EmployeeNotifications => Notifications;
     public IEmployeeRepository Employees => EmployeeRepo;
+    public IStaffablePositionRepository StaffablePositions => StaffablePositionRepo;
+    public IRosterBoardRepository RosterBoards => RosterBoardRepo;
+    public ICraftRepository Crafts => CraftRepo;
 
     public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
@@ -269,7 +544,6 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IEmploymentStatusRepository EmploymentStatuses => throw new NotImplementedException();
     public IEmploymentStatusHistoryRepository EmploymentStatusHistory => throw new NotImplementedException();
     public IEmployeePriorServiceCreditRepository EmployeePriorServiceCredits => throw new NotImplementedException();
-    public ICraftRepository Crafts => throw new NotImplementedException();
     public IRosterRepository Rosters => throw new NotImplementedException();
     public ISeniorityRepository Seniority => throw new NotImplementedException();
     public ISeniorityStateRepository SeniorityStates => throw new NotImplementedException();
@@ -278,10 +552,8 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IGroupTypeRepository GroupTypes => throw new NotImplementedException();
     public IGroupAttributeDefinitionRepository AttributeDefinitions => throw new NotImplementedException();
     public IGroupAttributeValueRepository AttributeValues => throw new NotImplementedException();
-    public IStaffablePositionRepository StaffablePositions => throw new NotImplementedException();
     public IPositionAssignmentRepository PositionAssignments => throw new NotImplementedException();
     public IBoardCascadePolicyRepository BoardCascadePolicies => throw new NotImplementedException();
-    public IRosterBoardRepository RosterBoards => throw new NotImplementedException();
     public IRequiredPositionsStrategyRepository RequiredPositionsStrategies => throw new NotImplementedException();
     public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => throw new NotImplementedException();
     public ICrewRepository Crews => throw new NotImplementedException();
