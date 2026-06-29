@@ -18,6 +18,7 @@
 @inject EmployeeProfileService ProfileService
 @inject QualificationsClient QualificationsClient
 @inject PoliciesClient PoliciesClient
+@inject NotificationsClient NotificationsClient
 @inject NavigationManager Nav
 
 <PageTitle>Employee Detail</PageTitle>
@@ -117,14 +118,6 @@ else
                                                 @if ((workProfile?.Bids.Count ?? 0) > 0)
                                                 {
                                                     <span class="badge bg-secondary ms-1">@workProfile!.Bids.Count</span>
-                                                }
-                                            </a>
-                                            <a class="btn btn-sm btn-outline-primary"
-                                               href="/staffing/seniority-moves">
-                                                <span class="bi bi-arrow-left-right me-1"></span>Seniority Moves
-                                                @if ((workProfile?.Moves.Count(m => m.Status is "Pending" or "Approved") ?? 0) > 0)
-                                                {
-                                                    <span class="badge bg-secondary ms-1">@workProfile!.Moves.Count(m => m.Status is "Pending" or "Approved")</span>
                                                 }
                                             </a>
                                             <a class="btn btn-sm btn-outline-secondary"
@@ -773,6 +766,50 @@ else
             }
         }
 
+        @* ── Notifications Tab ── *@
+    @if (activeTab == "notifications")
+    {
+        @if (notificationsLoading)
+        {
+            <div class="d-flex align-items-center gap-2 mt-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span>Loading notifications...</span>
+            </div>
+        }
+        else
+        {
+            <DataTable TItem="NotificationResponse"
+                       Items="notifications"
+                       Columns="notificationColumns"
+                       SearchFilter="@((n, term) => n.Message.Contains(term, StringComparison.OrdinalIgnoreCase) || NotificationCategories.Label(n.Category).Contains(term, StringComparison.OrdinalIgnoreCase))"
+                       SearchPlaceholder="Search by message or category..."
+                       EmptyMessage="No notifications found."
+                       DefaultSortColumn="Date"
+                       DefaultSortAscending="false">
+                <RowContent Context="n">
+                    <td>@FormatTimestamp(n.CreatedAt)</td>
+                    <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
+                    <td>@n.Message</td>
+                    <td>@(n.EffectiveAt is not null ? FormatTimestamp(n.EffectiveAt) : "—")</td>
+                    <td>
+                        @if (!n.RequiresAcknowledgement)
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                        else if (n.IsAcknowledged)
+                        {
+                            <span class="badge bg-success">Accepted</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Open</span>
+                        }
+                    </td>
+                </RowContent>
+            </DataTable>
+        }
+    }
+
         @code {
     [Parameter] public long CtrlNbr { get; set; }
 
@@ -797,6 +834,20 @@ else
     private bool workTabLoaded;
     private bool workTabLoading;
 
+    // ── Notifications tab ──
+    private List<NotificationResponse> notifications = [];
+    private bool notificationsLoaded;
+    private bool notificationsLoading;
+
+    private static readonly IReadOnlyList<DataTableColumn<NotificationResponse>> notificationColumns =
+    [
+        new("Date", n => n.CreatedAt.ToDateTime()),
+        new("Category", n => NotificationCategories.Label(n.Category)),
+        new("Message", n => n.Message),
+        new("Effective", n => n.EffectiveAt?.ToDateTime()),
+        new("Status", n => n.RequiresAcknowledgement ? (n.IsAcknowledged ? "Accepted" : "Open") : ""),
+    ];
+
     private string activeTab = "work";
 
     private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
@@ -805,7 +856,8 @@ else
         new("addresses",     "Addresses",         "bi-geo-alt"),
         new("emails",        "Email Addresses",   "bi-envelope"),
         new("phones",        "Phone Numbers",     "bi-telephone"),
-        new("qualifications","Qualifications",    "bi-award")
+        new("qualifications","Qualifications",    "bi-award"),
+        new("notifications", "Notifications",     "bi-bell")
     ];
 
     protected override async Task LoadDataAsync()
@@ -859,7 +911,33 @@ else
         activeTab = tab;
         if (tab == "work" && !workTabLoaded)
             await LoadWorkTabAsync();
+        else if (tab == "notifications" && !notificationsLoaded)
+            await LoadNotificationsTabAsync();
     }
+
+    private async Task LoadNotificationsTabAsync()
+    {
+        if (notificationsLoading) return;
+        notificationsLoading = true;
+        try
+        {
+            errorMessage = null;
+            var response = await NotificationsClient.GetEmployeeNotificationsAsync(CtrlNbr);
+            notifications = [.. response.Notifications];
+            notificationsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load notifications: {ex.Message}";
+        }
+        finally
+        {
+            notificationsLoading = false;
+        }
+    }
+
+    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
+        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     private async Task LoadWorkTabAsync()
     {
