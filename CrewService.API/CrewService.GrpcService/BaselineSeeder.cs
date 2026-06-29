@@ -81,6 +81,7 @@ internal static class BaselineSeeder
         ("employees/seniority-states", "Seniority States", "Employee Management", "/employees/seniority-states"),
         ("employees/prior-service", "Prior Service Credits", "Employee Management", "/employees/prior-service"),
         ("employees/qualifications", "Qualifications", "Employee Management", "/employees/qualifications"),
+        ("employees/notifications", "Notifications", "Employee Management", "/notifications/review"),
         ("admin/invitations", "Invitations", "Employee Management", "/admin/invitations"),
 
         // Information
@@ -152,6 +153,7 @@ internal static class BaselineSeeder
         ["employees/seniority-states"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["employees/prior-service"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["employees/qualifications"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["employees/notifications"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CrewManager", "Dispatcher"],
         ["admin/invitations"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
 
         // Information -- all roles

@@ -28,6 +28,28 @@ service NotificationsSrvc {
   rpc AcknowledgeNotification (AcknowledgeNotificationRequest) returns (NotificationResponse) {
 	option (google.api.http) = { post: "/v1/notifications/me/{ctrl_nbr}/acknowledge" body: "*" };
   }
+  // Read-only global feed of all notifications for the given railroad, newest first.
+  // Drives the reference notification menu for callers/managers/admins.
+  rpc GetRailroadNotifications (RailroadNotificationsRequest) returns (GetNotificationsResponse) {
+	option (google.api.http) = { get: "/v1/notifications/railroad/{railroad_ctrl_nbr}" };
+  }
+  // Count of open (unacknowledged, ack-required) notices across the given railroad.
+  rpc GetRailroadUnacknowledgedCount (RailroadNotificationsRequest) returns (UnacknowledgedCountResponse) {
+	option (google.api.http) = { get: "/v1/notifications/railroad/{railroad_ctrl_nbr}/unacknowledged/count" };
+  }
+  // Read-only feed of a single employee's notifications, newest first. Drives the
+  // employee-detail Notifications tab for managerial review (scoped server-side).
+  rpc GetEmployeeNotifications (EmployeeNotificationsRequest) returns (GetNotificationsResponse) {
+	option (google.api.http) = { get: "/v1/notifications/employee/{employee_ctrl_nbr}" };
+  }
+}
+
+message RailroadNotificationsRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message EmployeeNotificationsRequest {
+  int64 employee_ctrl_nbr = 1;
 }
 
 message AcknowledgeNotificationRequest {
@@ -54,4 +76,6 @@ message NotificationResponse {
   optional google.protobuf.Timestamp effective_at = 9;
   optional string subject_type = 10;
   optional int64 subject_ctrl_nbr = 11;
+  // Recipient display name; populated for the railroad-wide feed, empty for "me" calls.
+  string employee_name = 12;
 }

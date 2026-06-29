@@ -1,0 +1,13 @@
+.notification-menu-panel {
+    width: 360px;
+    max-width: 90vw;
+}
+
+.notification-menu-list {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.notification-menu .dropdown-item-text:last-child {
+    border-bottom: 0 !important;
+}
