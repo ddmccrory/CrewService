@@ -61,6 +61,36 @@ public sealed class NotificationQueryService(
         return open.Count;
     }
 
+    /// <summary>
+    /// Returns every notification across the given railroad, newest first. Read-only
+    /// reference feed for callers/managers/admins; recipient names are resolved at presentation.
+    /// </summary>
+    public async Task<IReadOnlyList<EmployeeNotification>> GetRailroadNotificationsAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.EmployeeNotifications.GetByRailroadAsync(railroadCtrlNbr, ct);
+    }
+
+    /// <summary>
+    /// Returns the count of open (unacknowledged, ack-required) notices across the given
+    /// railroad for the reference-menu badge.
+    /// </summary>
+    public async Task<int> GetRailroadUnacknowledgedCountAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.EmployeeNotifications.CountUnacknowledgedByRailroadAsync(railroadCtrlNbr, ct);
+    }
+
+    /// <summary>
+    /// Returns a single employee's notifications, newest first. Read-only managerial review
+    /// feed for the employee-detail Notifications tab; scoped server-side by employee.
+    /// </summary>
+    public async Task<IReadOnlyList<EmployeeNotification>> GetEmployeeNotificationsAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.EmployeeNotifications.GetByEmployeeAsync(employeeCtrlNbr, ct);
+    }
+
     // ── Acknowledge ──────────────────────────────────────────────────────
 
     /// <summary>

@@ -15,4 +15,16 @@ public interface IEmployeeNotificationRepository : IRepository<EmployeeNotificat
     /// been confirmed. Drives the legacy login-acknowledgement surface.
     /// </summary>
     Task<List<EmployeeNotification>> GetUnacknowledgedByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns every notification for a railroad (newest first), including acknowledgement
+    /// attempts. Drives the read-only railroad-wide reference menu.
+    /// </summary>
+    Task<List<EmployeeNotification>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
+    /// Counts the railroad's open notices (require acknowledgement, not yet confirmed) for the
+    /// reference-menu badge.
+    /// </summary>
+    Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
 }

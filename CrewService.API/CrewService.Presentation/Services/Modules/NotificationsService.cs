@@ -1,6 +1,7 @@
 using CrewService.Application.Notifications;
 using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.ValueObjects;
+using CrewService.Presentation.Services;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,58 @@ public class NotificationsService(IServiceProvider serviceProvider)
         {
             throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message));
         }
+    }
+
+    public override async Task<GetNotificationsResponse> GetRailroadNotifications(RailroadNotificationsRequest request, ServerCallContext context)
+    {
+        if (request.RailroadCtrlNbr <= 0) return new GetNotificationsResponse();
+
+        var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
+        var nameService = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var items = await svc.GetRailroadNotificationsAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
+
+        var names = await nameService.GetEmployeeInfoBatchAsync(items.Select(n => n.EmployeeCtrlNbr));
+
+        var resp = new GetNotificationsResponse();
+        foreach (var n in items)
+        {
+            var mapped = MapNotification(n);
+            mapped.EmployeeName = names.TryGetValue(n.EmployeeCtrlNbr, out var info) ? info.FullNameLnf : string.Empty;
+            resp.Notifications.Add(mapped);
+        }
+        return resp;
+    }
+
+    public override async Task<UnacknowledgedCountResponse> GetRailroadUnacknowledgedCount(RailroadNotificationsRequest request, ServerCallContext context)
+    {
+        if (request.RailroadCtrlNbr <= 0) return new UnacknowledgedCountResponse { Count = 0 };
+
+        var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
+        var count = await svc.GetRailroadUnacknowledgedCountAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
+        return new UnacknowledgedCountResponse { Count = count };
+    }
+
+    public override async Task<GetNotificationsResponse> GetEmployeeNotifications(EmployeeNotificationsRequest request, ServerCallContext context)
+    {
+        if (request.EmployeeCtrlNbr <= 0) return new GetNotificationsResponse();
+
+        var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
+        var nameService = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var items = await svc.GetEmployeeNotificationsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
+
+        var names = await nameService.GetEmployeeInfoBatchAsync(items.Select(n => n.EmployeeCtrlNbr));
+
+        var resp = new GetNotificationsResponse();
+        foreach (var n in items)
+        {
+            var mapped = MapNotification(n);
+            mapped.EmployeeName = names.TryGetValue(n.EmployeeCtrlNbr, out var info) ? info.FullNameLnf : string.Empty;
+            resp.Notifications.Add(mapped);
+        }
+        return resp;
     }
 
     private static GetNotificationsResponse MapList(IReadOnlyList<EmployeeNotification> items)
