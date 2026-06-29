@@ -222,6 +222,17 @@ public sealed class BulletinsService(
 
         bulletin.SetAsNoBid(forceAssignDeadline);
         await uow.Bulletins.UpdateAsync(bulletin, ct);
+
+        // Notify the prospective force-assign candidate that the bulletin closed with no bid.
+        var noBidRule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
+        if (noBidRule is not null)
+        {
+            var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, noBidRule, ct);
+            var candidate = candidates.FirstOrDefault();
+            if (candidate is not null)
+                await notifications.NotifyBulletinNoBidAsync(uow, bulletin, candidate, ct);
+        }
+
         await uow.CommitAsync(ct);
         if (forceAssignDeadline.HasValue)
             scheduleSignal.Notify(forceAssignDeadline.Value);
@@ -252,6 +263,8 @@ public sealed class BulletinsService(
         {
             bid.Withdraw();
             await uow.BulletinBids.UpdateAsync(bid, ct);
+            // Notify each bidder their bulletin was cancelled (legacy RemoveRailroadPositionBulletin fan-out).
+            await notifications.NotifyBulletinCancelledAsync(uow, bulletin, bid.EmployeeCtrlNbr, ct);
         }
 
         bulletin.Cancel();
@@ -774,6 +787,8 @@ public sealed class BulletinsService(
 
             move.Cancel($"Superseded by bulletin {bulletinCtrlNbr.Value}.");
             await uow.SeniorityMoves.UpdateAsync(move, ct);
+            // Notify the previously-bumped employee the move is off, and clear the stale bump notice.
+            await notifications.NotifySeniorityMoveCancelledAsync(uow, move, ct);
             logger.LogInformation(
                 "Bulletin {BulletinCtrlNbr}: superseded pending seniority move {MoveCtrlNbr} for employee {EmployeeCtrlNbr}.",
                 bulletinCtrlNbr.Value, move.CtrlNbr.Value, employeeCtrlNbr.Value);

@@ -86,4 +86,32 @@ public sealed class NotificationQueryService(
 
         return notification;
     }
+
+    /// <summary>
+    /// Records a manual (dispatcher) acknowledgement against any notice — e.g. the employee
+    /// was reached by phone or verbally. Mirrors the legacy NotificationController.Notify action,
+    /// capturing the contact method, phone number, notes, and whether contact was confirmed.
+    /// Not restricted to the current employee since a dispatcher acts on behalf of others.
+    /// </summary>
+    public async Task<EmployeeNotification> RecordManualAcknowledgementAsync(
+        ControlNumber notificationCtrlNbr,
+        AcknowledgementMethod method,
+        bool confirmed,
+        string? phoneNumber = null,
+        string? notes = null,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var notification = await uow.EmployeeNotifications.GetByCtrlNbrAsync(notificationCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Notification {notificationCtrlNbr.Value} not found.");
+
+        notification.RecordAcknowledgement(
+            method, confirmed, currentUserService.GetUserName(),
+            notifiedAtUtc: DateTime.UtcNow, phoneNumber: phoneNumber, notes: notes);
+        uow.EmployeeNotifications.Update(notification);
+        await uow.CommitAsync(ct);
+
+        return notification;
+    }
 }
