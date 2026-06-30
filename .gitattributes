@@ -1,0 +1,67 @@
+###############################################################################
+# Default: auto-detect text files and normalize them to LF in the repository.
+# On checkout, line endings are restored per the rules below (or core.eol).
+# This makes EOL handling deterministic across git CLI and Visual Studio,
+# eliminating phantom CRLF/LF "modified" diffs.
+###############################################################################
+* text=auto
+
+###############################################################################
+# .NET source files
+###############################################################################
+*.cs        text diff=csharp
+*.vb        text
+*.razor     text
+*.cshtml    text
+*.cs.txt    text
+
+###############################################################################
+# Project, solution and MSBuild files (Windows tooling expects CRLF)
+###############################################################################
+*.sln       text eol=crlf
+*.csproj    text eol=crlf
+*.vbproj    text eol=crlf
+*.props     text eol=crlf
+*.targets   text eol=crlf
+*.editorconfig text
+
+###############################################################################
+# Web assets / config / docs
+###############################################################################
+*.json      text
+*.xml       text
+*.config    text
+*.css       text
+*.scss      text
+*.js        text
+*.map       text
+*.html      text
+*.htm       text
+*.proto     text
+*.md        text
+*.yml       text
+*.yaml      text
+
+###############################################################################
+# Scripts - enforce the EOL each interpreter requires
+###############################################################################
+*.sh        text eol=lf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+###############################################################################
+# Binary files - never modify or attempt EOL conversion
+###############################################################################
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.docx      binary
+*.pdf       binary
+*.zip       binary
+*.dll       binary
+*.exe       binary
+*.pfx       binary
+*.snk       binary
