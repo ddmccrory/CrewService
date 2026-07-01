@@ -1,4 +1,3 @@
-using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Xunit;

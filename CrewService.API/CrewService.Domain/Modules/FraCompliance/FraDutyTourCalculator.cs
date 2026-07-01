@@ -1,6 +1,4 @@
-using CrewService.Domain.Modules.FraCompliance;
-
-namespace CrewService.Application.FraCompliance;
+namespace CrewService.Domain.Modules.FraCompliance;
 
 public sealed class FraDutyTourCalculator
 {
