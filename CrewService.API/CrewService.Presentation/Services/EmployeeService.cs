@@ -534,5 +534,57 @@ public class EmployeeService(
         return response;
     }
 
+    public override async Task<EmployeeOnDutyRecordsResponse> GetEmployeeOpenOnDutyRecords(
+        GetEmployeeOpenOnDutyRecordsRequest request, ServerCallContext context)
+    {
+        var records = await _employeeAppService.GetOpenOnDutyRecordsAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
+
+        return MapOnDutyRecords(records);
+    }
+
+    public override async Task<EmployeeOnDutyRecordsResponse> GetEmployeeOnDutyHistory(
+        GetEmployeeOnDutyHistoryRequest request, ServerCallContext context)
+    {
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0
+            ? ControlNumber.Create(request.RailroadCtrlNbr) : (ControlNumber?)null;
+        var period = (OnDutyHistoryPeriod)request.Period;
+
+        var records = await _employeeAppService.GetOnDutyHistoryAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr), period, railroadCtrlNbr,
+            context.CancellationToken);
+
+        return MapOnDutyRecords(records);
+    }
+
+    private static EmployeeOnDutyRecordsResponse MapOnDutyRecords(
+        IReadOnlyList<EmployeeOnDutyRecordItem> records)
+    {
+        var response = new EmployeeOnDutyRecordsResponse();
+        foreach (var r in records)
+        {
+            response.Records.Add(new EmployeeOnDutyRecord
+            {
+                CtrlNbr            = r.CtrlNbr.Value,
+                PreviousRestHours  = r.PreviousRestHours.ToString("0.##"),
+                AssignmentName     = r.AssignmentName,
+                AssignmentCode     = r.AssignmentCode,
+                CrewName           = r.CrewName,
+                CraftRoleName      = r.CraftRoleName,
+                Location           = r.Location,
+                OnDutyUtc          = r.OnDutyTimeUtc.ToString("o"),
+                OnDutyLocal        = r.OnDutyLocalIso,
+                OffDutyUtc         = r.OffDutyTimeUtc?.ToString("o") ?? string.Empty,
+                OffDutyLocal       = r.OffDutyLocalIso,
+                TotalTimeOnDutyMin = r.TotalTimeOnDutyMinutes ?? 0,
+                ConsecutiveDays    = r.ConsecutiveDays,
+                IsAssigned         = r.IsAssigned,
+                IsLateCall         = r.IsLateCall,
+                Status             = r.Status,
+            });
+        }
+        return response;
+    }
+
     #endregion
 }

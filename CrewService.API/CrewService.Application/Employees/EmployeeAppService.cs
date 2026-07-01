@@ -1,12 +1,15 @@
 using CrewService.Application.Modules.UserAccount;
 using CrewService.Application.Staffing;
+using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Employees;
@@ -14,7 +17,9 @@ namespace CrewService.Application.Employees;
 public sealed class EmployeeAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IUserAccountService userAccountService,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IWorkAreaClock workAreaClock,
+    IEmployeeOnDutyQueryService onDutyQueryService)
 {
     // ── Employee CRUD ────────────────────────────────────────────────────────
 
@@ -454,6 +459,201 @@ public sealed class EmployeeAppService(
             seniorityResults,
             moveItems,
             enrichedBids);
+    }
+
+    // ── Employee On-Duty (Work & Staffing open records + On-Duty History) ────
+
+    /// <summary>
+    /// Open on-duty records for an employee — those not yet tied up (Scheduled, Called, or OnDuty).
+    /// Surfaced on the employee-detail Work &amp; Staffing tab. Mirrors the legacy "Open On Duty
+    /// Records" pay-period slice. Times are returned both as UTC and as work-area-localized ISO-8601
+    /// strings so the front-end renders wall-clock times without any timezone logic of its own.
+    /// </summary>
+    public async Task<IReadOnlyList<EmployeeOnDutyRecordItem>> GetOpenOnDutyRecordsAsync(
+        ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var records = await uow.OnDutyRecords.GetOpenForEmployeeAsync(employeeCtrlNbr, ct);
+        return await EnrichAsync(uow, records, ct);
+    }
+
+    /// <summary>
+    /// Completed on-duty history for an employee within the requested pay-period window. Surfaced on
+    /// the employee-detail On-Duty History tab. Window bounds for the work-period options are derived
+    /// from the railroad's configured <see cref="WorkPeriodMode"/> (defaulting to
+    /// <see cref="WorkPeriodMode.HalfMonth"/>, the legacy behavior).
+    /// </summary>
+    public async Task<IReadOnlyList<EmployeeOnDutyRecordItem>> GetOnDutyHistoryAsync(
+        ControlNumber employeeCtrlNbr, OnDutyHistoryPeriod period,
+        ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var mode = await ResolveWorkPeriodModeAsync(uow, railroadCtrlNbr, ct);
+        var (startUtc, endUtc) = ResolveHistoryWindow(period, mode, workAreaClock.UtcNow.UtcDateTime);
+
+        var records = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(employeeCtrlNbr, startUtc, endUtc, ct);
+        return await EnrichAsync(uow, records, ct);
+    }
+
+    /// <summary>
+    /// Enriches raw on-duty records with slot display data (assignment, crew, craft, location),
+    /// tie-up (off-duty) data, and work-area-localized ISO on/off-duty timestamps.
+    /// </summary>
+    private async Task<IReadOnlyList<EmployeeOnDutyRecordItem>> EnrichAsync(
+        IOrchestrationUnitOfWork uow, IReadOnlyList<OnDutyRecord> records, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
+        var slotIds = records.Select(r => r.PositionSlotCtrlNbr).Distinct().ToList();
+        var slotDisplay = await onDutyQueryService.GetSlotDisplayAsync(slotIds, ct);
+
+        var recordIds = records.Select(r => r.CtrlNbr).ToList();
+        var offDuty = await uow.OffDutyRecords.GetByOnDutyRecordsAsync(recordIds, ct);
+        var offDutyMap = offDuty
+            .GroupBy(o => o.OnDutyRecordCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(o => o.OffDutyTimeUtc).First());
+
+        // Cache resolved timezones so records sharing a work area only resolve once.
+        var tzCache = new Dictionary<string, TimeZoneInfo?>(StringComparer.OrdinalIgnoreCase);
+
+        var items = new List<EmployeeOnDutyRecordItem>(records.Count);
+        foreach (var r in records)
+        {
+            slotDisplay.TryGetValue(r.PositionSlotCtrlNbr, out var display);
+
+            var tz = ResolveTimeZone(display?.TimeZoneId, tzCache);
+
+            offDutyMap.TryGetValue(r.CtrlNbr, out var off);
+            DateTime? offUtc = off?.OffDutyTimeUtc;
+
+            items.Add(new EmployeeOnDutyRecordItem(
+                r.CtrlNbr,
+                r.PreviousRestHours,
+                display?.AssignmentName ?? string.Empty,
+                display?.AssignmentCode ?? string.Empty,
+                display?.CrewName ?? string.Empty,
+                display?.CraftRoleName ?? string.Empty,
+                display?.Location ?? string.Empty,
+                r.OnDutyTimeUtc,
+                workAreaClock.FormatLocalIso(r.OnDutyTimeUtc, tz),
+                offUtc,
+                offUtc is null ? string.Empty : workAreaClock.FormatLocalIso(offUtc.Value, tz),
+                off?.TotalTimeOnDutyMinutes,
+                r.ConsecutiveDays,
+                r.IsAssigned,
+                r.IsLateCall,
+                r.Status.Value));
+        }
+
+        return items;
+    }
+
+    private TimeZoneInfo? ResolveTimeZone(string? timeZoneId, Dictionary<string, TimeZoneInfo?> cache)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId)) return null;
+        if (cache.TryGetValue(timeZoneId, out var cached)) return cached;
+        var tz = workAreaClock.ResolveTimeZone(timeZoneId);
+        cache[timeZoneId] = tz;
+        return tz;
+    }
+
+    /// <summary>
+    /// Resolves the railroad's configured <see cref="WorkPeriodMode"/>, falling back to
+    /// <see cref="WorkPeriodMode.HalfMonth"/> (legacy behavior) when the railroad is unknown or
+    /// unconfigured.
+    /// </summary>
+    private static async Task<WorkPeriodMode> ResolveWorkPeriodModeAsync(
+        IOrchestrationUnitOfWork uow, ControlNumber? railroadCtrlNbr, CancellationToken ct)
+    {
+        if (railroadCtrlNbr is null) return WorkPeriodMode.HalfMonth;
+        var railroad = await uow.DynamicGroups.GetByCtrlNbrAsync(railroadCtrlNbr, ct);
+        return railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
+    }
+
+    /// <summary>
+    /// Computes the [start, end) UTC bounds for a completed on-duty history window, given the
+    /// railroad's <see cref="WorkPeriodMode"/>. Mirrors the legacy pay-period slices: current and
+    /// previous work period, current and previous calendar month, and year-to-date.
+    /// </summary>
+    private static (DateTime StartUtc, DateTime EndUtc) ResolveHistoryWindow(
+        OnDutyHistoryPeriod period, WorkPeriodMode mode, DateTime nowUtc)
+    {
+        var today = nowUtc.Date;
+
+        switch (period)
+        {
+            case OnDutyHistoryPeriod.CurrentWorkPeriod:
+            {
+                var (start, end) = CurrentWorkPeriod(mode, today);
+                return (start, end);
+            }
+            case OnDutyHistoryPeriod.PreviousWorkPeriod:
+            {
+                var (currentStart, _) = CurrentWorkPeriod(mode, today);
+                var (prevStart, _) = CurrentWorkPeriod(mode, currentStart.AddDays(-1));
+                return (prevStart, currentStart);
+            }
+            case OnDutyHistoryPeriod.CurrentMonth:
+            {
+                var start = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                return (start, start.AddMonths(1));
+            }
+            case OnDutyHistoryPeriod.PreviousMonth:
+            {
+                var currentMonthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                return (currentMonthStart.AddMonths(-1), currentMonthStart);
+            }
+            case OnDutyHistoryPeriod.YearToDate:
+            {
+                var start = new DateTime(today.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                return (start, nowUtc.AddDays(1).Date);
+            }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(period), period, "Unknown on-duty history period.");
+        }
+    }
+
+    /// <summary>
+    /// Computes the [start, end) UTC bounds of the work period that contains <paramref name="onDate"/>,
+    /// honoring the railroad's <see cref="WorkPeriodMode"/>.
+    /// </summary>
+    private static (DateTime StartUtc, DateTime EndUtc) CurrentWorkPeriod(WorkPeriodMode mode, DateTime onDate)
+    {
+        var day = new DateTime(onDate.Year, onDate.Month, onDate.Day, 0, 0, 0, DateTimeKind.Utc);
+
+        if (mode == WorkPeriodMode.Monthly)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, start.AddMonths(1));
+        }
+
+        if (mode == WorkPeriodMode.Weekly)
+        {
+            var start = day.AddDays(-(int)day.DayOfWeek);
+            return (start, start.AddDays(7));
+        }
+
+        if (mode == WorkPeriodMode.BiWeekly)
+        {
+            // Anchor bi-weekly periods to the start of the calendar year for determinism.
+            var yearStart = new DateTime(day.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var periodIndex = (int)((day - yearStart).TotalDays / 14);
+            var start = yearStart.AddDays(periodIndex * 14);
+            return (start, start.AddDays(14));
+        }
+
+        // Default: HalfMonth — 1st–15th and 16th–end-of-month (legacy behavior).
+        if (day.Day <= 15)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc));
+        }
+        else
+        {
+            var start = new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc);
+            return (start, start.AddDays(-15).AddMonths(1));
+        }
     }
 
     /// <summary>

@@ -18,12 +18,10 @@ public sealed class OnDutyPlacementService(IOrchestrationUnitOfWorkFactory uowFa
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
         var lastOffDuty = await uow.OffDutyRecords.GetLastForEmployeeAsync(employeeCtrlNbr, ct);
-        var previousRestHours = lastOffDuty is null
-            ? 999m
-            : (decimal)(onDutyTimeUtc - lastOffDuty.OffDutyTimeUtc).TotalHours;
+        var previousRestHours = OnDutyHistoryCalculator.CalculatePreviousRestHours(lastOffDuty, onDutyTimeUtc);
 
         var recentOnDuty = await uow.OnDutyRecords.GetRecentForEmployeeAsync(employeeCtrlNbr, 7, ct);
-        var consecutiveDays = CalculateConsecutiveDays(recentOnDuty, onDutyTimeUtc);
+        var consecutiveDays = OnDutyHistoryCalculator.CalculateConsecutiveDays(recentOnDuty, onDutyTimeUtc);
 
         var record = OnDutyRecord.Create(
             positionSlotCtrlNbr,
@@ -38,28 +36,6 @@ public sealed class OnDutyPlacementService(IOrchestrationUnitOfWorkFactory uowFa
         await uow.OnDutyRecords.AddAsync(record, ct);
         await uow.CommitAsync(ct);
         return record;
-    }
-
-    private static int CalculateConsecutiveDays(IReadOnlyList<OnDutyRecord> recentRecords, DateTime currentOnDutyUtc)
-    {
-        if (recentRecords.Count == 0) return 1;
-
-        var count = 1;
-        var currentDate = currentOnDutyUtc.Date;
-
-        foreach (var rec in recentRecords.OrderByDescending(r => r.OnDutyTimeUtc))
-        {
-            var recDate = rec.OnDutyTimeUtc.Date;
-            var gap = (currentDate - recDate).TotalDays;
-            if (gap <= 1 && recDate != currentDate)
-            {
-                count++;
-                currentDate = recDate;
-            }
-            else if (gap > 1) break;
-        }
-
-        return count;
     }
 }
 

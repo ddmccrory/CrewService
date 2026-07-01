@@ -1,4 +1,5 @@
 using CrewService.Application.DailyOperations;
+using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
@@ -105,6 +106,85 @@ public class CallSheetGenerationServiceTests
             => Task.FromResult(new List<Department>());
     }
 
+    private sealed class FakeDynamicGroupRepository : FakeRepository<DynamicGroup>, IDynamicGroupRepository
+    {
+        public Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? parentGroupCtrlNbr) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs) => Task.FromResult(new List<DynamicGroup>());
+        public Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name) => Task.FromResult<DynamicGroup?>(null);
+        public Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? railroadCtrlNbr = null) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync() => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null) => Task.FromResult(new List<DynamicGroup>());
+        public Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, ControlNumber? parentCtrlNbr = null) => Task.FromResult(new List<DynamicGroup>());
+        public Task BackfillPathsAsync() => Task.CompletedTask;
+    }
+
+    private sealed class FakeOnDutyRecordRepository : FakeRepository<OnDutyRecord>, IOnDutyRecordRepository
+    {
+        public readonly List<OnDutyRecord> Added = [];
+        public readonly List<OnDutyRecord> Removed = [];
+
+        public override Task AddAsync(OnDutyRecord entity, CancellationToken ct = default)
+        {
+            Added.Add(entity);
+            return Task.CompletedTask;
+        }
+
+        public override void Remove(OnDutyRecord entity) => Removed.Add(entity);
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetRecentForEmployeeAsync(ControlNumber employeeCtrlNbr, int dayCount, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetByPositionSlotsAsync(IReadOnlyList<ControlNumber> positionSlotCtrlNbrs, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(
+                Added.Where(r => positionSlotCtrlNbrs.Contains(r.PositionSlotCtrlNbr)).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetOpenForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+    }
+
+    private sealed class FakeOffDutyRecordRepository : FakeRepository<OffDutyRecord>, IOffDutyRecordRepository
+    {
+        public Task<OffDutyRecord?> GetLastForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<OffDutyRecord?>(null);
+
+        public Task<IReadOnlyList<OffDutyRecord>> GetByOnDutyRecordsAsync(IReadOnlyList<ControlNumber> onDutyRecordCtrlNbrs, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OffDutyRecord>>([]);
+    }
+
+    private sealed class FakeCrewPositionRepository(IReadOnlyDictionary<ControlNumber, CrewPosition>? byCtrlNbr = null)
+        : FakeRepository<CrewPosition>, ICrewPositionRepository
+    {
+        private readonly IReadOnlyDictionary<ControlNumber, CrewPosition> _byCtrlNbr =
+            byCtrlNbr ?? new Dictionary<ControlNumber, CrewPosition>();
+
+        public override Task<CrewPosition?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(_byCtrlNbr.GetValueOrDefault(ctrlNbr));
+
+        public Task<List<CrewPosition>> GetByCrewAsync(ControlNumber crewCtrlNbr) => Task.FromResult(new List<CrewPosition>());
+        public Task<List<CrewPosition>> GetByCrewsAsync(IEnumerable<ControlNumber> crewCtrlNbrs) => Task.FromResult(new List<CrewPosition>());
+        public Task<CrewPosition?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr) => Task.FromResult<CrewPosition?>(null);
+        public Task<List<ControlNumber>> GetVacantStaffablePositionCtrlNbrsAsync(CancellationToken ct = default) => Task.FromResult(new List<ControlNumber>());
+    }
+
+    private sealed class FakePositionAssignmentRepository(IReadOnlyList<PositionAssignment>? assignments = null)
+        : FakeRepository<PositionAssignment>, IPositionAssignmentRepository
+    {
+        private readonly IReadOnlyList<PositionAssignment> _assignments = assignments ?? [];
+
+        public Task<PositionAssignment?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr)
+            => Task.FromResult<PositionAssignment?>(null);
+        public Task<List<PositionAssignment>> GetByStaffablePositionsAsync(IEnumerable<ControlNumber> staffablePositionCtrlNbrs)
+            => Task.FromResult(new List<PositionAssignment>());
+        public Task<List<PositionAssignment>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr)
+            => Task.FromResult(_assignments.Where(a => a.EmployeeCtrlNbr == employeeCtrlNbr).ToList());
+        public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsAsync() => Task.FromResult(new HashSet<long>());
+        public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsByTypeAsync(string assignmentType) => Task.FromResult(new HashSet<long>());
+    }
+
     /// <summary>
     /// Minimal fake for <see cref="IRepository{TEntity}"/>. Override specific members as needed.
     /// </summary>
@@ -127,7 +207,12 @@ public class CallSheetGenerationServiceTests
         IShiftDefinitionRepository shiftDefinitions,
         IShiftInstanceRepository shiftInstances,
         IWorkInstanceRepository workInstances,
-        IDepartmentRepository departments) : IOrchestrationUnitOfWork
+        IDepartmentRepository departments,
+        IDynamicGroupRepository dynamicGroups,
+        IOnDutyRecordRepository onDutyRecords,
+        IOffDutyRecordRepository offDutyRecords,
+        ICrewPositionRepository crewPositions,
+        IPositionAssignmentRepository positionAssignments) : IOrchestrationUnitOfWork
     {
         public string CorrelationId => string.Empty;
         public string OrchestrationId => string.Empty;
@@ -156,17 +241,17 @@ public class CallSheetGenerationServiceTests
         public ISeniorityRepository Seniority => null!;
         public ISeniorityStateRepository SeniorityStates => null!;
         public IGroupTypeRepository GroupTypes => null!;
-        public IDynamicGroupRepository DynamicGroups => null!;
+        public IDynamicGroupRepository DynamicGroups => dynamicGroups;
         public IGroupAttributeDefinitionRepository AttributeDefinitions => null!;
         public IGroupAttributeValueRepository AttributeValues => null!;
         public IStaffablePositionRepository StaffablePositions => null!;
-        public IPositionAssignmentRepository PositionAssignments => null!;
+        public IPositionAssignmentRepository PositionAssignments => positionAssignments;
         public IBoardCascadePolicyRepository BoardCascadePolicies => null!;
         public IRequiredPositionsStrategyRepository RequiredPositionsStrategies => throw new NotImplementedException();
         public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => throw new NotImplementedException();
         public IRosterBoardRepository RosterBoards => null!;
         public ICrewRepository Crews => null!;
-        public ICrewPositionRepository CrewPositions => null!;
+        public ICrewPositionRepository CrewPositions => crewPositions;
         public ICrewIncumbencyRepository CrewIncumbencies => null!;
         public ICrewAssignmentRepository CrewAssignments => null!;
         public ICrewAttachmentInstanceRepository CrewAttachmentInstances => null!;
@@ -176,8 +261,8 @@ public class CallSheetGenerationServiceTests
         public ICraftRoleQualificationRepository CraftRoleQualifications => null!;
         public IPositionSlotRepository PositionSlots => null!;
         public ISlotRequirementRepository SlotRequirements => null!;
-        public IOnDutyRecordRepository OnDutyRecords => null!;
-        public IOffDutyRecordRepository OffDutyRecords => null!;
+        public IOnDutyRecordRepository OnDutyRecords => onDutyRecords;
+        public IOffDutyRecordRepository OffDutyRecords => offDutyRecords;
         public ICraftOperationsPolicyRepository CraftOperationsPolicies => null!;
         public ICraftDisplacementPolicyRepository CraftDisplacementPolicies => null!;
         public IDisplacementCaseRepository DisplacementCases => null!;
@@ -243,21 +328,44 @@ public class CallSheetGenerationServiceTests
         IShiftDefinitionRepository shiftDefinitions,
         IShiftInstanceRepository shiftInstances,
         IWorkInstanceRepository workInstances,
-        IDepartmentRepository departments) : IOrchestrationUnitOfWorkFactory
+        IDepartmentRepository departments,
+        IDynamicGroupRepository dynamicGroups,
+        IOnDutyRecordRepository onDutyRecords,
+        IOffDutyRecordRepository offDutyRecords,
+        ICrewPositionRepository crewPositions,
+        IPositionAssignmentRepository positionAssignments) : IOrchestrationUnitOfWorkFactory
     {
         public Task<IOrchestrationUnitOfWork> CreateAsync(
             OrchestrationUnitOfWorkOptions? options = null, CancellationToken ct = default)
             => Task.FromResult<IOrchestrationUnitOfWork>(
-                new FakeCallSheetUoW(shiftDefinitions, shiftInstances, workInstances, departments));
+                new FakeCallSheetUoW(shiftDefinitions, shiftInstances, workInstances, departments,
+                    dynamicGroups, onDutyRecords, offDutyRecords, crewPositions, positionAssignments));
     }
+
+    private static IWorkAreaClock CreateClock()
+        => new WorkAreaClock(TimeProvider.System, null!);
 
     private static CallSheetGenerationService CreateSut(
         IAssignmentQueryService assignmentQuery,
         IShiftDefinitionRepository shiftDefinitions,
         IShiftInstanceRepository shiftInstances,
         IWorkInstanceRepository workInstances,
-        IDepartmentRepository departments)
-        => new(new FakeCallSheetUoWFactory(shiftDefinitions, shiftInstances, workInstances, departments), assignmentQuery);
+        IDepartmentRepository departments,
+        IOnDutyRecordRepository? onDutyRecords = null,
+        IOffDutyRecordRepository? offDutyRecords = null,
+        IDynamicGroupRepository? dynamicGroups = null,
+        ICrewPositionRepository? crewPositions = null,
+        IPositionAssignmentRepository? positionAssignments = null)
+        => new(
+            new FakeCallSheetUoWFactory(
+                shiftDefinitions, shiftInstances, workInstances, departments,
+                dynamicGroups ?? new FakeDynamicGroupRepository(),
+                onDutyRecords ?? new FakeOnDutyRecordRepository(),
+                offDutyRecords ?? new FakeOffDutyRecordRepository(),
+                crewPositions ?? new FakeCrewPositionRepository(),
+                positionAssignments ?? new FakePositionAssignmentRepository()),
+            assignmentQuery,
+            CreateClock());
 
     private static ShiftDefinition CreateActiveShiftDef(long workAreaCtrlNbr = 1)
     {
@@ -351,6 +459,191 @@ public class CallSheetGenerationServiceTests
                 ControlNumber.Create(1), shiftDef.CtrlNbr,
                 new DateOnly(2026, 4, 6),
                 ct: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task GenerateForShift_IncumbentSlot_CreatesScheduledOnDutyRecord()
+    {
+        // Arrange - one incumbent (Engineer) and one vacant (Conductor) position
+        var shiftDef = CreateActiveShiftDef();
+        var onDutyRepo = new FakeOnDutyRecordRepository();
+
+        var templates = new List<AssignmentDto>
+        {
+            new(ControlNumber.Create(130), ControlNumber.Create(1), null,
+                "TY-101", "Pool Turn 101",
+                new TimeOnly(7, 0), new TimeOnly(15, 0),
+                "Test Group", "TG",
+                [
+                    new CrewPositionDto(ControlNumber.Create(10), ControlNumber.Create(200), 1, "Engineer"),
+                    new CrewPositionDto(ControlNumber.Create(11), null, 2, "Conductor")
+                ])
+        };
+
+        var sut = CreateSut(
+            new FakeAssignmentQueryService(templates),
+            new FakeShiftDefinitionRepository(shiftDef),
+            new FakeShiftInstanceRepository(),
+            new FakeWorkInstanceRepository(),
+            new FakeDepartmentRepository(),
+            onDutyRecords: onDutyRepo);
+
+        // Act
+        await sut.GenerateForShiftAsync(
+            ControlNumber.Create(1),
+            shiftDef.CtrlNbr,
+            new DateOnly(2026, 4, 6),  // Monday
+            ct: TestContext.Current.CancellationToken);
+
+        // Assert - exactly one record, for the incumbent, in Scheduled state, no late call
+        var record = Assert.Single(onDutyRepo.Added);
+        Assert.Equal(200, record.EmployeeCtrlNbr.Value);
+        Assert.Equal(OnDutyStatus.Scheduled, record.Status);
+        Assert.False(record.IsLateCall);
+        Assert.False(record.IsAssigned);
+        Assert.Equal(record.ScheduledOnDutyTimeUtc, record.OnDutyTimeUtc);
+        // No work-area timezone configured in the fake → on-duty time treated as UTC 07:00.
+        Assert.Equal(new DateTime(2026, 4, 6, 7, 0, 0, DateTimeKind.Utc), record.OnDutyTimeUtc);
+    }
+
+    [Fact]
+    public async Task GenerateForShift_IncumbentOnOwnAssignedPosition_MarksRecordAssigned()
+    {
+        // Arrange - incumbent (employee 200) works crew position 10, which maps to
+        // staffable position 500, and employee 200 is assigned to staffable position 500.
+        var shiftDef = CreateActiveShiftDef();
+        var onDutyRepo = new FakeOnDutyRecordRepository();
+
+        var staffablePositionCtrlNbr = ControlNumber.Create(500);
+        var crewPosition = CrewPosition.Create(
+            ControlNumber.Create(20), ControlNumber.Create(30), 1, staffablePositionCtrlNbr);
+        var crewPositions = new Dictionary<ControlNumber, CrewPosition>
+        {
+            [ControlNumber.Create(10)] = crewPosition
+        };
+        var assignment = PositionAssignment.Create(
+            staffablePositionCtrlNbr, ControlNumber.Create(200), "Direct");
+
+        var templates = new List<AssignmentDto>
+        {
+            new(ControlNumber.Create(130), ControlNumber.Create(1), null,
+                "TY-101", "Pool Turn 101",
+                new TimeOnly(7, 0), new TimeOnly(15, 0),
+                "Test Group", "TG",
+                [
+                    new CrewPositionDto(ControlNumber.Create(10), ControlNumber.Create(200), 1, "Engineer")
+                ])
+        };
+
+        var sut = CreateSut(
+            new FakeAssignmentQueryService(templates),
+            new FakeShiftDefinitionRepository(shiftDef),
+            new FakeShiftInstanceRepository(),
+            new FakeWorkInstanceRepository(),
+            new FakeDepartmentRepository(),
+            onDutyRecords: onDutyRepo,
+            crewPositions: new FakeCrewPositionRepository(crewPositions),
+            positionAssignments: new FakePositionAssignmentRepository([assignment]));
+
+        // Act
+        await sut.GenerateForShiftAsync(
+            ControlNumber.Create(1),
+            shiftDef.CtrlNbr,
+            new DateOnly(2026, 4, 6),  // Monday
+            ct: TestContext.Current.CancellationToken);
+
+        // Assert - the record is flagged assigned because the employee works their own position
+        var record = Assert.Single(onDutyRepo.Added);
+        Assert.Equal(200, record.EmployeeCtrlNbr.Value);
+        Assert.True(record.IsAssigned);
+    }
+
+    [Fact]
+    public async Task GenerateForShift_IncumbentCoveringAnotherPosition_LeavesRecordUnassigned()
+    {
+        // Arrange - incumbent (employee 200) works crew position 10 (staffable position 500),
+        // but the employee's only assignment is to a different staffable position (600).
+        var shiftDef = CreateActiveShiftDef();
+        var onDutyRepo = new FakeOnDutyRecordRepository();
+
+        var crewPosition = CrewPosition.Create(
+            ControlNumber.Create(20), ControlNumber.Create(30), 1, ControlNumber.Create(500));
+        var crewPositions = new Dictionary<ControlNumber, CrewPosition>
+        {
+            [ControlNumber.Create(10)] = crewPosition
+        };
+        var assignment = PositionAssignment.Create(
+            ControlNumber.Create(600), ControlNumber.Create(200), "Direct");
+
+        var templates = new List<AssignmentDto>
+        {
+            new(ControlNumber.Create(130), ControlNumber.Create(1), null,
+                "TY-101", "Pool Turn 101",
+                new TimeOnly(7, 0), new TimeOnly(15, 0),
+                "Test Group", "TG",
+                [
+                    new CrewPositionDto(ControlNumber.Create(10), ControlNumber.Create(200), 1, "Engineer")
+                ])
+        };
+
+        var sut = CreateSut(
+            new FakeAssignmentQueryService(templates),
+            new FakeShiftDefinitionRepository(shiftDef),
+            new FakeShiftInstanceRepository(),
+            new FakeWorkInstanceRepository(),
+            new FakeDepartmentRepository(),
+            onDutyRecords: onDutyRepo,
+            crewPositions: new FakeCrewPositionRepository(crewPositions),
+            positionAssignments: new FakePositionAssignmentRepository([assignment]));
+
+        // Act
+        await sut.GenerateForShiftAsync(
+            ControlNumber.Create(1),
+            shiftDef.CtrlNbr,
+            new DateOnly(2026, 4, 6),  // Monday
+            ct: TestContext.Current.CancellationToken);
+
+        // Assert - covering another position is not "assigned"
+        var record = Assert.Single(onDutyRepo.Added);
+        Assert.False(record.IsAssigned);
+    }
+
+    [Fact]
+    public async Task GenerateForShift_AllVacantSlots_CreatesNoOnDutyRecords()
+    {
+        // Arrange - assignment with only vacant positions (no incumbents)
+        var shiftDef = CreateActiveShiftDef();
+        var onDutyRepo = new FakeOnDutyRecordRepository();
+
+        var templates = new List<AssignmentDto>
+        {
+            new(ControlNumber.Create(130), ControlNumber.Create(1), null,
+                "TY-101", "Pool Turn 101",
+                new TimeOnly(7, 0), new TimeOnly(15, 0),
+                "Test Group", "TG",
+                [
+                    new CrewPositionDto(ControlNumber.Create(10), null, 1, "Engineer"),
+                    new CrewPositionDto(ControlNumber.Create(11), null, 2, "Conductor")
+                ])
+        };
+
+        var sut = CreateSut(
+            new FakeAssignmentQueryService(templates),
+            new FakeShiftDefinitionRepository(shiftDef),
+            new FakeShiftInstanceRepository(),
+            new FakeWorkInstanceRepository(),
+            new FakeDepartmentRepository(),
+            onDutyRecords: onDutyRepo);
+
+        // Act
+        await sut.GenerateForShiftAsync(
+            ControlNumber.Create(1),
+            shiftDef.CtrlNbr,
+            new DateOnly(2026, 4, 6),  // Monday
+            ct: TestContext.Current.CancellationToken);
+
+        // Assert - vacancies do not produce on-duty records in this increment
+        Assert.Empty(onDutyRepo.Added);
     }
 }
 

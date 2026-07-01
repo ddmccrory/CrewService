@@ -1,4 +1,6 @@
+using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 
@@ -6,7 +8,8 @@ namespace CrewService.Application.DailyOperations;
 
 public sealed class CallSheetGenerationService(
     IOrchestrationUnitOfWorkFactory uowFactory,
-    IAssignmentQueryService assignmentQuery)
+    IAssignmentQueryService assignmentQuery,
+    IWorkAreaClock clock)
 {
     public async Task<ShiftInstance> GenerateForShiftAsync(
         ControlNumber workAreaGroupCtrlNbr,
@@ -75,6 +78,9 @@ public sealed class CallSheetGenerationService(
         }
 
         await uow.ShiftInstances.AddAsync(shiftInstance, ct);
+
+        await CreateScheduledOnDutyRecordsAsync(uow, shiftInstance, workAreaGroupCtrlNbr, targetDate, ct);
+
         await uow.CommitAsync(ct);
         return shiftInstance;
     }
@@ -103,6 +109,13 @@ public sealed class CallSheetGenerationService(
             var dept = await uow.Departments.GetByCtrlNbrAsync(existingShift.DepartmentCtrlNbr, ct);
             departmentName = dept?.Name ?? existingShift.DepartmentName;
         }
+
+        // On-duty records are a separate aggregate and do not cascade-delete with the shift, so
+        // explicitly soft-delete the prior records for the slots being replaced to avoid orphans.
+        var existingSlotCtrlNbrs = existingShift.PositionSlots.Select(s => s.CtrlNbr).ToList();
+        var staleOnDutyRecords = await uow.OnDutyRecords.GetByPositionSlotsAsync(existingSlotCtrlNbrs, ct);
+        foreach (var stale in staleOnDutyRecords)
+            uow.OnDutyRecords.Remove(stale);
 
         await uow.ShiftInstances.DeleteAsync(shiftInstanceCtrlNbr, ct);
 
@@ -139,8 +152,71 @@ public sealed class CallSheetGenerationService(
         }
 
         await uow.ShiftInstances.AddAsync(newShift, ct);
+
+        await CreateScheduledOnDutyRecordsAsync(uow, newShift, workInstance.WorkAreaGroupCtrlNbr, targetDate, ct);
+
         await uow.CommitAsync(ct);
         return newShift;
+    }
+
+    private async Task CreateScheduledOnDutyRecordsAsync(
+        IOrchestrationUnitOfWork uow,
+        ShiftInstance shiftInstance,
+        ControlNumber workAreaGroupCtrlNbr,
+        DateOnly targetDate,
+        CancellationToken ct)
+    {
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaGroupCtrlNbr, ct);
+        var tz = clock.ResolveTimeZone(workArea?.TimeZoneId);
+
+        foreach (var slot in shiftInstance.PositionSlots)
+        {
+            if (slot.IncumbentEmployeeCtrlNbr is not { } employeeCtrlNbr)
+                continue;
+
+            var onDutyUtc = clock.CombineLocalToUtc(targetDate, slot.OnDutyTime, tz).UtcDateTime;
+
+            var lastOffDuty = await uow.OffDutyRecords.GetLastForEmployeeAsync(employeeCtrlNbr, ct);
+            var previousRestHours = OnDutyHistoryCalculator.CalculatePreviousRestHours(lastOffDuty, onDutyUtc);
+
+            var recentOnDuty = await uow.OnDutyRecords.GetRecentForEmployeeAsync(employeeCtrlNbr, 7, ct);
+            var consecutiveDays = OnDutyHistoryCalculator.CalculateConsecutiveDays(recentOnDuty, onDutyUtc);
+
+            var isAssigned = await IsWorkingOwnAssignedPositionAsync(uow, slot, employeeCtrlNbr, ct);
+
+            var record = OnDutyRecord.CreateScheduled(
+                slot.CtrlNbr,
+                employeeCtrlNbr,
+                onDutyUtc,
+                previousRestHours,
+                consecutiveDays,
+                isAssigned);
+
+            await uow.OnDutyRecords.AddAsync(record, ct);
+        }
+    }
+
+    /// <summary>
+    /// Mirrors the legacy StrategicApplications <c>AssignedEmployee</c> rule: the incumbent is
+    /// "assigned" when the position they are working is their own assigned position. The slot's
+    /// backing <see cref="StaffablePosition"/> is resolved through its <c>CrewPosition</c> and
+    /// compared against the employee's current <see cref="PositionAssignment"/> rows.
+    /// </summary>
+    private static async Task<bool> IsWorkingOwnAssignedPositionAsync(
+        IOrchestrationUnitOfWork uow,
+        PositionSlotInstance slot,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        if (slot.CrewPositionCtrlNbr is not { } crewPositionCtrlNbr)
+            return false;
+
+        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(crewPositionCtrlNbr, ct);
+        if (crewPosition is null)
+            return false;
+
+        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        return assignments.Any(a => a.StaffablePositionCtrlNbr == crewPosition.StaffablePositionCtrlNbr);
     }
 
     private static async Task<WorkInstance> FindOrCreateWorkInstanceAsync(

@@ -226,6 +226,19 @@ else
                     </table>
                 </div>
             }
+
+            @* ── Open On-Duty Records section ── *@
+            <hr />
+            <h5>Open On-Duty Records</h5>
+
+            @if (openOnDutyRecords.Count == 0)
+            {
+                <p class="text-muted">This employee has no open on-duty records.</p>
+            }
+            else
+            {
+                @RenderOnDutyTable(openOnDutyRecords, isHistory: false)
+            }
         }
     }
 
@@ -787,10 +800,10 @@ else
                        DefaultSortColumn="Date"
                        DefaultSortAscending="false">
                 <RowContent Context="n">
-                    <td>@FormatTimestamp(n.CreatedAt)</td>
+                    <td>@FormatLocalDateTime(n.CreatedAtLocal)</td>
                     <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
                     <td>@n.Message</td>
-                    <td>@(n.EffectiveAt is not null ? FormatTimestamp(n.EffectiveAt) : "—")</td>
+                    <td>@FormatLocalDateTime(n.EffectiveAtLocal)</td>
                     <td>
                         @if (!n.RequiresAcknowledgement)
                         {
@@ -807,6 +820,40 @@ else
                     </td>
                 </RowContent>
             </DataTable>
+        }
+    }
+
+        @* ── On-Duty History Tab ── *@
+    @if (activeTab == "ondutyhistory")
+    {
+        <div class="d-flex align-items-end gap-2 mt-3 mb-2" style="max-width: 420px;">
+            <div class="flex-grow-1">
+                <label class="form-label fw-semibold mb-1">Period</label>
+                <FilterSelect TItem="OnDutyPeriodOption" TValue="int"
+                              Items="onDutyPeriodOptions"
+                              ValueSelector="o => o.Value"
+                              TextSelector="o => o.Label"
+                              Value="selectedOnDutyPeriod"
+                              ValueChanged="OnOnDutyPeriodChangedAsync"
+                              AlwaysShowPlaceholder="false"
+                              class="form-select" />
+            </div>
+        </div>
+
+        @if (onDutyHistoryLoading)
+        {
+            <div class="d-flex align-items-center gap-2 mt-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span>Loading on-duty history...</span>
+            </div>
+        }
+        else if (onDutyHistoryRecords.Count == 0)
+        {
+            <p class="text-muted">No completed on-duty records for the selected period.</p>
+        }
+        else
+        {
+            @RenderOnDutyTable(onDutyHistoryRecords, isHistory: true)
         }
     }
 
@@ -834,6 +881,24 @@ else
     private bool workTabLoaded;
     private bool workTabLoading;
 
+    // ── On-Duty records (open on Work tab; completed on On-Duty History tab) ──
+    private List<EmployeeOnDutyRecord> openOnDutyRecords = [];
+    private List<EmployeeOnDutyRecord> onDutyHistoryRecords = [];
+    private bool onDutyHistoryLoaded;
+    private bool onDutyHistoryLoading;
+    private int selectedOnDutyPeriod = 1; // 1 = Completed - Current Work Period (legacy default)
+
+    private sealed record OnDutyPeriodOption(int Value, string Label);
+
+    private static readonly IReadOnlyList<OnDutyPeriodOption> onDutyPeriodOptions =
+    [
+        new(1, "Completed - Current Work Period"),
+        new(2, "Completed - Previous Work Period"),
+        new(3, "Completed - Current Month"),
+        new(4, "Completed - Previous Month"),
+        new(5, "Completed - Year to Date"),
+    ];
+
     // ── Notifications tab ──
     private List<NotificationResponse> notifications = [];
     private bool notificationsLoaded;
@@ -857,6 +922,7 @@ else
         new("emails",        "Email Addresses",   "bi-envelope"),
         new("phones",        "Phone Numbers",     "bi-telephone"),
         new("qualifications","Qualifications",    "bi-award"),
+        new("ondutyhistory", "On-Duty History",   "bi-clock-history"),
         new("notifications", "Notifications",     "bi-bell")
     ];
 
@@ -911,9 +977,153 @@ else
         activeTab = tab;
         if (tab == "work" && !workTabLoaded)
             await LoadWorkTabAsync();
+        else if (tab == "ondutyhistory" && !onDutyHistoryLoaded)
+            await LoadOnDutyHistoryAsync();
         else if (tab == "notifications" && !notificationsLoaded)
             await LoadNotificationsTabAsync();
     }
+
+    private async Task OnOnDutyPeriodChangedAsync(int period)
+    {
+        selectedOnDutyPeriod = period;
+        await LoadOnDutyHistoryAsync();
+    }
+
+    private async Task LoadOnDutyHistoryAsync()
+    {
+        if (onDutyHistoryLoading) return;
+        onDutyHistoryLoading = true;
+        try
+        {
+            errorMessage = null;
+            var response = await EmployeeClient.GetOnDutyHistoryAsync(
+                CtrlNbr,
+                selectedOnDutyPeriod,
+                SelectedRailroadCtrlNbr ?? 0);
+            onDutyHistoryRecords = [.. response.Records];
+            onDutyHistoryLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load on-duty history: {ex.Message}";
+        }
+        finally
+        {
+            onDutyHistoryLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Renders the shared on-duty records table (used by both the Work tab open records and the
+    /// On-Duty History tab). Legacy action buttons are rendered disabled for now — the backend
+    /// operations behind them are deferred to a later phase.
+    /// </summary>
+    private RenderFragment RenderOnDutyTable(IReadOnlyList<EmployeeOnDutyRecord> records, bool isHistory) => __builder =>
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Prev Rest</th>
+                        <th>Assignment</th>
+                        <th>Location</th>
+                        <th>On Duty</th>
+                        <th>Off Duty</th>
+                        <th>Total Time</th>
+                        <th>CDs</th>
+                        <th>Assigned</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in records)
+                    {
+                        <tr>
+                            <td>@FormatRestHours(r.PreviousRestHours)</td>
+                            <td>
+                                <strong>@(string.IsNullOrEmpty(r.AssignmentCode) ? "—" : r.AssignmentCode.ToUpperInvariant())</strong>
+                                @if (!string.IsNullOrEmpty(r.CrewName))
+                                {
+                                    <span class="small ms-1">(@r.CrewName)</span>
+                                }
+                            </td>
+                            <td>@(string.IsNullOrEmpty(r.Location) ? "—" : r.Location.ToUpperInvariant())</td>
+                            <td>@FormatLocalDateTimeShortYear(r.OnDutyLocal)</td>
+                            <td>@FormatLocalDateTimeShortYear(r.OffDutyLocal)</td>
+                            <td>@FormatTotalTime(r.TotalTimeOnDutyMin)</td>
+                            <td>@r.ConsecutiveDays</td>
+                            <td>
+                                @if (r.IsAssigned)
+                                {
+                                    <span class="badge bg-info text-dark">Assigned</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @GetOnDutyStatusBadge(r.Status)">@r.Status</span>
+                                @if (r.IsLateCall)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Late</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1 flex-nowrap">
+                                    @if (isHistory)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" disabled title="Coming soon">
+                                            <span class="bi bi-eye"></span> Review
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" disabled title="Coming soon">
+                                            <span class="bi bi-pencil"></span> Change
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-dark" disabled title="Coming soon">
+                                            <span class="bi bi-cash-stack"></span> Reprocess Payroll
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" disabled title="Coming soon">
+                                            <span class="bi bi-check2-circle"></span> Complete
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" disabled title="Coming soon">
+                                            <span class="bi bi-arrow-up-circle"></span> Move to Foreman
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" disabled title="Coming soon">
+                                            <span class="bi bi-clock"></span> Confirm On-Duty Time
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    };
+
+    private static string FormatRestHours(string previousRestHours)
+        => string.IsNullOrWhiteSpace(previousRestHours) ? "—" : $"{previousRestHours} hrs";
+
+    private static string FormatTotalTime(int totalMinutes)
+    {
+        if (totalMinutes <= 0) return "—";
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+        return $"{hours}h {minutes:00}m";
+    }
+
+    private static string GetOnDutyStatusBadge(string status) => status switch
+    {
+        "OnDuty"    => "bg-success",
+        "Scheduled" => "bg-secondary",
+        "Called"    => "bg-primary",
+        "TiedUp"    => "bg-dark",
+        _           => "bg-light text-dark border",
+    };
 
     private async Task LoadNotificationsTabAsync()
     {
@@ -936,9 +1146,6 @@ else
         }
     }
 
-    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
-        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-
     private async Task LoadWorkTabAsync()
     {
         if (workTabLoading) return;
@@ -946,10 +1153,15 @@ else
         try
         {
             errorMessage = null;
-            workProfile = await EmployeeClient.GetWorkProfileAsync(
+            var profileTask = EmployeeClient.GetWorkProfileAsync(
                 CtrlNbr,
                 SelectedParentCtrlNbr ?? 0,
                 SelectedRailroadCtrlNbr ?? 0);
+            var openOnDutyTask = EmployeeClient.GetOpenOnDutyRecordsAsync(CtrlNbr);
+            await Task.WhenAll(profileTask, openOnDutyTask);
+
+            workProfile = profileTask.Result;
+            openOnDutyRecords = [.. openOnDutyTask.Result.Records];
             workTabLoaded = true;
         }
         catch (Exception ex)
