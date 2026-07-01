@@ -37,10 +37,10 @@
                                 <div>
                                     <span class="badge bg-secondary mb-1">@NotificationCategories.Label(n.Category)</span>
                                     <div>@n.Message</div>
-                                    <small class="text-muted">@FormatTimestamp(n.CreatedAt)</small>
-                                    @if (n.EffectiveAt is not null)
+                                    <small class="text-muted">@TimeDisplay.FormatLocalDateTime(n.CreatedAtLocal)</small>
+                                    @if (!string.IsNullOrEmpty(n.EffectiveAtLocal))
                                     {
-                                        <small class="text-muted d-block">Effective: @FormatTimestamp(n.EffectiveAt)</small>
+                                        <small class="text-muted d-block">Effective: @TimeDisplay.FormatLocalDateTime(n.EffectiveAtLocal)</small>
                                     }
                                 </div>
                                 <button type="button" class="btn btn-success flex-shrink-0"
@@ -131,7 +131,4 @@
             _isBusy = false;
         }
     }
-
-    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
-        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 }

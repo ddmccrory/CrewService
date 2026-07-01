@@ -1,4 +1,5 @@
 using CrewService.Application.Notifications;
+using CrewService.Application.Time;
 using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Services;
@@ -19,14 +20,14 @@ public class NotificationsService(IServiceProvider serviceProvider)
     {
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var items = await svc.GetMyNotificationsAsync(context.CancellationToken);
-        return MapList(items);
+        return await MapListAsync(items, context.CancellationToken);
     }
 
     public override async Task<GetNotificationsResponse> GetMyUnacknowledged(Empty request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var items = await svc.GetMyUnacknowledgedAsync(context.CancellationToken);
-        return MapList(items);
+        return await MapListAsync(items, context.CancellationToken);
     }
 
     public override async Task<UnacknowledgedCountResponse> GetMyUnacknowledgedCount(Empty request, ServerCallContext context)
@@ -44,7 +45,9 @@ public class NotificationsService(IServiceProvider serviceProvider)
         {
             var notification = await svc.AcknowledgeAsync(
                 ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
-            return MapNotification(notification);
+            var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+            var tz = await clock.GetWorkAreaTimeZoneAsync(notification.RailroadCtrlNbr, context.CancellationToken);
+            return MapNotification(notification, clock, tz);
         }
         catch (KeyNotFoundException ex)
         {
@@ -62,15 +65,18 @@ public class NotificationsService(IServiceProvider serviceProvider)
 
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var nameService = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
         var items = await svc.GetRailroadNotificationsAsync(
             ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
 
         var names = await nameService.GetEmployeeInfoBatchAsync(items.Select(n => n.EmployeeCtrlNbr));
+        var zoneCache = new Dictionary<long, TimeZoneInfo?>();
 
         var resp = new GetNotificationsResponse();
         foreach (var n in items)
         {
-            var mapped = MapNotification(n);
+            var tz = await ResolveZoneAsync(clock, zoneCache, n.RailroadCtrlNbr, context.CancellationToken);
+            var mapped = MapNotification(n, clock, tz);
             mapped.EmployeeName = names.TryGetValue(n.EmployeeCtrlNbr, out var info) ? info.FullNameLnf : string.Empty;
             resp.Notifications.Add(mapped);
         }
@@ -93,30 +99,49 @@ public class NotificationsService(IServiceProvider serviceProvider)
 
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var nameService = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
         var items = await svc.GetEmployeeNotificationsAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
 
         var names = await nameService.GetEmployeeInfoBatchAsync(items.Select(n => n.EmployeeCtrlNbr));
+        var zoneCache = new Dictionary<long, TimeZoneInfo?>();
 
         var resp = new GetNotificationsResponse();
         foreach (var n in items)
         {
-            var mapped = MapNotification(n);
+            var tz = await ResolveZoneAsync(clock, zoneCache, n.RailroadCtrlNbr, context.CancellationToken);
+            var mapped = MapNotification(n, clock, tz);
             mapped.EmployeeName = names.TryGetValue(n.EmployeeCtrlNbr, out var info) ? info.FullNameLnf : string.Empty;
             resp.Notifications.Add(mapped);
         }
         return resp;
     }
 
-    private static GetNotificationsResponse MapList(IReadOnlyList<EmployeeNotification> items)
+    private async Task<GetNotificationsResponse> MapListAsync(
+        IReadOnlyList<EmployeeNotification> items, CancellationToken ct)
     {
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+        var zoneCache = new Dictionary<long, TimeZoneInfo?>();
         var resp = new GetNotificationsResponse();
         foreach (var n in items)
-            resp.Notifications.Add(MapNotification(n));
+        {
+            var tz = await ResolveZoneAsync(clock, zoneCache, n.RailroadCtrlNbr, ct);
+            resp.Notifications.Add(MapNotification(n, clock, tz));
+        }
         return resp;
     }
 
-    private static NotificationResponse MapNotification(EmployeeNotification n)
+    private static async Task<TimeZoneInfo?> ResolveZoneAsync(
+        IWorkAreaClock clock, Dictionary<long, TimeZoneInfo?> cache, ControlNumber railroadCtrlNbr, CancellationToken ct)
+    {
+        if (cache.TryGetValue(railroadCtrlNbr.Value, out var cached))
+            return cached;
+        var tz = await clock.GetWorkAreaTimeZoneAsync(railroadCtrlNbr, ct);
+        cache[railroadCtrlNbr.Value] = tz;
+        return tz;
+    }
+
+    private static NotificationResponse MapNotification(EmployeeNotification n, IWorkAreaClock clock, TimeZoneInfo? tz)
     {
         var resp = new NotificationResponse
         {
@@ -128,10 +153,14 @@ public class NotificationsService(IServiceProvider serviceProvider)
             RequiresAcknowledgement = n.RequiresAcknowledgement,
             IsAcknowledged = n.IsAcknowledged,
             CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(n.CreatedAtUtc, DateTimeKind.Utc)),
+            CreatedAtLocal = clock.FormatLocalIso(n.CreatedAtUtc, tz),
         };
 
         if (n.EffectiveAtUtc.HasValue)
+        {
             resp.EffectiveAt = Timestamp.FromDateTime(DateTime.SpecifyKind(n.EffectiveAtUtc.Value, DateTimeKind.Utc));
+            resp.EffectiveAtLocal = clock.FormatLocalIso(n.EffectiveAtUtc.Value, tz);
+        }
 
         if (n.Subject is not null)
         {

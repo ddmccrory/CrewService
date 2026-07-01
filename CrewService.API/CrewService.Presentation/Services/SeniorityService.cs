@@ -156,7 +156,9 @@ public class SeniorityService(
                 effectiveDateUtc.ToUniversalTime(),
                 userId,
                 context.CancellationToken);
-            return MapPendingToResponse(pending, found: true);
+            var tzId = await seniorityAppService.GetSeniorityWorkAreaTimeZoneIdAsync(
+                ControlNumber.Create(request.SeniorityCtrlNbr), context.CancellationToken);
+            return MapPendingToResponse(pending, found: true, workAreaClock.ResolveTimeZone(tzId));
         }
         catch (KeyNotFoundException ex)
         {
@@ -176,12 +178,12 @@ public class SeniorityService(
     {
         try
         {
-            var pending = await seniorityAppService.GetPendingChangeAsync(
+            var (pending, tzId) = await seniorityAppService.GetPendingChangeAsync(
                 ControlNumber.Create(request.SeniorityCtrlNbr), context.CancellationToken);
 
             return pending is null
                 ? new PendingStateChangeResponse { Found = false }
-                : MapPendingToResponse(pending, found: true);
+                : MapPendingToResponse(pending, found: true, workAreaClock.ResolveTimeZone(tzId));
         }
         catch (KeyNotFoundException ex)
         {
@@ -275,8 +277,8 @@ public class SeniorityService(
         };
     }
 
-    private static PendingStateChangeResponse MapPendingToResponse(
-        Domain.Models.Seniority.PendingSeniorityStateChange pending, bool found)
+    private PendingStateChangeResponse MapPendingToResponse(
+        Domain.Models.Seniority.PendingSeniorityStateChange pending, bool found, TimeZoneInfo? tz)
     {
         return new PendingStateChangeResponse
         {
@@ -285,10 +287,10 @@ public class SeniorityService(
             EmployeeCtrlNbr = pending.EmployeeCtrlNbr.Value,
             FromStateCtrlNbr = pending.FromSeniorityStateCtrlNbr.Value,
             ToStateCtrlNbr = pending.ToSeniorityStateCtrlNbr.Value,
-            EffectiveDateUtc = pending.EffectiveDateUtc.ToString("O"),
+            EffectiveDateUtc = workAreaClock.FormatLocalIso(pending.EffectiveDateUtc, tz),
             Status = pending.Status.ToString(),
             ScheduledByUserId = pending.ScheduledByUserId,
-            ScheduledAtUtc = pending.ScheduledAtUtc.ToString("O"),
+            ScheduledAtUtc = workAreaClock.FormatLocalIso(pending.ScheduledAtUtc, tz),
             Found = found,
             Success = true
         };

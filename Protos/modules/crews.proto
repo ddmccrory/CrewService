@@ -151,6 +151,9 @@ message CrewIncumbencyResponse {
   string end_utc = 5;
   string full_name_lnf = 6;
   string employee_number = 7;
+  // Offset-carrying ISO-8601 start, localized to the crew's work-area time zone (via
+  // IWorkAreaClock). start_utc above stays authoritative for interchange; this is display-only.
+  string start_local = 8;
 }
 
 // Crew Assignment messages

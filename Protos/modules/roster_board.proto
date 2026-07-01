@@ -131,6 +131,9 @@ message RosterBoardPositionResponse {
   string employee_full_name_lnf = 8;
   repeated string restriction_labels = 9;
   optional google.protobuf.Timestamp assigned_date_utc = 10;
+  // Offset-carrying ISO-8601 assigned date, localized to the board roster's work-area time
+  // zone (via IWorkAreaClock). assigned_date_utc above stays authoritative; this is display-only.
+  string assigned_date_local = 11;
 }
 
 message HangoutPositionRequest {

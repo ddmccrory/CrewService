@@ -1,4 +1,5 @@
 using CrewService.Application.RosterBoardOps;
+using CrewService.Application.Time;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
@@ -9,6 +10,7 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class RosterBoardService(
     EmployeeNameService employeeNameService,
+    IWorkAreaClock workAreaClock,
     IServiceProvider serviceProvider)
     : RosterBoardSrvc.RosterBoardSrvcBase
 {
@@ -16,10 +18,11 @@ public class RosterBoardService(
         GetRosterBoardRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
-        var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels) =
+        var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName, workAreaTimeZoneId, labels) =
             await svc.GetRosterBoardDetailAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
         if (board is null) return new RosterBoardResponse();
-        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels, svc, context.CancellationToken);
+        var tz = workAreaClock.ResolveTimeZone(workAreaTimeZoneId);
+        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, labels, tz, svc, context.CancellationToken);
     }
 
     public override async Task<GetAllRosterBoardsResponse> GetAllRosterBoards(
@@ -55,14 +58,17 @@ public class RosterBoardService(
             var rosterName = string.Empty;
             long workAreaCtrlNbr = 0;
             var workAreaName = string.Empty;
+            string? workAreaTimeZoneId = null;
 
             if (board.RosterCtrlNbr is not null && result.RosterMap.TryGetValue(board.RosterCtrlNbr, out var roster))
             {
                 rosterName = roster.RosterName;
                 workAreaCtrlNbr = roster.WorkAreaGroupCtrlNbr.Value;
                 result.GroupNames.TryGetValue(roster.WorkAreaGroupCtrlNbr, out workAreaName);
+                result.GroupTimeZones.TryGetValue(roster.WorkAreaGroupCtrlNbr, out workAreaTimeZoneId);
             }
 
+            var tz = workAreaClock.ResolveTimeZone(workAreaTimeZoneId);
             var boardResponse = new RosterBoardResponse
             {
                 CtrlNbr = board.CtrlNbr?.Value ?? 0,
@@ -105,7 +111,10 @@ public class RosterBoardService(
                     AssignedDateUtc = pa is not null
                         ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
                             DateTime.SpecifyKind(pa.AssignedDateUtc, DateTimeKind.Utc))
-                        : null
+                        : null,
+                    AssignedDateLocal = pa is not null
+                        ? workAreaClock.FormatLocalIso(pa.AssignedDateUtc, tz)
+                        : string.Empty
                 };
                 if (position.EmployeeCtrlNbr is not null &&
                     result.RestrictionLabels.TryGetValue(position.EmployeeCtrlNbr, out var posLabels))
@@ -130,7 +139,8 @@ public class RosterBoardService(
                 boardType, rotationType, request.IsActive, request.RequiredPositions,
                 request.AllowBulletinBidding, request.AllowSeniorityMove,
                 request.AllowForceAssign, context.CancellationToken);
-        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
+        var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+        return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
     }
 
     public override async Task<RosterBoardResponse> UpdateRosterBoard(
@@ -146,7 +156,8 @@ public class RosterBoardService(
                     boardType, rotationType, request.IsActive, request.RequiredPositions,
                     request.AllowBulletinBidding, request.AllowSeniorityMove,
                     request.AllowForceAssign, context.CancellationToken);
-            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
+            var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
         {
@@ -179,7 +190,8 @@ public class RosterBoardService(
                 ControlNumber.Create(request.RosterBoardCtrlNbr),
                 ControlNumber.Create(request.EmployeeCtrlNbr),
                 request.PositionOrder, context.CancellationToken);
-            return await MapPositionAsync(position, labels, svc, context.CancellationToken);
+            var tz = await ResolvePositionZoneAsync(svc, position.RosterBoardCtrlNbr, context.CancellationToken);
+            return await MapPositionAsync(position, labels, tz, svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
         {
@@ -213,7 +225,8 @@ public class RosterBoardService(
         try
         {
             var (position, labels) = await svc.HangoutPositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
-            return await MapPositionAsync(position, labels, svc, context.CancellationToken);
+            var tz = await ResolvePositionZoneAsync(svc, position.RosterBoardCtrlNbr, context.CancellationToken);
+            return await MapPositionAsync(position, labels, tz, svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
         {
@@ -228,7 +241,8 @@ public class RosterBoardService(
         try
         {
             var (position, labels) = await svc.RestorePositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
-            return await MapPositionAsync(position, labels, svc, context.CancellationToken);
+            var tz = await ResolvePositionZoneAsync(svc, position.RosterBoardCtrlNbr, context.CancellationToken);
+            return await MapPositionAsync(position, labels, tz, svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
         {
@@ -248,7 +262,8 @@ public class RosterBoardService(
             var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
                 await svc.ReorderRosterBoardPositionsAsync(
                     ControlNumber.Create(request.RosterBoardCtrlNbr), ordering, context.CancellationToken);
-            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], svc, context.CancellationToken);
+            var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
         {
@@ -281,10 +296,20 @@ public class RosterBoardService(
 
     // ── Mapping ──────────────────────────────────────────────────────────────
 
+    private async Task<TimeZoneInfo?> ResolveBoardZoneAsync(long workAreaCtrlNbr, CancellationToken ct)
+        => workAreaCtrlNbr > 0
+            ? await workAreaClock.GetWorkAreaTimeZoneAsync(ControlNumber.Create(workAreaCtrlNbr), ct)
+            : null;
+
+    private async Task<TimeZoneInfo?> ResolvePositionZoneAsync(
+        RosterBoardAppService svc, ControlNumber boardCtrlNbr, CancellationToken ct)
+        => workAreaClock.ResolveTimeZone(await svc.GetBoardWorkAreaTimeZoneIdAsync(boardCtrlNbr, ct));
+
     private async Task<RosterBoardResponse> MapBoardAsync(
         RosterBoard board, string craftName, string rosterName,
         long workAreaCtrlNbr, string workAreaName,
         Dictionary<ControlNumber, List<string>> empRestrictionLabels,
+        TimeZoneInfo? tz,
         RosterBoardAppService svc, CancellationToken ct)
     {
         var response = new RosterBoardResponse
@@ -306,13 +331,13 @@ public class RosterBoardService(
         response.AllowSeniorityMove = board.AllowSeniorityMove;
         response.AllowForceAssign = board.AllowForceAssign;
         foreach (var position in board.Positions)
-            response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, svc, ct));
+            response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, tz, svc, ct));
         return response;
     }
 
     private async Task<RosterBoardPositionResponse> MapPositionAsync(
         RosterBoardPosition position, Dictionary<ControlNumber, List<string>> empRestrictionLabels,
-        RosterBoardAppService svc, CancellationToken ct)
+        TimeZoneInfo? tz, RosterBoardAppService svc, CancellationToken ct)
     {
         var (fullName, employeeNumber) = position.EmployeeCtrlNbr is not null
             ? await employeeNameService.GetEmployeeInfoAsync(position.EmployeeCtrlNbr)
@@ -337,7 +362,10 @@ public class RosterBoardService(
             AssignedDateUtc = positionAssignment is not null
                 ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
                     DateTime.SpecifyKind(positionAssignment.AssignedDateUtc, DateTimeKind.Utc))
-                : null
+                : null,
+            AssignedDateLocal = positionAssignment is not null
+                ? workAreaClock.FormatLocalIso(positionAssignment.AssignedDateUtc, tz)
+                : string.Empty
         };
         if (position.EmployeeCtrlNbr is not null &&
             empRestrictionLabels.TryGetValue(position.EmployeeCtrlNbr, out var labels))

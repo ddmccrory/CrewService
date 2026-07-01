@@ -78,4 +78,9 @@ message NotificationResponse {
   optional int64 subject_ctrl_nbr = 11;
   // Recipient display name; populated for the railroad-wide feed, empty for "me" calls.
   string employee_name = 12;
+  // Offset-carrying ISO-8601 timestamps localized to the notification's railroad work-area
+  // time zone (via IWorkAreaClock). The UTC Timestamps above remain authoritative for
+  // sorting/interchange; these are display-only. Empty when no zone is configured.
+  string created_at_local = 13;
+  string effective_at_local = 14;
 }

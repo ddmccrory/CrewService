@@ -43,10 +43,10 @@ else
                DefaultSortColumn="Date"
                DefaultSortAscending="false">
         <RowContent Context="n">
-            <td>@FormatTimestamp(n.CreatedAt)</td>
+            <td>@FormatLocalDateTime(n.CreatedAtLocal)</td>
             <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
             <td>@n.Message</td>
-            <td>@(n.EffectiveAt is not null ? FormatTimestamp(n.EffectiveAt) : "\u2014")</td>
+            <td>@FormatLocalDateTime(n.EffectiveAtLocal)</td>
             <td>
                 @if (!n.RequiresAcknowledgement)
                 {
@@ -91,7 +91,4 @@ else
             notifications = [];
         }
     }
-
-    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
-        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 }

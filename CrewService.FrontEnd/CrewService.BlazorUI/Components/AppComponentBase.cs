@@ -171,11 +171,11 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
 
     // ── Formatting helpers ──────────────────────────────────────────────
 
-    /// <summary>Formats an ISO 8601 UTC date string as <c>yyyy-MM-dd</c> for display, or "—" when empty.</summary>
+    /// <summary>Formats an ISO 8601 UTC date string as <c>MM/dd/yyyy</c> for display, or "—" when empty.</summary>
     protected static string FormatDate(string? isoUtc)
     {
         if (!string.IsNullOrWhiteSpace(isoUtc) && DateTime.TryParse(isoUtc, out var dt))
-            return dt.ToString("yyyy-MM-dd");
+            return dt.ToString("MM/dd/yyyy");
         return "\u2014";
     }
 
@@ -186,13 +186,14 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     /// preserves that wall clock exactly instead of re-converting into the browser's zone.
     /// </summary>
     protected static string FormatLocalDateTime(string? iso)
-    {
-        if (!string.IsNullOrWhiteSpace(iso) &&
-            DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.RoundtripKind, out var dto))
-            return dto.DateTime.ToString("MM/dd/yyyy h:mm tt");
-        return "\u2014";
-    }
+        => Services.TimeDisplay.FormatLocalDateTime(iso);
+
+    /// <summary>
+    /// Formats an offset-carrying ISO 8601 string as a local date+time with a two-digit year
+    /// (<c>MM/dd/yy h:mm tt</c>), or "—" when empty.
+    /// </summary>
+    protected static string FormatLocalDateTimeShortYear(string? iso)
+        => Services.TimeDisplay.FormatLocalDateTimeShortYear(iso);
 
     public virtual void Dispose()
     {

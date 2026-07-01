@@ -60,7 +60,7 @@
                                 <div class="fw-semibold small mt-1">@n.EmployeeName</div>
                             }
                             <div class="small">@n.Message</div>
-                            <div class="text-muted small">@FormatTimestamp(n.CreatedAt)</div>
+                            <div class="text-muted small">@TimeDisplay.FormatLocalDateTime(n.CreatedAtLocal)</div>
                         </div>
                     }
                 }
@@ -129,9 +129,6 @@
             _loading = false;
         }
     }
-
-    private static string FormatTimestamp(Google.Protobuf.WellKnownTypes.Timestamp ts)
-        => ts.ToDateTime().ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     public void Dispose() => AppContext.OnContextChanged -= OnContextChanged;
 }

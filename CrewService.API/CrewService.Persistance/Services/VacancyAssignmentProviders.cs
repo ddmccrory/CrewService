@@ -64,7 +64,7 @@ internal sealed class SkipContextProvider(
         var empCtrl = candidate.EmployeeCtrlNbr;
 
         var hasActiveOnDuty = await dbContext.Set<OnDutyRecord>()
-            .AnyAsync(r => r.EmployeeCtrlNbr == empCtrl && r.Status == "OnDuty", ct);
+            .AnyAsync(r => r.EmployeeCtrlNbr == empCtrl && r.Status == OnDutyStatus.OnDuty, ct);
 
         var isMarkedOff = await dbContext.Set<AbsenceRequest>()
             .AnyAsync(a => a.EmployeeCtrlNbr == empCtrl
