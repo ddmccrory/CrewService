@@ -17,7 +17,7 @@ public class OnDutyRecordTests
 
         Assert.Equal(1, record.PositionSlotCtrlNbr.Value);
         Assert.Equal(100, record.EmployeeCtrlNbr.Value);
-        Assert.Equal("OnDuty", record.Status);
+        Assert.Equal(OnDutyStatus.OnDuty, record.Status);
         Assert.False(record.IsLateCall);
     }
 

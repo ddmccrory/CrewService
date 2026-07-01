@@ -1,6 +1,7 @@
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
+using CrewService.Presentation.Formatting;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -185,7 +186,7 @@ public class AssignmentsService(IServiceProvider serviceProvider) : AssignmentsS
         AssignmentCtrlNbr = s.AssignmentCtrlNbr.Value,
         ShiftDefinitionCtrlNbr = s.ShiftDefinitionCtrlNbr.Value,
         OperatingDaysMask = s.OperatingDaysMask,
-        OnDutyTime = s.OnDutyTime.ToString("HH:mm"),
-        OffDutyTime = s.OffDutyTime.ToString("HH:mm")
+        OnDutyTime = ScheduleTimeFormat.Format(s.OnDutyTime),
+        OffDutyTime = ScheduleTimeFormat.Format(s.OffDutyTime)
     };
 }

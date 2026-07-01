@@ -17,18 +17,19 @@ public sealed class RosterBoardAppService(
 {
     // ── Single Board ─────────────────────────────────────────────────────────
 
-    public async Task<(RosterBoard? Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
+    public async Task<(RosterBoard? Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName, string? WorkAreaTimeZoneId, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
         GetRosterBoardDetailAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr);
         if (board is null)
-            return (null, string.Empty, string.Empty, 0, string.Empty, []);
+            return (null, string.Empty, string.Empty, 0, string.Empty, null, []);
 
         var craftName = string.Empty;
         var rosterName = string.Empty;
         long workAreaCtrlNbr = 0;
         var workAreaName = string.Empty;
+        string? workAreaTimeZoneId = null;
 
         if (board.CraftCtrlNbr is not null)
         {
@@ -45,12 +46,28 @@ public sealed class RosterBoardAppService(
             {
                 var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
                 workAreaName = group?.Name ?? string.Empty;
+                workAreaTimeZoneId = group?.TimeZoneId;
             }
         }
 
         var positionEmps = board.Positions.Select(p => p.EmployeeCtrlNbr).Where(e => e is not null).Distinct().ToList();
         var restrictionLabels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, positionEmps!, ct);
-        return (board, craftName, rosterName, workAreaCtrlNbr, workAreaName, restrictionLabels);
+        return (board, craftName, rosterName, workAreaCtrlNbr, workAreaName, workAreaTimeZoneId, restrictionLabels);
+    }
+
+    /// <summary>
+    /// Resolves the work-area time zone id for a roster board (board → roster → work-area dynamic group),
+    /// or null when the board has no roster/work-area so the caller can fall back to UTC display.
+    /// </summary>
+    public async Task<string?> GetBoardWorkAreaTimeZoneIdAsync(ControlNumber boardCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr);
+        if (board?.RosterCtrlNbr is null) return null;
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+        if (roster?.WorkAreaGroupCtrlNbr is null) return null;
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+        return group?.TimeZoneId;
     }
 
     // ── Board List ───────────────────────────────────────────────────────────
@@ -60,6 +77,7 @@ public sealed class RosterBoardAppService(
         Dictionary<ControlNumber, string> CraftNames,
         Dictionary<ControlNumber, Roster> RosterMap,
         Dictionary<ControlNumber, string> GroupNames,
+        Dictionary<ControlNumber, string?> GroupTimeZones,
         Dictionary<ControlNumber, Employee> EmployeeMap,
         Dictionary<ControlNumber, List<string>> RestrictionLabels);
 
@@ -87,7 +105,7 @@ public sealed class RosterBoardAppService(
         }
 
         if (boards.Count == 0)
-            return new BoardListResult(boards, [], [], [], [], []);
+            return new BoardListResult(boards, [], [], [], [], [], []);
 
         var distinctCraftCtrlNbrs = boards.Select(b => b.CraftCtrlNbr).Where(c => c is not null).Distinct().ToList();
         var allPositionEmployeeCtrlNbrs = boards.SelectMany(b => b.Positions)
@@ -110,11 +128,12 @@ public sealed class RosterBoardAppService(
             ? await uow.DynamicGroups.GetByCtrlNbrsAsync(distinctWorkAreaCtrlNbrs)
             : new List<DynamicGroup>();
         var groupMap = groups.ToDictionary(g => g.CtrlNbr, g => g.Name);
+        var groupTimeZones = groups.ToDictionary(g => g.CtrlNbr, g => g.TimeZoneId);
 
         var restrictionLabels = await ComputeRestrictionLabelsAsync(
             uow, distinctCraftCtrlNbrs!, allPositionEmployeeCtrlNbrs!, ct);
 
-        return new BoardListResult(boards, craftMap, rosterMap, groupMap, employeeMap, restrictionLabels);
+        return new BoardListResult(boards, craftMap, rosterMap, groupMap, groupTimeZones, employeeMap, restrictionLabels);
     }
 
     // ── CRUD ─────────────────────────────────────────────────────────────────

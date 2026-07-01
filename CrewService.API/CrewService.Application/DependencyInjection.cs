@@ -5,6 +5,7 @@ using CrewService.Application.Assignments;
 using CrewService.Application.Authorization;
 using CrewService.Application.Boards;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Application.Bootstrap;
 using CrewService.Application.Bulletins;
 using CrewService.Application.BackgroundWorkers;

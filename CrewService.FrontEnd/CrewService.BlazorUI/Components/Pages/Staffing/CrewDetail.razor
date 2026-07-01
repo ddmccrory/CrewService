@@ -457,8 +457,8 @@ else
     private string GetAssignmentDate(long positionCtrlNbr)
     {
         if (!activeIncumbencies.TryGetValue(positionCtrlNbr, out var inc)) return string.Empty;
-        if (string.IsNullOrEmpty(inc.StartUtc)) return string.Empty;
-        return DateTime.Parse(inc.StartUtc).ToLocalTime().ToString("MM/dd/yyyy");
+        if (string.IsNullOrEmpty(inc.StartLocal)) return string.Empty;
+        return Services.TimeDisplay.FormatLocalDate(inc.StartLocal);
     }
 
     private string GetAssignmentName(long ctrlNbr) =>

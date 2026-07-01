@@ -292,16 +292,48 @@ public sealed class SeniorityAppService(
     }
 
     /// <summary>
-    /// Returns the pending change for the given employee's active seniority record, or null.
+    /// Returns the pending change for the given employee's active seniority record (or null),
+    /// along with the work-area timezone id resolved via the employee's active seniority roster
+    /// so the presentation layer can localize the effective/scheduled dates to the work area.
     /// </summary>
-    public async Task<Domain.Models.Seniority.PendingSeniorityStateChange?> GetPendingChangeAsync(
+    public async Task<(Domain.Models.Seniority.PendingSeniorityStateChange? Pending, string? WorkAreaTimeZoneId)> GetPendingChangeAsync(
         ControlNumber seniorityCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var seniority = await uow.Seniority.GetByCtrlNbrAsync(seniorityCtrlNbr)
             ?? throw new KeyNotFoundException($"Seniority {seniorityCtrlNbr.Value} not found.");
-        return await uow.PendingSeniorityStateChanges
+        var pending = await uow.PendingSeniorityStateChanges
             .GetPendingByEmployeeAsync(seniority.EmployeeCtrlNbr, ct);
+        if (pending is null)
+            return (null, null);
+
+        var tzId = await ResolveWorkAreaTimeZoneIdAsync(uow, seniority.EmployeeCtrlNbr, ct);
+        return (pending, tzId);
+    }
+
+    /// <summary>
+    /// Resolves the work-area time zone id for the given seniority record by walking the
+    /// employee's active seniority roster → work-area dynamic group, or null when unavailable.
+    /// </summary>
+    public async Task<string?> GetSeniorityWorkAreaTimeZoneIdAsync(
+        ControlNumber seniorityCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var seniority = await uow.Seniority.GetByCtrlNbrAsync(seniorityCtrlNbr);
+        if (seniority is null) return null;
+        return await ResolveWorkAreaTimeZoneIdAsync(uow, seniority.EmployeeCtrlNbr, ct);
+    }
+
+    private static async Task<string?> ResolveWorkAreaTimeZoneIdAsync(
+        IOrchestrationUnitOfWork uow, ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        var activeEntry = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster) ?? seniorityEntries.FirstOrDefault();
+        if (activeEntry is null) return null;
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(activeEntry.RosterCtrlNbr, ct);
+        if (roster is null) return null;
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+        return workArea?.TimeZoneId;
     }
 
     /// <summary>

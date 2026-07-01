@@ -2,6 +2,7 @@ using CrewService.Infrastructure.Outbox;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.ElectronicCalling;
+using CrewService.Application.Employees;
 using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
@@ -217,6 +218,7 @@ public static class DependencyInjection
         services.AddScoped<IOffDutyRecordRepository, OffDutyRecordRepository>();
         services.AddScoped<ICraftOperationsPolicyRepository, CraftOperationsPolicyRepository>();
         services.AddScoped<IAssignmentQueryService, AssignmentQueryService>();
+        services.AddScoped<IEmployeeOnDutyQueryService, EmployeeOnDutyQueryService>();
 
         // Mark-Off Repositories (B03)
         services.AddScoped<IAbsenceCodeRepository, AbsenceCodeRepository>();

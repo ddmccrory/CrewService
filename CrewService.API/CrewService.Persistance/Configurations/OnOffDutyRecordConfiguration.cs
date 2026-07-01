@@ -19,9 +19,11 @@ internal class OnDutyRecordConfiguration : IEntityTypeConfiguration<OnDutyRecord
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(r => r.PreviousRestHours).HasPrecision(5, 2);
-        builder.Property(r => r.Status).HasMaxLength(20).IsRequired();
+        builder.Property(r => r.Status)
+            .HasConversion(s => s.Value, v => OnDutyStatus.FromValue(v))
+            .HasMaxLength(20).IsRequired();
 
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(r => r.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(r => r.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<EmployeeBooking>().WithMany().HasForeignKey(r => r.BookingCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

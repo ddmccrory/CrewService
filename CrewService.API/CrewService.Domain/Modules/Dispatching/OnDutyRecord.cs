@@ -15,7 +15,7 @@ public sealed class OnDutyRecord : Entity
     public DateTime? LateCallAdjustedTimeUtc { get; private set; }
     public decimal PreviousRestHours { get; private set; }
     public int ConsecutiveDays { get; private set; }
-    public string Status { get; private set; } = "Called";
+    public OnDutyStatus Status { get; private set; } = OnDutyStatus.Called;
     public bool IsAssigned { get; private set; }
 
     private OnDutyRecord()
@@ -47,7 +47,39 @@ public sealed class OnDutyRecord : Entity
             LateCallAdjustedTimeUtc = isLate ? onDutyTimeUtc.AddMinutes(90) : null,
             PreviousRestHours = previousRestHours,
             ConsecutiveDays = consecutiveDays,
-            Status = "OnDuty",
+            Status = OnDutyStatus.OnDuty,
+            IsAssigned = isAssigned
+        };
+        record.Raise(new OnDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, positionSlotCtrlNbr));
+        return record;
+    }
+
+    /// <summary>
+    /// Creates a planned on-duty record for an incumbent at call-sheet generation. The employee is
+    /// not yet on duty: the scheduled and actual on-duty times are identical, and the record is never
+    /// a late call. <paramref name="isAssigned"/> indicates the employee is working their own assigned
+    /// position (rather than covering another). The lifecycle begins at <c>"Scheduled"</c> and later
+    /// transitions to <c>"OnDuty"</c> and <c>"TiedUp"</c>.
+    /// </summary>
+    public static OnDutyRecord CreateScheduled(
+        ControlNumber positionSlotCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        DateTime scheduledOnDutyTimeUtc,
+        decimal previousRestHours,
+        int consecutiveDays,
+        bool isAssigned = false)
+    {
+        var record = new OnDutyRecord
+        {
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            OnDutyTimeUtc = scheduledOnDutyTimeUtc,
+            ScheduledOnDutyTimeUtc = scheduledOnDutyTimeUtc,
+            IsLateCall = false,
+            LateCallAdjustedTimeUtc = null,
+            PreviousRestHours = previousRestHours,
+            ConsecutiveDays = consecutiveDays,
+            Status = OnDutyStatus.Scheduled,
             IsAssigned = isAssigned
         };
         record.Raise(new OnDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, positionSlotCtrlNbr));
@@ -61,6 +93,6 @@ public sealed class OnDutyRecord : Entity
 
     public void TieUp()
     {
-        Status = "TiedUp";
+        Status = OnDutyStatus.TiedUp;
     }
 }

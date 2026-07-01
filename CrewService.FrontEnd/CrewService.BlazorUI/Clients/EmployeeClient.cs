@@ -243,5 +243,40 @@ public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitT
         }
     }
 
+    public async Task<EmployeeOnDutyRecordsResponse> GetOpenOnDutyRecordsAsync(long employeeCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetEmployeeOpenOnDutyRecordsAsync(new GetEmployeeOpenOnDutyRecordsRequest
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr,
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<EmployeeOnDutyRecordsResponse> GetOnDutyHistoryAsync(
+        long employeeCtrlNbr, int period, long railroadCtrlNbr = 0)
+    {
+        try
+        {
+            return await _client.GetEmployeeOnDutyHistoryAsync(new GetEmployeeOnDutyHistoryRequest
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                Period          = period,
+                RailroadCtrlNbr = railroadCtrlNbr,
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     #endregion
 }

@@ -1,6 +1,7 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
+using CrewService.Presentation.Formatting;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -79,7 +80,7 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             OnDutyTime = Timestamp.FromDateTime(DateTime.SpecifyKind(record.OnDutyTimeUtc, DateTimeKind.Utc)),
             IsLateCall = record.IsLateCall,
             ConsecutiveDays = record.ConsecutiveDays,
-            Status = record.Status,
+            Status = record.Status.Value,
         };
     }
 
@@ -288,8 +289,8 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                     AssignmentCtrlNbr = a.AssignmentCtrlNbr.Value,
                     AssignmentCode = a.AssignmentCode,
                     AssignmentName = a.AssignmentName,
-                    OnDutyTime = a.OnDutyTime.ToString("hh\\:mm tt"),
-                    OffDutyTime = a.OffDutyTime.ToString("hh\\:mm tt"),
+                    OnDutyTime = ScheduleTimeFormat.Format(a.OnDutyTime),
+                    OffDutyTime = ScheduleTimeFormat.Format(a.OffDutyTime),
                     GroupName = a.GroupName,
                     GroupCode = a.GroupCode,
                     PositionCount = a.Positions.Count
@@ -402,8 +403,8 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                 AssignmentCode = slot.AssignmentCode,
                 AssignmentName = slot.AssignmentName,
                 CraftRoleName = slot.CraftRoleName,
-                OnDutyTime = slot.OnDutyTime.ToString("hh\\:mm tt"),
-                OffDutyTime = slot.OffDutyTime.ToString("hh\\:mm tt"),
+                OnDutyTime = ScheduleTimeFormat.Format(slot.OnDutyTime),
+                OffDutyTime = ScheduleTimeFormat.Format(slot.OffDutyTime),
                 GroupName = slot.GroupName,
                 GroupCode = slot.GroupCode,
                 IsIncumbent = slot.IsIncumbent,

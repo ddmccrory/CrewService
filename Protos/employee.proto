@@ -54,6 +54,14 @@ service EmployeeSrvc {
   rpc GetEmployeeWorkProfile(GetEmployeeWorkProfileRequest) returns (EmployeeWorkProfileResponse) {
     option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/work-profile" };
   }
+  // Open on-duty records for an employee (not yet tied up) — shown on the Work & Staffing tab.
+  rpc GetEmployeeOpenOnDutyRecords(GetEmployeeOpenOnDutyRecordsRequest) returns (EmployeeOnDutyRecordsResponse) {
+    option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/on-duty/open" };
+  }
+  // Completed on-duty history for an employee within a pay-period window — On-Duty History tab.
+  rpc GetEmployeeOnDutyHistory(GetEmployeeOnDutyHistoryRequest) returns (EmployeeOnDutyRecordsResponse) {
+    option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/on-duty/history" };
+  }
 }
 
 // ── Work Profile ─────────────────────────────────────────────────────────────
@@ -119,6 +127,46 @@ message WorkProfileBulletinBid {
   string status           = 5;
   string bulletin_code    = 6;
   string position_name    = 7;
+}
+
+// ── Employee On-Duty (open records + history) ────────────────────────────────
+message GetEmployeeOpenOnDutyRecordsRequest {
+  int64 employee_ctrl_nbr = 1;
+}
+
+message GetEmployeeOnDutyHistoryRequest {
+  int64 employee_ctrl_nbr = 1;
+  // Pay-period window: 1=CurrentWorkPeriod, 2=PreviousWorkPeriod, 3=CurrentMonth,
+  // 4=PreviousMonth, 5=YearToDate. Mirrors the legacy on-duty history dropdown.
+  int32 period            = 2;
+  // Railroad whose configured WorkPeriodMode determines the work-period window bounds.
+  int64 railroad_ctrl_nbr = 3;
+}
+
+message EmployeeOnDutyRecordsResponse {
+  repeated EmployeeOnDutyRecord records = 1;
+}
+
+message EmployeeOnDutyRecord {
+  int64  ctrl_nbr               = 1;
+  string previous_rest_hours    = 2;
+  string assignment_name        = 3;
+  string assignment_code        = 4;
+  string crew_name              = 5;
+  string craft_role_name        = 6;
+  string location               = 7;
+  string on_duty_utc            = 8;
+  // Work-area-localized ISO-8601 on-duty time for wall-clock display.
+  string on_duty_local          = 9;
+  string off_duty_utc           = 10;
+  // Work-area-localized ISO-8601 off-duty time; empty when the record is still open.
+  string off_duty_local         = 11;
+  // Total time on duty in minutes; 0/absent when the record is still open.
+  int32  total_time_on_duty_min = 12;
+  int32  consecutive_days       = 13;
+  bool   is_assigned            = 14;
+  bool   is_late_call           = 15;
+  string status                 = 16;
 }
 
 message GetAllEmployeesRequest {

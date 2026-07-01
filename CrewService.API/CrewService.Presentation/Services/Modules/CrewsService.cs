@@ -1,5 +1,6 @@
 using CrewService.Application.Crews;
 using CrewService.Application.Qualifications;
+using CrewService.Application.Time;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
@@ -10,6 +11,7 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class CrewsService(
     EmployeeNameService employeeNameService,
+    IWorkAreaClock workAreaClock,
     IServiceProvider serviceProvider) : CrewsSrvc.CrewsSrvcBase
 {
     public override async Task<GetAllCrewsResponse> GetAllCrews(GetAllCrewsRequest request, ServerCallContext context)
@@ -131,9 +133,12 @@ public class CrewsService(
     public override async Task<GetCrewIncumbenciesResponse> GetCrewIncumbencies(GetCrewIncumbenciesRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<CrewsAppService>();
-        var items = await svc.GetCrewIncumbenciesAsync(ControlNumber.Create(request.CrewPositionCtrlNbr), context.CancellationToken);
+        var crewPositionCtrlNbr = ControlNumber.Create(request.CrewPositionCtrlNbr);
+        var items = await svc.GetCrewIncumbenciesAsync(crewPositionCtrlNbr, context.CancellationToken);
+        var tz = workAreaClock.ResolveTimeZone(
+            await svc.GetCrewPositionWorkAreaTimeZoneIdAsync(crewPositionCtrlNbr, context.CancellationToken));
         var response = new GetCrewIncumbenciesResponse { TotalCount = items.Count };
-        foreach (var i in items) response.Incumbencies.Add(await MapIncumbencyAsync(i));
+        foreach (var i in items) response.Incumbencies.Add(await MapIncumbencyAsync(i, tz));
         return response;
     }
 
@@ -161,7 +166,10 @@ public class CrewsService(
         {
             var incumbency = await svc.CreateCrewIncumbencyAsync(
                 request.CrewPositionCtrlNbr, request.EmployeeCtrlNbr, startUtc, endUtc, context.CancellationToken);
-            return await MapIncumbencyAsync(incumbency);
+            var tz = workAreaClock.ResolveTimeZone(
+                await svc.GetCrewPositionWorkAreaTimeZoneIdAsync(
+                    ControlNumber.Create(request.CrewPositionCtrlNbr), context.CancellationToken));
+            return await MapIncumbencyAsync(incumbency, tz);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message)); }
@@ -179,7 +187,7 @@ public class CrewsService(
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
 
-    private async Task<CrewIncumbencyResponse> MapIncumbencyAsync(CrewIncumbency i)
+    private async Task<CrewIncumbencyResponse> MapIncumbencyAsync(CrewIncumbency i, TimeZoneInfo? tz)
     {
         var employee = await employeeNameService.GetEmployeeInfoAsync(i.EmployeeCtrlNbr);
         return new CrewIncumbencyResponse
@@ -188,6 +196,7 @@ public class CrewsService(
             CrewPositionCtrlNbr = i.CrewPositionCtrlNbr.Value,
             EmployeeCtrlNbr = i.EmployeeCtrlNbr.Value,
             StartUtc = i.StartUtc.ToString("O"),
+            StartLocal = workAreaClock.FormatLocalIso(i.StartUtc, tz),
             EndUtc = i.EndUtc?.ToString("O") ?? string.Empty,
             FullNameLnf = employee.FullNameLnf,
             EmployeeNumber = employee.EmployeeNumber

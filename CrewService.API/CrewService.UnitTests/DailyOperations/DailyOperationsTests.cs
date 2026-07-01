@@ -199,7 +199,7 @@ public class OnDutyRecordTests
 
         Assert.False(record.IsLateCall);
         Assert.Null(record.LateCallAdjustedTimeUtc);
-        Assert.Equal("OnDuty", record.Status);
+        Assert.Equal(OnDutyStatus.OnDuty, record.Status);
     }
 
     [Fact]

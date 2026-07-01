@@ -1110,15 +1110,15 @@ internal static class DevDataSeeder
         var ptraTransDeptCrew = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
 
         // 9 assignments — 3 per shift, one per location (PSYD, MCYD, NOYD)
-        var (ptraAsgn130, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "130", "Assignment 130", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn140, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "140", "Assignment 140", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn150, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "150", "Assignment 150", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn230, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "230", "Assignment 230", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn240, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "240", "Assignment 240", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn250, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "250", "Assignment 250", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn330, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "330", "Assignment 330", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn340, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "340", "Assignment 340", false, true, ptraTransDeptCrew?.CtrlNbr);
-        var (ptraAsgn350, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "350", "Assignment 350", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn130, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "130", "130", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn140, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "140", "140", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn150, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "150", "150", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn230, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "230", "230", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn240, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "240", "240", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn250, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "250", "250", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn330, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "330", "330", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn340, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocMCYD.CtrlNbr, "340", "340", false, true, ptraTransDeptCrew?.CtrlNbr);
+        var (ptraAsgn350, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocNOYD.CtrlNbr, "350", "350", false, true, ptraTransDeptCrew?.CtrlNbr);
 
         // ── PTRA Crews — 9 regular + 3 relief ───────────────────────────
         var ptraCrewEffective = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);

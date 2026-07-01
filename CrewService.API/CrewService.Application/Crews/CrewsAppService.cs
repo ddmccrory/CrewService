@@ -150,6 +150,22 @@ public sealed class CrewsAppService(
         return await uow.CrewIncumbencies.GetByCrewPositionAsync(crewPositionCtrlNbr);
     }
 
+    /// <summary>
+    /// Resolves the work-area IANA/Windows time zone id for a crew position, walking
+    /// crew position → crew → work-area dynamic group. Returns null when any link is missing
+    /// so the presentation layer can fall back to UTC display.
+    /// </summary>
+    public async Task<string?> GetCrewPositionWorkAreaTimeZoneIdAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(crewPositionCtrlNbr);
+        if (crewPosition is null) return null;
+        var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct);
+        if (crew is null) return null;
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+        return workArea?.TimeZoneId;
+    }
+
     public async Task<CrewIncumbency> CreateCrewIncumbencyAsync(
         long crewPositionCtrlNbr, long employeeCtrlNbr,
         DateTime startUtc, DateTime? endUtc, CancellationToken ct = default)

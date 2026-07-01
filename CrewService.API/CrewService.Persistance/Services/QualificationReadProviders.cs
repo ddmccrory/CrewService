@@ -15,7 +15,7 @@ internal sealed class OnDutyRecordCounter(CrewServiceDbContext dbContext) : IOnD
     public async Task<int> CountCompletedAsync(ControlNumber employeeCtrlNbr, string? activityFilter = null, CancellationToken ct = default)
     {
         var query = dbContext.Set<OnDutyRecord>()
-            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status == "TiedUp");
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status == OnDutyStatus.TiedUp);
 
         query = activityFilter switch
         {
