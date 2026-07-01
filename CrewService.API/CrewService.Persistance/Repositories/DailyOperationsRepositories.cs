@@ -56,6 +56,35 @@ internal sealed class OnDutyRecordRepository(CrewServiceDbContext dbContext, ICu
             .OrderByDescending(r => r.OnDutyTimeUtc)
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<OnDutyRecord>> GetByPositionSlotsAsync(
+        IReadOnlyList<ControlNumber> positionSlotCtrlNbrs, CancellationToken ct = default)
+    {
+        if (positionSlotCtrlNbrs.Count == 0) return [];
+        var slotList = positionSlotCtrlNbrs.ToList();
+        return await DbContext.Set<OnDutyRecord>()
+            .Where(r => slotList.Contains(r.PositionSlotCtrlNbr))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<OnDutyRecord>> GetOpenForEmployeeAsync(
+        ControlNumber employeeCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<OnDutyRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status != OnDutyStatus.TiedUp)
+            .OrderByDescending(r => r.OnDutyTimeUtc)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(
+        ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default) =>
+        // History surfaces completed tours only (parity with the legacy pay-period slices, which
+        // required an off-duty/tie-up record). Open/scheduled records belong on the Work &amp; Staffing tab.
+        await DbContext.Set<OnDutyRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr
+                        && r.Status == OnDutyStatus.TiedUp
+                        && r.OnDutyTimeUtc >= startUtc
+                        && r.OnDutyTimeUtc < endUtc)
+            .OrderByDescending(r => r.OnDutyTimeUtc)
+            .ToListAsync(ct);
 }
 
 internal sealed class OffDutyRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -67,6 +96,16 @@ internal sealed class OffDutyRecordRepository(CrewServiceDbContext dbContext, IC
             .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
             .OrderByDescending(r => r.OffDutyTimeUtc)
             .FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<OffDutyRecord>> GetByOnDutyRecordsAsync(
+        IReadOnlyList<ControlNumber> onDutyRecordCtrlNbrs, CancellationToken ct = default)
+    {
+        if (onDutyRecordCtrlNbrs.Count == 0) return [];
+        var idList = onDutyRecordCtrlNbrs.ToList();
+        return await DbContext.Set<OffDutyRecord>()
+            .Where(r => idList.Contains(r.OnDutyRecordCtrlNbr))
+            .ToListAsync(ct);
+    }
 }
 
 internal sealed class CraftOperationsPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

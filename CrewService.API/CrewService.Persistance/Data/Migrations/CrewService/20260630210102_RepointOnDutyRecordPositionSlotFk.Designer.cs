@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260630210102_RepointOnDutyRecordPositionSlotFk")]
+    partial class RepointOnDutyRecordPositionSlotFk
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -4912,13 +4915,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<string>("TimeZoneId")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
-
-                    b.Property<string>("WorkPeriodMode")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("HalfMonth");
 
                     b.HasKey("CtrlNbr");
 

@@ -20,6 +20,13 @@ public sealed class DynamicGroup : Entity
     /// </summary>
     public string? TimeZoneId { get; private set; }
 
+    /// <summary>
+    /// How this railroad's "work period" is calculated for on-duty history filtering.
+    /// Only meaningful on the railroad group. Defaults to <see cref="WorkPeriodMode.HalfMonth"/>
+    /// to preserve legacy pay-period behavior (1st–15th and 16th–end-of-month).
+    /// </summary>
+    public WorkPeriodMode WorkPeriodMode { get; private set; } = WorkPeriodMode.HalfMonth;
+
     private DynamicGroup()
     {
         GroupTypeCtrlNbr = null!;
@@ -34,7 +41,8 @@ public sealed class DynamicGroup : Entity
         bool isWorkArea,
         ControlNumber? parentCtrlNbr,
         ControlNumber? railroadCtrlNbr,
-        string? timeZoneId)
+        string? timeZoneId,
+        WorkPeriodMode? workPeriodMode)
     {
         GroupTypeCtrlNbr = groupTypeCtrlNbr;
         Name = name;
@@ -45,6 +53,7 @@ public sealed class DynamicGroup : Entity
         ParentCtrlNbr = parentCtrlNbr;
         RailroadCtrlNbr = railroadCtrlNbr;
         TimeZoneId = timeZoneId;
+        WorkPeriodMode = workPeriodMode ?? WorkPeriodMode.HalfMonth;
     }
 
     public static DynamicGroup Create(
@@ -56,7 +65,8 @@ public sealed class DynamicGroup : Entity
         string? code = null,
         ControlNumber? parentCtrlNbr = null,
         ControlNumber? railroadCtrlNbr = null,
-        string? timeZoneId = null)
+        string? timeZoneId = null,
+        WorkPeriodMode? workPeriodMode = null)
     {
         var group = new DynamicGroup(
             groupTypeCtrlNbr,
@@ -67,12 +77,13 @@ public sealed class DynamicGroup : Entity
             isWorkArea,
             parentCtrlNbr,
             railroadCtrlNbr,
-            timeZoneId);
+            timeZoneId,
+            workPeriodMode);
         group.Raise(new DynamicGroupCreatedDomainEvent(group));
         return group;
     }
 
-    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null, ControlNumber? parentCtrlNbr = null, ControlNumber? railroadCtrlNbr = null, string? timeZoneId = null)
+    public void Update(string name, ControlNumber? parentGroupCtrlNbr, string? path, bool isWorkArea, string? code = null, ControlNumber? parentCtrlNbr = null, ControlNumber? railroadCtrlNbr = null, string? timeZoneId = null, WorkPeriodMode? workPeriodMode = null)
     {
         Name = name;
         Code = code;
@@ -82,6 +93,7 @@ public sealed class DynamicGroup : Entity
         ParentCtrlNbr = parentCtrlNbr;
         RailroadCtrlNbr = railroadCtrlNbr;
         TimeZoneId = timeZoneId;
+        WorkPeriodMode = workPeriodMode ?? WorkPeriodMode.HalfMonth;
         Raise(new DynamicGroupUpdatedDomainEvent(this));
     }
 

@@ -49,6 +49,11 @@ internal class DynamicGroupConfiguration : IEntityTypeConfiguration<DynamicGroup
         builder.Property(g => g.Path).HasMaxLength(2000);
         builder.Property(g => g.IsWorkArea).IsRequired();
         builder.Property(g => g.TimeZoneId).HasMaxLength(100);
+        builder.Property(g => g.WorkPeriodMode)
+            .HasConversion(m => m.Value, v => WorkPeriodMode.FromValue(v))
+            .HasMaxLength(20)
+            .HasDefaultValue(WorkPeriodMode.HalfMonth)
+            .IsRequired();
 
         builder.Property(g => g.ParentCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
