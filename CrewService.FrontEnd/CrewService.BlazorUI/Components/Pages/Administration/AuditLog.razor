@@ -257,7 +257,7 @@ else
     private static string FormatTimestamp(string isoUtc)
     {
         if (DateTime.TryParse(isoUtc, CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind | DateTimeStyles.AdjustToUniversal, out var dt))
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
             return dt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
         return isoUtc;
     }
