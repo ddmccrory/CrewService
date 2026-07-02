@@ -20,7 +20,8 @@ internal sealed class PositionVacancyRepository(CrewServiceDbContext dbContext, 
     public async Task<List<PositionVacancy>> GetOpenByRailroadAsync(ControlNumber railroadCtrlNbr) =>
         await DbContext.Set<PositionVacancy>()
             .Where(v => (v.Status == "Open" || v.Status == "Bulletined") &&
-                        DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr))
+                        DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr &&
+                            (g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr)))
             .ToListAsync();
 
     public async Task<List<PositionVacancy>> GetByTargetAsync(string targetType, ControlNumber targetCtrlNbr) =>
@@ -61,7 +62,8 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
         await DbContext.Set<Bulletin>()
             .Where(b => b.Status == "Posted" &&
                         DbContext.Set<PositionVacancy>().Any(v => v.CtrlNbr == b.PositionVacancyCtrlNbr &&
-                            DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)))
+                            DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr &&
+                                (g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr))))
             .ToListAsync();
 
     public async Task<List<Bulletin>> GetActiveAsync() =>
@@ -71,7 +73,8 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
         await DbContext.Set<Bulletin>()
             .Where(b => (b.Status == "Posted" || b.Status == "NoBid") &&
                         DbContext.Set<PositionVacancy>().Any(v => v.CtrlNbr == b.PositionVacancyCtrlNbr &&
-                            DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)))
+                            DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr &&
+                                (g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr))))
             .ToListAsync();
 
     public async Task<List<Bulletin>> GetPostedByCraftAsync(ControlNumber craftCtrlNbr) =>
@@ -119,7 +122,8 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
         if (railroadCtrlNbr is not null)
             query = query.Where(b =>
                 DbContext.Set<PositionVacancy>().Any(v => v.CtrlNbr == b.PositionVacancyCtrlNbr &&
-                    DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr && g.RailroadCtrlNbr == railroadCtrlNbr)));
+                    DbContext.Set<DynamicGroup>().Any(g => g.CtrlNbr == v.WorkAreaGroupCtrlNbr &&
+                        (g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr))));
         return await query.OrderByDescending(b => b.BidWindowOpensUtc).ToListAsync();
     }
 
