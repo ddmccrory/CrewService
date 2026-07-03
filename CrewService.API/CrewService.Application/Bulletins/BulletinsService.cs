@@ -1,6 +1,7 @@
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Notifications;
 using CrewService.Application.Qualifications;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
@@ -16,6 +17,7 @@ public sealed class BulletinsService(
     ILogger<BulletinsService> logger,
     IBulletinScheduleSignal scheduleSignal,
     EmployeeNotificationService notifications,
+    IRailroadResolver railroadResolver,
     EmployeeEligibilityService eligibility)
 {
     public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
@@ -52,18 +54,34 @@ public sealed class BulletinsService(
             : await uow.Bulletins.GetPostedAsync();
     }
 
-    public async Task<IReadOnlyList<Bulletin>> GetBulletinsInDateRangeAsync(DateTime fromUtc, ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Bulletin>> GetBulletinsInDateRangeAsync(DateTime fromUtc, ControlNumber? railroadCtrlNbr = null, bool employeeScoped = false, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Bulletins.GetInDateRangeAsync(fromUtc, railroadCtrlNbr);
+        var bulletins = await uow.Bulletins.GetInDateRangeAsync(fromUtc, railroadCtrlNbr);
+        // Employees must not see bulletins whose bid window has not opened yet (legacy parity).
+        // Past/closed bulletins remain visible in history; only not-yet-open ones are hidden.
+        if (employeeScoped)
+        {
+            var now = DateTime.UtcNow;
+            bulletins = [.. bulletins.Where(b => b.HasBidWindowOpened(now))];
+        }
+        return bulletins;
     }
 
-        public async Task<IReadOnlyList<Bulletin>> GetActiveBulletinsAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
+        public async Task<IReadOnlyList<Bulletin>> GetActiveBulletinsAsync(ControlNumber? railroadCtrlNbr = null, bool employeeScoped = false, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return railroadCtrlNbr is not null
+        var bulletins = railroadCtrlNbr is not null
             ? await uow.Bulletins.GetActiveByRailroadAsync(railroadCtrlNbr)
             : await uow.Bulletins.GetActiveAsync();
+        // Employees must not see bulletins whose bid window has not opened yet (legacy parity:
+        // SA employee bulletin queries require Now > OpenDateTime). Dispatchers see all.
+        if (employeeScoped)
+        {
+            var now = DateTime.UtcNow;
+            bulletins = [.. bulletins.Where(b => b.HasBidWindowOpened(now))];
+        }
+        return bulletins;
     }
 
     public async Task<IReadOnlyList<Bulletin>> GetPostedBulletinsByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
@@ -88,6 +106,23 @@ public sealed class BulletinsService(
     public async Task<BulletinBid> SubmitBidAsync(long bulletinCtrlNbr, long employeeCtrlNbr, int priority, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        // Enforce the bid-window gate. Employees cannot see or bid on a bulletin until its window
+        // opens, and cannot bid after it closes (legacy parity: SA's employee bulletin collection
+        // queries require Now > OpenDateTime && Now <= CloseDateTime). This is the authoritative
+        // server-side guard; the UI only mirrors it for presentation.
+        var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ControlNumber.Create(bulletinCtrlNbr), ct)
+            ?? throw new KeyNotFoundException($"Bulletin {bulletinCtrlNbr} not found.");
+        var now = DateTime.UtcNow;
+        if (bulletin.Status != "Posted")
+            throw new InvalidOperationException(
+                $"Cannot bid on bulletin {bulletinCtrlNbr}: status is '{bulletin.Status}'. Only posted bulletins accept bids.");
+        if (now < bulletin.BidWindowOpensUtc)
+            throw new InvalidOperationException(
+                $"Cannot bid on bulletin {bulletinCtrlNbr}: the bid window has not opened yet.");
+        if (now > bulletin.BidWindowClosesUtc)
+            throw new InvalidOperationException(
+                $"Cannot bid on bulletin {bulletinCtrlNbr}: the bid window has closed.");
 
         // Enforce board-level bulletin bidding restriction.
         // If the employee is currently assigned to a roster board position, check AllowBulletinBidding.
@@ -427,7 +462,8 @@ public sealed class BulletinsService(
         int forceAssignHours,
         string forceAssignSelectionMode = Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
         CancellationToken ct = default,
-        TimeSpan? bulletinCutOffTime = null)
+        TimeSpan? bulletinCutOffTime = null,
+        string effectiveTimeMode = Domain.Modules.Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
@@ -435,14 +471,14 @@ public sealed class BulletinsService(
         if (existing is not null)
         {
             existing.Update(bidWindowHours, bidWindowStartTime, bidWindowCloseTime,
-                effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode, bulletinCutOffTime);
+                effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode, bulletinCutOffTime, effectiveTimeMode);
             await uow.BulletinRules.UpdateAsync(existing, ct);
             await uow.CommitAsync(ct);
             return existing;
         }
 
         var rule = BulletinRule.Create(craftCtrlNbr, bidWindowHours, bidWindowStartTime,
-            bidWindowCloseTime, effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode, bulletinCutOffTime);
+            bidWindowCloseTime, effectiveOffsetDays, effectiveTime, forceAssignHours, forceAssignSelectionMode, bulletinCutOffTime, effectiveTimeMode);
         await uow.BulletinRules.AddAsync(rule, ct);
         await uow.CommitAsync(ct);
         return rule;
@@ -728,12 +764,18 @@ public sealed class BulletinsService(
         {
             vacancy.Fill();
             await uow.PositionVacancies.UpdateAsync(vacancy, ct);
-            var displacedEmployeeCtrlNbr = await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, ct);
+
+            // For a force-assignment, adopt the schedule-aware computed effective datetime
+            // (stored as ForceAssignDeadlineUtc when the bulletin transitioned to NoBid), mirroring
+            // legacy RailroadPositionBulletin.AssignDateTime where the trigger time IS the effective
+            // time. Awarded (bid) assignments keep the default "effective now" behaviour.
+            var effectiveUtc = forceAssigned ? bulletin.ForceAssignDeadlineUtc : null;
+            var displacedEmployeeCtrlNbr = await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, effectiveUtc, ct);
 
             // Notify the employee displaced from the crew position (if any).
             if (displacedEmployeeCtrlNbr is not null && displacedEmployeeCtrlNbr != employeeCtrlNbr)
             {
-                var displacedRailroad = await ResolveVacancyRailroadAsync(uow, vacancy, ct);
+                var displacedRailroad = await railroadResolver.ResolveFromWorkAreaAsync(uow, vacancy.WorkAreaGroupCtrlNbr, ct);
                 if (displacedRailroad is not null)
                 {
                     await notifications.NotifyDisplacedAsync(
@@ -752,19 +794,6 @@ public sealed class BulletinsService(
         // awarded employee had outstanding (legacy: RailroadPoolEmployee.RemoveUnassignedSeniorityMoves).
         await SupersedePendingSeniorityMovesAsync(uow, employeeCtrlNbr, bulletin.CtrlNbr, ct);
         await uow.Bulletins.UpdateAsync(bulletin, ct);
-    }
-
-    /// <summary>
-    /// Resolves the railroad (work-area <c>DynamicGroup</c>) that owns a vacancy.
-    /// </summary>
-    private static async Task<ControlNumber?> ResolveVacancyRailroadAsync(
-        Domain.Interfaces.IOrchestrationUnitOfWork uow,
-        PositionVacancy vacancy,
-        CancellationToken ct)
-    {
-        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
-        if (workArea is null) return null;
-        return workArea.RailroadCtrlNbr ?? workArea.CtrlNbr;
     }
 
     /// <summary>
@@ -800,12 +829,17 @@ public sealed class BulletinsService(
         PositionVacancy vacancy,
         ControlNumber employeeCtrlNbr,
         string assignmentType,
+        DateTime? effectiveUtc,
         CancellationToken ct)
     {
         if (vacancy.TargetType != StaffablePositionType.Crew) return null;
 
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
         if (crewPosition is null) return null;
+
+        // The effective datetime governs when the incoming assignment takes effect and when the
+        // outgoing incumbency ends. Defaults to "now" for awarded assignments.
+        var effectiveDate = effectiveUtc ?? DateTime.UtcNow;
 
         ControlNumber? displacedEmployeeCtrlNbr = null;
 
@@ -814,15 +848,15 @@ public sealed class BulletinsService(
         if (existingIncumbency is not null)
         {
             displacedEmployeeCtrlNbr = existingIncumbency.EmployeeCtrlNbr;
-            existingIncumbency.End(DateTime.UtcNow);
+            existingIncumbency.End(effectiveDate);
             uow.CrewIncumbencies.Update(existingIncumbency);
             var oldAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
             if (oldAssignment is not null) uow.PositionAssignments.Remove(oldAssignment);
         }
 
-        var incumbency = CrewIncumbency.Create(crewPosition.CtrlNbr.Value, employeeCtrlNbr.Value, DateTime.UtcNow, null);
+        var incumbency = CrewIncumbency.Create(crewPosition.CtrlNbr.Value, employeeCtrlNbr.Value, effectiveDate, null);
         var positionAssignment = PositionAssignment.Create(
-            crewPosition.StaffablePositionCtrlNbr, employeeCtrlNbr, assignmentType, crewPosition.CtrlNbr);
+            crewPosition.StaffablePositionCtrlNbr, employeeCtrlNbr, assignmentType, crewPosition.CtrlNbr, effectiveDate);
 
         uow.CrewIncumbencies.Add(incumbency);
         uow.PositionAssignments.Add(positionAssignment);
@@ -842,7 +876,15 @@ public sealed class BulletinsService(
         BulletinRule rule,
         CancellationToken ct)
     {
-        // Try to get the crew position's schedule via: vacancy → crewPosition → crew → crewAssignment → assignment → schedule
+        // Resolve the work-area timezone so day-of-week evaluation and on-duty localisation are
+        // performed in work-area local time with DST awareness (consistent with CalculateBidWindow).
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+        var tz = ResolveTimeZone(workArea?.TimeZoneId);
+
+        // Resolve the crew position's active schedule via:
+        // vacancy → crewPosition → crew → active crewAssignment → assignment → schedule.
+        int? operatingDaysMask = null;
+        TimeOnly? onDutyTime = null;
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
         if (crewPosition is not null)
         {
@@ -857,27 +899,19 @@ public sealed class BulletinsService(
                 var schedule = schedules.FirstOrDefault();
                 if (schedule is not null)
                 {
-                    // Find the next work date on or after the effective date using the OperatingDaysMask
-                    var effectiveLocal = bulletin.EffectiveUtc.Date;
-                    DateTime nextWorkDate = effectiveLocal;
-                    for (int i = 0; i < 14; i++)
-                    {
-                        int dayBit = 1 << (int)nextWorkDate.DayOfWeek;
-                        if ((schedule.OperatingDaysMask & dayBit) != 0) break;
-                        nextWorkDate = nextWorkDate.AddDays(1);
-                    }
-
-                    // The force-assign deadline = first on-duty time on the next work day minus ForceAssignHours
-                    var onDutyUtc = new DateTime(nextWorkDate.Year, nextWorkDate.Month, nextWorkDate.Day,
-                        schedule.OnDutyTime.Hour, schedule.OnDutyTime.Minute, schedule.OnDutyTime.Second,
-                        DateTimeKind.Utc);
-                    return onDutyUtc.AddHours(-rule.ForceAssignHours);
+                    operatingDaysMask = schedule.OperatingDaysMask;
+                    onDutyTime = schedule.OnDutyTime;
                 }
             }
         }
 
-        // Fallback: flat offset from effective date
-        return rule.CalculateForceAssignDeadline(bulletin.EffectiveUtc);
+        // Delegate the mode-specific computation (work day vs off day; fixed effective time vs
+        // on-duty-minus-force-hours vs bid-window close) to the domain rule. When schedule data is
+        // unavailable, the domain falls back to the configured effective datetime. This value is
+        // stored as ForceAssignDeadlineUtc and is also adopted as the assignment's effective time,
+        // mirroring the legacy RailroadPositionBulletin.AssignDateTime (trigger == effective).
+        return rule.CalculateForceAssignEffectiveUtc(
+            bulletin.EffectiveUtc, bulletin.BidWindowClosesUtc, operatingDaysMask, onDutyTime, tz);
     }
 
     /// <summary>

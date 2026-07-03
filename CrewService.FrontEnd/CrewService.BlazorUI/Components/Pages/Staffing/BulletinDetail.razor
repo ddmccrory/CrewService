@@ -103,8 +103,8 @@ else
                              <span class="bi bi-dash-circle"></span> Set No-Bid
                          </button>
                          <button class="btn btn-primary" @onclick="OpenAddBidModal"
-                                 disabled="@(isSaving || bidWindowClosed || (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins))"
-                                 title="@(bidWindowClosed ? "Bid window is closed" : (!FilterCanBidOnBulletins && FilterEmployeeCtrlNbr > 0 ? "Your current board does not permit bulletin bidding" : ""))">
+                                 disabled="@(isSaving || !bulletin.IsBidWindowOpen || (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins))"
+                                 title="@(bidWindowClosed ? "The bid window is closed" : (!bulletin.IsBidWindowOpen ? "The bid window is not open yet" : (!FilterCanBidOnBulletins && FilterEmployeeCtrlNbr > 0 ? "Your current board does not permit bulletin bidding" : "")))">
                              <span class="bi bi-plus-circle"></span> Add Bid
                          </button>
                          <button class="btn btn-outline-danger" @onclick="() => showCancelModal = true"

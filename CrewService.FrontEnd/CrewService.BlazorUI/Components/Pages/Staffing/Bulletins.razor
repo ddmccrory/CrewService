@@ -106,7 +106,8 @@ else
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && b.Status == "Posted")
                     {
                         <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddBidModal(b.CtrlNbr)"
-                                disabled="@(isSaving || (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins))">
+                                disabled="@(isSaving || !b.IsBidWindowOpen || (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins))"
+                                title="@(!b.IsBidWindowOpen ? "The bid window is not open yet" : (FilterEmployeeCtrlNbr > 0 && !FilterCanBidOnBulletins ? "This employee's current board does not permit bulletin bidding" : ""))">
                              <span class="bi bi-plus-circle"></span> Add Bid
                          </button>
                     }
@@ -408,8 +409,8 @@ else
             var craftsTask = CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
             var vacanciesTask = BulletinsClient.GetOpenVacanciesAsync(SelectedRailroadCtrlNbr ?? 0);
             var bulletinsTask = showAllBulletins
-                ? BulletinsClient.GetBulletinsInDateRangeAsync(bulletinHistoryFrom.ToUniversalTime(), SelectedRailroadCtrlNbr ?? 0)
-                : BulletinsClient.GetActiveBulletinsAsync(SelectedRailroadCtrlNbr ?? 0);
+                ? BulletinsClient.GetBulletinsInDateRangeAsync(bulletinHistoryFrom.ToUniversalTime(), SelectedRailroadCtrlNbr ?? 0, FilterEmployeeCtrlNbr)
+                : BulletinsClient.GetActiveBulletinsAsync(SelectedRailroadCtrlNbr ?? 0, FilterEmployeeCtrlNbr);
             var nextEventTask = BulletinsClient.GetNextBulletinEventUtcAsync(SelectedRailroadCtrlNbr ?? 0);
             await Task.WhenAll(craftsTask, vacanciesTask, bulletinsTask, nextEventTask);
             if (ComponentToken.IsCancellationRequested) return;
