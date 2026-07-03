@@ -1981,19 +1981,23 @@ internal static class DevDataSeeder
             }
         }
 
-        // Seed PTRA bulletin rules — Engineer: 72h bid window, Trainman: 24h bid window
-        // All other times match legacy RosterBulletinRule defaults (04:00 start/close/effective)
+        // Seed PTRA bulletin rules for all crafts — Engineer: 72h bid window; all other crafts
+        // (Trainman, Clerical, …): 24h bid window. All times match legacy RosterBulletinRule
+        // defaults (04:00 start/close/effective/cutoff).
         var bulletinRuleRepo = sp.GetRequiredService<IBulletinRuleRepository>();
         var legacyStartTime    = new TimeSpan(04, 00, 00);
         var legacyCloseTime    = new TimeSpan(04, 00, 00);
         var legacyEffectiveTime = new TimeSpan(04, 00, 00);
+        // Bulletins created after 04:00 local roll to 04:00 the next day (legacy
+        // RailroadPosition.CreateRailroadPositionBulletin: next-day when now > BulletinStartTime).
+        var legacyCutOffTime = new TimeSpan(04, 00, 00);
 
-        var (engineerBidHours, trainmanBidHours) = (72, 24);
+        var (engineerBidHours, defaultBidHours) = (72, 24);
 
-        foreach (var craft in ptraCrafts.Where(c => c.CraftName is "Engineer" or "Trainman"))
+        foreach (var craft in ptraCrafts)
         {
             var existingRule = await bulletinRuleRepo.GetByCraftAsync(craft.CtrlNbr!);
-            int bidHours = craft.CraftName == "Engineer" ? engineerBidHours : trainmanBidHours;
+            int bidHours = craft.CraftName == "Engineer" ? engineerBidHours : defaultBidHours;
 
             // Trainman uses JuniorHelperOrExtraBoard: foreman vacancies are filled by the youngest
             // helper regardless of whether they are on the extra board or in an assigned helper position.
@@ -2001,6 +2005,14 @@ internal static class DevDataSeeder
             var selectionMode = craft.CraftName == "Trainman"
                 ? ForceAssignSelectionMode.JuniorHelperOrExtraBoard
                 : ForceAssignSelectionMode.JuniorExtraBoard;
+
+            // Engineer bulletins are assigned at 04:00 unless the effective date is an off day, in
+            // which case they are assigned 3 hours before the first work day's on-duty time
+            // (legacy RailroadPositionBulletin.AssignDateTime "Engineer" branch). Trainman keeps the
+            // fixed effective time.
+            var (effectiveTimeMode, forceAssignHours) = craft.CraftName == "Engineer"
+                ? (BulletinEffectiveTimeMode.EffectiveTimeUnlessOffDay, 3)
+                : (BulletinEffectiveTimeMode.FixedEffectiveTime, 0);
 
             if (existingRule is null)
                 await bulletinRuleRepo.AddAsync(BulletinRule.Create(
@@ -2010,8 +2022,10 @@ internal static class DevDataSeeder
                     bidWindowCloseTime: legacyCloseTime,
                     effectiveOffsetDays: 0,
                     effectiveTime: legacyEffectiveTime,
-                    forceAssignHours: 0,
-                    forceAssignSelectionMode: selectionMode));
+                    forceAssignHours: forceAssignHours,
+                    forceAssignSelectionMode: selectionMode,
+                    bulletinCutOffTime: legacyCutOffTime,
+                    effectiveTimeMode: effectiveTimeMode));
             else
             {
                 existingRule.Update(
@@ -2020,9 +2034,51 @@ internal static class DevDataSeeder
                     bidWindowCloseTime: legacyCloseTime,
                     effectiveOffsetDays: 0,
                     effectiveTime: legacyEffectiveTime,
-                    forceAssignHours: 0,
-                    forceAssignSelectionMode: selectionMode);
+                    forceAssignHours: forceAssignHours,
+                    forceAssignSelectionMode: selectionMode,
+                    bulletinCutOffTime: legacyCutOffTime,
+                    effectiveTimeMode: effectiveTimeMode);
                 await bulletinRuleRepo.UpdateAsync(existingRule);
+            }
+        }
+
+        // Seed PTRA seniority state vacancy actions (railroad-level).
+        // Mirrors the "Seniority State Vacancy Actions" administration screen: each state maps
+        // to what should happen to the employee's current position when they transition into it.
+        var seniorityStateRepo = sp.GetRequiredService<ISeniorityStateRepository>();
+        var vacancyConfigRepo  = sp.GetRequiredService<ISeniorityStateVacancyConfigRepository>();
+
+        var ptraStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(ptraParent.CtrlNbr);
+
+        var vacancyActionsByState = new Dictionary<string, (VacancyAction Action, BoardType? Board)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Active"]           = (VacancyAction.MoveToBoard, BoardType.Hangout),
+            ["Cut Back"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
+            ["Dismissed"]        = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
+            ["Inactive"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
+            ["Leave of Absence"] = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
+            ["Medical Leave"]    = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
+            ["Retired"]          = (VacancyAction.VacateAndBulletin, null),
+            ["Terminated"]       = (VacancyAction.VacateAndBulletin, null),
+        };
+
+        foreach (var state in ptraStates)
+        {
+            if (!vacancyActionsByState.TryGetValue(state.StateDescription, out var mapping))
+                continue;
+
+            var existingConfig = await vacancyConfigRepo.GetBySeniorityStateAsync(ptraRailroad.CtrlNbr, state.CtrlNbr);
+            if (existingConfig is null)
+                await vacancyConfigRepo.AddAsync(SeniorityStateVacancyConfig.Create(
+                    ptraParent.CtrlNbr,
+                    ptraRailroad.CtrlNbr,
+                    state.CtrlNbr,
+                    mapping.Action,
+                    mapping.Board));
+            else
+            {
+                existingConfig.Update(mapping.Action, mapping.Board);
+                await vacancyConfigRepo.UpdateAsync(existingConfig);
             }
         }
     }
