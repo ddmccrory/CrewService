@@ -521,13 +521,14 @@ public class EmployeeService(
         {
             response.Bids.Add(new WorkProfileBulletinBid
             {
-                CtrlNbr         = b.CtrlNbr.Value,
-                BulletinCtrlNbr = b.BulletinCtrlNbr.Value,
-                Priority        = b.Priority,
-                SubmittedUtc    = b.SubmittedUtc.ToString("o"),
-                Status          = b.Status,
-                BulletinCode    = b.BulletinCode,
-                PositionName    = b.PositionName,
+                CtrlNbr             = b.CtrlNbr.Value,
+                BulletinCtrlNbr     = b.BulletinCtrlNbr.Value,
+                Priority            = b.Priority,
+                SubmittedUtc        = b.SubmittedUtc.ToString("o"),
+                Status              = b.Status,
+                PositionName        = b.PositionName,
+                BidWindowClosesUtc  = b.BidWindowClosesLocalIso,
+                EffectiveUtc        = b.EffectiveLocalIso,
             });
         }
 

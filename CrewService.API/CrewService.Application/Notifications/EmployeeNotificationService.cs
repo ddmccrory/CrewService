@@ -1,5 +1,6 @@
 using CrewService.Application.Modules.UserAccount;
 using CrewService.Application.Staffing;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Notifications;
@@ -22,6 +23,7 @@ namespace CrewService.Application.Notifications;
 /// </summary>
 public sealed class EmployeeNotificationService(
     ILogger<EmployeeNotificationService> logger,
+    IRailroadResolver railroadResolver,
     IUserAccountService? userAccounts = null,
     IWorkAreaClock? clock = null)
 {
@@ -29,7 +31,7 @@ public sealed class EmployeeNotificationService(
     /// Resolves the railroad (work-area <c>DynamicGroup</c>) that owns a bulletin via its vacancy.
     /// Bulletins are scoped to a railroad through the vacancy's work-area group.
     /// </summary>
-    private static async Task<ControlNumber?> ResolveBulletinRailroadAsync(
+    private async Task<ControlNumber?> ResolveBulletinRailroadAsync(
         IOrchestrationUnitOfWork uow,
         Domain.Modules.Bulletins.Bulletin bulletin,
         CancellationToken ct)
@@ -37,12 +39,10 @@ public sealed class EmployeeNotificationService(
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
         if (vacancy is null) return null;
 
-        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
-        if (workArea is null) return null;
-
-        // A work-area group carries its owning railroad; if the group itself is the railroad,
-        // RailroadCtrlNbr is null and the group's own CtrlNbr is the railroad.
-        return workArea.RailroadCtrlNbr ?? workArea.CtrlNbr;
+        // Bulletins are scoped to a railroad through the vacancy's work-area group; the resolver
+        // handles both the "work area references a railroad" and "railroad group is the work area"
+        // (small-railroad) topologies.
+        return await railroadResolver.ResolveFromWorkAreaAsync(uow, vacancy.WorkAreaGroupCtrlNbr, ct);
     }
 
     private EmployeeNotification Emit(

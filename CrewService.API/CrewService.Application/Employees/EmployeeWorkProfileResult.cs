@@ -17,15 +17,16 @@ public sealed record WorkProfileSeniorityEntry(
     string        PositionAssignedDate,
     ControlNumber CraftCtrlNbr);
 
-/// <summary>Bulletin bid enriched with bulletin code and position name.</summary>
+/// <summary>Bulletin bid enriched with position name and work-area-localized bid-window-closes/effective instants.</summary>
 public sealed record WorkProfileBulletinBid(
     ControlNumber CtrlNbr,
     ControlNumber BulletinCtrlNbr,
     int           Priority,
     DateTime      SubmittedUtc,
     string        Status,
-    string        BulletinCode,
-    string        PositionName);
+    string        PositionName,
+    string        BidWindowClosesLocalIso,
+    string        EffectiveLocalIso);
 
 /// <summary>Seniority move projected for the work-profile panel, enriched with
 /// the resolved <paramref name="TargetPositionName"/> and the server-computed

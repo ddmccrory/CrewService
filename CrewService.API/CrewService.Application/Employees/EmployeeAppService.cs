@@ -431,22 +431,41 @@ public sealed class EmployeeAppService(
                 targetName));
         }
 
-        // Enrich bids with bulletin/position info
+        // Enrich bids with position name and work-area-localized bulletin window/effective times.
+        // Times are localized to the vacancy's work-area zone (mirroring the on-duty enrichment)
+        // so the front-end renders wall-clock values without any timezone logic of its own.
+        var bidTzCache = new Dictionary<string, TimeZoneInfo?>(StringComparer.OrdinalIgnoreCase);
+        var groupTzIdCache = new Dictionary<ControlNumber, string?>();
         var enrichedBids = new List<WorkProfileBulletinBid>();
         foreach (var bid in bids)
         {
             var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(bid.BulletinCtrlNbr, ct);
-            string bulletinCode = string.Empty, positionName = string.Empty;
+            string positionName = string.Empty, closesLocalIso = string.Empty, effectiveLocalIso = string.Empty;
             if (bulletin is not null)
             {
-                bulletinCode = bulletin.CtrlNbr.Value.ToString();
                 var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
                 positionName = vacancy?.TargetName ?? string.Empty;
+
+                TimeZoneInfo? tz = null;
+                if (vacancy is not null)
+                {
+                    if (!groupTzIdCache.TryGetValue(vacancy.WorkAreaGroupCtrlNbr, out var tzId))
+                    {
+                        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+                        tzId = group?.TimeZoneId;
+                        groupTzIdCache[vacancy.WorkAreaGroupCtrlNbr] = tzId;
+                    }
+                    tz = ResolveTimeZone(tzId, bidTzCache);
+                }
+
+                closesLocalIso = workAreaClock.FormatLocalIso(bulletin.BidWindowClosesUtc, tz);
+                effectiveLocalIso = workAreaClock.FormatLocalIso(bulletin.EffectiveUtc, tz);
             }
             enrichedBids.Add(new WorkProfileBulletinBid(
                 bid.CtrlNbr, bid.BulletinCtrlNbr,
                 bid.Priority, bid.SubmittedUtc,
-                bid.Status, bulletinCode, positionName));
+                bid.Status, positionName,
+                closesLocalIso, effectiveLocalIso));
         }
 
         return new EmployeeWorkProfileResult(

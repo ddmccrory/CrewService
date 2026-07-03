@@ -1,6 +1,7 @@
 using CrewService.Application.Notifications;
 using CrewService.Application.Models.UserAccount;
 using CrewService.Application.Modules.UserAccount;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
@@ -39,7 +40,7 @@ public class EmployeeNotificationServiceTests
     private static readonly ControlNumber TargetPositionCtrlNbr = ControlNumber.Create(200);
 
     private static EmployeeNotificationService BuildService() =>
-        new(NullLogger<EmployeeNotificationService>.Instance);
+        new(NullLogger<EmployeeNotificationService>.Instance, new RailroadResolver());
 
     private static DynamicGroup MakeWorkArea() =>
         DynamicGroup.Create(ControlNumber.Create(9), "Houston Yard", parentGroupCtrlNbr: null,
@@ -299,7 +300,7 @@ public class EmployeeNotificationServiceTests
             daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
         var accounts = new FakeUserAccounts(bumping.UserId, "Smith, John D.");
 
-        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, accounts)
+        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, new RailroadResolver(), accounts)
             .NotifySeniorityMoveRequestedAsync(uow, move, TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
@@ -323,7 +324,7 @@ public class EmployeeNotificationServiceTests
             daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
         var accounts = new FakeUserAccounts(bumping.UserId, "Smith, John D.");
 
-        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, accounts)
+        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, new RailroadResolver(), accounts)
             .NotifySeniorityMoveRequestedAsync(uow, move, TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
