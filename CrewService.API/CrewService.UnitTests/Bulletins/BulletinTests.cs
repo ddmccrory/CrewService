@@ -111,6 +111,88 @@ public class BulletinTests
 
         Assert.Equal("Cancelled", bulletin.Status);
     }
+
+    [Fact]
+    public void IsBidWindowOpen_FalseBeforeWindowOpens()
+    {
+        var opens = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc);
+        var bulletin = Bulletin.Create(1, 10, opens, opens.AddDays(1), opens.AddDays(3));
+
+        Assert.False(bulletin.IsBidWindowOpen(opens.AddMinutes(-1)));
+    }
+
+    [Fact]
+    public void HasBidWindowOpened_FalseBeforeOpenTime()
+    {
+        var opens = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc);
+        var bulletin = Bulletin.Create(1, 10, opens, opens.AddDays(1), opens.AddDays(3));
+
+        Assert.False(bulletin.HasBidWindowOpened(opens.AddMinutes(-1)));
+    }
+
+    [Fact]
+    public void HasBidWindowOpened_TrueAtAndAfterOpenTime_IncludingAfterClose()
+    {
+        var opens = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc);
+        var closes = opens.AddDays(1);
+        var bulletin = Bulletin.Create(1, 10, opens, closes, closes.AddDays(2));
+
+        Assert.True(bulletin.HasBidWindowOpened(opens));
+        Assert.True(bulletin.HasBidWindowOpened(opens.AddHours(6)));
+        // Still "opened" even after it has closed — history remains visible to employees.
+        Assert.True(bulletin.HasBidWindowOpened(closes.AddDays(1)));
+    }
+
+    [Fact]
+    public void IsBidWindowOpen_TrueWithinWindowInclusiveOfBounds()
+    {
+        var opens = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc);
+        var closes = opens.AddDays(1);
+        var bulletin = Bulletin.Create(1, 10, opens, closes, closes.AddDays(2));
+
+        Assert.True(bulletin.IsBidWindowOpen(opens));
+        Assert.True(bulletin.IsBidWindowOpen(opens.AddHours(6)));
+        Assert.True(bulletin.IsBidWindowOpen(closes));
+    }
+
+    [Fact]
+    public void IsBidWindowOpen_FalseAfterWindowCloses()
+    {
+        var opens = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc);
+        var closes = opens.AddDays(1);
+        var bulletin = Bulletin.Create(1, 10, opens, closes, closes.AddDays(2));
+
+        Assert.False(bulletin.IsBidWindowOpen(closes.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void IsBiddable_FalseBeforeWindowOpens_EvenWhenPosted()
+    {
+        var opens = DateTime.UtcNow.AddHours(1);
+        var bulletin = Bulletin.Create(1, 10, opens, opens.AddDays(1), opens.AddDays(3));
+
+        Assert.Equal("Posted", bulletin.Status);
+        Assert.False(bulletin.IsBiddable(DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void IsBiddable_TrueWhenPostedAndWindowOpen()
+    {
+        var opens = DateTime.UtcNow.AddMinutes(-30);
+        var bulletin = Bulletin.Create(1, 10, opens, DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(3));
+
+        Assert.True(bulletin.IsBiddable(DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void IsBiddable_FalseWhenNotPosted_EvenIfWindowOpen()
+    {
+        var opens = DateTime.UtcNow.AddMinutes(-30);
+        var bulletin = Bulletin.Create(1, 10, opens, DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(3));
+        bulletin.Close();
+
+        Assert.False(bulletin.IsBiddable(DateTime.UtcNow));
+    }
 }
 
 public class BulletinBidTests

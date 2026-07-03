@@ -87,6 +87,10 @@ internal class BulletinRuleConfiguration : IEntityTypeConfiguration<BulletinRule
 		builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
 		builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
 
+		builder.Property(r => r.EffectiveTimeMode)
+			.HasMaxLength(40)
+			.HasDefaultValue(BulletinEffectiveTimeMode.FixedEffectiveTime);
+
 		builder.HasIndex(r => r.CraftCtrlNbr).IsUnique();
 		builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 

@@ -170,70 +170,87 @@ else
     </Modal>
 
     <Modal Visible="showBulletinRuleModal" Title="@($"Bulletin Rules — {bulletinRuleCraftName}")"
-           Icon="bi bi-clock-history" OnClose="CloseBulletinRuleModal" Size="lg">
+           Icon="bi bi-clock-history" OnClose="CloseBulletinRuleModal" Size="xl" Scrollable="true">
         <BodyContent>
             <EditForm Model="bulletinRuleModel" OnValidSubmit="OnSaveBulletinRule" id="bulletin-rule-form">
                 <DataAnnotationsValidator />
-                <h6 class="text-muted mb-3">Bid Window</h6>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold">Window Hours</label>
-                        <InputNumber @bind-Value="bulletinRuleModel.BidWindowHours" class="form-control" />
-                        <div class="form-text">Total hours the bid window stays open.</div>
-                        <ValidationMessage For="() => bulletinRuleModel.BidWindowHours" class="text-danger" />
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <h6 class="text-muted mb-3">Bid Window</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-4">
+                                <label class="form-label fw-semibold">Window Hours</label>
+                                <InputNumber @bind-Value="bulletinRuleModel.BidWindowHours" class="form-control" />
+                                <div class="form-text">Total hours the bid window stays open.</div>
+                                <ValidationMessage For="() => bulletinRuleModel.BidWindowHours" class="text-danger" />
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label fw-semibold">Opens At (HH:mm)</label>
+                                <InputText @bind-Value="bulletinRuleModel.BidWindowStartTime" class="form-control" placeholder="04:00" />
+                                <ValidationMessage For="() => bulletinRuleModel.BidWindowStartTime" class="text-danger" />
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label fw-semibold">Closes At (HH:mm)</label>
+                                <InputText @bind-Value="bulletinRuleModel.BidWindowCloseTime" class="form-control" placeholder="04:00" />
+                                <ValidationMessage For="() => bulletinRuleModel.BidWindowCloseTime" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-semibold">Bulletin Cutoff Time (HH:mm, optional)</label>
+                                <InputText @bind-Value="bulletinRuleModel.BulletinCutoffTime" class="form-control" placeholder="HH:mm" />
+                                <div class="form-text">Daily time of day after which a new bulletin posts for the next day instead of today. Leave blank for no cutoff (bulletins always post today).</div>
+                                <ValidationMessage For="() => bulletinRuleModel.BulletinCutoffTime" class="text-danger" />
+                            </div>
+                        </div>
+                        <hr class="my-3" />
+                        <h6 class="text-muted mb-3">Effective Date</h6>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-semibold">Offset Days After Close</label>
+                                <InputNumber @bind-Value="bulletinRuleModel.EffectiveOffsetDays" class="form-control" />
+                                <div class="form-text">Calendar days after bid close before position becomes effective.</div>
+                                <ValidationMessage For="() => bulletinRuleModel.EffectiveOffsetDays" class="text-danger" />
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-semibold">Effective Time (HH:mm)</label>
+                                <InputText @bind-Value="bulletinRuleModel.EffectiveTime" class="form-control" placeholder="04:00" />
+                                <ValidationMessage For="() => bulletinRuleModel.EffectiveTime" class="text-danger" />
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Opens At (HH:mm)</label>
-                        <InputText @bind-Value="bulletinRuleModel.BidWindowStartTime" class="form-control" placeholder="04:00" />
-                        <ValidationMessage For="() => bulletinRuleModel.BidWindowStartTime" class="text-danger" />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Closes At (HH:mm)</label>
-                        <InputText @bind-Value="bulletinRuleModel.BidWindowCloseTime" class="form-control" placeholder="04:00" />
-                        <ValidationMessage For="() => bulletinRuleModel.BidWindowCloseTime" class="text-danger" />
-                    </div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Bulletin Cutoff Time (HH:mm)</label>
-                        <InputText @bind-Value="bulletinRuleModel.BulletinCutoffTime" class="form-control" placeholder="04:00" />
-                        <div class="form-text">Daily time of day after which a new bulletin posts for the next day instead of today.</div>
-                        <ValidationMessage For="() => bulletinRuleModel.BulletinCutoffTime" class="text-danger" />
-                    </div>
-                </div>
-                <hr class="my-3" />
-                <h6 class="text-muted mb-3">Effective Date</h6>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Offset Days After Close</label>
-                        <InputNumber @bind-Value="bulletinRuleModel.EffectiveOffsetDays" class="form-control" />
-                        <div class="form-text">Calendar days after bid close before position becomes effective.</div>
-                        <ValidationMessage For="() => bulletinRuleModel.EffectiveOffsetDays" class="text-danger" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Effective Time (HH:mm)</label>
-                        <InputText @bind-Value="bulletinRuleModel.EffectiveTime" class="form-control" placeholder="04:00" />
-                        <ValidationMessage For="() => bulletinRuleModel.EffectiveTime" class="text-danger" />
-                    </div>
-                </div>
-                <hr class="my-3" />
-                <h6 class="text-muted mb-3">Force Assign</h6>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Force Assign Hours</label>
-                        <InputNumber @bind-Value="bulletinRuleModel.ForceAssignHours" class="form-control" />
-                        <div class="form-text">Hours before effective on-duty time to force-assign a no-bid position.</div>
-                        <ValidationMessage For="() => bulletinRuleModel.ForceAssignHours" class="text-danger" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Candidate Pool</label>
-                        <SelectInput TItem="(string Value, string Label)" TValue="string"
-                                     @bind-Value="bulletinRuleModel.ForceAssignSelectionMode"
-                                     Items="forceAssignModes"
-                                     ValueSelector="@(m => m.Value)"
-                                     TextSelector="@(m => m.Label)"
-                                     class="form-select" />
-                        <div class="form-text">How to select the forced-assigned employee when no bids are received.</div>
+                    <div class="col-lg-6">
+                        <h6 class="text-muted mb-3">Force Assign</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Effective Time Mode</label>
+                                <SelectInput TItem="(string Value, string Label)" TValue="string"
+                                             @bind-Value="bulletinRuleModel.EffectiveTimeMode"
+                                             Items="effectiveTimeModes"
+                                             ValueSelector="@(m => m.Value)"
+                                             TextSelector="@(m => m.Label)"
+                                             class="form-select" />
+                                <div class="form-text">How the effective on-duty time is computed when force-assigning a no-bid position. "Effective time, unless off day" matches legacy Engineer behavior: 04:00 on work days, otherwise force-assign hours before the first work day's on-duty time.</div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-semibold">Force Assign Hours</label>
+                                <InputNumber @bind-Value="bulletinRuleModel.ForceAssignHours" class="form-control" />
+                                <div class="form-text">Hours before effective on-duty time to force-assign a no-bid position.</div>
+                                <ValidationMessage For="() => bulletinRuleModel.ForceAssignHours" class="text-danger" />
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-semibold">Candidate Pool</label>
+                                <SelectInput TItem="(string Value, string Label)" TValue="string"
+                                             @bind-Value="bulletinRuleModel.ForceAssignSelectionMode"
+                                             Items="forceAssignModes"
+                                             ValueSelector="@(m => m.Value)"
+                                             TextSelector="@(m => m.Label)"
+                                             class="form-select" />
+                                <div class="form-text">How to select the forced-assigned employee when no bids are received. "Extra Board only" always draws the junior-most eligible extra-board member. "Extra Board or promote from lower rank" adapts to the vacancy: a lowest-rank vacancy (e.g. Helper) draws the junior-most extra-board member, while a higher-rank vacancy (e.g. Foreman) can also be filled by promoting the junior-most qualified employee currently working a lower-rank position.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </EditForm>
@@ -341,7 +358,15 @@ else
     private static readonly List<(string Value, string Label)> forceAssignModes =
     [
         ("JuniorExtraBoard",          "Junior — Extra Board only"),
-        ("JuniorHelperOrExtraBoard",  "Junior — Helper or Extra Board (Foreman vacancies)")
+        ("JuniorHelperOrExtraBoard",  "Junior — Extra Board or promote from lower rank")
+    ];
+
+    private static readonly List<(string Value, string Label)> effectiveTimeModes =
+    [
+        ("FixedEffectiveTime",        "Fixed — always use the effective time"),
+        ("EffectiveTimeUnlessOffDay", "Effective time, unless off day (on-duty minus force hours)"),
+        ("OnDutyMinusForceHours",     "On-duty time minus force-assign hours"),
+        ("BidWindowCloseTime",        "Bid window close time")
     ];
 
     protected override async Task LoadDataAsync()
@@ -555,9 +580,11 @@ else
     private static string StripSeconds(string time) =>
         TimeSpan.TryParse(time, out var ts) ? $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}" : time;
 
-    // Expands HH:mm to HH:mm:ss for the backend TimeSpan.Parse
+    // Expands HH:mm to HH:mm:ss for the backend TimeSpan.Parse.
+    // Blank input is preserved as blank (optional times such as the bulletin cutoff map to null server-side).
     private static string ExpandTime(string time) =>
-        time.Count(c => c == ':') == 1 ? time + ":00" : time;
+        string.IsNullOrWhiteSpace(time) ? string.Empty
+        : time.Count(c => c == ':') == 1 ? time + ":00" : time;
 
     private async Task OpenBulletinRuleModal(CraftResponse craft)
     {
@@ -572,13 +599,14 @@ else
                 BidWindowCloseTime = StripSeconds(existing.BidWindowCloseTime),
                 EffectiveOffsetDays = existing.EffectiveOffsetDays,
                 EffectiveTime = StripSeconds(existing.EffectiveTime),
-                BulletinCutoffTime = string.IsNullOrWhiteSpace(existing.BulletinCutoffTime)
-                    ? "04:00"
-                    : StripSeconds(existing.BulletinCutoffTime),
+                BulletinCutoffTime = StripSeconds(existing.BulletinCutoffTime),
                 ForceAssignHours = existing.ForceAssignHours,
                 ForceAssignSelectionMode = string.IsNullOrWhiteSpace(existing.ForceAssignSelectionMode)
                     ? "JuniorExtraBoard"
-                    : existing.ForceAssignSelectionMode
+                    : existing.ForceAssignSelectionMode,
+                EffectiveTimeMode = string.IsNullOrWhiteSpace(existing.EffectiveTimeMode)
+                    ? "FixedEffectiveTime"
+                    : existing.EffectiveTimeMode
             }
             : new BulletinRuleInputModel();
         showBulletinRuleModal = true;
@@ -610,7 +638,8 @@ else
                 EffectiveTime = ExpandTime(bulletinRuleModel.EffectiveTime),
                 BulletinCutoffTime = ExpandTime(bulletinRuleModel.BulletinCutoffTime),
                 ForceAssignHours = bulletinRuleModel.ForceAssignHours,
-                ForceAssignSelectionMode = bulletinRuleModel.ForceAssignSelectionMode
+                ForceAssignSelectionMode = bulletinRuleModel.ForceAssignSelectionMode,
+                EffectiveTimeMode = bulletinRuleModel.EffectiveTimeMode
             });
             successMessage = $"Bulletin rules saved for {bulletinRuleCraftName}.";
             CloseBulletinRuleModal();
@@ -664,13 +693,16 @@ else
         [Required(ErrorMessage = "Effective time is required.")]
         public string EffectiveTime { get; set; } = "04:00";
 
-        [Required(ErrorMessage = "Bulletin cutoff time is required.")]
-        public string BulletinCutoffTime { get; set; } = "04:00";
+        // Optional: the domain treats a null/blank cutoff as "no cutoff" (bulletins always post today).
+        public string BulletinCutoffTime { get; set; } = "";
 
         [Range(0, 8760, ErrorMessage = "Force assign hours must be between 0 and 8760.")]
         public int ForceAssignHours { get; set; } = 0;
 
         [Required]
         public string ForceAssignSelectionMode { get; set; } = "JuniorExtraBoard";
+
+        [Required]
+        public string EffectiveTimeMode { get; set; } = "FixedEffectiveTime";
     }
 }

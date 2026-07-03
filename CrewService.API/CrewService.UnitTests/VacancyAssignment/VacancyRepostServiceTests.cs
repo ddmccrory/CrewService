@@ -2,6 +2,7 @@ using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Bulletins;
 using CrewService.Application.Notifications;
 using CrewService.Application.Qualifications;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
@@ -82,10 +83,11 @@ public class VacancyRepostServiceTests
     private static VacancyRepostService BuildService(FakeOrchestrationUnitOfWork uow)
     {
         var factory = new FakeUowFactory(uow);
-        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance);
+        var railroadResolver = new RailroadResolver();
+        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
         var eligibility = new EmployeeEligibilityService(factory);
         var bulletins = new BulletinsService(
-            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
+            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, railroadResolver, eligibility);
         return new VacancyRepostService(factory, bulletins, NullLogger<VacancyRepostService>.Instance);
     }
 

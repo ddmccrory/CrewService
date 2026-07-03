@@ -120,13 +120,17 @@ message WorkProfileSeniorityMove {
 }
 
 message WorkProfileBulletinBid {
-  int64  ctrl_nbr         = 1;
-  int64  bulletin_ctrl_nbr = 2;
-  int32  priority         = 3;
-  string submitted_utc    = 4;
-  string status           = 5;
-  string bulletin_code    = 6;
-  string position_name    = 7;
+  reserved 6;                          // was bulletin_code (no display value)
+  reserved "bulletin_code";
+  int64  ctrl_nbr             = 1;
+  int64  bulletin_ctrl_nbr    = 2;
+  int32  priority             = 3;
+  string submitted_utc        = 4;
+  string status               = 5;
+  string position_name        = 7;
+  // Work-area-localized ISO-8601 (offset-carrying) instants for display.
+  string bid_window_closes_utc = 8;
+  string effective_utc         = 9;
 }
 
 // ── Employee On-Duty (open records + history) ────────────────────────────────

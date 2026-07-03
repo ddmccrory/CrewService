@@ -28,6 +28,45 @@ public static class ForceAssignSelectionMode
 }
 
 /// <summary>
+/// Controls how the effective datetime of a force-assigned (no-bid) crew bulletin is
+/// computed when the configured effective date lands on a work day versus an off day.
+/// Stored per <see cref="BulletinRule"/> (craft-scoped, railroad-specific) so tenants can
+/// model craft agreements without hardcoded craft names. Mirrors the legacy
+/// <c>RailroadPositionBulletin.AssignDateTime</c> craft switch.
+/// </summary>
+public static class BulletinEffectiveTimeMode
+{
+    /// <summary>
+    /// Always use the rule's configured effective time (e.g. 04:00), regardless of work/off day.
+    /// Legacy parity: "Mechanical" craft. Default so existing behaviour is unchanged.
+    /// </summary>
+    public const string FixedEffectiveTime = "FixedEffectiveTime";
+
+    /// <summary>
+    /// Use the configured effective time when the effective date is a work day; when it is an
+    /// off day, use the first work day's on-duty time minus <c>ForceAssignHours</c>.
+    /// Legacy parity: "Engineer" craft (assigned at 04:00 unless the effective date is an off
+    /// day, then <c>ForceAssignHours</c> before the start of the first work day).
+    /// </summary>
+    public const string EffectiveTimeUnlessOffDay = "EffectiveTimeUnlessOffDay";
+
+    /// <summary>
+    /// Always use the (next) work day's on-duty time minus <c>ForceAssignHours</c>.
+    /// Legacy parity: default craft branch (on-duty minus forced-assign hours).
+    /// </summary>
+    public const string OnDutyMinusForceHours = "OnDutyMinusForceHours";
+
+    /// <summary>
+    /// Use the bulletin's bid-window close datetime as the effective datetime.
+    /// Legacy parity: "Clerical" craft (assigned at close time).
+    /// </summary>
+    public const string BidWindowCloseTime = "BidWindowCloseTime";
+
+    public static bool IsValid(string mode) =>
+        mode is FixedEffectiveTime or EffectiveTimeUnlessOffDay or OnDutyMinusForceHours or BidWindowCloseTime;
+}
+
+/// <summary>
 /// Maps domain status strings to Bootstrap badge CSS classes.
 /// Single authoritative source — no badge logic should exist in any UI layer.
 /// </summary>
@@ -167,6 +206,31 @@ public sealed class Bulletin : Entity
     /// </summary>
     public bool CanCancel(DateTime utcNow) =>
         Status == "Posted" && AwardedEmployeeCtrlNbr is null && utcNow <= BidWindowClosesUtc;
+
+    /// <summary>
+    /// Whether the bid window has opened yet (open time reached), regardless of whether it has
+    /// since closed. Mirrors legacy SA employee bulletin visibility (<c>Now &gt; OpenDateTime</c>):
+    /// employees must not see a bulletin before its window opens. Dispatchers are not scoped by this.
+    /// </summary>
+    public bool HasBidWindowOpened(DateTime utcNow) =>
+        utcNow >= BidWindowOpensUtc;
+
+    /// <summary>
+    /// Whether the bid window is currently open, independent of status. Mirrors legacy SA
+    /// <c>RailroadPositionBulletin.IsOpen</c> plus the close-time bound applied by the employee
+    /// bulletin collection queries (<c>Now &gt; OpenDateTime &amp;&amp; Now &lt;= CloseDateTime</c>):
+    /// a bulletin whose open time is still in the future is not yet biddable.
+    /// </summary>
+    public bool IsBidWindowOpen(DateTime utcNow) =>
+        utcNow >= BidWindowOpensUtc && utcNow <= BidWindowClosesUtc;
+
+    /// <summary>
+    /// Whether an employee may currently bid on this bulletin: it must be posted and its bid
+    /// window must be open. Employees cannot see or bid on a bulletin before the window opens
+    /// (legacy parity) — the application layer enforces this before accepting a bid.
+    /// </summary>
+    public bool IsBiddable(DateTime utcNow) =>
+        Status == "Posted" && IsBidWindowOpen(utcNow);
 
     public static Bulletin Create(
         ControlNumber positionVacancyCtrlNbr,
@@ -312,6 +376,12 @@ public sealed class BulletinRule : Entity
     /// </summary>
     public string ForceAssignSelectionMode { get; private set; } = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard;
 
+    /// <summary>
+    /// Determines how the effective datetime of a force-assigned (no-bid) crew bulletin is
+    /// computed relative to the position's work schedule. See <see cref="BulletinEffectiveTimeMode"/>.
+    /// </summary>
+    public string EffectiveTimeMode { get; private set; } = Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime;
+
     private BulletinRule() { CraftCtrlNbr = null!; }
 
     public static BulletinRule Create(
@@ -323,10 +393,13 @@ public sealed class BulletinRule : Entity
         TimeSpan effectiveTime,
         int forceAssignHours,
         string forceAssignSelectionMode = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
-        TimeSpan? bulletinCutOffTime = null)
+        TimeSpan? bulletinCutOffTime = null,
+        string effectiveTimeMode = Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime)
     {
         if (!Bulletins.ForceAssignSelectionMode.IsValid(forceAssignSelectionMode))
             throw new ArgumentException($"Invalid ForceAssignSelectionMode '{forceAssignSelectionMode}'.", nameof(forceAssignSelectionMode));
+        if (!Bulletins.BulletinEffectiveTimeMode.IsValid(effectiveTimeMode))
+            throw new ArgumentException($"Invalid EffectiveTimeMode '{effectiveTimeMode}'.", nameof(effectiveTimeMode));
 
         var rule = new BulletinRule
         {
@@ -338,7 +411,8 @@ public sealed class BulletinRule : Entity
             EffectiveTime = effectiveTime,
             ForceAssignHours = forceAssignHours,
             ForceAssignSelectionMode = forceAssignSelectionMode,
-            BulletinCutOffTime = bulletinCutOffTime
+            BulletinCutOffTime = bulletinCutOffTime,
+            EffectiveTimeMode = effectiveTimeMode
         };
         rule.Raise(new BulletinRuleCreatedDomainEvent(rule));
         return rule;
@@ -352,10 +426,13 @@ public sealed class BulletinRule : Entity
         TimeSpan effectiveTime,
         int forceAssignHours,
         string forceAssignSelectionMode = Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
-        TimeSpan? bulletinCutOffTime = null)
+        TimeSpan? bulletinCutOffTime = null,
+        string effectiveTimeMode = Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime)
     {
         if (!Bulletins.ForceAssignSelectionMode.IsValid(forceAssignSelectionMode))
             throw new ArgumentException($"Invalid ForceAssignSelectionMode '{forceAssignSelectionMode}'.", nameof(forceAssignSelectionMode));
+        if (!Bulletins.BulletinEffectiveTimeMode.IsValid(effectiveTimeMode))
+            throw new ArgumentException($"Invalid EffectiveTimeMode '{effectiveTimeMode}'.", nameof(effectiveTimeMode));
 
         BidWindowHours = bidWindowHours;
         BidWindowStartTime = bidWindowStartTime;
@@ -365,6 +442,7 @@ public sealed class BulletinRule : Entity
         ForceAssignHours = forceAssignHours;
         ForceAssignSelectionMode = forceAssignSelectionMode;
         BulletinCutOffTime = bulletinCutOffTime;
+        EffectiveTimeMode = effectiveTimeMode;
         Raise(new BulletinRuleUpdatedDomainEvent(this));
     }
 
@@ -420,6 +498,81 @@ public sealed class BulletinRule : Entity
     /// </summary>
     public DateTime CalculateForceAssignDeadline(DateTime effectiveUtc) =>
         effectiveUtc.AddHours(-ForceAssignHours);
+
+    /// <summary>
+    /// Computes the effective (assignment) UTC datetime for a force-assigned no-bid crew
+    /// bulletin according to this rule's <see cref="EffectiveTimeMode"/>. Mirrors the legacy
+    /// <c>RailroadPositionBulletin.AssignDateTime</c> craft switch:
+    /// <list type="bullet">
+    /// <item><see cref="BulletinEffectiveTimeMode.FixedEffectiveTime"/> — the configured effective datetime.</item>
+    /// <item><see cref="BulletinEffectiveTimeMode.BidWindowCloseTime"/> — the bid-window close datetime.</item>
+    /// <item><see cref="BulletinEffectiveTimeMode.OnDutyMinusForceHours"/> — the (next) work day's on-duty time minus <see cref="ForceAssignHours"/>.</item>
+    /// <item><see cref="BulletinEffectiveTimeMode.EffectiveTimeUnlessOffDay"/> — the configured effective datetime when the
+    /// effective date is a work day, otherwise the first work day's on-duty time minus <see cref="ForceAssignHours"/>.</item>
+    /// </list>
+    /// Schedule-dependent modes require <paramref name="operatingDaysMask"/> and <paramref name="onDutyTime"/>; when either is
+    /// unavailable the method falls back to the configured <paramref name="effectiveUtc"/>. When <paramref name="workAreaTimeZone"/>
+    /// is supplied, day-of-week evaluation and on-duty localisation are performed in work-area local time with DST awareness.
+    /// </summary>
+    /// <param name="effectiveUtc">The bulletin's configured effective datetime (UTC), as produced by <see cref="CalculateBidWindow"/>.</param>
+    /// <param name="bidWindowClosesUtc">The bulletin's bid-window close datetime (UTC).</param>
+    /// <param name="operatingDaysMask">Bitmask of the position's operating days (bit <c>1 &lt;&lt; (int)DayOfWeek</c>, Sunday = 0).</param>
+    /// <param name="onDutyTime">The position's local on-duty time of day.</param>
+    /// <param name="workAreaTimeZone">The work-area timezone; when null, arithmetic is performed in UTC.</param>
+    public DateTime CalculateForceAssignEffectiveUtc(
+        DateTime effectiveUtc,
+        DateTime bidWindowClosesUtc,
+        int? operatingDaysMask = null,
+        TimeOnly? onDutyTime = null,
+        TimeZoneInfo? workAreaTimeZone = null)
+    {
+        switch (EffectiveTimeMode)
+        {
+            case Bulletins.BulletinEffectiveTimeMode.BidWindowCloseTime:
+                return bidWindowClosesUtc;
+
+            case Bulletins.BulletinEffectiveTimeMode.OnDutyMinusForceHours
+                when operatingDaysMask is int mask && onDutyTime is TimeOnly onDuty:
+                return OnDutyMinusForceHoursUtc(effectiveUtc, mask, onDuty, workAreaTimeZone);
+
+            case Bulletins.BulletinEffectiveTimeMode.EffectiveTimeUnlessOffDay
+                when operatingDaysMask is int mask && onDutyTime is TimeOnly onDuty:
+                var effectiveLocalDate = ToLocalDate(effectiveUtc, workAreaTimeZone);
+                var isWorkDay = (mask & (1 << (int)effectiveLocalDate.DayOfWeek)) != 0;
+                return isWorkDay
+                    ? effectiveUtc
+                    : OnDutyMinusForceHoursUtc(effectiveUtc, mask, onDuty, workAreaTimeZone);
+
+            // FixedEffectiveTime, or a schedule-dependent mode without schedule data:
+            // fall back to the configured effective datetime (the safe "work day" branch).
+            default:
+                return effectiveUtc;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the UTC datetime of the first work day's on-duty time (on or after the
+    /// <paramref name="effectiveUtc"/> local date) minus <see cref="ForceAssignHours"/>.
+    /// </summary>
+    private DateTime OnDutyMinusForceHoursUtc(
+        DateTime effectiveUtc, int operatingDaysMask, TimeOnly onDutyTime, TimeZoneInfo? workAreaTimeZone)
+    {
+        var workDate = ToLocalDate(effectiveUtc, workAreaTimeZone);
+        for (int i = 0; i < 14; i++)
+        {
+            if ((operatingDaysMask & (1 << (int)workDate.DayOfWeek)) != 0) break;
+            workDate = workDate.AddDays(1);
+        }
+
+        var localOnDuty = workDate + onDutyTime.ToTimeSpan();
+        var onDutyUtc = workAreaTimeZone is null
+            ? DateTime.SpecifyKind(localOnDuty, DateTimeKind.Utc)
+            : TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localOnDuty, DateTimeKind.Unspecified), workAreaTimeZone);
+        return onDutyUtc.AddHours(-ForceAssignHours);
+    }
+
+    private static DateTime ToLocalDate(DateTime utc, TimeZoneInfo? workAreaTimeZone) =>
+        (workAreaTimeZone is null ? utc : TimeZoneInfo.ConvertTimeFromUtc(utc, workAreaTimeZone)).Date;
 }
 
 // Domain Events

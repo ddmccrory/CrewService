@@ -135,10 +135,16 @@ message PositionVacancyResponse {
 }
 
 // Bulletin messages
-message GetActiveBulletinsRequest { int64 railroad_ctrl_nbr = 1; }
+message GetActiveBulletinsRequest {
+  int64 railroad_ctrl_nbr = 1;
+  // When > 0 the request is employee-scoped: not-yet-open bulletins are hidden (legacy parity).
+  int64 employee_ctrl_nbr = 2;
+}
 message GetBulletinsInDateRangeRequest {
   int64 railroad_ctrl_nbr = 1;
   string from_utc = 2;
+  // When > 0 the request is employee-scoped: not-yet-open bulletins are hidden (legacy parity).
+  int64 employee_ctrl_nbr = 3;
 }
 message GetPostedBulletinsRequest { int64 railroad_ctrl_nbr = 1; }
 message GetPostedBulletinsByCraftRequest { int64 craft_ctrl_nbr = 1; }
@@ -182,6 +188,10 @@ message BulletinResponse {
   int64 craft_role_ctrl_nbr = 14;
   string force_assign_deadline_utc = 15;
   string status_badge = 16;
+  // Server-computed gate: true only while the bid window is currently open
+  // (opens_utc <= now <= closes_utc). The UI uses this to enable/disable bidding
+  // so employees cannot bid before the window opens (legacy parity).
+  bool is_bid_window_open = 17;
 }
 
 // Bid messages
@@ -222,6 +232,7 @@ message SaveBulletinRuleRequest {
   int32 force_assign_hours = 7;
   string force_assign_selection_mode = 8;
   string bulletin_cutoff_time = 9;
+  string effective_time_mode = 10;
 }
 message BulletinRuleResponse {
   int64 ctrl_nbr = 1;
@@ -234,6 +245,7 @@ message BulletinRuleResponse {
   int32 force_assign_hours = 8;
   string force_assign_selection_mode = 9;
   string bulletin_cutoff_time = 10;
+  string effective_time_mode = 11;
 }
 
 message GetNextBulletinEventRequest { int64 railroad_ctrl_nbr = 1; }

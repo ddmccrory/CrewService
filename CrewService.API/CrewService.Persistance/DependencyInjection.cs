@@ -124,6 +124,7 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
+        services.AddScoped<ISeniorityStateVacancyConfigRepository, SeniorityStateVacancyConfigRepository>();
         services.AddScoped<IPayrollTierRepository, PayrollTierRepository>();
 
         // Authorization Module Repositories

@@ -41,15 +41,15 @@ public sealed class BulletinsClient(GrpcChannelProvider channelProvider, Circuit
 
     // ── Bulletins ──────────────────────────────────────────────────────
 
-    public async Task<GetBulletinsResponse> GetActiveBulletinsAsync(long railroadCtrlNbr = 0)
+    public async Task<GetBulletinsResponse> GetActiveBulletinsAsync(long railroadCtrlNbr = 0, long employeeCtrlNbr = 0)
     {
-        try { return await _client.GetActiveBulletinsAsync(new GetActiveBulletinsRequest { RailroadCtrlNbr = railroadCtrlNbr }); }
+        try { return await _client.GetActiveBulletinsAsync(new GetActiveBulletinsRequest { RailroadCtrlNbr = railroadCtrlNbr, EmployeeCtrlNbr = employeeCtrlNbr }); }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<GetBulletinsResponse> GetBulletinsInDateRangeAsync(DateTime fromUtc, long railroadCtrlNbr = 0)
+    public async Task<GetBulletinsResponse> GetBulletinsInDateRangeAsync(DateTime fromUtc, long railroadCtrlNbr = 0, long employeeCtrlNbr = 0)
     {
-        try { return await _client.GetBulletinsInDateRangeAsync(new GetBulletinsInDateRangeRequest { RailroadCtrlNbr = railroadCtrlNbr, FromUtc = fromUtc.ToString("O") }); }
+        try { return await _client.GetBulletinsInDateRangeAsync(new GetBulletinsInDateRangeRequest { RailroadCtrlNbr = railroadCtrlNbr, FromUtc = fromUtc.ToString("O"), EmployeeCtrlNbr = employeeCtrlNbr }); }
         catch (Exception ex) { LogException(ex); throw; }
     }
 

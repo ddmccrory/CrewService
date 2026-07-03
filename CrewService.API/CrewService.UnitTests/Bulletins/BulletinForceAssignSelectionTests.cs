@@ -2,6 +2,7 @@ using CrewService.Application.Bulletins;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Notifications;
 using CrewService.Application.Qualifications;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
@@ -131,10 +132,11 @@ public sealed class BulletinForceAssignSelectionTests
     private static BulletinsService BuildBulletins(IOrchestrationUnitOfWork uow)
     {
         var factory = new FakeUowFactory(uow);
-        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance);
+        var railroadResolver = new RailroadResolver();
+        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
         var eligibility = new EmployeeEligibilityService(factory);
         return new BulletinsService(
-            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
+            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, railroadResolver, eligibility);
     }
 }
 

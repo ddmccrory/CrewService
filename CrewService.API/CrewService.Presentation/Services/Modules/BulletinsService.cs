@@ -88,7 +88,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
         var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
-        var bulletins = await svc.GetActiveBulletinsAsync(railroadCtrlNbr, context.CancellationToken);
+        var bulletins = await svc.GetActiveBulletinsAsync(railroadCtrlNbr, request.EmployeeCtrlNbr > 0, context.CancellationToken);
         var (vacancyIndex, tzIndex) = await BuildVacancyIndexAsync(svc, bulletins, context.CancellationToken);
         var response = new GetBulletinsResponse { TotalCount = bulletins.Count };
         foreach (var b in bulletins)
@@ -114,7 +114,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         var fromUtc = DateTime.TryParse(request.FromUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
             ? dt
             : DateTime.UtcNow.AddDays(-7);
-        var bulletins = await svc.GetBulletinsInDateRangeAsync(fromUtc, railroadCtrlNbr, context.CancellationToken);
+        var bulletins = await svc.GetBulletinsInDateRangeAsync(fromUtc, railroadCtrlNbr, request.EmployeeCtrlNbr > 0, context.CancellationToken);
         var (vacancyIndex, tzIndex) = await BuildVacancyIndexAsync(svc, bulletins, context.CancellationToken);
         var response = new GetBulletinsResponse { TotalCount = bulletins.Count };
         foreach (var b in bulletins)
@@ -323,9 +323,14 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
     public override async Task<BulletinBidResponse> SubmitBid(SubmitBidRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
-        var bid = await svc.SubmitBidAsync(
-            request.BulletinCtrlNbr, request.EmployeeCtrlNbr, request.Priority, context.CancellationToken);
-        return MapBid(bid);
+        try
+        {
+            var bid = await svc.SubmitBidAsync(
+                request.BulletinCtrlNbr, request.EmployeeCtrlNbr, request.Priority, context.CancellationToken);
+            return MapBid(bid);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
     public override async Task<GetBulletinWinnerResponse> GetBulletinWinner(GetBulletinWinnerRequest request, ServerCallContext context)
@@ -422,7 +427,10 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
                 ? Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorExtraBoard
                 : request.ForceAssignSelectionMode,
             context.CancellationToken,
-            cutOff);
+            cutOff,
+            string.IsNullOrWhiteSpace(request.EffectiveTimeMode)
+                ? Domain.Modules.Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime
+                : request.EffectiveTimeMode);
         return MapRule(rule);
     }
 
@@ -460,7 +468,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         AwardedEmployeeName = awardedEmployeeName,
         CraftRoleCtrlNbr = craftRoleCtrlNbr,
         ForceAssignDeadlineUtc = b.ForceAssignDeadlineUtc.HasValue ? Clock.FormatLocalIso(b.ForceAssignDeadlineUtc.Value, tz) : string.Empty,
-        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBulletin(b.Status)
+        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBulletin(b.Status),
+        IsBidWindowOpen = b.IsBidWindowOpen(DateTime.UtcNow)
     };
 
     /// <summary>
@@ -524,7 +533,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         EffectiveTime = r.EffectiveTime.ToString(),
         ForceAssignHours = r.ForceAssignHours,
         ForceAssignSelectionMode = r.ForceAssignSelectionMode,
-        BulletinCutoffTime = r.BulletinCutOffTime.HasValue ? r.BulletinCutOffTime.Value.ToString() : string.Empty
+        BulletinCutoffTime = r.BulletinCutOffTime.HasValue ? r.BulletinCutOffTime.Value.ToString() : string.Empty,
+        EffectiveTimeMode = r.EffectiveTimeMode
     };
 
     /// <summary>
