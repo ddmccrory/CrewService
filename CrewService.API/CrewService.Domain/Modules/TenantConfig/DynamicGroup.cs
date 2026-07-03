@@ -13,6 +13,16 @@ public sealed class DynamicGroup : Entity
     public bool IsWorkArea { get; private set; }
     public ControlNumber? ParentCtrlNbr { get; private set; }
     public ControlNumber? RailroadCtrlNbr { get; private set; }
+
+    /// <summary>
+    /// The railroad that owns this group. A work-area group references its owning railroad via
+    /// <see cref="RailroadCtrlNbr"/>; when the railroad group is itself flagged as the work area
+    /// (common on smaller railroads, e.g. PTRA), <see cref="RailroadCtrlNbr"/> is <c>null</c> and
+    /// the group IS the railroad — so it resolves to its own <see cref="Primitives.Entity.CtrlNbr"/>.
+    /// This is the single source of truth for railroad resolution in both topologies.
+    /// </summary>
+    public ControlNumber OwningRailroadCtrlNbr => RailroadCtrlNbr ?? CtrlNbr;
+
     /// <summary>
     /// IANA or Windows timezone identifier for this work area (e.g. "America/Chicago" or "Central Standard Time").
     /// Only meaningful when <see cref="IsWorkArea"/> is <c>true</c>.

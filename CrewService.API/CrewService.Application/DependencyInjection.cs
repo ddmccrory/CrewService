@@ -110,6 +110,7 @@ public static class DependencyInjection
 
         // TenantConfig
         services.AddScoped<TenantConfigService>();
+        services.AddSingleton<IRailroadResolver, RailroadResolver>();
 
         // RosterBoardOps
         services.AddScoped<RosterBoardAppService>();

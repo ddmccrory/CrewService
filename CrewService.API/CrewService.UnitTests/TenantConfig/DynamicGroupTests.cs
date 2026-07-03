@@ -39,6 +39,31 @@ public class DynamicGroupTests
         Assert.Equal("/New", group.Path);
         Assert.True(group.IsWorkArea);
     }
+
+    [Fact]
+    public void OwningRailroadCtrlNbr_WhenWorkAreaReferencesRailroad_ReturnsRailroadCtrlNbr()
+    {
+        // Standard topology: a work-area group points at a separate railroad group.
+        var railroadCtrlNbr = ControlNumber.Create(500);
+        var workArea = DynamicGroup.Create(
+            1, "Houston Yard", parentGroupCtrlNbr: null, path: null,
+            isWorkArea: true, railroadCtrlNbr: railroadCtrlNbr);
+
+        Assert.Equal(railroadCtrlNbr, workArea.OwningRailroadCtrlNbr);
+    }
+
+    [Fact]
+    public void OwningRailroadCtrlNbr_WhenRailroadIsItsOwnWorkArea_ReturnsOwnCtrlNbr()
+    {
+        // Small-railroad topology (e.g. PTRA): the railroad group IS the work area, so
+        // RailroadCtrlNbr is null and the group's own CtrlNbr is the owning railroad.
+        var group = DynamicGroup.Create(
+            1, "PTRA", parentGroupCtrlNbr: null, path: null,
+            isWorkArea: true, railroadCtrlNbr: null);
+
+        Assert.Null(group.RailroadCtrlNbr);
+        Assert.Equal(group.CtrlNbr, group.OwningRailroadCtrlNbr);
+    }
 }
 
 public class GroupTypeTests
