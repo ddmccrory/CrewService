@@ -159,10 +159,10 @@ public static class SeniorityMoveEffectiveDateStrategy
     /// <summary>Effective immediately (e.g. hangout board to crew).</summary>
     public const string Immediate = "Immediate";
     /// <summary>
-    /// Effective at end-of-shift on the last working day of the relevant schedule period
-    /// (the employee's first off day). Rolls +7 days when within the RequestHours lead-time
-    /// window. For Engineers moving to board: uses current crew schedule (end of work week).
-    /// For Crew-to-Crew or ExtraBoard-to-Crew: uses the TARGET position's schedule.
+    /// Effective at the off-duty (end-of-shift) time on the last working day of the relevant
+    /// schedule period. Rolls +7 days when within the RequestHours lead-time window. For Engineers
+    /// moving to board: uses current crew schedule (end of work week). For Crew-to-Crew or
+    /// ExtraBoard-to-Crew: uses the TARGET position's schedule.
     /// </summary>
     public const string FirstOffDay = "FirstOffDay";
     /// <summary>

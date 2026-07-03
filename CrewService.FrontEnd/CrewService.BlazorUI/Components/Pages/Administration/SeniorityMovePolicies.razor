@@ -93,7 +93,7 @@ else
                             Select how the effective date is computed for each transition type.
                             <strong>Not Allowed</strong> blocks that move type entirely.
                             <strong>Immediate</strong> = effective now.
-                            <strong>First Off Day</strong> = end-of-shift on the last work day of the relevant schedule week (rolls +7 days if within the lead-time window).
+                            <strong>End of Last Work Day</strong> = the off-duty (end-of-shift) time on the last work day of the relevant schedule week (rolls +7 days if within the lead-time window).
                             <strong>Request Lead Time</strong> = now + request hours (no schedule lookup — for crafts without fixed weekly schedules).
                         </p>
                         @foreach (var (label, getter, setter) in StrategyFields())
@@ -104,7 +104,7 @@ else
                                     <select class="form-select" value="@getter" @onchange="e => setter(e.Value?.ToString() ?? string.Empty)">
                                         <option value="">— Not Allowed —</option>
                                         <option value="Immediate">Immediate</option>
-                                        <option value="FirstOffDay">First Off Day</option>
+                                        <option value="FirstOffDay">End of Last Work Day</option>
                                         <option value="RequestLeadTime">Request Lead Time</option>
                                     </select>
                                 </div>
@@ -337,7 +337,7 @@ else
     private static string FormatStrategy(string strategy) => strategy switch
     {
         "Immediate"       => "Immediate",
-        "FirstOffDay"     => "First Off Day",
+        "FirstOffDay"     => "End of Last Work Day",
         "RequestLeadTime" => "Request Lead Time",
         _                 => strategy
     };
