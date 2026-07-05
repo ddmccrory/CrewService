@@ -207,34 +207,13 @@ public sealed class CrewsAppService(
         {
             var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
             if (positionAssignment is not null)
-                uow.PositionAssignments.Remove(positionAssignment);
-
-            // Crew positions are always bulletined when vacated.
-            var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPosition.CraftRoleCtrlNbr, ct);
-            var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct);
-            if (craftRole is not null && crew is not null)
             {
-                var rule = await uow.BulletinRules.GetByCraftAsync(craftRole.CraftCtrlNbr);
-                if (rule is not null)
-                {
-                    var vacancy = PositionVacancy.Create(
-                        crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, crewPosition.StaffablePositionCtrlNbr,
-                        craftRole.CraftCtrlNbr, "INCUMBENT_VACATED", incumbency.EmployeeCtrlNbr,
-                        targetName: $"{crew.Name} - {craftRole.Name}");
-                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
-                    var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
-                    var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
-                    var bulletin = Bulletin.Create(vacancy.CtrlNbr, craftRole.CraftCtrlNbr, opens, closes, effective);
-                    vacancy.MarkBulletined();
-                    await uow.PositionVacancies.AddAsync(vacancy, ct);
-                    await uow.Bulletins.AddAsync(bulletin, ct);
-                }
-                else
-                {
-                    logger.LogWarning(
-                        "No BulletinRule configured for craft {CraftCtrlNbr}. Bulletin not created for vacated crew position {StaffablePositionCtrlNbr}.",
-                        craftRole.CraftCtrlNbr.Value, crewPosition.StaffablePositionCtrlNbr.Value);
-                }
+                // Raise the vacate event so the DomainEventReactor reposts the freed position through
+                // the centralized VacancyRepostService, then remove the assignment row so occupancy
+                // checks see the position as open. This keeps crew vacates on the same auto-bulletin
+                // path as force-assignment, seniority moves, and board removals — no inline bulletining.
+                positionAssignment.Vacate();
+                uow.PositionAssignments.Remove(positionAssignment);
             }
         }
         await uow.CommitAsync(ct);
