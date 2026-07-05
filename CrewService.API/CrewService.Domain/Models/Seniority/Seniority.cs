@@ -14,6 +14,13 @@ public sealed class Seniority : Entity
     public ControlNumber SeniorityStateCtrlNbr { get; private set; }
     public bool CanTrain { get; private set; }
 
+    /// <summary>
+    /// When set, the date the employee's seniority on this roster ended. Populated when the
+    /// record transitions into an off-property seniority state and cleared when the record
+    /// moves back to an active state.
+    /// </summary>
+    public DateTime? SeniorityEndDate { get; private set; }
+
     private Seniority()
     {
         RosterCtrlNbr = null!;
@@ -81,6 +88,34 @@ public sealed class Seniority : Entity
         }
 
         return this;
+    }
+
+    /// <summary>
+    /// Marks this seniority record as ended on the supplied date. Called when the record
+    /// transitions into an off-property state as part of the employee-wide vacancy cascade.
+    /// </summary>
+    public void SetEndDate(DateTime endDate)
+    {
+        if (SeniorityEndDate == endDate) return;
+
+        SeniorityEndDate = endDate;
+        Raise(new SeniorityUpdatedDomainEvent(
+            CtrlNbr,
+            payload: new { Changes = new Dictionary<string, object?> { ["seniorityEndDate"] = endDate } }));
+    }
+
+    /// <summary>
+    /// Clears any recorded end date. Called when the record moves back to an active state
+    /// (reactivation), restoring the record to an open-ended seniority.
+    /// </summary>
+    public void ClearEndDate()
+    {
+        if (SeniorityEndDate is null) return;
+
+        SeniorityEndDate = null;
+        Raise(new SeniorityUpdatedDomainEvent(
+            CtrlNbr,
+            payload: new { Changes = new Dictionary<string, object?> { ["seniorityEndDate"] = (object?)null } }));
     }
 
     public void Delete()

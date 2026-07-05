@@ -17,6 +17,8 @@ public sealed class EmployeeCertification : Entity
     public DateTime? SuspendedAtUtc { get; private set; }
     public string? SuspensionReason { get; private set; }
     public DateTime? RevocationPeriodEndUtc { get; private set; }
+    public DateTime? CancelledAtUtc { get; private set; }
+    public string? CancellationReason { get; private set; }
 
     public IReadOnlyList<CertificationEligibilityCheck> EligibilityChecks => _eligibilityChecks.AsReadOnly();
 
@@ -54,7 +56,7 @@ public sealed class EmployeeCertification : Entity
     /// </summary>
     public void RecomputeStatus(DateOnly asOfDate, IReadOnlyList<FraCertificationCheckConfig>? checkConfigs = null)
     {
-        if (Status is CertificationStatuses.Suspended or CertificationStatuses.Revoked)
+        if (Status is CertificationStatuses.Suspended or CertificationStatuses.Revoked or CertificationStatuses.Cancelled)
             return;
 
         if (asOfDate >= ExpirationDate)
@@ -128,6 +130,18 @@ public sealed class EmployeeCertification : Entity
     {
         Status = CertificationStatuses.Revoked;
         RevocationPeriodEndUtc = revocationPeriodEndUtc;
+    }
+
+    /// <summary>
+    /// Administratively cancels the certification because the employee has gone off the property
+    /// (e.g. terminated, dismissed, retired). This is distinct from the FRA revocation due-process
+    /// workflow: it implies no violation, triggers no hearing, and performs no cross-revocation.
+    /// </summary>
+    public void Cancel(string reason)
+    {
+        Status = CertificationStatuses.Cancelled;
+        CancelledAtUtc = DateTime.UtcNow;
+        CancellationReason = reason;
     }
 
     public void Reinstate(DateOnly asOfDate)
