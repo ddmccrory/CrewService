@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +33,7 @@ internal class SeniorityConfiguration : IEntityTypeConfiguration<Seniority>
         builder.Property(s => s.Rank).IsRequired();
         builder.Property(s => s.SeniorityStateCtrlNbr).IsRequired();
         builder.Property(s => s.CanTrain).IsRequired();
+        builder.Property(s => s.SeniorityEndDate);
 
         builder.HasOne<Roster>().WithMany().HasForeignKey(s => s.RosterCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(s => s.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);

@@ -1,4 +1,4 @@
-﻿using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +18,7 @@ internal class EmployeeCertificationConfiguration : IEntityTypeConfiguration<Emp
         builder.Property(e => e.Status).HasMaxLength(20).IsRequired();
         builder.Property(e => e.CertificationNumber).HasMaxLength(100);
         builder.Property(e => e.SuspensionReason).HasMaxLength(500);
+        builder.Property(e => e.CancellationReason).HasMaxLength(500);
 
         builder.HasMany(e => e.EligibilityChecks)
             .WithOne()
