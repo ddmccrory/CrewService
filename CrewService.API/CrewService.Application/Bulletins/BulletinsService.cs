@@ -1,7 +1,6 @@
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Notifications;
 using CrewService.Application.Qualifications;
-using CrewService.Application.TenantConfig;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
@@ -17,7 +16,6 @@ public sealed class BulletinsService(
     ILogger<BulletinsService> logger,
     IBulletinScheduleSignal scheduleSignal,
     EmployeeNotificationService notifications,
-    IRailroadResolver railroadResolver,
     EmployeeEligibilityService eligibility)
 {
     public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
@@ -770,21 +768,18 @@ public sealed class BulletinsService(
             // legacy RailroadPositionBulletin.AssignDateTime where the trigger time IS the effective
             // time. Awarded (bid) assignments keep the default "effective now" behaviour.
             var effectiveUtc = forceAssigned ? bulletin.ForceAssignDeadlineUtc : null;
-            var displacedEmployeeCtrlNbr = await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, effectiveUtc, ct);
 
-            // Notify the employee displaced from the crew position (if any).
-            if (displacedEmployeeCtrlNbr is not null && displacedEmployeeCtrlNbr != employeeCtrlNbr)
-            {
-                var displacedRailroad = await railroadResolver.ResolveFromWorkAreaAsync(uow, vacancy.WorkAreaGroupCtrlNbr, ct);
-                if (displacedRailroad is not null)
-                {
-                    await notifications.NotifyDisplacedAsync(
-                        uow, displacedRailroad, displacedEmployeeCtrlNbr,
-                        Domain.Modules.Notifications.NotificationSubject.Create(
-                            Domain.Modules.Notifications.NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr),
-                        ct);
-                }
-            }
+            // Vacate the employee's OUTGOING position (their prior extra-board slot or crew seat)
+            // effective at the incoming assignment's effective date. This raises
+            // PositionAssignmentVacatedDomainEvent, which the DomainEventReactor routes to
+            // VacancyRepostService to auto-bulletin the vacated position under the standard policy
+            // (crew: always; board: only when occupancy falls below RequiredPositions).
+            await VacateOutgoingPositionAsync(uow, employeeCtrlNbr, effectiveUtc ?? DateTime.UtcNow, ct);
+
+            // The bulletin's target position is always vacant here: a position is vacated (its
+            // incumbency ended) BEFORE the bulletin is created, and the vacate is what triggers
+            // the bulletin. There is therefore no incumbent to displace on the target position.
+            await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, effectiveUtc, ct);
         }
 
         // Notify the awarded/force-assigned employee.
@@ -824,7 +819,7 @@ public sealed class BulletinsService(
         }
     }
 
-    private static async Task<ControlNumber?> PlaceEmployeeOnCrewPositionAsync(
+    private static async Task PlaceEmployeeOnCrewPositionAsync(
         Domain.Interfaces.IOrchestrationUnitOfWork uow,
         PositionVacancy vacancy,
         ControlNumber employeeCtrlNbr,
@@ -832,27 +827,15 @@ public sealed class BulletinsService(
         DateTime? effectiveUtc,
         CancellationToken ct)
     {
-        if (vacancy.TargetType != StaffablePositionType.Crew) return null;
+        if (vacancy.TargetType != StaffablePositionType.Crew) return;
 
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
-        if (crewPosition is null) return null;
+        if (crewPosition is null) return;
 
-        // The effective datetime governs when the incoming assignment takes effect and when the
-        // outgoing incumbency ends. Defaults to "now" for awarded assignments.
+        // The effective datetime governs when the incoming assignment takes effect. Defaults to
+        // "now" for awarded assignments. The target position is guaranteed vacant (vacated before
+        // the bulletin was created), so there is no outgoing incumbency to end here.
         var effectiveDate = effectiveUtc ?? DateTime.UtcNow;
-
-        ControlNumber? displacedEmployeeCtrlNbr = null;
-
-        // End any existing active incumbency on this position first.
-        var existingIncumbency = await uow.CrewIncumbencies.GetActiveByPositionAsync(crewPosition.CtrlNbr, DateTime.UtcNow);
-        if (existingIncumbency is not null)
-        {
-            displacedEmployeeCtrlNbr = existingIncumbency.EmployeeCtrlNbr;
-            existingIncumbency.End(effectiveDate);
-            uow.CrewIncumbencies.Update(existingIncumbency);
-            var oldAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
-            if (oldAssignment is not null) uow.PositionAssignments.Remove(oldAssignment);
-        }
 
         var incumbency = CrewIncumbency.Create(crewPosition.CtrlNbr.Value, employeeCtrlNbr.Value, effectiveDate, null);
         var positionAssignment = PositionAssignment.Create(
@@ -860,8 +843,43 @@ public sealed class BulletinsService(
 
         uow.CrewIncumbencies.Add(incumbency);
         uow.PositionAssignments.Add(positionAssignment);
+    }
 
-        return displacedEmployeeCtrlNbr;
+    /// <summary>
+    /// Vacates the position the incoming employee is leaving (their prior extra-board slot or crew
+    /// seat) when they take a bulletin via award or force-assignment. An employee holds at most one
+    /// active <see cref="PositionAssignment"/>, so this handles the 0-or-1 outgoing assignment.
+    /// The outgoing assignment is <see cref="PositionAssignment.Vacate"/>d (raising
+    /// <c>PositionAssignmentVacatedDomainEvent</c> so the reactor auto-bulletins the freed position)
+    /// and removed; any backing crew incumbency is ended at <paramref name="effectiveUtc"/>.
+    /// </summary>
+    private static async Task VacateOutgoingPositionAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        DateTime effectiveUtc,
+        CancellationToken ct)
+    {
+        var outgoing = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        foreach (var assignment in outgoing)
+        {
+            // Raise the vacate event so the DomainEventReactor reposts the freed position, then
+            // remove the assignment row so occupancy checks see the position as open.
+            assignment.Vacate();
+            uow.PositionAssignments.Remove(assignment);
+
+            // If the outgoing position was a crew seat, end its active incumbency effective at the
+            // incoming assignment's effective date (board slots have no incumbency record).
+            var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(assignment.StaffablePositionCtrlNbr);
+            if (crewPosition is not null)
+            {
+                var incumbency = await uow.CrewIncumbencies.GetActiveByPositionAsync(crewPosition.CtrlNbr, DateTime.UtcNow);
+                if (incumbency is not null)
+                {
+                    incumbency.End(effectiveUtc);
+                    uow.CrewIncumbencies.Update(incumbency);
+                }
+            }
+        }
     }
     /// <summary>
     /// Computes the force-assign deadline for a crew-position bulletin using the

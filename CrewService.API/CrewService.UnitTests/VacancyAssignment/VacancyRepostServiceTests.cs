@@ -87,7 +87,7 @@ public class VacancyRepostServiceTests
         var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
         var eligibility = new EmployeeEligibilityService(factory);
         var bulletins = new BulletinsService(
-            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, railroadResolver, eligibility);
+            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
         return new VacancyRepostService(factory, bulletins, NullLogger<VacancyRepostService>.Instance);
     }
 
@@ -174,6 +174,23 @@ public class VacancyRepostServiceTests
         Assert.Empty(uow.FakeBulletins.AddedEntities);
     }
 
+    [Fact]
+    public async Task RepostVacatedPosition_CrewWithNoBulletin_DoesNotRemoveAnySlot()
+    {
+        // A crew position that produces no bulletin (no rule) is structural, not surplus board
+        // capacity, so the surplus-slot removal path must not fire. Guard: no board resolves for
+        // a crew staffable position, so nothing is removed or committed by the removal branch.
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: null, craftRole: MakeCraftRole(), crew: MakeCrew(),
+            crewPositionByStaffPos: MakeCrewPosition(CrewStaffPos));
+        var sut = BuildService(uow);
+
+        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(uow.Committed);
+    }
+
     // ── RepostVacatedPositionAsync: board path ────────────────────────────────
 
     [Fact]
@@ -194,8 +211,11 @@ public class VacancyRepostServiceTests
     }
 
     [Fact]
-    public async Task RepostVacatedPosition_BoardAdequatelyStaffed_DoesNotRepost()
+    public async Task RepostVacatedPosition_BoardAdequatelyStaffed_RemovesSurplusSlot()
     {
+        // Board still meets RequiredPositions after the vacate, so no bulletin is warranted. The
+        // now-empty slot is surplus capacity on a dynamically-sized board and must be removed
+        // entirely (decision: "for board slots, if no bulletin, remove the position entirely").
         var board = MakeBoard(requiredPositions: 1, BoardSlot1, BoardSlot2);
         var uow = new FakeOrchestrationUnitOfWork(
             bulletinRule: MakeRule(), roster: MakeRoster(), board: board,
@@ -206,6 +226,8 @@ public class VacancyRepostServiceTests
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
+        Assert.DoesNotContain(board.Positions, p => p.StaffablePositionCtrlNbr == BoardSlot1);
+        Assert.True(uow.Committed);
     }
 
     // ── RepostBoardPositionIfUnderstaffedAsync ────────────────────────────────

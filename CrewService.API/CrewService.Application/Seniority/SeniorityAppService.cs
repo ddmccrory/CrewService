@@ -3,6 +3,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 
@@ -211,12 +212,32 @@ public sealed class SeniorityAppService(
         var seniority = await uow.Seniority.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Seniority {ctrlNbr.Value} not found.");
 
+        var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(seniorityStateCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Seniority state {seniorityStateCtrlNbr.Value} not found.");
+
         var previousStateCtrlNbr = seniority.SeniorityStateCtrlNbr;
         seniority.Update(lastActiveRoster, rosterDate, rank, seniorityStateCtrlNbr, canTrain);
-        uow.Seniority.Update(seniority);
+
+        if (newState.StateType == StateType.OffProperty)
+        {
+            // Off-property applies employee-wide: every seniority record is end-dated and moved into
+            // the off-property state, all individual qualifications are deleted, and every live
+            // certification is administratively cancelled.
+            await ApplyOffPropertyCascadeAsync(uow, seniority.EmployeeCtrlNbr, seniorityStateCtrlNbr, DateTime.UtcNow, ct);
+        }
+        else
+        {
+            // Any non-off-property state re-opens this record's seniority (reactivation clears the end date).
+            seniority.ClearEndDate();
+            uow.Seniority.Update(seniority);
+        }
+
         await uow.CommitAsync(ct);
 
-        // Apply vacancy action when the seniority state changes
+        // Apply the configured vacancy action once the seniority state changes. Runs after the UoW is
+        // committed and disposed so the canonical vacate/repost services each open their own
+        // transaction on the shared connection. Positions are collected employee-wide, so a single
+        // call detaches the employee from every position they currently hold.
         if (previousStateCtrlNbr != seniorityStateCtrlNbr)
         {
             await vacancyConfigService.ApplyVacancyActionAsync(
@@ -225,6 +246,56 @@ public sealed class SeniorityAppService(
 
         return seniority;
     }
+
+    private const string OffPropertyCancellationReason = "Employee off property";
+
+    /// <summary>
+    /// Applies the employee-wide off-property cascade inside the supplied unit of work: every
+    /// seniority record for the employee is moved into the off-property state and end-dated, all
+    /// individual (manually granted) qualifications are removed, and every certification that is
+    /// still live is administratively cancelled. Position vacating is handled separately by the
+    /// caller via <see cref="SeniorityStateVacancyConfigService.ApplyVacancyActionAsync"/>.
+    /// </summary>
+    private static async Task ApplyOffPropertyCascadeAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber offPropertyStateCtrlNbr,
+        DateTime endDate,
+        CancellationToken ct)
+    {
+        var seniorityRecords = await uow.Seniority.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        foreach (var record in seniorityRecords)
+        {
+            if (record.SeniorityStateCtrlNbr != offPropertyStateCtrlNbr)
+                record.Update(seniorityStateCtrlNbr: offPropertyStateCtrlNbr);
+            record.SetEndDate(endDate);
+            uow.Seniority.Update(record);
+        }
+
+        var qualifications = await uow.EmployeeQualifications.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        foreach (var qualification in qualifications)
+            uow.EmployeeQualifications.Remove(qualification);
+
+        var certifications = await uow.EmployeeCertifications.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr, ct);
+        foreach (var certification in certifications)
+        {
+            if (IsCancellableCertificationStatus(certification.Status))
+            {
+                certification.Cancel(OffPropertyCancellationReason);
+                await uow.EmployeeCertifications.UpdateAsync(certification, ct);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A certification is cancellable while it is still live. Statuses that already represent a
+    /// terminal outcome (Cancelled, Revoked, Expired) are left untouched - in particular Revoked is
+    /// an FRA due-process outcome that must not be overwritten by an administrative cancellation.
+    /// </summary>
+    private static bool IsCancellableCertificationStatus(string status) =>
+        status is not (CertificationStatuses.Cancelled
+            or CertificationStatuses.Revoked
+            or CertificationStatuses.Expired);
 
     public async Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
@@ -372,6 +443,8 @@ public sealed class SeniorityAppService(
                 continue;
             }
 
+            var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(pending.ToSeniorityStateCtrlNbr, ct);
+
             var previousState = seniority.SeniorityStateCtrlNbr;
             seniority.Update(
                 seniority.LastActiveRoster,
@@ -379,6 +452,12 @@ public sealed class SeniorityAppService(
                 seniority.Rank,
                 pending.ToSeniorityStateCtrlNbr,
                 seniority.CanTrain);
+
+            if (newState?.StateType == StateType.OffProperty)
+                await ApplyOffPropertyCascadeAsync(uow, seniority.EmployeeCtrlNbr, pending.ToSeniorityStateCtrlNbr, DateTime.UtcNow, ct);
+            else
+                seniority.ClearEndDate();
+
             uow.Seniority.Update(seniority);
 
             pending.MarkApplied();

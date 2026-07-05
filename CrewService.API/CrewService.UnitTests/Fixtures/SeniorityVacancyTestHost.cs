@@ -57,21 +57,24 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         var railroadResolver = new RailroadResolver();
         var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
         var eligibility = new EmployeeEligibilityService(UowFactory);
-        var bulletins = new BulletinsService(
-            UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, railroadResolver, eligibility);
-        var repost = new VacancyRepostService(UowFactory, bulletins, NullLogger<VacancyRepostService>.Instance);
+        Bulletins = new BulletinsService(
+            UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility);
+        var repost = new VacancyRepostService(UowFactory, Bulletins, NullLogger<VacancyRepostService>.Instance);
 
         Crews = new CrewsAppService(UowFactory, NullLogger<CrewsAppService>.Instance);
         RosterBoards = new RosterBoardAppService(
             UowFactory, new RequiredPositionsFormulaRegistry([]), repost);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);
+        Seniority = new SeniorityAppService(UowFactory, new QualificationReactiveService(), VacancyConfig);
     }
 
     public IOrchestrationUnitOfWorkFactory UowFactory { get; }
     public CrewsAppService Crews { get; }
     public RosterBoardAppService RosterBoards { get; }
     public SeniorityStateVacancyConfigService VacancyConfig { get; }
+    public SeniorityAppService Seniority { get; }
+    public BulletinsService Bulletins { get; }
 
     /// <summary>
     /// Creates a fresh <see cref="CrewServiceDbContext"/> on the shared connection for seeding and

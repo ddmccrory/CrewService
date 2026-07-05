@@ -98,28 +98,52 @@ public class BulletinCreationServiceTests
     // ── EndCrewIncumbencyAsync ────────────────────────────────────────────────
 
     [Fact]
-    public async Task EndCrewIncumbency_WithRule_CreatesBulletinAndVacancy()
+    public async Task EndCrewIncumbency_VacatesAssignmentAndDefersRepost_NoInlineBulletin()
     {
         var staffPos    = StaffablePosition.Create(StaffablePositionType.Crew);
         var crewPos     = MakeCrewPosition(staffPos.CtrlNbr);
         var incumbency  = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
+        var assignment  = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
             bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
-            crewPosition: crewPos, incumbency: incumbency);
+            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var sut = BuildService(uow);
 
         await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow,
             TestContext.Current.CancellationToken);
 
-        Assert.Single(uow.FakeVacancies.AddedEntities);
-        Assert.Single(uow.FakeBulletins.AddedEntities);
+        // Reposting is deferred to VacancyRepostService via the vacated domain event —
+        // EndCrewIncumbencyAsync no longer bulletins the freed position inline.
+        Assert.Contains(assignment, uow.FakePositionAssignments.RemovedEntities);
+        Assert.Empty(uow.FakeVacancies.AddedEntities);
+        Assert.Empty(uow.FakeBulletins.AddedEntities);
         Assert.True(uow.Committed);
     }
 
     [Fact]
-    public async Task EndCrewIncumbency_WithRule_VacancyReasonIsIncumbentVacated()
+    public async Task EndCrewIncumbency_RaisesPositionAssignmentVacatedEvent()
+    {
+        var staffPos   = StaffablePosition.Create(StaffablePositionType.Crew);
+        var crewPos    = MakeCrewPosition(staffPos.CtrlNbr);
+        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
+        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
+
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
+
+        var sut = BuildService(uow);
+
+        await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow,
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains(assignment.DomainEvents, e => e is PositionAssignmentVacatedDomainEvent);
+    }
+
+    [Fact]
+    public async Task EndCrewIncumbency_WithoutPositionAssignment_JustCommits()
     {
         var staffPos   = StaffablePosition.Create(StaffablePositionType.Crew);
         var crewPos    = MakeCrewPosition(staffPos.CtrlNbr);
@@ -134,25 +158,7 @@ public class BulletinCreationServiceTests
         await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal("INCUMBENT_VACATED", uow.FakeVacancies.AddedEntities[0].VacancyReasonCode);
-    }
-
-    [Fact]
-    public async Task EndCrewIncumbency_WithoutRule_NoBulletinCreated()
-    {
-        var staffPos   = StaffablePosition.Create(StaffablePositionType.Crew);
-        var crewPos    = MakeCrewPosition(staffPos.CtrlNbr);
-        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
-
-        var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: null, craftRole: MakeCraftRole(), crew: MakeCrew(),
-            crewPosition: crewPos, incumbency: incumbency);
-
-        var sut = BuildService(uow);
-
-        await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow,
-            TestContext.Current.CancellationToken);
-
+        Assert.Empty(uow.FakePositionAssignments.RemovedEntities);
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
         Assert.True(uow.Committed);

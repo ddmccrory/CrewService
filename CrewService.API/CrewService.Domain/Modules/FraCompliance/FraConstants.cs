@@ -8,6 +8,7 @@ public static class CertificationStatuses
     public const string Suspended = "Suspended";
     public const string Revoked   = "Revoked";
     public const string Expired   = "Expired";
+    public const string Cancelled = "Cancelled";
 }
 
 /// <summary>

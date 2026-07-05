@@ -39,7 +39,14 @@ public sealed class VacancyRepostService(
     {
         var plan = await BuildRepostPlanAsync(staffablePositionCtrlNbr, ct);
         if (plan is null)
+        {
+            // No bulletin resulted from the vacate. For a board slot that means the board is still
+            // adequately staffed (or otherwise not bulletinable), so the now-empty slot is surplus
+            // capacity on a dynamically-sized board — remove it entirely. Crew positions are
+            // structural and are never removed here.
+            await RemoveSurplusBoardSlotIfPresentAsync(staffablePositionCtrlNbr, ct);
             return;
+        }
 
         await bulletinsService.OpenVacancyAsync(
             workAreaGroupCtrlNbr: plan.WorkAreaGroupCtrlNbr,
@@ -54,6 +61,40 @@ public sealed class VacancyRepostService(
         logger.LogInformation(
             "VacancyRepost: Reposted {TargetType} position {Position} (reason {Reason}).",
             plan.TargetType, staffablePositionCtrlNbr.Value, plan.VacancyReasonCode);
+    }
+
+    /// <summary>
+    /// Removes a vacated extra-board slot that produced no repost bulletin (the board is still
+    /// adequately staffed). Such a slot is surplus capacity, so the <see cref="RosterBoardPosition"/>
+    /// is detached from its board and its backing <see cref="StaffablePosition"/> is removed. No-op
+    /// when the vacated position is not a board slot (e.g. a structural crew position).
+    /// </summary>
+    private async Task RemoveSurplusBoardSlotIfPresentAsync(
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(staffablePositionCtrlNbr, ct);
+        if (board is null)
+            return;
+
+        var position = board.Positions.FirstOrDefault(p => p.StaffablePositionCtrlNbr == staffablePositionCtrlNbr);
+        if (position is null)
+            return;
+
+        board.RemovePosition(position);
+        uow.RosterBoards.Update(board);
+
+        var staffablePosition = await uow.StaffablePositions.GetByCtrlNbrAsync(staffablePositionCtrlNbr, ct);
+        if (staffablePosition is not null)
+            uow.StaffablePositions.Remove(staffablePosition);
+
+        await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "VacancyRepost: Removed surplus board slot {Position} from board {Board} (board adequately staffed).",
+            staffablePositionCtrlNbr.Value, board.CtrlNbr.Value);
     }
 
     /// <summary>

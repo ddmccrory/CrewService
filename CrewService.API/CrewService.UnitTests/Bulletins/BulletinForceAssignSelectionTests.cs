@@ -136,7 +136,7 @@ public sealed class BulletinForceAssignSelectionTests
         var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
         var eligibility = new EmployeeEligibilityService(factory);
         return new BulletinsService(
-            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, railroadResolver, eligibility);
+            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
     }
 }
 

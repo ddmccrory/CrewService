@@ -208,11 +208,11 @@ internal static class DevDataSeeder
             ("Active", StateType.Active),
             ("Cut Back", StateType.CutBack),
             ("Inactive", StateType.Inactive),
-            ("Terminated", StateType.Inactive),
-            ("Dismissed", StateType.Inactive),
+            ("Terminated", StateType.OffProperty),
+            ("Dismissed", StateType.OffProperty),
             ("Leave of Absence", StateType.Inactive),
             ("Medical Leave", StateType.Inactive),
-            ("Retired", StateType.Inactive)
+            ("Retired", StateType.OffProperty)
         };
 
         foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
@@ -2054,7 +2054,7 @@ internal static class DevDataSeeder
         {
             ["Active"]           = (VacancyAction.MoveToBoard, BoardType.Hangout),
             ["Cut Back"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Dismissed"]        = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
+            ["Dismissed"]        = (VacancyAction.VacateAndBulletin, null),
             ["Inactive"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
             ["Leave of Absence"] = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
             ["Medical Leave"]    = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
