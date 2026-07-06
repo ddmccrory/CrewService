@@ -49,9 +49,10 @@ else
                     <label class="form-label fw-semibold">State Type</label>
                     <InputSelect @bind-Value="saveModel.StateType" class="form-select">
                         <option value="">— Select a state type —</option>
-                        <option value="Active">Active</option>
-                        <option value="CutBack">Cut Back</option>
-                        <option value="Inactive">Inactive</option>
+                        @foreach (var stateType in SeniorityStateTypeDisplay.SelectableValues)
+                        {
+                            <option value="@stateType">@SeniorityStateTypeDisplay.Label(stateType)</option>
+                        }
                     </InputSelect>
                     <ValidationMessage For="() => saveModel.StateType" class="text-danger" />
                 </div>
@@ -109,7 +110,7 @@ else
             </ToolbarContent>
             <RowContent Context="state">
                 <td>@state.StateDescription</td>
-                <td>@FormatStateType(state.StateType)</td>
+                <td>@SeniorityStateTypeDisplay.Label(state.StateType)</td>
                 <td>
                     @if (!IsFeatureReadOnly)
                     {
@@ -136,17 +137,9 @@ else
     private IReadOnlyList<DataTableColumn<SeniorityStateResponse>> Columns =>
     [
         new("Description", s => s.StateDescription),
-        new("State Type", s => FormatStateType(s.StateType)),
+        new("State Type", s => SeniorityStateTypeDisplay.Label(s.StateType)),
         DataTableColumn<SeniorityStateResponse>.Actions()
     ];
-
-    private static string FormatStateType(string type) => type switch
-    {
-        "Active" => "Active",
-        "CutBack" => "Cut Back",
-        "Inactive" => "Inactive",
-        _ => type
-    };
 
     private bool showSaveModal;
     private long editCtrlNbr;
@@ -198,7 +191,9 @@ else
         saveModel = new()
         {
             StateDescription = state.StateDescription,
-            StateType = state.StateType ?? string.Empty
+            StateType = state.StateType == SeniorityStateTypeEnum.SeniorityStateTypeUnspecified
+                ? null
+                : state.StateType
         };
         showSaveModal = true;
     }
@@ -231,7 +226,7 @@ else
                 {
                     CtrlNbr = editCtrlNbr,
                     StateDescription = saveModel.StateDescription ?? string.Empty,
-                    StateType = saveModel.StateType ?? string.Empty
+                    StateType = saveModel.StateType!.Value
                 });
                 successMessage = "Seniority state updated.";
             }
@@ -240,7 +235,7 @@ else
                 await StateClient.CreateAsync(new CreateSeniorityStateRequest
                 {
                     StateDescription = saveModel.StateDescription ?? string.Empty,
-                    StateType = saveModel.StateType ?? string.Empty,
+                    StateType = saveModel.StateType!.Value,
                     ParentCtrlNbr = SelectedParentCtrlNbr ?? 0
                 });
                 successMessage = "Seniority state created.";
@@ -284,6 +279,6 @@ else
         public string? StateDescription { get; set; }
 
         [Required(ErrorMessage = "State type is required.")]
-        public string? StateType { get; set; }
+        public SeniorityStateTypeEnum? StateType { get; set; }
     }
 }
