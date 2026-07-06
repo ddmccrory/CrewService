@@ -179,23 +179,6 @@ public class EmployeeNotificationServiceTests
         Assert.Contains("cancelled", notification.Message);
     }
 
-    // ── Bulletin no-bid ──────────────────────────────────────────────────
-
-    [Fact]
-    public async Task NotifyBulletinNoBid_AddsInformationalNotification()
-    {
-        var vacancy = MakeVacancy();
-        var uow = new FakeNotificationUoW(vacancy, MakeWorkArea());
-        var bulletin = MakeBulletin(vacancy);
-
-        await BuildService().NotifyBulletinNoBidAsync(uow, bulletin, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
-
-        var notification = Assert.Single(uow.Notifications.AddedEntities);
-        Assert.Equal(NotificationCategories.BulletinNoBid, notification.Category);
-        Assert.False(notification.RequiresAcknowledgement);
-    }
-
     // ── Notifications always persist (ShowNotifications is a login-prompt setting only) ──
 
     [Fact]

@@ -9,7 +9,6 @@ public static class NotificationCategories
     public const string PositionChange = "PositionChange";
     public const string BulletinAward = "BulletinAward";
     public const string BulletinCancellation = "BulletinCancellation";
-    public const string BulletinNoBid = "BulletinNoBid";
     public const string SeniorityMove = "SeniorityMove";
     public const string ForceAssign = "ForceAssign";
     public const string SafetyBulletin = "SafetyBulletin";

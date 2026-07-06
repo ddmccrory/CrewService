@@ -170,35 +170,6 @@ public sealed class EmployeeNotificationService(
             requiresAcknowledgement: false, subject, effectiveAtUtc: null);
     }
 
-    /// <summary>
-    /// Notifies a bidder that the bulletin they bid on closed with no award (No Bid). Informational
-    /// only, so it does not require acknowledgement.
-    /// </summary>
-    public async Task NotifyBulletinNoBidAsync(
-        IOrchestrationUnitOfWork uow,
-        Domain.Modules.Bulletins.Bulletin bulletin,
-        ControlNumber employeeCtrlNbr,
-        CancellationToken ct = default)
-    {
-        var railroadCtrlNbr = await ResolveBulletinRailroadAsync(uow, bulletin, ct);
-        if (railroadCtrlNbr is null)
-        {
-            logger.LogWarning(
-                "Skipping bulletin-no-bid notification for employee {Employee}: railroad could not be resolved for bulletin {Bulletin}.",
-                employeeCtrlNbr.Value, bulletin.CtrlNbr.Value);
-            return;
-        }
-
-        var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
-        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-        var positionName = vacancy?.TargetName ?? string.Empty;
-        var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
-
-        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinNoBid,
-            $"The bulletin for {positionClause} closed with no bid and may proceed to force-assignment.",
-            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
-    }
-
     // ── Seniority-move notifications ─────────────────────────────────────
 
     /// <summary>

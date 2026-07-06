@@ -9,7 +9,6 @@ public static class NotificationCategories
     public const string PositionChange = "PositionChange";
     public const string BulletinAward = "BulletinAward";
     public const string BulletinCancellation = "BulletinCancellation";
-    public const string BulletinNoBid = "BulletinNoBid";
     public const string SeniorityMove = "SeniorityMove";
     public const string ForceAssign = "ForceAssign";
     public const string SafetyBulletin = "SafetyBulletin";
@@ -22,7 +21,6 @@ public static class NotificationCategories
         [PositionChange] = "Position Change",
         [BulletinAward] = "Bulletin Award",
         [BulletinCancellation] = "Bulletin Cancellation",
-        [BulletinNoBid] = "Bulletin No-Bid",
         [SeniorityMove] = "Seniority Move",
         [ForceAssign] = "Force Assignment",
         [SafetyBulletin] = "Safety Bulletin",

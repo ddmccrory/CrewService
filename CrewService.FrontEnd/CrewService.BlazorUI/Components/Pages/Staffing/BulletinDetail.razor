@@ -98,8 +98,8 @@ else
                         <button class="btn btn-success" @onclick="OpenAwardModal" disabled="@(isSaving || !bidWindowClosed)">
                              <span class="bi bi-trophy"></span> Award
                          </button>
-                         <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(isSaving || hasActiveBids)"
-                                 title="@(hasActiveBids ? "Cannot set no-bid while active bids exist" : "")">
+                         <button class="btn btn-secondary" @onclick="OnSetNoBid" disabled="@(isSaving || !bidWindowClosed || hasActiveBids)"
+                                 title="@(!bidWindowClosed ? "Cannot set no-bid until the bid window closes" : (hasActiveBids ? "Cannot set no-bid while active bids exist" : ""))">
                              <span class="bi bi-dash-circle"></span> Set No-Bid
                          </button>
                          <button class="btn btn-primary" @onclick="OpenAddBidModal"

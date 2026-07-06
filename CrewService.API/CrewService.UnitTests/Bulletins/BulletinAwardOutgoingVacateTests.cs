@@ -192,6 +192,26 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         await ctx.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Gives the fixture employee an active-roster <see cref="Seniority"/> entry on the fixture's
+    /// roster so the force-assign candidate selection (which excludes anyone without one) can pick
+    /// them. The craft role carries no required qualifications, so this membership is the only gate.
+    /// </summary>
+    private async Task SeedActiveRosterSeniorityAsync(Fixture f, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var state = SeniorityState.Create("Active", StateType.Active, f.ParentCtrlNbr.Value);
+        ctx.Set<SeniorityState>().Add(state);
+        await ctx.SaveChangesAsync(ct);
+
+        var seniority = Seniority.Create(
+            f.RosterCtrlNbr, f.EmployeeCtrlNbr, lastActiveRoster: true,
+            rosterDate: DateTime.UtcNow.AddDays(-30), rank: 1,
+            seniorityStateCtrlNbr: state.CtrlNbr, canTrain: true);
+        ctx.Set<Seniority>().Add(seniority);
+        await ctx.SaveChangesAsync(ct);
+    }
+
     private async Task<List<PositionAssignment>> GetAssignmentsAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
     {
         await using var uow = await _host.UowFactory.CreateAsync(cancellationToken: ct);
@@ -270,6 +290,31 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
 
         // The outgoing board slot was vacated/removed and the winner now holds the target seat as a
         // force assignment.
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        var assignment = Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.ForceAssignment, assignment.AssignmentType);
+        Assert.Equal(targetCrewPositionCtrlNbr, assignment.AssignmentSourceCtrlNbr);
+    }
+
+    [Fact]
+    public async Task SetBulletinNoBid_EligibleCandidateExists_AutoChainsForceAssign()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedOutgoingBoardSlotAsync(f, ct);
+        // Give the board member an active-roster seniority entry so the force-assign selection finds
+        // them as an eligible candidate (selection excludes employees without one).
+        await SeedActiveRosterSeniorityAsync(f, ct);
+        var (bulletinCtrlNbr, targetCrewPositionCtrlNbr) = await SeedTargetCrewBulletinAsync(f, ct);
+
+        // Only the NoBid call is made — it must automatically chain the force-assign process with no
+        // further action from the caller.
+        var result = await _host.Bulletins.SetBulletinNoBidAsync(bulletinCtrlNbr, ct);
+
+        // The returned bulletin is Forced and the eligible candidate now holds the target seat as a
+        // force assignment — proving the chain ran end-to-end.
+        Assert.Equal("Forced", result.Status);
+        Assert.Equal(f.EmployeeCtrlNbr, result.AwardedEmployeeCtrlNbr);
         var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
         var assignment = Assert.Single(assignments);
         Assert.Equal(PositionAssignmentType.ForceAssignment, assignment.AssignmentType);

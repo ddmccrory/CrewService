@@ -255,20 +255,28 @@ public sealed class BulletinsService(
 
         bulletin.SetAsNoBid(forceAssignDeadline);
         await uow.Bulletins.UpdateAsync(bulletin, ct);
-
-        // Notify the prospective force-assign candidate that the bulletin closed with no bid.
-        var noBidRule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
-        if (noBidRule is not null)
-        {
-            var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, noBidRule, ct);
-            var candidate = candidates.FirstOrDefault();
-            if (candidate is not null)
-                await notifications.NotifyBulletinNoBidAsync(uow, bulletin, candidate, ct);
-        }
+        // Mirrors the automatic no-bid transition (AutoAwardClosedBulletinsAsync): no notification is
+        // emitted here because there is no bidder to inform. The prospective force-assign candidate is
+        // notified when the force assignment runs; the two processes are back-to-back, so a separate
+        // no-bid notification would be redundant.
+        logger.LogInformation(
+            "Bulletin {BulletinCtrlNbr}: Manually transitioned to NoBid. Force-assign deadline: {Deadline}.",
+            bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
 
         await uow.CommitAsync(ct);
         if (forceAssignDeadline.HasValue)
             scheduleSignal.Notify(forceAssignDeadline.Value);
+
+        // Automatically chain the force-assign process without any further caller action, mirroring
+        // the automatic pipeline where the NoBid transition (AutoAwardClosedBulletinsAsync) and the
+        // force assignment (AutoForceAssignNoBidsAsync) run back-to-back. When an eligible candidate
+        // exists it is force-assigned immediately and the resulting Forced bulletin is returned; when
+        // none exists yet the bulletin remains NoBid and the BulletinProcessingWorker force-assigns
+        // it once its deadline passes.
+        var forceAssignCandidate = await GetForceAssignCandidateAsync(ctrlNbr, ct);
+        if (forceAssignCandidate is not null)
+            return await ForceAssignBulletinAsync(ctrlNbr, null, ct);
+
         return bulletin;
     }
 

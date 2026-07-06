@@ -298,8 +298,11 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var vacancy = await svc.GetVacancyAsync(bulletin.PositionVacancyCtrlNbr, context.CancellationToken);
             var tz = await GetWorkAreaTimeZoneAsync(vacancy.WorkAreaGroupCtrlNbr.Value, context.CancellationToken);
             var vacatedByNameNb = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
+            // SetBulletinNoBid now automatically chains the force-assign process, so the bulletin may
+            // come back Forced with an awarded employee — resolve the name so the response is complete.
+            var awardedByNameNb = await ResolveEmployeeNameAsync(bulletin.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
             var craftRoleCtrlNbrNb = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
-            return MapBulletin(bulletin, vacancy.TargetName, tz, 0, vacatedByNameNb, craftRoleCtrlNbr: craftRoleCtrlNbrNb);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, 0, vacatedByNameNb, awardedByNameNb, craftRoleCtrlNbrNb);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
