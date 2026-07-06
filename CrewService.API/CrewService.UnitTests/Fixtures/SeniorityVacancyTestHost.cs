@@ -59,11 +59,13 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         var eligibility = new EmployeeEligibilityService(UowFactory);
         Bulletins = new BulletinsService(
             UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility);
-        var repost = new VacancyRepostService(UowFactory, Bulletins, NullLogger<VacancyRepostService>.Instance);
+        Repost = new VacancyRepostService(UowFactory, Bulletins, NullLogger<VacancyRepostService>.Instance);
 
-        Crews = new CrewsAppService(UowFactory, NullLogger<CrewsAppService>.Instance);
+        Crews = new CrewsAppService(UowFactory, Repost, NullLogger<CrewsAppService>.Instance);
         RosterBoards = new RosterBoardAppService(
-            UowFactory, new RequiredPositionsFormulaRegistry([]), repost);
+            UowFactory,
+            new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
+            Repost);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);
         Seniority = new SeniorityAppService(UowFactory, new QualificationReactiveService(), VacancyConfig);
@@ -75,6 +77,7 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
     public SeniorityStateVacancyConfigService VacancyConfig { get; }
     public SeniorityAppService Seniority { get; }
     public BulletinsService Bulletins { get; }
+    public VacancyRepostService Repost { get; }
 
     /// <summary>
     /// Creates a fresh <see cref="CrewServiceDbContext"/> on the shared connection for seeding and
