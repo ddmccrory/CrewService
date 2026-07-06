@@ -165,6 +165,26 @@ public sealed class SeniorityStateVacancyConfigService(
 
                     targetBoardCtrlNbr = targetBoard.CtrlNbr;
                     targetBoardType = config.TargetBoardType;
+
+                    // If the employee already holds a position on the target board type (e.g. already
+                    // on ExtendedAbsence and state change also maps to ExtendedAbsence), do not churn
+                    // the assignment. Keep the current board position as-is.
+                    var existingAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+                    foreach (var assignment in existingAssignments)
+                    {
+                        var staffablePosition = await uow.StaffablePositions.GetByCtrlNbrAsync(assignment.StaffablePositionCtrlNbr, ct);
+                        if (staffablePosition?.PositionType != StaffablePositionType.Board)
+                            continue;
+
+                        var existingBoard = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(assignment.StaffablePositionCtrlNbr, ct);
+                        if (existingBoard?.BoardType == targetBoardType)
+                        {
+                            logger.LogInformation(
+                                "ApplyVacancyAction (MoveToBoard): Employee {Employee} already on target board type {BoardType} (board {Board}); no move needed.",
+                                employeeCtrlNbr.Value, targetBoardType, existingBoard.CtrlNbr.Value);
+                            return;
+                        }
+                    }
                 }
             }
 
