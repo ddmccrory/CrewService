@@ -129,7 +129,7 @@ public static class DependencyInjection
         // Bulletins
         services.AddSingleton<IBulletinScheduleSignal, BulletinScheduleSignal>();
         services.AddScoped<BulletinsService>();
-        services.AddScoped<VacancyAssignment.VacancyRepostService>();
+        services.AddScoped<VacancyAssignment.IVacancyRepostService, VacancyAssignment.VacancyRepostService>();
         services.AddHostedService<BackgroundWorkers.Workers.BulletinProcessingWorker>();
         // Seniority state change scheduling
         services.AddSingleton<ISeniorityStateChangeSignal, SeniorityStateChangeSignal>();

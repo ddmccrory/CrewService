@@ -36,7 +36,7 @@ public class SeniorityStateService(SeniorityStateAppService seniorityStateAppSer
     public override async Task<SeniorityStateResponse> CreateAsync(CreateSeniorityStateRequest request, ServerCallContext context)
     {
         var state = await seniorityStateAppService.CreateAsync(
-            request.StateDescription, Enum.Parse<StateType>(request.StateType), request.ParentCtrlNbr,
+            request.StateDescription, ToDomain(request.StateType), request.ParentCtrlNbr,
             context.CancellationToken);
         return MapToResponse(state, true, "Seniority state created successfully.");
     }
@@ -47,7 +47,7 @@ public class SeniorityStateService(SeniorityStateAppService seniorityStateAppSer
         {
             var state = await seniorityStateAppService.UpdateAsync(
                 ControlNumber.Create(request.CtrlNbr),
-                request.StateDescription, Enum.Parse<StateType>(request.StateType),
+                request.StateDescription, ToDomain(request.StateType),
                 context.CancellationToken);
             return MapToResponse(state, true, "Seniority state updated successfully.");
         }
@@ -77,10 +77,28 @@ public class SeniorityStateService(SeniorityStateAppService seniorityStateAppSer
         {
             CtrlNbr = state.CtrlNbr.Value,
             StateDescription = state.StateDescription,
-            StateType = state.StateType.ToString(),
+            StateType = ToProto(state.StateType),
             Success = success
         };
         if (message is not null) response.Messages.Add(message);
         return response;
     }
+
+    private static StateType ToDomain(SeniorityStateTypeEnum stateType) => stateType switch
+    {
+        SeniorityStateTypeEnum.SeniorityStateTypeActive => StateType.Active,
+        SeniorityStateTypeEnum.SeniorityStateTypeCutBack => StateType.CutBack,
+        SeniorityStateTypeEnum.SeniorityStateTypeInactive => StateType.Inactive,
+        SeniorityStateTypeEnum.SeniorityStateTypeOffProperty => StateType.OffProperty,
+        _ => throw new RpcException(new Status(StatusCode.InvalidArgument, $"Unsupported seniority state type: {stateType}."))
+    };
+
+    private static SeniorityStateTypeEnum ToProto(StateType stateType) => stateType switch
+    {
+        StateType.Active => SeniorityStateTypeEnum.SeniorityStateTypeActive,
+        StateType.CutBack => SeniorityStateTypeEnum.SeniorityStateTypeCutBack,
+        StateType.Inactive => SeniorityStateTypeEnum.SeniorityStateTypeInactive,
+        StateType.OffProperty => SeniorityStateTypeEnum.SeniorityStateTypeOffProperty,
+        _ => SeniorityStateTypeEnum.SeniorityStateTypeUnspecified
+    };
 }

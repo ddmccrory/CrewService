@@ -198,6 +198,100 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         return await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr);
     }
 
+    /// <summary>
+    /// Seeds an <see cref="StateType.OffProperty"/> seniority state and returns its CtrlNbr.
+    /// Deliberately seeds NO vacancy config so the test proves off-property still vacates through
+    /// the canonical path even when the state is unconfigured.
+    /// </summary>
+    private async Task<ControlNumber> SeedOffPropertyStateAsync(Fixture f, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var offProperty = SeniorityState.Create("Terminated", StateType.OffProperty, f.ParentCtrlNbr.Value);
+        ctx.Set<SeniorityState>().Add(offProperty);
+        await ctx.SaveChangesAsync(ct);
+        return offProperty.CtrlNbr;
+    }
+
+    /// <summary>
+    /// Seeds a <see cref="Seniority"/> record for the fixture employee/roster in the supplied
+    /// starting state so the real <see cref="Application.SeniorityOps.SeniorityAppService.UpdateAsync"/>
+    /// entry point has a record to transition. Returns its CtrlNbr.
+    /// </summary>
+    private async Task<ControlNumber> SeedSeniorityRecordAsync(Fixture f, ControlNumber startingStateCtrlNbr, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var seniority = Seniority.Create(
+            f.RosterCtrlNbr, f.EmployeeCtrlNbr, true, DateTime.UtcNow.AddYears(-1), 1, startingStateCtrlNbr, true);
+        ctx.Set<Seniority>().Add(seniority);
+        await ctx.SaveChangesAsync(ct);
+        return seniority.CtrlNbr;
+    }
+
+    /// <summary>Resolves the crew's backing staffable position CtrlNbr for the fixture (single seeded crew).</summary>
+    private async Task<ControlNumber> GetCrewStaffablePositionCtrlNbrAsync(CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var crewPosition = await ctx.Set<CrewPosition>().AsNoTracking().FirstAsync(ct);
+        return crewPosition.StaffablePositionCtrlNbr;
+    }
+
+    /// <summary>Counts bulletins opened for the given crew staffable position.</summary>
+    private async Task<int> CountCrewBulletinsAsync(ControlNumber staffablePositionCtrlNbr, CancellationToken ct)
+    {
+        await using var uow = await _host.UowFactory.CreateAsync(cancellationToken: ct);
+        var vacancies = await uow.PositionVacancies.GetByTargetAsync(
+            StaffablePositionType.Crew, staffablePositionCtrlNbr);
+        var count = 0;
+        foreach (var vacancy in vacancies)
+        {
+            var bulletin = await uow.Bulletins.GetByVacancyAsync(vacancy.CtrlNbr);
+            if (bulletin is not null)
+                count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// End-to-end regression for the production bug where moving an employee off property (seniority
+    /// state Terminated) created NO bulletin for the vacated position because no per-state vacancy
+    /// config existed, so the crew position was never vacated and never bulletined. Off-property is
+    /// terminal and must ALWAYS route through the same canonical vacate/bulletin path as every other
+    /// vacate. This drives the real <c>SeniorityAppService.UpdateAsync</c> UI entry point with NO
+    /// vacancy config seeded, then runs the same durable repost sweep the BulletinProcessingWorker
+    /// runs in production, and asserts an actual Bulletin row now exists for the freed crew position.
+    /// </summary>
+    [Fact]
+    public async Task OffProperty_NoVacancyConfig_VacatesAndBulletinsCrewPosition_EndToEnd()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedCrewIncumbencyAsync(f, ct);
+        var offPropertyStateCtrlNbr = await SeedOffPropertyStateAsync(f, ct);
+        var seniorityCtrlNbr = await SeedSeniorityRecordAsync(f, f.NewSeniorityStateCtrlNbr, ct);
+        var crewStaffablePositionCtrlNbr = await GetCrewStaffablePositionCtrlNbrAsync(ct);
+
+        // Sanity: employee holds the crew position, NO vacancy config exists, and no bulletin yet.
+        Assert.Single(await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct));
+        Assert.Equal(0, await CountCrewBulletinsAsync(crewStaffablePositionCtrlNbr, ct));
+
+        // Drive the real UI entry point: transition the employee's seniority to off-property.
+        await _host.Seniority.UpdateAsync(
+            seniorityCtrlNbr, lastActiveRoster: true, DateTime.UtcNow, rank: 1,
+            offPropertyStateCtrlNbr, canTrain: true, ct);
+
+        // The crew position is freed by the canonical vacate path.
+        Assert.Empty(await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct));
+
+        // Run the same durable repost sweep the BulletinProcessingWorker runs in production. This is
+        // the deterministic counterpart of the post-commit reactor and calls the identical
+        // RepostVacatedPositionAsync -> OpenVacancyAsync path, so it proves the vacate bulletins.
+        await _host.Repost.ReconcileUnbulletinedVacantPositionsAsync(ct);
+
+        // End-to-end proof: a bulletin now exists for the vacated crew position — the same outcome
+        // every other vacate produces. Before the fix, no position was vacated so none was possible.
+        Assert.Equal(1, await CountCrewBulletinsAsync(crewStaffablePositionCtrlNbr, ct));
+    }
+
     [Fact]
     public async Task VacateAndBulletin_CrewSource_RemovesCrewPositionAssignment()
     {

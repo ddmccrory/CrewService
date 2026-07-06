@@ -22,7 +22,7 @@ namespace CrewService.Application.VacancyAssignment;
 public sealed class VacancyRepostService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     BulletinsService bulletinsService,
-    ILogger<VacancyRepostService> logger)
+    ILogger<VacancyRepostService> logger) : IVacancyRepostService
 {
     private const string CrewVacatedReason = "INCUMBENT_VACATED";
     private const string BoardUnderstaffedReason = "BOARD_UNDERSTAFFED";
@@ -183,7 +183,7 @@ public sealed class VacancyRepostService(
                 TargetType: StaffablePositionType.Crew,
                 CraftCtrlNbr: craftRole.CraftCtrlNbr,
                 VacancyReasonCode: CrewVacatedReason,
-                TargetName: crew.Name);
+                TargetName: VacancyTargetName.ForCrewPosition(crew, craftRole));
         }
 
         // Board position path: only repost when occupancy is below the board's RequiredPositions.

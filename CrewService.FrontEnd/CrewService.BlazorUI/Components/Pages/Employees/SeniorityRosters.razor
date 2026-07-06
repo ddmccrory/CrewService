@@ -272,12 +272,12 @@ else
         </div>
         <div class="col-md-2">
             <label class="form-label fw-semibold">State</label>
-            <FilterSelect TItem="StateTypeOption" TValue="string"
-                          Items="stateTypeOptions"
+            <FilterSelect TItem="SeniorityStateTypeEnum" TValue="SeniorityStateTypeEnum"
+                          Items="SeniorityStateTypeDisplay.SelectableValues"
                           Value="selectedStateType"
                           ValueChanged="OnStateTypeChanged"
-                          ValueSelector="@(o => o.Value)"
-                          TextSelector="@(o => o.Label)"
+                          ValueSelector="@(o => o)"
+                          TextSelector="@(o => SeniorityStateTypeDisplay.Label(o))"
                           Placeholder="— All states —"
                           disabled="@(selectedRosterCtrlNbr == 0 || FilterEmployeeCtrlNbr > 0)"
                           class="form-select" />
@@ -396,7 +396,7 @@ else
     private long selectedWorkAreaCtrlNbr;
     private long selectedCraftCtrlNbr;
     private long selectedRosterCtrlNbr;
-    private string selectedStateType = "";
+    private SeniorityStateTypeEnum selectedStateType = SeniorityStateTypeEnum.SeniorityStateTypeUnspecified;
 
     [SupplyParameterFromQuery(Name = "roster")]
     public long InitialRosterCtrlNbr { get; set; }
@@ -406,14 +406,6 @@ else
 
     [SupplyParameterFromQuery(Name = "employee")]
     public long FilterEmployeeCtrlNbr { get; set; }
-
-    private sealed record StateTypeOption(string Value, string Label);
-    private static readonly IReadOnlyList<StateTypeOption> stateTypeOptions =
-    [
-        new("Active", "Active"),
-        new("CutBack", "Cut Back"),
-        new("Inactive", "Inactive"),
-    ];
 
     private IReadOnlyList<GetEmployeeResponse>? employees;
     private IReadOnlyList<SeniorityStateResponse>? seniorityStates;
@@ -486,12 +478,12 @@ else
                 }
             }
 
-            if (string.IsNullOrEmpty(selectedStateType) || seniorityStates is null)
+            if (selectedStateType == SeniorityStateTypeEnum.SeniorityStateTypeUnspecified || seniorityStates is null)
                 return entries.ToList();
 
             var matchingCtrlNbrs = new HashSet<long>(
                 seniorityStates
-                    .Where(s => s.StateType.Equals(selectedStateType, StringComparison.OrdinalIgnoreCase))
+                    .Where(s => s.StateType == selectedStateType)
                     .Select(s => s.CtrlNbr));
 
             return entries.Where(s => matchingCtrlNbrs.Contains(s.SeniorityStateCtrlNbr)).ToList();
@@ -513,7 +505,7 @@ else
         selectedWorkAreaCtrlNbr = 0;
         selectedCraftCtrlNbr = 0;
         selectedRosterCtrlNbr = 0;
-        selectedStateType = "";
+        selectedStateType = SeniorityStateTypeEnum.SeniorityStateTypeUnspecified;
         workAreas = null;
         rosters = null;
         seniorityEntries = null;
@@ -607,7 +599,7 @@ else
         selectedWorkAreaCtrlNbr = target.WorkAreaGroupCtrlNbr;
 
         // Lock to Active state — only active employees can exercise seniority
-        selectedStateType = "Active";
+        selectedStateType = SeniorityStateTypeEnum.SeniorityStateTypeActive;
 
         // Select craft to populate the rosters dropdown
         selectedCraftCtrlNbr = target.CraftCtrlNbr;
@@ -628,7 +620,7 @@ else
         }
     }
 
-    private void OnStateTypeChanged(string stateType)
+    private void OnStateTypeChanged(SeniorityStateTypeEnum stateType)
     {
         selectedStateType = stateType;
     }
@@ -857,7 +849,7 @@ else
             seniorityStates = stateResponse.States.ToList();
 
             // Default to "Active" state type
-            selectedStateType = "Active";
+            selectedStateType = SeniorityStateTypeEnum.SeniorityStateTypeActive;
         }
     }
 

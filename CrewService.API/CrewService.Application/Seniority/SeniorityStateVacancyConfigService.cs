@@ -116,41 +116,56 @@ public sealed class SeniorityStateVacancyConfigService(
             var config = await uow.SeniorityStateVacancyConfigs
                 .GetBySeniorityStateAsync(railroadCtrlNbr, newSeniorityStateCtrlNbr, ct);
 
-            if (config is null || config.VacancyAction == VacancyAction.None)
-                return;
-
-            action = config.VacancyAction;
-
-            if (action == VacancyAction.MoveToBoard)
+            // Off-property is a terminal state: the employee leaves the property entirely and can
+            // neither hold nor be moved to any position. Their positions are ALWAYS vacated and
+            // bulletined through the canonical vacate path — the same path every other vacate uses —
+            // regardless of whether a per-state vacancy config exists (or is configured None or
+            // MoveToBoard). Every other state honors its configured action and no-ops when
+            // unconfigured or None.
+            var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(newSeniorityStateCtrlNbr, ct);
+            if (newState?.StateType == StateType.OffProperty)
             {
-                if (config.TargetBoardType is null)
+                action = VacancyAction.VacateAndBulletin;
+            }
+            else if (config is null || config.VacancyAction == VacancyAction.None)
+            {
+                return;
+            }
+            else
+            {
+                action = config.VacancyAction;
+
+                if (action == VacancyAction.MoveToBoard)
                 {
-                    logger.LogWarning("ApplyVacancyAction (MoveToBoard): No target board type configured — skipping.");
-                    return;
+                    if (config.TargetBoardType is null)
+                    {
+                        logger.LogWarning("ApplyVacancyAction (MoveToBoard): No target board type configured — skipping.");
+                        return;
+                    }
+
+                    // Resolve the specific board by matching the employee's craft and the configured board type.
+                    if (roster.CraftCtrlNbr is null)
+                    {
+                        logger.LogWarning("ApplyVacancyAction (MoveToBoard): Roster {Roster} has no craft — cannot resolve board.", rosterCtrlNbr.Value);
+                        return;
+                    }
+
+                    var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(roster.CraftCtrlNbr, ct);
+                    var targetBoard = boards.FirstOrDefault(b =>
+                        b.BoardType == config.TargetBoardType &&
+                        b.IsActive);
+
+                    if (targetBoard is null)
+                    {
+                        logger.LogWarning(
+                            "ApplyVacancyAction (MoveToBoard): No active {BoardType} board found for craft {Craft}.",
+                            config.TargetBoardType, roster.CraftCtrlNbr.Value);
+                        return;
+                    }
+
+                    targetBoardCtrlNbr = targetBoard.CtrlNbr;
+                    targetBoardType = config.TargetBoardType;
                 }
-
-                // Resolve the specific board by matching the employee's craft and the configured board type.
-                if (roster.CraftCtrlNbr is null)
-                {
-                    logger.LogWarning("ApplyVacancyAction (MoveToBoard): Roster {Roster} has no craft — cannot resolve board.", rosterCtrlNbr.Value);
-                    return;
-                }
-
-                var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(roster.CraftCtrlNbr, ct);
-                var targetBoard = boards.FirstOrDefault(b =>
-                    b.BoardType == config.TargetBoardType &&
-                    b.IsActive);
-
-                if (targetBoard is null)
-                {
-                    logger.LogWarning(
-                        "ApplyVacancyAction (MoveToBoard): No active {BoardType} board found for craft {Craft}.",
-                        config.TargetBoardType, roster.CraftCtrlNbr.Value);
-                    return;
-                }
-
-                targetBoardCtrlNbr = targetBoard.CtrlNbr;
-                targetBoardType = config.TargetBoardType;
             }
 
             (crewIncumbencyCtrlNbrs, boardPositionCtrlNbrs) =

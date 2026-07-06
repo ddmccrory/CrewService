@@ -124,6 +124,9 @@ public class VacancyRepostServiceTests
         Assert.Equal("INCUMBENT_VACATED", vacancy.VacancyReasonCode);
         Assert.Equal(StaffablePositionType.Crew, vacancy.TargetType);
         Assert.Equal(CrewStaffPos, vacancy.TargetCtrlNbr);
+        // The vacate bulletin must carry the craft role, not just the crew name
+        // (regression: a vacated crew position showed only "Crew A" instead of "Crew A - Engineer").
+        Assert.Equal("Crew A - Engineer", vacancy.TargetName);
     }
 
     [Fact]

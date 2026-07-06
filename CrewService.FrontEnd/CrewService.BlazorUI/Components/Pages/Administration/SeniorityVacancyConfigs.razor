@@ -126,7 +126,7 @@ else
                 {
                     <tr>
                         <td>@row.StateDescription</td>
-                        <td>@row.StateType</td>
+                        <td>@SeniorityStateTypeDisplay.Label(row.StateType)</td>
                         <td>
                             @if (row.Config is not null)
                             {
@@ -161,7 +161,7 @@ else
     {
         public long StateCtrlNbr { get; init; }
         public string StateDescription { get; init; } = string.Empty;
-        public string StateType { get; init; } = string.Empty;
+        public SeniorityStateTypeEnum StateType { get; init; }
         public VacancyConfigResponse? Config { get; set; }
     }
 

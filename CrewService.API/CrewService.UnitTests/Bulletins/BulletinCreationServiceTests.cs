@@ -1,4 +1,5 @@
 using CrewService.Application.Crews;
+using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
@@ -51,7 +52,10 @@ public class BulletinCreationServiceTests
         CrewPosition.Create(CrewCtrlNbr, CraftRoleCtrlNbr, 1, staffablePositionCtrlNbr);
 
     private static CrewsAppService BuildService(FakeOrchestrationUnitOfWork uow) =>
-        new(new FakeUowFactory(uow), NullLogger<CrewsAppService>.Instance);
+        BuildService(uow, new RecordingVacancyRepostService());
+
+    private static CrewsAppService BuildService(FakeOrchestrationUnitOfWork uow, IVacancyRepostService repost) =>
+        new(new FakeUowFactory(uow), repost, NullLogger<CrewsAppService>.Instance);
 
     // ── CreateCrewPositionAsync ───────────────────────────────────────────────
 
@@ -98,7 +102,7 @@ public class BulletinCreationServiceTests
     // ── EndCrewIncumbencyAsync ────────────────────────────────────────────────
 
     [Fact]
-    public async Task EndCrewIncumbency_VacatesAssignmentAndDefersRepost_NoInlineBulletin()
+    public async Task EndCrewIncumbency_VacatesAssignmentAndDelegatesRepost_NoInlineBulletin()
     {
         var staffPos    = StaffablePosition.Create(StaffablePositionType.Crew);
         var crewPos     = MakeCrewPosition(staffPos.CtrlNbr);
@@ -109,17 +113,19 @@ public class BulletinCreationServiceTests
             bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
-        var sut = BuildService(uow);
+        var repost = new RecordingVacancyRepostService();
+        var sut = BuildService(uow, repost);
 
         await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow,
             TestContext.Current.CancellationToken);
 
-        // Reposting is deferred to VacancyRepostService via the vacated domain event —
-        // EndCrewIncumbencyAsync no longer bulletins the freed position inline.
+        // The vacate itself does not bulletin inline; it commits the freed position and then
+        // delegates to the single canonical VacancyRepostService — the same path board removals use.
         Assert.Contains(assignment, uow.FakePositionAssignments.RemovedEntities);
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
         Assert.True(uow.Committed);
+        Assert.Contains(staffPos.CtrlNbr, repost.RepostedPositions);
     }
 
     [Fact]
@@ -192,6 +198,38 @@ public class BulletinCreationServiceTests
     {
         public Task<IOrchestrationUnitOfWork> CreateAsync(OrchestrationUnitOfWorkOptions? options = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IOrchestrationUnitOfWork>(uow);
+    }
+
+    /// <summary>
+    /// Spy for the canonical repost policy. Records every vacated position handed to it so tests
+    /// can assert the crew-vacate path delegates to the single bulletin-producing service instead
+    /// of bulletining inline.
+    /// </summary>
+    private sealed class RecordingVacancyRepostService : IVacancyRepostService
+    {
+        public List<ControlNumber> RepostedPositions { get; } = [];
+
+        public Task RepostVacatedPositionAsync(
+            ControlNumber staffablePositionCtrlNbr,
+            ControlNumber? previousIncumbentCtrlNbr = null,
+            CancellationToken ct = default)
+        {
+            RepostedPositions.Add(staffablePositionCtrlNbr);
+            return Task.CompletedTask;
+        }
+
+        public Task RepostBoardPositionIfUnderstaffedAsync(
+            ControlNumber boardCtrlNbr,
+            ControlNumber vacatedStaffablePositionCtrlNbr,
+            ControlNumber? previousIncumbentCtrlNbr = null,
+            CancellationToken ct = default)
+        {
+            RepostedPositions.Add(vacatedStaffablePositionCtrlNbr);
+            return Task.CompletedTask;
+        }
+
+        public Task<int> ReconcileUnbulletinedVacantPositionsAsync(CancellationToken ct = default)
+            => Task.FromResult(0);
     }
 
     private abstract class FakeRepoBase<T> : IRepository<T> where T : Entity

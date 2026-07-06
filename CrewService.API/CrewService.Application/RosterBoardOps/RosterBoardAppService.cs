@@ -1,3 +1,4 @@
+using CrewService.Application.Boards;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Models.Employees;
@@ -13,7 +14,7 @@ namespace CrewService.Application.RosterBoardOps;
 public sealed class RosterBoardAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IRequiredPositionsFormulaRegistry formulaRegistry,
-    VacancyAssignment.VacancyRepostService vacancyRepostService)
+    VacancyAssignment.IVacancyRepostService vacancyRepostService)
 {
     // ── Single Board ─────────────────────────────────────────────────────────
 
@@ -494,6 +495,12 @@ public sealed class RosterBoardAppService(
         }
 
         if (strategy is null)
+            return;
+
+        // The Static formula is a manual, no-op strategy: its RequiredPositions value is set
+        // explicitly by an admin and must never be recalculated (Calculate always returns 0,
+        // which would wipe out the manual value and disable auto-bulletining). Skip it entirely.
+        if (string.Equals(strategy.FormulaType, FormulaTypes.Static, StringComparison.OrdinalIgnoreCase))
             return;
 
         var formula = formulaRegistry.GetFormula(strategy.FormulaType);

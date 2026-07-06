@@ -24,7 +24,7 @@ public sealed class DomainEventReactor(
         var qualificationService = scope.ServiceProvider.GetRequiredService<QualificationReactiveService>();
         var employeeService = scope.ServiceProvider.GetRequiredService<EmployeeReactiveService>();
         var notificationDelivery = scope.ServiceProvider.GetRequiredService<INotificationDeliveryService>();
-        var vacancyRepostService = scope.ServiceProvider.GetRequiredService<VacancyRepostService>();
+        var vacancyRepostService = scope.ServiceProvider.GetRequiredService<IVacancyRepostService>();
 
         foreach (var domainEvent in events)
         {

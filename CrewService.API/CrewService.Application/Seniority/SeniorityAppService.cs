@@ -167,8 +167,8 @@ public sealed class SeniorityAppService(
                 string.Empty, // name resolved in presentation via EmployeeNameService
                 stateName,
                 restrictionLabels ?? [],
-                pos.PositionName,
-                pos.PositionType,
+                pos.PositionName ?? string.Empty,
+                pos.PositionType ?? string.Empty,
                 pos.StaffablePositionCtrlNbr,
                 canExercise);
         }).ToList();

@@ -103,9 +103,9 @@ public sealed class BulletinProcessingWorker(
         if (forceAssigned.Count > 0)
             logger.LogInformation("BulletinProcessingWorker: Auto-force-assigned {Count} NoBid bulletin(s).", forceAssigned.Count);
 
-        // 3. Durable reconciliation: repost any vacant crew/board positions the post-commit
-        //    reactor missed (e.g. process restart before the fire-and-forget reaction ran).
-        var vacancyRepostService = services.GetRequiredService<VacancyAssignment.VacancyRepostService>();
+        // 3. Durable reconciliation: repost any vacant crew/board positions the inline repost
+        //    missed (e.g. process restart mid-request before the synchronous repost ran).
+        var vacancyRepostService = services.GetRequiredService<VacancyAssignment.IVacancyRepostService>();
         await vacancyRepostService.ReconcileUnbulletinedVacantPositionsAsync(ct);
     }
 

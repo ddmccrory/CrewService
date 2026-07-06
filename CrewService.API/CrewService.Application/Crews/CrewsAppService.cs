@@ -1,3 +1,4 @@
+using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
@@ -9,6 +10,7 @@ namespace CrewService.Application.Crews;
 
 public sealed class CrewsAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
+    IVacancyRepostService vacancyRepostService,
     ILogger<CrewsAppService> logger)
 {
     // ── Crews ────────────────────────────────────────────────────────────────
@@ -112,7 +114,7 @@ public sealed class CrewsAppService(
                 var vacancy = PositionVacancy.Create(
                     crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, staffablePosition.CtrlNbr,
                     craftRole.CraftCtrlNbr, "POSITION_CREATED",
-                    targetName: $"{crew.Name} - {craftRole.Name}");
+                    targetName: VacancyTargetName.ForCrewPosition(crew, craftRole));
                 var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
                 var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
                 var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
@@ -196,27 +198,43 @@ public sealed class CrewsAppService(
 
     public async Task EndCrewIncumbencyAsync(ControlNumber ctrlNbr, DateTime endUtc, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"Incumbency {ctrlNbr.Value} not found.");
-        incumbency.End(endUtc);
-        uow.CrewIncumbencies.Update(incumbency);
+        ControlNumber? vacatedStaffablePositionCtrlNbr = null;
+        ControlNumber? previousIncumbentCtrlNbr = null;
 
-        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, ct);
-        if (crewPosition is not null)
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
-            if (positionAssignment is not null)
+            var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Incumbency {ctrlNbr.Value} not found.");
+            incumbency.End(endUtc);
+            uow.CrewIncumbencies.Update(incumbency);
+
+            var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, ct);
+            if (crewPosition is not null)
             {
-                // Raise the vacate event so the DomainEventReactor reposts the freed position through
-                // the centralized VacancyRepostService, then remove the assignment row so occupancy
-                // checks see the position as open. This keeps crew vacates on the same auto-bulletin
-                // path as force-assignment, seniority moves, and board removals — no inline bulletining.
-                positionAssignment.Vacate();
-                uow.PositionAssignments.Remove(positionAssignment);
+                var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
+                if (positionAssignment is not null)
+                {
+                    // Raise the vacate event (single domain entry point for a freed position) and remove
+                    // the assignment row so occupancy checks see the position as open. The auto-bulletin
+                    // itself is done synchronously below via VacancyRepostService — the same call the
+                    // board-removal path uses — so it never depends on the fire-and-forget reactor.
+                    positionAssignment.Vacate();
+                    uow.PositionAssignments.Remove(positionAssignment);
+                    vacatedStaffablePositionCtrlNbr = crewPosition.StaffablePositionCtrlNbr;
+                    previousIncumbentCtrlNbr = incumbency.EmployeeCtrlNbr;
+                }
             }
+            await uow.CommitAsync(ct);
         }
-        await uow.CommitAsync(ct);
+
+        // Auto-bulletin the freed crew position via the centralized policy, synchronously and in the
+        // same request. The vacate is already committed so the repost sees the position as open. Any
+        // crew position that is vacated is bulletined here — no reliance on background reaction.
+        if (vacatedStaffablePositionCtrlNbr is not null)
+        {
+            await vacancyRepostService.RepostVacatedPositionAsync(
+                vacatedStaffablePositionCtrlNbr, previousIncumbentCtrlNbr, ct);
+        }
     }
 
     // ── Crew Assignments ─────────────────────────────────────────────────────
