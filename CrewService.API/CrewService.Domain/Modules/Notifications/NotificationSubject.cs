@@ -37,4 +37,5 @@ public static class NotificationSubjectTypes
     public const string SeniorityMove = "SeniorityMove";
     public const string InformationRecord = "InformationRecord";
     public const string WorkAreaGroup = "WorkAreaGroup";
+    public const string RosterBoard = "RosterBoard";
 }

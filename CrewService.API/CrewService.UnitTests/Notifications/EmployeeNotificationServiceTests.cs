@@ -46,6 +46,10 @@ public class EmployeeNotificationServiceTests
         DynamicGroup.Create(ControlNumber.Create(9), "Houston Yard", parentGroupCtrlNbr: null,
             path: null, isWorkArea: true, railroadCtrlNbr: RailroadCtrlNbr);
 
+    private static Roster MakeRoster() =>
+        Roster.Create(CraftCtrlNbr, WorkAreaGroupCtrlNbr, railroadPayrollDepartmentCtrlNbr: null,
+            "Engineer Roster", "Engineer Rosters", 1);
+
     private static PositionVacancy MakeVacancy() =>
         PositionVacancy.Create(WorkAreaGroupCtrlNbr, StaffablePositionType.Crew,
             TargetPositionCtrlNbr, CraftCtrlNbr, "POSITION_CREATED");
@@ -241,20 +245,71 @@ public class EmployeeNotificationServiceTests
         Assert.Contains("position Extra Board A", notification.Message);
     }
 
-    // ── Displacement ─────────────────────────────────────────────────────
+    // ── Board placement ──────────────────────────────────────────────────
 
     [Fact]
-    public async Task NotifyDisplaced_AddsPositionChangeNotification()
+    public async Task NotifyBoardPlacement_BoardOptsOut_AddsNoNotification()
     {
-        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        var board = RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(50), "Extra Board A",
+            BoardType.ExtraBoard);
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: MakeWorkArea(),
+            board: board, roster: MakeRoster());
 
-        await BuildService().NotifyDisplacedAsync(uow, RailroadCtrlNbr, EmployeeCtrlNbr,
+        await BuildService().NotifyBoardPlacementAsync(uow, board, EmployeeCtrlNbr,
+            subject: null, TestContext.Current.CancellationToken);
+
+        Assert.Empty(uow.Notifications.AddedEntities);
+    }
+
+    [Fact]
+    public async Task NotifyBoardPlacement_HangoutBoard_AddsAcknowledgementRequiredNotification()
+    {
+        var board = RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(50), "Hangout Board",
+            BoardType.Hangout);
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: MakeWorkArea(),
+            board: board, roster: MakeRoster());
+
+        await BuildService().NotifyBoardPlacementAsync(uow, board, EmployeeCtrlNbr,
             subject: null, TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
-        Assert.Equal(NotificationCategories.PositionChange, notification.Category);
+        Assert.Equal(NotificationCategories.BoardPlacement, notification.Category);
         Assert.Equal(EmployeeCtrlNbr, notification.EmployeeCtrlNbr);
+        Assert.Equal(RailroadCtrlNbr, notification.RailroadCtrlNbr);
         Assert.True(notification.RequiresAcknowledgement);
+        Assert.Contains("Hangout Board", notification.Message);
+    }
+
+    [Fact]
+    public async Task NotifyBoardPlacement_NotifyWithoutAcknowledgement_AddsNonAckNotification()
+    {
+        var board = RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(50), "Overtime Board",
+            BoardType.ExtraBoard);
+        board.SetNotifyOnPlacement(true);
+        board.SetPlacementRequiresAcknowledgement(false);
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: MakeWorkArea(),
+            board: board, roster: MakeRoster());
+
+        await BuildService().NotifyBoardPlacementAsync(uow, board, EmployeeCtrlNbr,
+            subject: null, TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal(NotificationCategories.BoardPlacement, notification.Category);
+        Assert.False(notification.RequiresAcknowledgement);
+    }
+
+    [Fact]
+    public async Task NotifyBoardPlacement_UnresolvableRailroad_AddsNoNotification()
+    {
+        var board = RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(50), "Hangout Board",
+            BoardType.Hangout);
+        // No roster wired → railroad cannot be resolved, so the notice is skipped.
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: MakeWorkArea(), board: board);
+
+        await BuildService().NotifyBoardPlacementAsync(uow, board, EmployeeCtrlNbr,
+            subject: null, TestContext.Current.CancellationToken);
+
+        Assert.Empty(uow.Notifications.AddedEntities);
     }
 
     // ── Seniority move request ───────────────────────────────────────────
@@ -463,6 +518,15 @@ internal sealed class FakeRosterBoardRepo(RosterBoard? board) : FakeNotification
     public Task<RosterBoard?> GetByStaffablePositionCtrlNbrAsync(ControlNumber s, CancellationToken ct = default) => Task.FromResult(board);
 }
 
+internal sealed class FakeRosterRepo(Roster? roster) : FakeNotificationRepoBase<Roster>, IRosterRepository
+{
+    public override Task<Roster?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(roster);
+    public Task<List<Roster>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr) => Task.FromResult(new List<Roster>());
+    public Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs) => Task.FromResult(new List<Roster>());
+    public Task<List<Roster>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default) => Task.FromResult(new List<Roster>());
+    public Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default) => Task.FromResult<Roster?>(null);
+}
+
 internal sealed class FakeCraftRepo(Craft? craft) : FakeNotificationRepoBase<Craft>, ICraftRepository
 {
     public override Task<Craft?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(craft);
@@ -494,7 +558,7 @@ internal sealed class FakeUserAccounts(string userId, string fullNameLnf) : IUse
 /// Employees, PositionVacancies, DynamicGroups, and EmployeeNotifications.
 /// All other members throw to keep the surface intentional.
 /// </summary>
-internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup? workArea, Employee? employee = null, StaffablePosition? position = null, RosterBoard? board = null, Craft? craft = null) : IOrchestrationUnitOfWork
+internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup? workArea, Employee? employee = null, StaffablePosition? position = null, RosterBoard? board = null, Craft? craft = null, Roster? roster = null) : IOrchestrationUnitOfWork
 {
     public FakePositionVacancyRepo Vacancies { get; } = new(vacancy);
     public FakeDynamicGroupRepo Groups { get; } = new(workArea);
@@ -503,6 +567,7 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public FakeStaffablePositionRepo StaffablePositionRepo { get; } = new(position);
     public FakeRosterBoardRepo RosterBoardRepo { get; } = new(board);
     public FakeCraftRepo CraftRepo { get; } = new(craft);
+    public FakeRosterRepo RosterRepo { get; } = new(roster);
 
     public string CorrelationId => "test";
     public string OrchestrationId => "test";
@@ -514,6 +579,7 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IStaffablePositionRepository StaffablePositions => StaffablePositionRepo;
     public IRosterBoardRepository RosterBoards => RosterBoardRepo;
     public ICraftRepository Crafts => CraftRepo;
+    public IRosterRepository Rosters => RosterRepo;
 
     public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
@@ -535,7 +601,6 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IEmploymentStatusRepository EmploymentStatuses => throw new NotImplementedException();
     public IEmploymentStatusHistoryRepository EmploymentStatusHistory => throw new NotImplementedException();
     public IEmployeePriorServiceCreditRepository EmployeePriorServiceCredits => throw new NotImplementedException();
-    public IRosterRepository Rosters => throw new NotImplementedException();
     public ISeniorityRepository Seniority => throw new NotImplementedException();
     public ISeniorityStateRepository SeniorityStates => throw new NotImplementedException();
     public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => throw new NotImplementedException();

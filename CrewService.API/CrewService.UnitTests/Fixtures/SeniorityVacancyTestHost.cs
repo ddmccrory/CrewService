@@ -65,7 +65,8 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         RosterBoards = new RosterBoardAppService(
             UowFactory,
             new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
-            Repost);
+            Repost,
+            notifications);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);
         Seniority = new SeniorityAppService(UowFactory, new QualificationReactiveService(), VacancyConfig);

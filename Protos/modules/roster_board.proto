@@ -71,6 +71,8 @@ message CreateRosterBoardRequest {
   bool allow_bulletin_bidding = 8;
   bool allow_seniority_move = 9;
   bool allow_force_assign = 10;
+  bool notify_on_placement = 11;
+  bool placement_requires_acknowledgement = 12;
 }
 
 message UpdateRosterBoardRequest {
@@ -83,6 +85,8 @@ message UpdateRosterBoardRequest {
   bool allow_bulletin_bidding = 7;
   bool allow_seniority_move = 8;
   bool allow_force_assign = 9;
+  bool notify_on_placement = 10;
+  bool placement_requires_acknowledgement = 11;
 }
 
 message DeleteRosterBoardRequest {
@@ -118,6 +122,8 @@ message RosterBoardResponse {
   bool allow_bulletin_bidding = 16;
   bool allow_seniority_move = 17;
   bool allow_force_assign = 18;
+  bool notify_on_placement = 19;
+  bool placement_requires_acknowledgement = 20;
 }
 
 message RosterBoardPositionResponse {

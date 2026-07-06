@@ -29,6 +29,17 @@ public sealed class RosterBoard : Entity
     /// selection logic. Defaults based on board type.</summary>
     public bool AllowForceAssign { get; private set; }
 
+    /// <summary>Whether landing on this board raises an <c>EmployeeNotification</c> to the affected
+    /// employee, regardless of how they were placed (manual add, seniority move, or seniority-state
+    /// change). Emulates SA's hangout-board notification while keeping the trigger tenant-configurable
+    /// per board rather than hardcoding board types. Defaults based on board type.</summary>
+    public bool NotifyOnPlacement { get; private set; }
+
+    /// <summary>Whether the placement notification requires the employee's acknowledgement. Only
+    /// meaningful when <see cref="NotifyOnPlacement"/> is enabled. Mirrors SA's required-acknowledgement
+    /// behavior for hangout placement. Defaults based on board type.</summary>
+    public bool PlacementRequiresAcknowledgement { get; private set; }
+
     public IReadOnlyList<RosterBoardPosition> Positions => _positions.AsReadOnly();
 
     private RosterBoard()
@@ -60,7 +71,9 @@ public sealed class RosterBoard : Entity
             RequiredPositions = requiredPositions,
             AllowBulletinBidding = DefaultAllowBulletinBidding(boardType),
             AllowSeniorityMove = DefaultAllowSeniorityMove(boardType),
-            AllowForceAssign = DefaultAllowForceAssign(boardType)
+            AllowForceAssign = DefaultAllowForceAssign(boardType),
+            NotifyOnPlacement = DefaultNotifyOnPlacement(boardType),
+            PlacementRequiresAcknowledgement = DefaultPlacementRequiresAcknowledgement(boardType)
         };
         board.Raise(new RosterBoardCreatedDomainEvent(board.CtrlNbr, name));
         return board;
@@ -86,6 +99,10 @@ public sealed class RosterBoard : Entity
     public void SetAllowSeniorityMove(bool value) => AllowSeniorityMove = value;
 
     public void SetAllowForceAssign(bool value) => AllowForceAssign = value;
+
+    public void SetNotifyOnPlacement(bool value) => NotifyOnPlacement = value;
+
+    public void SetPlacementRequiresAcknowledgement(bool value) => PlacementRequiresAcknowledgement = value;
 
     public void SetRequiredPositionsStrategy(ControlNumber? strategyCtrlNbr) =>
         RequiredPositionsStrategyCtrlNbr = strategyCtrlNbr;
@@ -156,6 +173,18 @@ public sealed class RosterBoard : Entity
     /// eligible by default; all other board types are not.</summary>
     public static bool DefaultAllowForceAssign(BoardType boardType) =>
         boardType is BoardType.ExtraBoard or BoardType.Hangout;
+
+    /// <summary>Returns the conventional default for NotifyOnPlacement based on board type.
+    /// Emulating SA, only Hangout placement notifies the employee by default; every other board
+    /// type is silent unless a railroad opts in.</summary>
+    public static bool DefaultNotifyOnPlacement(BoardType boardType) =>
+        boardType is BoardType.Hangout;
+
+    /// <summary>Returns the conventional default for PlacementRequiresAcknowledgement based on board
+    /// type. Emulating SA, Hangout placement requires acknowledgement by default; other board types
+    /// do not (and it only applies when <see cref="NotifyOnPlacement"/> is enabled).</summary>
+    public static bool DefaultPlacementRequiresAcknowledgement(BoardType boardType) =>
+        boardType is BoardType.Hangout;
 }
 
 public sealed class RosterBoardPosition : Entity

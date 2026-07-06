@@ -87,6 +87,8 @@ public class RosterBoardService(
             boardResponse.AllowBulletinBidding = board.AllowBulletinBidding;
             boardResponse.AllowSeniorityMove = board.AllowSeniorityMove;
             boardResponse.AllowForceAssign = board.AllowForceAssign;
+            boardResponse.NotifyOnPlacement = board.NotifyOnPlacement;
+            boardResponse.PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement;
 
             foreach (var position in board.Positions)
             {
@@ -138,7 +140,8 @@ public class RosterBoardService(
             await svc.CreateRosterBoardAsync(request.CraftCtrlNbr, request.RosterCtrlNbr, request.Name,
                 boardType, rotationType, request.IsActive, request.RequiredPositions,
                 request.AllowBulletinBidding, request.AllowSeniorityMove,
-                request.AllowForceAssign, context.CancellationToken);
+                request.AllowForceAssign, request.NotifyOnPlacement,
+                request.PlacementRequiresAcknowledgement, context.CancellationToken);
         var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
         return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
     }
@@ -155,7 +158,8 @@ public class RosterBoardService(
                 await svc.UpdateRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
                     boardType, rotationType, request.IsActive, request.RequiredPositions,
                     request.AllowBulletinBidding, request.AllowSeniorityMove,
-                    request.AllowForceAssign, context.CancellationToken);
+                    request.AllowForceAssign, request.NotifyOnPlacement,
+                    request.PlacementRequiresAcknowledgement, context.CancellationToken);
             var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
             return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
         }
@@ -330,6 +334,8 @@ public class RosterBoardService(
         response.AllowBulletinBidding = board.AllowBulletinBidding;
         response.AllowSeniorityMove = board.AllowSeniorityMove;
         response.AllowForceAssign = board.AllowForceAssign;
+        response.NotifyOnPlacement = board.NotifyOnPlacement;
+        response.PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement;
         foreach (var position in board.Positions)
             response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, tz, svc, ct));
         return response;

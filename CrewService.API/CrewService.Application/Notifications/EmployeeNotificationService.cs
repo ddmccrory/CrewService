@@ -299,22 +299,60 @@ public sealed class EmployeeNotificationService(
     }
 
     /// <summary>
-    /// Notifies an employee that they were displaced from their position (by a bulletin award,
-    /// force-assignment, or a higher-seniority move) and placed on the Hangout board.
-    /// Position-affecting, so it requires acknowledgement.
+    /// Notifies an employee that they were placed on a board, honoring the board's tenant-configured
+    /// placement-notification policy. Fires for <em>any</em> placement path (manual add, seniority
+    /// move displacement, or seniority-state change): the caller passes the board and the affected
+    /// employee, and the per-board <see cref="Domain.Modules.Boards.RosterBoard.NotifyOnPlacement"/> /
+    /// <see cref="Domain.Modules.Boards.RosterBoard.PlacementRequiresAcknowledgement"/> flags decide
+    /// whether a notice is raised and whether acknowledgement is required. Emulates SA's
+    /// hangout-placement notification without hardcoding board types. No-op when the board opts out.
     /// </summary>
-    public Task NotifyDisplacedAsync(
+    public async Task NotifyBoardPlacementAsync(
         IOrchestrationUnitOfWork uow,
-        ControlNumber railroadCtrlNbr,
-        ControlNumber displacedEmployeeCtrlNbr,
+        Domain.Modules.Boards.RosterBoard board,
+        ControlNumber employeeCtrlNbr,
         NotificationSubject? subject = null,
         CancellationToken ct = default)
     {
-        Emit(uow, railroadCtrlNbr, displacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
-            "You have been displaced from your position and placed on the Hangout board.",
-            requiresAcknowledgement: true, subject, effectiveAtUtc: null);
+        if (!board.NotifyOnPlacement)
+            return;
 
-        return Task.CompletedTask;
+        var railroadCtrlNbr = await ResolveBoardRailroadAsync(uow, board, ct);
+        if (railroadCtrlNbr is null)
+        {
+            logger.LogWarning(
+                "Skipping board-placement notification for employee {Employee}: railroad could not be resolved for board {Board}.",
+                employeeCtrlNbr.Value, board.CtrlNbr.Value);
+            return;
+        }
+
+        var placementSubject = subject
+            ?? NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, board.CtrlNbr);
+        var boardClause = string.IsNullOrWhiteSpace(board.Name) ? "a board" : $"the {board.Name} board";
+
+        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BoardPlacement,
+            $"You have been placed on {boardClause}.",
+            requiresAcknowledgement: board.PlacementRequiresAcknowledgement, placementSubject, effectiveAtUtc: null);
+    }
+
+    /// <summary>
+    /// Resolves the railroad (work-area <c>DynamicGroup</c>) that owns a roster board via its
+    /// roster's work-area group. Returns <c>null</c> when the board has no roster/work-area so the
+    /// caller can skip the notification.
+    /// </summary>
+    private async Task<ControlNumber?> ResolveBoardRailroadAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Boards.RosterBoard board,
+        CancellationToken ct)
+    {
+        if (board.RosterCtrlNbr is null)
+            return null;
+
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+        if (roster is null)
+            return null;
+
+        return await railroadResolver.ResolveFromWorkAreaAsync(uow, roster.WorkAreaGroupCtrlNbr, ct);
     }
 
     private string FormatEffectiveLocal(DateTime? effectiveUtc, TimeZoneInfo? tz)
