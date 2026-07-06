@@ -1,4 +1,5 @@
 using CrewService.Application.Boards;
+using CrewService.Application.Notifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Models.Employees;
@@ -14,7 +15,8 @@ namespace CrewService.Application.RosterBoardOps;
 public sealed class RosterBoardAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IRequiredPositionsFormulaRegistry formulaRegistry,
-    VacancyAssignment.IVacancyRepostService vacancyRepostService)
+    VacancyAssignment.IVacancyRepostService vacancyRepostService,
+    EmployeeNotificationService notifications)
 {
     // ── Single Board ─────────────────────────────────────────────────────────
 
@@ -143,7 +145,8 @@ public sealed class RosterBoardAppService(
         CreateRosterBoardAsync(long craftCtrlNbr, long rosterCtrlNbr, string name,
             BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0,
             bool? allowBulletinBidding = null, bool? allowSeniorityMove = null,
-            bool? allowForceAssign = null, CancellationToken ct = default)
+            bool? allowForceAssign = null, bool? notifyOnPlacement = null,
+            bool? placementRequiresAcknowledgement = null, CancellationToken ct = default)
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(craftCtrlNbr), ControlNumber.Create(rosterCtrlNbr),
@@ -154,6 +157,10 @@ public sealed class RosterBoardAppService(
             board.SetAllowSeniorityMove(allowSeniorityMove.Value);
         if (allowForceAssign.HasValue)
             board.SetAllowForceAssign(allowForceAssign.Value);
+        if (notifyOnPlacement.HasValue)
+            board.SetNotifyOnPlacement(notifyOnPlacement.Value);
+        if (placementRequiresAcknowledgement.HasValue)
+            board.SetPlacementRequiresAcknowledgement(placementRequiresAcknowledgement.Value);
 
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.RosterBoards.Add(board);
@@ -167,7 +174,8 @@ public sealed class RosterBoardAppService(
         UpdateRosterBoardAsync(ControlNumber ctrlNbr, string name,
             BoardType boardType, RotationType rotationType, bool isActive, int requiredPositions = 0,
             bool? allowBulletinBidding = null, bool? allowSeniorityMove = null,
-            bool? allowForceAssign = null, CancellationToken ct = default)
+            bool? allowForceAssign = null, bool? notifyOnPlacement = null,
+            bool? placementRequiresAcknowledgement = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr)
@@ -179,6 +187,10 @@ public sealed class RosterBoardAppService(
             board.SetAllowSeniorityMove(allowSeniorityMove.Value);
         if (allowForceAssign.HasValue)
             board.SetAllowForceAssign(allowForceAssign.Value);
+        if (notifyOnPlacement.HasValue)
+            board.SetNotifyOnPlacement(notifyOnPlacement.Value);
+        if (placementRequiresAcknowledgement.HasValue)
+            board.SetPlacementRequiresAcknowledgement(placementRequiresAcknowledgement.Value);
         uow.RosterBoards.Update(board);
         var updateResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
@@ -219,6 +231,13 @@ public sealed class RosterBoardAppService(
         uow.StaffablePositions.Add(staffablePosition);
         uow.PositionAssignments.Add(positionAssignment);
         uow.RosterBoards.Update(board);
+
+        // Board-placement notification (tenant-configured per board): fires here so every manual
+        // add and every seniority-state MoveToBoard placement (which routes through this method)
+        // honors the board's NotifyOnPlacement / PlacementRequiresAcknowledgement policy. Emitted
+        // inside this UoW so the notice is persisted atomically with the placement.
+        await notifications.NotifyBoardPlacementAsync(uow, board, employeeCtrlNbr, subject: null, ct);
+
         var labels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, [employeeCtrlNbr], ct);
         await uow.CommitAsync(ct);
         return (position, labels);

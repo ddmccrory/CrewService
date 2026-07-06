@@ -39,10 +39,13 @@ else
 {
     <Modal Visible="showSaveModal" Title="@(editCtrlNbr > 0 ? "Edit Roster Board" : "Create Roster Board")"
            Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           Size="lg" Scrollable="true"
            OnClose="CloseSaveModal">
         <BodyContent>
             <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-board-form">
                 <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
                 @if (editCtrlNbr == 0)
                 {
                     <div class="mb-3">
@@ -113,6 +116,8 @@ else
                     <InputNumber @bind-Value="saveModel.RequiredPositions" class="form-control" min="0" />
                     <div class="form-text text-muted">Board vacancies are bulletined when occupied positions fall below this count. Set to 0 to disable auto-bulletining.</div>
                 </div>
+                    </div>
+                    <div class="col-md-6">
                 <div class="mb-3">
                     <div class="form-check form-switch">
                         <InputCheckbox @bind-Value="saveModel.AllowBulletinBidding" class="form-check-input" id="board-allow-bidding" />
@@ -133,6 +138,22 @@ else
                         <label class="form-check-label" for="board-allow-force-assign">Allow Force Assign</label>
                     </div>
                     <div class="form-text text-muted">When enabled, members of this board are eligible to be force-assigned to no-bid bulletin vacancies.</div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.NotifyOnPlacement" class="form-check-input" id="board-notify-on-placement" />
+                        <label class="form-check-label" for="board-notify-on-placement">Notify On Placement</label>
+                    </div>
+                    <div class="form-text text-muted">When enabled, an employee placed on this board is notified — however they got there (manual move, seniority move, or seniority status change).</div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.PlacementRequiresAcknowledgement" class="form-check-input" id="board-placement-requires-ack" disabled="@(!saveModel.NotifyOnPlacement)" />
+                        <label class="form-check-label" for="board-placement-requires-ack">Placement Requires Acknowledgement</label>
+                    </div>
+                    <div class="form-text text-muted">When enabled, the placement notification must be acknowledged by the employee. Only applies when "Notify On Placement" is enabled.</div>
+                </div>
+                    </div>
                 </div>
             </EditForm>
         </BodyContent>
@@ -392,7 +413,9 @@ else
             RequiredPositions = board.RequiredPositions,
             AllowBulletinBidding = board.AllowBulletinBidding,
             AllowSeniorityMove = board.AllowSeniorityMove,
-            AllowForceAssign = board.AllowForceAssign
+            AllowForceAssign = board.AllowForceAssign,
+            NotifyOnPlacement = board.NotifyOnPlacement,
+            PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement
         };
         showSaveModal = true;
     }
@@ -434,7 +457,9 @@ else
                     RequiredPositions = saveModel.RequiredPositions,
                     AllowBulletinBidding = saveModel.AllowBulletinBidding,
                     AllowSeniorityMove = saveModel.AllowSeniorityMove,
-                    AllowForceAssign = saveModel.AllowForceAssign
+                    AllowForceAssign = saveModel.AllowForceAssign,
+                    NotifyOnPlacement = saveModel.NotifyOnPlacement,
+                    PlacementRequiresAcknowledgement = saveModel.PlacementRequiresAcknowledgement
                 });
                 successMessage = "Roster board updated.";
             }
@@ -451,7 +476,9 @@ else
                     RequiredPositions = saveModel.RequiredPositions,
                     AllowBulletinBidding = saveModel.AllowBulletinBidding,
                     AllowSeniorityMove = saveModel.AllowSeniorityMove,
-                    AllowForceAssign = saveModel.AllowForceAssign
+                    AllowForceAssign = saveModel.AllowForceAssign,
+                    NotifyOnPlacement = saveModel.NotifyOnPlacement,
+                    PlacementRequiresAcknowledgement = saveModel.PlacementRequiresAcknowledgement
                 });
                 successMessage = "Roster board created.";
             }
@@ -533,5 +560,7 @@ else
         public bool AllowBulletinBidding { get; set; } = true;
         public bool AllowSeniorityMove { get; set; }
         public bool AllowForceAssign { get; set; } = true;
+        public bool NotifyOnPlacement { get; set; }
+        public bool PlacementRequiresAcknowledgement { get; set; }
     }
 }

@@ -94,14 +94,18 @@ public sealed class SeniorityMoveExecutionService(
         // 4. Place the displaced employee on the craft Hangout board (if any)
         if (displacedEmployeeCtrlNbr is not null)
         {
-            await PlaceOnHangoutBoardAsync(uow, move.CraftCtrlNbr, displacedEmployeeCtrlNbr, ct);
+            var placedBoard = await PlaceOnHangoutBoardAsync(uow, move.CraftCtrlNbr, displacedEmployeeCtrlNbr, ct);
 
-            // Notify the displaced employee (position-affecting; requires acknowledgement).
-            await notifications.NotifyDisplacedAsync(
-                uow, move.RailroadCtrlNbr, displacedEmployeeCtrlNbr,
-                Domain.Modules.Notifications.NotificationSubject.Create(
-                    Domain.Modules.Notifications.NotificationSubjectTypes.SeniorityMove, moveCtrlNbr),
-                ct);
+            // Notify the displaced employee, honoring the board's tenant-configured placement policy.
+            // Keep the seniority-move subject so the notice links back to the originating move.
+            if (placedBoard is not null)
+            {
+                await notifications.NotifyBoardPlacementAsync(
+                    uow, placedBoard, displacedEmployeeCtrlNbr,
+                    Domain.Modules.Notifications.NotificationSubject.Create(
+                        Domain.Modules.Notifications.NotificationSubjectTypes.SeniorityMove, moveCtrlNbr),
+                    ct);
+            }
         }
 
         // 5. Cancel other pending/approved moves targeting the same position
@@ -121,7 +125,7 @@ public sealed class SeniorityMoveExecutionService(
     // Private helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async Task PlaceOnHangoutBoardAsync(
+    private async Task<RosterBoard?> PlaceOnHangoutBoardAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber craftCtrlNbr,
         ControlNumber employeeCtrlNbr,
@@ -135,7 +139,7 @@ public sealed class SeniorityMoveExecutionService(
             logger.LogWarning(
                 "SeniorityMoveExecution: No active Hangout board found for craft {Craft}. Displaced employee {Employee} not placed.",
                 craftCtrlNbr, employeeCtrlNbr);
-            return;
+            return null;
         }
 
         // Check if the employee already has a position on this hangout board
@@ -144,7 +148,7 @@ public sealed class SeniorityMoveExecutionService(
             logger.LogInformation(
                 "SeniorityMoveExecution: Employee {Employee} already on Hangout board {Board}.",
                 employeeCtrlNbr, hangoutBoard.CtrlNbr);
-            return;
+            return null;
         }
 
         // Create a StaffablePosition to back the hangout board slot
@@ -161,6 +165,8 @@ public sealed class SeniorityMoveExecutionService(
         logger.LogInformation(
             "SeniorityMoveExecution: Displaced employee {Employee} placed on Hangout board {Board}.",
             employeeCtrlNbr, hangoutBoard.CtrlNbr);
+
+        return hangoutBoard;
     }
 
     /// <summary>

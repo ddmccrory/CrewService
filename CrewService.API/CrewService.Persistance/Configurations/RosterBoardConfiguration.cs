@@ -23,6 +23,8 @@ internal class RosterBoardConfiguration : IEntityTypeConfiguration<RosterBoard>
         builder.Property(r => r.RequiredPositions).HasDefaultValue(0);
         builder.Property(r => r.AllowBulletinBidding);
         builder.Property(r => r.AllowForceAssign).HasDefaultValue(false);
+        builder.Property(r => r.NotifyOnPlacement).HasDefaultValue(false);
+        builder.Property(r => r.PlacementRequiresAcknowledgement).HasDefaultValue(false);
         builder.Property(r => r.RequiredPositionsStrategyCtrlNbr)
             .HasConversion(c => c == null ? (long?)null : c.Value, v => v == null ? null : ControlNumber.Create(v.Value));
 
