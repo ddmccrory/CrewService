@@ -143,7 +143,7 @@ else
                             <div class="flex-grow-1">
                                 <strong>Scheduled:</strong>
                                 → <strong>@(seniorityStates?.FirstOrDefault(s => s.CtrlNbr == pendingChange.ToStateCtrlNbr)?.StateDescription ?? pendingChange.ToStateCtrlNbr.ToString())</strong>
-                                on <strong>@FormatLocalDateTime(pendingChange.EffectiveDateUtc)</strong>
+                                on <strong>@pendingChange.EffectiveDateUtc</strong>
                             </div>
                             @if (IsAdminUser)
                             {
@@ -723,7 +723,7 @@ else
                     CraftCtrlNbr          = selectedCraftCtrlNbr,
                     TargetPositionCtrlNbr = targetEntry.StaffablePositionCtrlNbr
                 });
-            previewEffectiveUtc = preview.EffectiveUtc;
+            previewEffectiveUtc = preview.EffectiveLocal;
             previewWillWorkOffered = preview.WillWorkOffered;
         }
         catch { /* non-fatal: dialog shows 'Calculating…' if preview fails */ }
@@ -807,7 +807,7 @@ else
                     CraftCtrlNbr       = selectedCraftCtrlNbr,
                     TargetBoardCtrlNbr = boardCtrlNbr
                 });
-            previewEffectiveUtc = preview.EffectiveUtc;
+            previewEffectiveUtc = preview.EffectiveLocal;
             previewWillWorkOffered = preview.WillWorkOffered;
         }
         catch { /* non-fatal: dialog shows 'Calculating…' if preview fails */ }

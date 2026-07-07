@@ -21,6 +21,13 @@
 <h1>Seniority Moves</h1>
 <p class="text-muted mb-1">Review, approve, reject, or cancel seniority move requests.</p>
 
+@if (nextSeniorityMoveEventFormatted is not null)
+{
+    <p class="text-muted mb-1 small">
+        <span class="bi bi-clock me-1"></span>Next processing event: <strong>@nextSeniorityMoveEventFormatted</strong>
+    </p>
+}
+
 @if (IsInitializing)
 {
     <div class="d-flex align-items-center gap-2 mt-3">
@@ -175,8 +182,8 @@ else
             <td>@DisplayEmployee(move)</td>
             <td>@DisplayPosition(move)</td>
             <td>@FormatMoveType(move.MoveType)</td>
-            <td>@FormatLocalDateTime(move.RequestedUtc)</td>
-            <td>@FormatLocalDateTime(move.EffectiveUtc)</td>
+            <td>@FormatDisplayLocal(move.RequestedLocal)</td>
+            <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
             <td class="text-end">
                 @if (!Permissions.IsReadOnly(FeatureKey!))
                 {
@@ -239,6 +246,7 @@ else
     private List<SeniorityMoveNamedItem> juniorPositionItems = [];
     private List<SeniorityResponse> cachedRosterEntries = [];
     private List<SeniorityMoveResponse> moves = [];
+    private string? nextSeniorityMoveEventFormatted;
 
     // ── move-to-board state ────────────────────────────────────────────
     private RequestSeniorityMoveModal? moveToBoardModal;
@@ -255,8 +263,8 @@ else
         new("Employee",        DisplayEmployee, sortKey: "Employee"),
         new("Target Position", DisplayPosition),
         new("Move Type",       m => FormatMoveType(m.MoveType), width: "140px"),
-        new("Requested",       m => SortableInstant(m.RequestedUtc), sortKey: "Requested", width: "170px"),
-        new("Effective",       m => SortableInstant(m.EffectiveUtc), sortKey: "Effective", width: "170px"),
+        new("Requested",       m => SortableInstant(m.RequestedLocal), sortKey: "Requested", width: "170px"),
+        new("Effective",       m => SortableInstant(m.EffectiveLocal), sortKey: "Effective", width: "170px"),
         DataTableColumn<SeniorityMoveResponse>.Actions()
     ];
 
@@ -370,11 +378,20 @@ else
     {
         try
         {
-            var resp = showHistory
-                ? await PoliciesClient.GetAllMovesAsync()
-                : await PoliciesClient.GetActiveMovesAsync();
+            var movesTask = showHistory
+                ? PoliciesClient.GetAllMovesAsync()
+                : PoliciesClient.GetActiveMovesAsync();
+            var nextEventTask = PoliciesClient.GetNextSeniorityMoveEventLocalAsync();
+
+            await Task.WhenAll(movesTask, nextEventTask);
+
+            var resp = await movesTask;
+            var next = await nextEventTask;
 
             moves = [.. resp.Moves];
+            nextSeniorityMoveEventFormatted = string.IsNullOrWhiteSpace(next?.NextEventLocal)
+                ? null
+                : FormatDisplayLocal(next.NextEventLocal);
         }
         catch (Exception ex)
         {
@@ -439,7 +456,7 @@ else
                             EmployeeCtrlNbr = employeeCtrlNbr,
                             CraftCtrlNbr    = craftCtrlNbr
                         });
-                    previewEffectiveUtc = preview.EffectiveUtc;
+                    previewEffectiveUtc = FormatDisplayLocal(preview.EffectiveLocal);
                 }
                 catch (Exception ex)
                 {
@@ -467,7 +484,7 @@ else
                         CraftCtrlNbr          = requestCraftCtrlNbr,
                         TargetPositionCtrlNbr = staffablePositionCtrlNbr
                     });
-                previewEffectiveUtc = preview.EffectiveUtc;
+                previewEffectiveUtc = FormatDisplayLocal(preview.EffectiveLocal);
             }
             catch (Exception ex)
             {
@@ -609,7 +626,7 @@ else
                     CraftCtrlNbr       = boardCraftCtrlNbr,
                     TargetBoardCtrlNbr = boardSelectedCtrlNbr
                 });
-            previewEffectiveUtc = preview.EffectiveUtc;
+            previewEffectiveUtc = FormatDisplayLocal(preview.EffectiveLocal);
         }
         catch (Exception ex)
         {

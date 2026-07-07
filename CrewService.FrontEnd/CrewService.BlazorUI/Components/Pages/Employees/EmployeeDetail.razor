@@ -158,13 +158,13 @@ else
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var move in workProfile!.Moves.OrderByDescending(m => m.RequestedUtc))
+                            @foreach (var move in workProfile!.Moves.OrderByDescending(m => m.RequestedLocal))
                             {
                                 <tr>
                                     <td>@move.MoveType</td>
                                     <td>@(string.IsNullOrEmpty(move.TargetPositionName) ? "—" : move.TargetPositionName)</td>
-                                    <td>@FormatDate(move.RequestedUtc)</td>
-                                    <td>@(string.IsNullOrEmpty(move.EffectiveUtc) ? "—" : FormatDate(move.EffectiveUtc))</td>
+                                    <td>@FormatDisplayLocal(move.RequestedLocal)</td>
+                                    <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
                                     <td>
                                         <span class="badge @GetMoveBadgeClass(move.Status)">@move.Status</span>
                                     </td>
@@ -219,8 +219,8 @@ else
                                     <td>@(string.IsNullOrEmpty(bid.PositionName) ? "—" : bid.PositionName)</td>
                                     <td>@bid.Priority</td>
                                     <td>@FormatDate(bid.SubmittedUtc)</td>
-                                    <td>@FormatLocalDateTime(bid.BidWindowClosesUtc)</td>
-                                    <td>@FormatLocalDateTime(bid.EffectiveUtc)</td>
+                                    <td>@FormatDisplayLocal(bid.BidWindowClosesLocal)</td>
+                                    <td>@FormatDisplayLocal(bid.EffectiveLocal)</td>
                                     <td>
                                         <span class="badge @GetBidStatusBadge(bid.Status)">@bid.Status</span>
                                     </td>
@@ -847,10 +847,10 @@ else
                        DefaultSortColumn="Date"
                        DefaultSortAscending="false">
                 <RowContent Context="n">
-                    <td>@FormatLocalDateTime(n.CreatedAtLocal)</td>
+                    <td>@FormatDisplayLocal(n.CreatedAtLocal)</td>
                     <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
                     <td>@n.Message</td>
-                    <td>@FormatLocalDateTime(n.EffectiveAtLocal)</td>
+                    <td>@FormatDisplayLocal(n.EffectiveAtLocal)</td>
                     <td>
                         @if (!n.RequiresAcknowledgement)
                         {
@@ -1096,8 +1096,8 @@ else
                                 }
                             </td>
                             <td>@(string.IsNullOrEmpty(r.Location) ? "—" : r.Location.ToUpperInvariant())</td>
-                            <td>@FormatLocalDateTimeShortYear(r.OnDutyLocal)</td>
-                            <td>@FormatLocalDateTimeShortYear(r.OffDutyLocal)</td>
+                            <td>@FormatDisplayLocal(r.OnDutyLocal)</td>
+                            <td>@FormatDisplayLocal(r.OffDutyLocal)</td>
                             <td>@FormatTotalTime(r.TotalTimeOnDutyMin)</td>
                             <td>@r.ConsecutiveDays</td>
                             <td>

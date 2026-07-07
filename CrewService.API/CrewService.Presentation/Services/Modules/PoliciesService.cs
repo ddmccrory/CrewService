@@ -1,5 +1,6 @@
 using CrewService.Application.Policies;
 using CrewService.Application.Time;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.ValueObjects;
@@ -142,11 +143,13 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
                 request.RailroadCtrlNbr, request.EmployeeCtrlNbr, request.CraftCtrlNbr,
                 request.TargetPositionCtrlNbr, request.TargetBoardCtrlNbr,
                 context.CancellationToken);
+
+            var tz = await ResolveCraftTimeZoneAsync(request.CraftCtrlNbr, context.CancellationToken);
             return new PreviewSeniorityMoveEffectiveDateResponse
             {
-                // ISO-8601 carrying the work-area offset (e.g. "...-05:00"). The client displays the
-                // wall-clock value as-is; the offset makes the instant unambiguous end-to-end.
-                EffectiveUtc = effectiveUtc.ToString("O"),
+                // Presentation field now carries work-area-localized wall clock emitted by backend.
+                EffectiveLocal = serviceProvider.GetRequiredService<IWorkAreaClock>()
+                    .FormatLocalIso(effectiveUtc.UtcDateTime, tz),
                 WillWorkOffered = willWorkOffered
             };
         }
@@ -243,6 +246,29 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         return await BuildMovesResponseAsync(moves, context.CancellationToken);
     }
 
+    public override async Task<GetNextSeniorityMoveEventResponse> GetNextSeniorityMoveEvent(
+        GetNextSeniorityMoveEventRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+
+        var moves = await svc.GetActiveSeniorityMovesAsync(context.CancellationToken);
+        var nowUtc = clock.UtcNow.UtcDateTime;
+        var next = moves
+            .Where(m => m.Move.EffectiveUtc.HasValue && m.Move.EffectiveUtc.Value >= nowUtc)
+            .OrderBy(m => m.Move.EffectiveUtc)
+            .FirstOrDefault();
+
+        if (next is null)
+            return new GetNextSeniorityMoveEventResponse { NextEventLocal = string.Empty };
+
+        var tz = clock.ResolveTimeZone(next.WorkAreaTimeZoneId);
+        return new GetNextSeniorityMoveEventResponse
+        {
+            NextEventLocal = clock.FormatLocalIso(next.Move.EffectiveUtc!.Value, tz)
+        };
+    }
+
     private async Task<GetSeniorityMovesResponse> BuildMovesResponseAsync(
         IReadOnlyList<SeniorityMoveListItem> moves, CancellationToken ct)
     {
@@ -260,9 +286,9 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             // Re-render the UTC instants as work-area-local, offset-carrying ISO strings
             // (e.g. "...-05:00") so the UI displays the correct work-area wall clock.
             var tz = clock.ResolveTimeZone(item.WorkAreaTimeZoneId);
-            mapped.RequestedUtc = clock.FormatLocalIso(item.Move.RequestedUtc, tz);
+            mapped.RequestedLocal = clock.FormatLocalIso(item.Move.RequestedUtc, tz);
             if (item.Move.EffectiveUtc.HasValue)
-                mapped.EffectiveUtc = clock.FormatLocalIso(item.Move.EffectiveUtc.Value, tz);
+                mapped.EffectiveLocal = clock.FormatLocalIso(item.Move.EffectiveUtc.Value, tz);
             if (employeeNames.TryGetValue(item.Move.EmployeeCtrlNbr, out var info))
             {
                 var number = string.IsNullOrWhiteSpace(info.EmployeeNumber)
@@ -285,8 +311,8 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             CraftCtrlNbr = m.CraftCtrlNbr.Value,
             TargetPositionCtrlNbr = m.TargetPositionCtrlNbr.Value,
             DisplacedEmployeeCtrlNbr = m.DisplacedEmployeeCtrlNbr?.Value ?? 0,
-            RequestedUtc = m.RequestedUtc.ToString("O"),
-            EffectiveUtc = m.EffectiveUtc?.ToString("O") ?? string.Empty,
+            RequestedLocal = m.RequestedUtc.ToString("O"),
+            EffectiveLocal = m.EffectiveUtc?.ToString("O") ?? string.Empty,
             DaysOnCurrentPosition = m.DaysOnCurrentPosition,
             MoveType = m.MoveType,
             Status = m.Status,
@@ -296,5 +322,21 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         if (m.WillWork.HasValue)
             response.WillWork = m.WillWork.Value;
         return response;
+    }
+
+    private async Task<TimeZoneInfo?> ResolveCraftTimeZoneAsync(long craftCtrlNbr, CancellationToken ct)
+    {
+        if (craftCtrlNbr <= 0) return null;
+
+        var uowFactory = serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var rosters = await uow.Rosters.GetByCraftCtrlNbrAsync(ControlNumber.Create(craftCtrlNbr));
+        var roster = rosters.FirstOrDefault();
+        if (roster is null) return null;
+
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
+        return clock.ResolveTimeZone(group?.TimeZoneId);
     }
 }
