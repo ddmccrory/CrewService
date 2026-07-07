@@ -14,6 +14,7 @@
 @inject QualificationsClient QualificationsClient
 @inject EmployeeClient EmployeeClient
 @inject CrewClient CrewClient
+@inject AssignmentClient AssignmentClient
 @inject WorkManagementClient WorkManagementClient
 
 <PageTitle>Bulletin Detail</PageTitle>
@@ -133,12 +134,37 @@ else
                 <div class="card h-100">
                     <div class="card-header fw-semibold"><span class="bi bi-calendar-week me-1"></span> Crew Work Days</div>
                     <div class="card-body">
-                        <dl class="row mb-0">
-                            <dt class="col-sm-5">Crew</dt>
-                            <dd class="col-sm-7">@bulletinCrew.Name</dd>
-                            <dt class="col-sm-5">Work Days</dt>
-                            <dd class="col-sm-7">@(hasCrewWorkDays ? DayOfWeekPicker.FormatDays(crewWorkDaysMask) : "No work days configured")</dd>
-                        </dl>
+                        @if (crewAssignmentSummaries.Count > 0)
+                        {
+                            <div class="small fw-semibold mb-2">Covered Assignments</div>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Assignment</th>
+                                            <th>Work Days</th>
+                                            <th>On-Duty</th>
+                                            <th>Location</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var a in crewAssignmentSummaries)
+                                        {
+                                            <tr>
+                                                <td>@a.AssignmentName</td>
+                                                <td>@a.WorkDays</td>
+                                                <td>@a.OnDutyTime</td>
+                                                <td>@a.Location</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted">No covered assignments found.</div>
+                        }
                     </div>
                 </div>
             </div>
@@ -366,8 +392,7 @@ else
     private List<CrewPositionResponse> crewPositions = [];
     private Dictionary<long, string> crewRoleNames = [];
     private Dictionary<long, string> crewIncumbentNames = [];
-    private int crewWorkDaysMask;
-    private bool hasCrewWorkDays;
+    private List<CrewAssignmentSummary> crewAssignmentSummaries = [];
 
     private static readonly IReadOnlyList<DataTableColumn<BulletinBidResponse>> bidColumns =
     [
@@ -418,8 +443,7 @@ else
         crewPositions = [];
         crewRoleNames = [];
         crewIncumbentNames = [];
-        crewWorkDaysMask = 0;
-        hasCrewWorkDays = false;
+        crewAssignmentSummaries = [];
 
         if (crewCtrlNbr <= 0)
             return;
@@ -428,11 +452,31 @@ else
         {
             bulletinCrew = await CrewClient.GetCrewAsync(crewCtrlNbr);
             var assignmentsResp = await CrewClient.GetCrewAssignmentsAsync(crewCtrlNbr);
-            foreach (var a in assignmentsResp.Assignments)
+
+            if (assignmentsResp.Assignments.Count > 0)
             {
-                crewWorkDaysMask |= a.DaysOfWeekMask;
+                var assignmentsCatalog = await AssignmentClient.GetAllAsync(
+                    workAreaGroupCtrlNbr: bulletinCrew.WorkAreaCtrlNbr,
+                    railroadCtrlNbr: SelectedRailroadCtrlNbr ?? 0,
+                    departmentCtrlNbr: bulletinCrew.DepartmentCtrlNbr);
+
+                var assignmentLookup = assignmentsCatalog.Assignments
+                    .ToDictionary(a => a.CtrlNbr);
+
+                crewAssignmentSummaries = assignmentsResp.Assignments
+                    .Where(a => assignmentLookup.ContainsKey(a.AssignmentCtrlNbr))
+                    .Select(a => assignmentLookup[a.AssignmentCtrlNbr] is var details
+                        ? new CrewAssignmentSummary(
+                            AssignmentName: details.Name,
+                            WorkDays: DayOfWeekPicker.FormatDays(a.DaysOfWeekMask),
+                            OnDutyTime: FormatOnDutyTime(details.OnDutyTime),
+                            Location: string.IsNullOrWhiteSpace(details.GroupName) ? (string.IsNullOrWhiteSpace(details.GroupCode) ? "Not configured" : details.GroupCode) : details.GroupName)
+                        : null)
+                    .Where(a => a is not null)
+                    .Cast<CrewAssignmentSummary>()
+                    .OrderBy(a => a.AssignmentName)
+                    .ToList();
             }
-            hasCrewWorkDays = assignmentsResp.Assignments.Count > 0;
 
             var positionsResp = await CrewClient.GetCrewPositionsAsync(crewCtrlNbr);
             crewPositions = [.. positionsResp.Positions.OrderBy(p => p.DisplayOrder)];
@@ -644,6 +688,13 @@ else
         => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
             ? dt.ToString("MM/dd/yyyy HH:mm")
             : iso;
+
+    private static string FormatOnDutyTime(string value)
+        => TimeOnly.TryParse(value, out var t)
+            ? t.ToString("HH:mm")
+            : (string.IsNullOrWhiteSpace(value) ? "Not configured" : value);
+
+    private sealed record CrewAssignmentSummary(string AssignmentName, string WorkDays, string OnDutyTime, string Location);
 
     private static string FormatEmployeeLabel(EligibleEmployeeItem e) => $"{e.EmployeeNumber}  {e.FullNameLnf}";
 
