@@ -106,8 +106,8 @@ message WorkProfileSeniorityMove {
   int64  craft_ctrl_nbr            = 2;
   int64  target_position_ctrl_nbr  = 3;
   int64  displaced_employee_ctrl_nbr = 4;
-  string requested_utc             = 5;
-  string effective_utc             = 6;
+  string requested_local           = 5;
+  string effective_local           = 6;
   int32  days_on_current_position  = 7;
   string move_type                 = 8;
   string status                    = 9;
@@ -129,8 +129,8 @@ message WorkProfileBulletinBid {
   string status               = 5;
   string position_name        = 7;
   // Work-area-localized ISO-8601 (offset-carrying) instants for display.
-  string bid_window_closes_utc = 8;
-  string effective_utc         = 9;
+  string bid_window_closes_local = 8;
+  string effective_local         = 9;
 }
 
 // ── Employee On-Duty (open records + history) ────────────────────────────────

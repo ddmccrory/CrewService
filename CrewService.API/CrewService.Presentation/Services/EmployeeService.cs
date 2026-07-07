@@ -3,7 +3,9 @@ using CrewService.Presentation.Services;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 using CrewService.Application.Employees;
+using CrewService.Application.Time;
 using CrewService.Application.Modules.UserAccount;
+using CrewService.Domain.Interfaces;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
@@ -13,10 +15,14 @@ namespace CrewService.Presentation.Services;
 public class EmployeeService(
     EmployeeAppService employeeAppService,
     IUserAccountService userAccountService,
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IWorkAreaClock workAreaClock,
     ILogger<EmployeeService> logger) : EmployeeSrvc.EmployeeSrvcBase
 {
     private readonly EmployeeAppService _employeeAppService = employeeAppService;
     private readonly IUserAccountService _userAccountService = userAccountService;
+    private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
+    private readonly IWorkAreaClock _workAreaClock = workAreaClock;
     private readonly ILogger<EmployeeService> _logger = logger;
     #region Employee Operations
 
@@ -497,16 +503,27 @@ public class EmployeeService(
             });
         }
 
+        await using var uow = await _uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+        var craftTimeZoneCache = new Dictionary<long, TimeZoneInfo?>();
+
         foreach (var m in result.Moves)
         {
+            var timeZone = await ResolveCraftTimeZoneAsync(
+                uow,
+                m.CraftCtrlNbr,
+                craftTimeZoneCache,
+                context.CancellationToken);
+
             response.Moves.Add(new WorkProfileSeniorityMove
             {
                 CtrlNbr                  = m.CtrlNbr.Value,
                 CraftCtrlNbr             = m.CraftCtrlNbr.Value,
                 TargetPositionCtrlNbr    = m.TargetPositionCtrlNbr.Value,
                 DisplacedEmployeeCtrlNbr = m.DisplacedEmployeeCtrlNbr?.Value ?? 0,
-                RequestedUtc             = m.RequestedUtc.ToString("o"),
-                EffectiveUtc             = m.EffectiveUtc?.ToString("o") ?? string.Empty,
+                RequestedLocal           = _workAreaClock.FormatLocalIso(m.RequestedUtc, timeZone),
+                EffectiveLocal           = m.EffectiveUtc.HasValue
+                    ? _workAreaClock.FormatLocalIso(m.EffectiveUtc.Value, timeZone)
+                    : string.Empty,
                 DaysOnCurrentPosition    = m.DaysOnCurrentPosition,
                 MoveType                 = m.MoveType,
                 Status                   = m.Status,
@@ -527,8 +544,8 @@ public class EmployeeService(
                 SubmittedUtc        = b.SubmittedUtc.ToString("o"),
                 Status              = b.Status,
                 PositionName        = b.PositionName,
-                BidWindowClosesUtc  = b.BidWindowClosesLocalIso,
-                EffectiveUtc        = b.EffectiveLocalIso,
+                BidWindowClosesLocal = b.BidWindowClosesLocalIso,
+                EffectiveLocal       = b.EffectiveLocalIso,
             });
         }
 
@@ -585,6 +602,28 @@ public class EmployeeService(
             });
         }
         return response;
+    }
+
+    private async Task<TimeZoneInfo?> ResolveCraftTimeZoneAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber craftCtrlNbr,
+        Dictionary<long, TimeZoneInfo?> cache,
+        CancellationToken ct)
+    {
+        if (cache.TryGetValue(craftCtrlNbr.Value, out var cached))
+            return cached;
+
+        TimeZoneInfo? tz = null;
+        var rosters = await uow.Rosters.GetByCraftCtrlNbrAsync(craftCtrlNbr);
+        var roster = rosters.FirstOrDefault();
+        if (roster is not null)
+        {
+            var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
+            tz = _workAreaClock.ResolveTimeZone(group?.TimeZoneId);
+        }
+
+        cache[craftCtrlNbr.Value] = tz;
+        return tz;
     }
 
     #endregion

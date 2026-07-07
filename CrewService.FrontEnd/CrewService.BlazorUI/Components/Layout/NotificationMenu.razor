@@ -1,14 +1,12 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using CrewService.BlazorUI.Components
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
+@inherits AppComponentBase
 @implements IDisposable
 
 @inject NotificationsClient NotificationsClient
-@inject UserPermissionService Permissions
-@inject CircuitBootstrapService CircuitBootstrap
 @inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
-@inject AppContextService AppContext
 
 @if (_visible)
 {
@@ -60,7 +58,7 @@
                                 <div class="fw-semibold small mt-1">@n.EmployeeName</div>
                             }
                             <div class="small">@n.Message</div>
-                            <div class="text-muted small">@TimeDisplay.FormatLocalDateTime(n.CreatedAtLocal)</div>
+                            <div class="text-muted small">@FormatDisplayLocal(n.CreatedAtLocal)</div>
                         </div>
                     }
                 }

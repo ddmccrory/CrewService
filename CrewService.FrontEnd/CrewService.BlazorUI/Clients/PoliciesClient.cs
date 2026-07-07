@@ -126,6 +126,12 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<GetNextSeniorityMoveEventResponse?> GetNextSeniorityMoveEventLocalAsync()
+    {
+        try { return await _client.GetNextSeniorityMoveEventAsync(new GetNextSeniorityMoveEventRequest()); }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     /// <summary>
     /// Returns the subset of craft ctrl nbrs (from <paramref name="craftCtrlNbrs"/>) that have
     /// a configured seniority move policy. Crafts with no policy are silently omitted.

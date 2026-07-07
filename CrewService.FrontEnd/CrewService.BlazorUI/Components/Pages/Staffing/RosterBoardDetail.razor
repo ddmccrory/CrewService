@@ -385,8 +385,7 @@ else
 
     private static string FormatAssignedDate(RosterBoardPositionResponse pos)
     {
-        if (string.IsNullOrEmpty(pos.AssignedDateLocal)) return string.Empty;
-        return Services.TimeDisplay.FormatLocalDate(pos.AssignedDateLocal);
+        return string.IsNullOrEmpty(pos.AssignedDateLocal) ? "\u2014" : FormatDisplayLocalDate(pos.AssignedDateLocal);
     }
 
     private static string FormatBoardType(string boardType) => boardType switch

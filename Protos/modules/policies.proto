@@ -55,6 +55,9 @@ service PoliciesSrvc {
   rpc GetAllSeniorityMoves(GetAllSeniorityMovesRequest) returns (GetSeniorityMovesResponse) {
     option (google.api.http) = { get: "/v1/policies/seniority-moves" };
   }
+  rpc GetNextSeniorityMoveEvent(GetNextSeniorityMoveEventRequest) returns (GetNextSeniorityMoveEventResponse) {
+    option (google.api.http) = { get: "/v1/policies/seniority-moves/next-event" };
+  }
 }
 
 message GetDisplacementPolicyRequest { int64 craft_ctrl_nbr = 1; }
@@ -166,7 +169,7 @@ message PreviewSeniorityMoveEffectiveDateRequest {
   int64 target_board_ctrl_nbr = 8;
 }
 message PreviewSeniorityMoveEffectiveDateResponse {
-  string effective_utc = 1;
+  string effective_local = 1;
   bool will_work_offered = 2;
 }
 message SeniorityMoveResponse {
@@ -176,8 +179,8 @@ message SeniorityMoveResponse {
   int64 craft_ctrl_nbr = 3;
   int64 target_position_ctrl_nbr = 4;
   int64 displaced_employee_ctrl_nbr = 5;
-  string requested_utc = 6;
-  string effective_utc = 7;
+  string requested_local = 6;
+  string effective_local = 7;
   int32 days_on_current_position = 8;
   string move_type = 9;
   string status = 10;
@@ -200,6 +203,8 @@ message GetSeniorityMovesByCraftRequest {
 message GetPendingSeniorityMovesRequest {}
 message GetActiveSeniorityMovesRequest {}
 message GetAllSeniorityMovesRequest {}
+message GetNextSeniorityMoveEventRequest {}
+message GetNextSeniorityMoveEventResponse { string next_event_local = 1; }
 message GetSeniorityMovesResponse {
   repeated SeniorityMoveResponse moves = 1;
   int32 total_count = 2;
