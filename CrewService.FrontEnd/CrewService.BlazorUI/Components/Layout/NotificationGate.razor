@@ -1,10 +1,11 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using CrewService.BlazorUI.Components
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
 
+@inherits AppComponentBase
+
 @inject NotificationsClient NotificationsClient
-@inject CurrentUserService CurrentUser
-@inject CircuitBootstrapService CircuitBootstrap
 @inject AuthenticationStateProvider AuthStateProvider
 
 @if (_loaded && _openNotices.Count > 0)
@@ -37,10 +38,10 @@
                                 <div>
                                     <span class="badge bg-secondary mb-1">@NotificationCategories.Label(n.Category)</span>
                                     <div>@n.Message</div>
-                                    <small class="text-muted">@TimeDisplay.FormatLocalDateTime(n.CreatedAtLocal)</small>
+                                    <small class="text-muted">@FormatDisplayLocal(n.CreatedAtLocal)</small>
                                     @if (!string.IsNullOrEmpty(n.EffectiveAtLocal))
                                     {
-                                        <small class="text-muted d-block">Effective: @TimeDisplay.FormatLocalDateTime(n.EffectiveAtLocal)</small>
+                                        <small class="text-muted d-block">Effective: @FormatDisplayLocal(n.EffectiveAtLocal)</small>
                                     }
                                 </div>
                                 <button type="button" class="btn btn-success flex-shrink-0"
@@ -131,4 +132,5 @@
             _isBusy = false;
         }
     }
+
 }

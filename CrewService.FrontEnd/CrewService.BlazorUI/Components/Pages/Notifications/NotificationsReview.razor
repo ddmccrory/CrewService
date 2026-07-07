@@ -39,11 +39,11 @@
         </div>
     </ToolbarContent>
     <RowContent Context="n">
-        <td>@FormatLocalDateTime(n.CreatedAtLocal)</td>
+        <td>@FormatDisplayLocal(n.CreatedAtLocal)</td>
         <td>@n.EmployeeName</td>
         <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
         <td>@n.Message</td>
-        <td>@FormatLocalDateTime(n.EffectiveAtLocal)</td>
+        <td>@FormatDisplayLocal(n.EffectiveAtLocal)</td>
         <td>
             @if (!n.RequiresAcknowledgement)
             {
