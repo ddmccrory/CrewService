@@ -25,7 +25,14 @@
 }
 else
 {
-    <BackNavButton Text="Crews" FallbackUrl="/staffing/crews" />
+    @if (SourceBulletinCtrlNbr > 0)
+    {
+        <BackNavButton Text="Bulletin Detail" FallbackUrl="@($"/staffing/bulletins/{SourceBulletinCtrlNbr}")" />
+    }
+    else
+    {
+        <BackNavButton Text="Crews" FallbackUrl="/staffing/crews" />
+    }
 
     <h1>@crew.Name</h1>
     <p class="text-muted mb-1">
@@ -283,8 +290,12 @@ else
 
 @code {
     [Parameter] public long CtrlNbr { get; set; }
+    [SupplyParameterFromQuery(Name = "readonly")] public bool ForceReadOnly { get; set; }
+    [SupplyParameterFromQuery(Name = "src")] public long SourceBulletinCtrlNbr { get; set; }
 
     protected override string? FeatureKey => "staffing/crews";
+
+    private bool IsReadOnlyMode => IsFeatureReadOnly || ForceReadOnly;
 
     private CrewResponse? crew;
     private IReadOnlyList<CrewPositionResponse>? positions;

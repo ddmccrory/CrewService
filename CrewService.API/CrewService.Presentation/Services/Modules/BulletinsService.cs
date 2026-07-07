@@ -1,5 +1,6 @@
 using CrewService.Application.Time;
 using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Services;
 using Grpc.Core;
@@ -21,7 +22,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         {
             var tz = await GetWorkAreaTimeZoneAsync(v.WorkAreaGroupCtrlNbr.Value, context.CancellationToken);
             var bulletin = await svc.GetBulletinByVacancyAsync(v.CtrlNbr, context.CancellationToken);
-            response.Vacancies.Add(MapVacancy(v, tz, bulletin?.CtrlNbr.Value ?? 0));
+            var crewCtrlNbr = await ResolveCrewCtrlNbrAsync(v, context.CancellationToken);
+            response.Vacancies.Add(MapVacancy(v, tz, bulletin, crewCtrlNbr));
         }
         return response;
     }
@@ -35,7 +37,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         foreach (var v in vacancies)
         {
             var bulletin = await svc.GetBulletinByVacancyAsync(v.CtrlNbr, context.CancellationToken);
-            response.Vacancies.Add(MapVacancy(v, tz, bulletin?.CtrlNbr.Value ?? 0));
+            var crewCtrlNbr = await ResolveCrewCtrlNbrAsync(v, context.CancellationToken);
+            response.Vacancies.Add(MapVacancy(v, tz, bulletin, crewCtrlNbr));
         }
         return response;
     }
@@ -47,7 +50,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         {
             var v = await svc.GetVacancyAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
             var tz = await GetWorkAreaTimeZoneAsync(v.WorkAreaGroupCtrlNbr.Value, context.CancellationToken);
-            return MapVacancy(v, tz);
+            var crewCtrlNbr = await ResolveCrewCtrlNbrAsync(v, context.CancellationToken);
+            return MapVacancy(v, tz, crewCtrlNbr: crewCtrlNbr);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
@@ -67,7 +71,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         var tz = await GetWorkAreaTimeZoneAsync(request.WorkAreaCtrlNbr, context.CancellationToken);
         return new OpenVacancyResponse
         {
-            Vacancy = MapVacancy(vacancy, tz),
+            Vacancy = MapVacancy(vacancy, tz, crewCtrlNbr: await ResolveCrewCtrlNbrAsync(vacancy, context.CancellationToken)),
             Bulletin = bulletin is not null ? MapBulletin(bulletin, vacancy.TargetName, tz, craftRoleCtrlNbr: await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken)) : null
         };
     }
@@ -79,7 +83,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         {
             var v = await svc.AbolishVacancyAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
             var tz = await GetWorkAreaTimeZoneAsync(v.WorkAreaGroupCtrlNbr.Value, context.CancellationToken);
-            return MapVacancy(v, tz);
+            var crewCtrlNbr = await ResolveCrewCtrlNbrAsync(v, context.CancellationToken);
+            return MapVacancy(v, tz, crewCtrlNbr: crewCtrlNbr);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
@@ -99,10 +104,13 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var bidCount = await GetBidCountAsync(svc, b.CtrlNbr, context.CancellationToken);
             var vacCtrlNbr = b.PositionVacancyCtrlNbr;
             long prevIncumbent = 0;
+            string targetType = string.Empty;
+            long crewCtrlNbr = 0;
             try { var vac = await svc.GetVacancyAsync(vacCtrlNbr, context.CancellationToken); prevIncumbent = vac.PreviousIncumbentCtrlNbr?.Value ?? 0; } catch { }
+            try { var vac = await svc.GetVacancyAsync(vacCtrlNbr, context.CancellationToken); targetType = vac.TargetType; crewCtrlNbr = await ResolveCrewCtrlNbrAsync(vac, context.CancellationToken); } catch { }
             var vacatedByName = await ResolveEmployeeNameAsync(prevIncumbent, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(b.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
-            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr));
+            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr, targetType, crewCtrlNbr));
         }
         return response;
     }
@@ -124,10 +132,13 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var vacInfoTz = tzIndex.GetValueOrDefault(b.PositionVacancyCtrlNbr.Value);
             var bidCount = await GetBidCountAsync(svc, b.CtrlNbr, context.CancellationToken);
             long prevIncumbent = 0;
+            string targetType = string.Empty;
+            long crewCtrlNbr = 0;
             try { var vac = await svc.GetVacancyAsync(b.PositionVacancyCtrlNbr, context.CancellationToken); prevIncumbent = vac.PreviousIncumbentCtrlNbr?.Value ?? 0; } catch { }
+            try { var vac = await svc.GetVacancyAsync(b.PositionVacancyCtrlNbr, context.CancellationToken); targetType = vac.TargetType; crewCtrlNbr = await ResolveCrewCtrlNbrAsync(vac, context.CancellationToken); } catch { }
             var vacatedByName = await ResolveEmployeeNameAsync(prevIncumbent, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(b.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
-            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr));
+            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr, targetType, crewCtrlNbr));
         }
         return response;
     }
@@ -146,10 +157,13 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var bidCount = await GetBidCountAsync(svc, b.CtrlNbr, context.CancellationToken);
             var vacCtrlNbr = b.PositionVacancyCtrlNbr;
             long prevIncumbent = 0;
+            string targetType = string.Empty;
+            long crewCtrlNbr = 0;
             try { var vac = await svc.GetVacancyAsync(vacCtrlNbr, context.CancellationToken); prevIncumbent = vac.PreviousIncumbentCtrlNbr?.Value ?? 0; } catch { }
+            try { var vac = await svc.GetVacancyAsync(vacCtrlNbr, context.CancellationToken); targetType = vac.TargetType; crewCtrlNbr = await ResolveCrewCtrlNbrAsync(vac, context.CancellationToken); } catch { }
             var vacatedByName = await ResolveEmployeeNameAsync(prevIncumbent, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(b.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
-            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr));
+            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr, targetType, crewCtrlNbr));
         }
         return response;
     }
@@ -168,10 +182,13 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var bidCount = await GetBidCountAsync(svc, b.CtrlNbr, context.CancellationToken);
             var vacCtrlNbr = b.PositionVacancyCtrlNbr;
             long prevIncumbent = 0;
+            string targetType = string.Empty;
+            long crewCtrlNbr = 0;
             try { var vac = await svc.GetVacancyAsync(vacCtrlNbr, context.CancellationToken); prevIncumbent = vac.PreviousIncumbentCtrlNbr?.Value ?? 0; } catch { }
+            try { var vac = await svc.GetVacancyAsync(vacCtrlNbr, context.CancellationToken); targetType = vac.TargetType; crewCtrlNbr = await ResolveCrewCtrlNbrAsync(vac, context.CancellationToken); } catch { }
             var vacatedByName = await ResolveEmployeeNameAsync(prevIncumbent, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(b.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
-            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbrBc));
+            response.Bulletins.Add(MapBulletin(b, posName, vacInfoTz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbrBc, targetType, crewCtrlNbr));
         }
         return response;
     }
@@ -189,10 +206,13 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var craftRoleCtrlNbrWa = vacancyIndex.TryGetValue(b.PositionVacancyCtrlNbr.Value, out var vi4) ? vi4.CraftRoleCtrlNbr : 0;
             var bidCount = await GetBidCountAsync(svc, b.CtrlNbr, context.CancellationToken);
             long prevIncumbent = 0;
+            string targetType = string.Empty;
+            long crewCtrlNbr = 0;
             try { var vac = await svc.GetVacancyAsync(b.PositionVacancyCtrlNbr, context.CancellationToken); prevIncumbent = vac.PreviousIncumbentCtrlNbr?.Value ?? 0; } catch { }
+            try { var vac = await svc.GetVacancyAsync(b.PositionVacancyCtrlNbr, context.CancellationToken); targetType = vac.TargetType; crewCtrlNbr = await ResolveCrewCtrlNbrAsync(vac, context.CancellationToken); } catch { }
             var vacatedByName = await ResolveEmployeeNameAsync(prevIncumbent, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(b.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
-            response.Bulletins.Add(MapBulletin(b, posName, tz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbrWa));
+            response.Bulletins.Add(MapBulletin(b, posName, tz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbrWa, targetType, crewCtrlNbr));
         }
         return response;
     }
@@ -209,7 +229,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var vacatedByName = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(bulletin.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
             var craftRoleCtrlNbrGb = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
-            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbrGb);
+            var crewCtrlNbrGb = await ResolveCrewCtrlNbrAsync(vacancy, context.CancellationToken);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbrGb, vacancy.TargetType, crewCtrlNbrGb);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
@@ -232,7 +253,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
                 context.CancellationToken);
             var vacatedByNamePbfv = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
             var craftRoleCtrlNbrPbfv = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
-            return MapBulletin(bulletin, vacancy.TargetName, tz, 0, vacatedByNamePbfv, craftRoleCtrlNbr: craftRoleCtrlNbrPbfv);
+            var crewCtrlNbrPbfv = await ResolveCrewCtrlNbrAsync(vacancy, context.CancellationToken);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, 0, vacatedByNamePbfv, craftRoleCtrlNbr: craftRoleCtrlNbrPbfv, targetType: vacancy.TargetType, crewCtrlNbr: crewCtrlNbrPbfv);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
@@ -250,7 +272,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var vacatedByNameAw = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
             var awardedNameAw = await ResolveEmployeeNameAsync(bulletin.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
             var craftRoleCtrlNbrAw = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
-            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCountAw, vacatedByNameAw, awardedNameAw, craftRoleCtrlNbrAw);
+            var crewCtrlNbrAw = await ResolveCrewCtrlNbrAsync(vacancy, context.CancellationToken);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCountAw, vacatedByNameAw, awardedNameAw, craftRoleCtrlNbrAw, vacancy.TargetType, crewCtrlNbrAw);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
@@ -267,7 +290,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var vacatedByNameFa = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
             var awardedNameFa = await ResolveEmployeeNameAsync(bulletin.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
             var craftRoleCtrlNbrFa = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
-            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCountFa, vacatedByNameFa, awardedNameFa, craftRoleCtrlNbrFa);
+            var crewCtrlNbrFa = await ResolveCrewCtrlNbrAsync(vacancy, context.CancellationToken);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCountFa, vacatedByNameFa, awardedNameFa, craftRoleCtrlNbrFa, vacancy.TargetType, crewCtrlNbrFa);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
     }
@@ -284,7 +308,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             var vacatedByName = await ResolveEmployeeNameAsync(vacancy.PreviousIncumbentCtrlNbr?.Value ?? 0, context.CancellationToken);
             var awardedName = await ResolveEmployeeNameAsync(bulletin.AwardedEmployeeCtrlNbr?.Value ?? 0, context.CancellationToken);
             var craftRoleCtrlNbr = await ResolveCraftRoleCtrlNbrAsync(vacancy, context.CancellationToken);
-            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr);
+            var crewCtrlNbr = await ResolveCrewCtrlNbrAsync(vacancy, context.CancellationToken);
+            return MapBulletin(bulletin, vacancy.TargetName, tz, bidCount, vacatedByName, awardedName, craftRoleCtrlNbr, vacancy.TargetType, crewCtrlNbr);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
@@ -437,12 +462,13 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         return MapRule(rule);
     }
 
-    private PositionVacancyResponse MapVacancy(PositionVacancy v, TimeZoneInfo? tz = null, long bulletinCtrlNbr = 0) => new()
+    private PositionVacancyResponse MapVacancy(PositionVacancy v, TimeZoneInfo? tz = null, Bulletin? bulletin = null, long crewCtrlNbr = 0) => new()
     {
         CtrlNbr = v.CtrlNbr.Value,
         WorkAreaCtrlNbr = v.WorkAreaGroupCtrlNbr.Value,
         TargetType = v.TargetType,
         TargetCtrlNbr = v.TargetCtrlNbr.Value,
+        CrewCtrlNbr = crewCtrlNbr,
         CraftCtrlNbr = v.CraftCtrlNbr.Value,
         VacancyReasonCode = v.VacancyReasonCode,
         PreviousIncumbentCtrlNbr = v.PreviousIncumbentCtrlNbr?.Value ?? 0,
@@ -450,11 +476,31 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         OpenedUtc = Clock.FormatLocalIso(v.OpenedUtc, tz),
         ClosedUtc = v.ClosedUtc.HasValue ? Clock.FormatLocalIso(v.ClosedUtc.Value, tz) : string.Empty,
         TargetName = v.TargetName,
-        BulletinCtrlNbr = bulletinCtrlNbr,
-        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForVacancy(v.Status)
+        BulletinCtrlNbr = bulletin?.CtrlNbr.Value ?? 0,
+        StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForVacancy(v.Status),
+        BulletinOpenWindowUtc = bulletin is null ? string.Empty : Clock.FormatLocalIso(bulletin.BidWindowOpensUtc, tz)
     };
 
-    private BulletinResponse MapBulletin(Bulletin b, string positionName = "", TimeZoneInfo? tz = null, int bidCount = 0, string vacatedByName = "", string awardedEmployeeName = "", long craftRoleCtrlNbr = 0) => new()
+    private async Task<long> ResolveCrewCtrlNbrAsync(PositionVacancy vacancy, CancellationToken ct)
+    {
+        try
+        {
+            var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+            // Crew vacancies are keyed to a staffable position ctrl nbr in most creation paths.
+            // Resolve via staffable position first, then fall back to direct crew-position lookup.
+            var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
+            if (crewPosition is null)
+                crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(vacancy.TargetCtrlNbr, ct);
+            return crewPosition?.CrewCtrlNbr.Value ?? 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private BulletinResponse MapBulletin(Bulletin b, string positionName = "", TimeZoneInfo? tz = null, int bidCount = 0, string vacatedByName = "", string awardedEmployeeName = "", long craftRoleCtrlNbr = 0, string targetType = "", long crewCtrlNbr = 0) => new()
     {
         CtrlNbr = b.CtrlNbr.Value,
         PositionVacancyCtrlNbr = b.PositionVacancyCtrlNbr.Value,
@@ -472,7 +518,9 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         CraftRoleCtrlNbr = craftRoleCtrlNbr,
         ForceAssignDeadlineUtc = b.ForceAssignDeadlineUtc.HasValue ? Clock.FormatLocalIso(b.ForceAssignDeadlineUtc.Value, tz) : string.Empty,
         StatusBadge = Domain.Modules.Bulletins.BulletinStatusBadge.ForBulletin(b.Status),
-        IsBidWindowOpen = b.IsBidWindowOpen(DateTime.UtcNow)
+        IsBidWindowOpen = b.IsBidWindowOpen(DateTime.UtcNow),
+        TargetType = targetType,
+        CrewCtrlNbr = crewCtrlNbr
     };
 
     /// <summary>
