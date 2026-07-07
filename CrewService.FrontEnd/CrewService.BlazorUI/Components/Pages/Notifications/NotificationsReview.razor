@@ -43,7 +43,7 @@
         <td>@n.EmployeeName</td>
         <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
         <td>@n.Message</td>
-        <td>@FormatDisplayLocal(n.EffectiveAtLocal)</td>
+        <td>@FormatDisplayLocal(n.AcceptedAtLocal)</td>
         <td>
             @if (!n.RequiresAcknowledgement)
             {
@@ -70,7 +70,7 @@
         new("Employee", n => n.EmployeeName),
         new("Category", n => NotificationCategories.Label(n.Category)),
         new("Message", n => n.Message),
-        new("Effective", n => n.EffectiveAt?.ToDateTime()),
+        new("Accepted", n => n.AcceptedAt?.ToDateTime()),
         new("Status", n => n.RequiresAcknowledgement ? (n.IsAcknowledged ? "Accepted" : "Open") : ""),
     ];
 
