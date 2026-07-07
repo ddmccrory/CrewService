@@ -83,4 +83,6 @@ message NotificationResponse {
   // sorting/interchange; these are display-only. Empty when no zone is configured.
   string created_at_local = 13;
   string effective_at_local = 14;
+  optional google.protobuf.Timestamp accepted_at = 15;
+  string accepted_at_local = 16;
 }

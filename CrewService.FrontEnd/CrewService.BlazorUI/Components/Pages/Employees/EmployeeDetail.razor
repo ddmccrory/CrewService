@@ -116,9 +116,9 @@ else
                                             <a class="btn btn-sm btn-outline-primary"
                                                href="/staffing/bulletins?craft=@entry.CraftCtrlNbr&employee=@CtrlNbr&canbid=@(workProfile?.CanBidOnBulletins ?? true)">
                                                 <span class="bi bi-clipboard-check me-1"></span>Bulletins
-                                                @if ((workProfile?.Bids.Count ?? 0) > 0)
+                                                 @if (openBulletinCountsByCraft.TryGetValue(entry.CraftCtrlNbr, out var openBulletinCount) && openBulletinCount > 0)
                                                 {
-                                                    <span class="badge bg-secondary ms-1">@workProfile!.Bids.Count</span>
+                                                     <span class="badge bg-secondary ms-1">@openBulletinCount</span>
                                                 }
                                             </a>
                                             <a class="btn btn-sm btn-outline-secondary"
@@ -927,6 +927,7 @@ else
     private EmployeeWorkProfileResponse? workProfile;
     private bool workTabLoaded;
     private bool workTabLoading;
+    private readonly Dictionary<long, int> openBulletinCountsByCraft = [];
 
     // ── On-Duty records (open on Work tab; completed on On-Duty History tab) ──
     private List<EmployeeOnDutyRecord> openOnDutyRecords = [];
@@ -1205,10 +1206,16 @@ else
                 SelectedParentCtrlNbr ?? 0,
                 SelectedRailroadCtrlNbr ?? 0);
             var openOnDutyTask = EmployeeClient.GetOpenOnDutyRecordsAsync(CtrlNbr);
-            await Task.WhenAll(profileTask, openOnDutyTask);
+            var activeBulletinsTask = BulletinsClient.GetActiveBulletinsAsync(
+                SelectedRailroadCtrlNbr ?? 0,
+                CtrlNbr);
+            await Task.WhenAll(profileTask, openOnDutyTask, activeBulletinsTask);
 
             workProfile = profileTask.Result;
             openOnDutyRecords = [.. openOnDutyTask.Result.Records];
+            openBulletinCountsByCraft.Clear();
+            foreach (var craftGroup in activeBulletinsTask.Result.Bulletins.GroupBy(b => b.CraftCtrlNbr))
+                openBulletinCountsByCraft[craftGroup.Key] = craftGroup.Count();
             workTabLoaded = true;
         }
         catch (Exception ex)

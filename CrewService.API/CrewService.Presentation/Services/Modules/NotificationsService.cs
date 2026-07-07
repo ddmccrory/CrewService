@@ -162,6 +162,17 @@ public class NotificationsService(IServiceProvider serviceProvider)
             resp.EffectiveAtLocal = clock.FormatLocalIso(n.EffectiveAtUtc.Value, tz);
         }
 
+        var acceptedAtUtc = n.Acknowledgements
+            .Where(a => a.Confirmed)
+            .OrderByDescending(a => a.NotifiedAtUtc)
+            .Select(a => (DateTime?)a.NotifiedAtUtc)
+            .FirstOrDefault();
+        if (acceptedAtUtc.HasValue)
+        {
+            resp.AcceptedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(acceptedAtUtc.Value, DateTimeKind.Utc));
+            resp.AcceptedAtLocal = clock.FormatLocalIso(acceptedAtUtc.Value, tz);
+        }
+
         if (n.Subject is not null)
         {
             resp.SubjectType = n.Subject.SubjectType;

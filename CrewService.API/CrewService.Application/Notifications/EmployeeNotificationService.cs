@@ -360,6 +360,6 @@ public sealed class EmployeeNotificationService(
         if (!effectiveUtc.HasValue) return "immediately";
         var utc = DateTime.SpecifyKind(effectiveUtc.Value, DateTimeKind.Utc);
         var local = tz is null ? utc : TimeZoneInfo.ConvertTimeFromUtc(utc, tz);
-        return local.ToString("g");
+        return local.ToString("MM/dd/yyyy HH:mm");
     }
 }
