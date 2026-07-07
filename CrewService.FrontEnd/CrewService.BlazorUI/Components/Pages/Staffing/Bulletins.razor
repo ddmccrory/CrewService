@@ -136,10 +136,8 @@ else
                 <td>@v.VacancyReasonCode</td>
                 <td><span class="badge @v.StatusBadge">@v.Status</span></td>
                 <td>@FormatDateTime(v.OpenedUtc)</td>
+                <td>@(string.IsNullOrWhiteSpace(v.BulletinOpenWindowUtc) ? "—" : FormatDateTime(v.BulletinOpenWindowUtc))</td>
                 <td class="text-end">
-                    <button class="btn btn-outline-secondary btn-sm me-1" @onclick="() => ViewVacancy(v)">
-                        <span class="bi bi-eye"></span> View
-                    </button>
                     @if (!Permissions.IsReadOnly("staffing/bulletins") && v.Status == "Open")
                     {
                         <button class="btn btn-outline-danger btn-sm" @onclick="() => OpenAbolishModal(v)" disabled="@isSaving">
@@ -350,6 +348,7 @@ else
         new("Vacancy Reason", v => v.VacancyReasonCode),
         new("Status",         v => v.Status),
         new("Opened",         v => v.OpenedUtc),
+        new("Bulletin Open Window", v => v.BulletinOpenWindowUtc),
         DataTableColumn<PositionVacancyResponse>.Actions(),
     ];
 
@@ -671,13 +670,6 @@ else
         finally { isSaving = false; }
     }
 
-    private void ViewVacancy(PositionVacancyResponse v)
-    {
-        if (v.BulletinCtrlNbr > 0)
-            Nav.NavigateTo($"/staffing/bulletins/{v.BulletinCtrlNbr}");
-        else
-            Nav.NavigateTo($"/staffing/bulletins");
-    }
     private void ViewBulletin(long ctrlNbr)
     {
         var url = FilterEmployeeCtrlNbr > 0

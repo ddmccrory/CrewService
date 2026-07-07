@@ -13,6 +13,8 @@
 @inject BulletinsClient BulletinsClient
 @inject QualificationsClient QualificationsClient
 @inject EmployeeClient EmployeeClient
+@inject CrewClient CrewClient
+@inject WorkManagementClient WorkManagementClient
 
 <PageTitle>Bulletin Detail</PageTitle>
 
@@ -123,6 +125,60 @@ else
             </div>
         </div>
     </div>
+
+    @if (bulletinCrew is not null)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold"><span class="bi bi-calendar-week me-1"></span> Crew Work Days</div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Crew</dt>
+                            <dd class="col-sm-7">@bulletinCrew.Name</dd>
+                            <dt class="col-sm-5">Work Days</dt>
+                            <dd class="col-sm-7">@(hasCrewWorkDays ? DayOfWeekPicker.FormatDays(crewWorkDaysMask) : "No work days configured")</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold"><span class="bi bi-people me-1"></span> Crew Positions</div>
+                    <div class="card-body">
+                        @if (crewPositions.Count == 0)
+                        {
+                            <div class="text-muted">No crew positions found.</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Order</th>
+                                            <th>Role</th>
+                                            <th>Incumbent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var p in crewPositions)
+                                        {
+                                            <tr>
+                                                <td>@p.DisplayOrder</td>
+                                                <td>@GetCrewRoleName(p.CraftRoleCtrlNbr)</td>
+                                                <td>@GetCrewIncumbent(p.CtrlNbr)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     <h4 class="mb-3"><span class="bi bi-hand-index me-1"></span> Bids</h4>
 
@@ -306,6 +362,13 @@ else
     private List<EligibleEmployeeItem> employees = [];
     private AddBidModel bidModel = new();
 
+    private CrewResponse? bulletinCrew;
+    private List<CrewPositionResponse> crewPositions = [];
+    private Dictionary<long, string> crewRoleNames = [];
+    private Dictionary<long, string> crewIncumbentNames = [];
+    private int crewWorkDaysMask;
+    private bool hasCrewWorkDays;
+
     private static readonly IReadOnlyList<DataTableColumn<BulletinBidResponse>> bidColumns =
     [
         new("Priority",       b => (object?)b.Priority),
@@ -333,6 +396,7 @@ else
             var result = await BulletinsClient.GetBulletinAsync(CtrlNbr);
             if (ComponentToken.IsCancellationRequested) return;
             bulletin = result;
+            await LoadCrewContextAsync(result.CrewCtrlNbr);
             await LoadBidsAsync();
         }
         catch (OperationCanceledException) { }
@@ -347,6 +411,64 @@ else
                 isLoading = false;
         }
     }
+
+    private async Task LoadCrewContextAsync(long crewCtrlNbr)
+    {
+        bulletinCrew = null;
+        crewPositions = [];
+        crewRoleNames = [];
+        crewIncumbentNames = [];
+        crewWorkDaysMask = 0;
+        hasCrewWorkDays = false;
+
+        if (crewCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            bulletinCrew = await CrewClient.GetCrewAsync(crewCtrlNbr);
+            var assignmentsResp = await CrewClient.GetCrewAssignmentsAsync(crewCtrlNbr);
+            foreach (var a in assignmentsResp.Assignments)
+            {
+                crewWorkDaysMask |= a.DaysOfWeekMask;
+            }
+            hasCrewWorkDays = assignmentsResp.Assignments.Count > 0;
+
+            var positionsResp = await CrewClient.GetCrewPositionsAsync(crewCtrlNbr);
+            crewPositions = [.. positionsResp.Positions.OrderBy(p => p.DisplayOrder)];
+
+            if (bulletinCrew.DepartmentCtrlNbr > 0)
+            {
+                var rolesResp = await WorkManagementClient.GetCraftRolesAsync(departmentCtrlNbr: bulletinCrew.DepartmentCtrlNbr);
+                crewRoleNames = rolesResp.Roles.ToDictionary(
+                    r => r.CtrlNbr,
+                    r => string.IsNullOrWhiteSpace(r.Code) ? r.Name : $"{r.Code} – {r.Name}");
+            }
+
+            foreach (var pos in crewPositions)
+            {
+                var incResp = await CrewClient.GetCrewIncumbenciesAsync(pos.CtrlNbr);
+                var active = incResp.Incumbencies.FirstOrDefault(i =>
+                    string.IsNullOrEmpty(i.EndUtc) || DateTime.Parse(i.EndUtc) > DateTime.UtcNow);
+
+                crewIncumbentNames[pos.CtrlNbr] = active is null
+                    ? "Vacant"
+                    : string.IsNullOrWhiteSpace(active.EmployeeNumber)
+                        ? active.FullNameLnf
+                        : $"{active.EmployeeNumber.ToUpperInvariant()} – {active.FullNameLnf}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load crew details: {ex.Message}";
+        }
+    }
+
+    private string GetCrewRoleName(long craftRoleCtrlNbr) =>
+        crewRoleNames.TryGetValue(craftRoleCtrlNbr, out var name) ? name : craftRoleCtrlNbr.ToString();
+
+    private string GetCrewIncumbent(long crewPositionCtrlNbr) =>
+        crewIncumbentNames.TryGetValue(crewPositionCtrlNbr, out var name) ? name : "Vacant";
 
     private async Task LoadBidsAsync()
     {

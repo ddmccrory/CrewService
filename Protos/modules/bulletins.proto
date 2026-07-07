@@ -123,6 +123,7 @@ message PositionVacancyResponse {
   int64 work_area_ctrl_nbr = 2;
   string target_type = 3;
   int64 target_ctrl_nbr = 4;
+  int64 crew_ctrl_nbr = 15;
   int64 craft_ctrl_nbr = 5;
   string vacancy_reason_code = 6;
   int64 previous_incumbent_ctrl_nbr = 7;
@@ -132,6 +133,7 @@ message PositionVacancyResponse {
   string target_name = 11;
   int64 bulletin_ctrl_nbr = 12;
   string status_badge = 13;
+  string bulletin_open_window_utc = 14;
 }
 
 // Bulletin messages
@@ -192,6 +194,8 @@ message BulletinResponse {
   // (opens_utc <= now <= closes_utc). The UI uses this to enable/disable bidding
   // so employees cannot bid before the window opens (legacy parity).
   bool is_bid_window_open = 17;
+  string target_type = 18;
+  int64 crew_ctrl_nbr = 19;
 }
 
 // Bid messages
