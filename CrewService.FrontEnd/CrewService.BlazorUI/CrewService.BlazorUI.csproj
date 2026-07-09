@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -44,7 +44,7 @@
     <Protobuf Include="..\..\Protos\seniority_state.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\seniority_vacancy_config.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\user_parent_assignment.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
-        <Protobuf Include="..\..\Protos\modules\authorization.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\authorization.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\tenant_config.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\work_management.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\department.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
@@ -56,6 +56,7 @@
     <Protobuf Include="..\..\Protos\modules\bulletins.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\policies.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\dispatching.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\background_services.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\absence_vacancy.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\payroll.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\fra_compliance.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
