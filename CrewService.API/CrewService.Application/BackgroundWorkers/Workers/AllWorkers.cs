@@ -13,14 +13,90 @@ namespace CrewService.Application.BackgroundWorkers.Workers;
 
 public sealed class DailyCallSheetWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<DailyCallSheetWorker> logger)
+    ILogger<DailyCallSheetWorker> logger,
+    IDailyCallSheetScheduleSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "CallSheet", TimeSpan.FromMinutes(5))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override bool UseDueScheduleGate => false;
+
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        // Delegates to CallSheetGenerationService with work area + shift + target date
-        return Task.CompletedTask;
+        using var scope = ScopeFactory.CreateScope();
+        var scheduler = scope.ServiceProvider.GetRequiredService<DailyOperations.IDailyCallSheetSchedulerService>();
+        var scheduleRepo = scope.ServiceProvider.GetRequiredService<IWorkerScheduleRepository>();
+        var schedules = await scheduleRepo.GetEnabledByTypeAsync("CallSheet", cancellationToken);
+
+        DateTime? earliest = null;
+        foreach (var workerSchedule in schedules)
+        {
+            var next = await scheduler.GetNextCallSheetEventUtcAsync(workerSchedule.WorkAreaGroupCtrlNbr, cancellationToken);
+            if (next.HasValue && (earliest is null || next.Value < earliest.Value))
+                earliest = next;
+        }
+
+        if (earliest.HasValue)
+        {
+            scheduleSignal.Notify(earliest.Value);
+            logger.LogInformation("DailyCallSheetWorker: Startup — next call-sheet event at {NextEvent:u}.", earliest.Value);
+        }
+        else
+        {
+            logger.LogInformation("DailyCallSheetWorker: Startup — no pending call-sheet events.");
+        }
+
+        await base.StartAsync(cancellationToken);
     }
+
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var scheduler = services.GetRequiredService<DailyOperations.IDailyCallSheetSchedulerService>();
+        var generator = services.GetRequiredService<DailyOperations.CallSheetGenerationService>();
+
+        var dueItems = await scheduler.GetDueWorkItemsAsync(schedule.WorkAreaGroupCtrlNbr, DateTime.UtcNow, ct);
+        if (dueItems.Count == 0)
+            return false;
+
+        var didWork = false;
+        foreach (var item in dueItems)
+        {
+            try
+            {
+                await generator.GenerateForShiftAsync(
+                    item.WorkAreaGroupCtrlNbr,
+                    item.ShiftDefinitionCtrlNbr,
+                    item.TargetDate,
+                    item.DepartmentCtrlNbr,
+                    ct);
+
+                logger.LogInformation(
+                    "DailyCallSheetWorker: Generated call sheet for work area {WorkAreaCtrlNbr}, shift {ShiftDefinitionCtrlNbr}, date {TargetDate}.",
+                    item.WorkAreaGroupCtrlNbr,
+                    item.ShiftDefinitionCtrlNbr,
+                    item.TargetDate);
+                didWork = true;
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogInformation(
+                    ex,
+                    "DailyCallSheetWorker: Skipped call sheet generation for work area {WorkAreaCtrlNbr}, shift {ShiftDefinitionCtrlNbr}, date {TargetDate}.",
+                    item.WorkAreaGroupCtrlNbr,
+                    item.ShiftDefinitionCtrlNbr,
+                    item.TargetDate);
+            }
+        }
+
+        var nextEvent = await scheduler.GetNextCallSheetEventUtcAsync(schedule.WorkAreaGroupCtrlNbr, ct);
+        if (nextEvent.HasValue)
+            scheduleSignal.Notify(nextEvent.Value);
+
+        return didWork;
+    }
+
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
+
+    protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 }
 
 public sealed class VacancyAssignmentWorker(
@@ -28,10 +104,10 @@ public sealed class VacancyAssignmentWorker(
     ILogger<VacancyAssignmentWorker> logger)
     : WorkerBase(scopeFactory, logger, "Vacancy", TimeSpan.FromMinutes(2))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         // Delegates to VacancyResolutionEngine — requires shift context per schedule
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -40,9 +116,9 @@ public sealed class MarkOffRequestWorker(
     ILogger<MarkOffRequestWorker> logger)
     : WorkerBase(scopeFactory, logger, "MarkOff", TimeSpan.FromMinutes(1))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -51,10 +127,10 @@ public sealed class AutoMarkUpWorker(
     ILogger<AutoMarkUpWorker> logger)
     : WorkerBase(scopeFactory, logger, "AutoMarkUp", TimeSpan.FromMinutes(1))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         // Evaluates due AbsenceMarkUp records past scheduledMarkUpUtc
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -64,6 +140,8 @@ public sealed class BulletinProcessingWorker(
     IBulletinScheduleSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "Bulletin", TimeSpan.FromMinutes(5))
 {
+    protected override bool UseDueScheduleGate => false;
+
     /// <summary>
     /// Before the poll loop starts, seed the signal with the earliest known bulletin event
     /// so the worker wakes at exactly the right time on the first iteration.
@@ -72,13 +150,28 @@ public sealed class BulletinProcessingWorker(
     {
         using var scope = ScopeFactory.CreateScope();
         var bulletinsService = scope.ServiceProvider.GetRequiredService<BulletinsService>();
-        var nextEvent = await bulletinsService.GetNextBulletinEventUtcAsync(cancellationToken);
 
-        if (nextEvent.HasValue)
+        var scheduleRepo = scope.ServiceProvider.GetRequiredService<IWorkerScheduleRepository>();
+        var dynamicGroupRepo = scope.ServiceProvider.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
+        var schedules = await scheduleRepo.GetEnabledByTypeAsync("Bulletin", cancellationToken);
+
+        DateTime? earliest = null;
+        foreach (var workerSchedule in schedules)
         {
-            scheduleSignal.Notify(nextEvent.Value);
+            var workArea = await dynamicGroupRepo.GetByCtrlNbrAsync(workerSchedule.WorkAreaGroupCtrlNbr, cancellationToken);
+            if (workArea is null)
+                continue;
+
+            var next = await bulletinsService.GetNextBulletinEventUtcAsync(workArea.OwningRailroadCtrlNbr, cancellationToken);
+            if (next.HasValue && (earliest is null || next.Value < earliest.Value))
+                earliest = next;
+        }
+
+        if (earliest.HasValue)
+        {
+            scheduleSignal.Notify(earliest.Value);
             logger.LogInformation(
-                "BulletinProcessingWorker: Startup — next bulletin event at {NextEvent:u}.", nextEvent.Value);
+                "BulletinProcessingWorker: Startup — next bulletin event at {NextEvent:u}.", earliest.Value);
         }
         else
         {
@@ -88,26 +181,50 @@ public sealed class BulletinProcessingWorker(
         await base.StartAsync(cancellationToken);
     }
 
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var bulletinsService = services.GetRequiredService<BulletinsService>();
+        var dynamicGroupRepo = services.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
+        var workArea = await dynamicGroupRepo.GetByCtrlNbrAsync(schedule.WorkAreaGroupCtrlNbr, ct);
+        if (workArea is null)
+        {
+            logger.LogWarning("BulletinProcessingWorker: work area {WorkAreaCtrlNbr} not found; skipping.", schedule.WorkAreaGroupCtrlNbr.Value);
+            return false;
+        }
+
+        var railroadCtrlNbr = workArea.OwningRailroadCtrlNbr;
 
         // 1. Auto-award all closed bulletins whose bid window has passed
         //    (or transition to NoBid if no qualified bidder exists — Notify is called inside)
-        var awarded = await bulletinsService.AutoAwardClosedBulletinsAsync(ct);
+        var awarded = await bulletinsService.AutoAwardClosedBulletinsAsync(railroadCtrlNbr, ct);
         if (awarded.Count > 0)
             logger.LogInformation("BulletinProcessingWorker: Auto-awarded {Count} bulletin(s).", awarded.Count);
 
         // 2. Auto-force-assign all NoBid bulletins that have passed their force-assign deadline
-        var forceAssigned = await bulletinsService.AutoForceAssignNoBidsAsync(ct);
+        var forceAssigned = await bulletinsService.AutoForceAssignNoBidsAsync(railroadCtrlNbr, ct);
         if (forceAssigned.Count > 0)
             logger.LogInformation("BulletinProcessingWorker: Auto-force-assigned {Count} NoBid bulletin(s).", forceAssigned.Count);
 
+        var didWork = awarded.Count > 0 || forceAssigned.Count > 0;
+
         // 3. Durable reconciliation: repost any vacant crew/board positions the inline repost
         //    missed (e.g. process restart mid-request before the synchronous repost ran).
-        var vacancyRepostService = services.GetRequiredService<VacancyAssignment.IVacancyRepostService>();
-        await vacancyRepostService.ReconcileUnbulletinedVacantPositionsAsync(ct);
+        if (didWork)
+        {
+            var vacancyRepostService = services.GetRequiredService<VacancyAssignment.IVacancyRepostService>();
+            await vacancyRepostService.ReconcileUnbulletinedVacantPositionsAsync(ct);
+        }
+
+        // Re-seed with the next pending event after processing so the signal always targets
+        // the current earliest close/deadline, including tomorrow's event after processing today's.
+        var nextEvent = await bulletinsService.GetNextBulletinEventUtcAsync(railroadCtrlNbr, ct);
+        if (nextEvent.HasValue)
+            scheduleSignal.Notify(nextEvent.Value);
+
+        return didWork;
     }
+
+    protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 
     /// <summary>
     /// Instead of sleeping a fixed interval, wait on the schedule signal.
@@ -124,24 +241,40 @@ public sealed class SeniorityMoveWorker(
     ISeniorityMoveSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "SeniorityMove", TimeSpan.FromMinutes(10))
 {
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override bool UseDueScheduleGate => false;
+
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var policiesService = services.GetRequiredService<Policies.PoliciesService>();
         var executionService = services.GetRequiredService<Policies.SeniorityMoveExecutionService>();
+        var didWork = false;
 
         // Auto-approve any pending moves whose craft policy allows it
         var approved = await policiesService.AutoApprovePendingMovesAsync(ct);
         if (approved.Count > 0)
+        {
             logger.LogInformation("SeniorityMoveWorker: Auto-approved {Count} pending seniority move(s).", approved.Count);
+            didWork = true;
+        }
 
         // Execute all approved moves whose effective time has arrived
         var due = await policiesService.GetApprovedDueSeniorityMovesAsync(DateTime.UtcNow, ct);
+        if (due.Count == 0)
+        {
+            var nextDueOnly = await policiesService.GetNextApprovedSeniorityMoveEffectiveUtcAsync(ct);
+            if (nextDueOnly.HasValue)
+                scheduleSignal.Notify(nextDueOnly.Value);
+
+            return didWork;
+        }
+
         foreach (var move in due)
         {
             try
             {
                 await executionService.ExecuteAsync(move.CtrlNbr, ct);
                 logger.LogInformation("SeniorityMoveWorker: Executed move {MoveCtrlNbr}.", move.CtrlNbr);
+                didWork = true;
             }
             catch (Exception ex)
             {
@@ -153,10 +286,14 @@ public sealed class SeniorityMoveWorker(
         var nextDue = await policiesService.GetNextApprovedSeniorityMoveEffectiveUtcAsync(ct);
         if (nextDue.HasValue)
             scheduleSignal.Notify(nextDue.Value);
+
+        return didWork;
     }
 
     protected override Task WaitForNextRunAsync(CancellationToken ct) =>
         scheduleSignal.WaitAsync(ct);
+
+    protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 }
 
 public sealed class SeniorityStateChangeWorker(
@@ -165,6 +302,8 @@ public sealed class SeniorityStateChangeWorker(
     ISeniorityStateChangeSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "SeniorityStateChange", TimeSpan.FromMinutes(5))
 {
+    protected override bool UseDueScheduleGate => false;
+
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         using var scope = ScopeFactory.CreateScope();
@@ -185,7 +324,7 @@ public sealed class SeniorityStateChangeWorker(
         await base.StartAsync(cancellationToken);
     }
 
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var seniorityService = services.GetRequiredService<SeniorityAppService>();
 
@@ -197,10 +336,14 @@ public sealed class SeniorityStateChangeWorker(
         var nextEvent = await seniorityService.GetNextPendingChangeUtcAsync(ct);
         if (nextEvent.HasValue)
             scheduleSignal.Notify(nextEvent.Value);
+
+        return applied > 0;
     }
 
     protected override Task WaitForNextRunAsync(CancellationToken ct) =>
         scheduleSignal.WaitAsync(ct);
+
+    protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 }
 
 public sealed class FraComplianceWorker(
@@ -208,12 +351,13 @@ public sealed class FraComplianceWorker(
     ILogger<FraComplianceWorker> logger)
     : WorkerBase(scopeFactory, logger, "FraCheck", TimeSpan.FromMinutes(5))
 {
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var certifications = services.GetRequiredService<IEmployeeCertificationRepository>();
         var checkConfigRepo = services.GetRequiredService<IFraCertificationCheckConfigRepository>();
         var certConfigRepo = services.GetRequiredService<IFraCertificationConfigRepository>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var didWork = false;
 
         var allWithChecks = await certifications.GetAllWithChecksAsync(ct);
 
@@ -234,7 +378,10 @@ public sealed class FraComplianceWorker(
             cert.RecomputeStatus(today, singleCheckConfigs);
 
             if (cert.Status != before)
+            {
                 await certifications.UpdateAsync(cert, ct);
+                didWork = true;
+            }
 
             if (cert.Status is CertificationStatuses.Active or CertificationStatuses.Renew)
             {
@@ -261,10 +408,13 @@ public sealed class FraComplianceWorker(
                         certifications.Add(newCert);
                         logger.LogInformation("Auto-initiated recertification for employee {EmployeeCtrlNbr}, expiring {ExpirationDate}",
                             cert.EmployeeCtrlNbr.Value, cert.ExpirationDate);
+                        didWork = true;
                     }
                 }
             }
         }
+
+        return didWork;
     }
 }
 
@@ -273,10 +423,10 @@ public sealed class CrewCallingWorker(
     ILogger<CrewCallingWorker> logger)
     : WorkerBase(scopeFactory, logger, "CrewCalling", TimeSpan.FromSeconds(30))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         // Polls pending NotificationRequests via CrewCallingService
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -285,10 +435,10 @@ public sealed class PayrollImportWorker(
     ILogger<PayrollImportWorker> logger)
     : WorkerBase(scopeFactory, logger, "PayrollImport", TimeSpan.FromMinutes(5))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         // File polling + PayrollImportService
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -297,9 +447,9 @@ public sealed class DailyReportWorker(
     ILogger<DailyReportWorker> logger)
     : WorkerBase(scopeFactory, logger, "DailyReport", TimeSpan.FromHours(1))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -308,10 +458,10 @@ public sealed class RailroadInfoPublishWorker(
     ILogger<RailroadInfoPublishWorker> logger)
     : WorkerBase(scopeFactory, logger, "RailroadInfoPublish", TimeSpan.FromMinutes(5))
 {
-    protected override Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         // Publishes scheduled RailroadInformation records whose publish time has arrived
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 }
 
@@ -320,7 +470,7 @@ public sealed class QualificationExpiryNotifierWorker(
     ILogger<QualificationExpiryNotifierWorker> logger)
     : WorkerBase(scopeFactory, logger, "QualExpiryNotify", TimeSpan.FromHours(24))
 {
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var employeeQualificationRepository = services.GetRequiredService<IEmployeeQualificationRepository>();
 
@@ -336,6 +486,8 @@ public sealed class QualificationExpiryNotifierWorker(
             if (!thresholds.Contains(daysRemaining)) continue;
             // TODO: send notification via IOperationalNotifier when notification system is built out
         }
+
+        return false;
     }
 }
 
@@ -344,7 +496,7 @@ public sealed class RequirementEvaluationWorker(
     ILogger<RequirementEvaluationWorker> logger)
     : WorkerBase(scopeFactory, logger, "PrereqEval", TimeSpan.FromHours(24))
 {
-    protected override async Task ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var employeeRepository = services.GetRequiredService<IEmployeeRepository>();
         var qualificationTypeRepository = services.GetRequiredService<IQualificationTypeRepository>();
@@ -368,5 +520,7 @@ public sealed class RequirementEvaluationWorker(
                 await requirementEvaluationService.EvaluateAsync(employee.CtrlNbr, qualificationType, ct);
             }
         }
+
+        return false;
     }
 }

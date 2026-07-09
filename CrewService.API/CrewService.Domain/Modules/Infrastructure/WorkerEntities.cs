@@ -31,6 +31,13 @@ public sealed class WorkerSchedule : Entity
 
     public bool IsDue() => IsEnabled && NextFireUtc.HasValue && DateTime.UtcNow >= NextFireUtc.Value;
 
+    public void UpdateSchedule(bool isEnabled, string? cronExpression = null)
+    {
+        IsEnabled = isEnabled;
+        if (cronExpression is not null)
+            CronExpression = cronExpression;
+    }
+
     public void RecordSuccess(DateTime? nextFire = null)
     {
         LastRunUtc = DateTime.UtcNow;
@@ -65,10 +72,10 @@ public sealed class WorkerExecutionLog : Entity
         };
     }
 
-    public void Complete()
+    public void Complete(bool didWork)
     {
         CompletedAtUtc = DateTime.UtcNow;
-        Status = "Success";
+        Status = didWork ? "Success" : "NoWork";
     }
 
     public void Fail(string errorMessage)

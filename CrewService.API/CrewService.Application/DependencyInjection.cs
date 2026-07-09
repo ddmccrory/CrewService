@@ -63,6 +63,9 @@ public static class DependencyInjection
         services.AddScoped<DrugAlcoholCertificationImpactHandler>();
 
         // B02 – Daily Operations
+        services.AddSingleton<IDailyCallSheetScheduleSignal, DailyCallSheetScheduleSignal>();
+        services.AddSingleton<IWorkerHeartbeatRegistry, WorkerHeartbeatRegistry>();
+        services.AddHostedService<BackgroundWorkers.Workers.DailyCallSheetWorker>();
         services.AddScoped<DailyOperationsService>();
         services.AddScoped<OnDutyPlacementService>();
         services.AddScoped<TieUpService>();
