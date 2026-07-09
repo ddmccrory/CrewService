@@ -1,0 +1,582 @@
+@page "/admin/jobs"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+@using Grpc.Core
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject BackgroundServicesClient BackgroundServicesClient
+@inject BootstrapClient BootstrapClient
+
+<PageTitle>Background Jobs — Crew Service</PageTitle>
+
+<h1>Background Jobs</h1>
+<p class="text-muted">Monitor worker schedules, last run status, and recent execution logs.</p>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage background jobs.
+    </div>
+}
+else
+{
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <span class="fw-semibold">API Host:</span>
+        @if (!hasHeartbeatResult)
+        {
+            <span class="badge bg-secondary">Checking...</span>
+        }
+        else if (isHostOffline)
+        {
+            <span class="badge bg-danger">Offline</span>
+        }
+        else
+        {
+            <span class="badge bg-success">Online</span>
+        }
+        <span class="text-muted small">Last check: @lastHeartbeatDisplay</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (isHostOffline)
+    {
+        <div class="alert alert-warning mt-2" role="alert">
+            <span class="bi bi-plug me-1"></span>
+            API host appears to be offline. Start or restart CrewService.GrpcService, then refresh this page.
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span>Loading background jobs...</span>
+        </div>
+    }
+    else if (schedules.Count == 0)
+    {
+        <div class="alert alert-info mt-3">
+            <span class="bi bi-info-circle me-1"></span>
+            No worker schedules found for the selected context.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Work Area</th>
+                        <th>Worker Type</th>
+                        <th>Schedule</th>
+                        <th>Next Run (Local)</th>
+                        <th>Worker Heartbeat</th>
+                        <th>Last Run (Local)</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in schedules)
+                    {
+                        <tr>
+                            <td><strong>@s.WorkAreaName</strong></td>
+                            <td><strong>@s.WorkerType</strong></td>
+                            <td>@GetScheduleDisplay(s)</td>
+                            <td>@FormatBackendLocalDisplay(s.NextFireLocalDisplay)</td>
+                            <td><span class="badge @HeartbeatBadgeClass(s)">@HeartbeatBadgeText(s)</span></td>
+                            <td>@FormatBackendLocalDisplay(s.LastRunLocalDisplay)</td>
+                            <td>
+                                <span class="badge @StatusBadgeClass(GetDisplayStatus(s))">@GetDisplayStatus(s)</span>
+                                @if (!s.IsEnabled)
+                                {
+                                    <span class="badge bg-secondary ms-1">Disabled</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenLogsModal(s)" disabled="@isSaving">
+                                        <span class="bi bi-clock-history me-1"></span> Logs
+                                    </button>
+                                    <button class="btn btn-sm @(s.IsEnabled ? "btn-outline-danger" : "btn-outline-success")"
+                                            @onclick="() => ToggleEnabledAsync(s)" disabled="@isSaving">
+                                        <span class="bi @(s.IsEnabled ? "bi-pause-circle" : "bi-play-circle") me-1"></span>
+                                        @(s.IsEnabled ? "Disable" : "Enable")
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <Modal Visible="showLogsModal" Title="Execution Logs" Icon="bi bi-clock-history" OnClose="CloseLogsModal" StaticBackdrop="true">
+        <BodyContent>
+            <div class="mb-2 text-muted small">
+                <strong>@selectedScheduleWorkAreaName — @selectedScheduleWorkerType</strong>
+            </div>
+            @if (isLoadingLogs)
+            {
+                <div class="d-flex align-items-center gap-2 py-2">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span>Loading logs...</span>
+                </div>
+            }
+            else if (logs.Count == 0)
+            {
+                <div class="alert alert-info mb-0">
+                    <span class="bi bi-info-circle me-1"></span>
+                    No execution logs found.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Started (UTC)</th>
+                                <th>Completed (UTC)</th>
+                                <th>Status</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in logs)
+                            {
+                                <tr>
+                                    <td>@FormatTimestamp(log.StartedAt?.ToDateTime().ToString("O"))</td>
+                                    <td>@FormatTimestamp(log.CompletedAt?.ToDateTime().ToString("O"))</td>
+                                    <td><span class="badge @StatusBadgeClass(log.Status)">@log.Status</span></td>
+                                    <td>@(string.IsNullOrWhiteSpace(log.ErrorMessage) ? "—" : log.ErrorMessage)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="CloseLogsModal">Close</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    protected override string? FeatureKey => "admin/jobs";
+
+    private sealed class WorkerScheduleRow
+    {
+        public long CtrlNbr { get; init; }
+        public long WorkAreaCtrlNbr { get; init; }
+        public string WorkAreaName { get; init; } = string.Empty;
+        public string WorkerType { get; init; } = string.Empty;
+        public bool IsEnabled { get; set; }
+        public string CronExpression { get; set; } = string.Empty;
+        public string NextFireUtc { get; set; } = string.Empty;
+        public string NextFireLocalDisplay { get; set; } = string.Empty;
+        public string LastWorkerHeartbeatUtc { get; set; } = string.Empty;
+        public string LastWorkerHeartbeatLocalDisplay { get; set; } = string.Empty;
+        public string LastRunStatus { get; set; } = string.Empty;
+        public string LastRunUtc { get; set; } = string.Empty;
+        public string LastRunLocalDisplay { get; set; } = string.Empty;
+    }
+
+    private readonly List<WorkerScheduleRow> schedules = [];
+    private readonly List<ExecutionLogResponse> logs = [];
+
+    private bool isLoading;
+    private bool isLoadingLogs;
+    private bool isHostOffline;
+    private bool hasHeartbeatResult;
+    private bool heartbeatStarted;
+    private string lastHeartbeatDisplay = "—";
+    private bool showLogsModal;
+    private long selectedScheduleCtrlNbr;
+    private string selectedScheduleWorkAreaName = string.Empty;
+    private string selectedScheduleWorkerType = string.Empty;
+    private static readonly HashSet<string> ImplementedWorkers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CallSheet",
+        "Bulletin",
+        "SeniorityMove",
+        "SeniorityStateChange"
+    };
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive && !heartbeatStarted)
+        {
+            heartbeatStarted = true;
+            _ = Task.Run(RunHeartbeatLoopAsync, ComponentToken);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!IsContextFullySelected)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+        isHostOffline = false;
+        try
+        {
+            if (!SelectedRailroadCtrlNbr.HasValue)
+                return;
+
+            var response = await BackgroundServicesClient.GetWorkerSchedulesAsync(SelectedRailroadCtrlNbr.Value);
+            schedules.Clear();
+            schedules.AddRange(response.Schedules.Select(s => new WorkerScheduleRow
+            {
+                CtrlNbr = s.CtrlNbr,
+                WorkAreaCtrlNbr = s.WorkAreaCtrlNbr,
+                WorkAreaName = string.IsNullOrWhiteSpace(s.WorkAreaName) ? "Unknown Work Area" : s.WorkAreaName,
+                WorkerType = s.WorkerType,
+                IsEnabled = s.IsEnabled,
+                CronExpression = s.CronExpression ?? string.Empty,
+                NextFireUtc = s.NextFireUtc?.ToDateTime().ToString("O") ?? string.Empty,
+                NextFireLocalDisplay = s.NextFireLocalDisplay ?? string.Empty,
+                LastWorkerHeartbeatUtc = s.LastWorkerHeartbeatUtc?.ToDateTime().ToString("O") ?? string.Empty,
+                LastWorkerHeartbeatLocalDisplay = s.LastWorkerHeartbeatLocalDisplay ?? string.Empty,
+                LastRunStatus = s.LastRunStatus,
+                LastRunUtc = s.LastRunUtc?.ToDateTime().ToString("O") ?? string.Empty,
+                LastRunLocalDisplay = s.LastRunLocalDisplay ?? string.Empty
+            }));
+        }
+        catch (Exception ex)
+        {
+            isHostOffline = IsHostOffline(ex);
+            errorMessage = $"Failed to load background jobs: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ToggleEnabledAsync(WorkerScheduleRow row)
+    {
+        if (isSaving) return;
+
+        isSaving = true;
+        errorMessage = null;
+        isHostOffline = false;
+        try
+        {
+            var updated = await BackgroundServicesClient.UpdateScheduleAsync(row.CtrlNbr, !row.IsEnabled);
+            row.IsEnabled = updated.IsEnabled;
+            row.LastRunStatus = updated.LastRunStatus;
+            row.LastRunUtc = updated.LastRunUtc?.ToDateTime().ToString("O") ?? string.Empty;
+            row.NextFireUtc = updated.NextFireUtc?.ToDateTime().ToString("O") ?? string.Empty;
+            row.NextFireLocalDisplay = updated.NextFireLocalDisplay ?? string.Empty;
+            row.LastRunLocalDisplay = updated.LastRunLocalDisplay ?? string.Empty;
+            successMessage = updated.IsEnabled
+                ? "Background job enabled."
+                : "Background job disabled.";
+        }
+        catch (Exception ex)
+        {
+            isHostOffline = IsHostOffline(ex);
+            errorMessage = $"Failed to update job schedule: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task OpenLogsModal(WorkerScheduleRow row)
+    {
+        selectedScheduleCtrlNbr = row.CtrlNbr;
+        selectedScheduleWorkAreaName = row.WorkAreaName;
+        selectedScheduleWorkerType = row.WorkerType;
+        showLogsModal = true;
+        await LoadLogsAsync();
+    }
+
+    private async Task LoadLogsAsync()
+    {
+        if (selectedScheduleCtrlNbr <= 0)
+            return;
+
+        isLoadingLogs = true;
+        errorMessage = null;
+        isHostOffline = false;
+        try
+        {
+            var response = await BackgroundServicesClient.GetExecutionLogsAsync(selectedScheduleCtrlNbr, 25);
+            logs.Clear();
+            logs.AddRange(response.Logs);
+        }
+        catch (Exception ex)
+        {
+            logs.Clear();
+            isHostOffline = IsHostOffline(ex);
+            errorMessage = $"Failed to load execution logs: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingLogs = false;
+        }
+    }
+
+    private void CloseLogsModal()
+    {
+        showLogsModal = false;
+        selectedScheduleCtrlNbr = 0;
+        selectedScheduleWorkAreaName = string.Empty;
+        selectedScheduleWorkerType = string.Empty;
+        logs.Clear();
+    }
+
+    private static string StatusBadgeClass(string? status)
+        => status?.Equals("Success", StringComparison.OrdinalIgnoreCase) == true
+            ? "bg-success"
+            : status?.Equals("Failed", StringComparison.OrdinalIgnoreCase) == true
+                ? "bg-danger"
+                : status?.Equals("Ready", StringComparison.OrdinalIgnoreCase) == true
+                    ? "bg-info text-dark"
+                    : status?.Equals("NotRunning", StringComparison.OrdinalIgnoreCase) == true
+                        ? "bg-danger"
+                    : status?.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) == true
+                        ? "bg-primary"
+                        : status?.Equals("NotStarted", StringComparison.OrdinalIgnoreCase) == true
+                            ? "bg-warning text-dark"
+                            : status?.Equals("HostOffline", StringComparison.OrdinalIgnoreCase) == true
+                                ? "bg-danger"
+                                : status?.Equals("Disabled", StringComparison.OrdinalIgnoreCase) == true
+                                    ? "bg-secondary"
+                                    : status?.Equals("Attention", StringComparison.OrdinalIgnoreCase) == true
+                                        ? "bg-warning text-dark"
+                : "bg-secondary";
+
+    private static string FormatTimestamp(string? isoUtc)
+    {
+        if (string.IsNullOrWhiteSpace(isoUtc))
+            return "—";
+
+        return DateTime.TryParse(isoUtc, out var dt)
+            ? dt.ToString("MM/dd/yyyy HH:mm")
+            : isoUtc;
+    }
+
+    private static string GetScheduleDisplay(WorkerScheduleRow row)
+    {
+        if (!string.IsNullOrWhiteSpace(row.CronExpression))
+            return row.CronExpression;
+
+        if (!string.IsNullOrWhiteSpace(row.NextFireUtc))
+            return "Scheduled by worker runtime";
+
+        return "System default (event-driven)";
+    }
+
+    private static string FormatBackendLocalDisplay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "—";
+
+        return DateTimeOffset.TryParse(value, out var dt)
+            ? dt.ToString("MM/dd/yyyy HH:mm")
+            : value;
+    }
+
+    private static bool IsHostOffline(Exception ex)
+    {
+        if (ex is RpcException rpcEx)
+        {
+            if (rpcEx.StatusCode == StatusCode.Unavailable || rpcEx.StatusCode == StatusCode.DeadlineExceeded)
+                return true;
+        }
+
+        var message = ex.ToString();
+        return message.Contains("StatusCode=\"Unavailable\"", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("connection refused", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("actively refused", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("no connection could be made", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task RunHeartbeatLoopAsync()
+    {
+        while (!ComponentToken.IsCancellationRequested)
+        {
+            var apiOnline = await CheckHeartbeatAsync();
+            if (apiOnline)
+            {
+                await RefreshSchedulesAsync();
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), ComponentToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task<bool> CheckHeartbeatAsync()
+    {
+        var apiOnline = false;
+        try
+        {
+            await BootstrapClient.GetContextOptionsAsync();
+            isHostOffline = false;
+            apiOnline = true;
+        }
+        catch (Exception ex)
+        {
+            if (IsHostOffline(ex))
+            {
+                isHostOffline = true;
+                apiOnline = false;
+            }
+        }
+        finally
+        {
+            hasHeartbeatResult = true;
+            lastHeartbeatDisplay = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+
+            if (!ComponentToken.IsCancellationRequested)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        return apiOnline;
+    }
+
+    private async Task RefreshSchedulesAsync()
+    {
+        if (!IsContextFullySelected || !SelectedRailroadCtrlNbr.HasValue)
+            return;
+
+        try
+        {
+            var response = await BackgroundServicesClient.GetWorkerSchedulesAsync(SelectedRailroadCtrlNbr.Value);
+            schedules.Clear();
+            schedules.AddRange(response.Schedules.Select(s => new WorkerScheduleRow
+            {
+                CtrlNbr = s.CtrlNbr,
+                WorkAreaCtrlNbr = s.WorkAreaCtrlNbr,
+                WorkAreaName = string.IsNullOrWhiteSpace(s.WorkAreaName) ? "Unknown Work Area" : s.WorkAreaName,
+                WorkerType = s.WorkerType,
+                IsEnabled = s.IsEnabled,
+                CronExpression = s.CronExpression ?? string.Empty,
+                NextFireUtc = s.NextFireUtc?.ToDateTime().ToString("O") ?? string.Empty,
+                NextFireLocalDisplay = s.NextFireLocalDisplay ?? string.Empty,
+                LastWorkerHeartbeatUtc = s.LastWorkerHeartbeatUtc?.ToDateTime().ToString("O") ?? string.Empty,
+                LastWorkerHeartbeatLocalDisplay = s.LastWorkerHeartbeatLocalDisplay ?? string.Empty,
+                LastRunStatus = s.LastRunStatus,
+                LastRunUtc = s.LastRunUtc?.ToDateTime().ToString("O") ?? string.Empty,
+                LastRunLocalDisplay = s.LastRunLocalDisplay ?? string.Empty
+            }));
+
+            if (!ComponentToken.IsCancellationRequested)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Host heartbeat handles offline state; avoid replacing current grid with transient refresh errors.
+        }
+    }
+
+    private string HeartbeatBadgeText(WorkerScheduleRow row)
+    {
+        if (isHostOffline || !row.IsEnabled)
+            return "Red";
+
+        if (IsWorkerReady(row))
+            return "Green";
+
+        return "Red";
+    }
+
+    private string HeartbeatBadgeClass(WorkerScheduleRow row)
+    {
+        if (HeartbeatBadgeText(row) == "Green")
+            return "bg-success";
+
+        return "bg-danger";
+    }
+
+    private bool IsReady(WorkerScheduleRow row)
+    {
+        if (!row.IsEnabled || isHostOffline)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(row.NextFireUtc) || !string.IsNullOrWhiteSpace(row.NextFireLocalDisplay))
+            return true;
+
+        if (ImplementedWorkers.Contains(row.WorkerType)
+            && (!string.IsNullOrWhiteSpace(row.LastWorkerHeartbeatUtc) || !string.IsNullOrWhiteSpace(row.LastWorkerHeartbeatLocalDisplay)))
+            return true;
+
+        return false;
+    }
+
+    private bool IsWorkerReady(WorkerScheduleRow row)
+    {
+        if (isHostOffline || !row.IsEnabled)
+            return false;
+
+        if (!ImplementedWorkers.Contains(row.WorkerType))
+            return true;
+
+        return !string.IsNullOrWhiteSpace(row.LastWorkerHeartbeatUtc)
+            || !string.IsNullOrWhiteSpace(row.LastWorkerHeartbeatLocalDisplay);
+    }
+
+    private string GetDisplayStatus(WorkerScheduleRow row)
+    {
+        if (isHostOffline)
+            return "HostOffline";
+
+        if (!row.IsEnabled)
+            return "Disabled";
+
+        if (!IsWorkerReady(row))
+            return "NotRunning";
+
+        if (!string.IsNullOrWhiteSpace(row.LastRunStatus))
+            return row.LastRunStatus;
+
+        return IsReady(row) ? "Ready" : "Ready";
+    }
+
+}

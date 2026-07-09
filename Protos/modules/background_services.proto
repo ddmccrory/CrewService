@@ -19,6 +19,7 @@ service BackgroundServicesSrvc {
 
 message GetWorkerSchedulesRequest {
   optional string worker_type = 1;
+  optional int64 railroad_ctrl_nbr = 2;
 }
 
 message GetWorkerSchedulesResponse {
@@ -32,6 +33,13 @@ message WorkerScheduleResponse {
   optional google.protobuf.Timestamp next_fire_utc = 4;
   optional string last_run_status = 5;
   optional google.protobuf.Timestamp last_run_utc = 6;
+  int64 work_area_ctrl_nbr = 7;
+  string work_area_name = 8;
+  optional string cron_expression = 9;
+  optional string next_fire_local_display = 10;
+  optional string last_run_local_display = 11;
+  optional google.protobuf.Timestamp last_worker_heartbeat_utc = 12;
+  optional string last_worker_heartbeat_local_display = 13;
 }
 
 message UpdateScheduleRequest {
