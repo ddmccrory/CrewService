@@ -148,7 +148,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
 
         if (schedule.WorkerType.Equals("Bulletin", StringComparison.OrdinalIgnoreCase))
         {
-            var (nextUtc, workAreaCtrlNbr) = await bulletinsService.GetNextBulletinEventAsync(workArea.OwningRailroadCtrlNbr, ct);
+            var (nextUtc, workAreaCtrlNbr) = await bulletinsService.GetNextBulletinEventAsync(ct);
             return workAreaCtrlNbr == workArea.CtrlNbr.Value ? nextUtc : null;
         }
 

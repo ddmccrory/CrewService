@@ -10,7 +10,7 @@ public sealed class UserAccessAppService(IOrchestrationUnitOfWorkFactory uowFact
     public async Task<UserParentAssignment> GetAssignmentAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.UserParentAssignments.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.UserParentAssignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Assignment {ctrlNbr.Value} not found.");
     }
 
@@ -35,7 +35,7 @@ public sealed class UserAccessAppService(IOrchestrationUnitOfWorkFactory uowFact
         if (role == Roles.SystemAdmin)
             throw new ValidationException("Role", "SystemAdmin cannot be assigned per-parent");
 
-        var roleEntity = await uow.Roles.GetByNameAsync(role)
+        var roleEntity = await uow.Roles.GetByNameAsync(role, ct)
             ?? throw new ValidationException("Role", $"Unknown role '{role}'");
 
         var existingAssignments = await uow.UserParentAssignments.GetByUserAndParentAsync(userId, parentCtrlNbr);
@@ -44,7 +44,7 @@ public sealed class UserAccessAppService(IOrchestrationUnitOfWorkFactory uowFact
                 $"User {userId} is already assigned to parent {parentCtrlNbr.Value}.");
 
         var assignment = UserParentAssignment.Create(userId, parentCtrlNbr, role);
-        await uow.UserParentAssignments.AddAsync(assignment);
+        await uow.UserParentAssignments.AddAsync(assignment, ct);
         await uow.CommitAsync(ct);
         return assignment;
     }
@@ -58,14 +58,14 @@ public sealed class UserAccessAppService(IOrchestrationUnitOfWorkFactory uowFact
         if (role == Roles.SystemAdmin)
             throw new ValidationException("Role", "SystemAdmin cannot be assigned per-parent");
 
-        var roleEntity = await uow.Roles.GetByNameAsync(role)
+        var roleEntity = await uow.Roles.GetByNameAsync(role, ct)
             ?? throw new ValidationException("Role", $"Unknown role '{role}'");
 
-        var assignment = await uow.UserParentAssignments.GetByCtrlNbrAsync(ctrlNbr)
+        var assignment = await uow.UserParentAssignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Assignment {ctrlNbr.Value} not found.");
 
         assignment.UpdateRole(role, railroadCtrlNbr);
-        await uow.UserParentAssignments.UpdateAsync(assignment);
+        await uow.UserParentAssignments.UpdateAsync(assignment, ct);
         await uow.CommitAsync(ct);
         return assignment;
     }
@@ -73,10 +73,10 @@ public sealed class UserAccessAppService(IOrchestrationUnitOfWorkFactory uowFact
     public async Task<UserParentAssignment> DeleteAssignmentAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var assignment = await uow.UserParentAssignments.GetByCtrlNbrAsync(ctrlNbr)
+        var assignment = await uow.UserParentAssignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Assignment {ctrlNbr.Value} not found.");
         assignment.Delete();
-        await uow.UserParentAssignments.DeleteAsync(assignment.CtrlNbr);
+        await uow.UserParentAssignments.DeleteAsync(assignment.CtrlNbr, ct);
         await uow.CommitAsync(ct);
         return assignment;
     }

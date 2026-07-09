@@ -4,13 +4,10 @@ using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
-using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
-using CrewService.Persistance.Data;
 using CrewService.UnitTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
-using Xunit;
 
 namespace CrewService.UnitTests.SeniorityOps;
 

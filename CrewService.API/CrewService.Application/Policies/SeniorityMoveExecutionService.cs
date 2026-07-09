@@ -53,8 +53,11 @@ public sealed class SeniorityMoveExecutionService(
         {
             assignment.Vacate();
             await uow.PositionAssignments.DeleteAsync(assignment.CtrlNbr, ct);
-            logger.LogInformation("SeniorityMoveExecution: Vacated employee {Employee} from position {Position}.",
-                move.EmployeeCtrlNbr, assignment.StaffablePositionCtrlNbr);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("SeniorityMoveExecution: Vacated employee {Employee} from position {Position}.",
+                    move.EmployeeCtrlNbr, assignment.StaffablePositionCtrlNbr);
+            }
         }
 
         // 3. Assign the mover to the target position
@@ -70,8 +73,11 @@ public sealed class SeniorityMoveExecutionService(
             displacedEmployeeCtrlNbr ??= targetCurrentAssignment.EmployeeCtrlNbr;
             targetCurrentAssignment.Vacate();
             await uow.PositionAssignments.DeleteAsync(targetCurrentAssignment.CtrlNbr, ct);
-            logger.LogInformation("SeniorityMoveExecution: Vacated displaced employee {Displaced} from target position {Position}.",
-                displacedEmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("SeniorityMoveExecution: Vacated displaced employee {Displaced} from target position {Position}.",
+                    displacedEmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+            }
         }
 
         var newAssignment = PositionAssignment.Create(
@@ -80,8 +86,11 @@ public sealed class SeniorityMoveExecutionService(
             "SeniorityMove",
             assignmentSourceCtrlNbr: moveCtrlNbr);
         await uow.PositionAssignments.AddAsync(newAssignment, ct);
-        logger.LogInformation("SeniorityMoveExecution: Assigned employee {Employee} to position {Position}.",
-            move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("SeniorityMoveExecution: Assigned employee {Employee} to position {Position}.",
+                move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+        }
 
         // 3b. No Access (administrative forced bump): cancel the mover's own remaining pending
         //     moves and co-assign any open bulletin on the claimed position.
@@ -116,9 +125,12 @@ public sealed class SeniorityMoveExecutionService(
 
         await uow.CommitAsync(ct);
 
-        logger.LogInformation(
-            "SeniorityMoveExecution: Move {MoveCtrlNbr} completed — employee {Employee} → position {Position}.",
-            moveCtrlNbr, move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "SeniorityMoveExecution: Move {MoveCtrlNbr} completed — employee {Employee} → position {Position}.",
+                moveCtrlNbr, move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -145,9 +157,12 @@ public sealed class SeniorityMoveExecutionService(
         // Check if the employee already has a position on this hangout board
         if (hangoutBoard.Positions.Any(p => p.EmployeeCtrlNbr == employeeCtrlNbr))
         {
-            logger.LogInformation(
-                "SeniorityMoveExecution: Employee {Employee} already on Hangout board {Board}.",
-                employeeCtrlNbr, hangoutBoard.CtrlNbr);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "SeniorityMoveExecution: Employee {Employee} already on Hangout board {Board}.",
+                    employeeCtrlNbr, hangoutBoard.CtrlNbr);
+            }
             return null;
         }
 
@@ -162,9 +177,12 @@ public sealed class SeniorityMoveExecutionService(
         hangoutBoard.AddPosition(employeeCtrlNbr, nextOrder, hangoutPosition.CtrlNbr);
         await uow.RosterBoards.UpdateAsync(hangoutBoard, ct);
 
-        logger.LogInformation(
-            "SeniorityMoveExecution: Displaced employee {Employee} placed on Hangout board {Board}.",
-            employeeCtrlNbr, hangoutBoard.CtrlNbr);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "SeniorityMoveExecution: Displaced employee {Employee} placed on Hangout board {Board}.",
+                employeeCtrlNbr, hangoutBoard.CtrlNbr);
+        }
 
         return hangoutBoard;
     }
@@ -212,17 +230,23 @@ public sealed class SeniorityMoveExecutionService(
             var rivalSeniority = await GetActiveSeniorityAsync(uow, rival.EmployeeCtrlNbr);
             if (!WinnerOutranks(winnerSeniority, rivalSeniority))
             {
-                logger.LogInformation(
-                    "SeniorityMoveExecution: Retained competing move {Move} (employee {Employee}) for position {Position} — rival is senior to the winner.",
-                    rival.CtrlNbr, rival.EmployeeCtrlNbr, targetPositionCtrlNbr);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        "SeniorityMoveExecution: Retained competing move {Move} (employee {Employee}) for position {Position} — rival is senior to the winner.",
+                        rival.CtrlNbr, rival.EmployeeCtrlNbr, targetPositionCtrlNbr);
+                }
                 continue;
             }
 
             rival.Cancel("Position was filled by a higher-seniority employee.");
             await uow.SeniorityMoves.UpdateAsync(rival, ct);
-            logger.LogInformation(
-                "SeniorityMoveExecution: Cancelled competing move {Move} (employee {Employee}) for position {Position}.",
-                rival.CtrlNbr, rival.EmployeeCtrlNbr, targetPositionCtrlNbr);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "SeniorityMoveExecution: Cancelled competing move {Move} (employee {Employee}) for position {Position}.",
+                    rival.CtrlNbr, rival.EmployeeCtrlNbr, targetPositionCtrlNbr);
+            }
         }
     }
 
@@ -276,9 +300,12 @@ public sealed class SeniorityMoveExecutionService(
 
             pending.Cancel("Superseded by a No Access bump for the same employee.");
             await uow.SeniorityMoves.UpdateAsync(pending, ct);
-            logger.LogInformation(
-                "SeniorityMoveExecution: Cancelled mover's own move {Move} (employee {Employee}) due to No Access bump.",
-                pending.CtrlNbr, moverEmployeeCtrlNbr);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "SeniorityMoveExecution: Cancelled mover's own move {Move} (employee {Employee}) due to No Access bump.",
+                    pending.CtrlNbr, moverEmployeeCtrlNbr);
+            }
         }
     }
 
@@ -315,9 +342,12 @@ public sealed class SeniorityMoveExecutionService(
             vacancy.Fill();
             await uow.PositionVacancies.UpdateAsync(vacancy, ct);
 
-            logger.LogInformation(
-                "SeniorityMoveExecution: Co-assigned open bulletin {Bulletin} on position {Position} to No Access mover {Employee}.",
-                bulletin.CtrlNbr, targetPositionCtrlNbr, moverEmployeeCtrlNbr);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "SeniorityMoveExecution: Co-assigned open bulletin {Bulletin} on position {Position} to No Access mover {Employee}.",
+                    bulletin.CtrlNbr, targetPositionCtrlNbr, moverEmployeeCtrlNbr);
+            }
         }
     }
 }

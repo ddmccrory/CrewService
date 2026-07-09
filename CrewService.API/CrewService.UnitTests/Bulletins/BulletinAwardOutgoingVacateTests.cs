@@ -139,7 +139,7 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
             boardCtrlNbr = board.CtrlNbr;
         }
 
-        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.EmployeeCtrlNbr, 1, ct);
+        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.EmployeeCtrlNbr, 1, null, ct);
         return boardCtrlNbr;
     }
 

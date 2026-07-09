@@ -20,7 +20,7 @@ public sealed class EmploymentAppService(IOrchestrationUnitOfWorkFactory uowFact
     public async Task<EmploymentStatus> GetStatusAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.EmploymentStatuses.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.EmploymentStatuses.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Employment status {ctrlNbr.Value} not found.");
     }
 
@@ -40,7 +40,7 @@ public sealed class EmploymentAppService(IOrchestrationUnitOfWorkFactory uowFact
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var status = await uow.EmploymentStatuses.GetByCtrlNbrAsync(ctrlNbr)
+        var status = await uow.EmploymentStatuses.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Employment status {ctrlNbr.Value} not found.");
         status.Update(statusCode, statusName, statusNumber, employmentCode);
         uow.EmploymentStatuses.Update(status);
@@ -51,7 +51,7 @@ public sealed class EmploymentAppService(IOrchestrationUnitOfWorkFactory uowFact
     public async Task DeleteStatusAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var status = await uow.EmploymentStatuses.GetByCtrlNbrAsync(ctrlNbr)
+        var status = await uow.EmploymentStatuses.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Employment status {ctrlNbr.Value} not found.");
         uow.EmploymentStatuses.Remove(status);
         await uow.CommitAsync(ct);
@@ -71,7 +71,7 @@ public sealed class EmploymentAppService(IOrchestrationUnitOfWorkFactory uowFact
     public async Task<EmploymentStatusHistory> GetHistoryRecordAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.EmploymentStatusHistory.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.EmploymentStatusHistory.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Employment status history {ctrlNbr.Value} not found.");
     }
 
@@ -89,7 +89,7 @@ public sealed class EmploymentAppService(IOrchestrationUnitOfWorkFactory uowFact
     public async Task DeleteHistoryRecordAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var record = await uow.EmploymentStatusHistory.GetByCtrlNbrAsync(ctrlNbr)
+        var record = await uow.EmploymentStatusHistory.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Employment status history {ctrlNbr.Value} not found.");
         uow.EmploymentStatusHistory.Remove(record);
         await uow.CommitAsync(ct);

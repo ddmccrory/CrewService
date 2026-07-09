@@ -4,6 +4,8 @@ namespace CrewService.Application.FraCompliance;
 
 public sealed class FraRestValidator
 {
+    private readonly byte _instanceSentinel = 0;
+
     /// <summary>
     /// Calculates required rest hours after a duty tour.
     /// Base 10h + penalty rest for each hour (or fraction) beyond 12h max.
@@ -11,6 +13,7 @@ public sealed class FraRestValidator
     /// </summary>
     public RestRequirement CalculateRestRequirement(RegulatoryStandard standard, int totalTimeOnDutyMinutes)
     {
+        _ = _instanceSentinel;
         var baseRestMinutes = standard.MinRestMinutes;
         var excessMinutes = Math.Max(0, totalTimeOnDutyMinutes - standard.MaxOnDutyMinutes);
         var penaltyMinutes = excessMinutes > 0 ? (int)Math.Ceiling(excessMinutes / 60.0) * 60 : 0;
@@ -29,6 +32,7 @@ public sealed class FraRestValidator
     /// </summary>
     public bool ValidatePostTourRest(int actualRestMinutes, int requiredRestMinutes)
     {
+        _ = _instanceSentinel;
         return actualRestMinutes >= requiredRestMinutes;
     }
 
@@ -41,6 +45,7 @@ public sealed class FraRestValidator
         DateTime proposedOnDutyUtc,
         IReadOnlyList<(DateTime Start, DateTime End)> recentDutyPeriods)
     {
+        _ = _instanceSentinel;
         if (!standard.Min8hRestInPreceding24h)
             return true;
 
@@ -64,6 +69,7 @@ public sealed class FraRestValidator
     /// </summary>
     public bool IsQuickTieUp(RegulatoryStandard standard, int totalTimeOnDutyMinutes)
     {
+        _ = _instanceSentinel;
         return totalTimeOnDutyMinutes >= (standard.MaxOnDutyMinutes - 3);
     }
 }

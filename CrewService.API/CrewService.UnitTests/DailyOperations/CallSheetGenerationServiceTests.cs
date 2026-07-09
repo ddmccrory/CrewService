@@ -137,7 +137,7 @@ public class CallSheetGenerationServiceTests
 
         public Task<IReadOnlyList<OnDutyRecord>> GetByPositionSlotsAsync(IReadOnlyList<ControlNumber> positionSlotCtrlNbrs, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>(
-                Added.Where(r => positionSlotCtrlNbrs.Contains(r.PositionSlotCtrlNbr)).ToList());
+                [.. Added.Where(r => positionSlotCtrlNbrs.Contains(r.PositionSlotCtrlNbr))]);
 
         public Task<IReadOnlyList<OnDutyRecord>> GetOpenForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
@@ -342,8 +342,8 @@ public class CallSheetGenerationServiceTests
                     dynamicGroups, onDutyRecords, offDutyRecords, crewPositions, positionAssignments));
     }
 
-    private static IWorkAreaClock CreateClock()
-        => new WorkAreaClock(TimeProvider.System, null!);
+    private static WorkAreaClock CreateClock()
+        => new(TimeProvider.System, null!);
 
     private static CallSheetGenerationService CreateSut(
         IAssignmentQueryService assignmentQuery,

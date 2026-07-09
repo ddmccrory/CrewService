@@ -21,7 +21,7 @@ public sealed class InvitationAppService(
     public async Task<Invitation> GetAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Invitations.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.Invitations.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Invitation {ctrlNbr.Value} not found.");
     }
 
@@ -98,7 +98,7 @@ public sealed class InvitationAppService(
 
         var invitation = Invitation.Create(email, parentCtrlNbr, role, invitedByUserId, expirationDays, railroadCtrlNbr);
 
-        await uow.Invitations.AddAsync(invitation);
+        await uow.Invitations.AddAsync(invitation, ct);
         await uow.CommitAsync(ct);
 
         try
@@ -117,10 +117,10 @@ public sealed class InvitationAppService(
     public async Task<Invitation> RevokeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var invitation = await uow.Invitations.GetByCtrlNbrAsync(ctrlNbr)
+        var invitation = await uow.Invitations.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Invitation {ctrlNbr.Value} not found.");
         invitation.Revoke();
-        await uow.Invitations.UpdateAsync(invitation);
+        await uow.Invitations.UpdateAsync(invitation, ct);
         await uow.CommitAsync(ct);
         return invitation;
     }
@@ -128,21 +128,21 @@ public sealed class InvitationAppService(
     public async Task<Invitation> ResendAsync(ControlNumber ctrlNbr, string parentName, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var existing = await uow.Invitations.GetByCtrlNbrAsync(ctrlNbr)
+        var existing = await uow.Invitations.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Invitation {ctrlNbr.Value} not found.");
 
         if (existing.Status != InvitationStatus.Pending)
             throw new InvalidOperationException($"Cannot resend invitation with status '{existing.Status}'.");
 
         existing.Revoke();
-        await uow.Invitations.UpdateAsync(existing);
+        await uow.Invitations.UpdateAsync(existing, ct);
 
         var newInvitation = Invitation.Create(
             existing.Email, existing.ParentCtrlNbr, existing.Role,
             currentUserService.GetUserId().ToString(),
             railroadCtrlNbr: existing.RailroadCtrlNbr);
 
-        await uow.Invitations.AddAsync(newInvitation);
+        await uow.Invitations.AddAsync(newInvitation, ct);
         await uow.CommitAsync(ct);
 
         var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(newInvitation.Token)}";
@@ -162,7 +162,7 @@ public sealed class InvitationAppService(
         if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
         {
             invitation.MarkExpired();
-            await uow.Invitations.UpdateAsync(invitation);
+            await uow.Invitations.UpdateAsync(invitation, ct);
             await uow.CommitAsync(ct);
         }
 
@@ -173,7 +173,7 @@ public sealed class InvitationAppService(
     {
         if (parentCtrlNbr is null) return "CrewService";
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var parent = await uow.Parents.GetByCtrlNbrAsync(parentCtrlNbr);
+        var parent = await uow.Parents.GetByCtrlNbrAsync(parentCtrlNbr, ct);
         return parent?.Name.Value ?? $"Parent {parentCtrlNbr.Value}";
     }
 

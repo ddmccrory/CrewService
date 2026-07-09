@@ -15,7 +15,7 @@ public sealed class PayrollTierAppService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task<PayrollTier> GetAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.PayrollTiers.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.PayrollTiers.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"PayrollTier {ctrlNbr.Value} not found.");
     }
 
@@ -35,7 +35,7 @@ public sealed class PayrollTierAppService(IOrchestrationUnitOfWorkFactory uowFac
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var tier = await uow.PayrollTiers.GetByCtrlNbrAsync(ctrlNbr)
+        var tier = await uow.PayrollTiers.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"PayrollTier {ctrlNbr.Value} not found.");
         tier.Update(numberOfDays, typeOfDay, ratePercentage);
         uow.PayrollTiers.Update(tier);
@@ -46,7 +46,7 @@ public sealed class PayrollTierAppService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var tier = await uow.PayrollTiers.GetByCtrlNbrAsync(ctrlNbr)
+        var tier = await uow.PayrollTiers.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"PayrollTier {ctrlNbr.Value} not found.");
         uow.PayrollTiers.Remove(tier);
         await uow.CommitAsync(ct);

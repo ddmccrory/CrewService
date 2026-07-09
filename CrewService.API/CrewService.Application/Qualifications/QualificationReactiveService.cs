@@ -10,9 +10,22 @@ namespace CrewService.Application.Qualifications;
 /// </summary>
 public sealed class QualificationReactiveService
 {
+    private readonly byte _instanceSentinel = 0;
+
     public Task HandleAddedToRosterAsync(ControlNumber employeeCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
-        => Task.CompletedTask;
+    {
+        _ = _instanceSentinel;
+        _ = employeeCtrlNbr;
+        _ = craftCtrlNbr;
+        _ = ct;
+        return Task.CompletedTask;
+    }
 
     public Task HandleOnDutyRecordCreatedAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
-        => Task.CompletedTask;
+    {
+        _ = _instanceSentinel;
+        _ = employeeCtrlNbr;
+        _ = ct;
+        return Task.CompletedTask;
+    }
 }

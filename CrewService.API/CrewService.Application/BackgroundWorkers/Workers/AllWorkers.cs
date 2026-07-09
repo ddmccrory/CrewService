@@ -37,11 +37,13 @@ public sealed class DailyCallSheetWorker(
         if (earliest.HasValue)
         {
             scheduleSignal.Notify(earliest.Value);
-            logger.LogInformation("DailyCallSheetWorker: Startup — next call-sheet event at {NextEvent:u}.", earliest.Value);
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("DailyCallSheetWorker: Startup — next call-sheet event at {NextEvent:u}.", earliest.Value);
         }
         else
         {
-            logger.LogInformation("DailyCallSheetWorker: Startup — no pending call-sheet events.");
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("DailyCallSheetWorker: Startup — no pending call-sheet events.");
         }
 
         await base.StartAsync(cancellationToken);
@@ -68,21 +70,27 @@ public sealed class DailyCallSheetWorker(
                     item.DepartmentCtrlNbr,
                     ct);
 
-                logger.LogInformation(
-                    "DailyCallSheetWorker: Generated call sheet for work area {WorkAreaCtrlNbr}, shift {ShiftDefinitionCtrlNbr}, date {TargetDate}.",
-                    item.WorkAreaGroupCtrlNbr,
-                    item.ShiftDefinitionCtrlNbr,
-                    item.TargetDate);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        "DailyCallSheetWorker: Generated call sheet for work area {WorkAreaCtrlNbr}, shift {ShiftDefinitionCtrlNbr}, date {TargetDate}.",
+                        item.WorkAreaGroupCtrlNbr,
+                        item.ShiftDefinitionCtrlNbr,
+                        item.TargetDate);
+                }
                 didWork = true;
             }
             catch (InvalidOperationException ex)
             {
-                logger.LogInformation(
-                    ex,
-                    "DailyCallSheetWorker: Skipped call sheet generation for work area {WorkAreaCtrlNbr}, shift {ShiftDefinitionCtrlNbr}, date {TargetDate}.",
-                    item.WorkAreaGroupCtrlNbr,
-                    item.ShiftDefinitionCtrlNbr,
-                    item.TargetDate);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        ex,
+                        "DailyCallSheetWorker: Skipped call sheet generation for work area {WorkAreaCtrlNbr}, shift {ShiftDefinitionCtrlNbr}, date {TargetDate}.",
+                        item.WorkAreaGroupCtrlNbr,
+                        item.ShiftDefinitionCtrlNbr,
+                        item.TargetDate);
+                }
             }
         }
 
@@ -162,7 +170,7 @@ public sealed class BulletinProcessingWorker(
             if (workArea is null)
                 continue;
 
-            var next = await bulletinsService.GetNextBulletinEventUtcAsync(workArea.OwningRailroadCtrlNbr, cancellationToken);
+            var next = await bulletinsService.GetNextBulletinEventUtcAsync(cancellationToken);
             if (next.HasValue && (earliest is null || next.Value < earliest.Value))
                 earliest = next;
         }
@@ -170,12 +178,16 @@ public sealed class BulletinProcessingWorker(
         if (earliest.HasValue)
         {
             scheduleSignal.Notify(earliest.Value);
-            logger.LogInformation(
-                "BulletinProcessingWorker: Startup — next bulletin event at {NextEvent:u}.", earliest.Value);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "BulletinProcessingWorker: Startup — next bulletin event at {NextEvent:u}.", earliest.Value);
+            }
         }
         else
         {
-            logger.LogInformation("BulletinProcessingWorker: Startup — no pending bulletin events.");
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("BulletinProcessingWorker: Startup — no pending bulletin events.");
         }
 
         await base.StartAsync(cancellationToken);
@@ -192,18 +204,22 @@ public sealed class BulletinProcessingWorker(
             return false;
         }
 
-        var railroadCtrlNbr = workArea.OwningRailroadCtrlNbr;
-
         // 1. Auto-award all closed bulletins whose bid window has passed
         //    (or transition to NoBid if no qualified bidder exists — Notify is called inside)
-        var awarded = await bulletinsService.AutoAwardClosedBulletinsAsync(railroadCtrlNbr, ct);
+        var awarded = await bulletinsService.AutoAwardClosedBulletinsAsync(ct);
         if (awarded.Count > 0)
-            logger.LogInformation("BulletinProcessingWorker: Auto-awarded {Count} bulletin(s).", awarded.Count);
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("BulletinProcessingWorker: Auto-awarded {Count} bulletin(s).", awarded.Count);
+        }
 
         // 2. Auto-force-assign all NoBid bulletins that have passed their force-assign deadline
-        var forceAssigned = await bulletinsService.AutoForceAssignNoBidsAsync(railroadCtrlNbr, ct);
+        var forceAssigned = await bulletinsService.AutoForceAssignNoBidsAsync(ct);
         if (forceAssigned.Count > 0)
-            logger.LogInformation("BulletinProcessingWorker: Auto-force-assigned {Count} NoBid bulletin(s).", forceAssigned.Count);
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("BulletinProcessingWorker: Auto-force-assigned {Count} NoBid bulletin(s).", forceAssigned.Count);
+        }
 
         var didWork = awarded.Count > 0 || forceAssigned.Count > 0;
 
@@ -217,7 +233,7 @@ public sealed class BulletinProcessingWorker(
 
         // Re-seed with the next pending event after processing so the signal always targets
         // the current earliest close/deadline, including tomorrow's event after processing today's.
-        var nextEvent = await bulletinsService.GetNextBulletinEventUtcAsync(railroadCtrlNbr, ct);
+        var nextEvent = await bulletinsService.GetNextBulletinEventUtcAsync(ct);
         if (nextEvent.HasValue)
             scheduleSignal.Notify(nextEvent.Value);
 
@@ -253,7 +269,8 @@ public sealed class SeniorityMoveWorker(
         var approved = await policiesService.AutoApprovePendingMovesAsync(ct);
         if (approved.Count > 0)
         {
-            logger.LogInformation("SeniorityMoveWorker: Auto-approved {Count} pending seniority move(s).", approved.Count);
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("SeniorityMoveWorker: Auto-approved {Count} pending seniority move(s).", approved.Count);
             didWork = true;
         }
 
@@ -273,7 +290,8 @@ public sealed class SeniorityMoveWorker(
             try
             {
                 await executionService.ExecuteAsync(move.CtrlNbr, ct);
-                logger.LogInformation("SeniorityMoveWorker: Executed move {MoveCtrlNbr}.", move.CtrlNbr);
+                if (logger.IsEnabled(LogLevel.Information))
+                    logger.LogInformation("SeniorityMoveWorker: Executed move {MoveCtrlNbr}.", move.CtrlNbr);
                 didWork = true;
             }
             catch (Exception ex)
@@ -313,12 +331,16 @@ public sealed class SeniorityStateChangeWorker(
         if (nextEvent.HasValue)
         {
             scheduleSignal.Notify(nextEvent.Value);
-            logger.LogInformation(
-                "SeniorityStateChangeWorker: Startup — next pending state change at {NextEvent:u}.", nextEvent.Value);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "SeniorityStateChangeWorker: Startup — next pending state change at {NextEvent:u}.", nextEvent.Value);
+            }
         }
         else
         {
-            logger.LogInformation("SeniorityStateChangeWorker: Startup — no pending state changes.");
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("SeniorityStateChangeWorker: Startup — no pending state changes.");
         }
 
         await base.StartAsync(cancellationToken);
@@ -330,7 +352,10 @@ public sealed class SeniorityStateChangeWorker(
 
         var applied = await seniorityService.ApplyDuePendingChangesAsync(ct);
         if (applied > 0)
-            logger.LogInformation("SeniorityStateChangeWorker: Applied {Count} pending state change(s).", applied);
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("SeniorityStateChangeWorker: Applied {Count} pending state change(s).", applied);
+        }
 
         // Re-seed the signal with the next remaining pending change, if any.
         var nextEvent = await seniorityService.GetNextPendingChangeUtcAsync(ct);
@@ -406,8 +431,11 @@ public sealed class FraComplianceWorker(
                             certificationDate: cert.ExpirationDate,
                             recertificationIntervalMonths: certCycleMonths);
                         certifications.Add(newCert);
-                        logger.LogInformation("Auto-initiated recertification for employee {EmployeeCtrlNbr}, expiring {ExpirationDate}",
-                            cert.EmployeeCtrlNbr.Value, cert.ExpirationDate);
+                        if (logger.IsEnabled(LogLevel.Information))
+                        {
+                            logger.LogInformation("Auto-initiated recertification for employee {EmployeeCtrlNbr}, expiring {ExpirationDate}",
+                                cert.EmployeeCtrlNbr.Value, cert.ExpirationDate);
+                        }
                         didWork = true;
                     }
                 }

@@ -9,7 +9,6 @@ using CrewService.Application.SeniorityOps;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
-using CrewService.Domain.Modules.Boards;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.UnitOfWork;
 using Microsoft.Data.Sqlite;

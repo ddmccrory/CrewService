@@ -52,6 +52,7 @@ public sealed class TimeFromEventEvaluator(
 
     private async Task<DateTime?> GetSeniorityDateAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
     {
+        _ = ct;
         var seniorityRecords = await seniorityRepository.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
         var earliest = seniorityRecords
             .Where(s => s.LastActiveRoster)

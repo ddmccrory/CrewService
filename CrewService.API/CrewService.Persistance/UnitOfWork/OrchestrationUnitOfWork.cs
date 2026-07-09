@@ -518,7 +518,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             {
                 var reactor = _reactor;
                 var capturedEvents = domainEvents;
-                _ = Task.Run(() => reactor.ReactAsync(capturedEvents, CancellationToken.None));
+                _ = Task.Run(() => reactor.ReactAsync(capturedEvents, cancellationToken), CancellationToken.None);
             }
 
             // Dispatch messages for immediate publishing (if dispatcher available)

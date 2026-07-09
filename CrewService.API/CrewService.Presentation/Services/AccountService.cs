@@ -44,8 +44,11 @@ public sealed partial class AccountService(IUserAccountService userAccountServic
     {
         ThemeResponse response = new();
 
-        _logger.LogInformation("ModifyTheme called for user '{UserName}' with theme '{ThemeName}' mode '{ThemeMode}'",
-            request.UserName, request.ThemeName, request.ThemeMode);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("ModifyTheme called for user '{UserName}' with theme '{ThemeName}' mode '{ThemeMode}'",
+                request.UserName, request.ThemeName, request.ThemeMode);
+        }
 
         if (!string.IsNullOrEmpty(request.UserName))
         {
@@ -63,8 +66,11 @@ public sealed partial class AccountService(IUserAccountService userAccountServic
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("ModifyTheme: Successfully saved theme '{ThemeName}' mode '{ThemeMode}' for user '{UserName}'",
-                        request.ThemeName, request.ThemeMode, request.UserName);
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation("ModifyTheme: Successfully saved theme '{ThemeName}' mode '{ThemeMode}' for user '{UserName}'",
+                            request.ThemeName, request.ThemeMode, request.UserName);
+                    }
                     response.Success = true;
                     response.Message.Add($"User theme has successfully modified to {request.ThemeName} ({request.ThemeMode}).");
                 }

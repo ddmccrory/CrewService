@@ -58,9 +58,12 @@ public sealed class VacancyRepostService(
             targetName: plan.TargetName,
             ct: ct);
 
-        logger.LogInformation(
-            "VacancyRepost: Reposted {TargetType} position {Position} (reason {Reason}).",
-            plan.TargetType, staffablePositionCtrlNbr.Value, plan.VacancyReasonCode);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "VacancyRepost: Reposted {TargetType} position {Position} (reason {Reason}).",
+                plan.TargetType, staffablePositionCtrlNbr.Value, plan.VacancyReasonCode);
+        }
     }
 
     /// <summary>
@@ -92,9 +95,12 @@ public sealed class VacancyRepostService(
 
         await uow.CommitAsync(ct);
 
-        logger.LogInformation(
-            "VacancyRepost: Removed surplus board slot {Position} from board {Board} (board adequately staffed).",
-            staffablePositionCtrlNbr.Value, board.CtrlNbr.Value);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "VacancyRepost: Removed surplus board slot {Position} from board {Board} (board adequately staffed).",
+                staffablePositionCtrlNbr.Value, board.CtrlNbr.Value);
+        }
     }
 
     /// <summary>
@@ -136,9 +142,12 @@ public sealed class VacancyRepostService(
             targetName: plan.TargetName,
             ct: ct);
 
-        logger.LogInformation(
-            "VacancyRepost: Reposted understaffed board slot {Position} on board {Board}.",
-            vacatedStaffablePositionCtrlNbr.Value, boardCtrlNbr.Value);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "VacancyRepost: Reposted understaffed board slot {Position} on board {Board}.",
+                vacatedStaffablePositionCtrlNbr.Value, boardCtrlNbr.Value);
+        }
     }
 
     /// <summary>
@@ -272,7 +281,7 @@ public sealed class VacancyRepostService(
             }
         }
 
-        if (reposted > 0)
+        if (reposted > 0 && logger.IsEnabled(LogLevel.Information))
             logger.LogInformation("VacancyRepost: Reconciliation reposted {Count} vacant position(s).", reposted);
 
         return reposted;

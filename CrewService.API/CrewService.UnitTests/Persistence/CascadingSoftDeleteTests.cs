@@ -16,7 +16,11 @@ namespace CrewService.UnitTests.Persistence;
 public class CascadingSoftDeleteTests : IDisposable
 {
     private readonly TestDbContextFactory _factory = new();
-    public void Dispose() => _factory.Dispose();
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private static async Task<DynamicGroup> CreateGroupAsync(CrewServiceDbContext ctx, CancellationToken ct)
     {

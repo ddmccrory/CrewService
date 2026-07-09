@@ -24,7 +24,7 @@ public sealed class RosterBoardAppService(
         GetRosterBoardDetailAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr);
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr, ct);
         if (board is null)
             return (null, string.Empty, string.Empty, 0, string.Empty, null, []);
 
@@ -36,18 +36,18 @@ public sealed class RosterBoardAppService(
 
         if (board.CraftCtrlNbr is not null)
         {
-            var craft = await uow.Crafts.GetByCtrlNbrAsync(board.CraftCtrlNbr);
+            var craft = await uow.Crafts.GetByCtrlNbrAsync(board.CraftCtrlNbr, ct);
             craftName = craft?.CraftName ?? string.Empty;
         }
 
         if (board.RosterCtrlNbr is not null)
         {
-            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
             rosterName = roster?.RosterName ?? string.Empty;
             workAreaCtrlNbr = roster?.WorkAreaGroupCtrlNbr.Value ?? 0;
             if (roster?.WorkAreaGroupCtrlNbr is not null)
             {
-                var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+                var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
                 workAreaName = group?.Name ?? string.Empty;
                 workAreaTimeZoneId = group?.TimeZoneId;
             }
@@ -65,11 +65,11 @@ public sealed class RosterBoardAppService(
     public async Task<string?> GetBoardWorkAreaTimeZoneIdAsync(ControlNumber boardCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr);
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct);
         if (board?.RosterCtrlNbr is null) return null;
-        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
         if (roster?.WorkAreaGroupCtrlNbr is null) return null;
-        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
         return group?.TimeZoneId;
     }
 
@@ -92,7 +92,7 @@ public sealed class RosterBoardAppService(
         IReadOnlyList<RosterBoard> boards;
         if (craftCtrlNbr > 0)
         {
-            boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(ControlNumber.Create(craftCtrlNbr));
+            boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(ControlNumber.Create(craftCtrlNbr), ct);
         }
         else if (parentCtrlNbr > 0)
         {
@@ -100,11 +100,11 @@ public sealed class RosterBoardAppService(
                 ControlNumber.Create(parentCtrlNbr),
                 dynamicGroupCtrlNbr > 0 ? ControlNumber.Create(dynamicGroupCtrlNbr) : null);
             var craftCtrlNbrs = crafts.Select(c => c.CtrlNbr).ToList();
-            boards = craftCtrlNbrs.Count > 0 ? await uow.RosterBoards.GetByCraftCtrlNbrsAsync(craftCtrlNbrs) : [];
+            boards = craftCtrlNbrs.Count > 0 ? await uow.RosterBoards.GetByCraftCtrlNbrsAsync(craftCtrlNbrs, ct) : [];
         }
         else
         {
-            boards = await uow.RosterBoards.GetAllAsync();
+            boards = await uow.RosterBoards.GetAllAsync(ct);
         }
 
         if (boards.Count == 0)
@@ -114,13 +114,13 @@ public sealed class RosterBoardAppService(
         var allPositionEmployeeCtrlNbrs = boards.SelectMany(b => b.Positions)
             .Select(p => p.EmployeeCtrlNbr).Where(e => e is not null).Distinct().ToList();
 
-        var craftTasks = await Task.WhenAll(distinctCraftCtrlNbrs.Select(c => uow.Crafts.GetByCtrlNbrAsync(c!)));
+        var craftTasks = await Task.WhenAll(distinctCraftCtrlNbrs.Select(c => uow.Crafts.GetByCtrlNbrAsync(c!, ct)));
         var rosters = distinctCraftCtrlNbrs.Count > 0
             ? await uow.Rosters.GetByCraftCtrlNbrsAsync(distinctCraftCtrlNbrs!)
-            : new List<Roster>();
+            : [];
         var employees = allPositionEmployeeCtrlNbrs.Count > 0
-            ? await uow.Employees.GetByCtrlNbrsAsync(allPositionEmployeeCtrlNbrs!)
-            : new List<Employee>();
+            ? await uow.Employees.GetByCtrlNbrsAsync(allPositionEmployeeCtrlNbrs!, ct)
+            : [];
 
         var craftMap = craftTasks.Where(c => c is not null).ToDictionary(c => c!.CtrlNbr, c => c!.CraftName);
         var rosterMap = rosters.ToDictionary(r => r.CtrlNbr, r => r);
@@ -129,7 +129,7 @@ public sealed class RosterBoardAppService(
         var distinctWorkAreaCtrlNbrs = rosterMap.Values.Select(r => r.WorkAreaGroupCtrlNbr).Distinct().ToList();
         var groups = distinctWorkAreaCtrlNbrs.Count > 0
             ? await uow.DynamicGroups.GetByCtrlNbrsAsync(distinctWorkAreaCtrlNbrs)
-            : new List<DynamicGroup>();
+            : [];
         var groupMap = groups.ToDictionary(g => g.CtrlNbr, g => g.Name);
         var groupTimeZones = groups.ToDictionary(g => g.CtrlNbr, g => g.TimeZoneId);
 
@@ -178,7 +178,7 @@ public sealed class RosterBoardAppService(
             bool? placementRequiresAcknowledgement = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr)
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Roster board {ctrlNbr.Value} not found.");
         board.Update(name, boardType, rotationType, isActive, requiredPositions);
         if (allowBulletinBidding.HasValue)
@@ -200,7 +200,7 @@ public sealed class RosterBoardAppService(
     public async Task<ControlNumber?> DeleteRosterBoardAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr)
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Roster board {ctrlNbr.Value} not found.");
         uow.RosterBoards.Remove(board);
         await uow.CommitAsync(ct);
@@ -211,10 +211,10 @@ public sealed class RosterBoardAppService(
 
     public async Task<(RosterBoardPosition Position, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
         AddRosterBoardPositionAsync(ControlNumber boardCtrlNbr, ControlNumber employeeCtrlNbr,
-            int positionOrder, CancellationToken ct = default, DateTime? assignedDateUtc = null)
+            int positionOrder, DateTime? assignedDateUtc = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr)
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct)
             ?? throw new KeyNotFoundException($"Roster board {boardCtrlNbr.Value} not found.");
 
         var existingAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
@@ -252,7 +252,7 @@ public sealed class RosterBoardAppService(
 
         await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            var boards = await uow.RosterBoards.GetAllAsync();
+            var boards = await uow.RosterBoards.GetAllAsync(ct);
             var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
                 ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found on any board.");
 
@@ -272,7 +272,7 @@ public sealed class RosterBoardAppService(
             // Refresh the required-position threshold using the craft's assigned strategy (ExtraBoard only).
             if (isExtraBoard)
             {
-                var recalcRoster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+                var recalcRoster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
                 if (recalcRoster is not null)
                     await RecalculateRequiredPositionsAsync(uow, board, recalcRoster.WorkAreaGroupCtrlNbr, ct);
             }
@@ -295,7 +295,7 @@ public sealed class RosterBoardAppService(
         HangoutPositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var boards = await uow.RosterBoards.GetAllAsync();
+        var boards = await uow.RosterBoards.GetAllAsync(ct);
         var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
             ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found.");
         var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
@@ -307,7 +307,7 @@ public sealed class RosterBoardAppService(
         RestorePositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var boards = await uow.RosterBoards.GetAllAsync();
+        var boards = await uow.RosterBoards.GetAllAsync(ct);
         var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
             ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found.");
         var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
@@ -323,7 +323,7 @@ public sealed class RosterBoardAppService(
             List<(ControlNumber PositionCtrlNbr, int PositionOrder)> ordering, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr)
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct)
             ?? throw new KeyNotFoundException($"Roster board {boardCtrlNbr.Value} not found.");
         board.ReorderPositions(ordering);
         uow.RosterBoards.Update(board);
@@ -370,7 +370,7 @@ public sealed class RosterBoardAppService(
         var assignedCtrlNbrs = await uow.PositionAssignments.GetAssignedEmployeeCtrlNbrsAsync();
         var unassigned = assignedCtrlNbrs.Count == 0
             ? employees
-            : employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value)).ToList();
+            : [.. employees.Where(e => !assignedCtrlNbrs.Contains(e.CtrlNbr.Value))];
 
         var empQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(unassigned.Select(e => e.CtrlNbr));
         var qualifiedCtrlNbrs = empQuals
@@ -378,7 +378,7 @@ public sealed class RosterBoardAppService(
             .Select(eq => eq.EmployeeCtrlNbr)
             .ToHashSet();
 
-        return unassigned.Where(e => qualifiedCtrlNbrs.Contains(e.CtrlNbr)).ToList();
+        return [.. unassigned.Where(e => qualifiedCtrlNbrs.Contains(e.CtrlNbr))];
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -393,17 +393,17 @@ public sealed class RosterBoardAppService(
 
         if (board.CraftCtrlNbr is not null)
         {
-            var craft = await uow.Crafts.GetByCtrlNbrAsync(board.CraftCtrlNbr);
+            var craft = await uow.Crafts.GetByCtrlNbrAsync(board.CraftCtrlNbr, ct);
             craftName = craft?.CraftName ?? string.Empty;
         }
         if (board.RosterCtrlNbr is not null)
         {
-            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
             rosterName = roster?.RosterName ?? string.Empty;
             workAreaCtrlNbr = roster?.WorkAreaGroupCtrlNbr.Value ?? 0;
             if (roster?.WorkAreaGroupCtrlNbr is not null)
             {
-                var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr);
+                var group = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
                 workAreaName = group?.Name ?? string.Empty;
             }
         }
@@ -414,6 +414,7 @@ public sealed class RosterBoardAppService(
         IOrchestrationUnitOfWork uow, ControlNumber? craftCtrlNbr,
         IEnumerable<ControlNumber> employeeCtrlNbrs, CancellationToken ct)
     {
+        _ = ct;
         var empCtrlNbrs = employeeCtrlNbrs.Distinct().ToList();
         var result = new Dictionary<ControlNumber, List<string>>();
         if (empCtrlNbrs.Count == 0 || craftCtrlNbr is null) return result;
@@ -451,6 +452,7 @@ public sealed class RosterBoardAppService(
         IOrchestrationUnitOfWork uow, IEnumerable<ControlNumber> craftCtrlNbrs,
         IEnumerable<ControlNumber> employeeCtrlNbrs, CancellationToken ct)
     {
+        _ = ct;
         var empCtrlNbrs = employeeCtrlNbrs.Distinct().ToList();
         var result = new Dictionary<ControlNumber, List<string>>();
         if (empCtrlNbrs.Count == 0) return result;
@@ -503,14 +505,14 @@ public sealed class RosterBoardAppService(
 
         if (board.RequiredPositionsStrategyCtrlNbr is not null)
         {
-            strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(board.RequiredPositionsStrategyCtrlNbr);
+            strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(board.RequiredPositionsStrategyCtrlNbr, ct);
         }
 
         if (strategy is null && board.CraftCtrlNbr is not null)
         {
             var craftAssignment = await uow.CraftRequiredPositionsStrategies.GetByCraftAsync(board.CraftCtrlNbr, ct);
             if (craftAssignment is not null)
-                strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(craftAssignment.StrategyCtrlNbr);
+                strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(craftAssignment.StrategyCtrlNbr, ct);
         }
 
         if (strategy is null)

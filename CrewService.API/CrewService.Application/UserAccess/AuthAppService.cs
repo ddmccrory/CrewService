@@ -27,7 +27,7 @@ public sealed class AuthAppService(
             if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
             {
                 invitation.MarkExpired();
-                await uow.Invitations.UpdateAsync(invitation);
+                await uow.Invitations.UpdateAsync(invitation, ct);
                 await uow.CommitAsync(ct);
             }
             return (false, $"Invitation is no longer valid (status: {invitation.Status}).");
@@ -44,17 +44,17 @@ public sealed class AuthAppService(
             if (existingUser is null)
             {
                 // New user (e.g. admin invitation) -- create account with password
-                var createResult = await userAccountService.CreateAsync(new CreateUserRequest
+                var (createUserResult, userId) = await userAccountService.CreateAsync(new CreateUserRequest
                 {
                     UserName = invitation.Email,
                     Email = invitation.Email,
                     Password = password
                 });
 
-                if (!createResult.Result.Succeeded)
-                    return (false, string.Join("; ", createResult.Result.Errors));
+                if (!createUserResult.Succeeded)
+                    return (false, string.Join("; ", createUserResult.Errors));
 
-                existingUser = await userAccountService.FindByIdAsync(createResult.UserId);
+                existingUser = await userAccountService.FindByIdAsync(userId);
             }
             else
             {
@@ -66,7 +66,7 @@ public sealed class AuthAppService(
         }
 
         invitation.Accept();
-        await uow.Invitations.UpdateAsync(invitation);
+        await uow.Invitations.UpdateAsync(invitation, ct);
 
         if (invitation.ParentCtrlNbr is null)
         {
@@ -76,7 +76,7 @@ public sealed class AuthAppService(
             foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
             {
                 oldInv.MarkSuperseded();
-                await uow.Invitations.UpdateAsync(oldInv);
+                await uow.Invitations.UpdateAsync(oldInv, ct);
             }
 
             await uow.CommitAsync(ct);
@@ -95,20 +95,20 @@ public sealed class AuthAppService(
             if (isParentScoped && hasRailroadScoped)
             {
                 foreach (var old in existingAssignments)
-                    await uow.UserParentAssignments.DeleteAsync(old.CtrlNbr);
+                    await uow.UserParentAssignments.DeleteAsync(old.CtrlNbr, ct);
 
                 var newAssignment = UserParentAssignment.Create(
                     existingUser.Id, invitation.ParentCtrlNbr, invitation.Role);
-                await uow.UserParentAssignments.AddAsync(newAssignment);
+                await uow.UserParentAssignments.AddAsync(newAssignment, ct);
             }
             else if (!isParentScoped && hasParentScoped)
             {
                 foreach (var old in existingAssignments)
-                    await uow.UserParentAssignments.DeleteAsync(old.CtrlNbr);
+                    await uow.UserParentAssignments.DeleteAsync(old.CtrlNbr, ct);
 
                 var newAssignment = UserParentAssignment.Create(
                     existingUser.Id, invitation.ParentCtrlNbr, invitation.Role, invitation.RailroadCtrlNbr);
-                await uow.UserParentAssignments.AddAsync(newAssignment);
+                await uow.UserParentAssignments.AddAsync(newAssignment, ct);
             }
             else
             {
@@ -117,13 +117,13 @@ public sealed class AuthAppService(
                 if (matchingAssignment is not null)
                 {
                     matchingAssignment.UpdateRole(invitation.Role, invitation.RailroadCtrlNbr);
-                    await uow.UserParentAssignments.UpdateAsync(matchingAssignment);
+                    await uow.UserParentAssignments.UpdateAsync(matchingAssignment, ct);
                 }
                 else
                 {
                     var newAssignment = UserParentAssignment.Create(
                         existingUser.Id, invitation.ParentCtrlNbr, invitation.Role, invitation.RailroadCtrlNbr);
-                    await uow.UserParentAssignments.AddAsync(newAssignment);
+                    await uow.UserParentAssignments.AddAsync(newAssignment, ct);
                 }
             }
 
@@ -132,14 +132,14 @@ public sealed class AuthAppService(
             foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
             {
                 oldInv.MarkSuperseded();
-                await uow.Invitations.UpdateAsync(oldInv);
+                await uow.Invitations.UpdateAsync(oldInv, ct);
             }
         }
         else
         {
             var assignment = UserParentAssignment.Create(
                 existingUser.Id, invitation.ParentCtrlNbr, invitation.Role, invitation.RailroadCtrlNbr);
-            await uow.UserParentAssignments.AddAsync(assignment);
+            await uow.UserParentAssignments.AddAsync(assignment, ct);
         }
 
         await uow.CommitAsync(ct);

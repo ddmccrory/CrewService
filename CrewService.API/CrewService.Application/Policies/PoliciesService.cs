@@ -147,7 +147,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         // Board join path: create a new position at the bottom of the target board.
         if (targetBoardCtrlNbr > 0)
         {
-            var board = await uow.RosterBoards.GetByCtrlNbrAsync(ControlNumber.Create(targetBoardCtrlNbr))
+            var board = await uow.RosterBoards.GetByCtrlNbrAsync(ControlNumber.Create(targetBoardCtrlNbr), ct)
                 ?? throw new KeyNotFoundException($"Roster board {targetBoardCtrlNbr} not found.");
 
             if (!board.AllowSeniorityMove)
@@ -319,7 +319,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
     /// target position, both cached once per position.
     /// </summary>
     private async Task<IReadOnlyList<SeniorityMoveListItem>> EnrichWithAutoApproveAsync(
-        IReadOnlyList<SeniorityMove> moves, IOrchestrationUnitOfWork uow, CancellationToken ct)
+        List<SeniorityMove> moves, IOrchestrationUnitOfWork uow, CancellationToken ct)
     {
         var policyCache = new Dictionary<ControlNumber, SeniorityMovePolicy?>();
         var targetNameCache = new Dictionary<ControlNumber, string>();
@@ -487,7 +487,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             currentAssignment.AssignmentSourceCtrlNbr is null)
             return false;
 
-        var currentCrewPos = await uow.CrewPositions.GetByCtrlNbrAsync(currentAssignment.AssignmentSourceCtrlNbr);
+        var currentCrewPos = await uow.CrewPositions.GetByCtrlNbrAsync(currentAssignment.AssignmentSourceCtrlNbr, ct);
         var (schedule, _) = await ResolveCrewScheduleAsync(currentCrewPos, uow, ct);
         if (schedule is null || currentCrewPos is null) return false;
 
@@ -589,7 +589,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             var baseDate = now.AddHours(requestHours);
             if (bumpDate > baseDate) baseDate = bumpDate;
             // Yardman/Yardmaster: avoid exact midnight (legacy nudge rule).
-            var craft     = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr);
+            var craft     = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr, ct);
             var craftName = craft?.CraftName ?? string.Empty;
             if ((craftName.Contains("Yardman", StringComparison.OrdinalIgnoreCase) ||
                  craftName.Contains("Yardmaster", StringComparison.OrdinalIgnoreCase))
@@ -613,7 +613,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
                 currentAssignment.AssignmentSourceCtrlNbr is not null)
             {
                 scheduleCrewPos = await uow.CrewPositions.GetByCtrlNbrAsync(
-                    currentAssignment.AssignmentSourceCtrlNbr);
+                    currentAssignment.AssignmentSourceCtrlNbr, ct);
                 (schedule, workDaysMask) = await ResolveCrewScheduleAsync(scheduleCrewPos, uow, ct);
             }
         }
@@ -673,6 +673,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         IOrchestrationUnitOfWork uow,
         CancellationToken ct)
     {
+        _ = ct;
         if (crewPosition is null) return (null, 0);
 
         var crewAssignments = await uow.CrewAssignments.GetByCrewAsync(crewPosition.CrewCtrlNbr);

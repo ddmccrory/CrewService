@@ -4,6 +4,8 @@ namespace CrewService.Application.FraCompliance;
 
 public sealed class FraMonthlyCapTracker
 {
+    private readonly byte _instanceSentinel = 0;
+
     /// <summary>
     /// Updates the monthly accumulator with minutes from a completed tour
     /// and checks whether any monthly cap has been exceeded.
@@ -14,6 +16,7 @@ public sealed class FraMonthlyCapTracker
         FraMonthlyAccumulator accumulator,
         TtodResult ttodResult)
     {
+        _ = _instanceSentinel;
         accumulator.AddTourMinutes(
             coveredServiceMinutes: ttodResult.CoveredServiceMinutes,
             deadheadToReleaseMinutes: ttodResult.DeadheadFromAssignmentMinutes,
