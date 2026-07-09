@@ -45,6 +45,7 @@ builder.Services.AddScoped<BulletinsClient>();
 builder.Services.AddScoped<PoliciesClient>();
 builder.Services.AddScoped<RequiredPositionsStrategyClient>();
 builder.Services.AddScoped<NotificationsClient>();
+builder.Services.AddScoped<BackgroundServicesClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 
