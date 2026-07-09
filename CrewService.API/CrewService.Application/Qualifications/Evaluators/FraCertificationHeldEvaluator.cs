@@ -18,7 +18,7 @@ public sealed class FraCertificationHeldEvaluator(IEmployeeCertificationReposito
             return EvaluationResult.NotSatisfied("No required regulatory qualification specified");
 
         var cert = await certificationRepository.GetByEmployeeAndRegulatoryQualAsync(
-            employeeCtrlNbr, rule.RequiredRegulatoryQualCtrlNbr);
+            employeeCtrlNbr, rule.RequiredRegulatoryQualCtrlNbr, ct);
 
         if (cert is null)
             return EvaluationResult.NotSatisfied("Required FRA certification not held");

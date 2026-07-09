@@ -16,7 +16,7 @@ public sealed class PriorServiceCreditAppService(IOrchestrationUnitOfWorkFactory
     public async Task<EmployeePriorServiceCredit> GetAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.EmployeePriorServiceCredits.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.EmployeePriorServiceCredits.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Prior service credit {ctrlNbr.Value} not found.");
     }
 
@@ -39,7 +39,7 @@ public sealed class PriorServiceCreditAppService(IOrchestrationUnitOfWorkFactory
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var credit = await uow.EmployeePriorServiceCredits.GetByCtrlNbrAsync(ctrlNbr)
+        var credit = await uow.EmployeePriorServiceCredits.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Prior service credit {ctrlNbr.Value} not found.");
         credit.Update(serviceYears, serviceMonths, serviceDays);
         uow.EmployeePriorServiceCredits.Update(credit);
@@ -50,7 +50,7 @@ public sealed class PriorServiceCreditAppService(IOrchestrationUnitOfWorkFactory
     public async Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var credit = await uow.EmployeePriorServiceCredits.GetByCtrlNbrAsync(ctrlNbr)
+        var credit = await uow.EmployeePriorServiceCredits.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Prior service credit {ctrlNbr.Value} not found.");
         uow.EmployeePriorServiceCredits.Remove(credit);
         await uow.CommitAsync(ct);

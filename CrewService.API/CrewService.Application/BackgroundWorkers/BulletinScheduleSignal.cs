@@ -1,5 +1,7 @@
 namespace CrewService.Application.BackgroundWorkers;
 
+using System.Threading;
+
 /// <summary>
 /// Push signal that lets the bulletin creation / NoBid paths notify the
 /// <c>BulletinProcessingWorker</c> of the exact UTC time it should next wake.
@@ -28,7 +30,7 @@ public sealed class BulletinScheduleSignal : IBulletinScheduleSignal
 {
     private readonly SemaphoreSlim _gate = new(0, 1);
     private DateTime? _nextEventUtc;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public void Notify(DateTime eventUtc)
     {
@@ -74,7 +76,7 @@ public sealed class BulletinScheduleSignal : IBulletinScheduleSignal
                         _nextEventUtc = null;
                 }
                 // Drain the semaphore if a concurrent Notify released it.
-                _gate.Wait(0);
+                _gate.Wait(0, CancellationToken.None);
                 return;
             }
 

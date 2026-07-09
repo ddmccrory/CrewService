@@ -66,9 +66,12 @@ public sealed class EmployeeNotificationService(
 
         uow.EmployeeNotifications.Add(notification);
 
-        logger.LogInformation(
-            "Notification queued: employee {Employee}, category {Category}, requiresAck {RequiresAck}.",
-            employeeCtrlNbr.Value, category, requiresAcknowledgement);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Notification queued: employee {Employee}, category {Category}, requiresAck {RequiresAck}.",
+                employeeCtrlNbr.Value, category, requiresAcknowledgement);
+        }
 
         return notification;
     }
@@ -295,7 +298,7 @@ public sealed class EmployeeNotificationService(
         if (employee is null || string.IsNullOrEmpty(employee.UserId)) return string.Empty;
 
         var names = await userAccounts.GetNamesByIdsAsync([employee.UserId]);
-        return names.FirstOrDefault()?.FullNameLNF ?? string.Empty;
+        return names.Count > 0 ? names[0].FullNameLNF ?? string.Empty : string.Empty;
     }
 
     /// <summary>
@@ -348,14 +351,14 @@ public sealed class EmployeeNotificationService(
         if (board.RosterCtrlNbr is null)
             return null;
 
-        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr);
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
         if (roster is null)
             return null;
 
         return await railroadResolver.ResolveFromWorkAreaAsync(uow, roster.WorkAreaGroupCtrlNbr, ct);
     }
 
-    private string FormatEffectiveLocal(DateTime? effectiveUtc, TimeZoneInfo? tz)
+    private static string FormatEffectiveLocal(DateTime? effectiveUtc, TimeZoneInfo? tz)
     {
         if (!effectiveUtc.HasValue) return "immediately";
         var utc = DateTime.SpecifyKind(effectiveUtc.Value, DateTimeKind.Utc);

@@ -81,7 +81,7 @@ public sealed class EmployeeAppService(
             new OrchestrationUnitOfWorkOptions { SuppressReactor = !sendInvitation },
             ct);
 
-        var parent = await uow.Parents.GetByCtrlNbrAsync(clientCtrlNbr)
+        var parent = await uow.Parents.GetByCtrlNbrAsync(clientCtrlNbr, ct)
             ?? throw new InvalidOperationException($"Client {clientCtrlNbr.Value} not found.");
         var parentName = parent.Name.Value;
 

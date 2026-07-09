@@ -21,13 +21,13 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
             return await uow.Assignments.GetByWorkAreaAsync(workAreaGroupCtrlNbr);
         if (railroadCtrlNbr is not null)
             return await uow.Assignments.GetAllByRailroadAsync(railroadCtrlNbr);
-        return await uow.Assignments.GetAllAsync();
+        return await uow.Assignments.GetAllAsync(ct);
     }
 
     public async Task<Assignment> GetAssignmentAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Assignments.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.Assignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Assignment {ctrlNbr.Value} not found.");
     }
 
@@ -46,7 +46,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         else if (railroadCtrlNbr is not null)
             assignments = await uow.Assignments.GetAllByRailroadAsync(railroadCtrlNbr);
         else
-            assignments = await uow.Assignments.GetAllAsync();
+            assignments = await uow.Assignments.GetAllAsync(ct);
 
         var assignmentIds = assignments.Select(a => a.CtrlNbr).ToList();
         var allSchedules = await uow.AssignmentSchedules.GetByAssignmentsAsync(assignmentIds);
@@ -88,7 +88,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         var assignment = Assignment.Create(groupCtrlNbr, code, name, isExtra, isActive, departmentCtrlNbr);
         uow.Assignments.Add(assignment);
 
-        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(groupCtrlNbr);
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(groupCtrlNbr, ct);
         long waVal = workAreaCtrlNbr?.Value ?? 0;
         await uow.CommitAsync(ct);
 
@@ -101,7 +101,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
             ControlNumber? groupCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var assignment = await uow.Assignments.GetByCtrlNbrAsync(ctrlNbr)
+        var assignment = await uow.Assignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Assignment {ctrlNbr.Value} not found.");
 
         var effectiveGroup = groupCtrlNbr ?? assignment.GroupCtrlNbr;
@@ -113,7 +113,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         assignment.Update(code, name, isExtra, isActive, departmentCtrlNbr, groupCtrlNbr);
         uow.Assignments.Update(assignment);
 
-        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(assignment.GroupCtrlNbr);
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(assignment.GroupCtrlNbr, ct);
         long waVal = workAreaCtrlNbr?.Value ?? 0;
         await uow.CommitAsync(ct);
 
@@ -123,7 +123,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
     public async Task DeleteAssignmentAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var assignment = await uow.Assignments.GetByCtrlNbrAsync(ctrlNbr)
+        var assignment = await uow.Assignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Assignment {ctrlNbr.Value} not found.");
         uow.Assignments.Remove(assignment);
         await uow.CommitAsync(ct);
@@ -137,7 +137,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var schedules = await uow.AssignmentSchedules.GetByAssignmentAsync(assignmentCtrlNbr);
 
-        var assignment = await uow.Assignments.GetByCtrlNbrAsync(assignmentCtrlNbr);
+        var assignment = await uow.Assignments.GetByCtrlNbrAsync(assignmentCtrlNbr, ct);
         var shiftNames = new Dictionary<long, string>();
         if (assignment is not null)
         {
@@ -165,7 +165,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         ControlNumber ctrlNbr, int operatingDaysMask, TimeOnly onDutyTime, TimeOnly offDutyTime, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr)
+        var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
         schedule.Update(operatingDaysMask, onDutyTime, offDutyTime);
         uow.AssignmentSchedules.Update(schedule);
@@ -176,7 +176,7 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
     public async Task DeleteAssignmentScheduleAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr)
+        var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
         uow.AssignmentSchedules.Remove(schedule);
         await uow.CommitAsync(ct);

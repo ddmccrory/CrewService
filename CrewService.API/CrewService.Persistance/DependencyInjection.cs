@@ -217,6 +217,7 @@ public static class DependencyInjection
         services.AddScoped<IShiftInstanceRepository, ShiftInstanceRepository>();
         services.AddScoped<IOnDutyRecordRepository, OnDutyRecordRepository>();
         services.AddScoped<IOffDutyRecordRepository, OffDutyRecordRepository>();
+        services.AddScoped<IDailyCallSheetSchedulerService, DailyCallSheetSchedulerService>();
         services.AddScoped<ICraftOperationsPolicyRepository, CraftOperationsPolicyRepository>();
         services.AddScoped<IAssignmentQueryService, AssignmentQueryService>();
         services.AddScoped<IEmployeeOnDutyQueryService, EmployeeOnDutyQueryService>();

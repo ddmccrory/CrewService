@@ -203,9 +203,9 @@ public sealed class BulletinsService(
             var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr)
                 ?? throw new InvalidOperationException($"No BulletinRule configured for craft {bulletin.CraftCtrlNbr}.");
             var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, rule, ct);
-            candidateCtrlNbr = candidates.FirstOrDefault();
-            if (candidateCtrlNbr is null)
-                throw new InvalidOperationException("No eligible candidate found for force assignment. Ensure qualified extra board or subordinate-tier members exist for this craft.");
+            candidateCtrlNbr = candidates.Count > 0
+                ? candidates[0]
+                : throw new InvalidOperationException("No eligible candidate found for force assignment. Ensure qualified extra board or subordinate-tier members exist for this craft.");
         }
 
         bulletin.ForceAssign(candidateCtrlNbr);
@@ -230,7 +230,7 @@ public sealed class BulletinsService(
         if (rule is null) return null;
 
         var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, rule, ct);
-        return candidates.FirstOrDefault();
+        return candidates.Count > 0 ? candidates[0] : null;
     }
 
     public async Task<Bulletin> SetBulletinNoBidAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
@@ -259,9 +259,12 @@ public sealed class BulletinsService(
         // emitted here because there is no bidder to inform. The prospective force-assign candidate is
         // notified when the force assignment runs; the two processes are back-to-back, so a separate
         // no-bid notification would be redundant.
-        logger.LogInformation(
-            "Bulletin {BulletinCtrlNbr}: Manually transitioned to NoBid. Force-assign deadline: {Deadline}.",
-            bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Bulletin {BulletinCtrlNbr}: Manually transitioned to NoBid. Force-assign deadline: {Deadline}.",
+                bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
+        }
 
         await uow.CommitAsync(ct);
         if (forceAssignDeadline.HasValue)
@@ -320,9 +323,12 @@ public sealed class BulletinsService(
         }
 
         await uow.CommitAsync(ct);
-        logger.LogInformation(
-            "Bulletin {BulletinCtrlNbr}: Cancelled and vacancy {VacancyCtrlNbr} reopened.",
-            ctrlNbr, bulletin.PositionVacancyCtrlNbr);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Bulletin {BulletinCtrlNbr}: Cancelled and vacancy {VacancyCtrlNbr} reopened.",
+                ctrlNbr, bulletin.PositionVacancyCtrlNbr);
+        }
         return bulletin;
     }
 
@@ -349,7 +355,7 @@ public sealed class BulletinsService(
             ?? throw new InvalidOperationException(
                 $"No BulletinRule configured for craft {craftCtrlNbr}. Configure one before opening vacancies.");
 
-        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaGroupCtrlNbr);
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaGroupCtrlNbr, ct);
         var tz = ResolveTimeZone(workArea?.TimeZoneId);
 
         var vacancy = PositionVacancy.Create(
@@ -467,9 +473,9 @@ public sealed class BulletinsService(
         TimeSpan effectiveTime,
         int forceAssignHours,
         string forceAssignSelectionMode = Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorExtraBoard,
-        CancellationToken ct = default,
         TimeSpan? bulletinCutOffTime = null,
-        string effectiveTimeMode = Domain.Modules.Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime)
+        string effectiveTimeMode = Domain.Modules.Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime,
+        CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
@@ -509,7 +515,7 @@ public sealed class BulletinsService(
             if (rule is null) continue;
 
             var candidates = await SelectForceAssignCandidatesAsync(uow, bulletin, rule, ct);
-            var candidateCtrlNbr = candidates.FirstOrDefault();
+            var candidateCtrlNbr = candidates.Count > 0 ? candidates[0] : null;
 
             if (candidateCtrlNbr is null) continue;
 
@@ -821,9 +827,12 @@ public sealed class BulletinsService(
             await uow.SeniorityMoves.UpdateAsync(move, ct);
             // Notify the previously-bumped employee the move is off, and clear the stale bump notice.
             await notifications.NotifySeniorityMoveCancelledAsync(uow, move, ct);
-            logger.LogInformation(
-                "Bulletin {BulletinCtrlNbr}: superseded pending seniority move {MoveCtrlNbr} for employee {EmployeeCtrlNbr}.",
-                bulletinCtrlNbr.Value, move.CtrlNbr.Value, employeeCtrlNbr.Value);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "Bulletin {BulletinCtrlNbr}: superseded pending seniority move {MoveCtrlNbr} for employee {EmployeeCtrlNbr}.",
+                    bulletinCtrlNbr.Value, move.CtrlNbr.Value, employeeCtrlNbr.Value);
+            }
         }
     }
 
@@ -835,6 +844,7 @@ public sealed class BulletinsService(
         DateTime? effectiveUtc,
         CancellationToken ct)
     {
+        _ = ct;
         if (vacancy.TargetType != StaffablePositionType.Crew) return;
 
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
@@ -867,6 +877,7 @@ public sealed class BulletinsService(
         DateTime effectiveUtc,
         CancellationToken ct)
     {
+        _ = ct;
         var outgoing = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
         foreach (var assignment in outgoing)
         {
@@ -1027,9 +1038,12 @@ public sealed class BulletinsService(
                         // Employee won their preferred bulletin — award it and skip them here
                         prefBulletin.Award(bid.EmployeeCtrlNbr);
                         await FillBulletinAsync(uow, prefBulletin, bid.EmployeeCtrlNbr, PositionAssignmentType.BulletinAssignment, ct);
-                        logger.LogInformation(
-                            "Bulletin {BulletinCtrlNbr}: Employee {EmployeeCtrlNbr} won higher-preference bulletin {PreferredBulletinCtrlNbr} — skipped on this bulletin.",
-                            bulletin.CtrlNbr, bid.EmployeeCtrlNbr, prefBulletin.CtrlNbr);
+                        if (logger.IsEnabled(LogLevel.Information))
+                        {
+                            logger.LogInformation(
+                                "Bulletin {BulletinCtrlNbr}: Employee {EmployeeCtrlNbr} won higher-preference bulletin {PreferredBulletinCtrlNbr} — skipped on this bulletin.",
+                                bulletin.CtrlNbr, bid.EmployeeCtrlNbr, prefBulletin.CtrlNbr);
+                        }
                         goto nextBid;
                     }
                 }
@@ -1079,9 +1093,12 @@ public sealed class BulletinsService(
 
                 bulletin.Award(winner.EmployeeCtrlNbr);
                 await FillBulletinAsync(uow, bulletin, winner.EmployeeCtrlNbr, PositionAssignmentType.BulletinAssignment, ct);
-                logger.LogInformation(
-                    "Bulletin {BulletinCtrlNbr}: Auto-awarded to employee {EmployeeCtrlNbr}.",
-                    bulletin.CtrlNbr, winner.EmployeeCtrlNbr);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        "Bulletin {BulletinCtrlNbr}: Auto-awarded to employee {EmployeeCtrlNbr}.",
+                        bulletin.CtrlNbr, winner.EmployeeCtrlNbr);
+                }
             }
             else
             {
@@ -1097,9 +1114,12 @@ public sealed class BulletinsService(
 
                 bulletin.SetAsNoBid(forceAssignDeadline);
                 await uow.Bulletins.UpdateAsync(bulletin, ct);
-                logger.LogInformation(
-                    "Bulletin {BulletinCtrlNbr}: No qualified winner — transitioned to NoBid. Force-assign deadline: {Deadline}.",
-                    bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        "Bulletin {BulletinCtrlNbr}: No qualified winner — transitioned to NoBid. Force-assign deadline: {Deadline}.",
+                        bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
+                }
             }
 
             processed.Add(bulletin);

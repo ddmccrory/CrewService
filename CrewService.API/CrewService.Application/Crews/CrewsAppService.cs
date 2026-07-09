@@ -27,7 +27,7 @@ public sealed class CrewsAppService(
         else if (railroadCtrlNbr is not null)
             crews = await uow.Crews.GetByRailroadAsync(railroadCtrlNbr);
         else
-            crews = await uow.Crews.GetAllAsync();
+            crews = await uow.Crews.GetAllAsync(ct);
 
         var crewIds = crews.Select(c => c.CtrlNbr).ToList();
         var allPositions = await uow.CrewPositions.GetByCrewsAsync(crewIds);
@@ -44,7 +44,7 @@ public sealed class CrewsAppService(
     public async Task<Crew> GetCrewAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Crews.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.Crews.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Crew {ctrlNbr.Value} not found.");
     }
 
@@ -67,7 +67,7 @@ public sealed class CrewsAppService(
         DateTime? effectiveDate, DateTime? abolishedDate, string? crewType, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var crew = await uow.Crews.GetByCtrlNbrAsync(ctrlNbr)
+        var crew = await uow.Crews.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Crew {ctrlNbr.Value} not found.");
         if (await uow.Crews.ExistsByNameInWorkAreaAsync(crew.WorkAreaCtrlNbr, name, crew.CtrlNbr))
             throw new InvalidOperationException($"Crew name '{name}' already exists in this work area.");
@@ -80,7 +80,7 @@ public sealed class CrewsAppService(
     public async Task DeleteCrewAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var crew = await uow.Crews.GetByCtrlNbrAsync(ctrlNbr)
+        var crew = await uow.Crews.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Crew {ctrlNbr.Value} not found.");
         uow.Crews.Remove(crew);
         await uow.CommitAsync(ct);
@@ -115,7 +115,7 @@ public sealed class CrewsAppService(
                     crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, staffablePosition.CtrlNbr,
                     craftRole.CraftCtrlNbr, "POSITION_CREATED",
                     targetName: VacancyTargetName.ForCrewPosition(crew, craftRole));
-                var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+                var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr, ct);
                 var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
                 var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
                 var bulletin = Bulletin.Create(vacancy.CtrlNbr, craftRole.CraftCtrlNbr, opens, closes, effective);
@@ -138,7 +138,7 @@ public sealed class CrewsAppService(
     public async Task DeleteCrewPositionAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var position = await uow.CrewPositions.GetByCtrlNbrAsync(ctrlNbr)
+        var position = await uow.CrewPositions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"CrewPosition {ctrlNbr.Value} not found.");
         uow.CrewPositions.Remove(position);
         await uow.CommitAsync(ct);
@@ -160,11 +160,11 @@ public sealed class CrewsAppService(
     public async Task<string?> GetCrewPositionWorkAreaTimeZoneIdAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(crewPositionCtrlNbr);
+        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(crewPositionCtrlNbr, ct);
         if (crewPosition is null) return null;
         var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct);
         if (crew is null) return null;
-        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr, ct);
         return workArea?.TimeZoneId;
     }
 
@@ -182,7 +182,7 @@ public sealed class CrewsAppService(
             throw new InvalidOperationException(
                 "This employee is already assigned to a staffable position. Unassign them first.");
 
-        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(posCtrlNbr)
+        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(posCtrlNbr, ct)
             ?? throw new KeyNotFoundException($"CrewPosition {crewPositionCtrlNbr} not found.");
 
         var incumbency = CrewIncumbency.Create(crewPositionCtrlNbr, employeeCtrlNbr, startUtc, endUtc);
@@ -244,7 +244,7 @@ public sealed class CrewsAppService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var items = await uow.CrewAssignments.GetByCrewAsync(crewCtrlNbr);
-        var crewNames = await ResolveCrewNamesAsync(uow, items);
+        var crewNames = await ResolveCrewNamesAsync(uow, items, ct);
         return (items, crewNames);
     }
 
@@ -253,7 +253,7 @@ public sealed class CrewsAppService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var items = await uow.CrewAssignments.GetByAssignmentAsync(assignmentCtrlNbr);
-        var crewNames = await ResolveCrewNamesAsync(uow, items);
+        var crewNames = await ResolveCrewNamesAsync(uow, items, ct);
         return (items, crewNames);
     }
 
@@ -272,7 +272,7 @@ public sealed class CrewsAppService(
         ControlNumber ctrlNbr, int daysOfWeekMask, DateTime startUtc, DateTime? endUtc, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var assignment = await uow.CrewAssignments.GetByCtrlNbrAsync(ctrlNbr)
+        var assignment = await uow.CrewAssignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"CrewAssignment {ctrlNbr.Value} not found.");
         assignment.Update(daysOfWeekMask, startUtc, endUtc);
         uow.CrewAssignments.Update(assignment);
@@ -283,19 +283,19 @@ public sealed class CrewsAppService(
     public async Task DeleteCrewAssignmentAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var assignment = await uow.CrewAssignments.GetByCtrlNbrAsync(ctrlNbr)
+        var assignment = await uow.CrewAssignments.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"CrewAssignment {ctrlNbr.Value} not found.");
         uow.CrewAssignments.Remove(assignment);
         await uow.CommitAsync(ct);
     }
 
     private static async Task<Dictionary<long, string>> ResolveCrewNamesAsync(
-        IOrchestrationUnitOfWork uow, List<CrewAssignment> items)
+        IOrchestrationUnitOfWork uow, List<CrewAssignment> items, CancellationToken ct)
     {
         var crewNames = new Dictionary<long, string>();
         foreach (var ctrlNbr in items.Select(a => a.CrewCtrlNbr).Distinct())
         {
-            var crew = await uow.Crews.GetByCtrlNbrAsync(ctrlNbr);
+            var crew = await uow.Crews.GetByCtrlNbrAsync(ctrlNbr, ct);
             if (crew is not null) crewNames[ctrlNbr.Value] = crew.Name;
         }
         return crewNames;
@@ -334,7 +334,7 @@ public sealed class CrewsAppService(
         Crew crew;
         if (existingCrewCtrlNbr > 0)
         {
-            crew = await uow.Crews.GetByCtrlNbrAsync(ControlNumber.Create(existingCrewCtrlNbr))
+            crew = await uow.Crews.GetByCtrlNbrAsync(ControlNumber.Create(existingCrewCtrlNbr), ct)
                 ?? throw new KeyNotFoundException($"Crew {existingCrewCtrlNbr} not found.");
 
             var newEffective = !string.IsNullOrWhiteSpace(effectiveDateStr)
@@ -374,11 +374,11 @@ public sealed class CrewsAppService(
 
         Dictionary<long, CrewAssignment> existingCrewAssignmentMap = existingCrewCtrlNbr > 0
             ? (await uow.CrewAssignments.GetByCrewAsync(crew.CtrlNbr)).ToDictionary(ca => ca.AssignmentCtrlNbr.Value)
-            : new Dictionary<long, CrewAssignment>();
+            : [];
 
         var unmatchedPositions = existingCrewCtrlNbr > 0
             ? (await uow.CrewPositions.GetByCrewAsync(crew.CtrlNbr)).ToList()
-            : new List<CrewPosition>();
+            : [];
 
         // Positions
         foreach (var pos in positions)
@@ -403,7 +403,7 @@ public sealed class CrewsAppService(
                         crew.WorkAreaCtrlNbr, StaffablePositionType.Crew, sp.CtrlNbr,
                         craftRole.CraftCtrlNbr, "POSITION_CREATED",
                         targetName: $"{crew.Name} - {craftRole.Name}");
-                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr);
+                    var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(crew.WorkAreaCtrlNbr, ct);
                     var tz = string.IsNullOrWhiteSpace(workArea?.TimeZoneId) ? null : (TimeZoneInfo.TryFindSystemTimeZoneById(workArea.TimeZoneId, out var tzInfo) ? tzInfo : null);
                     var (opens, closes, effective) = rule.CalculateBidWindow(DateTime.UtcNow, tz);
                     var bulletin = Bulletin.Create(vacancy.CtrlNbr, craftRole.CraftCtrlNbr, opens, closes, effective);
@@ -427,7 +427,7 @@ public sealed class CrewsAppService(
             Assignment assignment;
             if (entry.ExistingAssignmentCtrlNbr > 0)
             {
-                assignment = await uow.Assignments.GetByCtrlNbrAsync(ControlNumber.Create(entry.ExistingAssignmentCtrlNbr))
+                assignment = await uow.Assignments.GetByCtrlNbrAsync(ControlNumber.Create(entry.ExistingAssignmentCtrlNbr), ct)
                     ?? throw new KeyNotFoundException($"Assignment {entry.ExistingAssignmentCtrlNbr} not found.");
 
                 var effectiveCode = !string.IsNullOrWhiteSpace(entry.Code) ? entry.Code : assignment.Code;
@@ -436,7 +436,7 @@ public sealed class CrewsAppService(
                 if (waCtrlNbr is not null && await uow.Assignments.ExistsByCodeInWorkAreaAsync(waCtrlNbr, effectiveCode, assignment.CtrlNbr))
                     throw new InvalidOperationException($"Assignment code '{effectiveCode.ToUpperInvariant()}' already exists in this work area.");
 
-                var deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
+                ControlNumber? deptCtrlNbr = entry.DepartmentCtrlNbr > 0 ? ControlNumber.Create(entry.DepartmentCtrlNbr) : null;
                 assignment.Update(
                     code: !string.IsNullOrWhiteSpace(entry.Code) ? entry.Code : null,
                     name: !string.IsNullOrWhiteSpace(entry.Name) ? entry.Name : null,

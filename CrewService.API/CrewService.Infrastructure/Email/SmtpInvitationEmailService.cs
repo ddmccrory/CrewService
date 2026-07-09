@@ -53,7 +53,8 @@ public class SmtpInvitationEmailService(
         {
             await client.ConnectAsync(_smtp.Host, _smtp.Port, _smtp.UseSsl);
             await client.SendAsync(message);
-            logger.LogInformation("Invitation email sent to {Email}", toEmail);
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("Invitation email sent to {Email}", toEmail);
         }
         catch (Exception ex)
         {

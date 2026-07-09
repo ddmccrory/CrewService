@@ -1,5 +1,7 @@
 namespace CrewService.Application.BackgroundWorkers;
 
+using System.Threading;
+
 /// <summary>
 /// Push signal that lets daily operations paths notify the
 /// <c>DailyCallSheetWorker</c> of the exact UTC time it should next wake.
@@ -28,7 +30,7 @@ public sealed class DailyCallSheetScheduleSignal : IDailyCallSheetScheduleSignal
 {
     private readonly SemaphoreSlim _gate = new(0, 1);
     private DateTime? _nextEventUtc;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public void Notify(DateTime eventUtc)
     {
@@ -68,7 +70,7 @@ public sealed class DailyCallSheetScheduleSignal : IDailyCallSheetScheduleSignal
                     if (_nextEventUtc.HasValue && _nextEventUtc.Value <= now)
                         _nextEventUtc = null;
                 }
-                _gate.Wait(0);
+                _gate.Wait(0, CancellationToken.None);
                 return;
             }
 

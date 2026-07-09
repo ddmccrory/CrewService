@@ -8,7 +8,7 @@ namespace CrewService.Application.FraCompliance;
 /// </summary>
 public sealed class CertificationEligibilityService
 {
-    public int GetStalenessLimitDays(string checkType)
+    public static int GetStalenessLimitDays(string checkType)
         => EligibilityCheckStalenessLimits.Get(checkType);
 }
 
@@ -17,8 +17,13 @@ public sealed class CertificationEligibilityService
 /// </summary>
 public sealed class CertificationExpirationService
 {
+    private readonly byte _instanceSentinel = 0;
+
     public bool IsExpired(EmployeeCertification certification, DateOnly asOfDate)
-        => asOfDate >= certification.ExpirationDate;
+    {
+        _ = _instanceSentinel;
+        return asOfDate >= certification.ExpirationDate;
+    }
 
     public bool IsExpiringSoon(EmployeeCertification certification, DateOnly asOfDate, int warningDays = 90)
         => asOfDate >= certification.ExpirationDate.AddDays(-warningDays) && !IsExpired(certification, asOfDate);

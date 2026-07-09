@@ -20,7 +20,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
     public async Task<AddressType> GetAddressTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.AddressTypes.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.AddressTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Address type {ctrlNbr.Value} not found.");
     }
 
@@ -38,7 +38,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
         ControlNumber ctrlNbr, string name, int number, bool emergencyType, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var type = await uow.AddressTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var type = await uow.AddressTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Address type {ctrlNbr.Value} not found.");
         type.Update(name, number, emergencyType);
         uow.AddressTypes.Update(type);
@@ -49,7 +49,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
     public async Task DeleteAddressTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var type = await uow.AddressTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var type = await uow.AddressTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Address type {ctrlNbr.Value} not found.");
         uow.AddressTypes.Remove(type);
         await uow.CommitAsync(ct);
@@ -69,7 +69,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
     public async Task<PhoneNumberType> GetPhoneNumberTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.PhoneNumberTypes.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.PhoneNumberTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Phone number type {ctrlNbr.Value} not found.");
     }
 
@@ -87,7 +87,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
         ControlNumber ctrlNbr, string name, int number, bool emergencyType, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var type = await uow.PhoneNumberTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var type = await uow.PhoneNumberTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Phone number type {ctrlNbr.Value} not found.");
         type.Update(name, number, emergencyType);
         uow.PhoneNumberTypes.Update(type);
@@ -98,7 +98,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
     public async Task DeletePhoneNumberTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var type = await uow.PhoneNumberTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var type = await uow.PhoneNumberTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Phone number type {ctrlNbr.Value} not found.");
         uow.PhoneNumberTypes.Remove(type);
         await uow.CommitAsync(ct);
@@ -118,7 +118,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
     public async Task<EmailAddressType> GetEmailAddressTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.EmailAddressTypes.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.EmailAddressTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Email address type {ctrlNbr.Value} not found.");
     }
 
@@ -136,7 +136,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
         ControlNumber ctrlNbr, string name, int number, bool emergencyType, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var type = await uow.EmailAddressTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var type = await uow.EmailAddressTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Email address type {ctrlNbr.Value} not found.");
         type.Update(name, number, emergencyType);
         uow.EmailAddressTypes.Update(type);
@@ -147,7 +147,7 @@ public sealed class ContactTypesAppService(IOrchestrationUnitOfWorkFactory uowFa
     public async Task DeleteEmailAddressTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var type = await uow.EmailAddressTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var type = await uow.EmailAddressTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Email address type {ctrlNbr.Value} not found.");
         uow.EmailAddressTypes.Remove(type);
         await uow.CommitAsync(ct);

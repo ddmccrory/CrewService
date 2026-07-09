@@ -49,7 +49,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
         ControlNumber ctrlNbr, long employeeCtrlNbr, string source, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var slot = await uow.PositionSlots.GetByCtrlNbrAsync(ctrlNbr)
+        var slot = await uow.PositionSlots.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Slot {ctrlNbr.Value} not found.");
         slot.Bind(employeeCtrlNbr, source);
         uow.PositionSlots.Update(slot);
@@ -60,7 +60,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task<PositionSlot> UnbindSlotAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var slot = await uow.PositionSlots.GetByCtrlNbrAsync(ctrlNbr)
+        var slot = await uow.PositionSlots.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Slot {ctrlNbr.Value} not found.");
         slot.Unbind();
         uow.PositionSlots.Update(slot);
@@ -80,7 +80,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
             return await uow.CraftRoles.GetByCraftAsync(craftCtrlNbr);
         if (railroadCtrlNbr is not null)
             return await uow.CraftRoles.GetByRailroadAsync(railroadCtrlNbr);
-        return await uow.CraftRoles.GetAllAsync();
+        return await uow.CraftRoles.GetAllAsync(ct);
     }
 
     public async Task<CraftRole> CreateCraftRoleAsync(
@@ -97,7 +97,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
         ControlNumber ctrlNbr, string code, string name, string alternateName, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var role = await uow.CraftRoles.GetByCtrlNbrAsync(ctrlNbr)
+        var role = await uow.CraftRoles.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"CraftRole {ctrlNbr.Value} not found.");
         role.Update(code, name, alternateName);
         uow.CraftRoles.Update(role);
@@ -108,7 +108,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task DeleteCraftRoleAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var role = await uow.CraftRoles.GetByCtrlNbrAsync(ctrlNbr)
+        var role = await uow.CraftRoles.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"CraftRole {ctrlNbr.Value} not found.");
         uow.CraftRoles.Remove(role);
         await uow.CommitAsync(ct);
@@ -181,7 +181,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
         int displayOrder, bool isActive, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr)
+        var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
         shift.Update(shiftCode: shiftCode, displayName: displayName, displayOrder: displayOrder, isActive: isActive);
         uow.ShiftDefinitions.Update(shift);
@@ -192,7 +192,7 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task DeleteShiftDefinitionAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr)
+        var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
         uow.ShiftDefinitions.Remove(shift);
         await uow.CommitAsync(ct);

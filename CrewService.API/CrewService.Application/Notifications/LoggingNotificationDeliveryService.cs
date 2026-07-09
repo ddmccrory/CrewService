@@ -12,14 +12,17 @@ public sealed class LoggingNotificationDeliveryService(ILogger<LoggingNotificati
 {
     public Task DeliverAsync(NotificationDeliveryRequest request, CancellationToken ct = default)
     {
-        logger.LogInformation(
-            "[NotificationDelivery STUB] Would deliver notification {Notification} to employee {Employee} " +
-            "(railroad {Railroad}, category {Category}, requiresAck {RequiresAck}).",
-            request.NotificationCtrlNbr,
-            request.EmployeeCtrlNbr,
-            request.RailroadCtrlNbr,
-            request.Category,
-            request.RequiresAcknowledgement);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "[NotificationDelivery STUB] Would deliver notification {Notification} to employee {Employee} " +
+                "(railroad {Railroad}, category {Category}, requiresAck {RequiresAck}).",
+                request.NotificationCtrlNbr,
+                request.EmployeeCtrlNbr,
+                request.RailroadCtrlNbr,
+                request.Category,
+                request.RequiresAcknowledgement);
+        }
 
         return Task.CompletedTask;
     }

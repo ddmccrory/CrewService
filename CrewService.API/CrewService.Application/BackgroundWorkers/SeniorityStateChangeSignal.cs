@@ -1,5 +1,7 @@
 namespace CrewService.Application.BackgroundWorkers;
 
+using System.Threading;
+
 /// <summary>
 /// Identical in purpose to <see cref="IBulletinScheduleSignal"/> but drives
 /// the <see cref="SeniorityStateChangeWorker"/> instead.
@@ -18,7 +20,7 @@ public sealed class SeniorityStateChangeSignal : ISeniorityStateChangeSignal
 {
     private readonly SemaphoreSlim _gate = new(0, 1);
     private DateTime? _nextEventUtc;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public void Notify(DateTime eventUtc)
     {
@@ -55,7 +57,7 @@ public sealed class SeniorityStateChangeSignal : ISeniorityStateChangeSignal
                     if (_nextEventUtc.HasValue && _nextEventUtc.Value <= now)
                         _nextEventUtc = null;
                 }
-                _gate.Wait(0);
+                _gate.Wait(0, CancellationToken.None);
                 return;
             }
 

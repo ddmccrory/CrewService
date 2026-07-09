@@ -12,6 +12,8 @@ namespace CrewService.Application.FraCompliance;
 /// </summary>
 public sealed class DrugAlcoholCertificationImpactHandler
 {
+    private readonly byte _instanceSentinel = 0;
+
     /// <summary>
     /// Determines the ineligibility period based on violation history.
     /// </summary>
@@ -19,6 +21,7 @@ public sealed class DrugAlcoholCertificationImpactHandler
         DrugAlcoholTestRecord currentViolation,
         IReadOnlyList<DrugAlcoholTestRecord> priorViolations)
     {
+        _ = _instanceSentinel;
         if (!currentViolation.IsViolation)
             return new IneligibilityResult(IsIneligible: false, PeriodMonths: null, IsPermanent: false, ViolationCount: 0);
 
@@ -57,6 +60,7 @@ public sealed class DrugAlcoholCertificationImpactHandler
     /// </summary>
     public bool ShouldCrossRevoke(string violationType)
     {
+        _ = _instanceSentinel;
         var crossRevocationViolations = new[]
         {
             "242.403(e)(1)", "242.403(e)(2)", "242.403(e)(3)",

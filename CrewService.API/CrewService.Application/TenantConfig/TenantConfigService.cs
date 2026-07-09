@@ -13,13 +13,13 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task<List<GroupType>> GetAllGroupTypesAsync(CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.GroupTypes.GetAllAsync();
+        return await uow.GroupTypes.GetAllAsync(ct);
     }
 
     public async Task<GroupType> GetGroupTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.GroupTypes.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.GroupTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"GroupType {ctrlNbr.Value} not found.");
     }
 
@@ -53,7 +53,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var groupType = await uow.GroupTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var groupType = await uow.GroupTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"GroupType {ctrlNbr.Value} not found.");
         if (groupType.IsSystemType && !string.Equals(groupType.Name, name, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"System type '{groupType.Name}' cannot be renamed.");
@@ -66,7 +66,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task DeleteGroupTypeAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var groupType = await uow.GroupTypes.GetByCtrlNbrAsync(ctrlNbr)
+        var groupType = await uow.GroupTypes.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"GroupType {ctrlNbr.Value} not found.");
         if (groupType.IsSystemType)
             throw new InvalidOperationException($"System type '{groupType.Name}' cannot be deleted.");
@@ -92,7 +92,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task<DynamicGroup> GetGroupAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Group {ctrlNbr.Value} not found.");
     }
 
@@ -107,7 +107,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         string? parentPath = null;
         if (parentGroupCtrlNbr > 0)
         {
-            var parentGroup = await uow.DynamicGroups.GetByCtrlNbrAsync(ControlNumber.Create(parentGroupCtrlNbr!.Value));
+            var parentGroup = await uow.DynamicGroups.GetByCtrlNbrAsync(ControlNumber.Create(parentGroupCtrlNbr!.Value), ct);
             parentPath = parentGroup?.Path;
         }
 
@@ -161,7 +161,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr)
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Group {ctrlNbr.Value} not found.");
 
         var oldParentCtrlNbr = group.ParentGroupCtrlNbr;
@@ -169,7 +169,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         string? parentPath = null;
         if (parentGroupCtrlNbr > 0)
         {
-            var parentGroup = await uow.DynamicGroups.GetByCtrlNbrAsync(ControlNumber.Create(parentGroupCtrlNbr!.Value));
+            var parentGroup = await uow.DynamicGroups.GetByCtrlNbrAsync(ControlNumber.Create(parentGroupCtrlNbr!.Value), ct);
             parentPath = parentGroup?.Path;
         }
 
@@ -187,7 +187,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task DeleteGroupAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr)
+        var group = await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Group {ctrlNbr.Value} not found.");
         uow.DynamicGroups.Remove(group);
         await uow.CommitAsync(ct);
@@ -232,7 +232,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.AttributeDefinitions.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.AttributeDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AttributeDefinition {ctrlNbr.Value} not found.");
     }
 
@@ -241,7 +241,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        _ = await uow.GroupTypes.GetByCtrlNbrAsync(ControlNumber.Create(groupTypeCtrlNbr))
+        _ = await uow.GroupTypes.GetByCtrlNbrAsync(ControlNumber.Create(groupTypeCtrlNbr), ct)
             ?? throw new KeyNotFoundException($"GroupType {groupTypeCtrlNbr} not found.");
 
         var existing = await uow.AttributeDefinitions.GetByGroupTypeAndAttributeNameIncludingDeletedAsync(
@@ -268,7 +268,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var definition = await uow.AttributeDefinitions.GetByCtrlNbrAsync(ctrlNbr)
+        var definition = await uow.AttributeDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AttributeDefinition {ctrlNbr.Value} not found.");
         definition.Update(attributeName, dataType, isRequired, defaultValue);
         uow.AttributeDefinitions.Update(definition);
@@ -279,7 +279,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task DeleteAttributeDefinitionAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var definition = await uow.AttributeDefinitions.GetByCtrlNbrAsync(ctrlNbr)
+        var definition = await uow.AttributeDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AttributeDefinition {ctrlNbr.Value} not found.");
         uow.AttributeDefinitions.Remove(definition);
         await uow.CommitAsync(ct);
@@ -298,9 +298,9 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         long groupCtrlNbr, long attributeDefinitionCtrlNbr, string? value, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        _ = await uow.DynamicGroups.GetByCtrlNbrAsync(ControlNumber.Create(groupCtrlNbr))
+        _ = await uow.DynamicGroups.GetByCtrlNbrAsync(ControlNumber.Create(groupCtrlNbr), ct)
             ?? throw new KeyNotFoundException($"Group {groupCtrlNbr} not found.");
-        _ = await uow.AttributeDefinitions.GetByCtrlNbrAsync(ControlNumber.Create(attributeDefinitionCtrlNbr))
+        _ = await uow.AttributeDefinitions.GetByCtrlNbrAsync(ControlNumber.Create(attributeDefinitionCtrlNbr), ct)
             ?? throw new KeyNotFoundException($"AttributeDefinition {attributeDefinitionCtrlNbr} not found.");
 
         var existing = (await uow.AttributeValues.GetByGroupCtrlNbrAsync(ControlNumber.Create(groupCtrlNbr)))
@@ -323,7 +323,7 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
     public async Task DeleteAttributeValueAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var av = await uow.AttributeValues.GetByCtrlNbrAsync(ctrlNbr)
+        var av = await uow.AttributeValues.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AttributeValue {ctrlNbr.Value} not found.");
         uow.AttributeValues.Remove(av);
         await uow.CommitAsync(ct);

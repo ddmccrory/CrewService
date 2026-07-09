@@ -11,13 +11,13 @@ public sealed class ParentAppService(IOrchestrationUnitOfWorkFactory uowFactory)
     public async Task<List<Parent>> GetAllAsync(CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Parents.GetAllAsync();
+        return await uow.Parents.GetAllAsync(ct);
     }
 
     public async Task<Parent> GetAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.Parents.GetByCtrlNbrAsync(ctrlNbr)
+        return await uow.Parents.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Parent {ctrlNbr.Value} not found.");
     }
 
@@ -72,7 +72,7 @@ public sealed class ParentAppService(IOrchestrationUnitOfWorkFactory uowFactory)
     public async Task<Parent> UpdateAsync(ControlNumber ctrlNbr, string name, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var parent = await uow.Parents.GetByCtrlNbrAsync(ctrlNbr)
+        var parent = await uow.Parents.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Parent {ctrlNbr.Value} not found.");
         parent.Update(name);
         uow.Parents.Update(parent);
@@ -83,7 +83,7 @@ public sealed class ParentAppService(IOrchestrationUnitOfWorkFactory uowFactory)
     public async Task<Parent> DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var parent = await uow.Parents.GetByCtrlNbrAsync(ctrlNbr)
+        var parent = await uow.Parents.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Parent {ctrlNbr.Value} not found.");
         uow.Parents.Remove(parent);
         await uow.CommitAsync(ct);
