@@ -81,14 +81,14 @@ public class RosterBoardService(
                 BoardType = board.BoardType.ToString(),
                 RotationType = board.RotationType.ToString(),
                 RosterName = rosterName,
-                CraftName = craftName
+                CraftName = craftName,
+                RequiredPositions = board.RequiredPositions,
+                AllowBulletinBidding = board.AllowBulletinBidding,
+                AllowSeniorityMove = board.AllowSeniorityMove,
+                AllowForceAssign = board.AllowForceAssign,
+                NotifyOnPlacement = board.NotifyOnPlacement,
+                PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement
             };
-            boardResponse.RequiredPositions = board.RequiredPositions;
-            boardResponse.AllowBulletinBidding = board.AllowBulletinBidding;
-            boardResponse.AllowSeniorityMove = board.AllowSeniorityMove;
-            boardResponse.AllowForceAssign = board.AllowForceAssign;
-            boardResponse.NotifyOnPlacement = board.NotifyOnPlacement;
-            boardResponse.PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement;
 
             foreach (var position in board.Positions)
             {
@@ -193,7 +193,7 @@ public class RosterBoardService(
             var (position, labels) = await svc.AddRosterBoardPositionAsync(
                 ControlNumber.Create(request.RosterBoardCtrlNbr),
                 ControlNumber.Create(request.EmployeeCtrlNbr),
-                request.PositionOrder, context.CancellationToken);
+                request.PositionOrder, null, context.CancellationToken);
             var tz = await ResolvePositionZoneAsync(svc, position.RosterBoardCtrlNbr, context.CancellationToken);
             return await MapPositionAsync(position, labels, tz, svc, context.CancellationToken);
         }
@@ -328,14 +328,14 @@ public class RosterBoardService(
             BoardType = board.BoardType.ToString(),
             RotationType = board.RotationType.ToString(),
             RosterName = rosterName,
-            CraftName = craftName
+            CraftName = craftName,
+            RequiredPositions = board.RequiredPositions,
+            AllowBulletinBidding = board.AllowBulletinBidding,
+            AllowSeniorityMove = board.AllowSeniorityMove,
+            AllowForceAssign = board.AllowForceAssign,
+            NotifyOnPlacement = board.NotifyOnPlacement,
+            PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement
         };
-        response.RequiredPositions = board.RequiredPositions;
-        response.AllowBulletinBidding = board.AllowBulletinBidding;
-        response.AllowSeniorityMove = board.AllowSeniorityMove;
-        response.AllowForceAssign = board.AllowForceAssign;
-        response.NotifyOnPlacement = board.NotifyOnPlacement;
-        response.PlacementRequiresAcknowledgement = board.PlacementRequiresAcknowledgement;
         foreach (var position in board.Positions)
             response.Positions.Add(await MapPositionAsync(position, empRestrictionLabels, tz, svc, ct));
         return response;

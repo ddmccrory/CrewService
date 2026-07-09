@@ -130,7 +130,11 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
         return workArea;
     }
 
-    public void Dispose() => _dbFactory.Dispose();
+    public void Dispose()
+    {
+        _dbFactory.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private sealed class FakeWorkAreaClock(DateTimeOffset utcNow) : IWorkAreaClock
     {

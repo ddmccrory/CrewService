@@ -126,8 +126,8 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
             boardCtrlNbr = board.CtrlNbr;
         }
 
-        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.Employee1CtrlNbr, 1, ct);
-        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.Employee2CtrlNbr, 2, ct);
+        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.Employee1CtrlNbr, 1, null, ct);
+        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.Employee2CtrlNbr, 2, null, ct);
         return boardCtrlNbr;
     }
 

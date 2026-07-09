@@ -34,7 +34,7 @@ public class NewHireServiceTests
     private static readonly ControlNumber TrainingRosterCtrlNbr = ControlNumber.Create(99);
     private static readonly ControlNumber StateCtrlNbr = ControlNumber.Create(1);
     private static readonly ControlNumber RegQualCtrlNbr = ControlNumber.Create(50);
-    private static readonly DateTime HireDate = new DateTime(2025, 1, 15);
+    private static readonly DateTime HireDate = new(2025, 1, 15);
 
     [Fact]
     public async Task OnboardAsync_CreatesSeniorityOnTrainingRoster()
@@ -119,9 +119,8 @@ public class NewHireServiceTests
 
     private static NewHireService BuildService(FakeOrchestrationUnitOfWork uow)
     {
-        var uowFactory = new FakeUowFactory(uow);
         var qualReactiveSvc = new QualificationReactiveService();
-        return new NewHireService(uowFactory, qualReactiveSvc);
+        return new NewHireService(new FakeUowFactory(uow), qualReactiveSvc);
     }
 
     // ────────────────────────────────────────────────────────────
@@ -134,17 +133,12 @@ public class NewHireServiceTests
             => Task.FromResult<IOrchestrationUnitOfWork>(uow);
     }
 
-    private sealed class FakeOrchestrationUnitOfWork : IOrchestrationUnitOfWork
+    private sealed class FakeOrchestrationUnitOfWork(ControlNumber craftCtrlNbr, bool includeNewHireBoard = true) : IOrchestrationUnitOfWork
     {
         public bool Committed { get; private set; }
         public FakeSeniorityRepository FakeSeniority { get; } = new();
         public FakeCertificationRepository FakeCertifications { get; } = new();
-        public FakeBoardRepository FakeBoards { get; }
-
-        public FakeOrchestrationUnitOfWork(ControlNumber craftCtrlNbr, bool includeNewHireBoard = true)
-        {
-            FakeBoards = new FakeBoardRepository(craftCtrlNbr, includeNewHireBoard);
-        }
+        public FakeBoardRepository FakeBoards { get; } = new(craftCtrlNbr, includeNewHireBoard);
 
         public string CorrelationId => "test";
         public string OrchestrationId => "test";
@@ -318,11 +312,11 @@ public class NewHireServiceTests
         public Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<RosterBoard>>(Boards);
         public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<RosterBoard>>(Boards.Where(b => b.CraftCtrlNbr == craftCtrlNbr).ToList());
+            => Task.FromResult<IReadOnlyList<RosterBoard>>([.. Boards.Where(b => b.CraftCtrlNbr == craftCtrlNbr)]);
         public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs, CancellationToken ct = default)
         {
             var set = craftCtrlNbrs.ToHashSet();
-            return Task.FromResult<IReadOnlyList<RosterBoard>>(Boards.Where(b => set.Contains(b.CraftCtrlNbr)).ToList());
+            return Task.FromResult<IReadOnlyList<RosterBoard>>([.. Boards.Where(b => set.Contains(b.CraftCtrlNbr))]);
         }
         public Task<RosterBoard?> GetByPositionCtrlNbrAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<RosterBoard?>(null);

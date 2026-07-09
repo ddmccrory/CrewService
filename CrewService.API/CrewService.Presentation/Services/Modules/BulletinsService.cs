@@ -454,11 +454,11 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             string.IsNullOrWhiteSpace(request.ForceAssignSelectionMode)
                 ? Domain.Modules.Bulletins.ForceAssignSelectionMode.JuniorExtraBoard
                 : request.ForceAssignSelectionMode,
-            context.CancellationToken,
             cutOff,
             string.IsNullOrWhiteSpace(request.EffectiveTimeMode)
                 ? Domain.Modules.Bulletins.BulletinEffectiveTimeMode.FixedEffectiveTime
-                : request.EffectiveTimeMode);
+                : request.EffectiveTimeMode,
+            context.CancellationToken);
         return MapRule(rule);
     }
 
@@ -489,9 +489,8 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
             await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
             // Crew vacancies are keyed to a staffable position ctrl nbr in most creation paths.
             // Resolve via staffable position first, then fall back to direct crew-position lookup.
-            var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
-            if (crewPosition is null)
-                crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(vacancy.TargetCtrlNbr, ct);
+            var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr)
+                ?? await uow.CrewPositions.GetByCtrlNbrAsync(vacancy.TargetCtrlNbr, ct);
             return crewPosition?.CrewCtrlNbr.Value ?? 0;
         }
         catch
@@ -607,6 +606,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
 
     private async Task<string> ResolveEmployeeNameAsync(long ctrlNbr, CancellationToken ct)
     {
+        _ = ct;
         if (ctrlNbr <= 0) return string.Empty;
         try
         {
@@ -616,7 +616,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         catch { return string.Empty; }
     }
 
-    private async Task<int> GetBidCountAsync(Application.Bulletins.BulletinsService svc, Domain.ValueObjects.ControlNumber bulletinCtrlNbr, CancellationToken ct)
+    private static async Task<int> GetBidCountAsync(Application.Bulletins.BulletinsService svc, Domain.ValueObjects.ControlNumber bulletinCtrlNbr, CancellationToken ct)
     {
         try { return (await svc.GetBidsByBulletinAsync(bulletinCtrlNbr, ct)).Count; }
         catch { return 0; }

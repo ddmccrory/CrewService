@@ -77,7 +77,7 @@ public class WorkerExecutionLogTests
     {
         var log = WorkerExecutionLog.Start(ControlNumber.Create(1));
 
-        log.Complete();
+        log.Complete(didWork: true);
 
         Assert.Equal("Success", log.Status);
         Assert.NotNull(log.CompletedAtUtc);

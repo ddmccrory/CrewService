@@ -178,7 +178,7 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
     private async Task<ControlNumber> SeedBoardWithEmployeeAsync(Fixture f, BoardType boardType, CancellationToken ct)
     {
         var boardCtrlNbr = await SeedEmptyBoardAsync(f, boardType, ct);
-        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.EmployeeCtrlNbr, 1, ct);
+        await _host.RosterBoards.AddRosterBoardPositionAsync(boardCtrlNbr, f.EmployeeCtrlNbr, 1, null, ct);
         return boardCtrlNbr;
     }
 
@@ -195,7 +195,7 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
     private async Task<RosterBoard?> GetBoardAsync(ControlNumber boardCtrlNbr, CancellationToken ct)
     {
         await using var uow = await _host.UowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr);
+        return await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct);
     }
 
     /// <summary>
@@ -214,7 +214,7 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
 
     /// <summary>
     /// Seeds a <see cref="Seniority"/> record for the fixture employee/roster in the supplied
-    /// starting state so the real <see cref="Application.SeniorityOps.SeniorityAppService.UpdateAsync"/>
+/// starting state so the real <see cref="Application.SeniorityOps.SeniorityAppService.UpdateAsync"/>
     /// entry point has a record to transition. Returns its CtrlNbr.
     /// </summary>
     private async Task<ControlNumber> SeedSeniorityRecordAsync(Fixture f, ControlNumber startingStateCtrlNbr, CancellationToken ct)

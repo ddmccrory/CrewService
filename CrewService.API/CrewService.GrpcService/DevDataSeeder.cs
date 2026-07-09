@@ -1483,7 +1483,7 @@ internal static class DevDataSeeder
                         .Where(c => c.RegulatoryQualificationCtrlNbr == qual.CtrlNbr)
                         .Select(c => c.EmployeeCtrlNbr)
                         .ToHashSet();
-                    seniority = seniority.Where(s => !existingCertEmpIds.Contains(s.EmployeeCtrlNbr)).ToList();
+                    seniority = [.. seniority.Where(s => !existingCertEmpIds.Contains(s.EmployeeCtrlNbr))];
                     int total = seniority.Count;
                     if (total == 0) return;
 
