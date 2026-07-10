@@ -1,4 +1,5 @@
 using CrewService.Application.Qualifications;
+using CrewService.Application.BackgroundWorkers;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
@@ -12,7 +13,8 @@ namespace CrewService.Application.SeniorityOps;
 public sealed class SeniorityAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     QualificationReactiveService qualificationReactiveService,
-    SeniorityStateVacancyConfigService vacancyConfigService)
+    SeniorityStateVacancyConfigService vacancyConfigService,
+    ISeniorityStateChangeSignal seniorityStateChangeSignal)
 {
     public sealed record SeniorityListItem(
         Domain.Models.Seniority.Seniority Seniority,
@@ -359,6 +361,7 @@ public sealed class SeniorityAppService(
 
         uow.PendingSeniorityStateChanges.Add(pending);
         await uow.CommitAsync(ct);
+        seniorityStateChangeSignal.Notify(pending.EffectiveDateUtc);
         return pending;
     }
 
@@ -440,6 +443,7 @@ public sealed class SeniorityAppService(
             {
                 pending.Cancel("system:seniority-not-found");
                 uow.PendingSeniorityStateChanges.Update(pending);
+                await uow.CommitAsync(ct);
                 continue;
             }
 
@@ -488,20 +492,20 @@ public sealed class SeniorityAppService(
     }
 
     /// <summary>
-    /// Returns the UTC datetime and resolved work-area timezone ID for the next pending
-    /// state change within the given railroad. Used so the banner can be displayed in the
-    /// same local time as the individual scheduled-change rows.
+    /// Returns the UTC datetime and resolved work-area for the next pending
+    /// state change within the given railroad.
     /// </summary>
-    public async Task<(DateTime? EffectiveDateUtc, string? WorkAreaTimeZoneId)> GetNextPendingChangeForRailroadAsync(
+    public async Task<(DateTime? EffectiveDateUtc, ControlNumber? WorkAreaGroupCtrlNbr, string? WorkAreaTimeZoneId)> GetNextPendingChangeForRailroadAsync(
         ControlNumber railroadCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var pending = await uow.PendingSeniorityStateChanges.GetAllPendingByRailroadAsync(railroadCtrlNbr, ct);
         var earliest = pending.OrderBy(p => p.EffectiveDateUtc).FirstOrDefault();
-        if (earliest is null) return (null, null);
+        if (earliest is null) return (null, null, null);
 
-        // Resolve work-area timezone via the employee's active seniority roster.
-        string? tzId = null;
+        // Resolve work area via the employee's active seniority roster.
+        ControlNumber? workAreaCtrlNbr = null;
+        string? workAreaTimeZoneId = null;
         var seniorityEntries = await uow.Seniority.GetByEmployeeCtrlNbrAsync(earliest.EmployeeCtrlNbr);
         var activeEntry = seniorityEntries.FirstOrDefault(s => s.LastActiveRoster) ?? seniorityEntries.FirstOrDefault();
         if (activeEntry is not null)
@@ -509,12 +513,13 @@ public sealed class SeniorityAppService(
             var roster = await uow.Rosters.GetByCtrlNbrAsync(activeEntry.RosterCtrlNbr, ct);
             if (roster is not null)
             {
+                workAreaCtrlNbr = roster.WorkAreaGroupCtrlNbr;
                 var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
-                tzId = workArea?.TimeZoneId;
+                workAreaTimeZoneId = workArea?.TimeZoneId;
             }
         }
 
-        return (earliest.EffectiveDateUtc, tzId);
+        return (earliest.EffectiveDateUtc, workAreaCtrlNbr, workAreaTimeZoneId);
     }
 
     public sealed record PendingChangeListItem(

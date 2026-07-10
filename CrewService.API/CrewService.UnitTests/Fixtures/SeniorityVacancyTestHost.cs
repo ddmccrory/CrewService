@@ -68,7 +68,8 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
             notifications);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);
-        Seniority = new SeniorityAppService(UowFactory, new QualificationReactiveService(), VacancyConfig);
+        var seniorityStateChangeSignal = new SeniorityStateChangeSignal();
+        Seniority = new SeniorityAppService(UowFactory, new QualificationReactiveService(), VacancyConfig, seniorityStateChangeSignal);
     }
 
     public IOrchestrationUnitOfWorkFactory UowFactory { get; }

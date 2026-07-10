@@ -2,10 +2,15 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.DailyOperations;
 
 namespace CrewService.Application.WorkManagement;
 
-public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class WorkManagementService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IDailyCallSheetSchedulerService dailyCallSheetScheduler,
+    IDailyCallSheetScheduleSignal dailyCallSheetScheduleSignal)
 {
     // ── Work Instances ───────────────────────────────────────────────────────
 
@@ -173,6 +178,9 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.ShiftDefinitions.Add(shift);
         await uow.CommitAsync(ct);
+
+        await NotifyNextCallSheetEventAsync(workAreaGroupCtrlNbr, ct);
+
         return shift;
     }
 
@@ -183,9 +191,13 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
+        var workAreaCtrlNbr = shift.WorkAreaGroupCtrlNbr;
         shift.Update(shiftCode: shiftCode, displayName: displayName, displayOrder: displayOrder, isActive: isActive);
         uow.ShiftDefinitions.Update(shift);
         await uow.CommitAsync(ct);
+
+        await NotifyNextCallSheetEventAsync(workAreaCtrlNbr, ct);
+
         return shift;
     }
 
@@ -194,7 +206,17 @@ public sealed class WorkManagementService(IOrchestrationUnitOfWorkFactory uowFac
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
+        var workAreaCtrlNbr = shift.WorkAreaGroupCtrlNbr;
         uow.ShiftDefinitions.Remove(shift);
         await uow.CommitAsync(ct);
+
+        await NotifyNextCallSheetEventAsync(workAreaCtrlNbr, ct);
+    }
+
+    private async Task NotifyNextCallSheetEventAsync(ControlNumber workAreaCtrlNbr, CancellationToken ct)
+    {
+        var nextEvent = await dailyCallSheetScheduler.GetNextCallSheetEventUtcAsync(workAreaCtrlNbr, ct);
+        if (nextEvent.HasValue)
+            dailyCallSheetScheduleSignal.Notify(nextEvent.Value);
     }
 }
