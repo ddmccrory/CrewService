@@ -3,10 +3,15 @@ using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.DailyOperations;
 
 namespace CrewService.Application.Assignments;
 
-public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class AssignmentsService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IDailyCallSheetSchedulerService dailyCallSheetScheduler,
+    IDailyCallSheetScheduleSignal dailyCallSheetScheduleSignal)
 {
     // ── Assignments ──────────────────────────────────────────────────────────
 
@@ -154,10 +159,16 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         ControlNumber assignmentCtrlNbr, ControlNumber shiftDefinitionCtrlNbr,
         int operatingDaysMask, TimeOnly onDutyTime, TimeOnly offDutyTime, CancellationToken ct = default)
     {
-        var schedule = AssignmentSchedule.Create(assignmentCtrlNbr, shiftDefinitionCtrlNbr, operatingDaysMask, onDutyTime, offDutyTime);
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, assignmentCtrlNbr, ct);
+
+        var schedule = AssignmentSchedule.Create(assignmentCtrlNbr, shiftDefinitionCtrlNbr, operatingDaysMask, onDutyTime, offDutyTime);
         uow.AssignmentSchedules.Add(schedule);
         await uow.CommitAsync(ct);
+
+        if (workAreaCtrlNbr is not null)
+            await NotifyNextCallSheetEventAsync(workAreaCtrlNbr.Value, ct);
+
         return schedule;
     }
 
@@ -167,9 +178,15 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
+        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, schedule.AssignmentCtrlNbr, ct);
+
         schedule.Update(operatingDaysMask, onDutyTime, offDutyTime);
         uow.AssignmentSchedules.Update(schedule);
         await uow.CommitAsync(ct);
+
+        if (workAreaCtrlNbr is not null)
+            await NotifyNextCallSheetEventAsync(workAreaCtrlNbr.Value, ct);
+
         return schedule;
     }
 
@@ -178,8 +195,13 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
+        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, schedule.AssignmentCtrlNbr, ct);
+
         uow.AssignmentSchedules.Remove(schedule);
         await uow.CommitAsync(ct);
+
+        if (workAreaCtrlNbr is not null)
+            await NotifyNextCallSheetEventAsync(workAreaCtrlNbr.Value, ct);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -192,5 +214,22 @@ public sealed class AssignmentsService(IOrchestrationUnitOfWorkFactory uowFactor
         if (group.IsWorkArea) return group.CtrlNbr;
         var ancestors = await uow.DynamicGroups.GetAncestorsAsync(groupCtrlNbr);
         return ancestors.FirstOrDefault(g => g.IsWorkArea)?.CtrlNbr;
+    }
+
+    private static async Task<ControlNumber?> ResolveWorkAreaCtrlNbrByAssignmentAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber assignmentCtrlNbr,
+        CancellationToken ct)
+    {
+        var assignment = await uow.Assignments.GetByCtrlNbrAsync(assignmentCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Assignment {assignmentCtrlNbr.Value} not found.");
+        return await ResolveWorkAreaCtrlNbrAsync(uow, assignment.GroupCtrlNbr);
+    }
+
+    private async Task NotifyNextCallSheetEventAsync(ControlNumber workAreaCtrlNbr, CancellationToken ct)
+    {
+        var nextEvent = await dailyCallSheetScheduler.GetNextCallSheetEventUtcAsync(workAreaCtrlNbr, ct);
+        if (nextEvent.HasValue)
+            dailyCallSheetScheduleSignal.Notify(nextEvent.Value);
     }
 }

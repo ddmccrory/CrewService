@@ -93,10 +93,10 @@ else
                         <th>Worker Type</th>
                         <th>Schedule</th>
                         <th>Next Run (Local)</th>
-                        <th>Worker Heartbeat</th>
+                        <th>Heartbeat</th>
                         <th>Last Run (Local)</th>
                         <th>Status</th>
-                        <th class="text-end">Actions</th>
+                        <th class="job-actions-col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -111,17 +111,13 @@ else
                             <td>@FormatBackendLocalDisplay(s.LastRunLocalDisplay)</td>
                             <td>
                                 <span class="badge @StatusBadgeClass(GetDisplayStatus(s))">@GetDisplayStatus(s)</span>
-                                @if (!s.IsEnabled)
-                                {
-                                    <span class="badge bg-secondary ms-1">Disabled</span>
-                                }
                             </td>
-                            <td class="text-end">
-                                <div class="d-inline-flex gap-2">
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenLogsModal(s)" disabled="@isSaving">
+                            <td class="job-actions-col">
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary job-action-btn" @onclick="() => OpenLogsModal(s)" disabled="@isSaving">
                                         <span class="bi bi-clock-history me-1"></span> Logs
                                     </button>
-                                    <button class="btn btn-sm @(s.IsEnabled ? "btn-outline-danger" : "btn-outline-success")"
+                                    <button class="btn btn-sm job-action-btn @(s.IsEnabled ? "btn-outline-danger" : "btn-outline-success")"
                                             @onclick="() => ToggleEnabledAsync(s)" disabled="@isSaving">
                                         <span class="bi @(s.IsEnabled ? "bi-pause-circle" : "bi-play-circle") me-1"></span>
                                         @(s.IsEnabled ? "Disable" : "Enable")
@@ -186,6 +182,16 @@ else
         </Footer>
     </Modal>
 }
+
+<style>
+    .job-actions-col {
+        width: 190px;
+    }
+
+    .job-action-btn {
+        min-width: 90px;
+    }
+</style>
 
 @code {
     protected override string? FeatureKey => "admin/jobs";
@@ -572,6 +578,14 @@ else
 
         if (!IsWorkerReady(row))
             return "NotRunning";
+
+        // Once the worker has a newly scheduled future run, return to Ready
+        // instead of continuing to display the previous successful completion.
+        if ((string.Equals(row.LastRunStatus, "Success", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(row.LastRunStatus, "Succeeded", StringComparison.OrdinalIgnoreCase))
+            && (!string.IsNullOrWhiteSpace(row.NextFireUtc)
+                || !string.IsNullOrWhiteSpace(row.NextFireLocalDisplay)))
+            return "Ready";
 
         if (!string.IsNullOrWhiteSpace(row.LastRunStatus))
             return row.LastRunStatus;

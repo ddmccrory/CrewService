@@ -9,6 +9,24 @@ namespace CrewService.Presentation.Services.Modules;
 public class BackgroundServicesService(IServiceProvider serviceProvider)
     : BackgroundServicesSrvc.BackgroundServicesSrvcBase
 {
+    private static readonly string[] SupportedWorkerTypes =
+    [
+        "AutoMarkUp",
+        "Bulletin",
+        "CallSheet",
+        "CrewCalling",
+        "DailyReport",
+        "FraCheck",
+        "MarkOff",
+        "PayrollImport",
+        "PrereqEval",
+        "QualExpiryNotify",
+        "RailroadInfoPublish",
+        "SeniorityMove",
+        "SeniorityStateChange",
+        "Vacancy"
+    ];
+
     private static readonly HashSet<string> EventDrivenWorkers = new(StringComparer.OrdinalIgnoreCase)
     {
         "CallSheet",
@@ -21,6 +39,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         GetWorkerSchedulesRequest request, ServerCallContext context)
     {
         var scheduleRepo = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IWorkerScheduleRepository>();
+        var currentUserService = serviceProvider.GetRequiredService<Domain.Interfaces.ICurrentUserService>();
         var workAreaRepo = serviceProvider.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
         var workAreaClock = serviceProvider.GetRequiredService<Time.IWorkAreaClock>();
         var callSheetScheduler = serviceProvider.GetRequiredService<Application.DailyOperations.IDailyCallSheetSchedulerService>();
@@ -32,10 +51,22 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
 
         var schedules = await scheduleRepo.GetAllAsync(request.WorkerType, context.CancellationToken);
 
+        if (string.IsNullOrWhiteSpace(currentUserService.GetUserName()))
+            currentUserService.SetAuditOverride("BackgroundServicesService");
+
         var allWorkAreas = await workAreaRepo.GetWorkAreasAsync(
             request.HasRailroadCtrlNbr
                 ? Domain.ValueObjects.ControlNumber.Create(request.RailroadCtrlNbr)
                 : null);
+
+        await EnsureDefaultSchedulesAsync(
+            scheduleRepo,
+            allWorkAreas,
+            schedules,
+            request.WorkerType,
+            context.CancellationToken);
+
+        schedules = await scheduleRepo.GetAllAsync(request.WorkerType, context.CancellationToken);
 
         var workAreaByCtrlNbr = allWorkAreas.ToDictionary(w => w.CtrlNbr.Value);
 
@@ -64,7 +95,6 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
                 bulletinsService,
                 policiesService,
                 seniorityService,
-                uowFactory,
                 context.CancellationToken);
             var lastHeartbeatUtc = heartbeatRegistry.GetLastHeartbeatUtc(s.CtrlNbr);
             response.Schedules.Add(new WorkerScheduleResponse
@@ -102,6 +132,39 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         return response;
     }
 
+    private static async Task EnsureDefaultSchedulesAsync(
+        Application.BackgroundWorkers.IWorkerScheduleRepository scheduleRepo,
+        IReadOnlyList<Domain.Modules.TenantConfig.DynamicGroup> workAreas,
+        IReadOnlyList<Domain.Modules.Infrastructure.WorkerSchedule> existingSchedules,
+        string? requestedWorkerType,
+        CancellationToken ct)
+    {
+        if (workAreas.Count == 0)
+            return;
+
+        var targetWorkerTypes = string.IsNullOrWhiteSpace(requestedWorkerType)
+            ? SupportedWorkerTypes
+            : [requestedWorkerType];
+
+        var existingKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var schedule in existingSchedules)
+            existingKeys.Add($"{schedule.WorkAreaGroupCtrlNbr.Value}:{schedule.WorkerType}");
+
+        foreach (var workArea in workAreas)
+        {
+            foreach (var workerType in targetWorkerTypes)
+            {
+                var key = $"{workArea.CtrlNbr.Value}:{workerType}";
+                if (!existingKeys.Add(key))
+                    continue;
+
+                await scheduleRepo.AddAsync(
+                    Domain.Modules.Infrastructure.WorkerSchedule.Create(workArea.CtrlNbr, workerType),
+                    ct);
+            }
+        }
+    }
+
     public override async Task<WorkerScheduleResponse> UpdateSchedule(
         UpdateScheduleRequest request, ServerCallContext context)
     {
@@ -137,7 +200,6 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         Application.Bulletins.BulletinsService bulletinsService,
         Application.Policies.PoliciesService policiesService,
         Application.SeniorityOps.SeniorityAppService seniorityService,
-        Domain.Interfaces.IOrchestrationUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (!EventDrivenWorkers.Contains(schedule.WorkerType))
@@ -154,25 +216,20 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
 
         if (schedule.WorkerType.Equals("SeniorityMove", StringComparison.OrdinalIgnoreCase))
         {
-            var nextUtc = await policiesService.GetNextApprovedSeniorityMoveEffectiveUtcAsync(ct);
-            if (!nextUtc.HasValue)
-                return null;
-
-            await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-            var dueMoves = await uow.SeniorityMoves.GetApprovedDueAsync(nextUtc.Value, ct);
-            var matchingMove = dueMoves.FirstOrDefault(m => m.EffectiveUtc == nextUtc && m.RailroadCtrlNbr == workArea.OwningRailroadCtrlNbr);
-            return matchingMove is not null ? nextUtc : null;
+            return await policiesService.GetNextActiveSeniorityMoveEffectiveUtcForRailroadAsync(
+                workArea.OwningRailroadCtrlNbr,
+                ct);
         }
 
         if (schedule.WorkerType.Equals("SeniorityStateChange", StringComparison.OrdinalIgnoreCase))
         {
-            var (nextUtc, tzId) = await seniorityService.GetNextPendingChangeForRailroadAsync(workArea.OwningRailroadCtrlNbr, ct);
+            var (nextUtc, nextWorkAreaCtrlNbr, _) = await seniorityService.GetNextPendingChangeForRailroadAsync(
+                workArea.OwningRailroadCtrlNbr,
+                ct);
             if (!nextUtc.HasValue)
                 return null;
 
-            var workAreaTzId = workArea.TimeZoneId ?? string.Empty;
-            var nextTzId = tzId ?? string.Empty;
-            return string.Equals(workAreaTzId, nextTzId, StringComparison.OrdinalIgnoreCase) ? nextUtc : null;
+            return nextWorkAreaCtrlNbr == workArea.CtrlNbr ? nextUtc : null;
         }
 
         return null;

@@ -266,7 +266,7 @@ public class SeniorityService(
         GetNextStateChangeEventRequest request, ServerCallContext context)
     {
         var railroadCtrlNbr = ControlNumber.Create(request.RailroadCtrlNbr);
-        var (nextUtc, tzId) = await seniorityAppService.GetNextPendingChangeForRailroadAsync(railroadCtrlNbr, context.CancellationToken);
+        var (nextUtc, _, tzId) = await seniorityAppService.GetNextPendingChangeForRailroadAsync(railroadCtrlNbr, context.CancellationToken);
         if (!nextUtc.HasValue)
             return new GetNextStateChangeEventResponse { NextEventLocal = string.Empty };
 

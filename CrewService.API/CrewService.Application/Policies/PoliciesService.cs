@@ -197,6 +197,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         await notifications.NotifySeniorityMoveRequestedAsync(uow, move, ct);
 
         await uow.CommitAsync(ct);
+        seniorityMoveSignal.Notify(move.EffectiveUtc ?? workAreaClock.UtcNow.UtcDateTime);
         return move;
     }
 
@@ -377,6 +378,22 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         return await uow.SeniorityMoves.GetNextApprovedEffectiveUtcAsync(ct);
+    }
+
+    public async Task<DateTime?> GetNextActiveSeniorityMoveEffectiveUtcForRailroadAsync(
+        ControlNumber railroadCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var active = await uow.SeniorityMoves.GetActiveAsync(ct);
+        var nowUtc = workAreaClock.UtcNow.UtcDateTime;
+        return active
+            .Where(m => m.RailroadCtrlNbr == railroadCtrlNbr
+                        && m.EffectiveUtc.HasValue
+                        && m.EffectiveUtc.Value >= nowUtc)
+            .OrderBy(m => m.EffectiveUtc)
+            .Select(m => (DateTime?)m.EffectiveUtc!.Value)
+            .FirstOrDefault();
     }
 
     /// <summary>
