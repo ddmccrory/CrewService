@@ -159,12 +159,17 @@ public sealed class AssignmentsService(
         ControlNumber assignmentCtrlNbr, ControlNumber shiftDefinitionCtrlNbr,
         int operatingDaysMask, TimeOnly onDutyTime, TimeOnly offDutyTime, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, assignmentCtrlNbr, ct);
+        AssignmentSchedule schedule;
+        ControlNumber? workAreaCtrlNbr;
 
-        var schedule = AssignmentSchedule.Create(assignmentCtrlNbr, shiftDefinitionCtrlNbr, operatingDaysMask, onDutyTime, offDutyTime);
-        uow.AssignmentSchedules.Add(schedule);
-        await uow.CommitAsync(ct);
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, assignmentCtrlNbr, ct);
+
+            schedule = AssignmentSchedule.Create(assignmentCtrlNbr, shiftDefinitionCtrlNbr, operatingDaysMask, onDutyTime, offDutyTime);
+            uow.AssignmentSchedules.Add(schedule);
+            await uow.CommitAsync(ct);
+        }
 
         if (workAreaCtrlNbr is not null)
             await NotifyNextCallSheetEventAsync(workAreaCtrlNbr.Value, ct);
@@ -175,14 +180,19 @@ public sealed class AssignmentsService(
     public async Task<AssignmentSchedule> UpdateAssignmentScheduleAsync(
         ControlNumber ctrlNbr, int operatingDaysMask, TimeOnly onDutyTime, TimeOnly offDutyTime, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
-        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, schedule.AssignmentCtrlNbr, ct);
+        AssignmentSchedule schedule;
+        ControlNumber? workAreaCtrlNbr;
 
-        schedule.Update(operatingDaysMask, onDutyTime, offDutyTime);
-        uow.AssignmentSchedules.Update(schedule);
-        await uow.CommitAsync(ct);
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
+            workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, schedule.AssignmentCtrlNbr, ct);
+
+            schedule.Update(operatingDaysMask, onDutyTime, offDutyTime);
+            uow.AssignmentSchedules.Update(schedule);
+            await uow.CommitAsync(ct);
+        }
 
         if (workAreaCtrlNbr is not null)
             await NotifyNextCallSheetEventAsync(workAreaCtrlNbr.Value, ct);
@@ -192,13 +202,17 @@ public sealed class AssignmentsService(
 
     public async Task DeleteAssignmentScheduleAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
-        var workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, schedule.AssignmentCtrlNbr, ct);
+        ControlNumber? workAreaCtrlNbr;
 
-        uow.AssignmentSchedules.Remove(schedule);
-        await uow.CommitAsync(ct);
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var schedule = await uow.AssignmentSchedules.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"AssignmentSchedule {ctrlNbr.Value} not found.");
+            workAreaCtrlNbr = await ResolveWorkAreaCtrlNbrByAssignmentAsync(uow, schedule.AssignmentCtrlNbr, ct);
+
+            uow.AssignmentSchedules.Remove(schedule);
+            await uow.CommitAsync(ct);
+        }
 
         if (workAreaCtrlNbr is not null)
             await NotifyNextCallSheetEventAsync(workAreaCtrlNbr.Value, ct);
