@@ -154,7 +154,6 @@ message GetSeniorityMovePolicyRequest {
 message UpsertSeniorityMovePolicyRequest {
   int64 railroad_ctrl_nbr = 1;
   int64 craft_ctrl_nbr = 2;
-  int32 eligibility_days = 3;
   int32 request_hours = 4;
   int32 cancel_hours = 5;
   bool auto_approve = 6;
@@ -166,12 +165,18 @@ message UpsertSeniorityMovePolicyRequest {
   string training_to_crew_strategy = 12;
   string new_hire_to_crew_strategy = 13;
   bool will_work_enabled = 14;
+  int32 crew_to_crew_eligibility_days = 16;
+  int32 crew_to_board_eligibility_days = 17;
+  int32 extra_board_to_crew_eligibility_days = 18;
+  int32 hangout_to_crew_eligibility_days = 19;
+  int32 extended_absence_to_crew_eligibility_days = 20;
+  int32 training_to_crew_eligibility_days = 21;
+  int32 new_hire_to_crew_eligibility_days = 22;
 }
 message SeniorityMovePolicyResponse {
   int64 ctrl_nbr = 1;
   int64 railroad_ctrl_nbr = 2;
   int64 craft_ctrl_nbr = 3;
-  int32 eligibility_days = 4;
   int32 request_hours = 5;
   int32 cancel_hours = 6;
   bool auto_approve = 7;
@@ -183,6 +188,13 @@ message SeniorityMovePolicyResponse {
   string training_to_crew_strategy = 13;
   string new_hire_to_crew_strategy = 14;
   bool will_work_enabled = 15;
+  int32 crew_to_crew_eligibility_days = 16;
+  int32 crew_to_board_eligibility_days = 17;
+  int32 extra_board_to_crew_eligibility_days = 18;
+  int32 hangout_to_crew_eligibility_days = 19;
+  int32 extended_absence_to_crew_eligibility_days = 20;
+  int32 training_to_crew_eligibility_days = 21;
+  int32 new_hire_to_crew_eligibility_days = 22;
 }
 
 message ExerciseSeniorityMoveRequest {

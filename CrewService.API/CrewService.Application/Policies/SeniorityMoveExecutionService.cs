@@ -27,6 +27,9 @@ public sealed class SeniorityMoveExecutionService(
     ILogger<SeniorityMoveExecutionService> logger,
     EmployeeNotificationService notifications)
 {
+    private const string SupersededByExecutedMoveReason = "Superseded by an executed seniority move for the same employee.";
+    private const string SupersededByNoAccessReason = "Superseded by a No Access bump for the same employee.";
+
     /// <summary>
     /// Executes a single approved seniority move identified by <paramref name="moveCtrlNbr"/>.
     /// </summary>
@@ -116,11 +119,16 @@ public sealed class SeniorityMoveExecutionService(
                 move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
         }
 
-        // 3b. No Access (administrative forced bump): cancel the mover's own remaining pending
-        //     moves and co-assign any open bulletin on the claimed position.
+        // 3b. Any executed move supersedes the mover's own remaining pending/approved
+        //     Voluntary/Hangout moves.
+        //     No Access additionally co-assigns any open bulletin on the claimed position.
+        var moverCancellationReason = move.MoveType == SeniorityMoveType.NoAccess
+            ? SupersededByNoAccessReason
+            : SupersededByExecutedMoveReason;
+        await CancelMoversPendingMovesAsync(uow, move.EmployeeCtrlNbr, moveCtrlNbr, moverCancellationReason, ct);
+
         if (move.MoveType == SeniorityMoveType.NoAccess)
         {
-            await CancelMoversPendingMovesAsync(uow, move.EmployeeCtrlNbr, moveCtrlNbr, ct);
             await CoAssignOpenBulletinAsync(uow, move.TargetPositionCtrlNbr, move.EmployeeCtrlNbr, ct);
         }
 
@@ -312,6 +320,7 @@ public sealed class SeniorityMoveExecutionService(
         IOrchestrationUnitOfWork uow,
         ControlNumber moverEmployeeCtrlNbr,
         ControlNumber completedMoveCtrlNbr,
+        string reason,
         CancellationToken ct)
     {
         var moverMoves = await uow.SeniorityMoves.GetByEmployeeAsync(moverEmployeeCtrlNbr, ct);
@@ -321,8 +330,10 @@ public sealed class SeniorityMoveExecutionService(
             if (pending.CtrlNbr == completedMoveCtrlNbr) continue;
             if (pending.Status != SeniorityMoveStatus.Pending && pending.Status != SeniorityMoveStatus.Approved)
                 continue;
+            if (pending.MoveType != SeniorityMoveType.Voluntary && pending.MoveType != SeniorityMoveType.Hangout)
+                continue;
 
-            pending.Cancel("Superseded by a No Access bump for the same employee.");
+            pending.Cancel(reason);
             await uow.SeniorityMoves.UpdateAsync(pending, ct);
             if (logger.IsEnabled(LogLevel.Information))
             {

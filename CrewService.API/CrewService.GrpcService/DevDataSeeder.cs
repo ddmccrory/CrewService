@@ -1352,20 +1352,28 @@ internal static class DevDataSeeder
         // Engineer: moves to board are at end-of-work-week (FirstOffDay), moves to crew use target schedule (FirstOffDay).
         await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
             csxRailroad5.CtrlNbr, engCraft4.CtrlNbr,
-            eligibilityDays: 90, requestHours: 48, cancelHours: 4, autoApprove: true,
+            requestHours: 48, cancelHours: 4, autoApprove: true,
             crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
             crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
             extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate));
+            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate,
+            crewToCrewEligibilityDays: 90,
+            crewToBoardEligibilityDays: 90,
+            extraBoardToCrewEligibilityDays: 90,
+            hangoutToCrewEligibilityDays: 0));
 
         // Trainman/Conductor: moves to board use lead time only (no schedule), moves to crew use target schedule.
         await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
             csxRailroad5.CtrlNbr, condCraft4.CtrlNbr,
-            eligibilityDays: 90, requestHours: 48, cancelHours: 4, autoApprove: true,
+            requestHours: 48, cancelHours: 4, autoApprove: true,
             crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
             crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.RequestLeadTime,
             extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate));
+            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate,
+            crewToCrewEligibilityDays: 90,
+            crewToBoardEligibilityDays: 90,
+            extraBoardToCrewEligibilityDays: 90,
+            hangoutToCrewEligibilityDays: 0));
 
         } // end policies guard
 

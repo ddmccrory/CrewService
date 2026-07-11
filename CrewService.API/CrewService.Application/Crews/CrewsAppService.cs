@@ -2,6 +2,7 @@ using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,8 @@ public sealed class CrewsAppService(
     IVacancyRepostService vacancyRepostService,
     ILogger<CrewsAppService> logger)
 {
+    private const string ReassignmentCancellationReason = "Cancelled because employee was assigned to a different position.";
+
     // ── Crews ────────────────────────────────────────────────────────────────
 
     public async Task<(List<Crew> Crews, Dictionary<ControlNumber, int> PositionCounts, Dictionary<ControlNumber, int> DaysMasks)>
@@ -190,10 +193,30 @@ public sealed class CrewsAppService(
             crewPosition.StaffablePositionCtrlNbr, empCtrlNbr, PositionAssignmentType.Direct, crewPosition.CtrlNbr,
             assignedDateUtc: startUtc);
 
+        await CancelPendingOrApprovedSeniorityMovesAsync(uow, empCtrlNbr, ct);
+
         uow.CrewIncumbencies.Add(incumbency);
         uow.PositionAssignments.Add(positionAssignment);
         await uow.CommitAsync(ct);
         return incumbency;
+    }
+
+    private static async Task CancelPendingOrApprovedSeniorityMovesAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        var employeeMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var move in employeeMoves)
+        {
+            if (move.Status != SeniorityMoveStatus.Pending && move.Status != SeniorityMoveStatus.Approved)
+                continue;
+            if (move.MoveType != SeniorityMoveType.Voluntary && move.MoveType != SeniorityMoveType.Hangout)
+                continue;
+
+            move.Cancel(ReassignmentCancellationReason);
+            await uow.SeniorityMoves.UpdateAsync(move, ct);
+        }
     }
 
     public async Task EndCrewIncumbencyAsync(ControlNumber ctrlNbr, DateTime endUtc, CancellationToken ct = default)

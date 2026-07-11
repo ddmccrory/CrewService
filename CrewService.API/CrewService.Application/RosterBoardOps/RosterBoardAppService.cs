@@ -7,6 +7,7 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
@@ -20,6 +21,8 @@ public sealed class RosterBoardAppService(
     VacancyAssignment.IVacancyRepostService vacancyRepostService,
     EmployeeNotificationService notifications)
 {
+    private const string ReassignmentCancellationReason = "Cancelled because employee was assigned to a different position.";
+
     // ── Single Board ─────────────────────────────────────────────────────────
 
     public async Task<(RosterBoard? Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName, string? WorkAreaTimeZoneId, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
@@ -224,6 +227,8 @@ public sealed class RosterBoardAppService(
             throw new InvalidOperationException(
                 "This employee is already assigned to a staffable position. Unassign them first.");
 
+        await CancelPendingOrApprovedSeniorityMovesAsync(uow, employeeCtrlNbr, ct);
+
         var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
         var position = board.AddPosition(employeeCtrlNbr, positionOrder, staffablePosition.CtrlNbr);
         var positionAssignment = PositionAssignment.Create(
@@ -243,6 +248,24 @@ public sealed class RosterBoardAppService(
         var labels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, [employeeCtrlNbr], ct);
         await uow.CommitAsync(ct);
         return (position, labels);
+    }
+
+    private static async Task CancelPendingOrApprovedSeniorityMovesAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        var employeeMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var move in employeeMoves)
+        {
+            if (move.Status != SeniorityMoveStatus.Pending && move.Status != SeniorityMoveStatus.Approved)
+                continue;
+            if (move.MoveType != SeniorityMoveType.Voluntary && move.MoveType != SeniorityMoveType.Hangout)
+                continue;
+
+            move.Cancel(ReassignmentCancellationReason);
+            await uow.SeniorityMoves.UpdateAsync(move, ct);
+        }
     }
 
     public async Task<ControlNumber> RemoveRosterBoardPositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)

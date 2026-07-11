@@ -13,7 +13,7 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService)
 {
     public async Task<CraftOperationsPolicy> GetCraftOperationsPolicyAsync(
         ControlNumber craftCtrlNbr, CancellationToken ct = default)
@@ -187,30 +187,42 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
     }
 
     public async Task<SeniorityMovePolicy> GetOrUpsertSeniorityMovePolicyAsync(
-        long railroadCtrlNbr, long craftCtrlNbr, int eligibilityDays, int requestHours, int cancelHours, bool autoApprove,
+        long railroadCtrlNbr, long craftCtrlNbr, int requestHours, int cancelHours, bool autoApprove,
         string crewToCrewStrategy, string crewToBoardStrategy,
         string extraBoardToCrewStrategy, string hangoutToCrewStrategy,
         string extendedAbsenceToCrewStrategy, string trainingToCrewStrategy,
         string newHireToCrewStrategy, bool willWorkEnabled = false,
+        int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
+        int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
+        int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
+        int newHireToCrewEligibilityDays = 0,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var existing = await uow.SeniorityMovePolicies.GetByRailroadAndCraftAsync(ControlNumber.Create(railroadCtrlNbr), ControlNumber.Create(craftCtrlNbr));
         if (existing is not null)
         {
-            existing.Update(eligibilityDays, requestHours, cancelHours, autoApprove,
+            existing.Update(requestHours, cancelHours, autoApprove,
                 crewToCrewStrategy, crewToBoardStrategy, extraBoardToCrewStrategy,
                 hangoutToCrewStrategy, extendedAbsenceToCrewStrategy, trainingToCrewStrategy, newHireToCrewStrategy,
-                willWorkEnabled);
+                willWorkEnabled,
+                crewToCrewEligibilityDays, crewToBoardEligibilityDays,
+                extraBoardToCrewEligibilityDays, hangoutToCrewEligibilityDays,
+                extendedAbsenceToCrewEligibilityDays, trainingToCrewEligibilityDays,
+                newHireToCrewEligibilityDays);
             await uow.SeniorityMovePolicies.UpdateAsync(existing, ct);
             await uow.CommitAsync(ct);
             return existing;
         }
         var policy = SeniorityMovePolicy.Create(ControlNumber.Create(railroadCtrlNbr), ControlNumber.Create(craftCtrlNbr),
-            eligibilityDays, requestHours, cancelHours, autoApprove,
+            requestHours, cancelHours, autoApprove,
             crewToCrewStrategy, crewToBoardStrategy, extraBoardToCrewStrategy,
             hangoutToCrewStrategy, extendedAbsenceToCrewStrategy, trainingToCrewStrategy, newHireToCrewStrategy,
-            willWorkEnabled);
+            willWorkEnabled,
+            crewToCrewEligibilityDays, crewToBoardEligibilityDays,
+            extraBoardToCrewEligibilityDays, hangoutToCrewEligibilityDays,
+            extendedAbsenceToCrewEligibilityDays, trainingToCrewEligibilityDays,
+            newHireToCrewEligibilityDays);
         await uow.SeniorityMovePolicies.AddAsync(policy, ct);
         await uow.CommitAsync(ct);
         return policy;
@@ -238,20 +250,24 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         var policy = await uow.SeniorityMovePolicies.GetByRailroadAndCraftAsync(ControlNumber.Create(railroadCtrlNbr), ControlNumber.Create(craftCtrlNbr));
 
         // Compute days on current position server-side from the live PositionAssignment.
-        // The client-supplied value is used as a fallback when no assignment record exists.
         var currentAssignments = await uow.PositionAssignments.GetByEmployeeAsync(empCtrlNbr);
-        var earliestAssignment = currentAssignments
-            .OrderBy(a => a.AssignedDateUtc)
+        var latestAssignment = currentAssignments
+            .OrderByDescending(a => a.AssignedDateUtc)
             .FirstOrDefault();
-        if (earliestAssignment is not null)
-            daysOnCurrentPosition = (int)(workAreaClock.UtcNow.UtcDateTime - earliestAssignment.AssignedDateUtc).TotalDays;
+        if (latestAssignment is not null)
+            daysOnCurrentPosition = (int)(workAreaClock.UtcNow.UtcDateTime - latestAssignment.AssignedDateUtc).TotalDays;
+
+        var currentBoardType = await ResolveCurrentBoardTypeAsync(
+            uow, ControlNumber.Create(craftCtrlNbr), empCtrlNbr, latestAssignment, ct);
+        var strategy = ResolveMoveStrategy(policy, currentBoardType, targetBoardCtrlNbr);
+        var requiredEligibilityDays = ResolveRequiredEligibilityDays(policy, currentBoardType, targetBoardCtrlNbr);
 
         // No Access is an administrative forced bump that bypasses the eligibility threshold.
         var isNoAccess = moveType == SeniorityMoveType.NoAccess;
 
-        if (!isNoAccess && policy is not null && daysOnCurrentPosition < policy.EligibilityDays)
+        if (!isNoAccess && daysOnCurrentPosition < requiredEligibilityDays)
             throw new InvalidOperationException(
-                $"Employee has only {daysOnCurrentPosition} days on current position; eligibility requires {policy.EligibilityDays}.");
+                $"Employee has only {daysOnCurrentPosition} days on current position; eligibility requires {requiredEligibilityDays}.");
 
         // Compute effective date. No Access uses a fixed next-day floor (legacy SA rule:
         // DateTime.Today.AddDays(1).AddMinutes(1)); all other moves use the policy-driven strategy.
@@ -259,7 +275,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ? workAreaClock.UtcNow.UtcDateTime.Date.AddDays(1).AddMinutes(1)
             : (await ComputeEffectiveDateAsync(
                 empCtrlNbr, ControlNumber.Create(craftCtrlNbr),
-                targetBoardCtrlNbr, targetPositionCtrlNbr, earliestAssignment, daysOnCurrentPosition,
+                targetBoardCtrlNbr, targetPositionCtrlNbr, latestAssignment, daysOnCurrentPosition,
                 policy, uow, ct)).UtcDateTime;
 
         // Board join path: create a new position at the bottom of the target board.
@@ -316,6 +332,21 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         await uow.CommitAsync(ct);
         seniorityMoveSignal.Notify(move.EffectiveUtc ?? workAreaClock.UtcNow.UtcDateTime);
+
+        var autoApprove = move.MoveType == SeniorityMoveType.NoAccess
+            || move.MoveType == SeniorityMoveType.Hangout
+            || policy?.AutoApprove == true;
+        var dueNow = move.EffectiveUtc.HasValue && move.EffectiveUtc.Value <= workAreaClock.UtcNow.UtcDateTime;
+
+        if (autoApprove && dueNow)
+        {
+            await ApproveSeniorityMoveAsync(move.CtrlNbr, ct: ct);
+            await seniorityMoveExecutionService.ExecuteAsync(move.CtrlNbr, ct);
+
+            await using var refreshUow = await uowFactory.CreateAsync(cancellationToken: ct);
+            return await refreshUow.SeniorityMoves.GetByCtrlNbrAsync(move.CtrlNbr, ct) ?? move;
+        }
+
         return move;
     }
 
@@ -479,14 +510,30 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
             // Resolve the work-area timezone of the target position so the UI can
             // display the move's UTC instants as work-area-local wall-clock times.
-            // Board positions have no crew position, so the zone stays null (UTC).
+            // Crew targets resolve via Crew -> WorkArea. Board targets resolve via
+            // Board -> Roster -> WorkArea.
             if (!timeZoneIdCache.TryGetValue(move.TargetPositionCtrlNbr, out var timeZoneId))
             {
                 var crewPos = await uow.CrewPositions.GetByStaffablePositionAsync(move.TargetPositionCtrlNbr);
-                var tz = crewPos is not null
-                    ? await workAreaClock.GetCrewTimeZoneAsync(uow, crewPos.CrewCtrlNbr, ct)
-                    : null;
-                timeZoneId = tz?.Id;
+
+                if (crewPos is not null)
+                {
+                    var tz = await workAreaClock.GetCrewTimeZoneAsync(uow, crewPos.CrewCtrlNbr, ct);
+                    timeZoneId = tz?.Id;
+                }
+                else
+                {
+                    var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(move.TargetPositionCtrlNbr, ct);
+                    if (board is not null)
+                    {
+                        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
+                        var workArea = roster is null
+                            ? null
+                            : await uow.DynamicGroups.GetByCtrlNbrAsync(roster.WorkAreaGroupCtrlNbr, ct);
+                        timeZoneId = workArea?.TimeZoneId;
+                    }
+                }
+
                 timeZoneIdCache[move.TargetPositionCtrlNbr] = timeZoneId;
             }
 
@@ -596,19 +643,19 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         var policy = await uow.SeniorityMovePolicies.GetByRailroadAndCraftAsync(ControlNumber.Create(railroadCtrlNbr), ControlNumber.Create(craftCtrlNbr));
 
         var currentAssignments = await uow.PositionAssignments.GetByEmployeeAsync(empCtrlNbr);
-        var earliestAssignment = currentAssignments.OrderBy(a => a.AssignedDateUtc).FirstOrDefault();
+        var latestAssignment = currentAssignments.OrderByDescending(a => a.AssignedDateUtc).FirstOrDefault();
 
-        int daysOnCurrentPosition = earliestAssignment is not null
-            ? (int)(workAreaClock.UtcNow.UtcDateTime - earliestAssignment.AssignedDateUtc).TotalDays
+        int daysOnCurrentPosition = latestAssignment is not null
+            ? (int)(workAreaClock.UtcNow.UtcDateTime - latestAssignment.AssignedDateUtc).TotalDays
             : 0;
 
         var effectiveUtc = await ComputeEffectiveDateAsync(
             empCtrlNbr, ControlNumber.Create(craftCtrlNbr),
-            targetBoardCtrlNbr, targetPositionCtrlNbr, earliestAssignment, daysOnCurrentPosition,
+            targetBoardCtrlNbr, targetPositionCtrlNbr, latestAssignment, daysOnCurrentPosition,
             policy, uow, ct);
 
         var willWorkOffered = await IsWillWorkOfferedAsync(
-            policy, earliestAssignment, effectiveUtc, uow, ct);
+            policy, latestAssignment, effectiveUtc, uow, ct);
 
         return (effectiveUtc, willWorkOffered);
     }
@@ -676,53 +723,36 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         var now          = workAreaClock.UtcNow.UtcDateTime;
         int requestHours = policy?.RequestHours   ?? 0;
-        int eligDays     = policy?.EligibilityDays ?? 0;
 
-        // BumpDate: earliest date the employee became/becomes eligible.
+        var currentBoardType = await ResolveCurrentBoardTypeAsync(uow, craftCtrlNbr, empCtrlNbr, currentAssignment, ct);
+        var requiredEligibilityDays = ResolveRequiredEligibilityDays(policy, currentBoardType, targetBoardCtrlNbr);
+
+        // BumpDate: earliest date the employee became/becomes eligible for this transition.
         var bumpDate = currentAssignment is not null
-            ? currentAssignment.AssignedDateUtc.AddDays(eligDays)
+            ? currentAssignment.AssignedDateUtc.AddDays(requiredEligibilityDays)
             : now;
 
-        // Determine current board type (null if the employee is on a crew position).
-        BoardType? currentBoardType = null;
-        if (currentAssignment?.AssignmentType == PositionAssignmentType.Board)
-        {
-            var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(craftCtrlNbr, ct);
-            var boardPosition = boards.SelectMany(b => b.Positions)
-                .FirstOrDefault(p => p.EmployeeCtrlNbr == empCtrlNbr);
-            if (boardPosition is not null)
-            {
-                var currentBoard = boards.FirstOrDefault(b => b.CtrlNbr == boardPosition.RosterBoardCtrlNbr);
-                currentBoardType = currentBoard?.BoardType;
-            }
-        }
-
         // Resolve the strategy for this transition.
-        string strategy;
-        if (targetBoardCtrlNbr > 0)
-        {
-            // Moving to a board.
-            strategy = policy?.CrewToBoardStrategy ?? string.Empty;
-        }
-        else
-        {
-            // Moving to a crew position — pick strategy based on current source.
-            strategy = currentBoardType switch
-            {
-                BoardType.ExtraBoard       => policy?.ExtraBoardToCrewStrategy       ?? string.Empty,
-                BoardType.Hangout          => policy?.HangoutToCrewStrategy          ?? string.Empty,
-                BoardType.ExtendedAbsence  => policy?.ExtendedAbsenceToCrewStrategy  ?? string.Empty,
-                BoardType.Training         => policy?.TrainingToCrewStrategy         ?? string.Empty,
-                BoardType.NewHire          => policy?.NewHireToCrewStrategy          ?? string.Empty,
-                null                       => policy?.CrewToCrewStrategy             ?? string.Empty,
-                _                         => string.Empty
-            };
-        }
+        var strategy = ResolveMoveStrategy(policy, currentBoardType, targetBoardCtrlNbr);
 
         if (string.IsNullOrEmpty(strategy))
+        {
+            var sourceLabel = currentBoardType switch
+            {
+                BoardType.ExtraBoard => "Extra Board",
+                BoardType.Hangout => "Hangout",
+                BoardType.ExtendedAbsence => "Extended Absence",
+                BoardType.Training => "Training",
+                BoardType.NewHire => "New Hire",
+                null => "Crew",
+                _ => "Current Source"
+            };
+
+            var targetLabel = targetBoardCtrlNbr > 0 ? "Board" : "Crew Position";
+
             throw new InvalidOperationException(
-                "No effective-date strategy is configured for this transition type. " +
-                "Configure the seniority move policy for this railroad and craft.");
+                $"Cannot move from {sourceLabel} to {targetLabel}.");
+        }
 
         // ── Immediate ──────────────────────────────────────────────────────────
         if (strategy == SeniorityMoveEffectiveDateStrategy.Immediate)
@@ -795,7 +825,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         else
         {
             // Crew bump (FirstOffDay): last work day of target schedule.
-            var anchor = daysOnCurrentPosition < eligDays ? bumpDate : now;
+            var anchor = daysOnCurrentPosition < requiredEligibilityDays ? bumpDate : now;
 
             if (schedule is not null)
                 return GetNextEndOfWorkWeek(schedule, AsUtc(anchor), requestHours, scheduleTz, workDaysMask);
@@ -850,6 +880,74 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         return (schedule, governingAssignment.DaysOfWeekMask);
     }
+
+    private static string ResolveMoveStrategy(
+        SeniorityMovePolicy? policy,
+        BoardType? currentBoardType,
+        long targetBoardCtrlNbr)
+    {
+        if (targetBoardCtrlNbr > 0)
+            return policy?.CrewToBoardStrategy ?? string.Empty;
+
+        return currentBoardType switch
+        {
+            BoardType.ExtraBoard => policy?.ExtraBoardToCrewStrategy ?? string.Empty,
+            BoardType.Hangout => policy?.HangoutToCrewStrategy ?? string.Empty,
+            BoardType.ExtendedAbsence => policy?.ExtendedAbsenceToCrewStrategy ?? string.Empty,
+            BoardType.Training => policy?.TrainingToCrewStrategy ?? string.Empty,
+            BoardType.NewHire => policy?.NewHireToCrewStrategy ?? string.Empty,
+            null => policy?.CrewToCrewStrategy ?? string.Empty,
+            _ => string.Empty
+        };
+    }
+
+    private static int ResolveRequiredEligibilityDays(
+        SeniorityMovePolicy? policy,
+        BoardType? currentBoardType,
+        long targetBoardCtrlNbr)
+    {
+        if (policy is null)
+            return 0;
+
+        if (targetBoardCtrlNbr > 0)
+            return policy.CrewToBoardEligibilityDays;
+
+        return currentBoardType switch
+        {
+            BoardType.ExtraBoard => policy.ExtraBoardToCrewEligibilityDays,
+            BoardType.Hangout => policy.HangoutToCrewEligibilityDays,
+            BoardType.ExtendedAbsence => policy.ExtendedAbsenceToCrewEligibilityDays,
+            BoardType.Training => policy.TrainingToCrewEligibilityDays,
+            BoardType.NewHire => policy.NewHireToCrewEligibilityDays,
+            null => policy.CrewToCrewEligibilityDays,
+            _ => 0
+        };
+    }
+
+    private static async Task<BoardType?> ResolveCurrentBoardTypeAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber craftCtrlNbr,
+        ControlNumber empCtrlNbr,
+        PositionAssignment? currentAssignment,
+        CancellationToken ct)
+    {
+        if (currentAssignment is null)
+            return null;
+
+        var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(craftCtrlNbr, ct);
+        var boardPosition = boards
+            .SelectMany(b => b.Positions)
+            .FirstOrDefault(p =>
+                p.StaffablePositionCtrlNbr == currentAssignment.StaffablePositionCtrlNbr &&
+                p.EmployeeCtrlNbr == empCtrlNbr);
+
+        if (boardPosition is null)
+            return null;
+
+        var currentBoard = boards.FirstOrDefault(b => b.CtrlNbr == boardPosition.RosterBoardCtrlNbr);
+        return currentBoard?.BoardType;
+    }
+
     /// <summary>
     /// Returns the off-duty time of the LAST scheduled work day of the current schedule week
     /// whose off-duty datetime is after <paramref name="baseDate"/>. If that time is before

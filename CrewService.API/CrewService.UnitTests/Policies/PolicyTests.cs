@@ -146,9 +146,14 @@ public class SeniorityMovePolicyTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var policy = SeniorityMovePolicy.Create(ControlNumber.Create(1), ControlNumber.Create(10), 30, requestHours: 24, cancelHours: 4);
+        var policy = SeniorityMovePolicy.Create(
+            ControlNumber.Create(1),
+            ControlNumber.Create(10),
+            requestHours: 24,
+            cancelHours: 4,
+            crewToCrewEligibilityDays: 30);
 
-        Assert.Equal(30, policy.EligibilityDays);
+        Assert.Equal(30, policy.CrewToCrewEligibilityDays);
         Assert.Equal(24, policy.RequestHours);
         Assert.Equal(4, policy.CancelHours);
         Assert.True(policy.AutoApprove);
@@ -157,7 +162,11 @@ public class SeniorityMovePolicyTests
     [Fact]
     public void Create_WithAutoApprove_False()
     {
-        var policy = SeniorityMovePolicy.Create(ControlNumber.Create(1), ControlNumber.Create(10), 30, autoApprove: false);
+        var policy = SeniorityMovePolicy.Create(
+            ControlNumber.Create(1),
+            ControlNumber.Create(10),
+            autoApprove: false,
+            crewToCrewEligibilityDays: 30);
 
         Assert.False(policy.AutoApprove);
     }
@@ -165,11 +174,26 @@ public class SeniorityMovePolicyTests
     [Fact]
     public void Update_ChangesAllFields()
     {
-        var policy = SeniorityMovePolicy.Create(ControlNumber.Create(1), ControlNumber.Create(10), 30);
+        var policy = SeniorityMovePolicy.Create(
+            ControlNumber.Create(1),
+            ControlNumber.Create(10),
+            crewToCrewEligibilityDays: 30);
 
-        policy.Update(60, 48, 8, false, "", "", "", "", "", "", "");
+        policy.Update(
+            requestHours: 48,
+            cancelHours: 8,
+            autoApprove: false,
+            crewToCrewStrategy: "",
+            crewToBoardStrategy: "",
+            extraBoardToCrewStrategy: "",
+            hangoutToCrewStrategy: "",
+            extendedAbsenceToCrewStrategy: "",
+            trainingToCrewStrategy: "",
+            newHireToCrewStrategy: "",
+            willWorkEnabled: false,
+            crewToCrewEligibilityDays: 60);
 
-        Assert.Equal(60, policy.EligibilityDays);
+        Assert.Equal(60, policy.CrewToCrewEligibilityDays);
         Assert.Equal(48, policy.RequestHours);
         Assert.Equal(8, policy.CancelHours);
         Assert.False(policy.AutoApprove);
