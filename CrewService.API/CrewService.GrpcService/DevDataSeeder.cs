@@ -889,25 +889,26 @@ internal static class DevDataSeeder
             ptraEngDate = ptraEngDate.AddDays(50);
         }
 
-        // Trainman roster: first 11 groups are veteran hires (2016-02-01 onward, ~30 days apart).
-        // Last 3 groups are recent new hires within 90 days — they are Helper Only until they accumulate enough seniority.
-        var ptraTrnDate = new DateTime(2016, 2, 1);
+        // Trainman roster: first 11 groups are veteran hires distributed dynamically across wide
+        // seniority ranges. Last 3 groups are recent hires under 90 days so Helper Only logic can
+        // be validated without reseeding static dates.
         var ptraTrnToday = DateTime.UtcNow.Date;
         int[] ptraTrnVeteranGroups = [5, 4, 3, 6, 4, 5, 3, 4, 5, 3, 6]; // 48 veterans
+        int[] ptraTrnVeteranDaysAgo = [3200, 2600, 2100, 1700, 1300, 950, 700, 500, 365, 240, 120];
         int[] ptraTrnNewHireGroups = [4, 3, 5];                           // 12 new hires — Helper Only
-        int ptraTrnRank = 1;
-        foreach (var groupSize in ptraTrnVeteranGroups)
+        for (int g = 0; g < ptraTrnVeteranGroups.Length; g++)
         {
+            var groupSize = ptraTrnVeteranGroups[g];
+            var ptraTrnDate = ptraTrnToday.AddDays(-ptraTrnVeteranDaysAgo[g]);
             for (int r = 0; r < groupSize; r++)
             {
                 await seniorityRepo.AddAsync(Seniority.Create(
                     ptraCondRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
                     lastActiveRoster: true, rosterDate: ptraTrnDate,
-                    rank: ptraTrnRank++, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    rank: r + 1, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
                     canTrain: ptraEmpIdx % 5 == 0));
                 ptraEmpIdx++;
             }
-            ptraTrnDate = ptraTrnDate.AddDays(30);
         }
         // New hires: seeded via NewHireService for atomic onboarding (seniority + pending cert + board placement)
         // Seniority dates 75, 45, and 20 days ago — all under the 90-day Helper Only threshold
@@ -917,6 +918,7 @@ internal static class DevDataSeeder
             var newHireDate = ptraTrnToday.AddDays(-ptraTrnNewHireDaysAgo[g]);
             for (int r = 0; r < ptraTrnNewHireGroups[g]; r++)
             {
+                var assignedRank = r + 1;
                 SetParent(ptraParentCore.CtrlNbr.Value);
                 await newHireSvc.OnboardAsync(
                     employeeCtrlNbr: ptraEmpList[ptraEmpIdx].CtrlNbr,
@@ -925,7 +927,15 @@ internal static class DevDataSeeder
                     seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
                     hireDate: newHireDate,
                     regulatoryQualificationCtrlNbr: ptraCfr242swQ?.CtrlNbr,
-                    rank: ptraTrnRank++);
+                    rank: assignedRank);
+
+                // Add the same employee to the active Trainman roster with the same dynamic date so
+                // restriction labels reflect <90-day and >90-day ranges directly on the active roster.
+                await seniorityRepo.AddAsync(Seniority.Create(
+                    ptraCondRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
+                    lastActiveRoster: true, rosterDate: newHireDate,
+                    rank: assignedRank, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                    canTrain: ptraEmpIdx % 5 == 0));
                 ptraEmpIdx++;
             }
         }
