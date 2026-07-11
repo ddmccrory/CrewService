@@ -9,6 +9,8 @@ namespace CrewService.Presentation.Services.Modules;
 public class BackgroundServicesService(IServiceProvider serviceProvider)
     : BackgroundServicesSrvc.BackgroundServicesSrvcBase
 {
+    private static readonly SemaphoreSlim DefaultScheduleSeedGate = new(1, 1);
+
     private static readonly string[] SupportedWorkerTypes =
     [
         "AutoMarkUp",
@@ -59,12 +61,22 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
                 ? Domain.ValueObjects.ControlNumber.Create(request.RailroadCtrlNbr)
                 : null);
 
-        await EnsureDefaultSchedulesAsync(
-            scheduleRepo,
-            allWorkAreas,
-            schedules,
-            request.WorkerType,
-            context.CancellationToken);
+        await DefaultScheduleSeedGate.WaitAsync(context.CancellationToken);
+        try
+        {
+            schedules = await scheduleRepo.GetAllAsync(request.WorkerType, context.CancellationToken);
+
+            await EnsureDefaultSchedulesAsync(
+                scheduleRepo,
+                allWorkAreas,
+                schedules,
+                request.WorkerType,
+                context.CancellationToken);
+        }
+        finally
+        {
+            DefaultScheduleSeedGate.Release();
+        }
 
         schedules = await scheduleRepo.GetAllAsync(request.WorkerType, context.CancellationToken);
 
@@ -87,7 +99,6 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         {
             var workArea = workAreaByCtrlNbr[s.WorkAreaGroupCtrlNbr.Value];
             var tz = workAreaClock.ResolveTimeZone(workArea.TimeZoneId);
-            var suppressLastRun = string.Equals(s.LastRunStatus, "NoWork", StringComparison.OrdinalIgnoreCase);
             var effectiveNextFireUtc = await ResolveDisplayNextRunUtcAsync(
                 s,
                 workArea,
@@ -105,19 +116,17 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
                 NextFireUtc = effectiveNextFireUtc.HasValue
                     ? Timestamp.FromDateTime(DateTime.SpecifyKind(effectiveNextFireUtc.Value, DateTimeKind.Utc))
                     : null,
-                LastRunUtc = !suppressLastRun && s.LastRunUtc.HasValue
+                LastRunUtc = s.LastRunUtc.HasValue
                     ? Timestamp.FromDateTime(DateTime.SpecifyKind(s.LastRunUtc.Value, DateTimeKind.Utc))
                     : null,
-                LastRunStatus = suppressLastRun
-                    ? string.Empty
-                    : s.LastRunStatus ?? string.Empty,
+                LastRunStatus = s.LastRunStatus ?? string.Empty,
                 WorkAreaCtrlNbr = workArea.CtrlNbr.Value,
                 WorkAreaName = (workArea.Code ?? string.Empty).ToUpperInvariant(),
                 CronExpression = string.IsNullOrWhiteSpace(s.CronExpression) ? string.Empty : s.CronExpression,
                 NextFireLocalDisplay = effectiveNextFireUtc.HasValue
                     ? workAreaClock.FormatLocalIso(effectiveNextFireUtc.Value, tz)
                     : string.Empty,
-                LastRunLocalDisplay = !suppressLastRun && s.LastRunUtc.HasValue
+                LastRunLocalDisplay = s.LastRunUtc.HasValue
                     ? workAreaClock.FormatLocalIso(s.LastRunUtc.Value, tz)
                     : string.Empty,
                 LastWorkerHeartbeatUtc = lastHeartbeatUtc.HasValue
@@ -239,6 +248,21 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         GetExecutionLogsRequest request, ServerCallContext context)
     {
         var repo = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IWorkerExecutionLogRepository>();
+        var scheduleRepo = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IWorkerScheduleRepository>();
+        var workAreaRepo = serviceProvider.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
+        var workAreaClock = serviceProvider.GetRequiredService<Time.IWorkAreaClock>();
+
+        var schedule = await scheduleRepo.GetByCtrlNbrAsync(
+            Domain.ValueObjects.ControlNumber.Create(request.WorkerScheduleCtrlNbr),
+            context.CancellationToken);
+
+        TimeZoneInfo? tz = null;
+        if (schedule is not null)
+        {
+            var workArea = await workAreaRepo.GetByCtrlNbrAsync(schedule.WorkAreaGroupCtrlNbr, context.CancellationToken);
+            tz = workAreaClock.ResolveTimeZone(workArea?.TimeZoneId);
+        }
+
         var logs = await repo.GetByScheduleAsync(
             Domain.ValueObjects.ControlNumber.Create(request.WorkerScheduleCtrlNbr),
             request.Limit,
@@ -256,6 +280,10 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
                     ? Timestamp.FromDateTime(DateTime.SpecifyKind(l.CompletedAtUtc.Value, DateTimeKind.Utc))
                     : null,
                 ErrorMessage = l.ErrorMessage ?? string.Empty,
+                StartedLocalDisplay = workAreaClock.FormatLocalIso(l.StartedAtUtc, tz),
+                CompletedLocalDisplay = l.CompletedAtUtc.HasValue
+                    ? workAreaClock.FormatLocalIso(l.CompletedAtUtc.Value, tz)
+                    : string.Empty,
             });
         }
 
