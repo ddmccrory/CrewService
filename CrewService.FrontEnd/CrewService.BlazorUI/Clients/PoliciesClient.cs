@@ -88,11 +88,15 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
 
     public async Task<SeniorityMovePolicyResponse> UpsertSeniorityMovePolicyAsync(
         long railroadCtrlNbr, long craftCtrlNbr,
-        int eligibilityDays, int requestHours, int cancelHours, bool autoApprove,
+        int requestHours, int cancelHours, bool autoApprove,
         string crewToCrewStrategy, string crewToBoardStrategy,
         string extraBoardToCrewStrategy, string hangoutToCrewStrategy,
         string extendedAbsenceToCrewStrategy, string trainingToCrewStrategy,
-        string newHireToCrewStrategy, bool willWorkEnabled = false)
+        string newHireToCrewStrategy, bool willWorkEnabled = false,
+        int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
+        int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
+        int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
+        int newHireToCrewEligibilityDays = 0)
     {
         try
         {
@@ -100,7 +104,6 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
             {
                 RailroadCtrlNbr = railroadCtrlNbr,
                 CraftCtrlNbr = craftCtrlNbr,
-                EligibilityDays = eligibilityDays,
                 RequestHours = requestHours,
                 CancelHours = cancelHours,
                 AutoApprove = autoApprove,
@@ -111,7 +114,14 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
                 ExtendedAbsenceToCrewStrategy = extendedAbsenceToCrewStrategy,
                 TrainingToCrewStrategy = trainingToCrewStrategy,
                 NewHireToCrewStrategy = newHireToCrewStrategy,
-                WillWorkEnabled = willWorkEnabled
+                WillWorkEnabled = willWorkEnabled,
+                CrewToCrewEligibilityDays = crewToCrewEligibilityDays,
+                CrewToBoardEligibilityDays = crewToBoardEligibilityDays,
+                ExtraBoardToCrewEligibilityDays = extraBoardToCrewEligibilityDays,
+                HangoutToCrewEligibilityDays = hangoutToCrewEligibilityDays,
+                ExtendedAbsenceToCrewEligibilityDays = extendedAbsenceToCrewEligibilityDays,
+                TrainingToCrewEligibilityDays = trainingToCrewEligibilityDays,
+                NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

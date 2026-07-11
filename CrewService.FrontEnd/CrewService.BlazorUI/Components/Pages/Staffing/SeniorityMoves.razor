@@ -158,12 +158,21 @@ else
             <input class="form-check-input" type="checkbox" id="showHistory" @bind="showHistory" @bind:after="OnShowHistoryChangedAsync" />
             <label class="form-check-label" for="showHistory">Show History</label>
         </div>
+        @if (showHistory)
+        {
+            <div class="d-flex align-items-center gap-2 ms-3">
+                <label class="form-label mb-0 fw-semibold">From</label>
+                <input type="date" class="form-control form-control-sm" style="width:160px"
+                       value="@historyFrom.ToString("yyyy-MM-dd")"
+                       @onchange="OnHistoryFromChangedAsync" />
+            </div>
+        }
     </div>
 
     <DataTable TItem="SeniorityMoveResponse"
                Items="moves"
                Columns="Columns"
-               SearchFilter="@((m, term) => DisplayEmployee(m).Contains(term, StringComparison.OrdinalIgnoreCase) || DisplayPosition(m).Contains(term, StringComparison.OrdinalIgnoreCase) || m.MoveType.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchFilter="@((m, term) => DisplayEmployee(m).Contains(term, StringComparison.OrdinalIgnoreCase) || DisplayPosition(m).Contains(term, StringComparison.OrdinalIgnoreCase) || m.MoveType.Contains(term, StringComparison.OrdinalIgnoreCase) || FormatResult(m.Status).Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search moves..."
                EmptyMessage="@MovesEmptyMessage"
                DefaultSortColumn="Requested">
@@ -182,6 +191,7 @@ else
             <td>@DisplayEmployee(move)</td>
             <td>@DisplayPosition(move)</td>
             <td>@FormatMoveType(move.MoveType)</td>
+            <td>@FormatResult(move.Status)</td>
             <td>@FormatDisplayLocal(move.RequestedLocal)</td>
             <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
             <td class="text-end">
@@ -236,6 +246,7 @@ else
     private const string StaffablePositionTypeBoard = "B";
 
     private bool showHistory;
+    private DateTime historyFrom = DateTime.Today.AddDays(-7);
     private DateTime? approveEffectiveDate;
     private string actionReason = string.Empty;
     private long actionMoveCtrlNbr;
@@ -271,6 +282,7 @@ else
         new("Move Type",       m => FormatMoveType(m.MoveType), width: "140px"),
         new("Requested",       m => SortableInstant(m.RequestedLocal), sortKey: "Requested", width: "170px"),
         new("Effective",       m => SortableInstant(m.EffectiveLocal), sortKey: "Effective", width: "170px"),
+        new("Result",          m => FormatResult(m.Status), width: "130px"),
         DataTableColumn<SeniorityMoveResponse>.Actions()
     ];
 
@@ -394,7 +406,11 @@ else
             var resp = await movesTask;
             var next = await nextEventTask;
 
-            moves = [.. resp.Moves];
+            var loadedMoves = resp.Moves.AsEnumerable();
+            if (showHistory)
+                loadedMoves = loadedMoves.Where(IsOnOrAfterHistoryFrom);
+
+            moves = [.. loadedMoves];
             nextSeniorityMoveEventFormatted = string.IsNullOrWhiteSpace(next?.NextEventLocal)
                 ? null
                 : FormatDisplayLocal(next.NextEventLocal);
@@ -407,6 +423,15 @@ else
 
     // ── history toggle ─────────────────────────────────────────────────
     private async Task OnShowHistoryChangedAsync() => await LoadMovesAsync();
+
+    private async Task OnHistoryFromChangedAsync(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var d))
+        {
+            historyFrom = d.Date;
+            await LoadMovesAsync();
+        }
+    }
 
     // ── request modal ──────────────────────────────────────────────────
     private async Task OpenRequestModal()
@@ -786,6 +811,27 @@ else
         "ForceAssign" => "Force Assign",
         _             => moveType
     };
+
+    private static string FormatResult(string status) => status switch
+    {
+        "Completed" => "Successful",
+        "Cancelled" => "Cancelled",
+        "Rejected"  => "Rejected",
+        "Approved"  => "Approved",
+        "Pending"   => "Pending",
+        _            => status
+    };
+
+    private bool IsOnOrAfterHistoryFrom(SeniorityMoveResponse move)
+    {
+        if (DateTime.TryParse(move.RequestedLocal, out var requestedLocal))
+            return requestedLocal.Date >= historyFrom.Date;
+
+        if (DateTime.TryParse(move.EffectiveLocal, out var effectiveLocal))
+            return effectiveLocal.Date >= historyFrom.Date;
+
+        return true;
+    }
 
     // Parses an offset-carrying ISO instant for chronological column sorting;
     // empty/unparsable values sort first (MinValue).
