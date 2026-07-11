@@ -86,6 +86,32 @@ else
                                 </label>
                             </div>
                         </div>
+                        <hr />
+                        <p class="fw-semibold mb-2">Hangout Auto-Move</p>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="hangoutAutoMoveEnabled" @bind="editModel.HangoutAutoMoveEnabled" />
+                                <label class="form-check-label" for="hangoutAutoMoveEnabled">
+                                    Enable Auto-Move from Hangout
+                                    <span class="text-muted small d-block">When enabled, accepting a Hangout placement schedules an automatic move.</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Auto-Move Target Board</label>
+                            <select class="form-select" @bind="editModel.HangoutAutoMoveTargetBoardType">
+                                <option value="ExtraBoard">Extra Board</option>
+                                <option value="Hangout">Hangout</option>
+                                <option value="ExtendedAbsence">Extended Absence</option>
+                                <option value="Training">Training</option>
+                                <option value="NewHire">New Hire</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Auto-Move Delay (Hours)</label>
+                            <input type="number" class="form-control" min="0" @bind="editModel.HangoutAutoMoveDelayHours" />
+                            <ValidationMessage For="() => editModel.HangoutAutoMoveDelayHours" class="text-danger" />
+                        </div>
                     </div>
                     <div class="col-lg-6">
                         <p class="fw-semibold mb-2">Effective Date Strategies</p>
@@ -152,6 +178,7 @@ else
                     <th>Crew → Crew</th>
                     <th>Auto-Approve</th>
                     <th>Will Work</th>
+                    <th>Hangout Auto-Move</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -211,6 +238,22 @@ else
                                 <span class="text-muted">—</span>
                             }
                         </td>
+                        <td>
+                            @if (row.CraftOperationsPolicy is null)
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                            else if (!row.CraftOperationsPolicy.HangoutAutoMoveEnabled)
+                            {
+                                <span class="badge bg-secondary">Disabled</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">
+                                    @($"{row.CraftOperationsPolicy.HangoutAutoMoveDelayHours}h → {row.CraftOperationsPolicy.HangoutAutoMoveTargetBoardType}")
+                                </span>
+                            }
+                        </td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-primary px-3" @onclick="() => OpenEditModal(row)">
                                 @(row.Policy is not null ? "Edit" : "Configure")
@@ -229,6 +272,7 @@ else
         public long CraftCtrlNbr { get; init; }
         public string CraftName { get; init; } = string.Empty;
         public SeniorityMovePolicyResponse? Policy { get; set; }
+        public CraftOperationsPolicyResponse? CraftOperationsPolicy { get; set; }
     }
 
     private sealed class EditModel
@@ -240,6 +284,9 @@ else
         [Range(0, 168)] public int CancelHours { get; set; } = 0;
         public bool AutoApprove { get; set; } = true;
         public bool WillWorkEnabled { get; set; }
+        public bool HangoutAutoMoveEnabled { get; set; }
+        public string HangoutAutoMoveTargetBoardType { get; set; } = "ExtraBoard";
+        [Range(0, 720)] public int HangoutAutoMoveDelayHours { get; set; } = 48;
         public string CrewToCrewStrategy { get; set; } = string.Empty;
         public string CrewToBoardStrategy { get; set; } = string.Empty;
         public string ExtraBoardToCrewStrategy { get; set; } = string.Empty;
@@ -280,7 +327,14 @@ else
             {
                 // A null policy is the expected "not configured yet" state for a craft.
                 var policy = await PoliciesClient.GetSeniorityMovePolicyAsync(SelectedRailroadCtrlNbr.Value, c.CtrlNbr);
-                return new PolicyRow { CraftCtrlNbr = c.CtrlNbr, CraftName = c.CraftName, Policy = policy };
+                var craftOperationsPolicy = await PoliciesClient.GetCraftOperationsPolicyAsync(c.CtrlNbr);
+                return new PolicyRow
+                {
+                    CraftCtrlNbr = c.CtrlNbr,
+                    CraftName = c.CraftName,
+                    Policy = policy,
+                    CraftOperationsPolicy = craftOperationsPolicy
+                };
             });
 
             rows = (await Task.WhenAll(policyTasks))
@@ -306,6 +360,9 @@ else
             CancelHours = row.Policy?.CancelHours ?? 0,
             AutoApprove = row.Policy?.AutoApprove ?? true,
             WillWorkEnabled = row.Policy?.WillWorkEnabled ?? false,
+            HangoutAutoMoveEnabled = row.CraftOperationsPolicy?.HangoutAutoMoveEnabled ?? false,
+            HangoutAutoMoveTargetBoardType = row.CraftOperationsPolicy?.HangoutAutoMoveTargetBoardType ?? "ExtraBoard",
+            HangoutAutoMoveDelayHours = row.CraftOperationsPolicy?.HangoutAutoMoveDelayHours ?? 48,
             // For a brand-new policy, seed the common transitions with sensible working
             // defaults so "Configure" produces a usable policy instead of one where every
             // transition is "Not Allowed". Existing policies load their saved values as-is.
@@ -369,6 +426,12 @@ else
                 editModel.TrainingToCrewStrategy,
                 editModel.NewHireToCrewStrategy,
                 editModel.WillWorkEnabled);
+
+            await PoliciesClient.UpsertCraftOperationsPolicyAsync(
+                editModel.CraftCtrlNbr,
+                editModel.HangoutAutoMoveEnabled,
+                editModel.HangoutAutoMoveTargetBoardType,
+                editModel.HangoutAutoMoveDelayHours);
 
             showEditModal = false;
             successMessage = $"Seniority move policy for {editModel.CraftName} saved.";

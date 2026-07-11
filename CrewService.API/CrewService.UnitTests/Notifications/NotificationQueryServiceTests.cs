@@ -120,6 +120,7 @@ internal sealed class StubCurrentUserService(Guid userId) : ICurrentUserService
 {
     public Guid GetUserId() => userId;
     public string GetUserName() => "test-user";
+    public bool IsInRole(string roleName) => false;
     public long? GetParentCtrlNbr() => null;
     public void SetAuditOverride(string name) { }
 }

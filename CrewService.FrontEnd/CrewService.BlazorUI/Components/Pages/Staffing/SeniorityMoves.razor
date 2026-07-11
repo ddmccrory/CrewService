@@ -201,15 +201,21 @@ else
                                     <span class="bi bi-x-circle"></span> Reject
                                 </button>
                             }
-                            <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
-                                <span class="bi bi-slash-circle"></span> Cancel
-                            </button>
+                            @if (CurrentUser.IsAdmin || move.MoveType != "Hangout")
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
+                                    <span class="bi bi-slash-circle"></span> Cancel
+                                </button>
+                            }
                         }
                         else if (move.Status == "Approved")
                         {
-                            <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
-                                <span class="bi bi-slash-circle"></span> Cancel
-                            </button>
+                            @if (CurrentUser.IsAdmin || move.MoveType != "Hangout")
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
+                                    <span class="bi bi-slash-circle"></span> Cancel
+                                </button>
+                            }
                         }
                     </div>
                 }

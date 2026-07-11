@@ -55,7 +55,7 @@ public interface ISeniorityMoveRepository : IRepository<SeniorityMove>
     Task<List<SeniorityMove>> GetPendingByTargetPositionAsync(ControlNumber targetPositionCtrlNbr, ControlNumber excludeCtrlNbr, CancellationToken ct = default);
 }
 
-public interface ICraftOperationsPolicyRepository
+public interface ICraftOperationsPolicyRepository : IRepository<CraftOperationsPolicy>
 {
     Task<CraftOperationsPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default);
 }

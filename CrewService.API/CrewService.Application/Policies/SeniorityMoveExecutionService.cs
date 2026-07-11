@@ -43,13 +43,37 @@ public sealed class SeniorityMoveExecutionService(
             return;
         }
 
+        if (move.MoveType == SeniorityMoveType.Hangout)
+        {
+            var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(move.CraftCtrlNbr, ct);
+            var hangoutBoard = boards.FirstOrDefault(b => b.IsActive && b.BoardType == BoardType.Hangout);
+            var expectedSourcePosition = hangoutBoard?.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == move.EmployeeCtrlNbr);
+
+            var currentAssignments = await uow.PositionAssignments.GetByEmployeeAsync(move.EmployeeCtrlNbr);
+            var currentlyOnSource = expectedSourcePosition is not null
+                && currentAssignments.Any(a => a.StaffablePositionCtrlNbr == expectedSourcePosition.StaffablePositionCtrlNbr);
+            if (!currentlyOnSource)
+            {
+                move.Cancel("Hangout auto-move no longer applies because the employee is no longer in the source hangout position.");
+                await uow.SeniorityMoves.UpdateAsync(move, ct);
+                await uow.CommitAsync(ct);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        "SeniorityMoveExecution: Cancelled stale Hangout move {MoveCtrlNbr} for employee {Employee} because source hangout assignment is no longer active.",
+                        moveCtrlNbr, move.EmployeeCtrlNbr);
+                }
+                return;
+            }
+        }
+
         // 1. Complete the move domain state
         move.Complete();
         await uow.SeniorityMoves.UpdateAsync(move, ct);
 
         // 2. Vacate the mover's current assignment (if any)
-        var currentAssignments = await uow.PositionAssignments.GetByEmployeeAsync(move.EmployeeCtrlNbr);
-        foreach (var assignment in currentAssignments)
+        var moverAssignments = await uow.PositionAssignments.GetByEmployeeAsync(move.EmployeeCtrlNbr);
+        foreach (var assignment in moverAssignments)
         {
             assignment.Vacate();
             await uow.PositionAssignments.DeleteAsync(assignment.CtrlNbr, ct);

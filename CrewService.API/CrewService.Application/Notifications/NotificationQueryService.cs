@@ -1,6 +1,9 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.Notifications;
@@ -112,9 +115,91 @@ public sealed class NotificationQueryService(
 
         notification.AcknowledgeElectronically(currentUserService.GetUserName());
         uow.EmployeeNotifications.Update(notification);
+
+        await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
         await uow.CommitAsync(ct);
 
         return notification;
+    }
+
+    private static async Task TryScheduleHangoutAutoMoveAsync(
+        IOrchestrationUnitOfWork uow,
+        Employee employee,
+        EmployeeNotification notification,
+        CancellationToken ct)
+    {
+        if (notification.Category != NotificationCategories.BoardPlacement)
+            return;
+
+        var subject = notification.Subject;
+        if (subject is null || subject.SubjectType != NotificationSubjectTypes.RosterBoard)
+            return;
+
+        var sourceBoard = await uow.RosterBoards.GetByCtrlNbrAsync(subject.SubjectCtrlNbr, ct);
+        if (sourceBoard is null || sourceBoard.BoardType != BoardType.Hangout)
+            return;
+
+        var sourcePosition = sourceBoard.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employee.CtrlNbr);
+        if (sourcePosition is null)
+            return;
+
+        var craftPolicy = await uow.CraftOperationsPolicies.GetByCraftAsync(sourceBoard.CraftCtrlNbr, ct);
+        if (craftPolicy is null || !craftPolicy.HangoutAutoMoveEnabled)
+            return;
+
+        if (!Enum.TryParse<BoardType>(craftPolicy.HangoutAutoMoveTargetBoardType, ignoreCase: true, out var targetBoardType))
+            return;
+
+        var craftBoards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(sourceBoard.CraftCtrlNbr, ct);
+        var targetBoard = craftBoards.FirstOrDefault(b => b.IsActive && b.BoardType == targetBoardType);
+        if (targetBoard is null)
+            return;
+
+        // Avoid duplicate active Hangout auto-moves for the same employee.
+        var existingMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employee.CtrlNbr, ct);
+        if (existingMoves.Any(m =>
+                m.MoveType == SeniorityMoveType.Hangout
+                && (m.Status == SeniorityMoveStatus.Pending || m.Status == SeniorityMoveStatus.Approved)))
+        {
+            return;
+        }
+
+        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employee.CtrlNbr);
+        var earliestAssignment = assignments.OrderBy(a => a.AssignedDateUtc).FirstOrDefault();
+        var daysOnCurrentPosition = earliestAssignment is null
+            ? 0
+            : (int)(DateTime.UtcNow - earliestAssignment.AssignedDateUtc).TotalDays;
+
+        var acceptedAtUtc = notification.Acknowledgements
+            .Where(a => a.Confirmed)
+            .OrderByDescending(a => a.NotifiedAtUtc)
+            .Select(a => (DateTime?)a.NotifiedAtUtc)
+            .FirstOrDefault() ?? DateTime.UtcNow;
+
+        var delayHours = Math.Max(0, craftPolicy.HangoutAutoMoveDelayHours);
+        var effectiveUtc = acceptedAtUtc.AddHours(delayHours);
+
+        var nextOrder = targetBoard.Positions.Count > 0
+            ? targetBoard.Positions.Max(p => p.PositionOrder) + 1
+            : 1;
+
+        var targetStaffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
+        uow.StaffablePositions.Add(targetStaffablePosition);
+        targetBoard.AddPosition(employee.CtrlNbr, nextOrder, targetStaffablePosition.CtrlNbr);
+        uow.RosterBoards.Update(targetBoard);
+
+        var move = SeniorityMove.Create(
+            notification.RailroadCtrlNbr,
+            employee.CtrlNbr,
+            sourceBoard.CraftCtrlNbr,
+            targetStaffablePosition.CtrlNbr,
+            displacedEmployeeCtrlNbr: null,
+            daysOnCurrentPosition,
+            moveType: SeniorityMoveType.Hangout,
+            effectiveUtc: effectiveUtc,
+            willWork: null);
+
+        await uow.SeniorityMoves.AddAsync(move, ct);
     }
 
     /// <summary>

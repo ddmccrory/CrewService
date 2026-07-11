@@ -16,6 +16,7 @@ internal class CraftOperationsPolicyConfiguration : IEntityTypeConfiguration<Cra
         builder.Property(p => p.RestCalculationStrategy).HasMaxLength(20).IsRequired();
         builder.Property(p => p.FixedRestHours).HasPrecision(5, 2);
         builder.Property(p => p.ConsecutiveDayResetHours).HasPrecision(5, 2);
+        builder.Property(p => p.HangoutAutoMoveTargetBoardType).HasMaxLength(30).IsRequired();
 
         builder.HasIndex(p => p.CraftCtrlNbr).IsUnique();
 

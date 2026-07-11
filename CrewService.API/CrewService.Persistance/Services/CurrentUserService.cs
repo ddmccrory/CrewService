@@ -38,6 +38,12 @@ namespace CrewService.Persistance.Services
                 ?? string.Empty;
         }
 
+        public bool IsInRole(string roleName)
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user?.IsInRole(roleName) ?? false;
+        }
+
         public long? GetParentCtrlNbr()
         {
             var header = _httpContextAccessor.HttpContext?.Request.Headers["x-parent-ctrl-nbr"].FirstOrDefault();
