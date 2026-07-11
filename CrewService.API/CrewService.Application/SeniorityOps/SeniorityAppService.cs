@@ -4,6 +4,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
@@ -12,6 +13,7 @@ namespace CrewService.Application.SeniorityOps;
 
 public sealed class SeniorityAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
+    RequirementEvaluationService requirementEvaluationService,
     QualificationReactiveService qualificationReactiveService,
     SeniorityStateVacancyConfigService vacancyConfigService,
     ISeniorityStateChangeSignal seniorityStateChangeSignal)
@@ -73,18 +75,25 @@ public sealed class SeniorityAppService(
 
                 if (restrictingQualTypes.Count > 0)
                 {
-                    var empQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(uniqueEmpCtrlNbrs);
-                    var empActiveQualTypes = empQuals
+                    var empManualQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(uniqueEmpCtrlNbrs);
+                    var empActiveManualQualTypes = empManualQuals
                         .GroupBy(eq => eq.EmployeeCtrlNbr)
                         .ToDictionary(g => g.Key, g => g.Select(eq => eq.QualificationTypeCtrlNbr!).ToHashSet());
 
+                    var computedQualificationSatisfiedMap = new Dictionary<(long EmployeeCtrlNbr, long QualificationTypeCtrlNbr), bool>();
+
                     foreach (var empCtrlNbr in uniqueEmpCtrlNbrs)
                     {
-                        empActiveQualTypes.TryGetValue(empCtrlNbr, out var heldQuals);
-                        heldQuals ??= [];
+                        empActiveManualQualTypes.TryGetValue(empCtrlNbr, out var heldManualQuals);
+                        heldManualQuals ??= [];
+
                         foreach (var qt in restrictingQualTypes)
                         {
-                            if (!heldQuals.Contains(qt.CtrlNbr))
+                            var isHeld = string.Equals(qt.EvaluationStrategy, EvaluationStrategies.Manual, StringComparison.OrdinalIgnoreCase)
+                                ? heldManualQuals.Contains(qt.CtrlNbr)
+                                : await IsComputedQualificationSatisfiedAsync(empCtrlNbr, qt, uow, computedQualificationSatisfiedMap, ct);
+
+                            if (!isHeld)
                             {
                                 if (!empRestrictionLabels.TryGetValue(empCtrlNbr, out var labels))
                                 {
@@ -174,6 +183,23 @@ public sealed class SeniorityAppService(
                 pos.StaffablePositionCtrlNbr,
                 canExercise);
         }).ToList();
+    }
+
+    private async Task<bool> IsComputedQualificationSatisfiedAsync(
+        ControlNumber employeeCtrlNbr,
+        Domain.Modules.Employees.QualificationType qualificationType,
+        IOrchestrationUnitOfWork uow,
+        Dictionary<(long EmployeeCtrlNbr, long QualificationTypeCtrlNbr), bool> computedQualificationSatisfiedMap,
+        CancellationToken ct)
+    {
+        var key = (employeeCtrlNbr.Value, qualificationType.CtrlNbr.Value);
+        if (computedQualificationSatisfiedMap.TryGetValue(key, out var cached))
+            return cached;
+
+        var evaluation = await requirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, uow, ct);
+        var isSatisfied = evaluation.AllSatisfied && !evaluation.IsSuspended;
+        computedQualificationSatisfiedMap[key] = isSatisfied;
+        return isSatisfied;
     }
 
     public async Task<Domain.Models.Seniority.Seniority> GetAsync(ControlNumber ctrlNbr, CancellationToken ct = default)

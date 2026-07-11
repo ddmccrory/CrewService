@@ -1,5 +1,6 @@
 using CrewService.Application.Boards;
 using CrewService.Application.Notifications;
+using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Models.Employees;
@@ -14,6 +15,7 @@ namespace CrewService.Application.RosterBoardOps;
 
 public sealed class RosterBoardAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
+    RequirementEvaluationService requirementEvaluationService,
     IRequiredPositionsFormulaRegistry formulaRegistry,
     VacancyAssignment.IVacancyRepostService vacancyRepostService,
     EmployeeNotificationService notifications)
@@ -410,11 +412,10 @@ public sealed class RosterBoardAppService(
         return (board, craftName, rosterName, workAreaCtrlNbr, workAreaName);
     }
 
-    private static async Task<Dictionary<ControlNumber, List<string>>> ComputeRestrictionLabelsAsync(
+    private async Task<Dictionary<ControlNumber, List<string>>> ComputeRestrictionLabelsAsync(
         IOrchestrationUnitOfWork uow, ControlNumber? craftCtrlNbr,
         IEnumerable<ControlNumber> employeeCtrlNbrs, CancellationToken ct)
     {
-        _ = ct;
         var empCtrlNbrs = employeeCtrlNbrs.Distinct().ToList();
         var result = new Dictionary<ControlNumber, List<string>>();
         if (empCtrlNbrs.Count == 0 || craftCtrlNbr is null) return result;
@@ -423,18 +424,25 @@ public sealed class RosterBoardAppService(
             .Where(qt => qt.RestrictionLabel is not null).ToList();
         if (restrictingQualTypes.Count == 0) return result;
 
-        var empQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(empCtrlNbrs);
-        var empActiveQualTypes = empQuals
+        var empManualQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(empCtrlNbrs);
+        var empActiveManualQualTypes = empManualQuals
             .GroupBy(eq => eq.EmployeeCtrlNbr)
             .ToDictionary(g => g.Key, g => g.Select(eq => eq.QualificationTypeCtrlNbr!).ToHashSet());
 
+        var computedQualificationSatisfiedMap = new Dictionary<(long EmployeeCtrlNbr, long QualificationTypeCtrlNbr), bool>();
+
         foreach (var empCtrlNbr in empCtrlNbrs)
         {
-            empActiveQualTypes.TryGetValue(empCtrlNbr, out var heldQuals);
-            heldQuals ??= [];
+            empActiveManualQualTypes.TryGetValue(empCtrlNbr, out var heldManualQuals);
+            heldManualQuals ??= [];
+
             foreach (var qt in restrictingQualTypes)
             {
-                if (!heldQuals.Contains(qt.CtrlNbr))
+                var isHeld = string.Equals(qt.EvaluationStrategy, EvaluationStrategies.Manual, StringComparison.OrdinalIgnoreCase)
+                    ? heldManualQuals.Contains(qt.CtrlNbr)
+                    : await IsComputedQualificationSatisfiedAsync(empCtrlNbr, qt, uow, computedQualificationSatisfiedMap, ct);
+
+                if (!isHeld)
                 {
                     if (!result.TryGetValue(empCtrlNbr, out var labels))
                     {
@@ -448,11 +456,10 @@ public sealed class RosterBoardAppService(
         return result;
     }
 
-    private static async Task<Dictionary<ControlNumber, List<string>>> ComputeRestrictionLabelsAsync(
+    private async Task<Dictionary<ControlNumber, List<string>>> ComputeRestrictionLabelsAsync(
         IOrchestrationUnitOfWork uow, IEnumerable<ControlNumber> craftCtrlNbrs,
         IEnumerable<ControlNumber> employeeCtrlNbrs, CancellationToken ct)
     {
-        _ = ct;
         var empCtrlNbrs = employeeCtrlNbrs.Distinct().ToList();
         var result = new Dictionary<ControlNumber, List<string>>();
         if (empCtrlNbrs.Count == 0) return result;
@@ -464,18 +471,25 @@ public sealed class RosterBoardAppService(
             .ToList();
         if (allRestrictingQualTypes.Count == 0) return result;
 
-        var empQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(empCtrlNbrs);
-        var empActiveQualTypes = empQuals
+        var empManualQuals = await uow.EmployeeQualifications.GetActiveByEmployeeCtrlNbrsAsync(empCtrlNbrs);
+        var empActiveManualQualTypes = empManualQuals
             .GroupBy(eq => eq.EmployeeCtrlNbr)
             .ToDictionary(g => g.Key, g => g.Select(eq => eq.QualificationTypeCtrlNbr!).ToHashSet());
 
+        var computedQualificationSatisfiedMap = new Dictionary<(long EmployeeCtrlNbr, long QualificationTypeCtrlNbr), bool>();
+
         foreach (var empCtrlNbr in empCtrlNbrs)
         {
-            empActiveQualTypes.TryGetValue(empCtrlNbr, out var heldQuals);
-            heldQuals ??= [];
+            empActiveManualQualTypes.TryGetValue(empCtrlNbr, out var heldManualQuals);
+            heldManualQuals ??= [];
+
             foreach (var qt in allRestrictingQualTypes)
             {
-                if (!heldQuals.Contains(qt.CtrlNbr))
+                var isHeld = string.Equals(qt.EvaluationStrategy, EvaluationStrategies.Manual, StringComparison.OrdinalIgnoreCase)
+                    ? heldManualQuals.Contains(qt.CtrlNbr)
+                    : await IsComputedQualificationSatisfiedAsync(empCtrlNbr, qt, uow, computedQualificationSatisfiedMap, ct);
+
+                if (!isHeld)
                 {
                     if (!result.TryGetValue(empCtrlNbr, out var labels))
                     {
@@ -487,6 +501,23 @@ public sealed class RosterBoardAppService(
             }
         }
         return result;
+    }
+
+    private async Task<bool> IsComputedQualificationSatisfiedAsync(
+        ControlNumber employeeCtrlNbr,
+        QualificationType qualificationType,
+        IOrchestrationUnitOfWork uow,
+        Dictionary<(long EmployeeCtrlNbr, long QualificationTypeCtrlNbr), bool> computedQualificationSatisfiedMap,
+        CancellationToken ct)
+    {
+        var key = (employeeCtrlNbr.Value, qualificationType.CtrlNbr.Value);
+        if (computedQualificationSatisfiedMap.TryGetValue(key, out var cached))
+            return cached;
+
+        var evaluation = await requirementEvaluationService.EvaluateAsync(employeeCtrlNbr, qualificationType, uow, ct);
+        var isSatisfied = evaluation.AllSatisfied && !evaluation.IsSuspended;
+        computedQualificationSatisfiedMap[key] = isSatisfied;
+        return isSatisfied;
     }
 
     /// <summary>
