@@ -12,6 +12,44 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.PoliciesSrvcBase
 {
+    public override async Task<CraftOperationsPolicyResponse> GetCraftOperationsPolicy(
+        GetCraftOperationsPolicyRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetCraftOperationsPolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
+            return MapCraftOperationsPolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+    }
+
+    public override async Task<CraftOperationsPolicyResponse> UpsertCraftOperationsPolicy(
+        UpsertCraftOperationsPolicyRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetOrUpsertCraftOperationsPolicyAsync(
+                request.CraftCtrlNbr,
+                request.HangoutAutoMoveEnabled,
+                request.HangoutAutoMoveTargetBoardType,
+                request.HangoutAutoMoveDelayHours,
+                context.CancellationToken);
+            return MapCraftOperationsPolicy(policy);
+        }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    private static CraftOperationsPolicyResponse MapCraftOperationsPolicy(CraftOperationsPolicy p) => new()
+    {
+        CtrlNbr = p.CtrlNbr.Value,
+        CraftCtrlNbr = p.CraftCtrlNbr.Value,
+        HangoutAutoMoveEnabled = p.HangoutAutoMoveEnabled,
+        HangoutAutoMoveTargetBoardType = p.HangoutAutoMoveTargetBoardType,
+        HangoutAutoMoveDelayHours = p.HangoutAutoMoveDelayHours
+    };
+
     public override async Task<DisplacementPolicyResponse> GetDisplacementPolicy(GetDisplacementPolicyRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();

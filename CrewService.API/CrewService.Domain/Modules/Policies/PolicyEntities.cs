@@ -190,6 +190,7 @@ public static class SeniorityMoveType
 {
     public const string Voluntary = "Voluntary";
     public const string ForceAssign = "ForceAssign";
+    public const string Hangout = "Hangout";
     /// <summary>
     /// Administrative forced direct bump ("No Access"). Bypasses normal eligibility and
     /// effective-date strategy, takes effect on the next day, cancels the moving employee's

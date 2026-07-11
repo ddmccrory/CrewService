@@ -7,6 +7,34 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<PoliciesClient> logger)
     : BaseGrpcClient<PoliciesSrvc.PoliciesSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new PoliciesSrvc.PoliciesSrvcClient(callInvoker), logger)
 {
+    // ── Craft Operations Policy ───────────────────────────────────────
+
+    public async Task<CraftOperationsPolicyResponse?> GetCraftOperationsPolicyAsync(long craftCtrlNbr)
+    {
+        try { return await _client.GetCraftOperationsPolicyAsync(new GetCraftOperationsPolicyRequest { CraftCtrlNbr = craftCtrlNbr }); }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<CraftOperationsPolicyResponse> UpsertCraftOperationsPolicyAsync(
+        long craftCtrlNbr,
+        bool hangoutAutoMoveEnabled,
+        string hangoutAutoMoveTargetBoardType,
+        int hangoutAutoMoveDelayHours)
+    {
+        try
+        {
+            return await _client.UpsertCraftOperationsPolicyAsync(new UpsertCraftOperationsPolicyRequest
+            {
+                CraftCtrlNbr = craftCtrlNbr,
+                HangoutAutoMoveEnabled = hangoutAutoMoveEnabled,
+                HangoutAutoMoveTargetBoardType = hangoutAutoMoveTargetBoardType,
+                HangoutAutoMoveDelayHours = hangoutAutoMoveDelayHours
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Call Sheet Rules ────────────────────────────────────────────────
 
     public async Task<CallSheetRuleResponse?> GetCallSheetRuleAsync(long departmentCtrlNbr)
