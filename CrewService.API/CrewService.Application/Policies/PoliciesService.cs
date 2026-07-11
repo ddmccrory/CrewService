@@ -7,13 +7,61 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService)
 {
+    public async Task<CraftOperationsPolicy> GetCraftOperationsPolicyAsync(
+        ControlNumber craftCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.CraftOperationsPolicies.GetByCraftAsync(craftCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Craft operations policy for craft {craftCtrlNbr} not found.");
+    }
+
+    public async Task<CraftOperationsPolicy> GetOrUpsertCraftOperationsPolicyAsync(
+        long craftCtrlNbr,
+        bool hangoutAutoMoveEnabled,
+        string hangoutAutoMoveTargetBoardType,
+        int hangoutAutoMoveDelayHours,
+        CancellationToken ct = default)
+    {
+        if (!Enum.TryParse<BoardType>(hangoutAutoMoveTargetBoardType, ignoreCase: true, out var boardType))
+            throw new InvalidOperationException($"Invalid Hangout auto-move target board type '{hangoutAutoMoveTargetBoardType}'.");
+
+        if (hangoutAutoMoveDelayHours < 0)
+            throw new InvalidOperationException("Hangout auto-move delay hours must be greater than or equal to 0.");
+
+        var normalizedTargetBoardType = boardType.ToString();
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var craftCn = ControlNumber.Create(craftCtrlNbr);
+        var existing = await uow.CraftOperationsPolicies.GetByCraftAsync(craftCn, ct);
+        if (existing is not null)
+        {
+            existing.Update(
+                hangoutAutoMoveEnabled: hangoutAutoMoveEnabled,
+                hangoutAutoMoveTargetBoardType: normalizedTargetBoardType,
+                hangoutAutoMoveDelayHours: hangoutAutoMoveDelayHours);
+            await uow.CraftOperationsPolicies.UpdateAsync(existing, ct);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var policy = CraftOperationsPolicy.Create(
+            craftCn,
+            hangoutAutoMoveEnabled: hangoutAutoMoveEnabled,
+            hangoutAutoMoveTargetBoardType: normalizedTargetBoardType,
+            hangoutAutoMoveDelayHours: hangoutAutoMoveDelayHours);
+        await uow.CraftOperationsPolicies.AddAsync(policy, ct);
+        await uow.CommitAsync(ct);
+        return policy;
+    }
+
     public async Task<CraftDisplacementPolicy> GetOrUpsertDisplacementPolicyAsync(
         long craftCtrlNbr, int windowHours, string seniorityBasis, string defaultAction,
         string? eligibilitySelectorJson, CancellationToken ct = default)
@@ -304,6 +352,16 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         var move = await uow.SeniorityMoves.GetByCtrlNbrAsync(moveCtrlNbr, ct)
             ?? throw new KeyNotFoundException($"Seniority move {moveCtrlNbr} not found.");
 
+        if (move.MoveType == SeniorityMoveType.Hangout)
+        {
+            var isAdmin = currentUserService.IsInRole(Roles.SystemAdmin)
+                || currentUserService.IsInRole(Roles.ParentAdmin)
+                || currentUserService.IsInRole(Roles.RailroadAdmin);
+
+            if (!isAdmin)
+                throw new InvalidOperationException("Only admins can cancel Hangout auto-moves.");
+        }
+
         // Enforce CancelHours: cannot cancel if within the cancel window before effective time.
         if (move.Status == SeniorityMoveStatus.Approved && move.EffectiveUtc.HasValue)
         {
@@ -478,9 +536,9 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         foreach (var move in pending)
         {
-            // No Access is an administrative forced bump: it always auto-approves,
+            // No Access and Hangout are system-driven moves: they always auto-approve,
             // regardless of whether a policy exists or has AutoApprove enabled.
-            if (move.MoveType != SeniorityMoveType.NoAccess)
+            if (move.MoveType != SeniorityMoveType.NoAccess && move.MoveType != SeniorityMoveType.Hangout)
             {
                 var policy = await uow.SeniorityMovePolicies.GetByRailroadAndCraftAsync(move.RailroadCtrlNbr, move.CraftCtrlNbr);
                 if (policy is null || !policy.AutoApprove) continue;

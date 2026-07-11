@@ -2,6 +2,7 @@ using CrewService.Application.Modules.UserAccount;
 using CrewService.Application.Staffing;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
@@ -401,6 +402,9 @@ public sealed class EmployeeAppService(
         var policyCache = new Dictionary<ControlNumber, SeniorityMovePolicy?>();
         var targetNameCache = new Dictionary<ControlNumber, string>();
         var moveItems = new List<WorkProfileSeniorityMoveItem>();
+        var isAdmin = currentUserService.IsInRole(Roles.SystemAdmin)
+            || currentUserService.IsInRole(Roles.ParentAdmin)
+            || currentUserService.IsInRole(Roles.RailroadAdmin);
         foreach (var m in moves)
         {
             if (!policyCache.TryGetValue(m.CraftCtrlNbr, out var policy))
@@ -427,7 +431,7 @@ public sealed class EmployeeAppService(
                 m.Status,
                 m.RejectionReason,
                 m.CancellationReason,
-                CanCancelMove(m, policy),
+                CanCancelMove(m, policy, isAdmin),
                 targetName));
         }
 
@@ -680,8 +684,11 @@ public sealed class EmployeeAppService(
     /// completed/cancelled moves can never be cancelled; an Approved move with an effective
     /// time cannot be cancelled once inside the policy's cancel window.
     /// </summary>
-    private static bool CanCancelMove(SeniorityMove move, SeniorityMovePolicy? policy)
+    private static bool CanCancelMove(SeniorityMove move, SeniorityMovePolicy? policy, bool isAdmin)
     {
+        if (move.MoveType == SeniorityMoveType.Hangout && !isAdmin)
+            return false;
+
         if (move.Status == SeniorityMoveStatus.Completed || move.Status == SeniorityMoveStatus.Cancelled
             || move.Status == SeniorityMoveStatus.Rejected)
             return false;

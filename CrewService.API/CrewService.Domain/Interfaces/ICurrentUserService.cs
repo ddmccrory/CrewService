@@ -4,6 +4,7 @@ public interface ICurrentUserService
 {
     Guid GetUserId();
     string GetUserName();
+    bool IsInRole(string roleName);
 
     /// <summary>
     /// Returns the CtrlNbr of the parent the caller is currently operating under,
