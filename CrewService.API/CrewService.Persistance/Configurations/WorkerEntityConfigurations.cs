@@ -16,6 +16,7 @@ internal class WorkerScheduleConfiguration : IEntityTypeConfiguration<WorkerSche
         builder.Property(w => w.WorkerType).HasMaxLength(50).IsRequired();
         builder.Property(w => w.CronExpression).HasMaxLength(100);
         builder.Property(w => w.LastRunStatus).HasMaxLength(20);
+        builder.HasIndex(w => new { w.WorkAreaGroupCtrlNbr, w.WorkerType }).IsUnique();
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(w => w.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

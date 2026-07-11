@@ -11,21 +11,37 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class WorkerScheduleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<WorkerSchedule>(dbContext, currentUserService), IWorkerScheduleRepository
 {
+    private static IReadOnlyList<WorkerSchedule> CollapseDuplicateSchedules(IEnumerable<WorkerSchedule> schedules)
+    {
+        return schedules
+            .GroupBy(s => new
+            {
+                WorkArea = s.WorkAreaGroupCtrlNbr,
+                WorkerType = s.WorkerType.ToUpperInvariant()
+            })
+            .Select(g => g.OrderByDescending(s => s.CtrlNbr.Value).First())
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<WorkerSchedule>> GetDueByTypeAsync(string workerType, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        return await DbContext.Set<WorkerSchedule>()
+        var due = await DbContext.Set<WorkerSchedule>()
             .Where(s => s.WorkerType == workerType
                      && s.IsEnabled
                      && (s.NextFireUtc == null || s.NextFireUtc <= now))
             .ToListAsync(ct);
+
+        return CollapseDuplicateSchedules(due);
     }
 
     public async Task<IReadOnlyList<WorkerSchedule>> GetEnabledByTypeAsync(string workerType, CancellationToken ct = default)
     {
-        return await DbContext.Set<WorkerSchedule>()
+        var enabled = await DbContext.Set<WorkerSchedule>()
             .Where(s => s.WorkerType == workerType && s.IsEnabled)
             .ToListAsync(ct);
+
+        return CollapseDuplicateSchedules(enabled);
     }
 
     public async Task<IReadOnlyList<WorkerSchedule>> GetAllAsync(string? workerType = null, CancellationToken ct = default)

@@ -63,4 +63,6 @@ message ExecutionLogResponse {
   google.protobuf.Timestamp started_at = 3;
   optional google.protobuf.Timestamp completed_at = 4;
   optional string error_message = 5;
+  optional string started_local_display = 6;
+  optional string completed_local_display = 7;
 }

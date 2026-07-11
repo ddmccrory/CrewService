@@ -156,8 +156,8 @@ else
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Started (UTC)</th>
-                                <th>Completed (UTC)</th>
+                                <th>Started (Local)</th>
+                                <th>Completed (Local)</th>
                                 <th>Status</th>
                                 <th>Error</th>
                             </tr>
@@ -166,8 +166,8 @@ else
                             @foreach (var log in logs)
                             {
                                 <tr>
-                                    <td>@FormatTimestamp(log.StartedAt?.ToDateTime().ToString("O"))</td>
-                                    <td>@FormatTimestamp(log.CompletedAt?.ToDateTime().ToString("O"))</td>
+                                    <td>@FormatBackendLocalDisplay(log.StartedLocalDisplay)</td>
+                                    <td>@FormatBackendLocalDisplay(log.CompletedLocalDisplay)</td>
                                     <td><span class="badge @StatusBadgeClass(log.Status)">@log.Status</span></td>
                                     <td>@(string.IsNullOrWhiteSpace(log.ErrorMessage) ? "—" : log.ErrorMessage)</td>
                                 </tr>
@@ -371,8 +371,12 @@ else
     private static string StatusBadgeClass(string? status)
         => status?.Equals("Success", StringComparison.OrdinalIgnoreCase) == true
             ? "bg-success"
+            : status?.Equals("Succeeded", StringComparison.OrdinalIgnoreCase) == true
+                ? "bg-success"
             : status?.Equals("Failed", StringComparison.OrdinalIgnoreCase) == true
                 ? "bg-danger"
+                : status?.Equals("NoWork", StringComparison.OrdinalIgnoreCase) == true
+                    ? "bg-secondary"
                 : status?.Equals("Ready", StringComparison.OrdinalIgnoreCase) == true
                     ? "bg-info text-dark"
                     : status?.Equals("NotRunning", StringComparison.OrdinalIgnoreCase) == true
@@ -388,16 +392,6 @@ else
                                     : status?.Equals("Attention", StringComparison.OrdinalIgnoreCase) == true
                                         ? "bg-warning text-dark"
                 : "bg-secondary";
-
-    private static string FormatTimestamp(string? isoUtc)
-    {
-        if (string.IsNullOrWhiteSpace(isoUtc))
-            return "—";
-
-        return DateTime.TryParse(isoUtc, out var dt)
-            ? dt.ToString("MM/dd/yyyy HH:mm")
-            : isoUtc;
-    }
 
     private static string GetScheduleDisplay(WorkerScheduleRow row)
     {
@@ -564,6 +558,15 @@ else
         if (!ImplementedWorkers.Contains(row.WorkerType))
             return true;
 
+        // Event-driven workers can be enabled and healthy before the first signal arrives.
+        // Treat a never-run worker as ready so the UX doesn't imply failure.
+        var hasExecutionHistory = !string.IsNullOrWhiteSpace(row.LastRunStatus)
+            || !string.IsNullOrWhiteSpace(row.LastRunUtc)
+            || !string.IsNullOrWhiteSpace(row.LastRunLocalDisplay);
+
+        if (!hasExecutionHistory)
+            return true;
+
         return !string.IsNullOrWhiteSpace(row.LastWorkerHeartbeatUtc)
             || !string.IsNullOrWhiteSpace(row.LastWorkerHeartbeatLocalDisplay);
     }
@@ -578,14 +581,6 @@ else
 
         if (!IsWorkerReady(row))
             return "NotRunning";
-
-        // Once the worker has a newly scheduled future run, return to Ready
-        // instead of continuing to display the previous successful completion.
-        if ((string.Equals(row.LastRunStatus, "Success", StringComparison.OrdinalIgnoreCase)
-             || string.Equals(row.LastRunStatus, "Succeeded", StringComparison.OrdinalIgnoreCase))
-            && (!string.IsNullOrWhiteSpace(row.NextFireUtc)
-                || !string.IsNullOrWhiteSpace(row.NextFireLocalDisplay)))
-            return "Ready";
 
         if (!string.IsNullOrWhiteSpace(row.LastRunStatus))
             return row.LastRunStatus;
