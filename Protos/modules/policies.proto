@@ -16,6 +16,12 @@ service PoliciesSrvc {
   rpc UpsertBulletinPolicy(UpsertBulletinPolicyRequest) returns (BulletinPolicyResponse) {
     option (google.api.http) = { put: "/v1/policies/bulletin/{craft_ctrl_nbr}" body: "*" };
   }
+  rpc GetCallSheetRule(GetCallSheetRuleRequest) returns (CallSheetRuleResponse) {
+    option (google.api.http) = { get: "/v1/policies/call-sheet/{department_ctrl_nbr}" };
+  }
+  rpc UpsertCallSheetRule(UpsertCallSheetRuleRequest) returns (CallSheetRuleResponse) {
+    option (google.api.http) = { put: "/v1/policies/call-sheet/{department_ctrl_nbr}" body: "*" };
+  }
   rpc GetSeniorityMovePolicy(GetSeniorityMovePolicyRequest) returns (SeniorityMovePolicyResponse) {
     option (google.api.http) = { get: "/v1/policies/seniority-move/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" };
   }
@@ -91,6 +97,40 @@ message BulletinPolicyResponse {
   int32 bid_window_hours = 3;
   bool forced_assignment_enabled = 4;
   string forced_assignment_basis = 5;
+}
+
+// Call Sheet Rule
+message CallSheetSpecialPatternMessage {
+  string shift_code = 1;
+  int32 on_duty_hour = 2;
+  string anchor_type = 3;
+}
+
+message GetCallSheetRuleRequest { int64 department_ctrl_nbr = 1; }
+message UpsertCallSheetRuleRequest {
+  int64 department_ctrl_nbr = 1;
+  int32 call_lead_minutes = 2;
+  int32 call_duration_minutes = 3;
+  string anchor_type = 4;
+  int32 post_anchor_offset_minutes = 5;
+  repeated CallSheetSpecialPatternMessage special_patterns = 6;
+  string holiday_adjustment = 7;
+  int32 holiday_custom_offset_minutes = 8;
+  int32 global_pre_create_offset_minutes = 9;
+  bool is_enabled = 10;
+}
+message CallSheetRuleResponse {
+  int64 ctrl_nbr = 1;
+  int64 department_ctrl_nbr = 2;
+  int32 call_lead_minutes = 3;
+  int32 call_duration_minutes = 4;
+  string anchor_type = 5;
+  int32 post_anchor_offset_minutes = 6;
+  repeated CallSheetSpecialPatternMessage special_patterns = 7;
+  string holiday_adjustment = 8;
+  int32 holiday_custom_offset_minutes = 9;
+  int32 global_pre_create_offset_minutes = 10;
+  bool is_enabled = 11;
 }
 
 // Seniority Move Policy

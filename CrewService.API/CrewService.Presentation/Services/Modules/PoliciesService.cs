@@ -62,6 +62,48 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         return MapBulletinPolicy(policy);
     }
 
+    public override async Task<CallSheetRuleResponse> GetCallSheetRule(GetCallSheetRuleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var rule = await svc.GetCallSheetRuleAsync(ControlNumber.Create(request.DepartmentCtrlNbr), context.CancellationToken);
+            return MapCallSheetRule(rule);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+    }
+
+    public override async Task<CallSheetRuleResponse> UpsertCallSheetRule(UpsertCallSheetRuleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var rule = await svc.GetOrUpsertCallSheetRuleAsync(
+                request.DepartmentCtrlNbr,
+                request.CallLeadMinutes,
+                request.CallDurationMinutes,
+                request.AnchorType,
+                request.PostAnchorOffsetMinutes,
+                request.SpecialPatterns
+                    .Select(p => new CallSheetSpecialPattern(
+                        p.ShiftCode,
+                        p.OnDutyHour,
+                        p.AnchorType))
+                    .ToList(),
+                request.HolidayAdjustment,
+                request.HolidayAdjustment.Equals(CallSheetHolidayAdjustmentType.CustomOffset, StringComparison.OrdinalIgnoreCase)
+                    ? request.HolidayCustomOffsetMinutes
+                    : null,
+                request.GlobalPreCreateOffsetMinutes,
+                request.IsEnabled,
+                context.CancellationToken);
+
+            return MapCallSheetRule(rule);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
     private static BulletinPolicyResponse MapBulletinPolicy(BulletinPolicy p) => new()
     {
         CtrlNbr = p.CtrlNbr.Value,
@@ -69,6 +111,29 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         BidWindowHours = p.BidWindowHours,
         ForcedAssignmentEnabled = p.ForcedAssignmentEnabled,
         ForcedAssignmentBasis = p.ForcedAssignmentBasis
+    };
+
+    private static CallSheetRuleResponse MapCallSheetRule(CallSheetRule r) => new()
+    {
+        CtrlNbr = r.CtrlNbr.Value,
+        DepartmentCtrlNbr = r.DepartmentCtrlNbr.Value,
+        CallLeadMinutes = r.CallLeadMinutes,
+        CallDurationMinutes = r.CallDurationMinutes,
+        AnchorType = r.AnchorType,
+        PostAnchorOffsetMinutes = r.PostAnchorOffsetMinutes,
+        SpecialPatterns =
+        {
+            r.SpecialPatterns.Select(p => new CallSheetSpecialPatternMessage
+            {
+                ShiftCode = p.ShiftCode,
+                OnDutyHour = p.OnDutyHour,
+                AnchorType = p.AnchorType
+            })
+        },
+        HolidayAdjustment = r.HolidayAdjustment,
+        HolidayCustomOffsetMinutes = r.HolidayCustomOffsetMinutes ?? 0,
+        GlobalPreCreateOffsetMinutes = r.GlobalPreCreateOffsetMinutes,
+        IsEnabled = r.IsEnabled
     };
 
     public override async Task<SeniorityMovePolicyResponse> GetSeniorityMovePolicy(GetSeniorityMovePolicyRequest request, ServerCallContext context)

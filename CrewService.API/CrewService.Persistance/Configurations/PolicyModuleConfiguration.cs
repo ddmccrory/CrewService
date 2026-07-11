@@ -2,9 +2,11 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System.Text.Json;
 
 namespace CrewService.Persistance.Configurations;
 
@@ -117,6 +119,39 @@ internal class SeniorityMovePolicyConfiguration : IEntityTypeConfiguration<Senio
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class CallSheetRuleConfiguration : IEntityTypeConfiguration<CallSheetRule>
+{
+    public void Configure(EntityTypeBuilder<CallSheetRule> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.DepartmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(r => r.DepartmentCtrlNbr).IsUnique();
+
+        builder.Property(r => r.CallLeadMinutes).IsRequired();
+        builder.Property(r => r.CallDurationMinutes).IsRequired();
+        builder.Property(r => r.AnchorType).HasMaxLength(30).IsRequired();
+        builder.Property(r => r.PostAnchorOffsetMinutes).IsRequired();
+        builder.Property(r => r.SpecialPatterns)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => string.IsNullOrWhiteSpace(v)
+                    ? new List<CallSheetSpecialPattern>()
+                    : JsonSerializer.Deserialize<List<CallSheetSpecialPattern>>(v, (JsonSerializerOptions?)null) ?? new List<CallSheetSpecialPattern>())
+            .IsRequired();
+        builder.Property(r => r.HolidayAdjustment).HasMaxLength(30).IsRequired();
+        builder.Property(r => r.HolidayCustomOffsetMinutes);
+        builder.Property(r => r.GlobalPreCreateOffsetMinutes).IsRequired();
+        builder.Property(r => r.IsEnabled).IsRequired();
+
+        builder.HasOne<Department>().WithMany().HasForeignKey(r => r.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
 

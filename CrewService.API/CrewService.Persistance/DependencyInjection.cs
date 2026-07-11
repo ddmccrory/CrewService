@@ -1,10 +1,7 @@
-using CrewService.Infrastructure.Outbox;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.Employees;
-using CrewService.Application.FraCompliance;
-using CrewService.Application.HolidayManagement;
 using CrewService.Application.MarkOff;
 using CrewService.Application.Qualifications;
 using CrewService.Application.Qualifications.Evaluators;
@@ -30,6 +27,7 @@ using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Infrastructure.Models.UserAccount;
+using CrewService.Infrastructure.Outbox;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.Encryption;
 using CrewService.Persistance.Repositories;
@@ -169,6 +167,7 @@ public static class DependencyInjection
         services.AddScoped<IDisplacementCaseRepository, DisplacementCaseRepository>();
         services.AddScoped<IDisplacementClaimRepository, DisplacementClaimRepository>();
         services.AddScoped<IBulletinPolicyRepository, BulletinPolicyRepository>();
+        services.AddScoped<ICallSheetRuleRepository, CallSheetRuleRepository>();
         services.AddScoped<ISeniorityMovePolicyRepository, SeniorityMovePolicyRepository>();
         services.AddScoped<ISeniorityMoveRepository, SeniorityMoveRepository>();
 

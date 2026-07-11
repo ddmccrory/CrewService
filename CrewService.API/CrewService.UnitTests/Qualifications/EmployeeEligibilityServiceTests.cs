@@ -180,6 +180,7 @@ public sealed class EmployeeEligibilityServiceTests
         public IDisplacementCaseRepository DisplacementCases => null!;
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
+        public ICallSheetRuleRepository CallSheetRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => null!;
         public IDispatchProjectionRepository DispatchProjections => null!;

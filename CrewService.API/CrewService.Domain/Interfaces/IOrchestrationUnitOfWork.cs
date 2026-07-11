@@ -154,6 +154,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IDisplacementCaseRepository DisplacementCases { get; }
     IDisplacementClaimRepository DisplacementClaims { get; }
     IBulletinPolicyRepository BulletinPolicies { get; }
+    ICallSheetRuleRepository CallSheetRules { get; }
     ISeniorityMovePolicyRepository SeniorityMovePolicies { get; }
     ISeniorityMoveRepository SeniorityMoves { get; }
     // ────────────────────────────────────────────────────

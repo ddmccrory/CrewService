@@ -1,5 +1,6 @@
 using CrewService.Application.Time;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -53,8 +54,25 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
         var shiftDefinition = ShiftDefinition.Create(workArea.CtrlNbr, "1", "First", 1, isActive: true);
         await context.Set<ShiftDefinition>().AddAsync(shiftDefinition, TestContext.Current.CancellationToken);
 
-        var assignment = Assignment.Create(workArea.CtrlNbr, "A1", "Scheduled");
+        var department = Department.Create(parentCtrlNbr: null, dynamicGroupCtrlNbr: workArea.CtrlNbr, name: "Transportation");
+        await context.Set<Department>().AddAsync(department, TestContext.Current.CancellationToken);
+
+        var assignment = Assignment.Create(workArea.CtrlNbr, "A1", "Scheduled", false, true, department.CtrlNbr);
         await context.Set<Assignment>().AddAsync(assignment, TestContext.Current.CancellationToken);
+        await context.Set<CallSheetRule>().AddAsync(
+            CallSheetRule.Create(
+                department.CtrlNbr,
+                callLeadMinutes: 90,
+                callDurationMinutes: 30,
+                anchorType: CallSheetAnchorType.FirstCallingEnd,
+                postAnchorOffsetMinutes: 0,
+                specialPatterns: [],
+                holidayAdjustment: CallSheetHolidayAdjustmentType.None,
+                holidayCustomOffsetMinutes: null,
+                globalPreCreateOffsetMinutes: 0,
+                isEnabled: true),
+            TestContext.Current.CancellationToken);
+
         await context.Set<AssignmentSchedule>().AddAsync(
             AssignmentSchedule.Create(assignment.CtrlNbr, shiftDefinition.CtrlNbr, operatingDaysMask: DayMask(DayOfWeek.Monday), onDutyTime: new TimeOnly(7, 0), offDutyTime: new TimeOnly(15, 0)),
             TestContext.Current.CancellationToken);
@@ -78,7 +96,7 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetDueWorkItemsAsync_ReturnsMissingDueShiftForGeneration()
+    public async Task GetDueWorkItemsAsync_WithoutCallSheetRule_ReturnsEmpty()
     {
         await using var context = _dbFactory.CreateContext();
 
@@ -99,11 +117,7 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
 
         var due = await sut.GetDueWorkItemsAsync(workArea.CtrlNbr, nowUtc, TestContext.Current.CancellationToken);
 
-        var item = Assert.Single(due);
-        Assert.Equal(workArea.CtrlNbr, item.WorkAreaGroupCtrlNbr);
-        Assert.Equal(shiftDefinition.CtrlNbr, item.ShiftDefinitionCtrlNbr);
-        Assert.Equal(new DateOnly(2026, 7, 6), item.TargetDate);
-        Assert.Null(item.DepartmentCtrlNbr);
+        Assert.Empty(due);
     }
 
     private static int DayMask(DayOfWeek dayOfWeek) => 1 << (int)dayOfWeek;

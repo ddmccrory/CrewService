@@ -2,6 +2,9 @@
 
 public sealed record ControlNumber
 {
+    private static readonly object Sync = new();
+    private static long _lastGeneratedValue;
+
     public long Value { get; }
 
     private ControlNumber(long value)
@@ -11,9 +14,15 @@ public sealed record ControlNumber
 
     public static ControlNumber Create()
     {
-        Thread.Sleep(1);
+        lock (Sync)
+        {
+            var candidate = Convert.ToInt64(DateTime.UtcNow.ToString("yyMMddHHmmssfff"));
+            if (candidate <= _lastGeneratedValue)
+                candidate = _lastGeneratedValue + 1;
 
-        return new ControlNumber(Convert.ToInt64(DateTime.UtcNow.ToString("yyMMddHHmmssfff")));
+            _lastGeneratedValue = candidate;
+            return new ControlNumber(candidate);
+        }
     }
 
     public static ControlNumber Create(long value)

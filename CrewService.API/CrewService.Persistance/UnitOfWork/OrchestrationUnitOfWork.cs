@@ -136,6 +136,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IDisplacementCaseRepository? _displacementCases;
     private IDisplacementClaimRepository? _displacementClaims;
     private IBulletinPolicyRepository? _bulletinPolicies;
+    private ICallSheetRuleRepository? _callSheetRules;
     private ISeniorityMovePolicyRepository? _seniorityMovePolicies;
     private ISeniorityMoveRepository? _seniorityMoves;
     private IDispatchProjectionRepository? _dispatchProjections;
@@ -305,6 +306,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IDisplacementCaseRepository DisplacementCases => _displacementCases ??= new DisplacementCaseRepository(_crewContext, _currentUserService);
     public IDisplacementClaimRepository DisplacementClaims => _displacementClaims ??= new DisplacementClaimRepository(_crewContext, _currentUserService);
     public IBulletinPolicyRepository BulletinPolicies => _bulletinPolicies ??= new BulletinPolicyRepository(_crewContext, _currentUserService);
+    public ICallSheetRuleRepository CallSheetRules => _callSheetRules ??= new CallSheetRuleRepository(_crewContext, _currentUserService);
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => _seniorityMovePolicies ??= new SeniorityMovePolicyRepository(_crewContext, _currentUserService);
     public ISeniorityMoveRepository SeniorityMoves => _seniorityMoves ??= new SeniorityMoveRepository(_crewContext, _currentUserService);
 

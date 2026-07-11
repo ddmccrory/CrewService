@@ -138,6 +138,7 @@ public class HolidayQualificationServiceTests
         public IDisplacementCaseRepository DisplacementCases => null!;
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
+        public ICallSheetRuleRepository CallSheetRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => null!;
         public IDispatchProjectionRepository DispatchProjections => null!;
@@ -512,6 +513,7 @@ public class HolidayAutoGenerationServiceTests
         public IDisplacementCaseRepository DisplacementCases => null!;
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
+        public ICallSheetRuleRepository CallSheetRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => null!;
         public IDispatchProjectionRepository DispatchProjections => null!;
