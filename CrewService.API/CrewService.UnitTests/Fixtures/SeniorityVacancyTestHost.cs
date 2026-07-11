@@ -55,6 +55,7 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         var scheduleSignal = new BulletinScheduleSignal();
         var railroadResolver = new RailroadResolver();
         var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
+        var requirementEvaluation = new RequirementEvaluationService(UowFactory, []);
         var eligibility = new EmployeeEligibilityService(UowFactory);
         Bulletins = new BulletinsService(
             UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility);
@@ -63,13 +64,19 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         Crews = new CrewsAppService(UowFactory, Repost, NullLogger<CrewsAppService>.Instance);
         RosterBoards = new RosterBoardAppService(
             UowFactory,
+            requirementEvaluation,
             new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
             Repost,
             notifications);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);
         var seniorityStateChangeSignal = new SeniorityStateChangeSignal();
-        Seniority = new SeniorityAppService(UowFactory, new QualificationReactiveService(), VacancyConfig, seniorityStateChangeSignal);
+        Seniority = new SeniorityAppService(
+            UowFactory,
+            requirementEvaluation,
+            new QualificationReactiveService(),
+            VacancyConfig,
+            seniorityStateChangeSignal);
     }
 
     public IOrchestrationUnitOfWorkFactory UowFactory { get; }
