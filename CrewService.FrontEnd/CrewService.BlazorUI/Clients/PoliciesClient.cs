@@ -20,9 +20,6 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         long departmentCtrlNbr,
         int callLeadMinutes,
         int callDurationMinutes,
-        string anchorType,
-        int postAnchorOffsetMinutes,
-        IReadOnlyCollection<CallSheetSpecialPatternMessage> specialPatterns,
         string holidayAdjustment,
         int? holidayCustomOffsetMinutes,
         int globalPreCreateOffsetMinutes,
@@ -35,14 +32,11 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
                 DepartmentCtrlNbr = departmentCtrlNbr,
                 CallLeadMinutes = callLeadMinutes,
                 CallDurationMinutes = callDurationMinutes,
-                AnchorType = anchorType,
-                PostAnchorOffsetMinutes = postAnchorOffsetMinutes,
                 HolidayAdjustment = holidayAdjustment,
                 HolidayCustomOffsetMinutes = holidayCustomOffsetMinutes ?? 0,
                 GlobalPreCreateOffsetMinutes = globalPreCreateOffsetMinutes,
                 IsEnabled = isEnabled
             };
-            request.SpecialPatterns.AddRange(specialPatterns);
 
             return await _client.UpsertCallSheetRuleAsync(request);
         }

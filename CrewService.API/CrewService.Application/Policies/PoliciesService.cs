@@ -72,9 +72,6 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         long departmentCtrlNbr,
         int callLeadMinutes,
         int callDurationMinutes,
-        string anchorType,
-        int postAnchorOffsetMinutes,
-        IReadOnlyCollection<CallSheetSpecialPattern> specialPatterns,
         string holidayAdjustment,
         int? holidayCustomOffsetMinutes,
         int globalPreCreateOffsetMinutes,
@@ -87,12 +84,6 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         if (department.DynamicGroupCtrlNbr is null)
             throw new InvalidOperationException($"Department {departmentCtrlNbr} is not scoped to a railroad/work area.");
-
-        if (!anchorType.Equals(CallSheetAnchorType.FirstCallingEnd, StringComparison.OrdinalIgnoreCase)
-            && !anchorType.Equals(CallSheetAnchorType.LastCallingEnd, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException($"Invalid call sheet anchor type '{anchorType}'.");
-        }
 
         if (!holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.None, StringComparison.OrdinalIgnoreCase)
             && !holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.SkipHoliday, StringComparison.OrdinalIgnoreCase)
@@ -108,27 +99,6 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             throw new InvalidOperationException("Holiday custom offset minutes are required when HolidayAdjustment is CustomOffset.");
         }
 
-        foreach (var pattern in specialPatterns)
-        {
-            if (string.IsNullOrWhiteSpace(pattern.ShiftCode))
-                throw new InvalidOperationException("Call sheet special pattern shift code is required.");
-
-            if (pattern.OnDutyHour is < 0 or > 23)
-                throw new InvalidOperationException("Call sheet special pattern on-duty hour must be between 0 and 23.");
-
-            if (!pattern.AnchorType.Equals(CallSheetAnchorType.FirstCallingEnd, StringComparison.OrdinalIgnoreCase)
-                && !pattern.AnchorType.Equals(CallSheetAnchorType.LastCallingEnd, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"Invalid call sheet special pattern anchor type '{pattern.AnchorType}'.");
-            }
-        }
-
-        var normalizedPatterns = specialPatterns
-            .Select(p => new CallSheetSpecialPattern(
-                p.ShiftCode.Trim().ToUpperInvariant(),
-                p.OnDutyHour,
-                p.AnchorType.Trim()))
-            .ToList();
         var normalizedHolidayAdjustment = holidayAdjustment.Trim();
 
         var existing = await uow.CallSheetRules.GetByDepartmentAsync(ControlNumber.Create(departmentCtrlNbr));
@@ -137,9 +107,6 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             existing.Update(
                 callLeadMinutes,
                 callDurationMinutes,
-                anchorType,
-                postAnchorOffsetMinutes,
-                normalizedPatterns,
                 normalizedHolidayAdjustment,
                 holidayCustomOffsetMinutes,
                 globalPreCreateOffsetMinutes,
@@ -153,9 +120,6 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             departmentCtrlNbr,
             callLeadMinutes,
             callDurationMinutes,
-            anchorType,
-            postAnchorOffsetMinutes,
-            normalizedPatterns,
             normalizedHolidayAdjustment,
             holidayCustomOffsetMinutes,
             globalPreCreateOffsetMinutes,
