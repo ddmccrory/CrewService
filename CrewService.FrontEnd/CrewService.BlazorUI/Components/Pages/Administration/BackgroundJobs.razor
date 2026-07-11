@@ -582,6 +582,9 @@ else
         if (!IsWorkerReady(row))
             return "NotRunning";
 
+        if (!string.IsNullOrWhiteSpace(row.NextFireUtc) || !string.IsNullOrWhiteSpace(row.NextFireLocalDisplay))
+            return "Ready";
+
         if (!string.IsNullOrWhiteSpace(row.LastRunStatus))
             return row.LastRunStatus;
 
