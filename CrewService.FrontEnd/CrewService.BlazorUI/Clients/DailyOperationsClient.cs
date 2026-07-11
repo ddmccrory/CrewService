@@ -6,6 +6,18 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<DailyOperationsClient> logger)
     : BaseGrpcClient<DailyOperationsSrvc.DailyOperationsSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new DailyOperationsSrvc.DailyOperationsSrvcClient(callInvoker), logger)
 {
+    public async Task<GetNextCallSheetEventResponse?> GetNextCallSheetEventAsync(long workAreaGroupCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetNextCallSheetEventAsync(new GetNextCallSheetEventRequest
+            {
+                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     public async Task<GetCallSheetResponse> GetCallSheetAsync(long workAreaGroupCtrlNbr, string targetDate, bool includeClosed = false)
     {
         try

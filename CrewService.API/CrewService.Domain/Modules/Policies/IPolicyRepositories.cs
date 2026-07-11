@@ -24,6 +24,12 @@ public interface IBulletinPolicyRepository : IRepository<BulletinPolicy>
     Task<BulletinPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr);
 }
 
+public interface ICallSheetRuleRepository : IRepository<CallSheetRule>
+{
+    Task<CallSheetRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
+    Task<List<CallSheetRule>> GetByDepartmentsAsync(IEnumerable<ControlNumber> departmentCtrlNbrs);
+}
+
 public interface ISeniorityMovePolicyRepository : IRepository<SeniorityMovePolicy>
 {
     Task<SeniorityMovePolicy?> GetByRailroadAndCraftAsync(ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr);

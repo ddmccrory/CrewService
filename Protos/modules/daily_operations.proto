@@ -7,6 +7,9 @@ import "google/api/annotations.proto";
 import "common.proto";
 
 service DailyOperationsSrvc {
+  rpc GetNextCallSheetEvent (GetNextCallSheetEventRequest) returns (GetNextCallSheetEventResponse) {
+    option (google.api.http) = { get: "/v1/daily-operations/call-sheet/next-event/{work_area_group_ctrl_nbr}" };
+  }
   rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse) {
     option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}/{target_date}" };
   }
@@ -67,6 +70,18 @@ message GetCallSheetRequest {
   int64 work_area_group_ctrl_nbr = 1;
   string target_date = 2;
   bool include_closed = 3;
+}
+
+message GetNextCallSheetEventRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+}
+
+message GetNextCallSheetEventResponse {
+  string next_event_local = 1;
+  string shift_code = 2;
+  string target_date = 3;
+  string department_name = 4;
+  string shift_display_name = 5;
 }
 
 message GetCallSheetResponse {

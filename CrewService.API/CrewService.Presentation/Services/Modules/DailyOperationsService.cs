@@ -1,4 +1,5 @@
 using CrewService.Application.DailyOperations;
+using CrewService.Application.Time;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Formatting;
@@ -10,6 +11,28 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOperationsSrvc.DailyOperationsSrvcBase
 {
+    public override async Task<GetNextCallSheetEventResponse> GetNextCallSheetEvent(
+        GetNextCallSheetEventRequest request, ServerCallContext context)
+    {
+        var scheduler = serviceProvider.GetRequiredService<IDailyCallSheetSchedulerService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+
+        var workAreaCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
+        var nextCandidate = await scheduler.GetNextCallSheetEventCandidateAsync(workAreaCtrlNbr, context.CancellationToken);
+        if (nextCandidate is null)
+            return new GetNextCallSheetEventResponse { NextEventLocal = string.Empty };
+
+        var tz = await clock.GetWorkAreaTimeZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+        return new GetNextCallSheetEventResponse
+        {
+            NextEventLocal = clock.FormatLocalIso(DateTime.SpecifyKind(nextCandidate.EventUtc, DateTimeKind.Utc), tz),
+            ShiftCode = nextCandidate.ShiftCode,
+            ShiftDisplayName = nextCandidate.ShiftDisplayName,
+            TargetDate = nextCandidate.Item.TargetDate.ToString("yyyy-MM-dd"),
+            DepartmentName = nextCandidate.DepartmentName ?? string.Empty
+        };
+    }
+
     public override async Task<GetCallSheetResponse> GetCallSheet(
         GetCallSheetRequest request, ServerCallContext context)
     {

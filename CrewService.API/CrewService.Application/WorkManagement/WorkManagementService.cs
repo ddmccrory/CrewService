@@ -175,9 +175,11 @@ public sealed class WorkManagementService(
         int displayOrder, bool isActive, CancellationToken ct = default)
     {
         var shift = ShiftDefinition.Create(workAreaGroupCtrlNbr, shiftCode, displayName, displayOrder, isActive);
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        uow.ShiftDefinitions.Add(shift);
-        await uow.CommitAsync(ct);
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            uow.ShiftDefinitions.Add(shift);
+            await uow.CommitAsync(ct);
+        }
 
         await NotifyNextCallSheetEventAsync(workAreaGroupCtrlNbr, ct);
 
@@ -188,13 +190,18 @@ public sealed class WorkManagementService(
         ControlNumber ctrlNbr, string shiftCode, string displayName,
         int displayOrder, bool isActive, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
-        var workAreaCtrlNbr = shift.WorkAreaGroupCtrlNbr;
-        shift.Update(shiftCode: shiftCode, displayName: displayName, displayOrder: displayOrder, isActive: isActive);
-        uow.ShiftDefinitions.Update(shift);
-        await uow.CommitAsync(ct);
+        ShiftDefinition shift;
+        ControlNumber workAreaCtrlNbr;
+
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
+            workAreaCtrlNbr = shift.WorkAreaGroupCtrlNbr;
+            shift.Update(shiftCode: shiftCode, displayName: displayName, displayOrder: displayOrder, isActive: isActive);
+            uow.ShiftDefinitions.Update(shift);
+            await uow.CommitAsync(ct);
+        }
 
         await NotifyNextCallSheetEventAsync(workAreaCtrlNbr, ct);
 
@@ -203,12 +210,16 @@ public sealed class WorkManagementService(
 
     public async Task DeleteShiftDefinitionAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
-        var workAreaCtrlNbr = shift.WorkAreaGroupCtrlNbr;
-        uow.ShiftDefinitions.Remove(shift);
-        await uow.CommitAsync(ct);
+        ControlNumber workAreaCtrlNbr;
+
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var shift = await uow.ShiftDefinitions.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"ShiftDefinition {ctrlNbr.Value} not found.");
+            workAreaCtrlNbr = shift.WorkAreaGroupCtrlNbr;
+            uow.ShiftDefinitions.Remove(shift);
+            await uow.CommitAsync(ct);
+        }
 
         await NotifyNextCallSheetEventAsync(workAreaCtrlNbr, ct);
     }

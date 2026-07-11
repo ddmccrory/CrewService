@@ -44,6 +44,24 @@ internal sealed class BulletinPolicyRepository(CrewServiceDbContext dbContext, I
         await DbContext.Set<BulletinPolicy>().SingleOrDefaultAsync(p => p.CraftCtrlNbr == craftCtrlNbr);
 }
 
+internal sealed class CallSheetRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<CallSheetRule>(dbContext, currentUserService), ICallSheetRuleRepository
+{
+    public async Task<CallSheetRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr) =>
+        await DbContext.Set<CallSheetRule>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
+
+    public async Task<List<CallSheetRule>> GetByDepartmentsAsync(IEnumerable<ControlNumber> departmentCtrlNbrs)
+    {
+        var ctrlNbrs = departmentCtrlNbrs.ToList();
+        if (ctrlNbrs.Count == 0)
+            return [];
+
+        return await DbContext.Set<CallSheetRule>()
+            .Where(r => ctrlNbrs.Contains(r.DepartmentCtrlNbr))
+            .ToListAsync();
+    }
+}
+
 internal sealed class SeniorityMovePolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<SeniorityMovePolicy>(dbContext, currentUserService), ISeniorityMovePolicyRepository
 {

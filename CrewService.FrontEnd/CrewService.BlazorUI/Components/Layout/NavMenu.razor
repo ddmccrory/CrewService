@@ -404,9 +404,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies", "admin/call-sheet-rules"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies", "admin/call-sheet-rules")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -484,6 +484,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/seniority-move-policies">
                                     <span class="bi bi-sliders" aria-hidden="true"></span> Seniority Move Policies
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/call-sheet-rules"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/call-sheet-rules">
+                                    <span class="bi bi-clock-history" aria-hidden="true"></span> Call Sheet Rules
                                 </NavLink>
                             </div>
                         }

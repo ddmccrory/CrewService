@@ -7,6 +7,48 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<PoliciesClient> logger)
     : BaseGrpcClient<PoliciesSrvc.PoliciesSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new PoliciesSrvc.PoliciesSrvcClient(callInvoker), logger)
 {
+    // ── Call Sheet Rules ────────────────────────────────────────────────
+
+    public async Task<CallSheetRuleResponse?> GetCallSheetRuleAsync(long departmentCtrlNbr)
+    {
+        try { return await _client.GetCallSheetRuleAsync(new GetCallSheetRuleRequest { DepartmentCtrlNbr = departmentCtrlNbr }); }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<CallSheetRuleResponse> UpsertCallSheetRuleAsync(
+        long departmentCtrlNbr,
+        int callLeadMinutes,
+        int callDurationMinutes,
+        string anchorType,
+        int postAnchorOffsetMinutes,
+        IReadOnlyCollection<CallSheetSpecialPatternMessage> specialPatterns,
+        string holidayAdjustment,
+        int? holidayCustomOffsetMinutes,
+        int globalPreCreateOffsetMinutes,
+        bool isEnabled)
+    {
+        try
+        {
+            var request = new UpsertCallSheetRuleRequest
+            {
+                DepartmentCtrlNbr = departmentCtrlNbr,
+                CallLeadMinutes = callLeadMinutes,
+                CallDurationMinutes = callDurationMinutes,
+                AnchorType = anchorType,
+                PostAnchorOffsetMinutes = postAnchorOffsetMinutes,
+                HolidayAdjustment = holidayAdjustment,
+                HolidayCustomOffsetMinutes = holidayCustomOffsetMinutes ?? 0,
+                GlobalPreCreateOffsetMinutes = globalPreCreateOffsetMinutes,
+                IsEnabled = isEnabled
+            };
+            request.SpecialPatterns.AddRange(specialPatterns);
+
+            return await _client.UpsertCallSheetRuleAsync(request);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Seniority Move Policy ─────────────────────────────────────────
 
     /// <summary>

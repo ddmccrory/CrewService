@@ -68,6 +68,112 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ?? throw new KeyNotFoundException($"Bulletin policy for craft {craftCtrlNbr} not found.");
     }
 
+    public async Task<CallSheetRule> GetOrUpsertCallSheetRuleAsync(
+        long departmentCtrlNbr,
+        int callLeadMinutes,
+        int callDurationMinutes,
+        string anchorType,
+        int postAnchorOffsetMinutes,
+        IReadOnlyCollection<CallSheetSpecialPattern> specialPatterns,
+        string holidayAdjustment,
+        int? holidayCustomOffsetMinutes,
+        int globalPreCreateOffsetMinutes,
+        bool isEnabled,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var department = await uow.Departments.GetByCtrlNbrAsync(ControlNumber.Create(departmentCtrlNbr), ct)
+            ?? throw new KeyNotFoundException($"Department {departmentCtrlNbr} not found.");
+
+        if (department.DynamicGroupCtrlNbr is null)
+            throw new InvalidOperationException($"Department {departmentCtrlNbr} is not scoped to a railroad/work area.");
+
+        if (!anchorType.Equals(CallSheetAnchorType.FirstCallingEnd, StringComparison.OrdinalIgnoreCase)
+            && !anchorType.Equals(CallSheetAnchorType.LastCallingEnd, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Invalid call sheet anchor type '{anchorType}'.");
+        }
+
+        if (!holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.None, StringComparison.OrdinalIgnoreCase)
+            && !holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.SkipHoliday, StringComparison.OrdinalIgnoreCase)
+            && !holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.AddDay, StringComparison.OrdinalIgnoreCase)
+            && !holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.CustomOffset, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Invalid call sheet holiday adjustment '{holidayAdjustment}'.");
+        }
+
+        if (holidayAdjustment.Equals(CallSheetHolidayAdjustmentType.CustomOffset, StringComparison.OrdinalIgnoreCase)
+            && !holidayCustomOffsetMinutes.HasValue)
+        {
+            throw new InvalidOperationException("Holiday custom offset minutes are required when HolidayAdjustment is CustomOffset.");
+        }
+
+        foreach (var pattern in specialPatterns)
+        {
+            if (string.IsNullOrWhiteSpace(pattern.ShiftCode))
+                throw new InvalidOperationException("Call sheet special pattern shift code is required.");
+
+            if (pattern.OnDutyHour is < 0 or > 23)
+                throw new InvalidOperationException("Call sheet special pattern on-duty hour must be between 0 and 23.");
+
+            if (!pattern.AnchorType.Equals(CallSheetAnchorType.FirstCallingEnd, StringComparison.OrdinalIgnoreCase)
+                && !pattern.AnchorType.Equals(CallSheetAnchorType.LastCallingEnd, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Invalid call sheet special pattern anchor type '{pattern.AnchorType}'.");
+            }
+        }
+
+        var normalizedPatterns = specialPatterns
+            .Select(p => new CallSheetSpecialPattern(
+                p.ShiftCode.Trim().ToUpperInvariant(),
+                p.OnDutyHour,
+                p.AnchorType.Trim()))
+            .ToList();
+        var normalizedHolidayAdjustment = holidayAdjustment.Trim();
+
+        var existing = await uow.CallSheetRules.GetByDepartmentAsync(ControlNumber.Create(departmentCtrlNbr));
+        if (existing is not null)
+        {
+            existing.Update(
+                callLeadMinutes,
+                callDurationMinutes,
+                anchorType,
+                postAnchorOffsetMinutes,
+                normalizedPatterns,
+                normalizedHolidayAdjustment,
+                holidayCustomOffsetMinutes,
+                globalPreCreateOffsetMinutes,
+                isEnabled);
+            await uow.CallSheetRules.UpdateAsync(existing, ct);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var rule = CallSheetRule.Create(
+            departmentCtrlNbr,
+            callLeadMinutes,
+            callDurationMinutes,
+            anchorType,
+            postAnchorOffsetMinutes,
+            normalizedPatterns,
+            normalizedHolidayAdjustment,
+            holidayCustomOffsetMinutes,
+            globalPreCreateOffsetMinutes,
+            isEnabled);
+
+        await uow.CallSheetRules.AddAsync(rule, ct);
+        await uow.CommitAsync(ct);
+        return rule;
+    }
+
+    public async Task<CallSheetRule> GetCallSheetRuleAsync(
+        ControlNumber departmentCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.CallSheetRules.GetByDepartmentAsync(departmentCtrlNbr)
+            ?? throw new KeyNotFoundException($"Call sheet rule for department {departmentCtrlNbr} not found.");
+    }
+
     public async Task<SeniorityMovePolicy> GetOrUpsertSeniorityMovePolicyAsync(
         long railroadCtrlNbr, long craftCtrlNbr, int eligibilityDays, int requestHours, int cancelHours, bool autoApprove,
         string crewToCrewStrategy, string crewToBoardStrategy,

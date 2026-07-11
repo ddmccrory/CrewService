@@ -26,7 +26,15 @@
 }
 else
 {
-    <p class="text-muted mb-3">Daily operations for <strong>@SelectedRailroadName</strong></p>
+    <p class="text-muted mb-1">Daily operations for <strong>@SelectedRailroadName</strong></p>
+
+    @if (nextCallSheetEventFormatted is not null)
+    {
+        <p class="text-muted mb-1 small">
+            <span class="bi bi-clock me-1"></span>Next processing event:
+            <strong>@(nextShiftToBuildFormatted is null ? nextCallSheetEventFormatted : $"{nextShiftToBuildFormatted} at {nextCallSheetEventFormatted}")</strong>
+        </p>
+    }
 
     <div class="row align-items-end g-2" style="margin-bottom: 2.25rem;">
         <div class="col-auto">
@@ -921,6 +929,8 @@ else
     private long activeShiftCtrlNbr;
     private bool useHorizontalLayout;
     private bool showClosedShifts;
+    private string? nextCallSheetEventFormatted;
+    private string? nextShiftToBuildFormatted;
 
     private bool showGenerateModal;
     private bool isGenerating;
@@ -1004,6 +1014,8 @@ else
         selectedWorkAreaCtrlNbr = 0;
         selectedDepartmentCtrlNbr = 0;
         activeShiftCtrlNbr = 0;
+        nextCallSheetEventFormatted = null;
+        nextShiftToBuildFormatted = null;
         shifts = null;
         callSheetLoaded = false;
         availableShifts = null;
@@ -1041,9 +1053,50 @@ else
         callSheetLoaded = false;
         availableShifts = null;
         activeShiftCtrlNbr = 0;
+        nextCallSheetEventFormatted = null;
+        nextShiftToBuildFormatted = null;
 
         if (selectedWorkAreaCtrlNbr > 0)
             await LoadCallSheet();
+    }
+
+    private async Task LoadNextCallSheetEventAsync()
+    {
+        if (selectedWorkAreaCtrlNbr == 0)
+        {
+            nextCallSheetEventFormatted = null;
+            nextShiftToBuildFormatted = null;
+            return;
+        }
+
+        try
+        {
+            var response = await DailyOperationsClient.GetNextCallSheetEventAsync(selectedWorkAreaCtrlNbr);
+            nextCallSheetEventFormatted = string.IsNullOrWhiteSpace(response?.NextEventLocal)
+                ? null
+                : FormatDisplayLocal(response.NextEventLocal);
+
+            nextShiftToBuildFormatted = response is null
+                || string.IsNullOrWhiteSpace(response.ShiftCode)
+                ? null
+                : FormatNextShiftToBuild(response.ShiftDisplayName, response.ShiftCode, response.DepartmentName);
+        }
+        catch
+        {
+            nextCallSheetEventFormatted = null;
+            nextShiftToBuildFormatted = null;
+        }
+    }
+
+    private static string FormatNextShiftToBuild(string? shiftDisplayName, string shiftCode, string? departmentName)
+    {
+        var shiftName = !string.IsNullOrWhiteSpace(shiftDisplayName)
+            ? shiftDisplayName
+            : shiftCode.ToUpperInvariant();
+
+        return string.IsNullOrWhiteSpace(departmentName)
+            ? shiftName
+            : $"{shiftName} ({departmentName})";
     }
 
     private async Task OnDateChanged(ChangeEventArgs e)
@@ -1072,6 +1125,8 @@ else
 
         errorMessage = null;
         successMessage = null;
+
+        await LoadNextCallSheetEventAsync();
 
         try
         {

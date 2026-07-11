@@ -671,6 +671,56 @@ internal static class DevDataSeeder
         await departmentRepo.AddAsync(ptraClerical);
         } // end departments guard
 
+        // Seed call sheet rules for Transportation and Clerical using the simplified first-calling-start model.
+        var callSheetRuleRepo = sp.GetRequiredService<ICallSheetRuleRepository>();
+        var allDepartments = await departmentRepo.GetAllAsync();
+        var ruleDepartments = allDepartments
+            .Where(d => d.Name.Equals("Transportation", StringComparison.OrdinalIgnoreCase)
+                     || d.Name.Equals("Clerical", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var existingRules = await callSheetRuleRepo.GetByDepartmentsAsync(ruleDepartments.Select(d => d.CtrlNbr));
+        var existingRuleByDept = existingRules.ToDictionary(r => r.DepartmentCtrlNbr);
+
+        foreach (var dept in ruleDepartments)
+        {
+            if (dept.ParentCtrlNbr is null)
+                continue;
+
+            SetParent(dept.ParentCtrlNbr.Value);
+
+            var callLeadMinutes = 90;
+            var callDurationMinutes = 30;
+
+            if (!existingRuleByDept.TryGetValue(dept.CtrlNbr, out var existingRule))
+            {
+                await callSheetRuleRepo.AddAsync(CallSheetRule.Create(
+                    dept.CtrlNbr,
+                    callLeadMinutes,
+                    callDurationMinutes,
+                    CallSheetAnchorType.FirstCallingEnd,
+                    postAnchorOffsetMinutes: 0,
+                    specialPatterns: [],
+                    CallSheetHolidayAdjustmentType.None,
+                    holidayCustomOffsetMinutes: null,
+                    globalPreCreateOffsetMinutes: -720,
+                    isEnabled: true));
+                continue;
+            }
+
+            existingRule.Update(
+                callLeadMinutes,
+                callDurationMinutes,
+                CallSheetAnchorType.FirstCallingEnd,
+                postAnchorOffsetMinutes: 0,
+                specialPatterns: [],
+                CallSheetHolidayAdjustmentType.None,
+                holidayCustomOffsetMinutes: null,
+                globalPreCreateOffsetMinutes: -720,
+                isEnabled: true);
+            await callSheetRuleRepo.UpdateAsync(existingRule);
+        }
+
         // ?? Section 4: Seniority � Crafts, Rosters, Rankings ?????????????
         var craftRepo = sp.GetRequiredService<ICraftRepository>();
         var rosterRepo = sp.GetRequiredService<IRosterRepository>();
@@ -1049,38 +1099,42 @@ internal static class DevDataSeeder
         var workMgmtSvcCsx = sp.GetRequiredService<WorkManagementService>();
         var shiftDefRepo = sp.GetRequiredService<IShiftDefinitionRepository>();
         var existingShifts = await shiftDefRepo.GetByWorkAreaAsync(jaxSub2.CtrlNbr);
-        ShiftDefinition shiftFirst, shiftSecond, shiftThird;
-        if (existingShifts.Count == 0)
-        {
+        var csxShiftByCode = existingShifts
+            .GroupBy(s => s.ShiftCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        ShiftDefinition shiftFirst;
+        if (!csxShiftByCode.TryGetValue("1ST", out shiftFirst!))
             shiftFirst = await workMgmtSvcCsx.CreateShiftDefinitionAsync(jaxSub2.CtrlNbr, "1ST", "First Shift", 1, true);
+
+        ShiftDefinition shiftSecond;
+        if (!csxShiftByCode.TryGetValue("2ND", out shiftSecond!))
             shiftSecond = await workMgmtSvcCsx.CreateShiftDefinitionAsync(jaxSub2.CtrlNbr, "2ND", "Second Shift", 2, true);
+
+        ShiftDefinition shiftThird;
+        if (!csxShiftByCode.TryGetValue("3RD", out shiftThird!))
             shiftThird = await workMgmtSvcCsx.CreateShiftDefinitionAsync(jaxSub2.CtrlNbr, "3RD", "Third Shift", 3, true);
-        }
-        else
-        {
-            shiftFirst = existingShifts.First(s => s.ShiftCode == "1ST");
-            shiftSecond = existingShifts.First(s => s.ShiftCode == "2ND");
-            shiftThird = existingShifts.First(s => s.ShiftCode == "3RD");
-        }
 
         // Shift Definitions for PTRA
         SetParent(ptraParentCore.CtrlNbr.Value);
         var workMgmtSvcPtra = sp.GetRequiredService<WorkManagementService>();
         var ptraRRForShifts = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var existingPtraShifts = await shiftDefRepo.GetByWorkAreaAsync(ptraRRForShifts.CtrlNbr);
-        ShiftDefinition ptraShift1, ptraShift2, ptraShift3;
-        if (existingPtraShifts.Count == 0)
-        {
+        var ptraShiftByCode = existingPtraShifts
+            .GroupBy(s => s.ShiftCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        ShiftDefinition ptraShift1;
+        if (!ptraShiftByCode.TryGetValue("1", out ptraShift1!))
             ptraShift1 = await workMgmtSvcPtra.CreateShiftDefinitionAsync(ptraRRForShifts.CtrlNbr, "1", "First Shift", 1, true);
+
+        ShiftDefinition ptraShift2;
+        if (!ptraShiftByCode.TryGetValue("2", out ptraShift2!))
             ptraShift2 = await workMgmtSvcPtra.CreateShiftDefinitionAsync(ptraRRForShifts.CtrlNbr, "2", "Second Shift", 2, true);
+
+        ShiftDefinition ptraShift3;
+        if (!ptraShiftByCode.TryGetValue("3", out ptraShift3!))
             ptraShift3 = await workMgmtSvcPtra.CreateShiftDefinitionAsync(ptraRRForShifts.CtrlNbr, "3", "Third Shift", 3, true);
-        }
-        else
-        {
-            ptraShift1 = existingPtraShifts.First(s => s.ShiftCode == "1");
-            ptraShift2 = existingPtraShifts.First(s => s.ShiftCode == "2");
-            ptraShift3 = existingPtraShifts.First(s => s.ShiftCode == "3");
-        }
 
         // Assignments
         SetParent(csxParentCtrlNbr);
