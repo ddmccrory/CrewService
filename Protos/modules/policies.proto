@@ -100,20 +100,11 @@ message BulletinPolicyResponse {
 }
 
 // Call Sheet Rule
-message CallSheetSpecialPatternMessage {
-  string shift_code = 1;
-  int32 on_duty_hour = 2;
-  string anchor_type = 3;
-}
-
 message GetCallSheetRuleRequest { int64 department_ctrl_nbr = 1; }
 message UpsertCallSheetRuleRequest {
   int64 department_ctrl_nbr = 1;
   int32 call_lead_minutes = 2;
   int32 call_duration_minutes = 3;
-  string anchor_type = 4;
-  int32 post_anchor_offset_minutes = 5;
-  repeated CallSheetSpecialPatternMessage special_patterns = 6;
   string holiday_adjustment = 7;
   int32 holiday_custom_offset_minutes = 8;
   int32 global_pre_create_offset_minutes = 9;
@@ -124,9 +115,6 @@ message CallSheetRuleResponse {
   int64 department_ctrl_nbr = 2;
   int32 call_lead_minutes = 3;
   int32 call_duration_minutes = 4;
-  string anchor_type = 5;
-  int32 post_anchor_offset_minutes = 6;
-  repeated CallSheetSpecialPatternMessage special_patterns = 7;
   string holiday_adjustment = 8;
   int32 holiday_custom_offset_minutes = 9;
   int32 global_pre_create_offset_minutes = 10;

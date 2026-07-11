@@ -82,14 +82,6 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
                 request.DepartmentCtrlNbr,
                 request.CallLeadMinutes,
                 request.CallDurationMinutes,
-                request.AnchorType,
-                request.PostAnchorOffsetMinutes,
-                request.SpecialPatterns
-                    .Select(p => new CallSheetSpecialPattern(
-                        p.ShiftCode,
-                        p.OnDutyHour,
-                        p.AnchorType))
-                    .ToList(),
                 request.HolidayAdjustment,
                 request.HolidayAdjustment.Equals(CallSheetHolidayAdjustmentType.CustomOffset, StringComparison.OrdinalIgnoreCase)
                     ? request.HolidayCustomOffsetMinutes
@@ -119,17 +111,6 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         DepartmentCtrlNbr = r.DepartmentCtrlNbr.Value,
         CallLeadMinutes = r.CallLeadMinutes,
         CallDurationMinutes = r.CallDurationMinutes,
-        AnchorType = r.AnchorType,
-        PostAnchorOffsetMinutes = r.PostAnchorOffsetMinutes,
-        SpecialPatterns =
-        {
-            r.SpecialPatterns.Select(p => new CallSheetSpecialPatternMessage
-            {
-                ShiftCode = p.ShiftCode,
-                OnDutyHour = p.OnDutyHour,
-                AnchorType = p.AnchorType
-            })
-        },
         HolidayAdjustment = r.HolidayAdjustment,
         HolidayCustomOffsetMinutes = r.HolidayCustomOffsetMinutes ?? 0,
         GlobalPreCreateOffsetMinutes = r.GlobalPreCreateOffsetMinutes,

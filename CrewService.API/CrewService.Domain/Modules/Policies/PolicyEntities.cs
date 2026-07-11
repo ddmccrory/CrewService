@@ -128,12 +128,6 @@ public sealed class BulletinPolicy : Entity
     }
 }
 
-public static class CallSheetAnchorType
-{
-    public const string FirstCallingEnd = "FirstCallingEnd";
-    public const string LastCallingEnd = "LastCallingEnd";
-}
-
 public static class CallSheetHolidayAdjustmentType
 {
     public const string None = "None";
@@ -142,19 +136,11 @@ public static class CallSheetHolidayAdjustmentType
     public const string CustomOffset = "CustomOffset";
 }
 
-public sealed record CallSheetSpecialPattern(
-    string ShiftCode,
-    int OnDutyHour,
-    string AnchorType);
-
 public sealed class CallSheetRule : Entity
 {
     public ControlNumber DepartmentCtrlNbr { get; private set; }
     public int CallLeadMinutes { get; private set; }
     public int CallDurationMinutes { get; private set; }
-    public string AnchorType { get; private set; } = CallSheetAnchorType.LastCallingEnd;
-    public int PostAnchorOffsetMinutes { get; private set; }
-    public List<CallSheetSpecialPattern> SpecialPatterns { get; private set; } = [];
     public string HolidayAdjustment { get; private set; } = CallSheetHolidayAdjustmentType.None;
     public int? HolidayCustomOffsetMinutes { get; private set; }
     public int GlobalPreCreateOffsetMinutes { get; private set; }
@@ -166,9 +152,6 @@ public sealed class CallSheetRule : Entity
         ControlNumber departmentCtrlNbr,
         int callLeadMinutes,
         int callDurationMinutes,
-        string anchorType,
-        int postAnchorOffsetMinutes,
-        IReadOnlyCollection<CallSheetSpecialPattern>? specialPatterns,
         string holidayAdjustment,
         int? holidayCustomOffsetMinutes,
         int globalPreCreateOffsetMinutes,
@@ -179,9 +162,6 @@ public sealed class CallSheetRule : Entity
             DepartmentCtrlNbr = departmentCtrlNbr,
             CallLeadMinutes = callLeadMinutes,
             CallDurationMinutes = callDurationMinutes,
-            AnchorType = anchorType,
-            PostAnchorOffsetMinutes = postAnchorOffsetMinutes,
-            SpecialPatterns = specialPatterns?.ToList() ?? [],
             HolidayAdjustment = holidayAdjustment,
             HolidayCustomOffsetMinutes = holidayCustomOffsetMinutes,
             GlobalPreCreateOffsetMinutes = globalPreCreateOffsetMinutes,
@@ -192,9 +172,6 @@ public sealed class CallSheetRule : Entity
     public void Update(
         int callLeadMinutes,
         int callDurationMinutes,
-        string anchorType,
-        int postAnchorOffsetMinutes,
-        IReadOnlyCollection<CallSheetSpecialPattern>? specialPatterns,
         string holidayAdjustment,
         int? holidayCustomOffsetMinutes,
         int globalPreCreateOffsetMinutes,
@@ -202,9 +179,6 @@ public sealed class CallSheetRule : Entity
     {
         CallLeadMinutes = callLeadMinutes;
         CallDurationMinutes = callDurationMinutes;
-        AnchorType = anchorType;
-        PostAnchorOffsetMinutes = postAnchorOffsetMinutes;
-        SpecialPatterns = specialPatterns?.ToList() ?? [];
         HolidayAdjustment = holidayAdjustment;
         HolidayCustomOffsetMinutes = holidayCustomOffsetMinutes;
         GlobalPreCreateOffsetMinutes = globalPreCreateOffsetMinutes;
