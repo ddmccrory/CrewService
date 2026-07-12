@@ -1,4 +1,5 @@
 using CrewService.Application.VacancyAssignment;
+using CrewService.Application.Policies;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
@@ -12,6 +13,7 @@ namespace CrewService.Application.Crews;
 public sealed class CrewsAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IVacancyRepostService vacancyRepostService,
+    DepartmentReassignmentService departmentReassignmentService,
     ILogger<CrewsAppService> logger)
 {
     private const string ReassignmentCancellationReason = "Cancelled because employee was assigned to a different position.";
@@ -234,6 +236,17 @@ public sealed class CrewsAppService(
             var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, ct);
             if (crewPosition is not null)
             {
+                var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct)
+                    ?? throw new InvalidOperationException($"Crew {crewPosition.CrewCtrlNbr.Value} not found for position {crewPosition.CtrlNbr.Value}.");
+                if (crew.DepartmentCtrlNbr is null)
+                    throw new InvalidOperationException($"Crew {crew.CtrlNbr.Value} is missing a department; department reassignment is required.");
+
+                await departmentReassignmentService.ReassignEmployeeAsync(
+                    uow,
+                    incumbency.EmployeeCtrlNbr,
+                    crew.DepartmentCtrlNbr,
+                    ct);
+
                 var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
                 if (positionAssignment is not null)
                 {

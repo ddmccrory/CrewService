@@ -1,5 +1,6 @@
 using CrewService.Application.Boards;
 using CrewService.Application.Notifications;
+using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
@@ -19,6 +20,7 @@ public sealed class RosterBoardAppService(
     RequirementEvaluationService requirementEvaluationService,
     IRequiredPositionsFormulaRegistry formulaRegistry,
     VacancyAssignment.IVacancyRepostService vacancyRepostService,
+    DepartmentReassignmentService departmentReassignmentService,
     EmployeeNotificationService notifications)
 {
     private const string ReassignmentCancellationReason = "Cancelled because employee was assigned to a different position.";
@@ -288,6 +290,17 @@ public sealed class RosterBoardAppService(
             vacatedStaffablePositionCtrlNbr = position.StaffablePositionCtrlNbr;
             previousIncumbentCtrlNbr = position.EmployeeCtrlNbr;
             isExtraBoard = board.BoardType == BoardType.ExtraBoard && board.CraftCtrlNbr is not null;
+
+            var craft = await uow.Crafts.GetByCtrlNbrAsync(board.CraftCtrlNbr, ct)
+                ?? throw new InvalidOperationException($"Craft {board.CraftCtrlNbr.Value} not found for board {board.CtrlNbr.Value}.");
+            if (craft.DepartmentCtrlNbr is null)
+                throw new InvalidOperationException($"Craft {craft.CtrlNbr.Value} is missing a department; department reassignment is required.");
+
+            await departmentReassignmentService.ReassignEmployeeAsync(
+                uow,
+                position.EmployeeCtrlNbr,
+                craft.DepartmentCtrlNbr,
+                ct);
 
             board.RemovePosition(position);
             uow.RosterBoards.Update(board);

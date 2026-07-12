@@ -1,4 +1,5 @@
 using CrewService.Application.Crews;
+using CrewService.Application.Policies;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
@@ -36,6 +37,7 @@ public class BulletinCreationServiceTests
     private static readonly ControlNumber CraftRoleCtrlNbr  = ControlNumber.Create(3);
     private static readonly ControlNumber CrewCtrlNbr       = ControlNumber.Create(4);
     private static readonly ControlNumber EmployeeCtrlNbr   = ControlNumber.Create(5);
+    private static readonly ControlNumber DepartmentCtrlNbr = ControlNumber.Create(6);
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -46,7 +48,30 @@ public class BulletinCreationServiceTests
         CraftRole.Create(CraftCtrlNbr, "ENG", "Engineer");
 
     private static Crew MakeCrew() =>
-        Crew.Create("REGULAR", WorkAreaCtrlNbr, "Crew A");
+        Crew.Create("REGULAR", WorkAreaCtrlNbr, "Crew A", departmentCtrlNbr: DepartmentCtrlNbr);
+
+    private static Craft MakeCraft() =>
+        Craft.Create(
+            parentCtrlNbr: null,
+            dynamicGroupCtrlNbr: null,
+            craftName: "Engineer",
+            craftPluralName: "Engineers",
+            craftNumber: 1,
+            autoMarkUp: false,
+            approveAllMarkOffs: false,
+            markOffHours: 0,
+            markUpHours: 0,
+            requiredRestHours: 0,
+            maximumVacationDayTime: 0,
+            unpaidMealPeriodMinutes: 0,
+            hoursofService: false,
+            processPayroll: false,
+            showNotifications: false,
+            vacationAssignmentType: 0,
+            departmentCtrlNbr: DepartmentCtrlNbr);
+
+    private static DepartmentReassignmentRule MakeDepartmentRule() =>
+        DepartmentReassignmentRule.Create(DepartmentCtrlNbr, BoardType.Hangout, isRequired: true);
 
     private static CrewPosition MakeCrewPosition(ControlNumber staffablePositionCtrlNbr) =>
         CrewPosition.Create(CrewCtrlNbr, CraftRoleCtrlNbr, 1, staffablePositionCtrlNbr);
@@ -55,14 +80,16 @@ public class BulletinCreationServiceTests
         BuildService(uow, new RecordingVacancyRepostService());
 
     private static CrewsAppService BuildService(FakeOrchestrationUnitOfWork uow, IVacancyRepostService repost) =>
-        new(new FakeUowFactory(uow), repost, NullLogger<CrewsAppService>.Instance);
+        new(new FakeUowFactory(uow), repost, new DepartmentReassignmentService(), NullLogger<CrewsAppService>.Instance);
 
     // ── CreateCrewPositionAsync ───────────────────────────────────────────────
 
     [Fact]
     public async Task CreateCrewPosition_WithRule_CreatesBulletinAndVacancy()
     {
-        var uow = new FakeOrchestrationUnitOfWork(bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew());
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule());
         var sut = BuildService(uow);
 
         await sut.CreateCrewPositionAsync(CrewCtrlNbr.Value, CraftRoleCtrlNbr.Value, 1,
@@ -76,7 +103,9 @@ public class BulletinCreationServiceTests
     [Fact]
     public async Task CreateCrewPosition_WithRule_VacancyReasonIsPositionCreated()
     {
-        var uow = new FakeOrchestrationUnitOfWork(bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew());
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule());
         var sut = BuildService(uow);
 
         await sut.CreateCrewPositionAsync(CrewCtrlNbr.Value, CraftRoleCtrlNbr.Value, 1,
@@ -88,7 +117,9 @@ public class BulletinCreationServiceTests
     [Fact]
     public async Task CreateCrewPosition_WithoutRule_NoBulletinCreated()
     {
-        var uow = new FakeOrchestrationUnitOfWork(bulletinRule: null, craftRole: MakeCraftRole(), crew: MakeCrew());
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: null, craftRole: MakeCraftRole(), crew: MakeCrew(),
+            craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule());
         var sut = BuildService(uow);
 
         await sut.CreateCrewPositionAsync(CrewCtrlNbr.Value, CraftRoleCtrlNbr.Value, 1,
@@ -110,7 +141,7 @@ public class BulletinCreationServiceTests
         var assignment  = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var repost = new RecordingVacancyRepostService();
@@ -137,7 +168,7 @@ public class BulletinCreationServiceTests
         var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var sut = BuildService(uow);
@@ -156,7 +187,7 @@ public class BulletinCreationServiceTests
         var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
             crewPosition: crewPos, incumbency: incumbency);
 
         var sut = BuildService(uow);
@@ -179,7 +210,7 @@ public class BulletinCreationServiceTests
         var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var sut = BuildService(uow);
@@ -190,6 +221,44 @@ public class BulletinCreationServiceTests
         Assert.Contains(assignment, uow.FakePositionAssignments.RemovedEntities);
     }
 
+    [Fact]
+    public async Task EndCrewIncumbency_WithDepartmentRule_ReassignsToHangoutBoard()
+    {
+        var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
+        var crewPos = MakeCrewPosition(staffPos.CtrlNbr);
+        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
+        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
+
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
+            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
+
+        var sut = BuildService(uow);
+
+        await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken);
+
+        Assert.Contains(uow.FakePositionAssignments.AddedEntities, a =>
+            a.EmployeeCtrlNbr == EmployeeCtrlNbr && a.AssignmentType == PositionAssignmentType.Board);
+    }
+
+    [Fact]
+    public async Task EndCrewIncumbency_WithoutDepartmentRule_Throws()
+    {
+        var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
+        var crewPos = MakeCrewPosition(staffPos.CtrlNbr);
+        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
+        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
+
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: null,
+            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
+
+        var sut = BuildService(uow);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken));
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // Fake infrastructure
     // ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +267,43 @@ public class BulletinCreationServiceTests
     {
         public Task<IOrchestrationUnitOfWork> CreateAsync(OrchestrationUnitOfWorkOptions? options = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IOrchestrationUnitOfWork>(uow);
+    }
+
+    private sealed class FakeDepartmentReassignmentRuleRepo(DepartmentReassignmentRule? rule)
+        : FakeRepoBase<DepartmentReassignmentRule>, IDepartmentReassignmentRuleRepository
+    {
+        public Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr)
+            => Task.FromResult(rule);
+    }
+
+    private sealed class FakeCraftRepo(Craft craft) : FakeRepoBase<Craft>, ICraftRepository
+    {
+        public override Task<List<Craft>> GetAllAsync(CancellationToken ct = default)
+            => Task.FromResult(new List<Craft> { craft });
+
+        public override Task<Craft?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult<Craft?>(craft.CtrlNbr == ctrlNbr ? craft : null);
+
+        public Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr) => Task.FromResult(new List<Craft>());
+        public Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs) => Task.FromResult(new List<Craft>());
+    }
+
+    private sealed class FakeRosterBoardRepo(RosterBoard board) : FakeRepoBase<RosterBoard>, IRosterBoardRepository
+    {
+        public Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<RosterBoard>>(new List<RosterBoard> { board });
+
+        public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<RosterBoard>>(new List<RosterBoard> { board });
+
+        public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<RosterBoard>>(new List<RosterBoard> { board });
+
+        public Task<RosterBoard?> GetByPositionCtrlNbrAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<RosterBoard?>(null);
+
+        public Task<RosterBoard?> GetByStaffablePositionCtrlNbrAsync(ControlNumber staffablePositionCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<RosterBoard?>(null);
     }
 
     /// <summary>
@@ -368,7 +474,10 @@ public class BulletinCreationServiceTests
         private readonly FakeCrewPositionRepo     _crewPositions;
         private readonly FakeCrewIncumbencyRepo   _incumbencies;
         private readonly FakeCraftRoleRepo        _craftRoles;
+        private readonly FakeCraftRepo            _crafts;
         private readonly FakeBulletinRuleRepo     _bulletinRules;
+        private readonly FakeDepartmentReassignmentRuleRepo _departmentReassignmentRules;
+        private readonly FakeRosterBoardRepo      _rosterBoards;
         private readonly FakeStaffablePositionRepo _staffablePositions = new();
         private readonly FakeDynamicGroupRepo    _dynamicGroups;
         private readonly FakeEmployeeNotificationRepo _employeeNotifications = new();
@@ -377,6 +486,8 @@ public class BulletinCreationServiceTests
             BulletinRule?        bulletinRule,
             CraftRole?           craftRole,
             Crew?                crew,
+            Craft?               craft,
+            DepartmentReassignmentRule? departmentReassignmentRule,
             CrewPosition?        crewPosition      = null,
             CrewIncumbency?      incumbency        = null,
             PositionAssignment?  positionAssignment = null)
@@ -385,7 +496,10 @@ public class BulletinCreationServiceTests
             _crewPositions  = new FakeCrewPositionRepo(crewPosition);
             _incumbencies   = new FakeCrewIncumbencyRepo(incumbency);
             _craftRoles     = new FakeCraftRoleRepo(craftRole);
+            _crafts         = new FakeCraftRepo(craft ?? MakeCraft());
             _bulletinRules  = new FakeBulletinRuleRepo(bulletinRule);
+            _departmentReassignmentRules = new FakeDepartmentReassignmentRuleRepo(departmentReassignmentRule);
+            _rosterBoards   = new FakeRosterBoardRepo(RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(999), "Hangout", BoardType.Hangout));
             _dynamicGroups  = new FakeDynamicGroupRepo(null);
             FakePositionAssignments = new FakePositionAssignmentRepo(positionAssignment);
         }
@@ -397,7 +511,10 @@ public class BulletinCreationServiceTests
         public ICrewPositionRepository     CrewPositions      => _crewPositions;
         public ICrewIncumbencyRepository   CrewIncumbencies   => _incumbencies;
         public ICraftRoleRepository        CraftRoles         => _craftRoles;
+        public ICraftRepository            Crafts             => _crafts;
         public IBulletinRuleRepository     BulletinRules      => _bulletinRules;
+        public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => _departmentReassignmentRules;
+        public IRosterBoardRepository      RosterBoards       => _rosterBoards;
         public IPositionVacancyRepository  PositionVacancies  => FakeVacancies;
         public IBulletinRepository         Bulletins          => FakeBulletins;
         public IPositionAssignmentRepository PositionAssignments => FakePositionAssignments;
@@ -418,7 +535,6 @@ public class BulletinCreationServiceTests
         public IBoardCascadePolicyRepository             BoardCascadePolicies         => throw new NotImplementedException();
         public IRequiredPositionsStrategyRepository      RequiredPositionsStrategies  => throw new NotImplementedException();
         public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => throw new NotImplementedException();
-        public IRosterBoardRepository                    RosterBoards                 => throw new NotImplementedException();
         public IAbsenceRequestRepository                 AbsenceRequests              => throw new NotImplementedException();
         public IVacancyImpactRepository                  VacancyImpacts               => throw new NotImplementedException();
         public ISafetyObservationRepository              SafetyObservations           => throw new NotImplementedException();
@@ -465,7 +581,6 @@ public class BulletinCreationServiceTests
         public IEmploymentStatusRepository               EmploymentStatuses           => null!;
         public IEmploymentStatusHistoryRepository        EmploymentStatusHistory      => null!;
         public IEmployeePriorServiceCreditRepository     EmployeePriorServiceCredits  => null!;
-        public ICraftRepository                          Crafts                       => null!;
         public IRosterRepository                         Rosters                      => null!;
         public ISeniorityStateRepository                 SeniorityStates              => null!;
         public IGroupTypeRepository                      GroupTypes                   => null!;

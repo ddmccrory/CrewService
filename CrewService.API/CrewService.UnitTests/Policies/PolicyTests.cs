@@ -141,6 +141,36 @@ public class BulletinPolicyTests
     }
 }
 
+public class DepartmentReassignmentRuleTests
+{
+    [Fact]
+    public void Create_SetsProperties()
+    {
+        var rule = DepartmentReassignmentRule.Create(
+            ControlNumber.Create(10),
+            Domain.Modules.Boards.BoardType.Hangout,
+            isRequired: true);
+
+        Assert.Equal(10, rule.DepartmentCtrlNbr.Value);
+        Assert.Equal(Domain.Modules.Boards.BoardType.Hangout, rule.TargetBoardType);
+        Assert.True(rule.IsRequired);
+    }
+
+    [Fact]
+    public void Update_ChangesProperties()
+    {
+        var rule = DepartmentReassignmentRule.Create(
+            ControlNumber.Create(10),
+            Domain.Modules.Boards.BoardType.Hangout,
+            isRequired: true);
+
+        rule.Update(Domain.Modules.Boards.BoardType.ExtendedAbsence, isRequired: false);
+
+        Assert.Equal(Domain.Modules.Boards.BoardType.ExtendedAbsence, rule.TargetBoardType);
+        Assert.False(rule.IsRequired);
+    }
+}
+
 public class SeniorityMovePolicyTests
 {
     [Fact]

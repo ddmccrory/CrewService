@@ -1,0 +1,306 @@
+@page "/admin/department-reassignment-rules"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject PoliciesClient PoliciesClient
+@inject DepartmentClient DepartmentClient
+
+<PageTitle>Department Reassignment Rules — Crew Service</PageTitle>
+
+<h1>Department Reassignment Rules</h1>
+<p class="text-muted">
+    Configure where employees are reassigned when incumbencies are ended for each department.
+</p>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage reassignment rules.
+    </div>
+}
+else
+{
+    <Modal Visible="showEditModal"
+           Title="@(editCtrlNbr.HasValue ? "Edit Reassignment Rule" : "Configure Reassignment Rule")"
+           Icon="bi bi-arrow-left-right"
+           OnClose="CloseEditModal">
+        <BodyContent>
+            <EditForm Model="editModel" OnValidSubmit="OnSave" id="edit-department-reassignment-rule-form">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Department</label>
+                    <p class="form-control-plaintext fw-bold">@editModel.DepartmentName</p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Target Board Type</label>
+                    <SelectInput TItem="BoardTypeOption" TValue="string"
+                                 @bind-Value="editModel.TargetBoardType"
+                                 Items="boardTypeOptions"
+                                 TextSelector="o => o.Label"
+                                 ValueSelector="o => o.Value"
+                                 Placeholder="— Select board type —"
+                                 class="form-select" />
+                    <ValidationMessage For="() => editModel.TargetBoardType" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="editModel.IsRequired" class="form-check-input" id="isRuleRequired" />
+                        <label class="form-check-label" for="isRuleRequired">Rule required</label>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditModal">Cancel</button>
+            <button type="submit" form="edit-department-reassignment-rule-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border" /></div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="alert alert-info">No departments found for this railroad.</div>
+    }
+    else
+    {
+        <DataTable TItem="RuleRow" Items="rows" Columns="Columns"
+                   SearchFilter="@((r, term) => r.DepartmentName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search departments..."
+                   EmptyMessage="No reassignment rule rows found."
+                   DefaultSortColumn="DEPARTMENT">
+            <ToolbarContent>
+                @if (!IsFeatureReadOnly)
+                {
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <span class="bi bi-plus-circle"></span> Create New
+                    </button>
+                }
+            </ToolbarContent>
+            <RowContent Context="row">
+                <td class="text-uppercase fw-semibold">@row.DepartmentName</td>
+                <td>@(row.Rule is not null ? FormatBoardType(row.Rule.TargetBoardType) : "—")</td>
+                <td>
+                    @if (row.Rule is not null)
+                    {
+                        if (row.Rule.IsRequired)
+                        {
+                            <span class="badge bg-danger">Required</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Optional</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="text-end">
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-sm btn-outline-primary px-3" @onclick="() => OpenEditModal(row)">
+                            @(row.Rule is not null ? "Edit" : "Configure")
+                        </button>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "admin/department-reassignment-rules";
+
+    private sealed class RuleRow
+    {
+        public long DepartmentCtrlNbr { get; init; }
+        public string DepartmentName { get; init; } = string.Empty;
+        public DepartmentReassignmentRuleResponse? Rule { get; set; }
+    }
+
+    private sealed class BoardTypeOption
+    {
+        public string Value { get; init; } = string.Empty;
+        public string Label { get; init; } = string.Empty;
+    }
+
+    private sealed class EditModel
+    {
+        public long DepartmentCtrlNbr { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+
+        [Required]
+        public string TargetBoardType { get; set; } = "Hangout";
+
+        public bool IsRequired { get; set; } = true;
+    }
+
+    private readonly List<BoardTypeOption> boardTypeOptions =
+    [
+        new() { Value = "ExtraBoard", Label = "Extra Board" },
+        new() { Value = "Hangout", Label = "Hangout" },
+        new() { Value = "ExtendedAbsence", Label = "Extended Absence" },
+        new() { Value = "Training", Label = "Training" },
+        new() { Value = "NewHire", Label = "New Hire" }
+    ];
+
+    private bool isLoading = true;
+    private bool showEditModal;
+    private long? editCtrlNbr;
+
+    private List<RuleRow> rows = [];
+    private EditModel editModel = new();
+
+    private IReadOnlyList<DataTableColumn<RuleRow>> Columns =>
+    [
+        new("DEPARTMENT", r => r.DepartmentName),
+        new("Target Board Type", r => r.Rule?.TargetBoardType ?? string.Empty),
+        new("Requirement", r => r.Rule?.IsRequired ?? false),
+        DataTableColumn<RuleRow>.Actions()
+    ];
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+        StateHasChanged();
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!IsContextFullySelected || SelectedParentCtrlNbr is null || SelectedRailroadCtrlNbr is null)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
+            var tasks = response.Departments.Select(async d =>
+            {
+                var rule = await PoliciesClient.GetDepartmentReassignmentRuleAsync(d.CtrlNbr);
+                return new RuleRow
+                {
+                    DepartmentCtrlNbr = d.CtrlNbr,
+                    DepartmentName = d.Name,
+                    Rule = rule
+                };
+            });
+
+            rows = (await Task.WhenAll(tasks))
+                .OrderBy(r => r.DepartmentName)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenEditModal(RuleRow row)
+    {
+        editCtrlNbr = row.Rule?.CtrlNbr;
+        editModel = new EditModel
+        {
+            DepartmentCtrlNbr = row.DepartmentCtrlNbr,
+            DepartmentName = row.DepartmentName,
+            TargetBoardType = row.Rule?.TargetBoardType ?? "Hangout",
+            IsRequired = row.Rule?.IsRequired ?? true
+        };
+
+        showEditModal = true;
+    }
+
+    private void OpenCreateModal()
+    {
+        var candidate = rows.FirstOrDefault(r => r.Rule is null);
+        if (candidate is null)
+        {
+            errorMessage = "All departments already have reassignment rules.";
+            return;
+        }
+
+        errorMessage = null;
+        OpenEditModal(candidate);
+    }
+
+    private void CloseEditModal() => showEditModal = false;
+
+    private async Task OnSave()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var saved = await PoliciesClient.UpsertDepartmentReassignmentRuleAsync(
+                editModel.DepartmentCtrlNbr,
+                editModel.TargetBoardType,
+                editModel.IsRequired);
+
+            var row = rows.First(r => r.DepartmentCtrlNbr == editModel.DepartmentCtrlNbr);
+            row.Rule = saved;
+
+            successMessage = $"Department reassignment rule saved for {row.DepartmentName}.";
+            showEditModal = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static string FormatBoardType(string boardType) => boardType switch
+    {
+        "ExtraBoard" => "Extra Board",
+        "Hangout" => "Hangout",
+        "ExtendedAbsence" => "Extended Absence",
+        "Training" => "Training",
+        "NewHire" => "New Hire",
+        _ => boardType
+    };
+}

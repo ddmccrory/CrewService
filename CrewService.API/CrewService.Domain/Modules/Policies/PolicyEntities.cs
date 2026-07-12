@@ -1,4 +1,5 @@
 using CrewService.Domain.DomainEvents;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 
@@ -183,6 +184,34 @@ public sealed class CallSheetRule : Entity
         HolidayCustomOffsetMinutes = holidayCustomOffsetMinutes;
         GlobalPreCreateOffsetMinutes = globalPreCreateOffsetMinutes;
         IsEnabled = isEnabled;
+    }
+}
+
+public sealed class DepartmentReassignmentRule : Entity
+{
+    public ControlNumber DepartmentCtrlNbr { get; private set; }
+    public BoardType TargetBoardType { get; private set; }
+    public bool IsRequired { get; private set; }
+
+    private DepartmentReassignmentRule() { DepartmentCtrlNbr = null!; }
+
+    public static DepartmentReassignmentRule Create(
+        ControlNumber departmentCtrlNbr,
+        BoardType targetBoardType,
+        bool isRequired = true)
+    {
+        return new DepartmentReassignmentRule
+        {
+            DepartmentCtrlNbr = departmentCtrlNbr,
+            TargetBoardType = targetBoardType,
+            IsRequired = isRequired
+        };
+    }
+
+    public void Update(BoardType targetBoardType, bool isRequired)
+    {
+        TargetBoardType = targetBoardType;
+        IsRequired = isRequired;
     }
 }
 

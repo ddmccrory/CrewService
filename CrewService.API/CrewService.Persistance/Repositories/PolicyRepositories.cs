@@ -62,6 +62,13 @@ internal sealed class CallSheetRuleRepository(CrewServiceDbContext dbContext, IC
     }
 }
 
+internal sealed class DepartmentReassignmentRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<DepartmentReassignmentRule>(dbContext, currentUserService), IDepartmentReassignmentRuleRepository
+{
+    public async Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr) =>
+        await DbContext.Set<DepartmentReassignmentRule>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
+}
+
 internal sealed class SeniorityMovePolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<SeniorityMovePolicy>(dbContext, currentUserService), ISeniorityMovePolicyRepository
 {

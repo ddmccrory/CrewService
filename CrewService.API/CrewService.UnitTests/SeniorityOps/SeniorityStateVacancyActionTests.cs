@@ -5,6 +5,7 @@ using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
@@ -33,6 +34,7 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         ControlNumber ParentCtrlNbr,
         ControlNumber RailroadCtrlNbr,
         ControlNumber WorkAreaCtrlNbr,
+        ControlNumber DepartmentCtrlNbr,
         ControlNumber CraftCtrlNbr,
         ControlNumber CraftRoleCtrlNbr,
         ControlNumber RosterCtrlNbr,
@@ -104,8 +106,35 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         CrewServiceDbContext ctx, ControlNumber parentCtrlNbr, ControlNumber railroadCtrlNbr,
         ControlNumber workAreaCtrlNbr, CancellationToken ct)
     {
-        var craft = Craft.Create(null, workAreaCtrlNbr, "Engineer", "Engineers", 1, false, false, 0, 0, 0, 0, 0, false, false, false, 0);
+        var department = Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation");
+        ctx.Set<Department>().Add(department);
+
+        var craft = Craft.Create(
+            null,
+            workAreaCtrlNbr,
+            "Engineer",
+            "Engineers",
+            1,
+            false,
+            false,
+            0,
+            0,
+            0,
+            0,
+            0,
+            false,
+            false,
+            false,
+            0,
+            department.CtrlNbr);
         ctx.Crafts.Add(craft);
+
+        // Configure a department reassignment rule so canonical vacate paths can execute.
+        // The rule is optional and points to a board type not seeded by these scenarios,
+        // so test behavior remains vacancy-action driven.
+        ctx.Set<DepartmentReassignmentRule>().Add(
+            DepartmentReassignmentRule.Create(department.CtrlNbr, BoardType.NewHire, isRequired: false));
+
         await ctx.SaveChangesAsync(ct);
 
         var role = CraftRole.Create(craft.CtrlNbr, "ENGR", "Engineer");
@@ -128,7 +157,7 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         await ctx.SaveChangesAsync(ct);
 
         return new Fixture(
-            parentCtrlNbr, railroadCtrlNbr, workAreaCtrlNbr, craft.CtrlNbr, role.CtrlNbr,
+            parentCtrlNbr, railroadCtrlNbr, workAreaCtrlNbr, department.CtrlNbr, craft.CtrlNbr, role.CtrlNbr,
             roster.CtrlNbr, employee.CtrlNbr, newState.CtrlNbr);
     }
 
@@ -143,7 +172,7 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         ControlNumber crewPositionCtrlNbr;
         await using (var ctx = _host.CreateReadContext())
         {
-            var crew = Crew.Create("REGULAR", f.WorkAreaCtrlNbr, "Test Crew");
+            var crew = Crew.Create("REGULAR", f.WorkAreaCtrlNbr, "Test Crew", departmentCtrlNbr: f.DepartmentCtrlNbr);
             ctx.Crews.Add(crew);
             var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
             ctx.StaffablePositions.Add(staffablePosition);

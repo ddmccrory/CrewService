@@ -116,7 +116,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
-            <button type="submit" form="save-vacancy-config-form" class="btn btn-primary" disabled="@isSaving">
+            <button type="submit" form="save-vacancy-config-form" class="btn btn-primary" disabled="@isSavingConfig">
                 <span class="bi bi-check-circle me-1"></span> Save
             </button>
         </Footer>
@@ -218,7 +218,7 @@ else
     }
 
     private bool isLoading = true;
-    private bool isSaving = false;
+    private bool isSavingConfig = false;
     private bool isSavingDefaults = false;
     private bool isDeleting = false;
     private bool showSaveModal = false;
@@ -344,7 +344,7 @@ else
             return;
         }
 
-        isSaving = true;
+        isSavingConfig = true;
         try
         {
             await VacancyConfigClient.UpsertAsync(new UpsertVacancyConfigRequest
@@ -362,7 +362,7 @@ else
         finally
         {
             if (!ComponentToken.IsCancellationRequested)
-                isSaving = false;
+                isSavingConfig = false;
         }
     }
 

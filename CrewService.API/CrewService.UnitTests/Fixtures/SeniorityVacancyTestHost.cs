@@ -3,6 +3,7 @@ using CrewService.Application.Boards;
 using CrewService.Application.Bulletins;
 using CrewService.Application.Crews;
 using CrewService.Application.Notifications;
+using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Application.SeniorityOps;
@@ -60,13 +61,15 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         Bulletins = new BulletinsService(
             UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility);
         Repost = new VacancyRepostService(UowFactory, Bulletins, NullLogger<VacancyRepostService>.Instance);
+        var departmentReassignment = new DepartmentReassignmentService();
 
-        Crews = new CrewsAppService(UowFactory, Repost, NullLogger<CrewsAppService>.Instance);
+        Crews = new CrewsAppService(UowFactory, Repost, departmentReassignment, NullLogger<CrewsAppService>.Instance);
         RosterBoards = new RosterBoardAppService(
             UowFactory,
             requirementEvaluation,
             new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
             Repost,
+            departmentReassignment,
             notifications);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);

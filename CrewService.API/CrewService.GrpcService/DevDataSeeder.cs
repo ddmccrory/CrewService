@@ -693,6 +693,7 @@ internal static class DevDataSeeder
 
         // ?? Section 3b: Departments ???????????????????????????????????????????
         var departmentRepo = sp.GetRequiredService<IDepartmentRepository>();
+        var departmentReassignmentRuleRepo = sp.GetRequiredService<IDepartmentReassignmentRuleRepository>();
         var existingDepts = await departmentRepo.GetAllAsync();
         if (existingDepts.Count == 0)
         {
@@ -1245,6 +1246,19 @@ internal static class DevDataSeeder
         var ptraFmnRole = allRoles.First(r => r.Code == "F");
         var ptraHlpRole = allRoles.First(r => r.Code == "H");
         var ptraTransDeptCrew = crewDepts.FirstOrDefault(d => d.Name == "Transportation" && d.DynamicGroupCtrlNbr == ptraRRForShifts.CtrlNbr);
+
+        if (ptraTransDeptCrew is not null)
+        {
+            var existingDeptRule = await departmentReassignmentRuleRepo.GetByDepartmentAsync(ptraTransDeptCrew.CtrlNbr);
+            if (existingDeptRule is null)
+            {
+                var ptraDeptRule = DepartmentReassignmentRule.Create(
+                    ptraTransDeptCrew.CtrlNbr,
+                    BoardType.Hangout,
+                    isRequired: true);
+                await departmentReassignmentRuleRepo.AddAsync(ptraDeptRule);
+            }
+        }
 
         // 9 assignments — 3 per shift, one per location (PSYD, MCYD, NOYD)
         var (ptraAsgn130, _, _) = await assignmentsSvcPtra.CreateAssignmentAsync(ptraLocPSYD.CtrlNbr, "130", "130", false, true, ptraTransDeptCrew?.CtrlNbr);

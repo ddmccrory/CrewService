@@ -139,6 +139,7 @@ public class NewHireServiceTests
         public FakeSeniorityRepository FakeSeniority { get; } = new();
         public FakeCertificationRepository FakeCertifications { get; } = new();
         public FakeBoardRepository FakeBoards { get; } = new(craftCtrlNbr, includeNewHireBoard);
+        public FakePositionAssignmentRepository FakePositionAssignments { get; } = new();
 
         public string CorrelationId => "test";
         public string OrchestrationId => "test";
@@ -165,6 +166,7 @@ public class NewHireServiceTests
         public IDisplacementClaimRepository DisplacementClaims => throw new NotImplementedException();
         public IBulletinPolicyRepository BulletinPolicies => throw new NotImplementedException();
         public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
+        public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => throw new NotImplementedException();
         public ISeniorityMoveRepository SeniorityMoves => throw new NotImplementedException();
         public IRoleRepository Roles => throw new NotImplementedException();
@@ -222,7 +224,7 @@ public class NewHireServiceTests
         public IGroupAttributeValueRepository AttributeValues => null!;
         public IStaffablePositionRepository StaffablePositions => _fakeStaffablePositions;
         private readonly FakeStaffablePositionRepository _fakeStaffablePositions = new();
-        public IPositionAssignmentRepository PositionAssignments => null!;
+        public IPositionAssignmentRepository PositionAssignments => FakePositionAssignments;
         public ICrewRepository Crews => null!;
         public ICrewPositionRepository CrewPositions => null!;
         public ICrewIncumbencyRepository CrewIncumbencies => null!;
@@ -350,5 +352,26 @@ public class NewHireServiceTests
     private sealed class FakeStaffablePositionRepository : FakeRepositoryBase<StaffablePosition>, IStaffablePositionRepository
     {
         public Task<List<StaffablePosition>> GetByPositionTypeAsync(string positionType) => Task.FromResult(new List<StaffablePosition>());
+    }
+
+    private sealed class FakePositionAssignmentRepository : FakeRepositoryBase<PositionAssignment>, IPositionAssignmentRepository
+    {
+        public Task<PositionAssignment?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr)
+            => Task.FromResult<PositionAssignment?>(AddedEntities.FirstOrDefault(a => a.StaffablePositionCtrlNbr == staffablePositionCtrlNbr));
+
+        public Task<List<PositionAssignment>> GetByStaffablePositionsAsync(IEnumerable<ControlNumber> staffablePositionCtrlNbrs)
+        {
+            var set = staffablePositionCtrlNbrs.ToHashSet();
+            return Task.FromResult(AddedEntities.Where(a => set.Contains(a.StaffablePositionCtrlNbr)).ToList());
+        }
+
+        public Task<List<PositionAssignment>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr)
+            => Task.FromResult(AddedEntities.Where(a => a.EmployeeCtrlNbr == employeeCtrlNbr).ToList());
+
+        public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsAsync()
+            => Task.FromResult(AddedEntities.Select(a => a.EmployeeCtrlNbr.Value).ToHashSet());
+
+        public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsByTypeAsync(string assignmentType)
+            => Task.FromResult(AddedEntities.Where(a => a.AssignmentType == assignmentType).Select(a => a.EmployeeCtrlNbr.Value).ToHashSet());
     }
 }
