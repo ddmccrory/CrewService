@@ -236,6 +236,7 @@ public class DepartmentReassignmentServiceTests
         public override Task<List<Craft>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(crafts.ToList());
         public Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr) => Task.FromResult(new List<Craft>());
         public Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs) => Task.FromResult(new List<Craft>());
+        public Task<List<Craft>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr, CancellationToken ct = default) => Task.FromResult(new List<Craft>());
     }
 
     private sealed class FakeBoardRepo(IReadOnlyDictionary<ControlNumber, IReadOnlyList<RosterBoard>> boardsByCraft) : RepoBase<RosterBoard>, IRosterBoardRepository

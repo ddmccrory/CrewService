@@ -53,7 +53,22 @@ public class CraftService(CraftAppService craftAppService) : CraftSrvc.CraftSrvc
             request.ProcessPayroll,
             request.ShowNotifications,
             request.VacationAssignmentType,
-            request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null);
+            request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            workAreaCtrlNbr: null,
+            createStandardRoster: request.HasCreateStandardRoster ? request.CreateStandardRoster : null,
+            createExtraBoard: request.HasCreateExtraBoard ? request.CreateExtraBoard : null,
+            createHangoutBoard: request.HasCreateHangoutBoard ? request.CreateHangoutBoard : null,
+            createExtendedAbsenceBoard: request.HasCreateExtendedAbsenceBoard ? request.CreateExtendedAbsenceBoard : null,
+            createTrainingRoster: request.HasCreateTrainingRoster ? request.CreateTrainingRoster : null,
+            createNewHiresBoard: request.HasCreateNewHiresBoard ? request.CreateNewHiresBoard : null,
+            standardRosterName: request.StandardRosterName,
+            standardRosterPluralName: request.StandardRosterPluralName,
+            trainingRosterName: request.TrainingRosterName,
+            trainingRosterPluralName: request.TrainingRosterPluralName,
+            extraBoardName: request.ExtraBoardName,
+            hangoutBoardName: request.HangoutBoardName,
+            extendedAbsenceBoardName: request.ExtendedAbsenceBoardName,
+            newHiresBoardName: request.NewHiresBoardName);
 
         return MapToResponse(craft);
     }

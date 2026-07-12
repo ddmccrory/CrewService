@@ -3,6 +3,8 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
+using System.Reflection;
+using CrewService.Application.SeniorityOps;
 using Xunit;
 
 namespace CrewService.UnitTests.Core;
@@ -36,6 +38,122 @@ public class ParentTests
         parent.Update(string.Empty);
 
         Assert.Equal("Original", parent.Name.Value);
+    }
+}
+
+public class CraftProvisioningOptionsTests
+{
+    [Fact]
+    public void Defaults_EnableAllProvisioningFlags()
+    {
+        var options = InvokeProvisioningCreate();
+
+        Assert.True(GetBool(options, "CreateStandardRoster"));
+        Assert.True(GetBool(options, "CreateExtraBoard"));
+        Assert.True(GetBool(options, "CreateHangoutBoard"));
+        Assert.True(GetBool(options, "CreateExtendedAbsenceBoard"));
+        Assert.True(GetBool(options, "CreateTrainingRoster"));
+        Assert.True(GetBool(options, "CreateNewHiresBoard"));
+    }
+
+    [Fact]
+    public void StandardBoardWithoutStandardRoster_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            InvokeProvisioningCreate(createStandardRoster: false, createExtraBoard: true));
+
+        Assert.Contains("Standard roster", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void NewHiresBoardWithoutTrainingRoster_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            InvokeProvisioningCreate(createTrainingRoster: false, createNewHiresBoard: true));
+
+        Assert.Contains("Training roster", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BlankEnabledBoardName_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            InvokeProvisioningCreate(createStandardRoster: true, createExtraBoard: true, extraBoardName: "   "));
+
+        Assert.Contains("extraBoardName", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static object InvokeProvisioningCreate(
+        bool? createStandardRoster = null,
+        bool? createExtraBoard = null,
+        bool? createHangoutBoard = null,
+        bool? createExtendedAbsenceBoard = null,
+        bool? createTrainingRoster = null,
+        bool? createNewHiresBoard = null,
+        string? standardRosterName = null,
+        string? standardRosterPluralName = null,
+        string? trainingRosterName = null,
+        string? trainingRosterPluralName = null,
+        string? extraBoardName = null,
+        string? hangoutBoardName = null,
+        string? extendedAbsenceBoardName = null,
+        string? newHiresBoardName = null)
+    {
+        var craft = Craft.Create(
+            parentCtrlNbr: ControlNumber.Create(1),
+            dynamicGroupCtrlNbr: ControlNumber.Create(2),
+            craftName: "Engineer",
+            craftPluralName: "Engineers",
+            craftNumber: 1,
+            autoMarkUp: false,
+            approveAllMarkOffs: false,
+            markOffHours: 0,
+            markUpHours: 0,
+            requiredRestHours: 0,
+            maximumVacationDayTime: 0,
+            unpaidMealPeriodMinutes: 0,
+            hoursofService: false,
+            processPayroll: false,
+            showNotifications: false,
+            vacationAssignmentType: 0);
+
+        var nestedType = typeof(CraftAppService).GetNestedType("CraftProvisioningOptions", BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("CraftProvisioningOptions nested type not found.");
+
+        var createMethod = nestedType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("CraftProvisioningOptions.Create method not found.");
+
+        try
+        {
+            return createMethod.Invoke(null,
+            [
+                craft,
+                createStandardRoster,
+                createExtraBoard,
+                createHangoutBoard,
+                createExtendedAbsenceBoard,
+                createTrainingRoster,
+                createNewHiresBoard,
+                standardRosterName,
+                standardRosterPluralName,
+                trainingRosterName,
+                trainingRosterPluralName,
+                extraBoardName,
+                hangoutBoardName,
+                extendedAbsenceBoardName,
+                newHiresBoardName
+            ])!;
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException is not null)
+        {
+            throw tie.InnerException;
+        }
+    }
+
+    private static bool GetBool(object instance, string propertyName)
+    {
+        var value = instance.GetType().GetProperty(propertyName)?.GetValue(instance);
+        return value is bool b && b;
     }
 }
 

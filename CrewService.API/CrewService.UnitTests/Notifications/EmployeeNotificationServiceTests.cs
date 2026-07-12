@@ -532,6 +532,7 @@ internal sealed class FakeCraftRepo(Craft? craft) : FakeNotificationRepoBase<Cra
     public override Task<Craft?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(craft);
     public Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? p, ControlNumber? r) => Task.FromResult(new List<Craft>());
     public Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> c) => Task.FromResult(new List<Craft>());
+    public Task<List<Craft>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr, CancellationToken ct = default) => Task.FromResult(new List<Craft>());
 }
 
 internal sealed class FakeUserAccounts(string userId, string fullNameLnf) : IUserAccountService

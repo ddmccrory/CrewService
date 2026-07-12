@@ -56,6 +56,20 @@ message CreateCraftRequest {
   bool show_notifications = 15;
   int32 vacation_assignment_type = 16;
   int64 department_ctrl_nbr = 17;
+  optional bool create_standard_roster = 18;
+  optional bool create_extra_board = 19;
+  optional bool create_hangout_board = 20;
+  optional bool create_extended_absence_board = 21;
+  optional bool create_training_roster = 22;
+  optional bool create_new_hires_board = 23;
+  string standard_roster_name = 24;
+  string standard_roster_plural_name = 25;
+  string training_roster_name = 26;
+  string training_roster_plural_name = 27;
+  string extra_board_name = 28;
+  string hangout_board_name = 29;
+  string extended_absence_board_name = 30;
+  string new_hires_board_name = 31;
 }
 
 message UpdateCraftRequest {

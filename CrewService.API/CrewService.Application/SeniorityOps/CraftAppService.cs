@@ -53,6 +53,20 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
         int vacationAssignmentType,
         ControlNumber? departmentCtrlNbr = null,
         ControlNumber? workAreaCtrlNbr = null,
+        bool? createStandardRoster = null,
+        bool? createExtraBoard = null,
+        bool? createHangoutBoard = null,
+        bool? createExtendedAbsenceBoard = null,
+        bool? createTrainingRoster = null,
+        bool? createNewHiresBoard = null,
+        string? standardRosterName = null,
+        string? standardRosterPluralName = null,
+        string? trainingRosterName = null,
+        string? trainingRosterPluralName = null,
+        string? extraBoardName = null,
+        string? hangoutBoardName = null,
+        string? extendedAbsenceBoardName = null,
+        string? newHiresBoardName = null,
         CancellationToken ct = default)
     {
         var craft = Craft.Create(
@@ -64,6 +78,23 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
             hoursofService, processPayroll, showNotifications,
             vacationAssignmentType, departmentCtrlNbr);
 
+        var provisioningOptions = CraftProvisioningOptions.Create(
+            craft,
+            createStandardRoster,
+            createExtraBoard,
+            createHangoutBoard,
+            createExtendedAbsenceBoard,
+            createTrainingRoster,
+            createNewHiresBoard,
+            standardRosterName,
+            standardRosterPluralName,
+            trainingRosterName,
+            trainingRosterPluralName,
+            extraBoardName,
+            hangoutBoardName,
+            extendedAbsenceBoardName,
+            newHiresBoardName);
+
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         uow.Crafts.Add(craft);
 
@@ -72,7 +103,7 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
 
         if (workAreaCtrlNbr is not null)
         {
-            (roster, boards) = CreateStandardRosterAndBoards(uow, craft, workAreaCtrlNbr);
+            (roster, boards) = CreateRostersAndBoards(uow, craft, workAreaCtrlNbr, provisioningOptions);
         }
         else if (dynamicGroupCtrlNbr is not null)
         {
@@ -80,7 +111,7 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
             var workAreas = await uow.DynamicGroups.GetWorkAreasAsync(dynamicGroupCtrlNbr);
             foreach (var wa in workAreas)
             {
-                var (r, b) = CreateStandardRosterAndBoards(uow, craft, wa.CtrlNbr);
+                var (r, b) = CreateRostersAndBoards(uow, craft, wa.CtrlNbr, provisioningOptions);
                 roster ??= r;
                 boards.AddRange(b);
             }
@@ -144,6 +175,7 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var craft = await uow.Crafts.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Craft {ctrlNbr.Value} not found.");
+
         uow.Crafts.Remove(craft);
         await uow.CommitAsync(ct);
         return craft.CtrlNbr;
@@ -151,38 +183,157 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static (Roster Roster, List<RosterBoard> Boards) CreateStandardRosterAndBoards(
-        IOrchestrationUnitOfWork uow, Craft craft, ControlNumber workAreaCtrlNbr)
+    private static (Roster? Roster, List<RosterBoard> Boards) CreateRostersAndBoards(
+        IOrchestrationUnitOfWork uow, Craft craft, ControlNumber workAreaCtrlNbr, CraftProvisioningOptions options)
     {
-        var roster = Roster.Create(
-            craft.CtrlNbr, workAreaCtrlNbr,
-            railroadPayrollDepartmentCtrlNbr: null,
-            craft.CraftName, craft.CraftPluralName, rosterNumber: 1);
-        uow.Rosters.Add(roster);
+        Roster? firstRoster = null;
+        var boards = new List<RosterBoard>();
 
-        var boards = new List<RosterBoard>
+        if (options.CreateStandardRoster)
         {
-            RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr,
-                $"{craft.CraftName} Extra Board", BoardType.ExtraBoard, RotationType.FirstInFirstOut),
-            RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr,
-                $"{craft.CraftName} Hangout", BoardType.Hangout),
-            RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr,
-                $"{craft.CraftName} Extended Absence", BoardType.ExtendedAbsence),
-        };
+            var roster = Roster.Create(
+                craft.CtrlNbr, workAreaCtrlNbr,
+                railroadPayrollDepartmentCtrlNbr: null,
+                options.StandardRosterName, options.StandardRosterPluralName, rosterNumber: 1);
+            uow.Rosters.Add(roster);
+            firstRoster ??= roster;
 
-        var trainingRoster = Roster.Create(
-            craft.CtrlNbr, workAreaCtrlNbr,
-            railroadPayrollDepartmentCtrlNbr: null,
-            $"{craft.CraftName} Trainees", $"{craft.CraftPluralName} Trainees", rosterNumber: 99,
-            RosterType.Training);
-        uow.Rosters.Add(trainingRoster);
+            if (options.CreateExtraBoard)
+            {
+                boards.Add(RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr,
+                    options.ExtraBoardName, BoardType.ExtraBoard, RotationType.FirstInFirstOut));
+            }
 
-        boards.Add(RosterBoard.Create(craft.CtrlNbr, trainingRoster.CtrlNbr,
-            $"{craft.CraftName} New Hires", BoardType.NewHire));
+            if (options.CreateHangoutBoard)
+            {
+                boards.Add(RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr,
+                    options.HangoutBoardName, BoardType.Hangout));
+            }
+
+            if (options.CreateExtendedAbsenceBoard)
+            {
+                boards.Add(RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr,
+                    options.ExtendedAbsenceBoardName, BoardType.ExtendedAbsence));
+            }
+        }
+
+        if (options.CreateTrainingRoster)
+        {
+            var trainingRoster = Roster.Create(
+                craft.CtrlNbr, workAreaCtrlNbr,
+                railroadPayrollDepartmentCtrlNbr: null,
+                options.TrainingRosterName, options.TrainingRosterPluralName, rosterNumber: 99,
+                RosterType.Training);
+            uow.Rosters.Add(trainingRoster);
+            firstRoster ??= trainingRoster;
+
+            if (options.CreateNewHiresBoard)
+            {
+                boards.Add(RosterBoard.Create(craft.CtrlNbr, trainingRoster.CtrlNbr,
+                    options.NewHiresBoardName, BoardType.NewHire));
+            }
+        }
 
         foreach (var board in boards)
             uow.RosterBoards.Add(board);
 
-        return (roster, boards);
+        return (firstRoster, boards);
+    }
+
+    private sealed record CraftProvisioningOptions(
+        bool CreateStandardRoster,
+        bool CreateExtraBoard,
+        bool CreateHangoutBoard,
+        bool CreateExtendedAbsenceBoard,
+        bool CreateTrainingRoster,
+        bool CreateNewHiresBoard,
+        string StandardRosterName,
+        string StandardRosterPluralName,
+        string TrainingRosterName,
+        string TrainingRosterPluralName,
+        string ExtraBoardName,
+        string HangoutBoardName,
+        string ExtendedAbsenceBoardName,
+        string NewHiresBoardName)
+    {
+        public static CraftProvisioningOptions Create(
+            Craft craft,
+            bool? createStandardRoster,
+            bool? createExtraBoard,
+            bool? createHangoutBoard,
+            bool? createExtendedAbsenceBoard,
+            bool? createTrainingRoster,
+            bool? createNewHiresBoard,
+            string? standardRosterName,
+            string? standardRosterPluralName,
+            string? trainingRosterName,
+            string? trainingRosterPluralName,
+            string? extraBoardName,
+            string? hangoutBoardName,
+            string? extendedAbsenceBoardName,
+            string? newHiresBoardName)
+        {
+            var hasExplicitStandardSelection = createStandardRoster.HasValue
+                || createExtraBoard.HasValue
+                || createHangoutBoard.HasValue
+                || createExtendedAbsenceBoard.HasValue;
+
+            var hasExplicitTrainingSelection = createTrainingRoster.HasValue
+                || createNewHiresBoard.HasValue;
+
+            var wantsStandardRoster = createStandardRoster ?? true;
+            var wantsExtraBoard = createExtraBoard ?? (hasExplicitStandardSelection ? false : true);
+            var wantsHangoutBoard = createHangoutBoard ?? (hasExplicitStandardSelection ? false : true);
+            var wantsExtendedAbsenceBoard = createExtendedAbsenceBoard ?? (hasExplicitStandardSelection ? false : true);
+            var wantsTrainingRoster = createTrainingRoster ?? true;
+            var wantsNewHiresBoard = createNewHiresBoard ?? (hasExplicitTrainingSelection ? false : true);
+
+            if (!wantsStandardRoster && (wantsExtraBoard || wantsHangoutBoard || wantsExtendedAbsenceBoard))
+            {
+                throw new ArgumentException("Standard roster must be enabled to create standard roster boards.");
+            }
+
+            if (!wantsTrainingRoster && wantsNewHiresBoard)
+            {
+                throw new ArgumentException("Training roster must be enabled to create the New Hires board.");
+            }
+
+            return new CraftProvisioningOptions(
+                wantsStandardRoster,
+                wantsStandardRoster && wantsExtraBoard,
+                wantsStandardRoster && wantsHangoutBoard,
+                wantsStandardRoster && wantsExtendedAbsenceBoard,
+                wantsTrainingRoster,
+                wantsTrainingRoster && wantsNewHiresBoard,
+                ResolveName(standardRosterName, craft.CraftName, wantsStandardRoster, nameof(standardRosterName)),
+                ResolveName(standardRosterPluralName, craft.CraftPluralName, wantsStandardRoster, nameof(standardRosterPluralName)),
+                ResolveName(trainingRosterName, $"{craft.CraftName} Trainees", wantsTrainingRoster, nameof(trainingRosterName)),
+                ResolveName(trainingRosterPluralName, $"{craft.CraftPluralName} Trainees", wantsTrainingRoster, nameof(trainingRosterPluralName)),
+                ResolveName(extraBoardName, $"{craft.CraftName} Extra Board", wantsStandardRoster && wantsExtraBoard, nameof(extraBoardName)),
+                ResolveName(hangoutBoardName, $"{craft.CraftName} Hangout", wantsStandardRoster && wantsHangoutBoard, nameof(hangoutBoardName)),
+                ResolveName(extendedAbsenceBoardName, $"{craft.CraftName} Extended Absence", wantsStandardRoster && wantsExtendedAbsenceBoard, nameof(extendedAbsenceBoardName)),
+                ResolveName(newHiresBoardName, $"{craft.CraftName} New Hires", wantsTrainingRoster && wantsNewHiresBoard, nameof(newHiresBoardName)));
+        }
+
+        private static string ResolveName(string? value, string fallback, bool isEnabled, string fieldName)
+        {
+            if (!isEnabled)
+            {
+                return fallback;
+            }
+
+            if (value is null)
+            {
+                return fallback;
+            }
+
+            var trimmed = value.Trim();
+            if (trimmed.Length == 0)
+            {
+                throw new ArgumentException($"{fieldName} is required when its roster/board is enabled.");
+            }
+
+            return trimmed;
+        }
     }
 }
