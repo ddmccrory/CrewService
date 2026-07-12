@@ -184,12 +184,28 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
 
     /// <summary>Creates an empty (unstaffed) board of the given type for the fixture's craft/roster.</summary>
     private async Task<ControlNumber> SeedEmptyBoardAsync(Fixture f, BoardType boardType, CancellationToken ct)
+        => await SeedEmptyBoardAsync(f.CraftCtrlNbr, f.RosterCtrlNbr, boardType, ct);
+
+    private async Task<ControlNumber> SeedEmptyBoardAsync(
+        ControlNumber craftCtrlNbr,
+        ControlNumber rosterCtrlNbr,
+        BoardType boardType,
+        CancellationToken ct)
     {
         await using var ctx = _host.CreateReadContext();
-        var board = RosterBoard.Create(f.CraftCtrlNbr, f.RosterCtrlNbr, $"{boardType} Board", boardType);
+        var board = RosterBoard.Create(craftCtrlNbr, rosterCtrlNbr, $"{boardType} Board", boardType);
         ctx.Set<RosterBoard>().Add(board);
         await ctx.SaveChangesAsync(ct);
         return board.CtrlNbr;
+    }
+
+    private async Task<ControlNumber> SeedAdditionalRosterAsync(Fixture f, string rosterName, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var roster = Roster.Create(f.CraftCtrlNbr, f.WorkAreaCtrlNbr, null, rosterName, $"{rosterName}s", 99);
+        ctx.Rosters.Add(roster);
+        await ctx.SaveChangesAsync(ct);
+        return roster.CtrlNbr;
     }
 
     private async Task<RosterBoard?> GetBoardAsync(ControlNumber boardCtrlNbr, CancellationToken ct)
@@ -447,5 +463,62 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         var targetBoard = await GetBoardAsync(targetBoardCtrlNbr, ct);
         Assert.NotNull(targetBoard);
         Assert.Contains(targetBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+    }
+
+    [Fact]
+    public async Task NonOffProperty_NoConfig_DefaultsToLeaveOnCurrentPosition()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedCrewIncumbencyAsync(f, ct);
+
+        // No per-state config and no state-type default are seeded.
+        await _host.VacancyConfig.ApplyVacancyActionAsync(
+            f.EmployeeCtrlNbr, f.NewSeniorityStateCtrlNbr, f.RosterCtrlNbr, ct);
+
+        // Non-OffProperty defaults to LeaveOnCurrentPosition.
+        Assert.Single(await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct));
+    }
+
+    [Fact]
+    public async Task StateTypeDefault_OffProperty_RejectsLeaveOnCurrentPosition()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await _host.VacancyConfig.UpsertStateTypeDefaultAsync(
+                f.ParentCtrlNbr,
+                f.RailroadCtrlNbr,
+                StateType.OffProperty,
+                VacancyAction.LeaveOnCurrentPosition,
+                ct));
+    }
+
+    [Fact]
+    public async Task MoveToBoard_NoRosterMatchingBoard_LeavesCurrentPosition()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedCrewIncumbencyAsync(f, ct);
+
+        var otherRosterCtrlNbr = await SeedAdditionalRosterAsync(f, "Engineer Trainees", ct);
+        _ = await SeedEmptyBoardAsync(f.CraftCtrlNbr, otherRosterCtrlNbr, BoardType.Hangout, ct);
+
+        await _host.VacancyConfig.UpsertAsync(
+            f.ParentCtrlNbr,
+            f.RailroadCtrlNbr,
+            f.NewSeniorityStateCtrlNbr,
+            VacancyAction.MoveToBoard,
+            targetBoardType: BoardType.Hangout,
+            ct: ct);
+
+        await _host.VacancyConfig.ApplyVacancyActionAsync(
+            f.EmployeeCtrlNbr, f.NewSeniorityStateCtrlNbr, f.RosterCtrlNbr, ct);
+
+        // No matching board exists on the employee roster, so no cross-roster move occurs.
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Direct, assignments[0].AssignmentType);
     }
 }

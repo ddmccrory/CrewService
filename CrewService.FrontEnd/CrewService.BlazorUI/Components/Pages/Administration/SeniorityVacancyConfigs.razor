@@ -18,8 +18,8 @@
 <h1>Seniority State Vacancy Actions</h1>
 <p class="text-muted">
     Configure what happens to an employee's current position when their seniority state changes.
-    Settings apply at the railroad level. Each state can independently vacate the position,
-    open a bulletin, or move the employee to a configured board.
+    Settings apply at the railroad level. Configure defaults by state type, then optionally
+    override specific states.
 </p>
 
 @if (IsInitializing)
@@ -38,6 +38,43 @@ else if (!IsContextFullySelected)
 }
 else
 {
+    <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-outline-primary" @onclick="OpenDefaultsModal">
+            <span class="bi bi-sliders me-1"></span> Configure State Type Defaults
+        </button>
+    </div>
+
+    @* ── Defaults Modal ── *@
+    <Modal Visible="showDefaultsModal"
+           Title="State Type Default Vacancy Actions"
+           Icon="bi bi-sliders"
+           OnClose="CloseDefaultsModal">
+        <BodyContent>
+            <EditForm Model="defaultsFormModel" OnValidSubmit="OnSaveDefaults" id="save-vacancy-defaults-form">
+                <DataAnnotationsValidator />
+                @foreach (var defaultRow in stateTypeDefaultRows)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">@SeniorityStateTypeDisplay.Label(defaultRow.StateType) Default</label>
+                        <SelectInput TItem="VacancyActionOption" TValue="string"
+                                     @bind-Value="defaultRow.Action"
+                                     Items="@GetDefaultActionOptions(defaultRow.StateType)"
+                                     TextSelector="o => o.Label"
+                                     ValueSelector="o => o.Value"
+                                     Placeholder="— Select default action —"
+                                     class="form-select" />
+                    </div>
+                }
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseDefaultsModal">Cancel</button>
+            <button type="submit" form="save-vacancy-defaults-form" class="btn btn-primary" disabled="@isSavingDefaults">
+                <span class="bi bi-check-circle me-1"></span> Save Defaults
+            </button>
+        </Footer>
+    </Modal>
+
     @* ── Edit Modal ── *@
     <Modal Visible="showSaveModal"
            Title="Configure Vacancy Action"
@@ -54,7 +91,7 @@ else
                     <label class="form-label fw-semibold">Vacancy Action</label>
                     <SelectInput TItem="VacancyActionOption" TValue="string"
                                  @bind-Value="saveModel.VacancyAction"
-                                 Items="vacancyActionOptions"
+                                 Items="@GetStateActionOptions(saveModel.StateType)"
                                  TextSelector="o => o.Label"
                                  ValueSelector="o => o.Value"
                                  Placeholder="— Select action —"
@@ -91,7 +128,7 @@ else
            Icon="bi bi-trash"
            OnClose="CloseDeleteModal">
         <BodyContent>
-            <p>Remove the vacancy action configuration for <strong>@deleteStateName</strong>? The state will revert to <em>No Action</em>.</p>
+            <p>Remove the vacancy action configuration for <strong>@deleteStateName</strong>? The state will revert to its <em>state-type default</em>.</p>
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseDeleteModal">Cancel</button>
@@ -107,7 +144,7 @@ else
     }
     else if (rows.Count == 0)
     {
-        <div class="alert alert-info">No seniority states found for this railroad. All states default to <em>No Action</em>.</div>
+        <div class="alert alert-info">No seniority states found for this railroad.</div>
     }
     else
     {
@@ -134,7 +171,7 @@ else
                             }
                             else
                             {
-                                <span class="badge bg-secondary">No Action</span>
+                                <span class="badge @ActionBadgeClass(GetEffectiveDefaultAction(row.StateType))">Default: @FormatAction(GetEffectiveDefaultAction(row.StateType))</span>
                             }
                         </td>
                         <td>@(row.Config?.VacancyAction == "MoveToBoard" && !string.IsNullOrEmpty(row.Config?.TargetBoardType) ? FormatBoardType(row.Config.TargetBoardType) : "—")</td>
@@ -169,18 +206,32 @@ else
     {
         public long StateCtrlNbr { get; set; }
         public string StateDescription { get; set; } = string.Empty;
+        public SeniorityStateTypeEnum StateType { get; set; }
         [Required] public string VacancyAction { get; set; } = "None";
         public string TargetBoardType { get; set; } = string.Empty;
     }
 
+    private sealed class StateTypeDefaultRow
+    {
+        public SeniorityStateTypeEnum StateType { get; init; }
+        public string Action { get; set; } = string.Empty;
+    }
+
     private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isSavingDefaults = false;
     private bool isDeleting = false;
     private bool showSaveModal = false;
     private bool showDeleteModal = false;
+    private bool showDefaultsModal = false;
 
     private List<StateConfigRow> rows = [];
     private List<VacancyActionOption> vacancyActionOptions = [];
+    private List<VacancyActionOption> vacancyDefaultActionOptions = [];
     private List<VacancyActionOption> boardTypeOptions = [];
+    private Dictionary<SeniorityStateTypeEnum, VacancyStateTypeDefaultResponse> stateTypeDefaultsMap = [];
+    private List<StateTypeDefaultRow> stateTypeDefaultRows = [];
+    private readonly object defaultsFormModel = new();
 
     private SaveModel saveModel = new();
     private long? editConfigCtrlNbr;
@@ -190,23 +241,31 @@ else
     protected override async Task OnAppContextChangedAsync()
     {
         await LoadDataAsync();
-        StateHasChanged();
     }
 
     protected override async Task LoadDataAsync()
     {
+        if (ComponentToken.IsCancellationRequested) return;
         if (!IsContextFullySelected || SelectedParentCtrlNbr is null || SelectedRailroadCtrlNbr is null) return;
 
         isLoading = true;
-        StateHasChanged();
+        if (!ComponentToken.IsCancellationRequested)
+            StateHasChanged();
 
         try
         {
             vacancyActionOptions =
             [
-                new("None", "No Action"),
+                new("None", "Inherit State-Type Default"),
+                new("LeaveOnCurrentPosition", "Leave on Current Position"),
                 new("VacateAndBulletin", "Vacate Position & Open Bulletin"),
                 new("MoveToBoard", "Move to Board")
+            ];
+
+            vacancyDefaultActionOptions =
+            [
+                new("LeaveOnCurrentPosition", "Leave on Current Position"),
+                new("VacateAndBulletin", "Vacate Position & Open Bulletin")
             ];
 
             boardTypeOptions =
@@ -220,13 +279,27 @@ else
 
             var statesTask = StateClient.GetAllAsync(SelectedParentCtrlNbr.Value);
             var configsTask = VacancyConfigClient.GetByRailroadAsync(SelectedRailroadCtrlNbr.Value);
+            var defaultsTask = VacancyConfigClient.GetStateTypeDefaultsByRailroadAsync(SelectedRailroadCtrlNbr.Value);
 
-            await Task.WhenAll(statesTask, configsTask);
+            await Task.WhenAll(statesTask, configsTask, defaultsTask);
+            if (ComponentToken.IsCancellationRequested) return;
 
             var statesResp = await statesTask;
             var configsResp = await configsTask;
+            var defaultsResp = await defaultsTask;
+            if (ComponentToken.IsCancellationRequested) return;
 
             var configMap = configsResp.Configs.ToDictionary(c => c.SeniorityStateCtrlNbr);
+            stateTypeDefaultsMap = defaultsResp.Defaults.ToDictionary(d => d.StateType);
+
+            stateTypeDefaultRows =
+            [
+                .. SeniorityStateTypeDisplay.SelectableValues.Select(stateType => new StateTypeDefaultRow
+                {
+                    StateType = stateType,
+                    Action = GetEffectiveDefaultAction(stateType)
+                })
+            ];
 
             rows = statesResp.States
                 .OrderBy(s => s.StateDescription)
@@ -241,7 +314,8 @@ else
         }
         finally
         {
-            isLoading = false;
+            if (!ComponentToken.IsCancellationRequested)
+                isLoading = false;
         }
     }
 
@@ -251,6 +325,7 @@ else
         {
             StateCtrlNbr = row.StateCtrlNbr,
             StateDescription = row.StateDescription,
+            StateType = row.StateType,
             VacancyAction = row.Config?.VacancyAction ?? "None",
             TargetBoardType = row.Config?.TargetBoardType ?? string.Empty
         };
@@ -262,6 +337,7 @@ else
 
     private async Task OnSave()
     {
+        if (ComponentToken.IsCancellationRequested) return;
         if (saveModel.StateCtrlNbr == 0)
         {
             // must have a state selected from table row — no free-form create
@@ -279,12 +355,55 @@ else
                 VacancyAction = saveModel.VacancyAction,
                 TargetBoardType = saveModel.VacancyAction == "MoveToBoard" ? saveModel.TargetBoardType : string.Empty
             });
+            if (ComponentToken.IsCancellationRequested) return;
             showSaveModal = false;
             await LoadDataAsync();
         }
         finally
         {
-            isSaving = false;
+            if (!ComponentToken.IsCancellationRequested)
+                isSaving = false;
+        }
+    }
+
+    private void OpenDefaultsModal() => showDefaultsModal = true;
+
+    private void CloseDefaultsModal() => showDefaultsModal = false;
+
+    private IReadOnlyList<VacancyActionOption> GetDefaultActionOptions(SeniorityStateTypeEnum stateType)
+    {
+        if (stateType == SeniorityStateTypeEnum.SeniorityStateTypeOffProperty)
+            return [.. vacancyDefaultActionOptions.Where(o => o.Value == "VacateAndBulletin")];
+
+        return vacancyDefaultActionOptions;
+    }
+
+    private async Task OnSaveDefaults()
+    {
+        if (ComponentToken.IsCancellationRequested) return;
+        isSavingDefaults = true;
+        try
+        {
+            foreach (var defaultRow in stateTypeDefaultRows)
+            {
+                if (ComponentToken.IsCancellationRequested) return;
+                await VacancyConfigClient.UpsertStateTypeDefaultAsync(new UpsertVacancyStateTypeDefaultRequest
+                {
+                    ParentCtrlNbr = SelectedParentCtrlNbr!.Value,
+                    RailroadCtrlNbr = SelectedRailroadCtrlNbr!.Value,
+                    StateType = defaultRow.StateType,
+                    DefaultVacancyAction = defaultRow.Action
+                });
+            }
+
+            if (ComponentToken.IsCancellationRequested) return;
+            showDefaultsModal = false;
+            await LoadDataAsync();
+        }
+        finally
+        {
+            if (!ComponentToken.IsCancellationRequested)
+                isSavingDefaults = false;
         }
     }
 
@@ -299,16 +418,19 @@ else
 
     private async Task ConfirmDelete()
     {
+        if (ComponentToken.IsCancellationRequested) return;
         isDeleting = true;
         try
         {
             await VacancyConfigClient.DeleteAsync(deleteConfigCtrlNbr);
+            if (ComponentToken.IsCancellationRequested) return;
             showDeleteModal = false;
             await LoadDataAsync();
         }
         finally
         {
-            isDeleting = false;
+            if (!ComponentToken.IsCancellationRequested)
+                isDeleting = false;
         }
     }
 
@@ -324,16 +446,38 @@ else
 
     private static string FormatAction(string action) => action switch
     {
+        "LeaveOnCurrentPosition" => "Leave on Current Position",
         "VacateAndBulletin" => "Vacate & Bulletin",
         "MoveToBoard" => "Move to Board",
-        "None" => "No Action",
+        "None" => "Inherit State-Type Default",
         _ => action
     };
 
     private static string ActionBadgeClass(string action) => action switch
     {
+        "LeaveOnCurrentPosition" => "bg-info text-dark",
         "VacateAndBulletin" => "bg-danger",
         "MoveToBoard" => "bg-warning text-dark",
         _ => "bg-secondary"
     };
+
+    private string GetEffectiveDefaultAction(SeniorityStateTypeEnum stateType)
+    {
+        if (stateTypeDefaultsMap.TryGetValue(stateType, out var configured))
+            return configured.DefaultVacancyAction;
+
+        return stateType == SeniorityStateTypeEnum.SeniorityStateTypeOffProperty
+            ? "VacateAndBulletin"
+            : "LeaveOnCurrentPosition";
+    }
+
+    private IReadOnlyList<VacancyActionOption> GetStateActionOptions(SeniorityStateTypeEnum stateType)
+    {
+        if (stateType == SeniorityStateTypeEnum.SeniorityStateTypeOffProperty)
+        {
+            return [.. vacancyActionOptions.Where(o => o.Value is "None" or "VacateAndBulletin")];
+        }
+
+        return vacancyActionOptions;
+    }
 }

@@ -17,6 +17,47 @@ public sealed class SeniorityStateVacancyConfigService(
     IRailroadResolver railroadResolver,
     ILogger<SeniorityStateVacancyConfigService> logger)
 {
+    private static VacancyAction PlatformDefaultForStateType(StateType stateType) =>
+        stateType == StateType.OffProperty
+            ? VacancyAction.VacateAndBulletin
+            : VacancyAction.LeaveOnCurrentPosition;
+
+    public async Task<List<SeniorityStateTypeVacancyDefault>> GetStateTypeDefaultsByRailroadAsync(
+        ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.SeniorityStateTypeVacancyDefaults.GetByRailroadCtrlNbrAsync(railroadCtrlNbr, ct);
+    }
+
+    public async Task<SeniorityStateTypeVacancyDefault> UpsertStateTypeDefaultAsync(
+        ControlNumber parentCtrlNbr,
+        ControlNumber railroadCtrlNbr,
+        StateType stateType,
+        VacancyAction defaultVacancyAction,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var existing = await uow.SeniorityStateTypeVacancyDefaults.GetByStateTypeAsync(railroadCtrlNbr, stateType, ct);
+
+        if (existing is not null)
+        {
+            existing.Update(defaultVacancyAction);
+            uow.SeniorityStateTypeVacancyDefaults.Update(existing);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var config = SeniorityStateTypeVacancyDefault.Create(
+            parentCtrlNbr,
+            railroadCtrlNbr,
+            stateType,
+            defaultVacancyAction);
+
+        uow.SeniorityStateTypeVacancyDefaults.Add(config);
+        await uow.CommitAsync(ct);
+        return config;
+    }
+
     public async Task<List<SeniorityStateVacancyConfig>> GetByRailroadAsync(
         ControlNumber railroadCtrlNbr, CancellationToken ct = default)
     {
@@ -40,6 +81,11 @@ public sealed class SeniorityStateVacancyConfigService(
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var state = await uow.SeniorityStates.GetByCtrlNbrAsync(seniorityStateCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"SeniorityState {seniorityStateCtrlNbr.Value} not found.");
+
+        ValidateActionForStateType(state.StateType, vacancyAction);
+
         var existing = await uow.SeniorityStateVacancyConfigs
             .GetBySeniorityStateAsync(railroadCtrlNbr, seniorityStateCtrlNbr, ct);
 
@@ -115,25 +161,23 @@ public sealed class SeniorityStateVacancyConfigService(
 
             var config = await uow.SeniorityStateVacancyConfigs
                 .GetBySeniorityStateAsync(railroadCtrlNbr, newSeniorityStateCtrlNbr, ct);
-
-            // Off-property is a terminal state: the employee leaves the property entirely and can
-            // neither hold nor be moved to any position. Their positions are ALWAYS vacated and
-            // bulletined through the canonical vacate path — the same path every other vacate uses —
-            // regardless of whether a per-state vacancy config exists (or is configured None or
-            // MoveToBoard). Every other state honors its configured action and no-ops when
-            // unconfigured or None.
             var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(newSeniorityStateCtrlNbr, ct);
-            if (newState?.StateType == StateType.OffProperty)
+            if (newState is null)
             {
-                action = VacancyAction.VacateAndBulletin;
-            }
-            else if (config is null || config.VacancyAction == VacancyAction.None)
-            {
+                logger.LogWarning("ApplyVacancyAction: Seniority state {State} not found — skipping.", newSeniorityStateCtrlNbr.Value);
                 return;
+            }
+
+            if (config is null || config.VacancyAction == VacancyAction.None)
+            {
+                var configuredDefault = await uow.SeniorityStateTypeVacancyDefaults
+                    .GetByStateTypeAsync(railroadCtrlNbr, newState.StateType, ct);
+                action = configuredDefault?.DefaultVacancyAction ?? PlatformDefaultForStateType(newState.StateType);
             }
             else
             {
                 action = config.VacancyAction;
+                ValidateActionForStateType(newState.StateType, action);
 
                 if (action == VacancyAction.MoveToBoard)
                 {
@@ -151,15 +195,18 @@ public sealed class SeniorityStateVacancyConfigService(
                     }
 
                     var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(roster.CraftCtrlNbr, ct);
-                    var targetBoard = boards.FirstOrDefault(b =>
+                    var targetBoard = boards
+                        .Where(b => b.RosterCtrlNbr == rosterCtrlNbr)
+                        .OrderBy(b => b.CtrlNbr.Value)
+                        .FirstOrDefault(b =>
                         b.BoardType == config.TargetBoardType &&
                         b.IsActive);
 
                     if (targetBoard is null)
                     {
                         logger.LogWarning(
-                            "ApplyVacancyAction (MoveToBoard): No active {BoardType} board found for craft {Craft}.",
-                            config.TargetBoardType, roster.CraftCtrlNbr.Value);
+                            "ApplyVacancyAction (MoveToBoard): No active {BoardType} board found for roster {Roster} and craft {Craft}.",
+                            config.TargetBoardType, rosterCtrlNbr.Value, roster.CraftCtrlNbr.Value);
                         return;
                     }
 
@@ -191,6 +238,9 @@ public sealed class SeniorityStateVacancyConfigService(
                 }
             }
 
+            if (action == VacancyAction.None || action == VacancyAction.LeaveOnCurrentPosition)
+                return;
+
             (crewIncumbencyCtrlNbrs, boardPositionCtrlNbrs) =
                 await CollectPositionsToVacateAsync(uow, employeeCtrlNbr, ct);
         }
@@ -206,6 +256,12 @@ public sealed class SeniorityStateVacancyConfigService(
         // an employee who still holds one), place them at the end of the resolved target board.
         if (action == VacancyAction.MoveToBoard && targetBoardCtrlNbr is not null)
             await PlaceOnBoardAsync(targetBoardCtrlNbr, employeeCtrlNbr, targetBoardType, ct);
+    }
+
+    private static void ValidateActionForStateType(StateType stateType, VacancyAction action)
+    {
+        if (stateType == StateType.OffProperty && action == VacancyAction.LeaveOnCurrentPosition)
+            throw new InvalidOperationException("LeaveOnCurrentPosition is not valid for OffProperty seniority states.");
     }
 
     /// <summary>

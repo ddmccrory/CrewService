@@ -179,3 +179,9 @@ public interface ISeniorityStateVacancyConfigRepository : IRepository<SeniorityS
     Task<List<SeniorityStateVacancyConfig>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
     Task<SeniorityStateVacancyConfig?> GetBySeniorityStateAsync(ControlNumber railroadCtrlNbr, ControlNumber seniorityStateCtrlNbr, CancellationToken ct = default);
 }
+
+public interface ISeniorityStateTypeVacancyDefaultRepository : IRepository<SeniorityStateTypeVacancyDefault>
+{
+    Task<List<SeniorityStateTypeVacancyDefault>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+    Task<SeniorityStateTypeVacancyDefault?> GetByStateTypeAsync(ControlNumber railroadCtrlNbr, StateType stateType, CancellationToken ct = default);
+}

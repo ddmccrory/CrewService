@@ -93,6 +93,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     ISeniorityRepository Seniority { get; }
     ISeniorityStateRepository SeniorityStates { get; }
     ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs { get; }
+    ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults =>
+        throw new NotSupportedException("SeniorityStateTypeVacancyDefaults repository is not implemented for this unit of work.");
     IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges { get; }
 
     // ──────────────────────────────────────────────────────────────────
