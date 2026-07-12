@@ -49,7 +49,7 @@ internal class CraftConfiguration : IEntityTypeConfiguration<Craft>
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(c => c.DynamicGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RegulatoryStandard>().WithMany().HasForeignKey(c => c.RegulatoryStandardCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Department>().WithMany().HasForeignKey(c => c.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(c => c.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(c => c.CreatedBy, audit =>
         {

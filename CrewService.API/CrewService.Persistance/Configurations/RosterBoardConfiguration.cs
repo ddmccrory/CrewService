@@ -31,7 +31,7 @@ internal class RosterBoardConfiguration : IEntityTypeConfiguration<RosterBoard>
         builder.HasMany(r => r.Positions).WithOne().HasForeignKey(p => p.RosterBoardCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Roster>().WithMany().HasForeignKey(r => r.RosterCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Roster>().WithMany().HasForeignKey(r => r.RosterCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<RequiredPositionsStrategy>().WithMany()
             .HasForeignKey(r => r.RequiredPositionsStrategyCtrlNbr).OnDelete(DeleteBehavior.SetNull);
 

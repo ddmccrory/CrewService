@@ -33,7 +33,7 @@ internal class RosterConfiguration : IEntityTypeConfiguration<Roster>
         builder.Property(r => r.RosterNumber).IsRequired();
         builder.Property(r => r.RosterType).IsRequired().HasDefaultValue(RosterType.Active);
 
-        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(r => r.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, audit =>

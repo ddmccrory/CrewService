@@ -286,6 +286,7 @@ public class BulletinCreationServiceTests
 
         public Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? dynamicGroupCtrlNbr) => Task.FromResult(new List<Craft>());
         public Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs) => Task.FromResult(new List<Craft>());
+        public Task<List<Craft>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr, CancellationToken ct = default) => Task.FromResult(new List<Craft>());
     }
 
     private sealed class FakeRosterBoardRepo(RosterBoard board) : FakeRepoBase<RosterBoard>, IRosterBoardRepository

@@ -104,6 +104,7 @@ public interface ICraftRepository : IRepository<Craft>
 {
     Task<List<Craft>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr);
     Task<List<Craft>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs);
+    Task<List<Craft>> GetByDepartmentAsync(ControlNumber departmentCtrlNbr, CancellationToken ct = default);
 }
 
 public interface IRosterRepository : IRepository<Roster>

@@ -35,7 +35,7 @@ internal class SeniorityConfiguration : IEntityTypeConfiguration<Seniority>
         builder.Property(s => s.CanTrain).IsRequired();
         builder.Property(s => s.SeniorityEndDate);
 
-        builder.HasOne<Roster>().WithMany().HasForeignKey(s => s.RosterCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Roster>().WithMany().HasForeignKey(s => s.RosterCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Employee>().WithMany().HasForeignKey(s => s.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<SeniorityState>().WithMany().HasForeignKey(s => s.SeniorityStateCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
