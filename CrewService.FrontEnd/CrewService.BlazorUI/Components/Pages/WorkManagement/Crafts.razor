@@ -146,11 +146,92 @@ else
                         </div>
                     </div>
                 </div>
+
+                @if (editCtrlNbr == 0)
+                {
+                    <hr class="my-3" />
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Initial Roster/Board Setup</h6>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ApplyProvisioningDefaults">
+                            Use Craft Defaults
+                        </button>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="saveModel.CreateStandardRoster" class="form-check-input" id="chkCreateStandardRoster" />
+                                <label class="form-check-label" for="chkCreateStandardRoster">Create Standard Roster</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="saveModel.CreateTrainingRoster" class="form-check-input" id="chkCreateTrainingRoster" />
+                                <label class="form-check-label" for="chkCreateTrainingRoster">Create Training Roster</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Standard Roster Name</label>
+                            <InputText @bind-Value="saveModel.StandardRosterName" class="form-control" disabled="@(!saveModel.CreateStandardRoster)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Standard Roster Plural Name</label>
+                            <InputText @bind-Value="saveModel.StandardRosterPluralName" class="form-control" disabled="@(!saveModel.CreateStandardRoster)" />
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="saveModel.CreateExtraBoard" class="form-check-input" id="chkCreateExtraBoard" disabled="@(!saveModel.CreateStandardRoster)" />
+                                <label class="form-check-label" for="chkCreateExtraBoard">Extra Board</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="saveModel.CreateHangoutBoard" class="form-check-input" id="chkCreateHangoutBoard" disabled="@(!saveModel.CreateStandardRoster)" />
+                                <label class="form-check-label" for="chkCreateHangoutBoard">Hangout</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="saveModel.CreateExtendedAbsenceBoard" class="form-check-input" id="chkCreateExtendedAbsenceBoard" disabled="@(!saveModel.CreateStandardRoster)" />
+                                <label class="form-check-label" for="chkCreateExtendedAbsenceBoard">Extended Absence</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Extra Board Name</label>
+                            <InputText @bind-Value="saveModel.ExtraBoardName" class="form-control" disabled="@(!saveModel.CreateStandardRoster || !saveModel.CreateExtraBoard)" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Hangout Name</label>
+                            <InputText @bind-Value="saveModel.HangoutBoardName" class="form-control" disabled="@(!saveModel.CreateStandardRoster || !saveModel.CreateHangoutBoard)" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Extended Absence Name</label>
+                            <InputText @bind-Value="saveModel.ExtendedAbsenceBoardName" class="form-control" disabled="@(!saveModel.CreateStandardRoster || !saveModel.CreateExtendedAbsenceBoard)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Training Roster Name</label>
+                            <InputText @bind-Value="saveModel.TrainingRosterName" class="form-control" disabled="@(!saveModel.CreateTrainingRoster)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Training Roster Plural Name</label>
+                            <InputText @bind-Value="saveModel.TrainingRosterPluralName" class="form-control" disabled="@(!saveModel.CreateTrainingRoster)" />
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="saveModel.CreateNewHiresBoard" class="form-check-input" id="chkCreateNewHiresBoard" disabled="@(!saveModel.CreateTrainingRoster)" />
+                                <label class="form-check-label" for="chkCreateNewHiresBoard">New Hires Board</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">New Hires Name</label>
+                            <InputText @bind-Value="saveModel.NewHiresBoardName" class="form-control" disabled="@(!saveModel.CreateTrainingRoster || !saveModel.CreateNewHiresBoard)" />
+                        </div>
+                    </div>
+                }
             </EditForm>
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
-            <button type="submit" form="save-craft-form" class="btn btn-primary" disabled="@isSaving">
+            <button type="submit" form="save-craft-form" class="btn btn-primary" disabled="@(!CanSubmitSave())">
                 <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
             </button>
         </Footer>
@@ -439,7 +520,25 @@ else
     {
         editCtrlNbr = 0;
         saveModel = new() { OwnerCtrlNbr = SelectedRailroadCtrlNbr!.Value };
+        ApplyProvisioningDefaults();
         showSaveModal = true;
+    }
+
+    private void ApplyProvisioningDefaults()
+    {
+        var craftName = string.IsNullOrWhiteSpace(saveModel.CraftName) ? "Craft" : saveModel.CraftName.Trim();
+        var craftPluralName = string.IsNullOrWhiteSpace(saveModel.CraftPluralName)
+            ? (craftName.EndsWith("s", StringComparison.OrdinalIgnoreCase) ? craftName : $"{craftName}s")
+            : saveModel.CraftPluralName.Trim();
+
+        saveModel.StandardRosterName = craftName;
+        saveModel.StandardRosterPluralName = craftPluralName;
+        saveModel.TrainingRosterName = $"{craftName} Trainees";
+        saveModel.TrainingRosterPluralName = $"{craftPluralName} Trainees";
+        saveModel.ExtraBoardName = $"{craftName} Extra Board";
+        saveModel.HangoutBoardName = $"{craftName} Hangout";
+        saveModel.ExtendedAbsenceBoardName = $"{craftName} Extended Absence";
+        saveModel.NewHiresBoardName = $"{craftName} New Hires";
     }
 
     private void OpenEditModal(CraftResponse craft)
@@ -482,7 +581,7 @@ else
 
     private async Task OnSave()
     {
-        if (isSaving) return;
+        if (isSaving || !CanSubmitSave()) return;
         try
         {
             isSaving = true;
@@ -532,7 +631,21 @@ else
                     ProcessPayroll = saveModel.ProcessPayroll,
                     ShowNotifications = saveModel.ShowNotifications,
                     VacationAssignmentType = saveModel.VacationAssignmentType,
-                    DepartmentCtrlNbr = saveModel.DepartmentCtrlNbr
+                    DepartmentCtrlNbr = saveModel.DepartmentCtrlNbr,
+                    CreateStandardRoster = saveModel.CreateStandardRoster,
+                    CreateExtraBoard = saveModel.CreateExtraBoard,
+                    CreateHangoutBoard = saveModel.CreateHangoutBoard,
+                    CreateExtendedAbsenceBoard = saveModel.CreateExtendedAbsenceBoard,
+                    CreateTrainingRoster = saveModel.CreateTrainingRoster,
+                    CreateNewHiresBoard = saveModel.CreateNewHiresBoard,
+                    StandardRosterName = saveModel.StandardRosterName ?? string.Empty,
+                    StandardRosterPluralName = saveModel.StandardRosterPluralName ?? string.Empty,
+                    TrainingRosterName = saveModel.TrainingRosterName ?? string.Empty,
+                    TrainingRosterPluralName = saveModel.TrainingRosterPluralName ?? string.Empty,
+                    ExtraBoardName = saveModel.ExtraBoardName ?? string.Empty,
+                    HangoutBoardName = saveModel.HangoutBoardName ?? string.Empty,
+                    ExtendedAbsenceBoardName = saveModel.ExtendedAbsenceBoardName ?? string.Empty,
+                    NewHiresBoardName = saveModel.NewHiresBoardName ?? string.Empty
                 });
                 successMessage = "Craft created.";
             }
@@ -545,6 +658,44 @@ else
             errorMessage = $"Failed to save craft: {ex.Message}";
         }
         finally { isSaving = false; }
+    }
+
+    private bool CanSubmitSave()
+    {
+        if (isSaving)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(saveModel.CraftName) || string.IsNullOrWhiteSpace(saveModel.CraftPluralName))
+            return false;
+
+        if (editCtrlNbr > 0)
+            return true;
+
+        if (!saveModel.CreateStandardRoster && (saveModel.CreateExtraBoard || saveModel.CreateHangoutBoard || saveModel.CreateExtendedAbsenceBoard))
+            return false;
+
+        if (!saveModel.CreateTrainingRoster && saveModel.CreateNewHiresBoard)
+            return false;
+
+        if (saveModel.CreateStandardRoster && (string.IsNullOrWhiteSpace(saveModel.StandardRosterName) || string.IsNullOrWhiteSpace(saveModel.StandardRosterPluralName)))
+            return false;
+
+        if (saveModel.CreateStandardRoster && saveModel.CreateExtraBoard && string.IsNullOrWhiteSpace(saveModel.ExtraBoardName))
+            return false;
+
+        if (saveModel.CreateStandardRoster && saveModel.CreateHangoutBoard && string.IsNullOrWhiteSpace(saveModel.HangoutBoardName))
+            return false;
+
+        if (saveModel.CreateStandardRoster && saveModel.CreateExtendedAbsenceBoard && string.IsNullOrWhiteSpace(saveModel.ExtendedAbsenceBoardName))
+            return false;
+
+        if (saveModel.CreateTrainingRoster && (string.IsNullOrWhiteSpace(saveModel.TrainingRosterName) || string.IsNullOrWhiteSpace(saveModel.TrainingRosterPluralName)))
+            return false;
+
+        if (saveModel.CreateTrainingRoster && saveModel.CreateNewHiresBoard && string.IsNullOrWhiteSpace(saveModel.NewHiresBoardName))
+            return false;
+
+        return true;
     }
 
     private async Task ConfirmDelete()
@@ -674,6 +825,37 @@ else
         public int VacationAssignmentType { get; set; }
         public long DepartmentCtrlNbr { get; set; }
         public long OwnerCtrlNbr { get; set; }
+
+        public bool CreateStandardRoster { get; set; } = true;
+        public bool CreateExtraBoard { get; set; } = true;
+        public bool CreateHangoutBoard { get; set; } = true;
+        public bool CreateExtendedAbsenceBoard { get; set; } = true;
+        public bool CreateTrainingRoster { get; set; } = true;
+        public bool CreateNewHiresBoard { get; set; } = true;
+
+        [StringLength(100)]
+        public string? StandardRosterName { get; set; }
+
+        [StringLength(100)]
+        public string? StandardRosterPluralName { get; set; }
+
+        [StringLength(100)]
+        public string? TrainingRosterName { get; set; }
+
+        [StringLength(100)]
+        public string? TrainingRosterPluralName { get; set; }
+
+        [StringLength(100)]
+        public string? ExtraBoardName { get; set; }
+
+        [StringLength(100)]
+        public string? HangoutBoardName { get; set; }
+
+        [StringLength(100)]
+        public string? ExtendedAbsenceBoardName { get; set; }
+
+        [StringLength(100)]
+        public string? NewHiresBoardName { get; set; }
     }
 
     private sealed class BulletinRuleInputModel

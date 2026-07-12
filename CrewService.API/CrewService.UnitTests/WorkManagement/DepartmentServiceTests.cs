@@ -5,6 +5,7 @@ using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using CrewService.Persistance.UnitOfWork;
@@ -55,6 +56,79 @@ public sealed class DepartmentServiceTests : IDisposable
         Assert.NotNull(rule);
         Assert.Equal(BoardType.Hangout, rule!.TargetBoardType);
         Assert.True(rule.IsRequired);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_SoftDeletes_DepartmentCraftsAndCraftRoles()
+    {
+        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(TestContext.Current.CancellationToken);
+
+        await using (var seed = CreateReadContext())
+        {
+            var department = Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical");
+            seed.Set<Department>().Add(department);
+            await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            var craft = Craft.Create(
+                parentCtrlNbr,
+                railroadCtrlNbr,
+                "Yardmaster",
+                "Yardmasters",
+                1,
+                false,
+                false,
+                0,
+                0,
+                0,
+                0,
+                0,
+                false,
+                false,
+                false,
+                0,
+                department.CtrlNbr);
+
+            seed.Set<Craft>().Add(craft);
+            await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            var role = CraftRole.Create(craft.CtrlNbr, "YD", "Yardmaster", "Yardmaster");
+            seed.Set<CraftRole>().Add(role);
+            await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        var service = BuildService();
+
+        await using (var verifySeed = CreateReadContext())
+        {
+            var departmentCtrlNbr = await verifySeed.Set<Department>()
+                .Where(d => d.Name == "Transportation")
+                .Select(d => d.CtrlNbr)
+                .SingleAsync(TestContext.Current.CancellationToken);
+
+            await service.DeleteAsync(departmentCtrlNbr);
+        }
+
+        await using var verify = CreateReadContext();
+
+        var deletedDepartment = await verify.Set<Department>()
+            .IgnoreQueryFilters()
+            .SingleAsync(d => d.Name == "Transportation", TestContext.Current.CancellationToken);
+        Assert.True(deletedDepartment.IsDeleted);
+
+        var deletedCrafts = await verify.Set<Craft>()
+            .IgnoreQueryFilters()
+            .Where(c => c.DepartmentCtrlNbr == deletedDepartment.CtrlNbr)
+            .ToListAsync(TestContext.Current.CancellationToken);
+        Assert.NotEmpty(deletedCrafts);
+        Assert.All(deletedCrafts, c => Assert.True(c.IsDeleted));
+
+        var craftIds = deletedCrafts.Select(c => c.CtrlNbr).ToHashSet();
+        var deletedRoles = await verify.Set<CraftRole>()
+            .IgnoreQueryFilters()
+            .Where(r => craftIds.Contains(r.CraftCtrlNbr))
+            .ToListAsync(TestContext.Current.CancellationToken);
+        Assert.NotEmpty(deletedRoles);
+        Assert.All(deletedRoles, r => Assert.True(r.IsDeleted));
     }
 
     private DepartmentService BuildService()
