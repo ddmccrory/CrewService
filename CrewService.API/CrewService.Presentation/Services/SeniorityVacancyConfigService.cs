@@ -9,6 +9,24 @@ namespace CrewService.Presentation.Services;
 public class SeniorityVacancyConfigService(SeniorityStateVacancyConfigService vacancyConfigService)
     : SeniorityStateVacancyConfigSrvc.SeniorityStateVacancyConfigSrvcBase
 {
+    private static StateType ToDomain(SeniorityStateTypeEnum stateType) => stateType switch
+    {
+        SeniorityStateTypeEnum.SeniorityStateTypeActive => StateType.Active,
+        SeniorityStateTypeEnum.SeniorityStateTypeCutBack => StateType.CutBack,
+        SeniorityStateTypeEnum.SeniorityStateTypeInactive => StateType.Inactive,
+        SeniorityStateTypeEnum.SeniorityStateTypeOffProperty => StateType.OffProperty,
+        _ => throw new RpcException(new Status(StatusCode.InvalidArgument, $"Unsupported seniority state type: {stateType}."))
+    };
+
+    private static SeniorityStateTypeEnum ToProto(StateType stateType) => stateType switch
+    {
+        StateType.Active => SeniorityStateTypeEnum.SeniorityStateTypeActive,
+        StateType.CutBack => SeniorityStateTypeEnum.SeniorityStateTypeCutBack,
+        StateType.Inactive => SeniorityStateTypeEnum.SeniorityStateTypeInactive,
+        StateType.OffProperty => SeniorityStateTypeEnum.SeniorityStateTypeOffProperty,
+        _ => SeniorityStateTypeEnum.SeniorityStateTypeUnspecified
+    };
+
     public override async Task<GetVacancyConfigsResponse> GetByRailroadAsync(
         GetVacancyConfigsByRailroadRequest request, ServerCallContext context)
     {
@@ -54,6 +72,31 @@ public class SeniorityVacancyConfigService(SeniorityStateVacancyConfigService va
         }
     }
 
+    public override async Task<GetVacancyStateTypeDefaultsResponse> GetStateTypeDefaultsByRailroadAsync(
+        GetVacancyStateTypeDefaultsByRailroadRequest request, ServerCallContext context)
+    {
+        var defaults = await vacancyConfigService.GetStateTypeDefaultsByRailroadAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
+
+        var response = new GetVacancyStateTypeDefaultsResponse();
+        foreach (var d in defaults)
+            response.Defaults.Add(MapToResponse(d));
+        return response;
+    }
+
+    public override async Task<VacancyStateTypeDefaultResponse> UpsertStateTypeDefaultAsync(
+        UpsertVacancyStateTypeDefaultRequest request, ServerCallContext context)
+    {
+        var config = await vacancyConfigService.UpsertStateTypeDefaultAsync(
+            ControlNumber.Create(request.ParentCtrlNbr),
+            ControlNumber.Create(request.RailroadCtrlNbr),
+            ToDomain(request.StateType),
+            Enum.Parse<VacancyAction>(request.DefaultVacancyAction),
+            context.CancellationToken);
+
+        return MapToResponse(config);
+    }
+
     private static VacancyConfigResponse MapToResponse(SeniorityStateVacancyConfig c) => new()
     {
         CtrlNbr = c.CtrlNbr.Value,
@@ -62,5 +105,14 @@ public class SeniorityVacancyConfigService(SeniorityStateVacancyConfigService va
         SeniorityStateCtrlNbr = c.SeniorityStateCtrlNbr.Value,
         VacancyAction = c.VacancyAction.ToString(),
         TargetBoardType = c.TargetBoardType?.ToString() ?? string.Empty
+    };
+
+    private static VacancyStateTypeDefaultResponse MapToResponse(SeniorityStateTypeVacancyDefault c) => new()
+    {
+        CtrlNbr = c.CtrlNbr.Value,
+        ParentCtrlNbr = c.ParentCtrlNbr.Value,
+        RailroadCtrlNbr = c.RailroadCtrlNbr.Value,
+        StateType = ToProto(c.StateType),
+        DefaultVacancyAction = c.DefaultVacancyAction.ToString()
     };
 }

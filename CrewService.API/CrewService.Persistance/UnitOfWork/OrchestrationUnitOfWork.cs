@@ -78,6 +78,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private ISeniorityRepository? _seniority;
     private ISeniorityStateRepository? _seniorityStates;
     private ISeniorityStateVacancyConfigRepository? _seniorityStateVacancyConfigs;
+    private ISeniorityStateTypeVacancyDefaultRepository? _seniorityStateTypeVacancyDefaults;
     private IPendingSeniorityStateChangeRepository? _pendingSeniorityStateChanges;
 
     // ──────────────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public ISeniorityRepository Seniority => _seniority ??= new SeniorityRepository(_crewContext, _currentUserService);
     public ISeniorityStateRepository SeniorityStates => _seniorityStates ??= new SeniorityStateRepository(_crewContext, _currentUserService);
     public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => _seniorityStateVacancyConfigs ??= new SeniorityStateVacancyConfigRepository(_crewContext, _currentUserService);
+    public ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults => _seniorityStateTypeVacancyDefaults ??= new SeniorityStateTypeVacancyDefaultRepository(_crewContext, _currentUserService);
     public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => _pendingSeniorityStateChanges ??= new PendingSeniorityStateChangeRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
