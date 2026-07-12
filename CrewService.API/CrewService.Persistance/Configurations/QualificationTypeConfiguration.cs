@@ -51,7 +51,7 @@ internal class QualificationTypeConfiguration : IEntityTypeConfiguration<Qualifi
             .HasFilter("[IsDeleted] = 0");
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(qt => qt.ScopeGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Craft>().WithMany().HasForeignKey(qt => qt.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(qt => qt.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(qt => qt.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Parent>().WithMany().HasForeignKey(qt => qt.ParentCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

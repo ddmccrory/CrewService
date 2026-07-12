@@ -20,7 +20,7 @@ internal class PayRateConfiguration : IEntityTypeConfiguration<PayRate>
         builder.Property(r => r.HourlyRate).HasPrecision(10, 4);
         builder.Property(r => r.OvertimeMultiplier).HasPrecision(5, 2);
 
-        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<CraftRole>().WithMany().HasForeignKey(r => r.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

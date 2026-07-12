@@ -33,7 +33,7 @@ internal class CraftRegulatoryQualificationConfiguration : IEntityTypeConfigurat
         builder.Property(c => c.RegulatoryQualificationCtrlNbr).HasConversion(x => x.Value, v => ControlNumber.Create(v));
         builder.HasIndex(c => new { c.CraftCtrlNbr, c.RegulatoryQualificationCtrlNbr }).IsUnique();
 
-        builder.HasOne<Craft>().WithMany().HasForeignKey(c => c.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(c => c.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<RegulatoryQualification>().WithMany().HasForeignKey(c => c.RegulatoryQualificationCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(c => c.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

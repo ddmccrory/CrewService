@@ -62,14 +62,6 @@ public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory
         var department = await uow.Departments.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Department {ctrlNbr} not found.");
 
-        var callSheetRule = await uow.CallSheetRules.GetByDepartmentAsync(ctrlNbr);
-        if (callSheetRule is not null)
-            uow.CallSheetRules.Remove(callSheetRule);
-
-        var reassignmentRule = await uow.DepartmentReassignmentRules.GetByDepartmentAsync(ctrlNbr);
-        if (reassignmentRule is not null)
-            uow.DepartmentReassignmentRules.Remove(reassignmentRule);
-
         uow.Departments.Remove(department);
         await uow.CommitAsync();
     }

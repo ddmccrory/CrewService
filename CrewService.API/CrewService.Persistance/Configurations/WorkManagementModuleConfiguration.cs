@@ -46,7 +46,7 @@ internal class CraftRoleConfiguration : IEntityTypeConfiguration<CraftRole>
         builder.Property(r => r.AlternateName).HasMaxLength(100);
         builder.Property(r => r.HierarchyLevel).HasDefaultValue(0);
 
-        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(r => r.RequiredQualifications).WithOne().HasForeignKey(q => q.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
