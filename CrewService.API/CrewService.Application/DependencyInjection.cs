@@ -120,6 +120,7 @@ public static class DependencyInjection
 
         // Policies
         services.AddScoped<PoliciesService>();
+        services.AddScoped<DepartmentReassignmentService>();
 
         // Authorization
         services.AddScoped<Application.Authorization.AuthorizationService>();

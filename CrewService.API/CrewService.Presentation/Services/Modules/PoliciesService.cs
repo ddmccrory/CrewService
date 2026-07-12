@@ -134,6 +134,38 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
+    public override async Task<DepartmentReassignmentRuleResponse> GetDepartmentReassignmentRule(
+        GetDepartmentReassignmentRuleRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var rule = await svc.GetDepartmentReassignmentRuleAsync(ControlNumber.Create(request.DepartmentCtrlNbr), context.CancellationToken);
+            return MapDepartmentReassignmentRule(rule);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+    }
+
+    public override async Task<DepartmentReassignmentRuleResponse> UpsertDepartmentReassignmentRule(
+        UpsertDepartmentReassignmentRuleRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var rule = await svc.GetOrUpsertDepartmentReassignmentRuleAsync(
+                request.DepartmentCtrlNbr,
+                request.TargetBoardType,
+                request.IsRequired,
+                context.CancellationToken);
+
+            return MapDepartmentReassignmentRule(rule);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
     private static BulletinPolicyResponse MapBulletinPolicy(BulletinPolicy p) => new()
     {
         CtrlNbr = p.CtrlNbr.Value,
@@ -153,6 +185,14 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         HolidayCustomOffsetMinutes = r.HolidayCustomOffsetMinutes ?? 0,
         GlobalPreCreateOffsetMinutes = r.GlobalPreCreateOffsetMinutes,
         IsEnabled = r.IsEnabled
+    };
+
+    private static DepartmentReassignmentRuleResponse MapDepartmentReassignmentRule(DepartmentReassignmentRule r) => new()
+    {
+        CtrlNbr = r.CtrlNbr.Value,
+        DepartmentCtrlNbr = r.DepartmentCtrlNbr.Value,
+        TargetBoardType = r.TargetBoardType.ToString(),
+        IsRequired = r.IsRequired
     };
 
     public override async Task<SeniorityMovePolicyResponse> GetSeniorityMovePolicy(GetSeniorityMovePolicyRequest request, ServerCallContext context)

@@ -186,6 +186,46 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ?? throw new KeyNotFoundException($"Call sheet rule for department {departmentCtrlNbr} not found.");
     }
 
+    public async Task<DepartmentReassignmentRule> GetOrUpsertDepartmentReassignmentRuleAsync(
+        long departmentCtrlNbr,
+        string targetBoardType,
+        bool isRequired,
+        CancellationToken ct = default)
+    {
+        if (!Enum.TryParse<BoardType>(targetBoardType, ignoreCase: true, out var parsedBoardType))
+            throw new InvalidOperationException($"Invalid target board type '{targetBoardType}'.");
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var department = await uow.Departments.GetByCtrlNbrAsync(ControlNumber.Create(departmentCtrlNbr), ct)
+            ?? throw new KeyNotFoundException($"Department {departmentCtrlNbr} not found.");
+
+        if (department.DynamicGroupCtrlNbr is null)
+            throw new InvalidOperationException($"Department {departmentCtrlNbr} is not scoped to a railroad/work area.");
+
+        var existing = await uow.DepartmentReassignmentRules.GetByDepartmentAsync(ControlNumber.Create(departmentCtrlNbr));
+        if (existing is not null)
+        {
+            existing.Update(parsedBoardType, isRequired);
+            await uow.DepartmentReassignmentRules.UpdateAsync(existing, ct);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var rule = DepartmentReassignmentRule.Create(ControlNumber.Create(departmentCtrlNbr), parsedBoardType, isRequired);
+        await uow.DepartmentReassignmentRules.AddAsync(rule, ct);
+        await uow.CommitAsync(ct);
+        return rule;
+    }
+
+    public async Task<DepartmentReassignmentRule> GetDepartmentReassignmentRuleAsync(
+        ControlNumber departmentCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.DepartmentReassignmentRules.GetByDepartmentAsync(departmentCtrlNbr)
+            ?? throw new KeyNotFoundException($"Department reassignment rule for department {departmentCtrlNbr} not found.");
+    }
+
     public async Task<SeniorityMovePolicy> GetOrUpsertSeniorityMovePolicyAsync(
         long railroadCtrlNbr, long craftCtrlNbr, int requestHours, int cancelHours, bool autoApprove,
         string crewToCrewStrategy, string crewToBoardStrategy,

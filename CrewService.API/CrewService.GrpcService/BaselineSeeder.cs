@@ -100,6 +100,7 @@ internal static class BaselineSeeder
         ("admin/seniority-vacancy-configs", "Vacancy Actions", "Administration", "/admin/seniority-vacancy-configs"),
         ("admin/seniority-move-policies", "Seniority Move Policies", "Administration", "/admin/seniority-move-policies"),
         ("admin/call-sheet-rules", "Call Sheet Rules", "Administration", "/admin/call-sheet-rules"),
+        ("admin/department-reassignment-rules", "Department Reassignment Rules", "Administration", "/admin/department-reassignment-rules"),
         ("employees/scheduled-state-changes", "Scheduled State Changes", "Employee Management", "/employees/scheduled-state-changes")
     ];
 
@@ -173,6 +174,7 @@ internal static class BaselineSeeder
         ["admin/seniority-vacancy-configs"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/seniority-move-policies"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/call-sheet-rules"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["admin/department-reassignment-rules"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["employees/scheduled-state-changes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
     };
 

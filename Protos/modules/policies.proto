@@ -28,6 +28,12 @@ service PoliciesSrvc {
   rpc UpsertCallSheetRule(UpsertCallSheetRuleRequest) returns (CallSheetRuleResponse) {
     option (google.api.http) = { put: "/v1/policies/call-sheet/{department_ctrl_nbr}" body: "*" };
   }
+  rpc GetDepartmentReassignmentRule(GetDepartmentReassignmentRuleRequest) returns (DepartmentReassignmentRuleResponse) {
+    option (google.api.http) = { get: "/v1/policies/department-reassignment/{department_ctrl_nbr}" };
+  }
+  rpc UpsertDepartmentReassignmentRule(UpsertDepartmentReassignmentRuleRequest) returns (DepartmentReassignmentRuleResponse) {
+    option (google.api.http) = { put: "/v1/policies/department-reassignment/{department_ctrl_nbr}" body: "*" };
+  }
   rpc GetSeniorityMovePolicy(GetSeniorityMovePolicyRequest) returns (SeniorityMovePolicyResponse) {
     option (google.api.http) = { get: "/v1/policies/seniority-move/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" };
   }
@@ -144,6 +150,20 @@ message CallSheetRuleResponse {
   int32 holiday_custom_offset_minutes = 9;
   int32 global_pre_create_offset_minutes = 10;
   bool is_enabled = 11;
+}
+
+// Department Reassignment Rule
+message GetDepartmentReassignmentRuleRequest { int64 department_ctrl_nbr = 1; }
+message UpsertDepartmentReassignmentRuleRequest {
+  int64 department_ctrl_nbr = 1;
+  string target_board_type = 2;
+  bool is_required = 3;
+}
+message DepartmentReassignmentRuleResponse {
+  int64 ctrl_nbr = 1;
+  int64 department_ctrl_nbr = 2;
+  string target_board_type = 3;
+  bool is_required = 4;
 }
 
 // Seniority Move Policy

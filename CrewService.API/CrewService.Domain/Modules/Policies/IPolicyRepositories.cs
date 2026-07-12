@@ -30,6 +30,11 @@ public interface ICallSheetRuleRepository : IRepository<CallSheetRule>
     Task<List<CallSheetRule>> GetByDepartmentsAsync(IEnumerable<ControlNumber> departmentCtrlNbrs);
 }
 
+public interface IDepartmentReassignmentRuleRepository : IRepository<DepartmentReassignmentRule>
+{
+    Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
+}
+
 public interface ISeniorityMovePolicyRepository : IRepository<SeniorityMovePolicy>
 {
     Task<SeniorityMovePolicy?> GetByRailroadAndCraftAsync(ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr);

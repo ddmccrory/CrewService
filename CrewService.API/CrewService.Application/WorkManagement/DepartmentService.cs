@@ -1,4 +1,5 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -33,6 +34,13 @@ public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory
             isEnabled: true);
 
         await uow.CallSheetRules.AddAsync(defaultRule);
+
+        var defaultReassignmentRule = DepartmentReassignmentRule.Create(
+            department.CtrlNbr,
+            BoardType.Hangout,
+            isRequired: true);
+
+        await uow.DepartmentReassignmentRules.AddAsync(defaultReassignmentRule);
         await uow.CommitAsync();
         return department;
     }
@@ -57,6 +65,10 @@ public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory
         var callSheetRule = await uow.CallSheetRules.GetByDepartmentAsync(ctrlNbr);
         if (callSheetRule is not null)
             uow.CallSheetRules.Remove(callSheetRule);
+
+        var reassignmentRule = await uow.DepartmentReassignmentRules.GetByDepartmentAsync(ctrlNbr);
+        if (reassignmentRule is not null)
+            uow.DepartmentReassignmentRules.Remove(reassignmentRule);
 
         uow.Departments.Remove(department);
         await uow.CommitAsync();

@@ -4,6 +4,7 @@ using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
@@ -33,6 +34,7 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
         ControlNumber ParentCtrlNbr,
         ControlNumber RailroadCtrlNbr,
         ControlNumber WorkAreaCtrlNbr,
+        ControlNumber DepartmentCtrlNbr,
         ControlNumber CraftCtrlNbr,
         ControlNumber RosterCtrlNbr,
         ControlNumber StaticStrategyCtrlNbr,
@@ -67,8 +69,33 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
             railroadCtrlNbr: railroad.CtrlNbr);
         ctx.DynamicGroups.Add(workArea);
 
-        var craft = Craft.Create(null, workArea.CtrlNbr, "Engineer", "Engineers", 1, false, false, 0, 0, 0, 0, 0, false, false, false, 0);
+        var department = Department.Create(parent.CtrlNbr, railroad.CtrlNbr, "Transportation");
+        ctx.Set<Department>().Add(department);
+
+        var craft = Craft.Create(
+            null,
+            workArea.CtrlNbr,
+            "Engineer",
+            "Engineers",
+            1,
+            false,
+            false,
+            0,
+            0,
+            0,
+            0,
+            0,
+            false,
+            false,
+            false,
+            0,
+            department.CtrlNbr);
         ctx.Crafts.Add(craft);
+
+        // Satisfy department reassignment prerequisites for board removal flows while keeping
+        // behavior static-strategy focused by making the rule optional and unresolved.
+        ctx.Set<DepartmentReassignmentRule>().Add(
+            DepartmentReassignmentRule.Create(department.CtrlNbr, BoardType.NewHire, isRequired: false));
         await ctx.SaveChangesAsync(ct);
 
         var roster = Roster.Create(craft.CtrlNbr, workArea.CtrlNbr, null, "Engineer Roster", "Engineer Rosters", 1);
@@ -103,7 +130,7 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
         await ctx.SaveChangesAsync(ct);
 
         return new Fixture(
-            parent.CtrlNbr, railroad.CtrlNbr, workArea.CtrlNbr, craft.CtrlNbr, roster.CtrlNbr,
+            parent.CtrlNbr, railroad.CtrlNbr, workArea.CtrlNbr, department.CtrlNbr, craft.CtrlNbr, roster.CtrlNbr,
             staticStrategy.CtrlNbr, employee1.CtrlNbr, employee2.CtrlNbr);
     }
 

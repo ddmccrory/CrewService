@@ -148,6 +148,7 @@ public class EarningCodeResolverTests
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
         public ICallSheetRuleRepository CallSheetRules => null!;
+        public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => null!;
         public IEmployeeNotificationRepository EmployeeNotifications => null!;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
