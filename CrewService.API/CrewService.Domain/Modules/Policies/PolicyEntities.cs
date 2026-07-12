@@ -234,7 +234,6 @@ public sealed class SeniorityMovePolicy : Entity
 {
     public ControlNumber RailroadCtrlNbr { get; private set; }
     public ControlNumber CraftCtrlNbr { get; private set; }
-    public int EligibilityDays { get; private set; }
     /// <summary>How many hours in advance a move request must be submitted (minimum lead time).
     /// Also used for early-submission: employee may request (RequestHours/24) days before fully qualifying.</summary>
     public int RequestHours { get; private set; }
@@ -273,20 +272,38 @@ public sealed class SeniorityMovePolicy : Entity
     /// <summary>New hire board -> Crew position bump.</summary>
     public string NewHireToCrewStrategy { get; private set; } = string.Empty;
 
+    /// <summary>Required days on current position for Crew -> Crew transitions.</summary>
+    public int CrewToCrewEligibilityDays { get; private set; }
+    /// <summary>Required days on current position for Crew -> Board transitions.</summary>
+    public int CrewToBoardEligibilityDays { get; private set; }
+    /// <summary>Required days on current position for Extra board -> Crew transitions.</summary>
+    public int ExtraBoardToCrewEligibilityDays { get; private set; }
+    /// <summary>Required days on current position for Hangout -> Crew transitions.</summary>
+    public int HangoutToCrewEligibilityDays { get; private set; }
+    /// <summary>Required days on current position for Extended Absence -> Crew transitions.</summary>
+    public int ExtendedAbsenceToCrewEligibilityDays { get; private set; }
+    /// <summary>Required days on current position for Training -> Crew transitions.</summary>
+    public int TrainingToCrewEligibilityDays { get; private set; }
+    /// <summary>Required days on current position for New Hire -> Crew transitions.</summary>
+    public int NewHireToCrewEligibilityDays { get; private set; }
+
     private SeniorityMovePolicy() { RailroadCtrlNbr = null!; CraftCtrlNbr = null!; }
 
     public static SeniorityMovePolicy Create(ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr,
-        int eligibilityDays, int requestHours = 0, int cancelHours = 0, bool autoApprove = true,
+        int requestHours = 0, int cancelHours = 0, bool autoApprove = true,
         string crewToCrewStrategy = "", string crewToBoardStrategy = "",
         string extraBoardToCrewStrategy = "", string hangoutToCrewStrategy = "",
         string extendedAbsenceToCrewStrategy = "", string trainingToCrewStrategy = "",
-        string newHireToCrewStrategy = "", bool willWorkEnabled = false)
+        string newHireToCrewStrategy = "", bool willWorkEnabled = false,
+        int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
+        int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
+        int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
+        int newHireToCrewEligibilityDays = 0)
     {
         return new SeniorityMovePolicy
         {
             RailroadCtrlNbr = railroadCtrlNbr,
             CraftCtrlNbr = craftCtrlNbr,
-            EligibilityDays = eligibilityDays,
             RequestHours = requestHours,
             CancelHours = cancelHours,
             AutoApprove = autoApprove,
@@ -297,17 +314,27 @@ public sealed class SeniorityMovePolicy : Entity
             ExtendedAbsenceToCrewStrategy = extendedAbsenceToCrewStrategy,
             TrainingToCrewStrategy = trainingToCrewStrategy,
             NewHireToCrewStrategy = newHireToCrewStrategy,
-            WillWorkEnabled = willWorkEnabled
+            WillWorkEnabled = willWorkEnabled,
+            CrewToCrewEligibilityDays = crewToCrewEligibilityDays,
+            CrewToBoardEligibilityDays = crewToBoardEligibilityDays,
+            ExtraBoardToCrewEligibilityDays = extraBoardToCrewEligibilityDays,
+            HangoutToCrewEligibilityDays = hangoutToCrewEligibilityDays,
+            ExtendedAbsenceToCrewEligibilityDays = extendedAbsenceToCrewEligibilityDays,
+            TrainingToCrewEligibilityDays = trainingToCrewEligibilityDays,
+            NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays
         };
     }
 
-    public void Update(int eligibilityDays, int requestHours, int cancelHours, bool autoApprove,
+    public void Update(int requestHours, int cancelHours, bool autoApprove,
         string crewToCrewStrategy, string crewToBoardStrategy,
         string extraBoardToCrewStrategy, string hangoutToCrewStrategy,
         string extendedAbsenceToCrewStrategy, string trainingToCrewStrategy,
-        string newHireToCrewStrategy, bool willWorkEnabled = false)
+        string newHireToCrewStrategy, bool willWorkEnabled = false,
+        int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
+        int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
+        int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
+        int newHireToCrewEligibilityDays = 0)
     {
-        EligibilityDays = eligibilityDays;
         RequestHours = requestHours;
         CancelHours = cancelHours;
         AutoApprove = autoApprove;
@@ -319,6 +346,13 @@ public sealed class SeniorityMovePolicy : Entity
         TrainingToCrewStrategy = trainingToCrewStrategy;
         NewHireToCrewStrategy = newHireToCrewStrategy;
         WillWorkEnabled = willWorkEnabled;
+        CrewToCrewEligibilityDays = crewToCrewEligibilityDays;
+        CrewToBoardEligibilityDays = crewToBoardEligibilityDays;
+        ExtraBoardToCrewEligibilityDays = extraBoardToCrewEligibilityDays;
+        HangoutToCrewEligibilityDays = hangoutToCrewEligibilityDays;
+        ExtendedAbsenceToCrewEligibilityDays = extendedAbsenceToCrewEligibilityDays;
+        TrainingToCrewEligibilityDays = trainingToCrewEligibilityDays;
+        NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays;
     }
 }
 

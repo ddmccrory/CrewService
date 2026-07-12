@@ -179,13 +179,13 @@
         <button type="button" class="btn btn-outline-secondary" @onclick="OnCancel">Cancel</button>
         @if (BoardMode)
         {
-            <button type="submit" form="@_formId" class="btn btn-success" disabled="@(IsSaving || _model.EmployeeCtrlNbr == 0 || _model.TargetBoardCtrlNbr == 0)">
+            <button type="submit" form="@_formId" class="btn btn-success" disabled="@(!CanSubmit)">
                 <span class="bi bi-box-arrow-in-right me-1"></span> Confirm Move
             </button>
         }
         else
         {
-            <button type="submit" form="@_formId" class="btn btn-primary" disabled="@(IsSaving || _model.TargetPositionCtrlNbr == 0)">
+            <button type="submit" form="@_formId" class="btn btn-primary" disabled="@(!CanSubmit)">
                 <span class="bi bi-arrow-left-right me-1"></span> Request Move
             </button>
         }
@@ -288,6 +288,13 @@
     private readonly string _formId = $"request-move-form-{Guid.NewGuid():N}";
 
     private MoveModel _model = new();
+
+    private bool CanSubmit
+        => !IsSaving
+           && string.IsNullOrWhiteSpace(PreviewError)
+           && !string.IsNullOrWhiteSpace(PreviewEffectiveUtc)
+           && _model.EmployeeCtrlNbr > 0
+           && (BoardMode ? _model.TargetBoardCtrlNbr > 0 : _model.TargetPositionCtrlNbr > 0);
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 

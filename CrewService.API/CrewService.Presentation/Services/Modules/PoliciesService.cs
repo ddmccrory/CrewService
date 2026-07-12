@@ -170,12 +170,16 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
     {
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         var policy = await svc.GetOrUpsertSeniorityMovePolicyAsync(
-            request.RailroadCtrlNbr, request.CraftCtrlNbr, request.EligibilityDays, request.RequestHours,
+            request.RailroadCtrlNbr, request.CraftCtrlNbr, request.RequestHours,
             request.CancelHours, request.AutoApprove,
             request.CrewToCrewStrategy, request.CrewToBoardStrategy,
             request.ExtraBoardToCrewStrategy, request.HangoutToCrewStrategy,
             request.ExtendedAbsenceToCrewStrategy, request.TrainingToCrewStrategy,
             request.NewHireToCrewStrategy, request.WillWorkEnabled,
+            request.CrewToCrewEligibilityDays, request.CrewToBoardEligibilityDays,
+            request.ExtraBoardToCrewEligibilityDays, request.HangoutToCrewEligibilityDays,
+            request.ExtendedAbsenceToCrewEligibilityDays, request.TrainingToCrewEligibilityDays,
+            request.NewHireToCrewEligibilityDays,
             context.CancellationToken);
         return MapSeniorityMovePolicy(policy);
     }
@@ -185,7 +189,6 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         CtrlNbr = p.CtrlNbr.Value,
         RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
         CraftCtrlNbr = p.CraftCtrlNbr.Value,
-        EligibilityDays = p.EligibilityDays,
         RequestHours = p.RequestHours,
         CancelHours = p.CancelHours,
         AutoApprove = p.AutoApprove,
@@ -196,7 +199,14 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         ExtendedAbsenceToCrewStrategy = p.ExtendedAbsenceToCrewStrategy,
         TrainingToCrewStrategy = p.TrainingToCrewStrategy,
         NewHireToCrewStrategy = p.NewHireToCrewStrategy,
-        WillWorkEnabled = p.WillWorkEnabled
+        WillWorkEnabled = p.WillWorkEnabled,
+        CrewToCrewEligibilityDays = p.CrewToCrewEligibilityDays,
+        CrewToBoardEligibilityDays = p.CrewToBoardEligibilityDays,
+        ExtraBoardToCrewEligibilityDays = p.ExtraBoardToCrewEligibilityDays,
+        HangoutToCrewEligibilityDays = p.HangoutToCrewEligibilityDays,
+        ExtendedAbsenceToCrewEligibilityDays = p.ExtendedAbsenceToCrewEligibilityDays,
+        TrainingToCrewEligibilityDays = p.TrainingToCrewEligibilityDays,
+        NewHireToCrewEligibilityDays = p.NewHireToCrewEligibilityDays
     };
 
     public override async Task<SeniorityMoveResponse> ExerciseSeniorityMove(ExerciseSeniorityMoveRequest request, ServerCallContext context)

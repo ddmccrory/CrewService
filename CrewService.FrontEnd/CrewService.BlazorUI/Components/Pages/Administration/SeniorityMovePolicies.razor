@@ -17,8 +17,8 @@
 
 <h1>Seniority Move Policies</h1>
 <p class="text-muted">
-    Configure per-craft seniority move eligibility rules. The eligibility days threshold controls
-    how long an employee must hold their current position before requesting a voluntary move.
+    Configure per-craft seniority move eligibility rules.
+    Eligibility days are configured per transition path alongside effective-date strategies.
     When auto-approve is enabled, pending moves are automatically approved by the background worker.
 </p>
 
@@ -53,11 +53,6 @@ else
                 </div>
                 <div class="row g-4">
                     <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Eligibility (Days on Current Position)</label>
-                            <input type="number" class="form-control" min="0" @bind="editModel.EligibilityDays" />
-                            <ValidationMessage For="() => editModel.EligibilityDays" class="text-danger" />
-                        </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Request Lead Time (Hours)</label>
                             <input type="number" class="form-control" min="0" @bind="editModel.RequestHours" />
@@ -116,23 +111,26 @@ else
                     <div class="col-lg-6">
                         <p class="fw-semibold mb-2">Effective Date Strategies</p>
                         <p class="text-muted small mb-3">
-                            Select how the effective date is computed for each transition type.
+                            Select how the effective date is computed and how many days on current position are required for each transition type.
                             <strong>Not Allowed</strong> blocks that move type entirely.
                             <strong>Immediate</strong> = effective now.
                             <strong>End of Last Work Day</strong> = the off-duty (end-of-shift) time on the last work day of the relevant schedule week (rolls +7 days if within the lead-time window).
                             <strong>Request Lead Time</strong> = now + request hours (no schedule lookup — for crafts without fixed weekly schedules).
                         </p>
-                        @foreach (var (label, getter, setter) in StrategyFields())
+                        @foreach (var item in StrategyFields())
                         {
                             <div class="mb-3 row align-items-center">
-                                <label class="col-sm-5 col-form-label fw-semibold">@label</label>
-                                <div class="col-sm-7">
-                                    <select class="form-select" value="@getter" @onchange="e => setter(e.Value?.ToString() ?? string.Empty)">
+                                <label class="col-sm-5 col-form-label fw-semibold">@item.Label</label>
+                                <div class="col-sm-4">
+                                    <select class="form-select" value="@item.Strategy" @onchange="e => item.SetStrategy(e.Value?.ToString() ?? string.Empty)">
                                         <option value="">— Not Allowed —</option>
                                         <option value="Immediate">Immediate</option>
                                         <option value="FirstOffDay">End of Last Work Day</option>
                                         <option value="RequestLeadTime">Request Lead Time</option>
                                     </select>
+                                </div>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" min="0" value="@item.EligibilityDays" @onchange="e => item.SetEligibilityDays(ParseNonNegativeInt(e.Value?.ToString()))" />
                                 </div>
                             </div>
                         }
@@ -172,7 +170,6 @@ else
             <thead>
                 <tr>
                     <th>Craft</th>
-                    <th>Eligibility Days</th>
                     <th>Request Hours</th>
                     <th>Cancel Hours</th>
                     <th>Crew → Crew</th>
@@ -187,7 +184,6 @@ else
                 {
                     <tr>
                         <td>@row.CraftName</td>
-                        <td>@(row.Policy is not null ? row.Policy.EligibilityDays.ToString() : "—")</td>
                         <td>@(row.Policy is not null ? row.Policy.RequestHours.ToString() : "—")</td>
                         <td>@(row.Policy is not null ? row.Policy.CancelHours.ToString() : "—")</td>
                         <td>
@@ -279,7 +275,13 @@ else
     {
         public long CraftCtrlNbr { get; set; }
         public string CraftName { get; set; } = string.Empty;
-        [Range(0, 3650)] public int EligibilityDays { get; set; } = 30;
+        [Range(0, 3650)] public int CrewToCrewEligibilityDays { get; set; }
+        [Range(0, 3650)] public int CrewToBoardEligibilityDays { get; set; }
+        [Range(0, 3650)] public int ExtraBoardToCrewEligibilityDays { get; set; }
+        [Range(0, 3650)] public int HangoutToCrewEligibilityDays { get; set; }
+        [Range(0, 3650)] public int ExtendedAbsenceToCrewEligibilityDays { get; set; }
+        [Range(0, 3650)] public int TrainingToCrewEligibilityDays { get; set; }
+        [Range(0, 3650)] public int NewHireToCrewEligibilityDays { get; set; }
         [Range(0, 168)] public int RequestHours { get; set; } = 0;
         [Range(0, 168)] public int CancelHours { get; set; } = 0;
         public bool AutoApprove { get; set; } = true;
@@ -355,7 +357,13 @@ else
         {
             CraftCtrlNbr = row.CraftCtrlNbr,
             CraftName = row.CraftName,
-            EligibilityDays = row.Policy?.EligibilityDays ?? 30,
+            CrewToCrewEligibilityDays = row.Policy?.CrewToCrewEligibilityDays ?? 0,
+            CrewToBoardEligibilityDays = row.Policy?.CrewToBoardEligibilityDays ?? 0,
+            ExtraBoardToCrewEligibilityDays = row.Policy?.ExtraBoardToCrewEligibilityDays ?? 0,
+            HangoutToCrewEligibilityDays = row.Policy?.HangoutToCrewEligibilityDays ?? 0,
+            ExtendedAbsenceToCrewEligibilityDays = row.Policy?.ExtendedAbsenceToCrewEligibilityDays ?? 0,
+            TrainingToCrewEligibilityDays = row.Policy?.TrainingToCrewEligibilityDays ?? 0,
+            NewHireToCrewEligibilityDays = row.Policy?.NewHireToCrewEligibilityDays ?? 0,
             RequestHours = row.Policy?.RequestHours ?? 0,
             CancelHours = row.Policy?.CancelHours ?? 0,
             AutoApprove = row.Policy?.AutoApprove ?? true,
@@ -380,16 +388,19 @@ else
 
     private void CloseEditModal() => showEditModal = false;
 
-    private IEnumerable<(string Label, string Value, Action<string> Setter)> StrategyFields() =>
+    private IEnumerable<(string Label, string Strategy, Action<string> SetStrategy, int EligibilityDays, Action<int> SetEligibilityDays)> StrategyFields() =>
     [
-        ("Crew → Crew",              editModel.CrewToCrewStrategy,             v => editModel.CrewToCrewStrategy             = v),
-        ("Crew → Board",             editModel.CrewToBoardStrategy,            v => editModel.CrewToBoardStrategy            = v),
-        ("Extra Board → Crew",       editModel.ExtraBoardToCrewStrategy,       v => editModel.ExtraBoardToCrewStrategy       = v),
-        ("Hangout → Crew",           editModel.HangoutToCrewStrategy,          v => editModel.HangoutToCrewStrategy          = v),
-        ("Extended Absence → Crew",  editModel.ExtendedAbsenceToCrewStrategy,  v => editModel.ExtendedAbsenceToCrewStrategy  = v),
-        ("Training → Crew",          editModel.TrainingToCrewStrategy,         v => editModel.TrainingToCrewStrategy         = v),
-        ("New Hire → Crew",          editModel.NewHireToCrewStrategy,          v => editModel.NewHireToCrewStrategy          = v),
+        ("Crew → Crew", editModel.CrewToCrewStrategy, v => editModel.CrewToCrewStrategy = v, editModel.CrewToCrewEligibilityDays, v => editModel.CrewToCrewEligibilityDays = v),
+        ("Crew → Board", editModel.CrewToBoardStrategy, v => editModel.CrewToBoardStrategy = v, editModel.CrewToBoardEligibilityDays, v => editModel.CrewToBoardEligibilityDays = v),
+        ("Extra Board → Crew", editModel.ExtraBoardToCrewStrategy, v => editModel.ExtraBoardToCrewStrategy = v, editModel.ExtraBoardToCrewEligibilityDays, v => editModel.ExtraBoardToCrewEligibilityDays = v),
+        ("Hangout → Crew", editModel.HangoutToCrewStrategy, v => editModel.HangoutToCrewStrategy = v, editModel.HangoutToCrewEligibilityDays, v => editModel.HangoutToCrewEligibilityDays = v),
+        ("Extended Absence → Crew", editModel.ExtendedAbsenceToCrewStrategy, v => editModel.ExtendedAbsenceToCrewStrategy = v, editModel.ExtendedAbsenceToCrewEligibilityDays, v => editModel.ExtendedAbsenceToCrewEligibilityDays = v),
+        ("Training → Crew", editModel.TrainingToCrewStrategy, v => editModel.TrainingToCrewStrategy = v, editModel.TrainingToCrewEligibilityDays, v => editModel.TrainingToCrewEligibilityDays = v),
+        ("New Hire → Crew", editModel.NewHireToCrewStrategy, v => editModel.NewHireToCrewStrategy = v, editModel.NewHireToCrewEligibilityDays, v => editModel.NewHireToCrewEligibilityDays = v),
     ];
+
+    private static int ParseNonNegativeInt(string? value)
+        => int.TryParse(value, out var parsed) && parsed > 0 ? parsed : 0;
 
     private static string FormatStrategy(string strategy) => strategy switch
     {
@@ -414,7 +425,6 @@ else
             await PoliciesClient.UpsertSeniorityMovePolicyAsync(
                 railroadCtrlNbr,
                 editModel.CraftCtrlNbr,
-                editModel.EligibilityDays,
                 editModel.RequestHours,
                 editModel.CancelHours,
                 editModel.AutoApprove,
@@ -425,7 +435,14 @@ else
                 editModel.ExtendedAbsenceToCrewStrategy,
                 editModel.TrainingToCrewStrategy,
                 editModel.NewHireToCrewStrategy,
-                editModel.WillWorkEnabled);
+                editModel.WillWorkEnabled,
+                editModel.CrewToCrewEligibilityDays,
+                editModel.CrewToBoardEligibilityDays,
+                editModel.ExtraBoardToCrewEligibilityDays,
+                editModel.HangoutToCrewEligibilityDays,
+                editModel.ExtendedAbsenceToCrewEligibilityDays,
+                editModel.TrainingToCrewEligibilityDays,
+                editModel.NewHireToCrewEligibilityDays);
 
             await PoliciesClient.UpsertCraftOperationsPolicyAsync(
                 editModel.CraftCtrlNbr,

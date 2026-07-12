@@ -67,7 +67,17 @@ public sealed class SeniorityAppService(
                     : null;
                 if (policy is not null)
                 {
-                    policyEligibilityDays = policy.EligibilityDays;
+                    policyEligibilityDays = Math.Max(
+                        policy.CrewToCrewEligibilityDays,
+                        Math.Max(
+                            policy.CrewToBoardEligibilityDays,
+                            Math.Max(
+                                policy.ExtraBoardToCrewEligibilityDays,
+                                Math.Max(
+                                    policy.HangoutToCrewEligibilityDays,
+                                    Math.Max(
+                                        policy.ExtendedAbsenceToCrewEligibilityDays,
+                                        Math.Max(policy.TrainingToCrewEligibilityDays, policy.NewHireToCrewEligibilityDays))))));
                     policyRequestHours   = policy.RequestHours;
                 }
                 var restrictingQualTypes = (await uow.QualificationTypes.GetActiveByCraftCtrlNbrAsync(roster.CraftCtrlNbr))

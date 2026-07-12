@@ -99,7 +99,6 @@ internal class SeniorityMovePolicyConfiguration : IEntityTypeConfiguration<Senio
         builder.Property(p => p.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.HasIndex(p => new { p.RailroadCtrlNbr, p.CraftCtrlNbr }).IsUnique();
-        builder.Property(p => p.EligibilityDays).IsRequired();
         builder.Property(p => p.RequestHours).IsRequired();
         builder.Property(p => p.CancelHours).IsRequired();
         builder.Property(p => p.AutoApprove).IsRequired();
@@ -111,6 +110,13 @@ internal class SeniorityMovePolicyConfiguration : IEntityTypeConfiguration<Senio
         builder.Property(p => p.ExtendedAbsenceToCrewStrategy).HasMaxLength(30).IsRequired();
         builder.Property(p => p.TrainingToCrewStrategy).HasMaxLength(30).IsRequired();
         builder.Property(p => p.NewHireToCrewStrategy).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.CrewToCrewEligibilityDays).IsRequired();
+        builder.Property(p => p.CrewToBoardEligibilityDays).IsRequired();
+        builder.Property(p => p.ExtraBoardToCrewEligibilityDays).IsRequired();
+        builder.Property(p => p.HangoutToCrewEligibilityDays).IsRequired();
+        builder.Property(p => p.ExtendedAbsenceToCrewEligibilityDays).IsRequired();
+        builder.Property(p => p.TrainingToCrewEligibilityDays).IsRequired();
+        builder.Property(p => p.NewHireToCrewEligibilityDays).IsRequired();
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Craft>().WithMany().HasForeignKey(p => p.CraftCtrlNbr).OnDelete(DeleteBehavior.Restrict);
