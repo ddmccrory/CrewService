@@ -67,7 +67,12 @@ public sealed class NewHireService(
             var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
             uow.StaffablePositions.Add(staffablePosition);
             var nextOrder = newHireBoard.Positions.Count + 1;
-            newHireBoard.AddPosition(employeeCtrlNbr, nextOrder, staffablePosition.CtrlNbr);
+            var position = newHireBoard.AddPosition(employeeCtrlNbr, nextOrder, staffablePosition.CtrlNbr);
+            uow.PositionAssignments.Add(PositionAssignment.Create(
+                staffablePosition.CtrlNbr,
+                employeeCtrlNbr,
+                PositionAssignmentType.Board,
+                assignmentSourceCtrlNbr: position.CtrlNbr));
             uow.RosterBoards.Update(newHireBoard);
         }
 

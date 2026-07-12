@@ -123,7 +123,7 @@ internal static class DevDataSeeder
         // ?? Scenario 2: PTRA (Legacy Railroad) ??????????????????????
         // Railroad is the work area; hierarchy: Railroad -> Location
         SetParent(ptraCorpResp.CtrlNbr.Value);
-        var ptraLocationType = GroupType.Create("Location", "PTRA operational locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr);
+        var ptraLocationType = GroupType.Create("Location", "PTRA operational locations", isWorkArea: false, parentCtrlNbr: ptraCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
         await groupTypeRepo.AddAsync(ptraLocationType);
 
         var northYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "North Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "NOYD", parentCtrlNbr: ptraCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
@@ -197,8 +197,23 @@ internal static class DevDataSeeder
         {
             SetParent(parentCore.CtrlNbr.Value);
             var pCtrl = parentCore.CtrlNbr.Value;
-            if (!groupTypesBackfill.Any(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == pCtrl))
-                await groupTypeRepo.AddAsync(GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: false, parentCtrlNbr: pCtrl));
+            var existingRailroadType = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == pCtrl);
+            if (existingRailroadType is null)
+            {
+                await groupTypeRepo.AddAsync(GroupType.Create("Railroad", "Railroad operational boundaries", isWorkArea: true, parentCtrlNbr: pCtrl));
+            }
+            else if (!existingRailroadType.IsWorkArea)
+            {
+                existingRailroadType.Update(
+                    existingRailroadType.Name,
+                    existingRailroadType.Description,
+                    isWorkArea: true,
+                    existingRailroadType.FlagsJson,
+                    existingRailroadType.ParentCtrlNbr,
+                    existingRailroadType.RailroadCtrlNbr,
+                    existingRailroadType.ParentGroupTypeCtrlNbr);
+                await groupTypeRepo.UpdateAsync(existingRailroadType);
+            }
         }
 
         // Backfill seniority states for pre-existing parents that may be missing states
@@ -209,7 +224,7 @@ internal static class DevDataSeeder
             ("Cut Back", StateType.CutBack),
             ("Inactive", StateType.Inactive),
             ("Terminated", StateType.OffProperty),
-            ("Dismissed", StateType.OffProperty),
+            ("Dismissed", StateType.Inactive),
             ("Leave of Absence", StateType.Inactive),
             ("Medical Leave", StateType.Inactive),
             ("Retired", StateType.OffProperty)
@@ -222,9 +237,33 @@ internal static class DevDataSeeder
             var existingStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(parentCore.CtrlNbr);
             foreach (var (desc, type) in defaultStates)
             {
-                if (!existingStates.Any(s => s.StateDescription == desc))
+                var existingState = existingStates.FirstOrDefault(s => s.StateDescription == desc);
+                if (existingState is null)
                     await seniorityStateRepo.AddAsync(SeniorityState.Create(desc, type, pCtrl));
+                else if (existingState.StateType != type)
+                {
+                    existingState.Update(desc, type);
+                    await seniorityStateRepo.UpdateAsync(existingState);
+                }
             }
+        }
+
+        // Backfill PTRA Location group type hierarchy: Location -> Railroad
+        SetParent(ptraParentCore.CtrlNbr.Value);
+        groupTypesBackfill = await groupTypeRepo.GetAllAsync();
+        var ptraRailroadTypeBackfill = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
+        var ptraLocationTypeBackfill = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "Location" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
+        if (ptraRailroadTypeBackfill is not null && ptraLocationTypeBackfill is not null && ptraLocationTypeBackfill.ParentGroupTypeCtrlNbr != ptraRailroadTypeBackfill.CtrlNbr)
+        {
+            ptraLocationTypeBackfill.Update(
+                ptraLocationTypeBackfill.Name,
+                ptraLocationTypeBackfill.Description,
+                ptraLocationTypeBackfill.IsWorkArea,
+                ptraLocationTypeBackfill.FlagsJson,
+                ptraLocationTypeBackfill.ParentCtrlNbr,
+                ptraLocationTypeBackfill.RailroadCtrlNbr,
+                ptraRailroadTypeBackfill.CtrlNbr);
+            await groupTypeRepo.UpdateAsync(ptraLocationTypeBackfill);
         }
 
         // Backfill group types scoped to CSX Corporation
@@ -659,17 +698,47 @@ internal static class DevDataSeeder
         {
         var csxRR = (await groupRepo.GetByGroupTypeNameAsync("Railroad")).First(g => g.Code == "CSX");
         var ptraRR = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
-        var csxTransportation = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Transportation");
-        var csxClerical = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Clerical");
-        var ptraTransportation = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Transportation");
+        var csxTransportation = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Transportation", defaultCallSheetView: "Horizontal");
+        var csxClerical = Department.Create(csxParentCtrlNbr, csxRR.CtrlNbr, "Clerical", defaultCallSheetView: "Vertical");
+        var ptraTransportation = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Transportation", defaultCallSheetView: "Horizontal");
         SetParent(csxParentCtrlNbr);
         await departmentRepo.AddAsync(csxTransportation);
         await departmentRepo.AddAsync(csxClerical);
-        var ptraClerical = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Clerical");
+        var ptraClerical = Department.Create(ptraParentCore.CtrlNbr.Value, ptraRR.CtrlNbr, "Clerical", defaultCallSheetView: "Vertical");
         SetParent(ptraParentCore.CtrlNbr.Value);
         await departmentRepo.AddAsync(ptraTransportation);
         await departmentRepo.AddAsync(ptraClerical);
         } // end departments guard
+
+        // Backfill department default views to align with seeded UX expectations.
+        var railroadGroupsForDeptBackfill = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+        var ptraRailroadForDeptBackfill = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).FirstOrDefault(g => g.Code == "PTRA");
+        var csxRailroadForDeptBackfill = railroadGroupsForDeptBackfill.FirstOrDefault(g => g.Code == "CSX");
+        var deptViewByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Transportation"] = "Horizontal",
+            ["Clerical"] = "Vertical"
+        };
+
+        var allDepartmentsForDeptBackfill = await departmentRepo.GetAllAsync();
+        foreach (var dept in allDepartmentsForDeptBackfill.Where(d => deptViewByName.ContainsKey(d.Name)))
+        {
+            if (dept.DynamicGroupCtrlNbr is null || dept.ParentCtrlNbr is null)
+                continue;
+
+            var isPtraRailroadDept = ptraRailroadForDeptBackfill is not null && dept.DynamicGroupCtrlNbr == ptraRailroadForDeptBackfill.CtrlNbr;
+            var isCsxRailroadDept = csxRailroadForDeptBackfill is not null && dept.DynamicGroupCtrlNbr == csxRailroadForDeptBackfill.CtrlNbr;
+            if (!isPtraRailroadDept && !isCsxRailroadDept)
+                continue;
+
+            var expectedView = deptViewByName[dept.Name];
+            if (!string.Equals(dept.DefaultCallSheetView, expectedView, StringComparison.OrdinalIgnoreCase))
+            {
+                SetParent(dept.ParentCtrlNbr.Value);
+                dept.Update(dept.Name, expectedView);
+                await departmentRepo.UpdateAsync(dept);
+            }
+        }
 
         // Seed call sheet rules for Transportation and Clerical using the simplified first-calling-start model.
         var callSheetRuleRepo = sp.GetRequiredService<ICallSheetRuleRepository>();
@@ -920,22 +989,32 @@ internal static class DevDataSeeder
             {
                 var assignedRank = r + 1;
                 SetParent(ptraParentCore.CtrlNbr.Value);
-                await newHireSvc.OnboardAsync(
-                    employeeCtrlNbr: ptraEmpList[ptraEmpIdx].CtrlNbr,
-                    craftCtrlNbr: ptraConductor.CtrlNbr,
-                    trainingRosterCtrlNbr: ptraCondTrainingRoster.CtrlNbr,
-                    seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
-                    hireDate: newHireDate,
-                    regulatoryQualificationCtrlNbr: ptraCfr242swQ?.CtrlNbr,
-                    rank: assignedRank);
+                // The older new-hire cohorts are promoted onto the active Trainman roster so they
+                // appear on the Trainman roster + extra board flows. Only the most recent cohort
+                // remains on the Training roster/New Hire board.
+                if (g < ptraTrnNewHireGroups.Length - 1)
+                {
+                    await seniorityRepo.AddAsync(Seniority.Create(
+                        ptraCondRoster.CtrlNbr,
+                        ptraEmpList[ptraEmpIdx].CtrlNbr,
+                        lastActiveRoster: true,
+                        rosterDate: newHireDate,
+                        rank: assignedRank,
+                        seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                        canTrain: false));
+                }
+                else
+                {
+                    await newHireSvc.OnboardAsync(
+                        employeeCtrlNbr: ptraEmpList[ptraEmpIdx].CtrlNbr,
+                        craftCtrlNbr: ptraConductor.CtrlNbr,
+                        trainingRosterCtrlNbr: ptraCondTrainingRoster.CtrlNbr,
+                        seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
+                        hireDate: newHireDate,
+                        regulatoryQualificationCtrlNbr: ptraCfr242swQ?.CtrlNbr,
+                        rank: assignedRank);
+                }
 
-                // Add the same employee to the active Trainman roster with the same dynamic date so
-                // restriction labels reflect <90-day and >90-day ranges directly on the active roster.
-                await seniorityRepo.AddAsync(Seniority.Create(
-                    ptraCondRoster.CtrlNbr, ptraEmpList[ptraEmpIdx].CtrlNbr,
-                    lastActiveRoster: true, rosterDate: newHireDate,
-                    rank: assignedRank, seniorityStateCtrlNbr: ptraActiveSenState.CtrlNbr,
-                    canTrain: ptraEmpIdx % 5 == 0));
                 ptraEmpIdx++;
             }
         }
@@ -1334,6 +1413,7 @@ internal static class DevDataSeeder
         var displacementPolicyRepo = sp.GetRequiredService<ICraftDisplacementPolicyRepository>();
         var bulletinPolicyRepo = sp.GetRequiredService<IBulletinPolicyRepository>();
         var senMovePolicyRepo = sp.GetRequiredService<ISeniorityMovePolicyRepository>();
+        var craftOpsPolicyRepo = sp.GetRequiredService<ICraftOperationsPolicyRepository>();
 
         var existingPolicies = await displacementPolicyRepo.GetAllAsync();
         if (existingPolicies.Count == 0)
@@ -1349,33 +1429,171 @@ internal static class DevDataSeeder
         await bulletinPolicyRepo.AddAsync(BulletinPolicy.Create(engCraft4.CtrlNbr, 120));
         await bulletinPolicyRepo.AddAsync(BulletinPolicy.Create(condCraft4.CtrlNbr, 120));
 
-        // Engineer: moves to board are at end-of-work-week (FirstOffDay), moves to crew use target schedule (FirstOffDay).
-        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
-            csxRailroad5.CtrlNbr, engCraft4.CtrlNbr,
-            requestHours: 48, cancelHours: 4, autoApprove: true,
-            crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate,
-            crewToCrewEligibilityDays: 90,
-            crewToBoardEligibilityDays: 90,
-            extraBoardToCrewEligibilityDays: 90,
-            hangoutToCrewEligibilityDays: 0));
-
-        // Trainman/Conductor: moves to board use lead time only (no schedule), moves to crew use target schedule.
-        await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
-            csxRailroad5.CtrlNbr, condCraft4.CtrlNbr,
-            requestHours: 48, cancelHours: 4, autoApprove: true,
-            crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.RequestLeadTime,
-            extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
-            hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate,
-            crewToCrewEligibilityDays: 90,
-            crewToBoardEligibilityDays: 90,
-            extraBoardToCrewEligibilityDays: 90,
-            hangoutToCrewEligibilityDays: 0));
-
         } // end policies guard
+
+        async Task SeedSeniorityMoveAndHangoutPoliciesAsync(ControlNumber parentCtrlNbr, string railroadCode)
+        {
+            SetParent(parentCtrlNbr.Value);
+
+            var railroad = (await groupRepo.GetByGroupTypeNameAsync("Railroad", parentCtrlNbr.Value))
+                .FirstOrDefault(g => g.Code == railroadCode);
+            if (railroad is null)
+                return;
+
+            var crafts = await craftRepo.GetByParentAndRailroadAsync(parentCtrlNbr, railroad.CtrlNbr);
+            var targetCrafts = crafts.Where(c => c.CraftName is "Engineer" or "Trainman").ToList();
+            if (targetCrafts.Count == 0)
+                return;
+
+            foreach (var craft in targetCrafts)
+            {
+                var existingPolicy = await senMovePolicyRepo.GetByRailroadAndCraftAsync(railroad.CtrlNbr, craft.CtrlNbr);
+                if (existingPolicy is null)
+                {
+                    await senMovePolicyRepo.AddAsync(SeniorityMovePolicy.Create(
+                        railroad.CtrlNbr,
+                        craft.CtrlNbr,
+                        requestHours: 72,
+                        cancelHours: 0,
+                        autoApprove: true,
+                        crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+                        crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+                        extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+                        hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate,
+                        extendedAbsenceToCrewStrategy: string.Empty,
+                        trainingToCrewStrategy: string.Empty,
+                        newHireToCrewStrategy: string.Empty,
+                        willWorkEnabled: true,
+                        crewToCrewEligibilityDays: 30,
+                        crewToBoardEligibilityDays: 30,
+                        extraBoardToCrewEligibilityDays: 30,
+                        hangoutToCrewEligibilityDays: 0,
+                        extendedAbsenceToCrewEligibilityDays: 0,
+                        trainingToCrewEligibilityDays: 0,
+                        newHireToCrewEligibilityDays: 0));
+                }
+                else
+                {
+                    existingPolicy.Update(
+                        requestHours: 72,
+                        cancelHours: 0,
+                        autoApprove: true,
+                        crewToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+                        crewToBoardStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+                        extraBoardToCrewStrategy: SeniorityMoveEffectiveDateStrategy.FirstOffDay,
+                        hangoutToCrewStrategy: SeniorityMoveEffectiveDateStrategy.Immediate,
+                        extendedAbsenceToCrewStrategy: string.Empty,
+                        trainingToCrewStrategy: string.Empty,
+                        newHireToCrewStrategy: string.Empty,
+                        willWorkEnabled: true,
+                        crewToCrewEligibilityDays: 30,
+                        crewToBoardEligibilityDays: 30,
+                        extraBoardToCrewEligibilityDays: 30,
+                        hangoutToCrewEligibilityDays: 0,
+                        extendedAbsenceToCrewEligibilityDays: 0,
+                        trainingToCrewEligibilityDays: 0,
+                        newHireToCrewEligibilityDays: 0);
+                    await senMovePolicyRepo.UpdateAsync(existingPolicy);
+                }
+
+                var existingCraftOpsPolicy = await craftOpsPolicyRepo.GetByCraftAsync(craft.CtrlNbr);
+                if (existingCraftOpsPolicy is null)
+                {
+                    await craftOpsPolicyRepo.AddAsync(CraftOperationsPolicy.Create(
+                        craft.CtrlNbr,
+                        hangoutAutoMoveEnabled: true,
+                        hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
+                        hangoutAutoMoveDelayHours: 48));
+                }
+                else
+                {
+                    existingCraftOpsPolicy.Update(
+                        hangoutAutoMoveEnabled: true,
+                        hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
+                        hangoutAutoMoveDelayHours: 48);
+                    await craftOpsPolicyRepo.UpdateAsync(existingCraftOpsPolicy);
+                }
+            }
+        }
+
+        await SeedSeniorityMoveAndHangoutPoliciesAsync(csxParentCore.CtrlNbr, "CSX");
+        await SeedSeniorityMoveAndHangoutPoliciesAsync(ptraParentCore.CtrlNbr, "PTRA");
+
+        // Ensure PTRA Trainman trainees are placed on the New Hire board.
+        async Task SeedPtraTrainmanNewHireBoardPlacementsAsync()
+        {
+            SetParent(ptraParentCore.CtrlNbr.Value);
+
+            var ptraRailroad = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value))
+                .FirstOrDefault(g => g.Code == "PTRA");
+            if (ptraRailroad is null)
+                return;
+
+            var ptraCrafts = await craftRepo.GetByParentAndRailroadAsync(ptraParentCore.CtrlNbr, ptraRailroad.CtrlNbr);
+            var ptraTrainmanCraft = ptraCrafts.FirstOrDefault(c => c.CraftName == "Trainman");
+            if (ptraTrainmanCraft is null)
+                return;
+
+            var trainingRoster = await rosterRepo.GetTrainingRosterByCraftAsync(ptraTrainmanCraft.CtrlNbr);
+            if (trainingRoster is null)
+                return;
+
+            var allBoards = await rosterBoardRepo.GetAllAsync();
+            var newHireBoard = allBoards.FirstOrDefault(b => b.CraftCtrlNbr == ptraTrainmanCraft.CtrlNbr && b.BoardType == BoardType.NewHire);
+            if (newHireBoard is null)
+                return;
+
+            var trainees = (await seniorityRepo.GetByRosterCtrlNbrAsync(trainingRoster.CtrlNbr))
+                .OrderBy(s => s.RosterDate)
+                .ThenBy(s => s.Rank)
+                .ToList();
+
+            var alreadyOnBoard = newHireBoard.Positions.Select(p => p.EmployeeCtrlNbr).ToHashSet();
+            var rosterBoardAppSvc = sp.GetRequiredService<RosterBoardAppService>();
+            var nextOrder = newHireBoard.Positions.Count + 1;
+
+            foreach (var trainee in trainees)
+            {
+                if (alreadyOnBoard.Contains(trainee.EmployeeCtrlNbr))
+                    continue;
+
+                try
+                {
+                    await rosterBoardAppSvc.AddRosterBoardPositionAsync(newHireBoard.CtrlNbr, trainee.EmployeeCtrlNbr, nextOrder);
+                    alreadyOnBoard.Add(trainee.EmployeeCtrlNbr);
+                    nextOrder++;
+                }
+                catch (InvalidOperationException)
+                {
+                    // Employee already assigned elsewhere; leave unchanged.
+                }
+            }
+
+            // Backfill missing position assignments for existing New Hire board positions
+            // so Seniority list "Current Position" resolves for trainees.
+            var positionAssignmentRepo = sp.GetRequiredService<IPositionAssignmentRepository>();
+            var staffablePositionRepo = sp.GetRequiredService<IStaffablePositionRepository>();
+            var existingBoardAssignments = await positionAssignmentRepo.GetAssignedEmployeeCtrlNbrsByTypeAsync(PositionAssignmentType.Board);
+
+            foreach (var boardPos in newHireBoard.Positions)
+            {
+                if (existingBoardAssignments.Contains(boardPos.EmployeeCtrlNbr.Value))
+                    continue;
+
+                var staffablePosition = await staffablePositionRepo.GetByCtrlNbrAsync(boardPos.StaffablePositionCtrlNbr);
+                if (staffablePosition is null)
+                    continue;
+
+                await positionAssignmentRepo.AddAsync(PositionAssignment.Create(
+                    boardPos.StaffablePositionCtrlNbr,
+                    boardPos.EmployeeCtrlNbr,
+                    PositionAssignmentType.Board,
+                    assignmentSourceCtrlNbr: boardPos.CtrlNbr));
+                existingBoardAssignments.Add(boardPos.EmployeeCtrlNbr.Value);
+            }
+        }
+
+        await SeedPtraTrainmanNewHireBoardPlacementsAsync();
 
         // ?? Section 11: Payroll � Tiers, Time Entries, Payroll Run ???????????
         var payrollTierRepo = sp.GetRequiredService<IPayrollTierRepository>();
@@ -1915,6 +2133,10 @@ internal static class DevDataSeeder
                     .Select(e => e!)
                     .ToList();
 
+                var ptraTrnSeniorityDateByEmployee = ptraTrnSeniorities
+                    .GroupBy(s => s.EmployeeCtrlNbr)
+                    .ToDictionary(g => g.Key, g => g.Min(s => s.RosterDate.Date));
+
                 var incumbencyBase = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
                 var today = DateTime.UtcNow.Date;
                 var rng = new Random(42);
@@ -1940,22 +2162,37 @@ internal static class DevDataSeeder
                     engCrewAssigned++;
                 }
 
-                // Foreman crew slots (trainmen [0..n])
+                var foremanEligibilityCutoff = today.AddDays(-90);
+                var foremanEligibleTrainmen = ptraTrnEmps
+                    .Where(e => ptraTrnSeniorityDateByEmployee.TryGetValue(e.CtrlNbr, out var seniorityDate)
+                                && seniorityDate <= foremanEligibilityCutoff)
+                    .ToList();
+                var helperOnlyTrainmen = ptraTrnEmps
+                    .Where(e => !foremanEligibleTrainmen.Any(fe => fe.CtrlNbr == e.CtrlNbr))
+                    .ToList();
+
+                // Foreman crew slots (only trainmen who are not Helper Only)
                 int fmnCrewAssigned = 0;
-                for (int i = 0; i < fmnPositions.Count && i < ptraTrnEmps.Count; i++)
+                for (int i = 0; i < fmnPositions.Count && i < foremanEligibleTrainmen.Count; i++)
                 {
                     var pos = fmnPositions[i];
-                    var emp = ptraTrnEmps[i];
+                    var emp = foremanEligibleTrainmen[i];
                     await crewsAppSvc.CreateCrewIncumbencyAsync(pos.CtrlNbr.Value, emp.CtrlNbr.Value, RandomIncumbencyDate(), null);
                     fmnCrewAssigned++;
                 }
 
-                // Helper crew slots (trainmen [fmnCrewAssigned..fmnCrewAssigned+n])
+                // Helper-only trainmen stay on the board; helper crew slots are filled only from
+                // fully eligible trainmen (90+ days).
+                var helperCandidateTrainmen = foremanEligibleTrainmen
+                    .Skip(fmnCrewAssigned)
+                    .ToList();
+
+                // Helper crew slots (remaining fully eligible trainmen only)
                 int hlpCrewAssigned = 0;
-                for (int i = 0; i < hlpPositions.Count && (fmnCrewAssigned + i) < ptraTrnEmps.Count; i++)
+                for (int i = 0; i < hlpPositions.Count && i < helperCandidateTrainmen.Count; i++)
                 {
                     var pos = hlpPositions[i];
-                    var emp = ptraTrnEmps[fmnCrewAssigned + i];
+                    var emp = helperCandidateTrainmen[i];
                     await crewsAppSvc.CreateCrewIncumbencyAsync(pos.CtrlNbr.Value, emp.CtrlNbr.Value, RandomIncumbencyDate(), null);
                     hlpCrewAssigned++;
                 }
@@ -1975,13 +2212,55 @@ internal static class DevDataSeeder
                 }
 
                 // Remaining eligible trainmen go to extra board (those not placed in crew slots)
-                var boardTrnEmps = ptraTrnEmps.Skip(fmnCrewAssigned + hlpCrewAssigned).ToList();
+                var boardTrnEmps = helperOnlyTrainmen
+                    .Concat(helperCandidateTrainmen.Skip(hlpCrewAssigned))
+                    .ToList();
                 for (int i = 0; i < boardTrnEmps.Count; i++)
                 {
                     await rosterBoardAppSvcF.AddRosterBoardPositionAsync(ptraTrnBoardCtrlNbr, boardTrnEmps[i].CtrlNbr, i + 1, assignedDateUtc: RandomIncumbencyDate());
                 }
             }
         }
+
+        // Keep seniority state aligned with board placement: employees on Extended Absence boards
+        // should be in the Inactive seniority state.
+        async Task SyncExtendedAbsenceBoardStatesAsync(ControlNumber parentCtrlNbr)
+        {
+            SetParent(parentCtrlNbr.Value);
+
+            var inactiveState = (await seniorityStateRepo.GetByParentCtrlNbrAsync(parentCtrlNbr))
+                .FirstOrDefault(s => s.StateDescription == "Inactive");
+            if (inactiveState is null)
+                return;
+
+            var allBoards = await rosterBoardRepo.GetAllAsync();
+            var extendedAbsenceBoards = allBoards
+                .Where(b => b.BoardType == BoardType.ExtendedAbsence)
+                .ToList();
+            if (extendedAbsenceBoards.Count == 0)
+                return;
+
+            foreach (var board in extendedAbsenceBoards)
+            {
+                foreach (var boardPos in board.Positions)
+                {
+                    var employeeSeniority = await seniorityRepo.GetByEmployeeCtrlNbrAsync(boardPos.EmployeeCtrlNbr);
+
+                    var matchingSeniority = employeeSeniority
+                        .FirstOrDefault(s => s.RosterCtrlNbr == board.RosterCtrlNbr)
+                        ?? employeeSeniority.FirstOrDefault(s => s.LastActiveRoster);
+
+                    if (matchingSeniority is null || matchingSeniority.SeniorityStateCtrlNbr == inactiveState.CtrlNbr)
+                        continue;
+
+                    matchingSeniority.Update(seniorityStateCtrlNbr: inactiveState.CtrlNbr);
+                    await seniorityRepo.UpdateAsync(matchingSeniority);
+                }
+            }
+        }
+
+        await SyncExtendedAbsenceBoardStatesAsync(csxParentCore.CtrlNbr);
+        await SyncExtendedAbsenceBoardStatesAsync(ptraParentCore.CtrlNbr);
 
         await SeedPtraAnnualizedStrategyAsync(sp);
     }
@@ -2120,7 +2399,7 @@ internal static class DevDataSeeder
         {
             ["Active"]           = (VacancyAction.MoveToBoard, BoardType.Hangout),
             ["Cut Back"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Dismissed"]        = (VacancyAction.VacateAndBulletin, null),
+            ["Dismissed"]        = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
             ["Inactive"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
             ["Leave of Absence"] = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
             ["Medical Leave"]    = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
