@@ -1,4 +1,6 @@
 using CrewService.Application.Policies;
+using CrewService.Application.Notifications;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Seniority;
@@ -22,6 +24,7 @@ using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace CrewService.UnitTests.Policies;
@@ -129,6 +132,59 @@ public class DepartmentReassignmentServiceTests
     }
 
     [Fact]
+    public async Task ReassignEmployeeAsync_WhenBoardNotifyOnPlacementEnabled_AddsNotification()
+    {
+        var workAreaCtrlNbr = ControlNumber.Create(40);
+        var railroadCtrlNbr = ControlNumber.Create(50);
+        var roster = Roster.Create(CraftCtrlNbr, workAreaCtrlNbr, null, "Trainman", "Trainmen", 1);
+        var craft = MakeCraft(DepartmentCtrlNbr);
+        var rule = DepartmentReassignmentRule.Create(DepartmentCtrlNbr, BoardType.Hangout, isRequired: true);
+        var board = RosterBoard.Create(craft.CtrlNbr, roster.CtrlNbr, "Hangout", BoardType.Hangout, isActive: true);
+        board.SetNotifyOnPlacement(true);
+        board.SetPlacementRequiresAcknowledgement(true);
+
+        var uow = BuildUow(
+            rule: rule,
+            crafts: [craft],
+            boardsByCraft: new Dictionary<ControlNumber, IReadOnlyList<RosterBoard>>
+            {
+                [craft.CtrlNbr] = [board]
+            },
+            rostersByCtrlNbr: new Dictionary<ControlNumber, Roster>
+            {
+                [roster.CtrlNbr] = roster
+            },
+            dynamicGroupsByCtrlNbr: new Dictionary<ControlNumber, DynamicGroup>
+            {
+                [workAreaCtrlNbr] = DynamicGroup.Create(
+                    groupTypeCtrlNbr: ControlNumber.Create(900),
+                    name: "Work Area",
+                    parentGroupCtrlNbr: null,
+                    path: null,
+                    isWorkArea: true,
+                    code: "WA",
+                    parentCtrlNbr: null,
+                    railroadCtrlNbr: railroadCtrlNbr,
+                    timeZoneId: null,
+                    workPeriodMode: null)
+            });
+
+        var notifications = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            new RailroadResolver());
+
+        var sut = new DepartmentReassignmentService(notifications);
+
+        await sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.EmployeeNotificationRepo.AddedEntities);
+        Assert.Equal(EmployeeCtrlNbr, notification.EmployeeCtrlNbr);
+        Assert.Equal(railroadCtrlNbr, notification.RailroadCtrlNbr);
+        Assert.Equal(NotificationCategories.BoardPlacement, notification.Category);
+        Assert.True(notification.RequiresAcknowledgement);
+    }
+
+    [Fact]
     public async Task ReassignEmployeeAsync_PrefersEmployeeCurrentCraftBoard_WhenMultipleCraftBoardsExist()
     {
         var employeeCraft = MakeCraft(DepartmentCtrlNbr);
@@ -205,9 +261,19 @@ public class DepartmentReassignmentServiceTests
         IReadOnlyDictionary<ControlNumber, IReadOnlyList<RosterBoard>> boardsByCraft,
         IReadOnlyDictionary<ControlNumber, CraftRole>? craftRolesByCtrlNbr = null,
         IReadOnlyDictionary<ControlNumber, CrewPosition>? crewPositionsByCtrlNbr = null,
-        IReadOnlyDictionary<ControlNumber, IReadOnlyList<PositionAssignment>>? assignmentsByEmployee = null)
+        IReadOnlyDictionary<ControlNumber, IReadOnlyList<PositionAssignment>>? assignmentsByEmployee = null,
+        IReadOnlyDictionary<ControlNumber, Roster>? rostersByCtrlNbr = null,
+        IReadOnlyDictionary<ControlNumber, DynamicGroup>? dynamicGroupsByCtrlNbr = null)
     {
-        return new FakeOrchestrationUnitOfWork(rule, crafts, boardsByCraft, craftRolesByCtrlNbr, crewPositionsByCtrlNbr, assignmentsByEmployee);
+        return new FakeOrchestrationUnitOfWork(
+            rule,
+            crafts,
+            boardsByCraft,
+            craftRolesByCtrlNbr,
+            crewPositionsByCtrlNbr,
+            assignmentsByEmployee,
+            rostersByCtrlNbr,
+            dynamicGroupsByCtrlNbr);
     }
 
     private abstract class RepoBase<TEntity> : IRepository<TEntity> where TEntity : Entity
@@ -318,6 +384,79 @@ public class DepartmentReassignmentServiceTests
             => Task.FromResult(new List<ControlNumber>());
     }
 
+    private sealed class FakeRosterRepo(IReadOnlyDictionary<ControlNumber, Roster> rostersByCtrlNbr)
+        : RepoBase<Roster>, IRosterRepository
+    {
+        public override Task<Roster?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(rostersByCtrlNbr.TryGetValue(ctrlNbr, out var roster) ? roster : null);
+
+        public Task<List<Roster>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr)
+            => Task.FromResult(rostersByCtrlNbr.Values.Where(r => r.CraftCtrlNbr == craftCtrlNbr).ToList());
+
+        public Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs)
+        {
+            var set = craftCtrlNbrs.ToHashSet();
+            return Task.FromResult(rostersByCtrlNbr.Values.Where(r => set.Contains(r.CraftCtrlNbr)).ToList());
+        }
+
+        public Task<List<Roster>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default)
+        {
+            var set = ctrlNbrs.ToHashSet();
+            return Task.FromResult(rostersByCtrlNbr.Where(kvp => set.Contains(kvp.Key)).Select(kvp => kvp.Value).ToList());
+        }
+
+        public Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<Roster?>(null);
+    }
+
+    private sealed class FakeDynamicGroupRepo(IReadOnlyDictionary<ControlNumber, DynamicGroup> groupsByCtrlNbr)
+        : RepoBase<DynamicGroup>, IDynamicGroupRepository
+    {
+        public override Task<DynamicGroup?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(groupsByCtrlNbr.TryGetValue(ctrlNbr, out var group) ? group : null);
+
+        public Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? parentGroupCtrlNbr)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs)
+            => Task.FromResult(groupsByCtrlNbr.Where(kvp => ctrlNbrs.Contains(kvp.Key)).Select(kvp => kvp.Value).ToList());
+
+        public Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name)
+            => Task.FromResult<DynamicGroup?>(null);
+
+        public Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? railroadCtrlNbr = null)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync()
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, ControlNumber? parentCtrlNbr = null)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task BackfillPathsAsync() => Task.CompletedTask;
+    }
+
+    private sealed class FakeEmployeeNotificationRepo : RepoBase<EmployeeNotification>, IEmployeeNotificationRepository
+    {
+        public Task<List<EmployeeNotification>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<EmployeeNotification>());
+
+        public Task<List<EmployeeNotification>> GetUnacknowledgedByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<EmployeeNotification>());
+
+        public Task<List<EmployeeNotification>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<EmployeeNotification>());
+
+        public Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(0);
+    }
+
     private sealed class FakeOrchestrationUnitOfWork : IOrchestrationUnitOfWork
     {
         public FakeDepartmentRuleRepo RuleRepo { get; }
@@ -325,6 +464,9 @@ public class DepartmentReassignmentServiceTests
         public FakeBoardRepo BoardRepo { get; }
         public FakeCraftRoleRepo CraftRoleRepo { get; }
         public FakeCrewPositionRepo CrewPositionRepo { get; }
+        public FakeRosterRepo RosterRepo { get; }
+        public FakeDynamicGroupRepo DynamicGroupRepo { get; }
+        public FakeEmployeeNotificationRepo EmployeeNotificationRepo { get; } = new();
         public FakeStaffableRepo StaffableRepo { get; } = new();
         public FakeAssignmentRepo AssignmentRepo { get; }
 
@@ -334,13 +476,17 @@ public class DepartmentReassignmentServiceTests
             IReadOnlyDictionary<ControlNumber, IReadOnlyList<RosterBoard>> boardsByCraft,
             IReadOnlyDictionary<ControlNumber, CraftRole>? craftRolesByCtrlNbr = null,
             IReadOnlyDictionary<ControlNumber, CrewPosition>? crewPositionsByCtrlNbr = null,
-            IReadOnlyDictionary<ControlNumber, IReadOnlyList<PositionAssignment>>? assignmentsByEmployee = null)
+            IReadOnlyDictionary<ControlNumber, IReadOnlyList<PositionAssignment>>? assignmentsByEmployee = null,
+            IReadOnlyDictionary<ControlNumber, Roster>? rostersByCtrlNbr = null,
+            IReadOnlyDictionary<ControlNumber, DynamicGroup>? dynamicGroupsByCtrlNbr = null)
         {
             RuleRepo = new FakeDepartmentRuleRepo(rule);
             CraftRepo = new FakeCraftRepo(crafts);
             BoardRepo = new FakeBoardRepo(boardsByCraft);
             CraftRoleRepo = new FakeCraftRoleRepo(craftRolesByCtrlNbr ?? new Dictionary<ControlNumber, CraftRole>());
             CrewPositionRepo = new FakeCrewPositionRepo(crewPositionsByCtrlNbr ?? new Dictionary<ControlNumber, CrewPosition>());
+            RosterRepo = new FakeRosterRepo(rostersByCtrlNbr ?? new Dictionary<ControlNumber, Roster>());
+            DynamicGroupRepo = new FakeDynamicGroupRepo(dynamicGroupsByCtrlNbr ?? new Dictionary<ControlNumber, DynamicGroup>());
             AssignmentRepo = new FakeAssignmentRepo(assignmentsByEmployee ?? new Dictionary<ControlNumber, IReadOnlyList<PositionAssignment>>());
         }
 
@@ -371,14 +517,14 @@ public class DepartmentReassignmentServiceTests
         public IEmploymentStatusRepository EmploymentStatuses => null!;
         public IEmploymentStatusHistoryRepository EmploymentStatusHistory => null!;
         public IEmployeePriorServiceCreditRepository EmployeePriorServiceCredits => null!;
-        public IRosterRepository Rosters => null!;
+        public IRosterRepository Rosters => RosterRepo;
         public ISeniorityRepository Seniority => null!;
         public ISeniorityStateRepository SeniorityStates => null!;
         public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => null!;
         public ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults => null!;
         public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => null!;
         public IGroupTypeRepository GroupTypes => null!;
-        public IDynamicGroupRepository DynamicGroups => null!;
+        public IDynamicGroupRepository DynamicGroups => DynamicGroupRepo;
         public IGroupAttributeDefinitionRepository AttributeDefinitions => null!;
         public IGroupAttributeValueRepository AttributeValues => null!;
         public IBoardCascadePolicyRepository BoardCascadePolicies => null!;
@@ -453,6 +599,6 @@ public class DepartmentReassignmentServiceTests
         public IBulletinRepository Bulletins => null!;
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
-        public IEmployeeNotificationRepository EmployeeNotifications => null!;
+        public IEmployeeNotificationRepository EmployeeNotifications => EmployeeNotificationRepo;
     }
 }

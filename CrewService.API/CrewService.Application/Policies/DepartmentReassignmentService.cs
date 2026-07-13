@@ -2,10 +2,12 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.Notifications;
 
 namespace CrewService.Application.Policies;
 
-public sealed class DepartmentReassignmentService
+public sealed class DepartmentReassignmentService(
+    EmployeeNotificationService? notifications = null)
 {
     public async Task ReassignEmployeeAsync(
         IOrchestrationUnitOfWork uow,
@@ -67,6 +69,16 @@ public sealed class DepartmentReassignmentService
             PositionAssignmentType.Board,
             assignmentSourceCtrlNbr: boardPosition.CtrlNbr);
         uow.PositionAssignments.Add(assignment);
+
+        if (notifications is not null)
+        {
+            await notifications.NotifyBoardPlacementAsync(
+                uow,
+                targetBoard,
+                employeeCtrlNbr,
+                subject: null,
+                ct);
+        }
     }
 
     private static async Task<ControlNumber?> ResolveEmployeeCraftCtrlNbrAsync(

@@ -250,11 +250,11 @@ public sealed class CrewsAppService(
                 var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
                 if (positionAssignment is not null)
                 {
-                    // Raise the vacate event (single domain entry point for a freed position) and remove
-                    // the assignment row so occupancy checks see the position as open. The auto-bulletin
-                    // itself is done synchronously below via VacancyRepostService — the same call the
-                    // board-removal path uses — so it never depends on the fire-and-forget reactor.
-                    positionAssignment.Vacate();
+                    // Remove the assignment row so occupancy checks see the position as open.
+                    // Repost is performed synchronously after commit via VacancyRepostService.
+                    // Do not raise PositionAssignmentVacatedDomainEvent on this path; that event
+                    // is also handled by the domain-event reactor and could race with the
+                    // synchronous repost, creating duplicate bulletins for the same position.
                     uow.PositionAssignments.Remove(positionAssignment);
                     vacatedStaffablePositionCtrlNbr = crewPosition.StaffablePositionCtrlNbr;
                     previousIncumbentCtrlNbr = incumbency.EmployeeCtrlNbr;
