@@ -194,3 +194,19 @@ internal sealed class BulletinRuleRepository(CrewServiceDbContext dbContext, ICu
     public async Task<BulletinRule?> GetByCraftAsync(ControlNumber craftCtrlNbr) =>
         await DbContext.Set<BulletinRule>().SingleOrDefaultAsync(r => r.CraftCtrlNbr == craftCtrlNbr);
 }
+
+internal sealed class BulletinAccessAuditRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<BulletinAccessAudit>(dbContext, currentUserService), IBulletinAccessAuditRepository
+{
+    public async Task<bool> ExistsWithinWindowAsync(
+        ControlNumber bulletinCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        DateTime windowStartUtc,
+        DateTime windowEndUtc,
+        CancellationToken ct = default) =>
+        await DbContext.Set<BulletinAccessAudit>()
+            .AnyAsync(a => a.BulletinCtrlNbr == bulletinCtrlNbr
+                        && a.EmployeeCtrlNbr == employeeCtrlNbr
+                        && a.ViewedAtUtc >= windowStartUtc
+                        && a.ViewedAtUtc <= windowEndUtc, ct);
+}

@@ -40,6 +40,21 @@ service PoliciesSrvc {
   rpc UpsertSeniorityMovePolicy(UpsertSeniorityMovePolicyRequest) returns (SeniorityMovePolicyResponse) {
     option (google.api.http) = { put: "/v1/policies/seniority-move/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" body: "*" };
   }
+  rpc GetNoAccessPolicy(GetNoAccessPolicyRequest) returns (NoAccessPolicyResponse) {
+    option (google.api.http) = { get: "/v1/policies/no-access/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" };
+  }
+  rpc UpsertNoAccessPolicy(UpsertNoAccessPolicyRequest) returns (NoAccessPolicyResponse) {
+    option (google.api.http) = { put: "/v1/policies/no-access/{railroad_ctrl_nbr}/{craft_ctrl_nbr}" body: "*" };
+  }
+  rpc ListNoAccessPoliciesByRailroad(ListNoAccessPoliciesByRailroadRequest) returns (ListNoAccessPoliciesByRailroadResponse) {
+    option (google.api.http) = { get: "/v1/policies/no-access/railroad/{railroad_ctrl_nbr}" };
+  }
+  rpc CreateMissingNoAccessPolicy(CreateMissingNoAccessPolicyRequest) returns (NoAccessPolicyResponse) {
+    option (google.api.http) = { post: "/v1/policies/no-access/{railroad_ctrl_nbr}/{craft_ctrl_nbr}/create-missing" body: "*" };
+  }
+  rpc RequestNoAccessByBulletin(RequestNoAccessByBulletinRequest) returns (SeniorityMoveResponse) {
+    option (google.api.http) = { post: "/v1/policies/no-access/request/by-bulletin" body: "*" };
+  }
   rpc ExerciseSeniorityMove(ExerciseSeniorityMoveRequest) returns (SeniorityMoveResponse) {
     option (google.api.http) = { post: "/v1/policies/seniority-move/exercise" body: "*" };
   }
@@ -215,6 +230,74 @@ message SeniorityMovePolicyResponse {
   int32 extended_absence_to_crew_eligibility_days = 20;
   int32 training_to_crew_eligibility_days = 21;
   int32 new_hire_to_crew_eligibility_days = 22;
+}
+
+message GetNoAccessPolicyRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+}
+
+message UpsertNoAccessPolicyRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  bool is_enabled = 3;
+  bool allow_employee_self_request = 4;
+  bool require_bulletin_access_audit = 5;
+  bool block_if_on_extended_absence = 6;
+  bool require_position_currently_assigned = 7;
+  bool apply_extra_board_special_case = 8;
+  bool require_board_available_for_move_off = 9;
+  bool auto_approve_no_access = 10;
+  bool allow_admin_override = 11;
+  string default_effective_mode = 12;
+  bool block_if_employee_marked_off = 13;
+  bool block_if_last_vacated_incumbent = 14;
+}
+
+message NoAccessPolicyResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  int64 craft_ctrl_nbr = 3;
+  bool is_enabled = 4;
+  bool allow_employee_self_request = 5;
+  bool require_bulletin_access_audit = 6;
+  bool block_if_on_extended_absence = 7;
+  bool require_position_currently_assigned = 8;
+  bool apply_extra_board_special_case = 9;
+  bool require_board_available_for_move_off = 10;
+  bool auto_approve_no_access = 11;
+  bool allow_admin_override = 12;
+  string default_effective_mode = 13;
+  bool block_if_employee_marked_off = 14;
+  bool block_if_last_vacated_incumbent = 15;
+}
+
+message ListNoAccessPoliciesByRailroadRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message NoAccessPolicyListItem {
+  int64 craft_ctrl_nbr = 1;
+  string craft_name = 2;
+  bool has_policy = 3;
+  NoAccessPolicyResponse policy = 4;
+}
+
+message ListNoAccessPoliciesByRailroadResponse {
+  repeated NoAccessPolicyListItem items = 1;
+}
+
+message CreateMissingNoAccessPolicyRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+}
+
+message RequestNoAccessByBulletinRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  int64 bulletin_ctrl_nbr = 3;
+  int64 employee_ctrl_nbr = 4;
+  bool admin_override = 5;
 }
 
 message ExerciseSeniorityMoveRequest {

@@ -1,6 +1,7 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.SeniorityOps;
@@ -100,13 +101,22 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
 
         Roster? roster = null;
         var boards = new List<RosterBoard>();
+        var policyRailroadCtrlNbrs = new HashSet<ControlNumber>();
 
         if (workAreaCtrlNbr is not null)
         {
             (roster, boards) = CreateRostersAndBoards(uow, craft, workAreaCtrlNbr, provisioningOptions);
+
+            var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaCtrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Work area {workAreaCtrlNbr.Value} not found.");
+            policyRailroadCtrlNbrs.Add(workArea.OwningRailroadCtrlNbr);
         }
         else if (dynamicGroupCtrlNbr is not null)
         {
+            var selectedGroup = await uow.DynamicGroups.GetByCtrlNbrAsync(dynamicGroupCtrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Dynamic group {dynamicGroupCtrlNbr.Value} not found.");
+            policyRailroadCtrlNbrs.Add(selectedGroup.OwningRailroadCtrlNbr);
+
             // Auto-create for every work area already under this railroad
             var workAreas = await uow.DynamicGroups.GetWorkAreasAsync(dynamicGroupCtrlNbr);
             foreach (var wa in workAreas)
@@ -114,7 +124,16 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
                 var (r, b) = CreateRostersAndBoards(uow, craft, wa.CtrlNbr, provisioningOptions);
                 roster ??= r;
                 boards.AddRange(b);
+                policyRailroadCtrlNbrs.Add(wa.OwningRailroadCtrlNbr);
             }
+        }
+
+        // Auto-provision craft-scoped No Access policy defaults for each applicable railroad.
+        foreach (var railroadCtrlNbr in policyRailroadCtrlNbrs)
+        {
+            var existingPolicy = await uow.NoAccessPolicies.GetByRailroadAndCraftAsync(railroadCtrlNbr, craft.CtrlNbr);
+            if (existingPolicy is null)
+                uow.NoAccessPolicies.Add(NoAccessPolicy.CreateLegacyDefaults(railroadCtrlNbr, craft.CtrlNbr));
         }
 
         // Assign the system-wide Static strategy as the default for the new craft

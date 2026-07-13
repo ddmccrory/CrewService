@@ -27,6 +27,32 @@ public static class ForceAssignSelectionMode
         mode is JuniorExtraBoard or JuniorHelperOrExtraBoard;
 }
 
+public sealed class BulletinAccessAudit : Entity
+{
+    public ControlNumber BulletinCtrlNbr { get; private set; }
+    public ControlNumber EmployeeCtrlNbr { get; private set; }
+    public DateTime ViewedAtUtc { get; private set; }
+
+    private BulletinAccessAudit()
+    {
+        BulletinCtrlNbr = null!;
+        EmployeeCtrlNbr = null!;
+    }
+
+    public static BulletinAccessAudit Create(
+        ControlNumber bulletinCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        DateTime viewedAtUtc)
+    {
+        return new BulletinAccessAudit
+        {
+            BulletinCtrlNbr = bulletinCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            ViewedAtUtc = viewedAtUtc
+        };
+    }
+}
+
 /// <summary>
 /// Controls how the effective datetime of a force-assigned (no-bid) crew bulletin is
 /// computed when the configured effective date lands on a work day versus an off day.

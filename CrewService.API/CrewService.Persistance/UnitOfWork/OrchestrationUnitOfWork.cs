@@ -140,6 +140,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private ICallSheetRuleRepository? _callSheetRules;
     private IDepartmentReassignmentRuleRepository? _departmentReassignmentRules;
     private ISeniorityMovePolicyRepository? _seniorityMovePolicies;
+    private INoAccessPolicyRepository? _noAccessPolicies;
     private ISeniorityMoveRepository? _seniorityMoves;
     private IDispatchProjectionRepository? _dispatchProjections;
     private IDispatchDecisionLogRepository? _dispatchDecisionLogs;
@@ -209,6 +210,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IBulletinRepository? _bulletins;
     private IBulletinBidRepository? _bulletinBids;
     private IBulletinRuleRepository? _bulletinRules;
+    private IBulletinAccessAuditRepository? _bulletinAccessAudits;
     private IEmployeeNotificationRepository? _employeeNotifications;
     private IUserParentAssignmentRepository? _userParentAssignments;
     private IInvitationRepository? _invitations;
@@ -312,6 +314,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public ICallSheetRuleRepository CallSheetRules => _callSheetRules ??= new CallSheetRuleRepository(_crewContext, _currentUserService);
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => _departmentReassignmentRules ??= new DepartmentReassignmentRuleRepository(_crewContext, _currentUserService);
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => _seniorityMovePolicies ??= new SeniorityMovePolicyRepository(_crewContext, _currentUserService);
+    public INoAccessPolicyRepository NoAccessPolicies => _noAccessPolicies ??= new NoAccessPolicyRepository(_crewContext, _currentUserService);
     public ISeniorityMoveRepository SeniorityMoves => _seniorityMoves ??= new SeniorityMoveRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
@@ -392,6 +395,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IBulletinRepository Bulletins => _bulletins ??= new BulletinRepository(_crewContext, _currentUserService);
     public IBulletinBidRepository BulletinBids => _bulletinBids ??= new BulletinBidRepository(_crewContext, _currentUserService);
     public IBulletinRuleRepository BulletinRules => _bulletinRules ??= new BulletinRuleRepository(_crewContext, _currentUserService);
+    public IBulletinAccessAuditRepository BulletinAccessAudits => _bulletinAccessAudits ??= new BulletinAccessAuditRepository(_crewContext, _currentUserService);
     public IEmployeeNotificationRepository EmployeeNotifications => _employeeNotifications ??= new EmployeeNotificationRepository(_crewContext, _currentUserService);
     public IUserParentAssignmentRepository UserParentAssignments => _userParentAssignments ??= new UserParentAssignmentRepository(_crewContext, _currentUserService);
     public IInvitationRepository Invitations => _invitations ??= new InvitationRepository(_crewContext, _currentUserService);

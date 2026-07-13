@@ -385,6 +385,125 @@ public sealed class SeniorityMovePolicy : Entity
     }
 }
 
+public static class NoAccessEffectiveDateMode
+{
+    /// <summary>
+    /// Legacy SA default: effective at local next day 12:01 AM (stored UTC).
+    /// </summary>
+    public const string NextDay0001 = "NextDay0001";
+}
+
+/// <summary>
+/// Craft-scoped policy for No Access request behavior and eligibility gates.
+/// Defaults mirror legacy SA behavior.
+/// </summary>
+public sealed class NoAccessPolicy : Entity
+{
+    public ControlNumber RailroadCtrlNbr { get; private set; }
+    public ControlNumber CraftCtrlNbr { get; private set; }
+
+    public bool IsEnabled { get; private set; }
+    public bool AllowEmployeeSelfRequest { get; private set; }
+    public bool RequireBulletinAccessAudit { get; private set; }
+    public bool BlockIfOnExtendedAbsence { get; private set; }
+    public bool RequirePositionCurrentlyAssigned { get; private set; }
+    public bool ApplyExtraBoardSpecialCase { get; private set; }
+    public bool RequireBoardAvailableForMoveOff { get; private set; }
+    public bool AutoApproveNoAccess { get; private set; }
+    public bool AllowAdminOverride { get; private set; }
+    public bool BlockIfEmployeeMarkedOff { get; private set; }
+    public bool BlockIfLastVacatedIncumbent { get; private set; }
+    public string DefaultEffectiveMode { get; private set; } = NoAccessEffectiveDateMode.NextDay0001;
+
+    private NoAccessPolicy()
+    {
+        RailroadCtrlNbr = null!;
+        CraftCtrlNbr = null!;
+    }
+
+    public static NoAccessPolicy Create(
+        ControlNumber railroadCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        bool isEnabled,
+        bool allowEmployeeSelfRequest,
+        bool requireBulletinAccessAudit,
+        bool blockIfOnExtendedAbsence,
+        bool requirePositionCurrentlyAssigned,
+        bool applyExtraBoardSpecialCase,
+        bool requireBoardAvailableForMoveOff,
+        bool autoApproveNoAccess,
+        bool allowAdminOverride,
+        bool blockIfEmployeeMarkedOff,
+        bool blockIfLastVacatedIncumbent,
+        string defaultEffectiveMode)
+    {
+        return new NoAccessPolicy
+        {
+            RailroadCtrlNbr = railroadCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
+            IsEnabled = isEnabled,
+            AllowEmployeeSelfRequest = allowEmployeeSelfRequest,
+            RequireBulletinAccessAudit = requireBulletinAccessAudit,
+            BlockIfOnExtendedAbsence = blockIfOnExtendedAbsence,
+            RequirePositionCurrentlyAssigned = requirePositionCurrentlyAssigned,
+            ApplyExtraBoardSpecialCase = applyExtraBoardSpecialCase,
+            RequireBoardAvailableForMoveOff = requireBoardAvailableForMoveOff,
+            AutoApproveNoAccess = autoApproveNoAccess,
+            AllowAdminOverride = allowAdminOverride,
+            BlockIfEmployeeMarkedOff = blockIfEmployeeMarkedOff,
+            BlockIfLastVacatedIncumbent = blockIfLastVacatedIncumbent,
+            DefaultEffectiveMode = defaultEffectiveMode
+        };
+    }
+
+    public static NoAccessPolicy CreateLegacyDefaults(ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr)
+    {
+        return Create(
+            railroadCtrlNbr,
+            craftCtrlNbr,
+            isEnabled: true,
+            allowEmployeeSelfRequest: true,
+            requireBulletinAccessAudit: true,
+            blockIfOnExtendedAbsence: true,
+            requirePositionCurrentlyAssigned: true,
+            applyExtraBoardSpecialCase: true,
+            requireBoardAvailableForMoveOff: true,
+            autoApproveNoAccess: true,
+            allowAdminOverride: true,
+            blockIfEmployeeMarkedOff: true,
+            blockIfLastVacatedIncumbent: true,
+            defaultEffectiveMode: NoAccessEffectiveDateMode.NextDay0001);
+    }
+
+    public void Update(
+        bool isEnabled,
+        bool allowEmployeeSelfRequest,
+        bool requireBulletinAccessAudit,
+        bool blockIfOnExtendedAbsence,
+        bool requirePositionCurrentlyAssigned,
+        bool applyExtraBoardSpecialCase,
+        bool requireBoardAvailableForMoveOff,
+        bool autoApproveNoAccess,
+        bool allowAdminOverride,
+        bool blockIfEmployeeMarkedOff,
+        bool blockIfLastVacatedIncumbent,
+        string defaultEffectiveMode)
+    {
+        IsEnabled = isEnabled;
+        AllowEmployeeSelfRequest = allowEmployeeSelfRequest;
+        RequireBulletinAccessAudit = requireBulletinAccessAudit;
+        BlockIfOnExtendedAbsence = blockIfOnExtendedAbsence;
+        RequirePositionCurrentlyAssigned = requirePositionCurrentlyAssigned;
+        ApplyExtraBoardSpecialCase = applyExtraBoardSpecialCase;
+        RequireBoardAvailableForMoveOff = requireBoardAvailableForMoveOff;
+        AutoApproveNoAccess = autoApproveNoAccess;
+        AllowAdminOverride = allowAdminOverride;
+        BlockIfEmployeeMarkedOff = blockIfEmployeeMarkedOff;
+        BlockIfLastVacatedIncumbent = blockIfLastVacatedIncumbent;
+        DefaultEffectiveMode = defaultEffectiveMode;
+    }
+}
+
 public sealed class SeniorityMove : Entity
 {
     public ControlNumber RailroadCtrlNbr { get; private set; }

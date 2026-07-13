@@ -159,6 +159,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     ICallSheetRuleRepository CallSheetRules { get; }
     IDepartmentReassignmentRuleRepository DepartmentReassignmentRules { get; }
     ISeniorityMovePolicyRepository SeniorityMovePolicies { get; }
+    INoAccessPolicyRepository NoAccessPolicies =>
+        throw new NotSupportedException("NoAccessPolicies repository is not implemented for this unit of work.");
     ISeniorityMoveRepository SeniorityMoves { get; }
     // ────────────────────────────────────────────────────
     // Dispatching
@@ -236,6 +238,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IBulletinRepository Bulletins { get; }
     IBulletinBidRepository BulletinBids { get; }
     IBulletinRuleRepository BulletinRules { get; }
+    IBulletinAccessAuditRepository BulletinAccessAudits =>
+        throw new NotSupportedException("BulletinAccessAudits repository is not implemented for this unit of work.");
 
     // ────────────────────────────────────────────────────
     // Notifications

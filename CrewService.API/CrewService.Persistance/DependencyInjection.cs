@@ -170,6 +170,7 @@ public static class DependencyInjection
         services.AddScoped<ICallSheetRuleRepository, CallSheetRuleRepository>();
         services.AddScoped<IDepartmentReassignmentRuleRepository, DepartmentReassignmentRuleRepository>();
         services.AddScoped<ISeniorityMovePolicyRepository, SeniorityMovePolicyRepository>();
+        services.AddScoped<INoAccessPolicyRepository, NoAccessPolicyRepository>();
         services.AddScoped<ISeniorityMoveRepository, SeniorityMoveRepository>();
 
         // Bulletins Module Repositories
@@ -177,6 +178,7 @@ public static class DependencyInjection
         services.AddScoped<IBulletinRepository, BulletinRepository>();
         services.AddScoped<IBulletinBidRepository, BulletinBidRepository>();
         services.AddScoped<IBulletinRuleRepository, BulletinRuleRepository>();
+        services.AddScoped<IBulletinAccessAuditRepository, BulletinAccessAuditRepository>();
 
         // Dispatching Module Repositories
         services.AddScoped<IDispatchProjectionRepository, DispatchProjectionRepository>();

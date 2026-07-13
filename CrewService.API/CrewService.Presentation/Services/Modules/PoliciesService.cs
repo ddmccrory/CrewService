@@ -224,6 +224,116 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         return MapSeniorityMovePolicy(policy);
     }
 
+    public override async Task<NoAccessPolicyResponse> GetNoAccessPolicy(GetNoAccessPolicyRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetNoAccessPolicyAsync(
+                ControlNumber.Create(request.RailroadCtrlNbr),
+                ControlNumber.Create(request.CraftCtrlNbr),
+                context.CancellationToken);
+            return MapNoAccessPolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+    }
+
+    public override async Task<NoAccessPolicyResponse> UpsertNoAccessPolicy(UpsertNoAccessPolicyRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var policy = await svc.GetOrUpsertNoAccessPolicyAsync(
+            request.RailroadCtrlNbr,
+            request.CraftCtrlNbr,
+            request.IsEnabled,
+            request.AllowEmployeeSelfRequest,
+            request.RequireBulletinAccessAudit,
+            request.BlockIfOnExtendedAbsence,
+            request.RequirePositionCurrentlyAssigned,
+            request.ApplyExtraBoardSpecialCase,
+            request.RequireBoardAvailableForMoveOff,
+            request.AutoApproveNoAccess,
+            request.AllowAdminOverride,
+            request.BlockIfEmployeeMarkedOff,
+            request.BlockIfLastVacatedIncumbent,
+            request.DefaultEffectiveMode,
+            context.CancellationToken);
+
+        return MapNoAccessPolicy(policy);
+    }
+
+    public override async Task<ListNoAccessPoliciesByRailroadResponse> ListNoAccessPoliciesByRailroad(
+        ListNoAccessPoliciesByRailroadRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var items = await svc.ListNoAccessPoliciesByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
+
+        var response = new ListNoAccessPoliciesByRailroadResponse();
+        foreach (var item in items)
+        {
+            response.Items.Add(new NoAccessPolicyListItem
+            {
+                CraftCtrlNbr = item.Craft.CtrlNbr.Value,
+                CraftName = item.Craft.CraftName,
+                HasPolicy = item.Policy is not null,
+                Policy = item.Policy is null ? new NoAccessPolicyResponse() : MapNoAccessPolicy(item.Policy)
+            });
+        }
+
+        return response;
+    }
+
+    public override async Task<NoAccessPolicyResponse> CreateMissingNoAccessPolicy(
+        CreateMissingNoAccessPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var policy = await svc.CreateMissingNoAccessPolicyAsync(
+            request.RailroadCtrlNbr,
+            request.CraftCtrlNbr,
+            context.CancellationToken);
+        return MapNoAccessPolicy(policy);
+    }
+
+    public override async Task<SeniorityMoveResponse> RequestNoAccessByBulletin(
+        RequestNoAccessByBulletinRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var move = await svc.RequestNoAccessByBulletinAsync(
+                request.RailroadCtrlNbr,
+                request.CraftCtrlNbr,
+                request.BulletinCtrlNbr,
+                request.EmployeeCtrlNbr,
+                request.AdminOverride,
+                context.CancellationToken);
+            return MapSeniorityMove(move);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    private static NoAccessPolicyResponse MapNoAccessPolicy(NoAccessPolicy p) => new()
+    {
+        CtrlNbr = p.CtrlNbr.Value,
+        RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
+        CraftCtrlNbr = p.CraftCtrlNbr.Value,
+        IsEnabled = p.IsEnabled,
+        AllowEmployeeSelfRequest = p.AllowEmployeeSelfRequest,
+        RequireBulletinAccessAudit = p.RequireBulletinAccessAudit,
+        BlockIfOnExtendedAbsence = p.BlockIfOnExtendedAbsence,
+        RequirePositionCurrentlyAssigned = p.RequirePositionCurrentlyAssigned,
+        ApplyExtraBoardSpecialCase = p.ApplyExtraBoardSpecialCase,
+        RequireBoardAvailableForMoveOff = p.RequireBoardAvailableForMoveOff,
+        AutoApproveNoAccess = p.AutoApproveNoAccess,
+        AllowAdminOverride = p.AllowAdminOverride,
+        BlockIfEmployeeMarkedOff = p.BlockIfEmployeeMarkedOff,
+        BlockIfLastVacatedIncumbent = p.BlockIfLastVacatedIncumbent,
+        DefaultEffectiveMode = p.DefaultEffectiveMode
+    };
+
     private static SeniorityMovePolicyResponse MapSeniorityMovePolicy(SeniorityMovePolicy p) => new()
     {
         CtrlNbr = p.CtrlNbr.Value,
