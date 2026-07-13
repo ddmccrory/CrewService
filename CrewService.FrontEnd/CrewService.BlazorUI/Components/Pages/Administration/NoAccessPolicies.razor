@@ -1,0 +1,522 @@
+@page "/admin/no-access-policies"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject PoliciesClient PoliciesClient
+
+<PageTitle>No Access Policies — Crew Service</PageTitle>
+
+<h1>No Access Policies</h1>
+<p class="text-muted">
+    Configure craft-scoped No Access behavior for this railroad. These policies control
+    employee self-request availability, admin override behavior, and No Access validation gates.
+</p>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage No Access policies.
+    </div>
+}
+else
+{
+    <Modal Visible="showEditModal"
+           Title="@(editModel.CraftCtrlNbr > 0 ? $"Edit No Access Policy — {editModel.CraftName}" : "Edit No Access Policy")"
+           Icon="bi bi-sliders"
+           Size="lg"
+           OnClose="CloseEditModal"
+           StaticBackdrop="true">
+        <BodyContent>
+            <EditForm Model="editModel" OnValidSubmit="OnSave" id="edit-no-access-policy-form">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft</label>
+                    <p class="form-control-plaintext fw-bold">@editModel.CraftName</p>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="isEnabled" @bind="editModel.IsEnabled" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="isEnabled">Enable No Access</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("isEnabled")' title="Show details for Enable No Access">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("isEnabled"))
+                    {
+                        <div class="form-text ms-4">Turns the entire No Access flow on or off for this craft. If disabled, no one can submit or process No Access moves for this craft.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="blockIfEmployeeMarkedOff" @bind="editModel.BlockIfEmployeeMarkedOff" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="blockIfEmployeeMarkedOff">Block if employee is marked off</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("blockIfEmployeeMarkedOff")' title="Show details for Block if employee is marked off">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("blockIfEmployeeMarkedOff"))
+                    {
+                        <div class="form-text ms-4">Prevents No Access requests when the employee has an active approved MARKOFF record.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="blockIfLastVacatedIncumbent" @bind="editModel.BlockIfLastVacatedIncumbent" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="blockIfLastVacatedIncumbent">Block if employee was last incumbent to vacate target</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("blockIfLastVacatedIncumbent")' title="Show details for Block if employee was last incumbent to vacate target">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("blockIfLastVacatedIncumbent"))
+                    {
+                        <div class="form-text ms-4">Rejects a request when the bulletin target was most recently vacated by the same employee submitting the No Access move.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="allowEmployeeSelfRequest" @bind="editModel.AllowEmployeeSelfRequest" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="allowEmployeeSelfRequest">Allow employee self-request</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("allowEmployeeSelfRequest")' title="Show details for Allow employee self-request">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("allowEmployeeSelfRequest"))
+                    {
+                        <div class="form-text ms-4">Allows employees to request No Access themselves from bulletin details. If off, employee-initiated requests are rejected.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="allowAdminOverride" @bind="editModel.AllowAdminOverride" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="allowAdminOverride">Allow admin override</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("allowAdminOverride")' title="Show details for Allow admin override">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("allowAdminOverride"))
+                    {
+                        <div class="form-text ms-4">Allows admin-submitted requests to bypass self-request restrictions. If off, admins cannot override those request-origin rules.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoApproveNoAccess" @bind="editModel.AutoApproveNoAccess" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="autoApproveNoAccess">Auto-approve No Access moves</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("autoApproveNoAccess")' title="Show details for Auto-approve No Access moves">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("autoApproveNoAccess"))
+                    {
+                        <div class="form-text ms-4">When enabled, valid No Access requests are immediately approved and executed by the system. When disabled, they remain pending manual approval.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="requireBulletinAccessAudit" @bind="editModel.RequireBulletinAccessAudit" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="requireBulletinAccessAudit">Require bulletin access audit</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("requireBulletinAccessAudit")' title="Show details for Require bulletin access audit">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("requireBulletinAccessAudit"))
+                    {
+                        <div class="form-text ms-4">When enabled, a recorded bulletin-view audit entry between bulletin open and close times blocks No Access for that bulletin.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="blockIfOnExtendedAbsence" @bind="editModel.BlockIfOnExtendedAbsence" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="blockIfOnExtendedAbsence">Block if employee is on extended absence</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("blockIfOnExtendedAbsence")' title="Show details for Block if employee is on extended absence">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("blockIfOnExtendedAbsence"))
+                    {
+                        <div class="form-text ms-4">Prevents requests for employees currently placed on an Extended Absence board, since they are unavailable for normal assignment movement.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="requirePositionCurrentlyAssigned" @bind="editModel.RequirePositionCurrentlyAssigned" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="requirePositionCurrentlyAssigned">Require employee to be currently assigned</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("requirePositionCurrentlyAssigned")' title="Show details for Require employee to be currently assigned">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("requirePositionCurrentlyAssigned"))
+                    {
+                        <div class="form-text ms-4">Requires the employee to currently hold an active position assignment. If they are not assigned, the request is rejected.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="applyExtraBoardSpecialCase" @bind="editModel.ApplyExtraBoardSpecialCase" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="applyExtraBoardSpecialCase">Apply extra board special case</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("applyExtraBoardSpecialCase")' title="Show details for Apply extra board special case">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("applyExtraBoardSpecialCase"))
+                    {
+                        <div class="form-text ms-4">Applies legacy extra-board handling for extra-board bulletin targets: No Access is allowed only if there is at least one less-senior employee on an Extra Board in the same roster that allows seniority moves.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="requireBoardAvailableForMoveOff" @bind="editModel.RequireBoardAvailableForMoveOff" />
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <label class="form-check-label" for="requireBoardAvailableForMoveOff">Require board to allow move-off</label>
+                            <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("requireBoardAvailableForMoveOff")' title="Show details for Require board to allow move-off">
+                                <span class="bi bi-info-circle"></span>
+                            </button>
+                        </div>
+                    </div>
+                    @if (IsInfoExpanded("requireBoardAvailableForMoveOff"))
+                    {
+                        <div class="form-text ms-4">If the employee is on a board, the board must allow move-off actions. If board rules disallow move-off, the request is rejected.</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label fw-semibold mb-0">Default Effective Mode</label>
+                        <button type="button" class="btn btn-link p-0 text-info" @onclick='() => ToggleInfo("defaultEffectiveMode")' title="Show details for Default Effective Mode">
+                            <span class="bi bi-info-circle"></span>
+                        </button>
+                    </div>
+                    <SelectInput TItem="string" TValue="string"
+                                 Items="effectiveModeOptions"
+                                 Value="editModel.DefaultEffectiveMode"
+                                 ValueChanged="OnDefaultEffectiveModeChanged"
+                                 ValueExpression="() => editModel.DefaultEffectiveMode"
+                                 ValueSelector="@(m => m)"
+                                 TextSelector="@(m => m)"
+                                 Placeholder="— Select effective mode —"
+                                 class="form-select" />
+                    @if (IsInfoExpanded("defaultEffectiveMode"))
+                    {
+                        <div class="form-text">Defines when the No Access move takes effect by default. Current mode <strong>NextDay0001</strong> applies the move at 12:01 AM on the next day.</div>
+                    }
+                    <ValidationMessage For="() => editModel.DefaultEffectiveMode" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditModal">Cancel</button>
+            <button type="submit" form="edit-no-access-policy-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border" /></div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="alert alert-info">No crafts were found for this railroad.</div>
+    }
+    else
+    {
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Craft</th>
+                    <th>Enabled</th>
+                    <th>Self-Request</th>
+                    <th>Admin Override</th>
+                    <th>Auto-Approve</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in rows)
+                {
+                    <tr>
+                        <td>@row.CraftName</td>
+                        <td>@Badge(row.Policy?.IsEnabled)</td>
+                        <td>@Badge(row.Policy?.AllowEmployeeSelfRequest)</td>
+                        <td>@Badge(row.Policy?.AllowAdminOverride)</td>
+                        <td>@Badge(row.Policy?.AutoApproveNoAccess)</td>
+                        <td class="text-end">
+                            @if (!row.HasPolicy)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary px-3 me-2"
+                                        @onclick="() => CreateMissingAsync(row.CraftCtrlNbr)"
+                                        disabled="@isSaving">
+                                    Create
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-outline-primary px-3" @onclick="() => OpenEditModal(row)">
+                                @(row.HasPolicy ? "Edit" : "Configure")
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private sealed class PolicyRow
+    {
+        public long CraftCtrlNbr { get; init; }
+        public string CraftName { get; init; } = string.Empty;
+        public bool HasPolicy { get; init; }
+        public NoAccessPolicyResponse? Policy { get; init; }
+    }
+
+    private sealed class EditModel
+    {
+        public long CraftCtrlNbr { get; set; }
+        public string CraftName { get; set; } = string.Empty;
+        public bool IsEnabled { get; set; }
+        public bool AllowEmployeeSelfRequest { get; set; }
+        public bool RequireBulletinAccessAudit { get; set; }
+        public bool BlockIfOnExtendedAbsence { get; set; }
+        public bool RequirePositionCurrentlyAssigned { get; set; }
+        public bool ApplyExtraBoardSpecialCase { get; set; }
+        public bool RequireBoardAvailableForMoveOff { get; set; }
+        public bool AutoApproveNoAccess { get; set; }
+        public bool AllowAdminOverride { get; set; }
+        public bool BlockIfEmployeeMarkedOff { get; set; }
+        public bool BlockIfLastVacatedIncumbent { get; set; }
+
+        [Required]
+        public string DefaultEffectiveMode { get; set; } = "NextDay0001";
+    }
+
+    private bool isLoading = true;
+    private new bool isSaving;
+    private bool showEditModal;
+    private string? expandedInfoKey;
+    private List<PolicyRow> rows = [];
+    private EditModel editModel = new();
+
+    private readonly IReadOnlyList<string> effectiveModeOptions = ["NextDay0001"];
+
+    protected override string? FeatureKey => "admin/seniority-move-policies";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        RequireFeatureAccess();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+        StateHasChanged();
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!IsContextFullySelected || SelectedRailroadCtrlNbr is null)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            var list = await PoliciesClient.ListNoAccessPoliciesByRailroadAsync(SelectedRailroadCtrlNbr.Value);
+            rows = list.Items
+                .OrderBy(i => i.CraftName)
+                .Select(i => new PolicyRow
+                {
+                    CraftCtrlNbr = i.CraftCtrlNbr,
+                    CraftName = i.CraftName,
+                    HasPolicy = i.HasPolicy,
+                    Policy = i.HasPolicy ? i.Policy : null
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load No Access policies: {ex.Message}";
+            rows = [];
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenEditModal(PolicyRow row)
+    {
+        expandedInfoKey = null;
+        editModel = new EditModel
+        {
+            CraftCtrlNbr = row.CraftCtrlNbr,
+            CraftName = row.CraftName,
+            IsEnabled = row.Policy?.IsEnabled ?? true,
+            AllowEmployeeSelfRequest = row.Policy?.AllowEmployeeSelfRequest ?? true,
+            RequireBulletinAccessAudit = row.Policy?.RequireBulletinAccessAudit ?? true,
+            BlockIfOnExtendedAbsence = row.Policy?.BlockIfOnExtendedAbsence ?? true,
+            RequirePositionCurrentlyAssigned = row.Policy?.RequirePositionCurrentlyAssigned ?? true,
+            ApplyExtraBoardSpecialCase = row.Policy?.ApplyExtraBoardSpecialCase ?? true,
+            RequireBoardAvailableForMoveOff = row.Policy?.RequireBoardAvailableForMoveOff ?? true,
+            AutoApproveNoAccess = row.Policy?.AutoApproveNoAccess ?? true,
+            AllowAdminOverride = row.Policy?.AllowAdminOverride ?? true,
+            BlockIfEmployeeMarkedOff = row.Policy?.BlockIfEmployeeMarkedOff ?? true,
+            BlockIfLastVacatedIncumbent = row.Policy?.BlockIfLastVacatedIncumbent ?? true,
+            DefaultEffectiveMode = string.IsNullOrWhiteSpace(row.Policy?.DefaultEffectiveMode) ? "NextDay0001" : row.Policy!.DefaultEffectiveMode
+        };
+        showEditModal = true;
+    }
+
+    private void CloseEditModal()
+    {
+        showEditModal = false;
+        expandedInfoKey = null;
+    }
+
+    private void ToggleInfo(string key)
+        => expandedInfoKey = expandedInfoKey == key ? null : key;
+
+    private bool IsInfoExpanded(string key)
+        => string.Equals(expandedInfoKey, key, StringComparison.Ordinal);
+
+    private void OnDefaultEffectiveModeChanged(string value)
+        => editModel.DefaultEffectiveMode = string.IsNullOrWhiteSpace(value) ? "NextDay0001" : value;
+
+    private async Task CreateMissingAsync(long craftCtrlNbr)
+    {
+        if (SelectedRailroadCtrlNbr is not { } railroadCtrlNbr)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.CreateMissingNoAccessPolicyAsync(railroadCtrlNbr, craftCtrlNbr);
+            successMessage = "No Access policy created with legacy defaults.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to create policy: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task OnSave()
+    {
+        if (SelectedRailroadCtrlNbr is not { } railroadCtrlNbr)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.UpsertNoAccessPolicyAsync(
+                railroadCtrlNbr,
+                editModel.CraftCtrlNbr,
+                editModel.IsEnabled,
+                editModel.AllowEmployeeSelfRequest,
+                editModel.RequireBulletinAccessAudit,
+                editModel.BlockIfOnExtendedAbsence,
+                editModel.RequirePositionCurrentlyAssigned,
+                editModel.ApplyExtraBoardSpecialCase,
+                editModel.RequireBoardAvailableForMoveOff,
+                editModel.AutoApproveNoAccess,
+                editModel.AllowAdminOverride,
+                editModel.BlockIfEmployeeMarkedOff,
+                editModel.BlockIfLastVacatedIncumbent,
+                editModel.DefaultEffectiveMode);
+
+            showEditModal = false;
+            successMessage = $"No Access policy for {editModel.CraftName} saved.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save policy: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static RenderFragment Badge(bool? value) => builder =>
+    {
+        if (value is null)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "text-muted");
+            builder.AddContent(2, "—");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(3, "span");
+        builder.AddAttribute(4, "class", value.Value ? "badge bg-success" : "badge bg-secondary");
+        builder.AddContent(5, value.Value ? "Yes" : "No");
+        builder.CloseElement();
+    };
+}

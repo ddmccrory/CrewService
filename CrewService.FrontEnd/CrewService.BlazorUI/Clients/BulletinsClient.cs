@@ -65,9 +65,9 @@ public sealed class BulletinsClient(GrpcChannelProvider channelProvider, Circuit
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<BulletinResponse> GetBulletinAsync(long ctrlNbr)
+    public async Task<BulletinResponse> GetBulletinAsync(long ctrlNbr, long employeeCtrlNbr = 0)
     {
-        try { return await _client.GetBulletinAsync(new GetBulletinRequest { CtrlNbr = ctrlNbr }); }
+        try { return await _client.GetBulletinAsync(new GetBulletinRequest { CtrlNbr = ctrlNbr, EmployeeCtrlNbr = employeeCtrlNbr }); }
         catch (Exception ex) { LogException(ex); throw; }
     }
 

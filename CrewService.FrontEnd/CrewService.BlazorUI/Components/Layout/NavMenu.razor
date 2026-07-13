@@ -404,9 +404,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies", "admin/call-sheet-rules", "admin/department-reassignment-rules"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies", "admin/no-access-policies", "admin/call-sheet-rules", "admin/department-reassignment-rules"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies", "admin/call-sheet-rules", "admin/department-reassignment-rules")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/seniority-vacancy-configs", "admin/seniority-move-policies", "admin/no-access-policies", "admin/call-sheet-rules", "admin/department-reassignment-rules")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -484,6 +484,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/seniority-move-policies">
                                     <span class="bi bi-sliders" aria-hidden="true"></span> Seniority Move Policies
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/no-access-policies") || Permissions.HasAccess("admin/seniority-move-policies"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/no-access-policies">
+                                    <span class="bi bi-person-x" aria-hidden="true"></span> No Access Policies
                                 </NavLink>
                             </div>
                         }

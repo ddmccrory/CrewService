@@ -163,6 +163,11 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     /// </summary>
     protected void RequireFeatureAccess()
     {
+        // During prerender, navigation can throw NavigationException on server circuits.
+        // Defer feature-based redirects until interactive execution.
+        if (!RendererInfo.IsInteractive)
+            return;
+
         if (FeatureKey is not null && !Permissions.HasAccess(FeatureKey))
         {
             NavigationManager.NavigateTo("Account/AccessDenied");
