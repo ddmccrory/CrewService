@@ -1428,6 +1428,7 @@ internal static class DevDataSeeder
         var bulletinPolicyRepo = sp.GetRequiredService<IBulletinPolicyRepository>();
         var senMovePolicyRepo = sp.GetRequiredService<ISeniorityMovePolicyRepository>();
         var craftOpsPolicyRepo = sp.GetRequiredService<ICraftOperationsPolicyRepository>();
+        var noAccessPolicyRepo = sp.GetRequiredService<INoAccessPolicyRepository>();
 
         var existingPolicies = await displacementPolicyRepo.GetAllAsync();
         if (existingPolicies.Count == 0)
@@ -1526,6 +1527,29 @@ internal static class DevDataSeeder
                         hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
                         hangoutAutoMoveDelayHours: 48);
                     await craftOpsPolicyRepo.UpdateAsync(existingCraftOpsPolicy);
+                }
+
+                var existingNoAccessPolicy = await noAccessPolicyRepo.GetByRailroadAndCraftAsync(railroad.CtrlNbr, craft.CtrlNbr);
+                if (existingNoAccessPolicy is null)
+                {
+                    await noAccessPolicyRepo.AddAsync(NoAccessPolicy.CreateLegacyDefaults(railroad.CtrlNbr, craft.CtrlNbr));
+                }
+                else
+                {
+                    existingNoAccessPolicy.Update(
+                        isEnabled: true,
+                        allowEmployeeSelfRequest: true,
+                        requireBulletinAccessAudit: true,
+                        blockIfOnExtendedAbsence: true,
+                        requirePositionCurrentlyAssigned: true,
+                        applyExtraBoardSpecialCase: true,
+                        requireBoardAvailableForMoveOff: true,
+                        autoApproveNoAccess: true,
+                        allowAdminOverride: true,
+                        blockIfEmployeeMarkedOff: true,
+                        blockIfLastVacatedIncumbent: true,
+                        defaultEffectiveMode: NoAccessEffectiveDateMode.NextDay0001);
+                    await noAccessPolicyRepo.UpdateAsync(existingNoAccessPolicy);
                 }
             }
         }

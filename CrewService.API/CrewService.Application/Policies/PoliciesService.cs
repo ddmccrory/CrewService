@@ -5,6 +5,7 @@ using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Models.UserAccess;
@@ -276,6 +277,345 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ?? throw new KeyNotFoundException($"Seniority move policy for railroad {railroadCtrlNbr} / craft {craftCtrlNbr} not found.");
     }
 
+    public async Task<NoAccessPolicy> GetNoAccessPolicyAsync(
+        ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.NoAccessPolicies.GetByRailroadAndCraftAsync(railroadCtrlNbr, craftCtrlNbr)
+            ?? throw new KeyNotFoundException($"No access policy for railroad {railroadCtrlNbr} / craft {craftCtrlNbr} not found.");
+    }
+
+    public async Task<NoAccessPolicy> GetOrUpsertNoAccessPolicyAsync(
+        long railroadCtrlNbr,
+        long craftCtrlNbr,
+        bool isEnabled,
+        bool allowEmployeeSelfRequest,
+        bool requireBulletinAccessAudit,
+        bool blockIfOnExtendedAbsence,
+        bool requirePositionCurrentlyAssigned,
+        bool applyExtraBoardSpecialCase,
+        bool requireBoardAvailableForMoveOff,
+        bool autoApproveNoAccess,
+        bool allowAdminOverride,
+        bool blockIfEmployeeMarkedOff,
+        bool blockIfLastVacatedIncumbent,
+        string defaultEffectiveMode,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var railroadCn = ControlNumber.Create(railroadCtrlNbr);
+        var craftCn = ControlNumber.Create(craftCtrlNbr);
+
+        if (string.IsNullOrWhiteSpace(defaultEffectiveMode))
+            defaultEffectiveMode = NoAccessEffectiveDateMode.NextDay0001;
+
+        var existing = await uow.NoAccessPolicies.GetByRailroadAndCraftAsync(railroadCn, craftCn);
+        if (existing is not null)
+        {
+            existing.Update(
+                isEnabled,
+                allowEmployeeSelfRequest,
+                requireBulletinAccessAudit,
+                blockIfOnExtendedAbsence,
+                requirePositionCurrentlyAssigned,
+                applyExtraBoardSpecialCase,
+                requireBoardAvailableForMoveOff,
+                autoApproveNoAccess,
+                allowAdminOverride,
+                blockIfEmployeeMarkedOff,
+                blockIfLastVacatedIncumbent,
+                defaultEffectiveMode);
+            await uow.NoAccessPolicies.UpdateAsync(existing, ct);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var policy = NoAccessPolicy.Create(
+            railroadCn,
+            craftCn,
+            isEnabled,
+            allowEmployeeSelfRequest,
+            requireBulletinAccessAudit,
+            blockIfOnExtendedAbsence,
+            requirePositionCurrentlyAssigned,
+            applyExtraBoardSpecialCase,
+            requireBoardAvailableForMoveOff,
+            autoApproveNoAccess,
+            allowAdminOverride,
+            blockIfEmployeeMarkedOff,
+            blockIfLastVacatedIncumbent,
+            defaultEffectiveMode);
+
+        await uow.NoAccessPolicies.AddAsync(policy, ct);
+        await uow.CommitAsync(ct);
+        return policy;
+    }
+
+    public async Task<NoAccessPolicy> CreateMissingNoAccessPolicyAsync(
+        long railroadCtrlNbr,
+        long craftCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var railroadCn = ControlNumber.Create(railroadCtrlNbr);
+        var craftCn = ControlNumber.Create(craftCtrlNbr);
+
+        var existing = await uow.NoAccessPolicies.GetByRailroadAndCraftAsync(railroadCn, craftCn);
+        if (existing is not null)
+            return existing;
+
+        var policy = NoAccessPolicy.CreateLegacyDefaults(railroadCn, craftCn);
+        await uow.NoAccessPolicies.AddAsync(policy, ct);
+        await uow.CommitAsync(ct);
+        return policy;
+    }
+
+    public async Task<SeniorityMove> RequestNoAccessByBulletinAsync(
+        long railroadCtrlNbr,
+        long craftCtrlNbr,
+        long bulletinCtrlNbr,
+        long employeeCtrlNbr,
+        bool adminOverride,
+        CancellationToken ct = default)
+    {
+        var railroadCn = ControlNumber.Create(railroadCtrlNbr);
+        var craftCn = ControlNumber.Create(craftCtrlNbr);
+        var employeeCn = ControlNumber.Create(employeeCtrlNbr);
+        var bulletinCn = ControlNumber.Create(bulletinCtrlNbr);
+
+        ControlNumber targetPositionCtrlNbr;
+        ControlNumber? displacedEmployeeCtrlNbr;
+        var targetIsExtraBoard = false;
+
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var policy = await uow.NoAccessPolicies.GetByRailroadAndCraftAsync(railroadCn, craftCn);
+            if (policy is null)
+                throw new InvalidOperationException($"No Access policy is not configured for railroad {railroadCn} / craft {craftCn}.");
+
+            if (!policy.IsEnabled)
+                throw new InvalidOperationException("No Access is disabled for this craft.");
+
+            if (!policy.AllowEmployeeSelfRequest && !adminOverride)
+                throw new InvalidOperationException("Employee self-service No Access requests are disabled for this craft.");
+
+            if (adminOverride && !policy.AllowAdminOverride)
+                throw new InvalidOperationException("Admin override is disabled for this craft's No Access policy.");
+
+            var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(bulletinCn, ct)
+                ?? throw new KeyNotFoundException($"Bulletin {bulletinCn} not found.");
+
+            if (bulletin.CraftCtrlNbr != craftCn)
+                throw new InvalidOperationException("Bulletin craft does not match the selected craft.");
+
+            var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Vacancy {bulletin.PositionVacancyCtrlNbr} for bulletin {bulletinCn} was not found.");
+
+            if (policy.BlockIfLastVacatedIncumbent && vacancy.PreviousIncumbentCtrlNbr == employeeCn)
+                throw new InvalidOperationException("Employee is not eligible for No Access on a position they most recently vacated.");
+
+            var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+            var vacancyRailroadCn = workArea?.OwningRailroadCtrlNbr ?? workArea?.RailroadCtrlNbr;
+            if (vacancyRailroadCn is null || vacancyRailroadCn != railroadCn)
+                throw new InvalidOperationException("Bulletin railroad does not match the selected railroad.");
+
+            if (vacancy.TargetType == StaffablePositionType.Crew)
+            {
+                targetPositionCtrlNbr = vacancy.TargetCtrlNbr;
+            }
+            else if (vacancy.TargetType == StaffablePositionType.Board)
+            {
+                var board = await uow.RosterBoards.GetByPositionCtrlNbrAsync(vacancy.TargetCtrlNbr, ct)
+                    ?? throw new InvalidOperationException("No Access board bulletin target could not be resolved to a roster board position.");
+
+                var boardPosition = board.Positions.FirstOrDefault(p => p.CtrlNbr == vacancy.TargetCtrlNbr)
+                    ?? throw new InvalidOperationException("No Access board bulletin target position was not found on its roster board.");
+
+                targetPositionCtrlNbr = boardPosition.StaffablePositionCtrlNbr;
+                targetIsExtraBoard = board.BoardType == BoardType.ExtraBoard;
+            }
+            else
+            {
+                throw new InvalidOperationException($"Unsupported bulletin target type '{vacancy.TargetType}' for No Access requests.");
+            }
+
+            var employeeAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCn);
+            var currentAssignment = employeeAssignments
+                .OrderByDescending(a => a.AssignedDateUtc)
+                .FirstOrDefault();
+
+            var employeeAbsences = await uow.AbsenceRequests.GetByEmployeeAsync(employeeCn);
+            var hasActiveMarkOff = employeeAbsences.Any(a =>
+                a.Status == "APPROVED"
+                && a.EndUtc is null
+                && string.Equals(a.ReasonCode, "MARKOFF", StringComparison.OrdinalIgnoreCase));
+            if (policy.BlockIfEmployeeMarkedOff && hasActiveMarkOff)
+                throw new InvalidOperationException("Employee is currently marked off and is not eligible for No Access requests.");
+
+            if (policy.RequirePositionCurrentlyAssigned && currentAssignment is null)
+                throw new InvalidOperationException("Employee is not currently assigned to a position.");
+
+            if (policy.RequireBoardAvailableForMoveOff && currentAssignment is not null)
+            {
+                var currentBoard = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(currentAssignment.StaffablePositionCtrlNbr, ct);
+                if (currentBoard is not null && !currentBoard.AllowSeniorityMove)
+                    throw new InvalidOperationException($"Current board '{currentBoard.Name}' does not allow moving off by policy.");
+            }
+
+            if (policy.ApplyExtraBoardSpecialCase && targetIsExtraBoard)
+            {
+                var canMoveToExtraBoard = await CanMoveToExtraBoardAsync(uow, employeeCn, craftCn, ct);
+                if (!canMoveToExtraBoard)
+                    throw new InvalidOperationException("No Access requests to extra-board bulletin targets are blocked unless the employee is eligible to move to the extra board.");
+            }
+
+            if (policy.RequireBulletinAccessAudit)
+            {
+                var hasViewedBulletinDuringWindow = await uow.BulletinAccessAudits.ExistsWithinWindowAsync(
+                    bulletin.CtrlNbr,
+                    employeeCn,
+                    bulletin.BidWindowOpensUtc,
+                    bulletin.BidWindowClosesUtc,
+                    ct);
+                if (hasViewedBulletinDuringWindow)
+                    throw new InvalidOperationException("Employee is not eligible for No Access because they viewed this bulletin during its open window.");
+            }
+
+            if (policy.BlockIfOnExtendedAbsence)
+            {
+                var currentBoard = currentAssignment is null
+                    ? null
+                    : await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(currentAssignment.StaffablePositionCtrlNbr, ct);
+                if (currentBoard is not null && currentBoard.BoardType == BoardType.ExtendedAbsence)
+                    throw new InvalidOperationException("No Access requests are blocked while employee is on an Extended Absence board.");
+            }
+
+            var targetAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(targetPositionCtrlNbr);
+            displacedEmployeeCtrlNbr = targetAssignment?.EmployeeCtrlNbr;
+        }
+
+        var move = await ExerciseSeniorityMoveAsync(
+            railroadCtrlNbr,
+            employeeCtrlNbr,
+            craftCtrlNbr,
+            targetPositionCtrlNbr.Value,
+            displacedEmployeeCtrlNbr?.Value,
+            daysOnCurrentPosition: 0,
+            moveType: SeniorityMoveType.NoAccess,
+            ct: ct);
+
+        return move;
+    }
+
+    private static async Task<bool> CanMoveToExtraBoardAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        CancellationToken ct)
+    {
+        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        var currentAssignment = assignments
+            .OrderByDescending(a => a.AssignedDateUtc)
+            .FirstOrDefault();
+
+        if (currentAssignment is null)
+            return false;
+
+        var currentBoard = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(currentAssignment.StaffablePositionCtrlNbr, ct);
+        if (currentBoard is not null && currentBoard.BoardType == BoardType.Hangout)
+            return true;
+
+        if (currentBoard is not null && !currentBoard.AllowSeniorityMove)
+            return false;
+
+        var employeeSeniority = await uow.Seniority.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        var activeSeniority = employeeSeniority.FirstOrDefault(s => s.LastActiveRoster)
+            ?? employeeSeniority.OrderByDescending(s => s.RosterDate).FirstOrDefault();
+        if (activeSeniority is null)
+            return false;
+
+        var craft = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr, ct);
+        if (craft?.ParentCtrlNbr is null)
+            return false;
+
+        var seniorityStates = await uow.SeniorityStates.GetByParentCtrlNbrAsync(craft.ParentCtrlNbr.Value);
+        var activeStateCtrlNbrs = seniorityStates
+            .Where(s => s.StateType == StateType.Active)
+            .Select(s => s.CtrlNbr)
+            .ToHashSet();
+
+        if (!activeStateCtrlNbrs.Contains(activeSeniority.SeniorityStateCtrlNbr))
+            return false;
+
+        var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(craftCtrlNbr, ct);
+        var extraBoardEmployeeCtrlNbrs = boards
+            .Where(b => b.RosterCtrlNbr == activeSeniority.RosterCtrlNbr
+                        && b.BoardType == BoardType.ExtraBoard
+                        && b.AllowSeniorityMove)
+            .SelectMany(b => b.Positions)
+            .Select(p => p.EmployeeCtrlNbr)
+            .Where(cn => cn != employeeCtrlNbr)
+            .Distinct()
+            .ToList();
+
+        foreach (var candidateCtrlNbr in extraBoardEmployeeCtrlNbrs)
+        {
+            var candidateSeniority = (await uow.Seniority.GetByEmployeeCtrlNbrAsync(candidateCtrlNbr))
+                .FirstOrDefault(s => s.RosterCtrlNbr == activeSeniority.RosterCtrlNbr
+                                     && activeStateCtrlNbrs.Contains(s.SeniorityStateCtrlNbr));
+
+            if (candidateSeniority is null)
+                continue;
+
+            var isLessSenior = candidateSeniority.RosterDate > activeSeniority.RosterDate
+                || (candidateSeniority.RosterDate == activeSeniority.RosterDate
+                    && candidateSeniority.Rank > activeSeniority.Rank);
+
+            if (isLessSenior)
+                return true;
+        }
+
+        return false;
+    }
+
+    public async Task<IReadOnlyList<(Craft Craft, NoAccessPolicy? Policy)>> ListNoAccessPoliciesByRailroadAsync(
+        ControlNumber railroadCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var allRosters = await uow.Rosters.GetAllAsync(ct);
+        var workAreaIds = allRosters
+            .Select(r => r.WorkAreaGroupCtrlNbr)
+            .Distinct()
+            .ToList();
+        var workAreas = await uow.DynamicGroups.GetByCtrlNbrsAsync(workAreaIds);
+        var workAreaById = workAreas.ToDictionary(g => g.CtrlNbr, g => g);
+
+        var craftIdsForRailroad = allRosters
+            .Where(r => workAreaById.TryGetValue(r.WorkAreaGroupCtrlNbr, out var wa)
+                        && wa.OwningRailroadCtrlNbr == railroadCtrlNbr)
+            .Select(r => r.CraftCtrlNbr)
+            .Distinct()
+            .ToHashSet();
+
+        if (craftIdsForRailroad.Count == 0)
+            return [];
+
+        var crafts = (await uow.Crafts.GetByCtrlNbrsAsync(craftIdsForRailroad))
+            .OrderBy(c => c.CraftNumber)
+            .ThenBy(c => c.CraftName)
+            .ToList();
+
+        var policies = await uow.NoAccessPolicies.GetByRailroadAsync(railroadCtrlNbr);
+        var policyByCraft = policies.ToDictionary(p => p.CraftCtrlNbr, p => p);
+
+        return crafts
+            .Select(c => (c, policyByCraft.GetValueOrDefault(c.CtrlNbr)))
+            .ToList();
+    }
+
     public async Task<SeniorityMove> ExerciseSeniorityMoveAsync(
         long railroadCtrlNbr, long employeeCtrlNbr, long craftCtrlNbr, long targetPositionCtrlNbr,
         long? displacedEmployeeCtrlNbr, int daysOnCurrentPosition,
@@ -301,6 +641,12 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             uow, ControlNumber.Create(craftCtrlNbr), empCtrlNbr, latestAssignment, ct);
         var strategy = ResolveMoveStrategy(policy, currentBoardType, targetBoardCtrlNbr);
         var requiredEligibilityDays = ResolveRequiredEligibilityDays(policy, currentBoardType, targetBoardCtrlNbr);
+
+        var noAccessAutoApprove = moveType == SeniorityMoveType.NoAccess
+            ? (await uow.NoAccessPolicies.GetByRailroadAndCraftAsync(
+                ControlNumber.Create(railroadCtrlNbr),
+                ControlNumber.Create(craftCtrlNbr)))?.AutoApproveNoAccess
+            : null;
 
         // No Access is an administrative forced bump that bypasses the eligibility threshold.
         var isNoAccess = moveType == SeniorityMoveType.NoAccess;
@@ -373,9 +719,10 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         await uow.CommitAsync(ct);
         seniorityMoveSignal.Notify(move.EffectiveUtc ?? workAreaClock.UtcNow.UtcDateTime);
 
-        var autoApprove = move.MoveType == SeniorityMoveType.NoAccess
-            || move.MoveType == SeniorityMoveType.Hangout
-            || policy?.AutoApprove == true;
+        var autoApprove = move.MoveType == SeniorityMoveType.Hangout
+            || (move.MoveType == SeniorityMoveType.NoAccess
+                ? noAccessAutoApprove != false
+                : policy?.AutoApprove == true);
         var dueNow = move.EffectiveUtc.HasValue && move.EffectiveUtc.Value <= workAreaClock.UtcNow.UtcDateTime;
 
         if (autoApprove && dueNow)

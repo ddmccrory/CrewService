@@ -70,3 +70,13 @@ public interface IBulletinRuleRepository : IRepository<BulletinRule>
 {
     Task<BulletinRule?> GetByCraftAsync(ControlNumber craftCtrlNbr);
 }
+
+public interface IBulletinAccessAuditRepository : IRepository<BulletinAccessAudit>
+{
+    Task<bool> ExistsWithinWindowAsync(
+        ControlNumber bulletinCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        DateTime windowStartUtc,
+        DateTime windowEndUtc,
+        CancellationToken ct = default);
+}

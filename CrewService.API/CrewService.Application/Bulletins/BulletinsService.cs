@@ -101,6 +101,36 @@ public sealed class BulletinsService(
             ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
     }
 
+    public async Task RecordBulletinAccessAuditAsync(
+        ControlNumber bulletinCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(bulletinCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Bulletin {bulletinCtrlNbr} not found.");
+
+        var viewedAtUtc = DateTime.UtcNow;
+        if (viewedAtUtc < bulletin.BidWindowOpensUtc || viewedAtUtc > bulletin.BidWindowClosesUtc)
+            return;
+
+        var alreadyRecorded = await uow.BulletinAccessAudits.ExistsWithinWindowAsync(
+            bulletinCtrlNbr,
+            employeeCtrlNbr,
+            bulletin.BidWindowOpensUtc,
+            bulletin.BidWindowClosesUtc,
+            ct);
+
+        if (alreadyRecorded)
+            return;
+
+        await uow.BulletinAccessAudits.AddAsync(
+            BulletinAccessAudit.Create(bulletinCtrlNbr, employeeCtrlNbr, viewedAtUtc),
+            ct);
+        await uow.CommitAsync(ct);
+    }
+
     public async Task<BulletinBid> SubmitBidAsync(long bulletinCtrlNbr, long employeeCtrlNbr, int priority, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);

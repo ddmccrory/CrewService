@@ -41,6 +41,12 @@ public interface ISeniorityMovePolicyRepository : IRepository<SeniorityMovePolic
     Task<List<SeniorityMovePolicy>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
 }
 
+public interface INoAccessPolicyRepository : IRepository<NoAccessPolicy>
+{
+    Task<NoAccessPolicy?> GetByRailroadAndCraftAsync(ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr);
+    Task<List<NoAccessPolicy>> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
+}
+
 public interface ISeniorityMoveRepository : IRepository<SeniorityMove>
 {
     Task<List<SeniorityMove>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);

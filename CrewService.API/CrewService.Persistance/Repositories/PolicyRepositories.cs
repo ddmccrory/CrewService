@@ -79,6 +79,16 @@ internal sealed class SeniorityMovePolicyRepository(CrewServiceDbContext dbConte
         await DbContext.Set<SeniorityMovePolicy>().Where(p => p.RailroadCtrlNbr == railroadCtrlNbr).ToListAsync();
 }
 
+internal sealed class NoAccessPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<NoAccessPolicy>(dbContext, currentUserService), INoAccessPolicyRepository
+{
+    public async Task<NoAccessPolicy?> GetByRailroadAndCraftAsync(ControlNumber railroadCtrlNbr, ControlNumber craftCtrlNbr) =>
+        await DbContext.Set<NoAccessPolicy>().SingleOrDefaultAsync(p => p.RailroadCtrlNbr == railroadCtrlNbr && p.CraftCtrlNbr == craftCtrlNbr);
+
+    public async Task<List<NoAccessPolicy>> GetByRailroadAsync(ControlNumber railroadCtrlNbr) =>
+        await DbContext.Set<NoAccessPolicy>().Where(p => p.RailroadCtrlNbr == railroadCtrlNbr).ToListAsync();
+}
+
 internal sealed class SeniorityMoveRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<SeniorityMove>(dbContext, currentUserService), ISeniorityMoveRepository
 {

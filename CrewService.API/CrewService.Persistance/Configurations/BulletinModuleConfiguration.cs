@@ -36,6 +36,27 @@ internal class PositionVacancyConfiguration : IEntityTypeConfiguration<PositionV
     }
 }
 
+internal class BulletinAccessAuditConfiguration : IEntityTypeConfiguration<BulletinAccessAudit>
+{
+    public void Configure(EntityTypeBuilder<BulletinAccessAudit> builder)
+    {
+        builder.HasKey(a => a.CtrlNbr);
+        builder.Property(a => a.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.BulletinCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.ViewedAtUtc).IsRequired();
+
+        builder.HasOne<Bulletin>().WithMany().HasForeignKey(a => a.BulletinCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(a => new { a.BulletinCtrlNbr, a.EmployeeCtrlNbr, a.ViewedAtUtc });
+
+        builder.OwnsOne(a => a.CreatedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.ModifiedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
 internal class BulletinConfiguration : IEntityTypeConfiguration<Bulletin>
 {
     public void Configure(EntityTypeBuilder<Bulletin> builder)

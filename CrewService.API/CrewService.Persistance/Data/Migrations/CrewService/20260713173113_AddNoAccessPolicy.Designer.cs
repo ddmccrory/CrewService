@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713173113_AddNoAccessPolicy")]
+    partial class AddNoAccessPolicy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -1648,35 +1651,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("PositionVacancyCtrlNbr");
 
                     b.ToTable("Bulletins");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.BulletinAccessAudit", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("BulletinCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EmployeeCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("ViewedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("EmployeeCtrlNbr");
-
-                    b.HasIndex("BulletinCtrlNbr", "EmployeeCtrlNbr", "ViewedAtUtc");
-
-                    b.ToTable("BulletinAccessAudits");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.BulletinBid", b =>
@@ -4626,12 +4600,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("AutoApproveNoAccess")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("BlockIfEmployeeMarkedOff")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("BlockIfLastVacatedIncumbent")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("BlockIfOnExtendedAbsence")
@@ -9066,90 +9034,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("BulletinCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Modules.Bulletins.BulletinAccessAudit", b =>
-                {
-                    b.HasOne("CrewService.Domain.Modules.Bulletins.Bulletin", null)
-                        .WithMany()
-                        .HasForeignKey("BulletinCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
-                        .WithMany()
-                        .HasForeignKey("EmployeeCtrlNbr")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("BulletinAccessAuditCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("BulletinAccessAuditCtrlNbr");
-
-                            b1.ToTable("BulletinAccessAudits");
-
-                            b1.WithOwner()
-                                .HasForeignKey("BulletinAccessAuditCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("BulletinAccessAuditCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("BulletinAccessAuditCtrlNbr");
-
-                            b1.ToTable("BulletinAccessAudits");
-
-                            b1.WithOwner()
-                                .HasForeignKey("BulletinAccessAuditCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("BulletinAccessAuditCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("BulletinAccessAuditCtrlNbr");
-
-                            b1.ToTable("BulletinAccessAudits");
-
-                            b1.WithOwner()
-                                .HasForeignKey("BulletinAccessAuditCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");

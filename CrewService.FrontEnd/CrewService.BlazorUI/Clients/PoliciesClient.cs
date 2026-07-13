@@ -153,6 +153,101 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    // ── No Access Policy ─────────────────────────────────────────────
+
+    public async Task<NoAccessPolicyResponse?> GetNoAccessPolicyAsync(long railroadCtrlNbr, long craftCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetNoAccessPolicyAsync(new GetNoAccessPolicyRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
+            });
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<NoAccessPolicyResponse> UpsertNoAccessPolicyAsync(
+        long railroadCtrlNbr,
+        long craftCtrlNbr,
+        bool isEnabled,
+        bool allowEmployeeSelfRequest,
+        bool requireBulletinAccessAudit,
+        bool blockIfOnExtendedAbsence,
+        bool requirePositionCurrentlyAssigned,
+        bool applyExtraBoardSpecialCase,
+        bool requireBoardAvailableForMoveOff,
+        bool autoApproveNoAccess,
+        bool allowAdminOverride,
+        bool blockIfEmployeeMarkedOff,
+        bool blockIfLastVacatedIncumbent,
+        string defaultEffectiveMode)
+    {
+        try
+        {
+            return await _client.UpsertNoAccessPolicyAsync(new UpsertNoAccessPolicyRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr,
+                IsEnabled = isEnabled,
+                AllowEmployeeSelfRequest = allowEmployeeSelfRequest,
+                RequireBulletinAccessAudit = requireBulletinAccessAudit,
+                BlockIfOnExtendedAbsence = blockIfOnExtendedAbsence,
+                RequirePositionCurrentlyAssigned = requirePositionCurrentlyAssigned,
+                ApplyExtraBoardSpecialCase = applyExtraBoardSpecialCase,
+                RequireBoardAvailableForMoveOff = requireBoardAvailableForMoveOff,
+                AutoApproveNoAccess = autoApproveNoAccess,
+                AllowAdminOverride = allowAdminOverride,
+                BlockIfEmployeeMarkedOff = blockIfEmployeeMarkedOff,
+                BlockIfLastVacatedIncumbent = blockIfLastVacatedIncumbent,
+                DefaultEffectiveMode = defaultEffectiveMode
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<ListNoAccessPoliciesByRailroadResponse> ListNoAccessPoliciesByRailroadAsync(long railroadCtrlNbr)
+    {
+        try { return await _client.ListNoAccessPoliciesByRailroadAsync(new ListNoAccessPoliciesByRailroadRequest { RailroadCtrlNbr = railroadCtrlNbr }); }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<NoAccessPolicyResponse> CreateMissingNoAccessPolicyAsync(long railroadCtrlNbr, long craftCtrlNbr)
+    {
+        try
+        {
+            return await _client.CreateMissingNoAccessPolicyAsync(new CreateMissingNoAccessPolicyRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<SeniorityMoveResponse> RequestNoAccessByBulletinAsync(
+        long railroadCtrlNbr,
+        long craftCtrlNbr,
+        long bulletinCtrlNbr,
+        long employeeCtrlNbr,
+        bool adminOverride)
+    {
+        try
+        {
+            return await _client.RequestNoAccessByBulletinAsync(new RequestNoAccessByBulletinRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr,
+                BulletinCtrlNbr = bulletinCtrlNbr,
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                AdminOverride = adminOverride
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Seniority Moves ───────────────────────────────────────────────
 
     public async Task<SeniorityMoveResponse> ExerciseSeniorityMoveAsync(ExerciseSeniorityMoveRequest request)

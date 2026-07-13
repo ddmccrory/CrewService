@@ -16,6 +16,7 @@
 @inject CrewClient CrewClient
 @inject AssignmentClient AssignmentClient
 @inject WorkManagementClient WorkManagementClient
+@inject PoliciesClient PoliciesClient
 
 <PageTitle>Bulletin Detail</PageTitle>
 
@@ -121,6 +122,12 @@ else
                         <button class="btn btn-warning" @onclick="OpenForceAssignModal" disabled="@isSaving">
                              <span class="bi bi-person-fill-exclamation"></span> Force Assign
                          </button>
+                    }
+                    @if (bulletin.Status == "Posted" && FilterEmployeeCtrlNbr > 0)
+                    {
+                        <button class="btn btn-outline-primary" @onclick="OpenNoAccessModal" disabled="@isSaving">
+                            <span class="bi bi-person-x"></span> Request No Access
+                        </button>
                     }
                 </div>
             </div>
@@ -358,6 +365,24 @@ else
             </button>
         </Footer>
     </Modal>
+
+    @* ── No Access Request Confirmation Modal ── *@
+    <Modal Visible="showNoAccessModal" Title="Request No Access" Icon="bi bi-person-x"
+           OnClose="() => showNoAccessModal = false" StaticBackdrop="true">
+        <BodyContent>
+            <div class="alert alert-warning mb-0">
+                <span class="bi bi-exclamation-triangle me-1"></span>
+                This will submit a No Access seniority move request for the selected employee against this bulletin target.
+            </div>
+        </BodyContent>
+        <Footer>
+            <button class="btn btn-secondary" @onclick="() => showNoAccessModal = false">Cancel</button>
+            <button class="btn btn-primary" @onclick="ConfirmNoAccess" disabled="@isSaving">
+                @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Submit Request
+            </button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -377,6 +402,7 @@ else
     private bool showForceModal;
     private bool showAddBidModal;
     private bool showCancelModal;
+    private bool showNoAccessModal;
     private long actionEmployeeCtrlNbr;
     private string? lockedEmployeeName;
 
@@ -417,7 +443,7 @@ else
         isLoading = true;
         try
         {
-            var result = await BulletinsClient.GetBulletinAsync(CtrlNbr);
+            var result = await BulletinsClient.GetBulletinAsync(CtrlNbr, FilterEmployeeCtrlNbr);
             if (ComponentToken.IsCancellationRequested) return;
             bulletin = result;
             await LoadCrewContextAsync(result.CrewCtrlNbr);
@@ -610,6 +636,54 @@ else
         }
         catch (Exception ex) { errorMessage = $"Failed to add bid: {ex.Message}"; }
         finally { isSaving = false; }
+    }
+
+    private void OpenNoAccessModal()
+    {
+        if (isSaving || FilterEmployeeCtrlNbr <= 0)
+            return;
+        showNoAccessModal = true;
+    }
+
+    private async Task ConfirmNoAccess()
+    {
+        if (isSaving || bulletin is null)
+            return;
+
+        if (SelectedRailroadCtrlNbr is not { } railroadCtrlNbr)
+        {
+            errorMessage = "Select a railroad context before requesting No Access.";
+            return;
+        }
+
+        if (FilterEmployeeCtrlNbr <= 0)
+        {
+            errorMessage = "Employee context is required to request No Access.";
+            return;
+        }
+
+        try
+        {
+            isSaving = true;
+            await PoliciesClient.RequestNoAccessByBulletinAsync(
+                railroadCtrlNbr,
+                bulletin.CraftCtrlNbr,
+                bulletin.CtrlNbr,
+                FilterEmployeeCtrlNbr,
+                adminOverride: false);
+
+            showNoAccessModal = false;
+            successMessage = "No Access request submitted.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to request No Access: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     private async Task ConfirmAward()

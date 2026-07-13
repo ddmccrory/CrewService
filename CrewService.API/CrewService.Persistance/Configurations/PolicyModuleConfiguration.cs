@@ -128,6 +128,38 @@ internal class SeniorityMovePolicyConfiguration : IEntityTypeConfiguration<Senio
     }
 }
 
+internal class NoAccessPolicyConfiguration : IEntityTypeConfiguration<NoAccessPolicy>
+{
+    public void Configure(EntityTypeBuilder<NoAccessPolicy> builder)
+    {
+        builder.HasKey(p => p.CtrlNbr);
+        builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(p => p.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(p => new { p.RailroadCtrlNbr, p.CraftCtrlNbr }).IsUnique();
+
+        builder.Property(p => p.IsEnabled).IsRequired();
+        builder.Property(p => p.AllowEmployeeSelfRequest).IsRequired();
+        builder.Property(p => p.RequireBulletinAccessAudit).IsRequired();
+        builder.Property(p => p.BlockIfOnExtendedAbsence).IsRequired();
+        builder.Property(p => p.RequirePositionCurrentlyAssigned).IsRequired();
+        builder.Property(p => p.ApplyExtraBoardSpecialCase).IsRequired();
+        builder.Property(p => p.RequireBoardAvailableForMoveOff).IsRequired();
+        builder.Property(p => p.AutoApproveNoAccess).IsRequired();
+        builder.Property(p => p.AllowAdminOverride).IsRequired();
+        builder.Property(p => p.BlockIfEmployeeMarkedOff).IsRequired();
+        builder.Property(p => p.BlockIfLastVacatedIncumbent).IsRequired();
+        builder.Property(p => p.DefaultEffectiveMode).HasMaxLength(30).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(p => p.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
 internal class CallSheetRuleConfiguration : IEntityTypeConfiguration<CallSheetRule>
 {
     public void Configure(EntityTypeBuilder<CallSheetRule> builder)

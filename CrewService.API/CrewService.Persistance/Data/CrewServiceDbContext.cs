@@ -85,6 +85,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Bulletins.Bulletin> Bulletins => Set<Domain.Modules.Bulletins.Bulletin>();
     public DbSet<Domain.Modules.Bulletins.BulletinBid> BulletinBids => Set<Domain.Modules.Bulletins.BulletinBid>();
     public DbSet<Domain.Modules.Bulletins.BulletinRule> BulletinRules => Set<Domain.Modules.Bulletins.BulletinRule>();
+    public DbSet<Domain.Modules.Bulletins.BulletinAccessAudit> BulletinAccessAudits => Set<Domain.Modules.Bulletins.BulletinAccessAudit>();
 
     // Dispatching Module
     public DbSet<Domain.Modules.Dispatching.OnDutyRecord> OnDutyRecords => Set<Domain.Modules.Dispatching.OnDutyRecord>();
@@ -126,6 +127,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Policies.BulletinPolicy> BulletinPolicies => Set<Domain.Modules.Policies.BulletinPolicy>();
     public DbSet<Domain.Modules.Policies.DepartmentReassignmentRule> DepartmentReassignmentRules => Set<Domain.Modules.Policies.DepartmentReassignmentRule>();
     public DbSet<Domain.Modules.Policies.SeniorityMovePolicy> SeniorityMovePolicies => Set<Domain.Modules.Policies.SeniorityMovePolicy>();
+    public DbSet<Domain.Modules.Policies.NoAccessPolicy> NoAccessPolicies => Set<Domain.Modules.Policies.NoAccessPolicy>();
     public DbSet<Domain.Modules.Policies.SeniorityMove> SeniorityMoves => Set<Domain.Modules.Policies.SeniorityMove>();
 
     // Infrastructure Module

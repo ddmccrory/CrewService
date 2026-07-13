@@ -222,6 +222,14 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
         try
         {
+            if (request.EmployeeCtrlNbr > 0)
+            {
+                await svc.RecordBulletinAccessAuditAsync(
+                    ControlNumber.Create(request.CtrlNbr),
+                    ControlNumber.Create(request.EmployeeCtrlNbr),
+                    context.CancellationToken);
+            }
+
             var bulletin = await svc.GetBulletinAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
             var vacancy = await svc.GetVacancyAsync(bulletin.PositionVacancyCtrlNbr, context.CancellationToken);
             var tz = await GetWorkAreaTimeZoneAsync(vacancy.WorkAreaGroupCtrlNbr.Value, context.CancellationToken);
