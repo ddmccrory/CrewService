@@ -1,5 +1,7 @@
 using CrewService.Application.Crews;
+using CrewService.Application.Notifications;
 using CrewService.Application.Policies;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
@@ -156,11 +158,12 @@ public class BulletinCreationServiceTests
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
         Assert.True(uow.Committed);
-        Assert.Contains(staffPos.CtrlNbr, repost.RepostedPositions);
+        Assert.Single(repost.RepostedPositions);
+        Assert.Equal(staffPos.CtrlNbr, repost.RepostedPositions[0]);
     }
 
     [Fact]
-    public async Task EndCrewIncumbency_RaisesPositionAssignmentVacatedEvent()
+    public async Task EndCrewIncumbency_DoesNotRaisePositionAssignmentVacatedEvent()
     {
         var staffPos   = StaffablePosition.Create(StaffablePositionType.Crew);
         var crewPos    = MakeCrewPosition(staffPos.CtrlNbr);
@@ -176,7 +179,7 @@ public class BulletinCreationServiceTests
         await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow,
             TestContext.Current.CancellationToken);
 
-        Assert.Contains(assignment.DomainEvents, e => e is PositionAssignmentVacatedDomainEvent);
+        Assert.DoesNotContain(assignment.DomainEvents, e => e is PositionAssignmentVacatedDomainEvent);
     }
 
     [Fact]
@@ -242,6 +245,35 @@ public class BulletinCreationServiceTests
     }
 
     [Fact]
+    public async Task EndCrewIncumbency_WithDepartmentRule_CreatesBoardPlacementNotification()
+    {
+        var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
+        var crewPos = MakeCrewPosition(staffPos.CtrlNbr);
+        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
+        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
+
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
+            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
+
+        var repost = new RecordingVacancyRepostService();
+        var notifications = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            new FixedRailroadResolver(ControlNumber.Create(999)));
+        var sut = new CrewsAppService(
+            new FakeUowFactory(uow),
+            repost,
+            new DepartmentReassignmentService(notifications),
+            NullLogger<CrewsAppService>.Instance);
+
+        await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.FakeEmployeeNotifications.AddedEntities);
+        Assert.Equal(EmployeeCtrlNbr, notification.EmployeeCtrlNbr);
+        Assert.Equal(NotificationCategories.BoardPlacement, notification.Category);
+    }
+
+    [Fact]
     public async Task EndCrewIncumbency_WithoutDepartmentRule_Throws()
     {
         var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
@@ -257,6 +289,14 @@ public class BulletinCreationServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken));
+    }
+
+    private sealed class FixedRailroadResolver(ControlNumber railroadCtrlNbr) : IRailroadResolver
+    {
+        public Task<ControlNumber?> ResolveFromWorkAreaAsync(
+            IOrchestrationUnitOfWork uow,
+            ControlNumber workAreaGroupCtrlNbr,
+            CancellationToken ct = default) => Task.FromResult<ControlNumber?>(railroadCtrlNbr);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -464,12 +504,31 @@ public class BulletinCreationServiceTests
         public Task BackfillPathsAsync() => Task.CompletedTask;
     }
 
+    private sealed class FakeRosterRepo(Roster? roster) : FakeRepoBase<Roster>, IRosterRepository
+    {
+        public override Task<Roster?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(roster);
+
+        public Task<List<Roster>> GetByCraftCtrlNbrAsync(ControlNumber craftCtrlNbr)
+            => Task.FromResult(roster is not null ? new List<Roster> { roster } : new List<Roster>());
+
+        public Task<List<Roster>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> craftCtrlNbrs)
+            => Task.FromResult(roster is not null ? new List<Roster> { roster } : new List<Roster>());
+
+        public Task<List<Roster>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs, CancellationToken ct = default)
+            => Task.FromResult(roster is not null ? new List<Roster> { roster } : new List<Roster>());
+
+        public Task<Roster?> GetTrainingRosterByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<Roster?>(null);
+    }
+
     private sealed class FakeOrchestrationUnitOfWork : IOrchestrationUnitOfWork
     {
         public bool Committed { get; private set; }
 
         public FakeVacancyRepo            FakeVacancies          { get; } = new();
         public FakeBulletinRepo           FakeBulletins          { get; } = new();
+        public FakeEmployeeNotificationRepo FakeEmployeeNotifications { get; } = new();
         public FakePositionAssignmentRepo FakePositionAssignments { get; }
         private readonly FakeCrewRepo            _crews;
         private readonly FakeCrewPositionRepo     _crewPositions;
@@ -479,6 +538,7 @@ public class BulletinCreationServiceTests
         private readonly FakeBulletinRuleRepo     _bulletinRules;
         private readonly FakeDepartmentReassignmentRuleRepo _departmentReassignmentRules;
         private readonly FakeRosterBoardRepo      _rosterBoards;
+        private readonly FakeRosterRepo          _rosters;
         private readonly FakeStaffablePositionRepo _staffablePositions = new();
         private readonly FakeDynamicGroupRepo    _dynamicGroups;
         private readonly FakeEmployeeNotificationRepo _employeeNotifications = new();
@@ -501,7 +561,19 @@ public class BulletinCreationServiceTests
             _bulletinRules  = new FakeBulletinRuleRepo(bulletinRule);
             _departmentReassignmentRules = new FakeDepartmentReassignmentRuleRepo(departmentReassignmentRule);
             _rosterBoards   = new FakeRosterBoardRepo(RosterBoard.Create(CraftCtrlNbr, ControlNumber.Create(999), "Hangout", BoardType.Hangout));
-            _dynamicGroups  = new FakeDynamicGroupRepo(null);
+            _rosters        = new FakeRosterRepo(Roster.Create(CraftCtrlNbr, WorkAreaCtrlNbr, null, "Hangout Roster", "Hangout Rosters", 1));
+            _dynamicGroups  = new FakeDynamicGroupRepo(
+                DynamicGroup.Create(
+                    groupTypeCtrlNbr: ControlNumber.Create(1000),
+                    name: "Work Area",
+                    parentGroupCtrlNbr: null,
+                    path: null,
+                    isWorkArea: true,
+                    code: "WA",
+                    parentCtrlNbr: null,
+                    railroadCtrlNbr: ControlNumber.Create(999),
+                    timeZoneId: null,
+                    workPeriodMode: null));
             FakePositionAssignments = new FakePositionAssignmentRepo(positionAssignment);
         }
 
@@ -520,7 +592,7 @@ public class BulletinCreationServiceTests
         public IBulletinRepository         Bulletins          => FakeBulletins;
         public IPositionAssignmentRepository PositionAssignments => FakePositionAssignments;
         public IStaffablePositionRepository StaffablePositions  => _staffablePositions;
-        public IEmployeeNotificationRepository EmployeeNotifications => _employeeNotifications;
+        public IEmployeeNotificationRepository EmployeeNotifications => FakeEmployeeNotifications;
 
         public Task CommitAsync(CancellationToken ct = default) { Committed = true; return Task.CompletedTask; }
         public Task SaveAsync(CancellationToken ct = default)   => Task.CompletedTask;
@@ -582,7 +654,7 @@ public class BulletinCreationServiceTests
         public IEmploymentStatusRepository               EmploymentStatuses           => null!;
         public IEmploymentStatusHistoryRepository        EmploymentStatusHistory      => null!;
         public IEmployeePriorServiceCreditRepository     EmployeePriorServiceCredits  => null!;
-        public IRosterRepository                         Rosters                      => null!;
+        public IRosterRepository                         Rosters                      => _rosters;
         public ISeniorityStateRepository                 SeniorityStates              => null!;
         public IGroupTypeRepository                      GroupTypes                   => null!;
         public IDynamicGroupRepository                   DynamicGroups                => _dynamicGroups;

@@ -291,8 +291,11 @@ public sealed class RosterBoardAppService(
             previousIncumbentCtrlNbr = position.EmployeeCtrlNbr;
             isExtraBoard = board.BoardType == BoardType.ExtraBoard && board.CraftCtrlNbr is not null;
 
-            var craft = await uow.Crafts.GetByCtrlNbrAsync(board.CraftCtrlNbr, ct)
-                ?? throw new InvalidOperationException($"Craft {board.CraftCtrlNbr.Value} not found for board {board.CtrlNbr.Value}.");
+            var craftCtrlNbr = board.CraftCtrlNbr
+                ?? throw new InvalidOperationException($"Board {board.CtrlNbr.Value} is missing a craft.");
+
+            var craft = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr, ct)
+                ?? throw new InvalidOperationException($"Craft {craftCtrlNbr.Value} not found for board {board.CtrlNbr.Value}.");
             if (craft.DepartmentCtrlNbr is null)
                 throw new InvalidOperationException($"Craft {craft.CtrlNbr.Value} is missing a department; department reassignment is required.");
 

@@ -524,9 +524,11 @@ else
     <Modal Visible="showGenerateModal"
            Title="Generate Shift Call Sheet"
            Icon="bi bi-clipboard-plus"
-           OnClose="CloseGenerateModal">
+           OnClose="CloseGenerateModal"
+           StaticBackdrop="true">
         <BodyContent>
             <EditForm Model="generateModel" OnValidSubmit="OnGenerate" id="generate-shift-form">
+                <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Shift Definition</label>
                     <SelectInput TItem="ShiftDefinitionResponse" TValue="long"
@@ -554,7 +556,7 @@ else
             </EditForm>
         </BodyContent>
         <Footer>
-            <button type="button" class="btn btn-secondary" @onclick="CloseGenerateModal">Cancel</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseGenerateModal">Cancel</button>
             <button type="submit" form="generate-shift-form" class="btn btn-success"
                     disabled="@(generateModel.ShiftDefinitionCtrlNbr == 0 || isGenerating)">
                 @if (isGenerating)
