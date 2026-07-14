@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.WebUtilities
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models
 @using CrewService.BlazorUI.Services
@@ -20,6 +21,9 @@
 @inject PoliciesClient PoliciesClient
 @inject NotificationsClient NotificationsClient
 @inject BulletinsClient BulletinsClient
+@inject AccountClient AccountClient
+@inject AppThemeService AppThemeService
+@inject IJSRuntime JSRuntime
 @inject NavigationManager Nav
 
 <PageTitle>Employee Detail</PageTitle>
@@ -58,6 +62,214 @@ else
     <hr />
 
     <TabPanel Tabs="tabs" ActiveTab="activeTab" ActiveTabChanged="OnTabChangedAsync" />
+
+    @* ── Profile Tab ── *@
+    @if (activeTab == "profile")
+    {
+        <ul class="nav nav-pills mb-3 mt-3">
+            @foreach (var section in profileSections)
+            {
+                <li class="nav-item">
+                    <button type="button"
+                            class="nav-link @(section.Id == activeProfileSection ? "active" : string.Empty)"
+                            @onclick="() => OnProfileSectionChangedAsync(section.Id)">
+                        @section.Label
+                    </button>
+                </li>
+            }
+        </ul>
+
+        @if (activeProfileSection == "profile")
+        {
+            <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                    <h5>Profile</h5>
+                    <div class="form-floating mb-3">
+                        <input type="text" value="@employee.EmployeeNumber" class="form-control" disabled />
+                        <label>Employee Number</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Social Security Number</label>
+                        <div class="input-group">
+                            <input type="text" value="@ssnDisplay" class="form-control" disabled />
+                            @if (!showFullSsn)
+                            {
+                                <button type="button" class="btn btn-outline-secondary" @onclick="OnShowSsn">Show</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-outline-secondary" @onclick="OnHideSsn">Hide</button>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h5 class="text-white-50">&nbsp;</h5>
+                    <div class="form-floating mb-3">
+                        <input type="text" value="@(employee.BirthDate?.ToDateTime().ToString("MM/dd/yyyy"))" class="form-control" disabled />
+                        <label>Birth Date</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="text" value="@(employee.EmploymentDate?.ToDateTime().ToString("MM/dd/yyyy"))" class="form-control" disabled />
+                        <label>Hire Date</label>
+                    </div>
+                </div>
+            </div>
+
+            <hr />
+
+            <EditForm Model="profileModel" OnValidSubmit="OnSaveProfileAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" role="alert" />
+
+                <div class="row g-3">
+                    <div class="col-lg-6">
+                        <div class="form-floating mb-3">
+                            <input type="text" value="@CurrentUser.Username" id="profile-username" class="form-control" placeholder="Username" disabled />
+                            <label for="profile-username" class="form-label">Username</label>
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <InputText @bind-Value="profileModel.FirstName" id="profile-first-name" class="form-control" placeholder="Enter first name" disabled="@isProfileReadOnly" />
+                            <label for="profile-first-name" class="form-label">First Name</label>
+                            <ValidationMessage For="() => profileModel.FirstName" class="text-danger" />
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <InputText @bind-Value="profileModel.MiddleName" id="profile-middle-name" class="form-control" placeholder="Enter middle name" disabled="@isProfileReadOnly" />
+                            <label for="profile-middle-name" class="form-label">Middle Name</label>
+                            <ValidationMessage For="() => profileModel.MiddleName" class="text-danger" />
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <InputText @bind-Value="profileModel.LastName" id="profile-last-name" class="form-control" placeholder="Enter last name" disabled="@isProfileReadOnly" />
+                            <label for="profile-last-name" class="form-label">Last Name</label>
+                            <ValidationMessage For="() => profileModel.LastName" class="text-danger" />
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <InputText @bind-Value="profileModel.DriversLicenseNumber" class="form-control" placeholder="Driver's License" disabled="@isProfileReadOnly" />
+                            <label>Driver's License</label>
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <InputText @bind-Value="profileModel.IssuingState" class="form-control" placeholder="Issuing State" disabled="@isProfileReadOnly" />
+                            <label>Issuing State</label>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Gender</label>
+                            <SelectInput TItem="string" TValue="string"
+                                         Items="genderOptions"
+                                         ValueSelector="v => v"
+                                         TextSelector="v => v"
+                                         @bind-Value="profileModel.Gender"
+                                         Placeholder="-- Select --"
+                                         class="form-select"
+                                         disabled="@isProfileReadOnly" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Race</label>
+                            <SelectInput TItem="RaceOption" TValue="string"
+                                         Items="raceOptions"
+                                         ValueSelector="v => v.Value"
+                                         TextSelector="v => v.Label"
+                                         @bind-Value="profileModel.Race"
+                                         Placeholder="-- Select --"
+                                         class="form-select"
+                                         disabled="@isProfileReadOnly" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Marital Status</label>
+                            <SelectInput TItem="string" TValue="string"
+                                         Items="maritalStatusOptions"
+                                         ValueSelector="v => v"
+                                         TextSelector="v => v"
+                                         @bind-Value="profileModel.MaritalStatus"
+                                         Placeholder="-- Select --"
+                                         class="form-select"
+                                         disabled="@isProfileReadOnly" />
+                        </div>
+
+                        <div class="form-check form-switch form-check-reverse mb-3">
+                            <InputCheckbox @bind-Value="profileModel.CallForOvertime" class="form-check-input" disabled="@isProfileReadOnly" />
+                            <label class="form-check-label">Call for Overtime</label>
+                        </div>
+
+                        @if (CurrentUser.IsAdmin)
+                        {
+                            <div class="form-check form-switch form-check-reverse mb-3">
+                                <InputCheckbox @bind-Value="profileModel.AllowFmlaMarkOff" class="form-check-input" disabled="@isProfileReadOnly" />
+                                <label class="form-check-label">Allow FMLA Mark Off</label>
+                            </div>
+                            <div class="form-check form-switch form-check-reverse mb-3">
+                                <InputCheckbox @bind-Value="profileModel.ProcessPayroll" class="form-check-input" disabled="@isProfileReadOnly" />
+                                <label class="form-check-label">Process Payroll</label>
+                            </div>
+                            <div class="form-check form-switch form-check-reverse mb-3">
+                                <InputCheckbox @bind-Value="profileModel.TieUpOffProperty" class="form-check-input" disabled="@isProfileReadOnly" />
+                                <label class="form-check-label">Tie Up Off Property</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!isProfileReadOnly)
+                {
+                    <div class="d-flex gap-2 justify-content-end mt-2">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="OnCancelProfileChanges" disabled="@isSaving">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            <span class="bi bi-check-circle me-1"></span> Save
+                        </button>
+                    </div>
+                }
+            </EditForm>
+        }
+    }
+
+    @* ── User Settings Tab ── *@
+    @if (activeTab == "usersettings")
+    {
+        <div class="mt-3">
+            <h5>User Settings</h5>
+
+            @if (!IsOwnRecord)
+            {
+                <p class="text-muted mb-0">User settings are only available when viewing your own employee record.</p>
+            }
+            else
+            {
+                <ul class="nav nav-pills mb-3 mt-3">
+                    @foreach (var section in userSettingsSections)
+                    {
+                        <li class="nav-item">
+                            <button type="button"
+                                    class="nav-link @(section.Id == activeUserSettingsSection ? "active" : string.Empty)"
+                                    @onclick="() => OnUserSettingsSectionChangedAsync(section.Id)">
+                                @section.Label
+                            </button>
+                        </li>
+                    }
+                </ul>
+
+                @if (activeUserSettingsSection == "settings")
+                {
+                    <p class="text-muted">Additional user settings will appear here.</p>
+                }
+                else if (activeUserSettingsSection == "theme")
+                {
+                    <UserSettingsBase />
+                }
+            }
+
+        </div>
+    }
 
     @* ── Work & Staffing Tab ── *@
     @if (activeTab == "work")
@@ -310,9 +522,12 @@ else
         </Footer>
     </Modal>
 
-    @* ── Addresses Tab ── *@
-    @if (activeTab == "addresses")
+    @* ── Profile: Addresses section ── *@
+    @if (activeTab == "profile" && activeProfileSection == "addresses")
     {
+        <hr />
+        <h5>Addresses</h5>
+
         <Modal Visible="showAddrModal" Title="@(editAddrCtrlNbr > 0 ? "Edit Address" : "Add Address")"
                Icon="@(editAddrCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
                OnClose="CloseAddrModal" Size="lg">
@@ -421,9 +636,12 @@ else
         }
     }
 
-    @* ── Email Addresses Tab ── *@
-    @if (activeTab == "emails")
+    @* ── Profile: Email Addresses section ── *@
+    @if (activeTab == "profile" && activeProfileSection == "emails")
     {
+        <hr />
+        <h5>Email Addresses</h5>
+
         <Modal Visible="showEmailModal" Title="@(editEmailCtrlNbr > 0 ? "Edit Email Address" : "Add Email Address")"
                Icon="@(editEmailCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
                OnClose="CloseEmailModal">
@@ -488,7 +706,17 @@ else
                     {
                         <tr>
                             <td>@(emailTypes.FirstOrDefault(t => t.CtrlNbr == email.EmailTypeCtrlNbr)?.Name)</td>
-                            <td>@email.Email</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span>@email.Email</span>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            title="Copy email"
+                                            @onclick="() => CopyEmailAsync(email.Email)">
+                                        <span class="bi bi-clipboard"></span>
+                                    </button>
+                                </div>
+                            </td>
                             <td>
                                 @if (!IsFeatureReadOnly)
                                 {
@@ -509,9 +737,12 @@ else
         }
     }
 
-    @* ── Phone Numbers Tab ── *@
-    @if (activeTab == "phones")
+    @* ── Profile: Phone Numbers section ── *@
+    @if (activeTab == "profile" && activeProfileSection == "phones")
     {
+        <hr />
+        <h5>Phone Numbers</h5>
+
         <Modal Visible="showPhoneModal" Title="@(editPhoneCtrlNbr > 0 ? "Edit Phone Number" : "Add Phone Number")"
                Icon="@(editPhoneCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
                OnClose="ClosePhoneModal">
@@ -961,31 +1192,117 @@ else
         new("Status", n => n.RequiresAcknowledgement ? (n.IsAcknowledged ? "Accepted" : "Open") : ""),
     ];
 
+    private bool showFullSsn;
+    private string ssnDisplay = string.Empty;
+    private EmployeeProfileModel profileModel = new();
+    private bool isProfileReadOnly;
+
+    private static readonly IReadOnlyList<string> genderOptions =
+    [
+        "Male",
+        "Female",
+        "NonBinary"
+    ];
+
+    private static readonly IReadOnlyList<RaceOption> raceOptions =
+    [
+        new("White", "White"),
+        new("BlackOrAfricanAmerican", "Black or African American"),
+        new("Hispanic", "Hispanic"),
+        new("Asian", "Asian"),
+        new("AmericanIndianOrAlaskaNative", "American Indian or Alaska Native"),
+        new("NativeHawaiianOrPacificIslander", "Native Hawaiian or Pacific Islander"),
+        new("TwoOrMoreRaces", "Two or More Races"),
+        new("Other", "Other"),
+        new("PreferNotToSay", "Prefer Not to Say")
+    ];
+
+    private sealed record RaceOption(string Value, string Label);
+
+    private static readonly IReadOnlyList<string> maritalStatusOptions =
+    [
+        "Single",
+        "Married",
+        "Divorced",
+        "Widowed",
+        "Separated",
+        "DomesticPartnership"
+    ];
+
+    private string activeProfileSection = "profile";
+
+    private static readonly IReadOnlyList<TabPanel.TabItem> profileSections =
+    [
+        new("profile", "Profile"),
+        new("addresses", "Addresses"),
+        new("phones", "Phone Numbers"),
+        new("emails", "Email Addresses")
+    ];
+
+    private string activeUserSettingsSection = "settings";
+
+    private static readonly IReadOnlyList<TabPanel.TabItem> userSettingsSections =
+    [
+        new("settings", "User Settings"),
+        new("theme", "Theme")
+    ];
+
     private string activeTab = "work";
 
     private static readonly IReadOnlyList<TabPanel.TabItem> tabs =
     [
         new("work",          "Work & Staffing",  "bi-person-badge"),
-        new("addresses",     "Addresses",         "bi-geo-alt"),
-        new("emails",        "Email Addresses",   "bi-envelope"),
-        new("phones",        "Phone Numbers",     "bi-telephone"),
+        new("profile",       "Profile",           "bi-person"),
+        new("usersettings",  "User Settings",     "bi-gear"),
         new("qualifications","Qualifications",    "bi-award"),
         new("ondutyhistory", "On-Duty History",   "bi-clock-history"),
         new("notifications", "Notifications",     "bi-bell")
     ];
 
+    private string ThemePreviewDescription => $"{AppThemeService.ThemeName} ({AppThemeService.Mode}) - {AppThemeService.ThemeDescription}";
+
     protected override async Task LoadDataAsync()
     {
+        if (!HasParent)
+        {
+            return;
+        }
+
         await LoadEmployee();
-        // Pre-load work tab since it is the default
+        if (employee is null)
+        {
+            return;
+        }
+
+        InitializeProfileAndSettingsState();
+
+        // Default to Work & Staffing on fresh entry; honor the tab from the URL
+        // (e.g. on a full-page refresh) so the user stays on their current tab.
+        ApplyRequestedTabFromQuery();
+        ApplyRequestedSubSectionsFromQuery();
         await LoadWorkTabAsync();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        if (!HasParent)
+        {
+            return;
+        }
+
+        await LoadDataAsync();
     }
 
     private async Task LoadEmployee()
     {
         try
         {
-            var clientCtrlNbr = SelectedParentCtrlNbr!.Value;
+            if (SelectedParentCtrlNbr is null)
+            {
+                return;
+            }
+
+            var clientCtrlNbr = SelectedParentCtrlNbr.Value;
 
             var empTask = EmployeeClient.GetByCtrlNbrAsync(CtrlNbr);
             var addrTask = AddressTypeClient.GetAllAsync(clientCtrlNbr);
@@ -1013,6 +1330,11 @@ else
         try
         {
             employee = await EmployeeClient.GetByCtrlNbrAsync(CtrlNbr);
+            if (employee is not null)
+            {
+                profileModel = EmployeeProfileService.CreateFromEmployee(employee);
+                ssnDisplay = EmployeeProfileService.MaskSsn(employee.SocialSecurityNumber);
+            }
         }
         catch (Exception ex)
         {
@@ -1023,12 +1345,195 @@ else
     private async Task OnTabChangedAsync(string tab)
     {
         activeTab = tab;
+
+        if (tab != "profile")
+        {
+            activeProfileSection = "profile";
+        }
+
+        var sectionQuery = tab == "profile"
+            ? $"&section={activeProfileSection}"
+            : (tab == "usersettings" ? $"&settings={activeUserSettingsSection}" : string.Empty);
+        Nav.NavigateTo($"/employees/{CtrlNbr}?tab={tab}{sectionQuery}", replace: true);
+
         if (tab == "work" && !workTabLoaded)
             await LoadWorkTabAsync();
         else if (tab == "ondutyhistory" && !onDutyHistoryLoaded)
             await LoadOnDutyHistoryAsync();
         else if (tab == "notifications" && !notificationsLoaded)
             await LoadNotificationsTabAsync();
+    }
+
+    private void InitializeProfileAndSettingsState()
+    {
+        if (employee is null)
+        {
+            return;
+        }
+
+        showFullSsn = false;
+        ssnDisplay = EmployeeProfileService.MaskSsn(employee.SocialSecurityNumber);
+        profileModel = EmployeeProfileService.CreateFromEmployee(employee);
+        isProfileReadOnly = IsFeatureReadOnly && !IsOwnRecord;
+    }
+
+    private void ApplyRequestedTabFromQuery()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        // No tab in the URL => fresh entry, default to Work & Staffing.
+        if (!query.TryGetValue("tab", out var tabValues))
+        {
+            activeTab = "work";
+            return;
+        }
+
+        var requestedTab = tabValues.ToString().Trim().ToLowerInvariant();
+        activeTab = tabs.Any(t => t.Id.Equals(requestedTab, StringComparison.OrdinalIgnoreCase))
+            ? requestedTab
+            : "work";
+    }
+
+    private void ApplyRequestedSubSectionsFromQuery()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (!query.TryGetValue("section", out var sectionValues))
+        {
+            activeProfileSection = "profile";
+        }
+        else
+        {
+            var requestedSection = sectionValues.ToString().Trim().ToLowerInvariant();
+            if (profileSections.Any(s => s.Id.Equals(requestedSection, StringComparison.OrdinalIgnoreCase)))
+            {
+                activeProfileSection = requestedSection;
+            }
+        }
+
+        if (!query.TryGetValue("settings", out var settingsValues))
+        {
+            activeUserSettingsSection = "settings";
+        }
+        else
+        {
+            var requestedSettingsSection = settingsValues.ToString().Trim().ToLowerInvariant();
+            if (userSettingsSections.Any(s => s.Id.Equals(requestedSettingsSection, StringComparison.OrdinalIgnoreCase)))
+            {
+                activeUserSettingsSection = requestedSettingsSection;
+            }
+        }
+    }
+
+    private Task OnProfileSectionChangedAsync(string sectionId)
+    {
+        activeProfileSection = sectionId;
+        Nav.NavigateTo($"/employees/{CtrlNbr}?tab=profile&section={sectionId}", replace: true);
+        return Task.CompletedTask;
+    }
+
+    private Task OnUserSettingsSectionChangedAsync(string sectionId)
+    {
+        activeUserSettingsSection = sectionId;
+        Nav.NavigateTo($"/employees/{CtrlNbr}?tab=usersettings&settings={sectionId}", replace: true);
+        return Task.CompletedTask;
+    }
+
+    private void OnShowSsn()
+    {
+        if (employee is null)
+        {
+            return;
+        }
+
+        showFullSsn = true;
+        ssnDisplay = employee.SocialSecurityNumber;
+    }
+
+    private void OnHideSsn()
+    {
+        if (employee is null)
+        {
+            return;
+        }
+
+        showFullSsn = false;
+        ssnDisplay = EmployeeProfileService.MaskSsn(employee.SocialSecurityNumber);
+    }
+
+    private async Task OnSaveProfileAsync()
+    {
+        if (employee is null || isProfileReadOnly)
+        {
+            return;
+        }
+
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            var messages = new List<string>();
+
+            var profileResponse = await AccountClient.SaveProfileAsync(
+                CurrentUser.Username ?? string.Empty,
+                profileModel.FirstName ?? string.Empty,
+                profileModel.MiddleName ?? string.Empty,
+                profileModel.LastName ?? string.Empty);
+
+            if (!profileResponse.Success)
+            {
+                messages.Add("Profile: " + string.Join("; ", profileResponse.Message));
+            }
+
+            var employeeResponse = await ProfileService.SaveAsync(
+                employee.CtrlNbr,
+                profileModel,
+                employee,
+                CurrentUser.IsAdmin);
+
+            if (!employeeResponse.Success)
+            {
+                messages.Add("Employee: " + string.Join("; ", employeeResponse.Messages));
+            }
+
+            if (messages.Count > 0)
+            {
+                errorMessage = string.Join(" | ", messages);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(profileResponse.FullName))
+            {
+                AppContext.SetDisplayName(profileResponse.FullName);
+            }
+
+            successMessage = "Profile has been updated.";
+            await ReloadEmployee();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save profile: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OnCancelProfileChanges()
+    {
+        if (employee is null)
+        {
+            return;
+        }
+
+        profileModel = EmployeeProfileService.CreateFromEmployee(employee);
+        showFullSsn = false;
+        ssnDisplay = EmployeeProfileService.MaskSsn(employee.SocialSecurityNumber);
+        errorMessage = null;
     }
 
     private async Task OnOnDutyPeriodChangedAsync(int period)
@@ -1254,6 +1759,12 @@ else
         }
         catch (Exception ex) { errorMessage = $"Failed to cancel move: {ex.Message}"; showWorkCancelModal = false; }
         finally { isSaving = false; }
+    }
+
+    private async Task CopyEmailAsync(string email)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", email ?? string.Empty);
+        successMessage = "Email copied.";
     }
 
     // ── Work tab — bulletin bid actions ──
