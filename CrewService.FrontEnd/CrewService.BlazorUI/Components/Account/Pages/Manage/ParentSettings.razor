@@ -1,0 +1,41 @@
+@page "/Account/Manage/ParentSettings"
+@rendermode InteractiveServer
+
+@using CrewService.BlazorUI.Models.Auth
+
+@inherits AppComponentBase
+
+<PageTitle>Parent Settings</PageTitle>
+
+<h3>Parent Settings</h3>
+
+@if (!canAccess)
+{
+    <p><em>Redirecting...</em></p>
+}
+else
+{
+    <p class="text-muted">Parent settings will be added here for eligible admin users.</p>
+}
+
+@code {
+    private bool canAccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        canAccess = CurrentUser.User?.IsInRole(Roles.SystemAdmin) == true
+            || CurrentUser.User?.IsInRole(Roles.ParentAdmin) == true;
+
+        if (!canAccess || CurrentUser.IsEmployee)
+        {
+            NavigationManager.NavigateTo("/Account/AccessDenied");
+        }
+    }
+}

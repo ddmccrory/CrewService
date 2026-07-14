@@ -1,0 +1,34 @@
+@page "/Account/Manage/RailroadSettings"
+@rendermode InteractiveServer
+
+@inherits AppComponentBase
+
+<PageTitle>Railroad Settings</PageTitle>
+
+<h3>Railroad Settings</h3>
+
+@if (!(CurrentUser.IsAdmin && !CurrentUser.IsEmployee))
+{
+    <p><em>Redirecting...</em></p>
+}
+else
+{
+    <p class="text-muted">Railroad settings will be added here for admin users.</p>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        if (!(CurrentUser.IsAdmin && !CurrentUser.IsEmployee))
+        {
+            NavigationManager.NavigateTo("/Account/AccessDenied");
+        }
+    }
+}

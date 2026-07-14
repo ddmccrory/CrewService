@@ -2,6 +2,8 @@
 
 public class AppThemeService
 {
+    public event Action? ThemeChanged;
+
     #region Fields
 
     private string _theme;
@@ -45,15 +47,24 @@ public class AppThemeService
 
     public void SetMode(string mode)
     {
+        var previous = _mode;
+
         if (string.IsNullOrEmpty(_previousMode))
             _previousMode = _mode;
 
         if (!string.IsNullOrEmpty(mode))
             _mode = mode;
+
+        if (!string.Equals(previous, _mode, StringComparison.Ordinal))
+            ThemeChanged?.Invoke();
     }
 
     public void SetTheme(string themeName)
     {
+        var previousTheme = _theme;
+        var previousThemeName = _themeName;
+        var previousThemeDescription = _themeDescription;
+
         if (string.IsNullOrEmpty(_previousTheme))
             _previousTheme = _themeName;
 
@@ -219,6 +230,13 @@ public class AppThemeService
                     break;
                 }
         }
+
+        if (!string.Equals(previousTheme, _theme, StringComparison.Ordinal) ||
+            !string.Equals(previousThemeName, _themeName, StringComparison.Ordinal) ||
+            !string.Equals(previousThemeDescription, _themeDescription, StringComparison.Ordinal))
+        {
+            ThemeChanged?.Invoke();
+        }
     }
 
     public void ResetThemeValues()
@@ -228,6 +246,8 @@ public class AppThemeService
         _mode = "Light";
 
         ClearPreviousValues();
+
+        ThemeChanged?.Invoke();
     }
 
     public void ClearPreviousValues()

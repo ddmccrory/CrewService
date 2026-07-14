@@ -2,7 +2,6 @@
 @rendermode InteractiveServer
 @inherits AppComponentBase
 
-@using System.ComponentModel.DataAnnotations
 @using CrewService.BlazorUI.Clients
 @using CrewService.BlazorUI.Models
 @using CrewService.BlazorUI.Services
@@ -12,6 +11,8 @@
 @inject EmployeeProfileService ProfileService
 
 <PageTitle>Phone Numbers</PageTitle>
+
+<p><em>Redirecting...</em></p>
 
 <h3>Phone Numbers</h3>
 
@@ -139,18 +140,14 @@ else
     {
         await base.OnInitializedAsync();
 
-        if (CurrentUser.IsEmployee)
+        if (CurrentUser.Employee is not null)
         {
-            try
-            {
-                await CurrentUser.ReloadEmployeeAsync();
-                var typesResponse = await PhoneNumberTypeClient.GetAllAsync(employee!.ClientCtrlNbr);
-                phoneTypes = [.. typesResponse.PhoneNumberTypeList];
-            }
-            catch
-            {
-            }
+            NavigationManager.NavigateTo($"/employees/{CurrentUser.Employee.CtrlNbr}?tab=profile");
+            return;
         }
+
+        NavigationManager.NavigateTo("/Account/Manage");
+        return;
     }
 
     private async Task ReloadEmployee() => await CurrentUser.ReloadEmployeeAsync();
