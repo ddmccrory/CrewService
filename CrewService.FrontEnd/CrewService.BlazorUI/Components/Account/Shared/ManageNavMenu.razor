@@ -1,5 +1,4 @@
-﻿@using System.Security.Claims
-@using CrewService.BlazorUI.Models.Auth
+﻿@using CrewService.BlazorUI.Models.Auth
 
 <ul class="nav nav-pills flex-column">
     <li class="nav-item">
@@ -18,12 +17,33 @@
         </li>
     }
     <li class="nav-item">
+        <NavLink class="nav-link" href="Account/Manage/UserSettings">User Settings</NavLink>
+    </li>
+    @if (!isEmployee && (isSystemAdmin || isParentAdmin || isRailroadAdmin))
+    {
+        @if (isSystemAdmin || isParentAdmin || isRailroadAdmin)
+        {
+            <li class="nav-item">
+                <NavLink class="nav-link" href="Account/Manage/RailroadSettings">Railroad Settings</NavLink>
+            </li>
+        }
+        @if (isSystemAdmin || isParentAdmin)
+        {
+            <li class="nav-item">
+                <NavLink class="nav-link" href="Account/Manage/ParentSettings">Parent Settings</NavLink>
+            </li>
+        }
+    }
+    <li class="nav-item">
         <NavLink class="nav-link" href="Account/Manage/Theme">Theme</NavLink>
     </li>
 </ul>
 
 @code {
     private bool isEmployee;
+    private bool isRailroadAdmin;
+    private bool isParentAdmin;
+    private bool isSystemAdmin;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -32,5 +52,9 @@
     {
         isEmployee = !string.IsNullOrWhiteSpace(
             HttpContext.User.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value);
+
+        isSystemAdmin = HttpContext.User.IsInRole(Roles.SystemAdmin);
+        isParentAdmin = HttpContext.User.IsInRole(Roles.ParentAdmin);
+        isRailroadAdmin = HttpContext.User.IsInRole(Roles.RailroadAdmin);
     }
 }
