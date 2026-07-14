@@ -34,7 +34,7 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
-    protected override void OnInitialized() 
+    protected override void OnInitialized()
     {
         var query = HttpContext.Request.Query;
         if (query.TryGetValue("theme", out var theme))
@@ -48,6 +48,6 @@
         if (!string.IsNullOrEmpty(AppThemeService.Mode))
             Mode = AppThemeService.Mode.ToLower();
 
-        base.OnInitialized(); 
+        base.OnInitialized();
     }
 }
