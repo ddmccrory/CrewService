@@ -54,6 +54,9 @@ public sealed class WorkAreaClock(TimeProvider timeProvider, IOrchestrationUnitO
         return await ResolveWorkAreaTimeZoneAsync(uow, workAreaCtrlNbr, ct);
     }
 
+    public Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(IOrchestrationUnitOfWork uow, ControlNumber workAreaCtrlNbr, CancellationToken ct = default)
+        => ResolveWorkAreaTimeZoneAsync(uow, workAreaCtrlNbr, ct);
+
     public async Task<TimeZoneInfo?> GetCrewTimeZoneAsync(IOrchestrationUnitOfWork uow, ControlNumber crewCtrlNbr, CancellationToken ct = default)
     {
         var crew = await uow.Crews.GetByCtrlNbrAsync(crewCtrlNbr, ct);

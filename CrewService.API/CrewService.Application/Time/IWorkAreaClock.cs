@@ -51,6 +51,12 @@ public interface IWorkAreaClock
     Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(ControlNumber workAreaCtrlNbr, CancellationToken ct = default);
 
     /// <summary>
+    /// Resolves the configured <see cref="TimeZoneInfo"/> for a work-area group using an existing
+    /// unit of work. Returns <c>null</c> when no zone is configured.
+    /// </summary>
+    Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(IOrchestrationUnitOfWork uow, ControlNumber workAreaCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
     /// Resolves the work-area <see cref="TimeZoneInfo"/> for a crew using an existing unit of work,
     /// following the chain <c>Crew.WorkAreaCtrlNbr → DynamicGroup.TimeZoneId</c>.
     /// Returns <c>null</c> when no zone is configured.
