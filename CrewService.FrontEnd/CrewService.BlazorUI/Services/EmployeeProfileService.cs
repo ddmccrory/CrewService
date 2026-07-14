@@ -23,7 +23,7 @@ public class EmployeeProfileService(EmployeeClient employeeClient)
         MiddleName = employee.MiddleName,
         LastName = employee.LastName,
         Gender = employee.Gender,
-        Race = employee.Race,
+        Race = NormalizeRaceValue(employee.Race),
         MaritalStatus = employee.MaritalStatus,
         DriversLicenseNumber = employee.DriversLicenseNumber,
         IssuingState = employee.IssuingState,
@@ -77,6 +77,22 @@ public class EmployeeProfileService(EmployeeClient employeeClient)
     /// </summary>
     public static string MaskSsn(string ssn)
         => ssn.Length >= 4 ? $"***-**-{ssn[^4..]}" : ssn;
+
+    private static string? NormalizeRaceValue(string? race)
+    {
+        if (string.IsNullOrWhiteSpace(race))
+            return race;
+
+        return race.Trim() switch
+        {
+            "Black or African American" => "BlackOrAfricanAmerican",
+            "American Indian or Alaska Native" => "AmericanIndianOrAlaskaNative",
+            "Native Hawaiian or Pacific Islander" => "NativeHawaiianOrPacificIslander",
+            "Two or More Races" => "TwoOrMoreRaces",
+            "Prefer Not to Say" => "PreferNotToSay",
+            _ => race
+        };
+    }
 
     // ── Address CRUD ──
 

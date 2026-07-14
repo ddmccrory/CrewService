@@ -144,7 +144,7 @@ public class EmployeeService(
                 request.ProcessPayroll,
                 request.TieUpOffProperty,
                 string.IsNullOrEmpty(request.Gender) ? null : System.Enum.Parse<Gender>(request.Gender, ignoreCase: true),
-                string.IsNullOrEmpty(request.Race) ? null : System.Enum.Parse<Race>(request.Race, ignoreCase: true),
+                string.IsNullOrEmpty(request.Race) ? null : ParseRace(request.Race),
                 context.CancellationToken);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
@@ -351,6 +351,22 @@ public class EmployeeService(
 
     #region Private Helper Methods
 
+    private static Race ParseRace(string value)
+    {
+        var normalized = value.Replace(" ", string.Empty, StringComparison.Ordinal);
+        return System.Enum.Parse<Race>(normalized, ignoreCase: true);
+    }
+
+    private static string FormatRace(Race race) => race switch
+    {
+        Race.BlackOrAfricanAmerican => "Black or African American",
+        Race.AmericanIndianOrAlaskaNative => "American Indian or Alaska Native",
+        Race.NativeHawaiianOrPacificIslander => "Native Hawaiian or Pacific Islander",
+        Race.TwoOrMoreRaces => "Two or More Races",
+        Race.PreferNotToSay => "Prefer Not to Say",
+        _ => race.ToString()
+    };
+
     private static GetEmployeeResponse MapToEmployeeResponse(Employee employee)
     {
         var response = new GetEmployeeResponse
@@ -361,7 +377,7 @@ public class EmployeeService(
             EmployeeNumber = employee.EmployeeNumber,
             SocialSecurityNumber = employee.SocialSecurityNumber,
             Gender = employee.Gender.ToString(),
-            Race = employee.Race.ToString(),
+            Race = FormatRace(employee.Race),
             BirthDate = Timestamp.FromDateTime(DateTime.SpecifyKind(employee.BirthDate, DateTimeKind.Utc)),
             EmploymentDate = Timestamp.FromDateTime(DateTime.SpecifyKind(employee.EmploymentDate, DateTimeKind.Utc)),
             EmploymentStatusCtrlNbr = employee.EmploymentStatusCtrlNbr.Value,
