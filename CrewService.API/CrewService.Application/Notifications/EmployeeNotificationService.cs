@@ -100,7 +100,7 @@ public sealed class EmployeeNotificationService(
 
         var category = forceAssigned ? NotificationCategories.ForceAssign : NotificationCategories.BulletinAward;
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-        var tz = vacancy is null ? null : await ResolveWorkAreaTimeZoneAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+        var tz = vacancy is null ? null : await ResolveWorkAreaTimeZoneAsync(uow, vacancy.WorkAreaGroupCtrlNbr, ct);
         var positionName = vacancy?.TargetName ?? string.Empty;
         var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
         var message = forceAssigned
@@ -278,10 +278,12 @@ public sealed class EmployeeNotificationService(
     /// render in the work-area's local zone. Returns <c>null</c> (UTC) when the clock is unavailable.
     /// </summary>
     private async Task<TimeZoneInfo?> ResolveWorkAreaTimeZoneAsync(
-        ControlNumber workAreaGroupCtrlNbr, CancellationToken ct)
+        IOrchestrationUnitOfWork uow,
+        ControlNumber workAreaGroupCtrlNbr,
+        CancellationToken ct)
     {
         if (clock is null) return null;
-        return await clock.GetWorkAreaTimeZoneAsync(workAreaGroupCtrlNbr, ct);
+        return await clock.GetWorkAreaTimeZoneAsync(uow, workAreaGroupCtrlNbr, ct);
     }
 
     /// <summary>
