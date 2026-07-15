@@ -1072,16 +1072,17 @@ else
             <DataTable TItem="NotificationResponse"
                        Items="notifications"
                        Columns="notificationColumns"
-                       SearchFilter="@((n, term) => n.Message.Contains(term, StringComparison.OrdinalIgnoreCase) || NotificationCategories.Label(n.Category).Contains(term, StringComparison.OrdinalIgnoreCase))"
-                       SearchPlaceholder="Search by message or category..."
+                       SearchFilter="@((n, term) => n.Message.Contains(term, StringComparison.OrdinalIgnoreCase) || NotificationCategories.Label(n.Category).Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveNotificationEmployeeName(n).Contains(term, StringComparison.OrdinalIgnoreCase))"
+                       SearchPlaceholder="Search by message, category, or employee..."
                        EmptyMessage="No notifications found."
                        DefaultSortColumn="Date"
                        DefaultSortAscending="false">
                 <RowContent Context="n">
                     <td>@FormatDisplayLocal(n.CreatedAtLocal)</td>
+                    <td>@ResolveNotificationEmployeeName(n)</td>
                     <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
                     <td>@n.Message</td>
-                    <td>@FormatDisplayLocal(n.EffectiveAtLocal)</td>
+                    <td>@FormatDisplayLocal(n.AcceptedAtLocal)</td>
                     <td>
                         @if (!n.RequiresAcknowledgement)
                         {
@@ -1186,11 +1187,17 @@ else
     private static readonly IReadOnlyList<DataTableColumn<NotificationResponse>> notificationColumns =
     [
         new("Date", n => n.CreatedAt.ToDateTime()),
+        new("Employee", n => n.EmployeeName),
         new("Category", n => NotificationCategories.Label(n.Category)),
         new("Message", n => n.Message),
-        new("Effective", n => n.EffectiveAt?.ToDateTime()),
+        new("Accepted", n => n.AcceptedAt?.ToDateTime()),
         new("Status", n => n.RequiresAcknowledgement ? (n.IsAcknowledged ? "Accepted" : "Open") : ""),
     ];
+
+    private string ResolveNotificationEmployeeName(NotificationResponse notification)
+        => string.IsNullOrWhiteSpace(notification.EmployeeName)
+            ? (employee?.FullNameLnf ?? "—")
+            : notification.EmployeeName;
 
     private bool showFullSsn;
     private string ssnDisplay = string.Empty;
@@ -1685,7 +1692,13 @@ else
         try
         {
             errorMessage = null;
-            var response = await NotificationsClient.GetEmployeeNotificationsAsync(CtrlNbr);
+            var isViewingOwnEmployeeRecord = CurrentUser.IsEmployee
+                && CurrentUser.Employee is not null
+                && CurrentUser.Employee.CtrlNbr == CtrlNbr;
+
+            var response = isViewingOwnEmployeeRecord
+                ? await NotificationsClient.GetMyNotificationsAsync()
+                : await NotificationsClient.GetEmployeeNotificationsAsync(CtrlNbr);
             notifications = [.. response.Notifications];
             notificationsLoaded = true;
         }

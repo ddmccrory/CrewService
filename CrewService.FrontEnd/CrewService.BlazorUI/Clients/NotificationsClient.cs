@@ -26,6 +26,32 @@ public sealed class NotificationsClient(GrpcChannelProvider channelProvider, Cir
         }
     }
 
+    /// <summary>Records a manual (dispatcher) acknowledgement attempt for a notification.</summary>
+    public async Task<NotificationResponse> RecordManualAcknowledgementAsync(
+        long ctrlNbr,
+        string method,
+        bool confirmed,
+        string? phoneNumber = null,
+        string? notes = null)
+    {
+        try
+        {
+            return await _client.RecordManualAcknowledgementAsync(new RecordManualAcknowledgementRequest
+            {
+                CtrlNbr = ctrlNbr,
+                Method = method,
+                Confirmed = confirmed,
+                PhoneNumber = phoneNumber ?? string.Empty,
+                Notes = notes ?? string.Empty
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     /// <summary>Open notices for the current employee (acknowledgement required, unconfirmed).</summary>
     public async Task<GetNotificationsResponse> GetMyUnacknowledgedAsync()
     {
@@ -104,6 +130,54 @@ public sealed class NotificationsClient(GrpcChannelProvider channelProvider, Cir
         try
         {
             return await _client.GetEmployeeNotificationsAsync(new EmployeeNotificationsRequest { EmployeeCtrlNbr = employeeCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetNotificationTypeConfigsResponse> GetNotificationTypeConfigsAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetNotificationTypeConfigsAsync(new NotificationTypeConfigsRequest { RailroadCtrlNbr = railroadCtrlNbr });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<NotificationTypeConfigResponse> UpsertNotificationTypeConfigAsync(
+        long railroadCtrlNbr,
+        string key,
+        string displayName,
+        bool isEnabled,
+        bool requiresAcknowledgementDefault,
+        string audience,
+        bool sendInApp,
+        bool sendEmail,
+        bool sendText,
+        bool sendExternalApi)
+    {
+        try
+        {
+            return await _client.UpsertNotificationTypeConfigAsync(new UpsertNotificationTypeConfigRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                Key = key,
+                DisplayName = displayName,
+                IsEnabled = isEnabled,
+                RequiresAcknowledgementDefault = requiresAcknowledgementDefault,
+                Audience = audience,
+                SendInApp = sendInApp,
+                SendEmail = sendEmail,
+                SendText = sendText,
+                SendExternalApi = sendExternalApi
+            });
         }
         catch (Exception ex)
         {

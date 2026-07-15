@@ -144,14 +144,14 @@ else
                         <InputCheckbox @bind-Value="saveModel.NotifyOnPlacement" class="form-check-input" id="board-notify-on-placement" />
                         <label class="form-check-label" for="board-notify-on-placement">Notify On Placement</label>
                     </div>
-                    <div class="form-text text-muted">When enabled, an employee placed on this board is notified — however they got there (manual move, seniority move, or seniority status change).</div>
+                    <div class="form-text text-muted">When enabled, an employee placed on this board is notified — however they got there (manual move, seniority move, or seniority status change). This is board-specific and overrides the global Notification Config behavior for placement emission.</div>
                 </div>
                 <div class="mb-3">
                     <div class="form-check form-switch">
                         <InputCheckbox @bind-Value="saveModel.PlacementRequiresAcknowledgement" class="form-check-input" id="board-placement-requires-ack" disabled="@(!saveModel.NotifyOnPlacement)" />
                         <label class="form-check-label" for="board-placement-requires-ack">Placement Requires Acknowledgement</label>
                     </div>
-                    <div class="form-text text-muted">When enabled, the placement notification must be acknowledged by the employee. Only applies when "Notify On Placement" is enabled.</div>
+                    <div class="form-text text-muted">When enabled, the placement notification must be acknowledged by the employee. Only applies when "Notify On Placement" is enabled. This board-level value is authoritative for Board Placement acknowledgements.</div>
                 </div>
                     </div>
                 </div>

@@ -16,6 +16,22 @@
 <h1>Notifications</h1>
 <p class="text-muted mb-3">Railroad notification feed for managerial review (reference only).</p>
 
+<div class="d-flex align-items-center gap-3 mb-3">
+    <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="showAllNotifications" @bind="showAllNotifications" @bind:after="OnNotificationFilterChanged" />
+        <label class="form-check-label" for="showAllNotifications">Show history</label>
+    </div>
+    @if (showAllNotifications)
+    {
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 fw-semibold">From</label>
+            <input type="date" class="form-control form-control-sm" style="width:160px"
+                   value="@historyFrom.ToString("yyyy-MM-dd")"
+                   @onchange="OnHistoryFromChanged" />
+        </div>
+    }
+</div>
+
 @if (errorMessage is not null)
 {
     <div class="alert alert-danger alert-dismissible" role="alert">
@@ -24,24 +40,26 @@
     </div>
 }
 
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
 <DataTable TItem="NotificationResponse"
            Items="DisplayedNotifications"
            Columns="columns"
-           SearchFilter="@((n, term) => n.Message.Contains(term, StringComparison.OrdinalIgnoreCase) || NotificationCategories.Label(n.Category).Contains(term, StringComparison.OrdinalIgnoreCase) || n.EmployeeName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+           SearchFilter="@((n, term) => n.Message.Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveCategoryLabel(n.Category).Contains(term, StringComparison.OrdinalIgnoreCase) || n.EmployeeName.Contains(term, StringComparison.OrdinalIgnoreCase))"
            SearchPlaceholder="Search by message, category, or employee..."
-           EmptyMessage="No notifications."
+           EmptyMessage="@(showAllNotifications ? "No notifications found for selected date range." : "No open notifications.")"
            DefaultSortColumn="Date"
            DefaultSortAscending="false">
-    <ToolbarContent>
-        <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" role="switch" id="showAccepted" @bind="showAccepted" />
-            <label class="form-check-label" for="showAccepted">Show accepted</label>
-        </div>
-    </ToolbarContent>
     <RowContent Context="n">
         <td>@FormatDisplayLocal(n.CreatedAtLocal)</td>
         <td>@n.EmployeeName</td>
-        <td><span class="badge bg-secondary">@NotificationCategories.Label(n.Category)</span></td>
+        <td><span class="badge bg-secondary">@ResolveCategoryLabel(n.Category)</span></td>
         <td>@n.Message</td>
         <td>@FormatDisplayLocal(n.AcceptedAtLocal)</td>
         <td>
@@ -68,27 +86,48 @@
     [
         new("Date", n => n.CreatedAt.ToDateTime()),
         new("Employee", n => n.EmployeeName),
-        new("Category", n => NotificationCategories.Label(n.Category)),
+        new("Category", n => n.Category),
         new("Message", n => n.Message),
         new("Accepted", n => n.AcceptedAt?.ToDateTime()),
         new("Status", n => n.RequiresAcknowledgement ? (n.IsAcknowledged ? "Accepted" : "Open") : ""),
     ];
 
     private IReadOnlyList<NotificationResponse> notifications = [];
-    private bool showAccepted;
+    private bool showAllNotifications;
+    private DateTime historyFrom = DateTime.UtcNow.Date.AddDays(-7);
 
-    private IReadOnlyList<NotificationResponse> DisplayedNotifications =>
-        showAccepted
-            ? notifications
-            : [.. notifications.Where(n => n.RequiresAcknowledgement && !n.IsAcknowledged)];
+    private IReadOnlyList<NotificationResponse> DisplayedNotifications => notifications;
+
+    private Task OnNotificationFilterChanged() => LoadDataAsync();
+
+    private async Task OnHistoryFromChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var d))
+        {
+            historyFrom = d.Date;
+            await LoadDataAsync();
+        }
+    }
 
     protected override async Task LoadDataAsync()
     {
         RequireFeatureAccess();
+        if ((SelectedRailroadCtrlNbr ?? 0) <= 0)
+        {
+            notifications = [];
+            return;
+        }
+
         try
         {
-            var response = await NotificationsClient.GetRailroadNotificationsAsync(SelectedRailroadCtrlNbr ?? 0);
-            notifications = [.. response.Notifications];
+            var railroadCtrlNbr = SelectedRailroadCtrlNbr ?? 0;
+
+            var response = await NotificationsClient.GetRailroadNotificationsAsync(railroadCtrlNbr);
+            var allNotifications = response.Notifications;
+
+            notifications = showAllNotifications
+                ? [.. allNotifications.Where(n => n.CreatedAt.ToDateTime().ToUniversalTime() >= historyFrom.Date.ToUniversalTime())]
+                : [.. allNotifications.Where(n => n.RequiresAcknowledgement && !n.IsAcknowledged)];
         }
         catch (Exception ex)
         {
@@ -96,6 +135,9 @@
             notifications = [];
         }
     }
+
+    private string ResolveCategoryLabel(string category)
+        => NotificationCategories.Label(category);
 
     protected override Task OnAppContextChangedAsync() => LoadDataAsync();
 }
