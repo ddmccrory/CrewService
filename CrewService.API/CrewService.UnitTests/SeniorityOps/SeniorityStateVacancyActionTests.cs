@@ -199,6 +199,21 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         return await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
     }
 
+    private async Task SetDepartmentReassignmentRuleAsync(
+        ControlNumber departmentCtrlNbr,
+        BoardType targetBoardType,
+        bool isRequired,
+        CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var existing = await ctx.Set<DepartmentReassignmentRule>()
+            .SingleAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr, ct);
+        ctx.Set<DepartmentReassignmentRule>().Remove(existing);
+        ctx.Set<DepartmentReassignmentRule>().Add(
+            DepartmentReassignmentRule.Create(departmentCtrlNbr, targetBoardType, isRequired));
+        await ctx.SaveChangesAsync(ct);
+    }
+
     /// <summary>
     /// Creates a board of the given type for the fixture's craft/roster and places the employee on
     /// it through the canonical <see cref="Application.RosterBoardOps.RosterBoardAppService.AddRosterBoardPositionAsync"/>,
@@ -241,6 +256,28 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
     {
         await using var uow = await _host.UowFactory.CreateAsync(cancellationToken: ct);
         return await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct);
+    }
+
+    private async Task<ControlNumber> GetActiveCrewIncumbencyCtrlNbrAsync(CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var incumbency = await ctx.Set<CrewIncumbency>()
+            .AsNoTracking()
+            .SingleAsync(i => i.EndUtc == null, ct);
+        return incumbency.CtrlNbr;
+    }
+
+    private async Task<ControlNumber> GetBoardPositionCtrlNbrAsync(
+        ControlNumber boardCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        var board = await GetBoardAsync(boardCtrlNbr, ct)
+            ?? throw new InvalidOperationException($"Board {boardCtrlNbr.Value} not found.");
+        var position = board.Positions.SingleOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr)
+            ?? throw new InvalidOperationException(
+                $"Employee {employeeCtrlNbr.Value} not found on board {boardCtrlNbr.Value}.");
+        return position.CtrlNbr;
     }
 
     /// <summary>
@@ -335,6 +372,52 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         // End-to-end proof: a bulletin now exists for the vacated crew position — the same outcome
         // every other vacate produces. Before the fix, no position was vacated so none was possible.
         Assert.Equal(1, await CountCrewBulletinsAsync(crewStaffablePositionCtrlNbr, ct));
+    }
+
+    [Fact]
+    public async Task ManualCrewUnassign_UsesDepartmentReassignmentRule()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedCrewIncumbencyAsync(f, ct);
+        await SetDepartmentReassignmentRuleAsync(f.DepartmentCtrlNbr, BoardType.Hangout, isRequired: true, ct);
+        var hangoutBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.Hangout, ct);
+        var incumbencyCtrlNbr = await GetActiveCrewIncumbencyCtrlNbrAsync(ct);
+
+        await _host.Crews.EndCrewIncumbencyAsync(incumbencyCtrlNbr, DateTime.UtcNow, ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignments[0].AssignmentType);
+
+        var hangoutBoard = await GetBoardAsync(hangoutBoardCtrlNbr, ct);
+        Assert.NotNull(hangoutBoard);
+        Assert.Contains(hangoutBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+    }
+
+    [Fact]
+    public async Task ManualBoardUnassign_UsesDepartmentReassignmentRule()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        var sourceBoardCtrlNbr = await SeedBoardWithEmployeeAsync(f, BoardType.ExtraBoard, ct);
+        await SetDepartmentReassignmentRuleAsync(f.DepartmentCtrlNbr, BoardType.Hangout, isRequired: true, ct);
+        var hangoutBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.Hangout, ct);
+        var sourcePositionCtrlNbr = await GetBoardPositionCtrlNbrAsync(sourceBoardCtrlNbr, f.EmployeeCtrlNbr, ct);
+
+        await _host.RosterBoards.RemoveRosterBoardPositionAsync(sourcePositionCtrlNbr, ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignments[0].AssignmentType);
+
+        var sourceBoard = await GetBoardAsync(sourceBoardCtrlNbr, ct);
+        Assert.NotNull(sourceBoard);
+        Assert.DoesNotContain(sourceBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+
+        var hangoutBoard = await GetBoardAsync(hangoutBoardCtrlNbr, ct);
+        Assert.NotNull(hangoutBoard);
+        Assert.Contains(hangoutBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
     }
 
     [Fact]
@@ -435,6 +518,82 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         var targetBoard = await GetBoardAsync(targetBoardCtrlNbr, ct);
         Assert.NotNull(targetBoard);
         Assert.Contains(targetBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+    }
+
+    [Fact]
+    public async Task MoveToBoard_BoardSource_DoesNotUseDepartmentReassignmentRule()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+
+        var sourceBoardCtrlNbr = await SeedBoardWithEmployeeAsync(f, BoardType.ExtraBoard, ct);
+        await SetDepartmentReassignmentRuleAsync(f.DepartmentCtrlNbr, BoardType.Hangout, isRequired: true, ct);
+        var hangoutBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.Hangout, ct);
+        var extendedAbsenceBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.ExtendedAbsence, ct);
+
+        await _host.VacancyConfig.UpsertAsync(
+            f.ParentCtrlNbr,
+            f.RailroadCtrlNbr,
+            f.NewSeniorityStateCtrlNbr,
+            VacancyAction.MoveToBoard,
+            targetBoardType: BoardType.ExtendedAbsence,
+            ct: ct);
+
+        await _host.VacancyConfig.ApplyVacancyActionAsync(
+            f.EmployeeCtrlNbr, f.NewSeniorityStateCtrlNbr, f.RosterCtrlNbr, ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignments[0].AssignmentType);
+
+        var sourceBoard = await GetBoardAsync(sourceBoardCtrlNbr, ct);
+        Assert.NotNull(sourceBoard);
+        Assert.DoesNotContain(sourceBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+
+        var extendedAbsenceBoard = await GetBoardAsync(extendedAbsenceBoardCtrlNbr, ct);
+        Assert.NotNull(extendedAbsenceBoard);
+        Assert.Contains(extendedAbsenceBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+
+        var hangoutBoard = await GetBoardAsync(hangoutBoardCtrlNbr, ct);
+        Assert.NotNull(hangoutBoard);
+        Assert.DoesNotContain(hangoutBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+    }
+
+    [Fact]
+    public async Task MoveToBoard_CrewSource_DoesNotUseDepartmentReassignmentRule()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedCrewIncumbencyAsync(f, ct);
+
+        // Configure department reassignment to Hangout (required) and also provide both boards;
+        // seniority MoveToBoard must still place on ExtendedAbsence.
+        await SetDepartmentReassignmentRuleAsync(f.DepartmentCtrlNbr, BoardType.Hangout, isRequired: true, ct);
+        var hangoutBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.Hangout, ct);
+        var extendedAbsenceBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.ExtendedAbsence, ct);
+
+        await _host.VacancyConfig.UpsertAsync(
+            f.ParentCtrlNbr,
+            f.RailroadCtrlNbr,
+            f.NewSeniorityStateCtrlNbr,
+            VacancyAction.MoveToBoard,
+            targetBoardType: BoardType.ExtendedAbsence,
+            ct: ct);
+
+        await _host.VacancyConfig.ApplyVacancyActionAsync(
+            f.EmployeeCtrlNbr, f.NewSeniorityStateCtrlNbr, f.RosterCtrlNbr, ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignments[0].AssignmentType);
+
+        var extendedAbsenceBoard = await GetBoardAsync(extendedAbsenceBoardCtrlNbr, ct);
+        Assert.NotNull(extendedAbsenceBoard);
+        Assert.Contains(extendedAbsenceBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+
+        var hangoutBoard = await GetBoardAsync(hangoutBoardCtrlNbr, ct);
+        Assert.NotNull(hangoutBoard);
+        Assert.DoesNotContain(hangoutBoard!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
     }
 
     [Fact]
