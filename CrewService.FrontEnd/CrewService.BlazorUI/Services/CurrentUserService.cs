@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using CrewService.BlazorUI.Client;
-using CrewService.BlazorUI.Clients;
 using CrewService.BlazorUI.Models.Auth;
 using CrewService.Presentation;
 
@@ -8,12 +7,12 @@ namespace CrewService.BlazorUI.Services;
 
 /// <summary>
 /// Scoped (per-circuit) service that resolves and caches the current user's
-/// identity, admin status, and employee record from <see cref="ClaimsPrincipal"/>.
-/// Eliminates duplicated auth/employee resolution logic across pages.
+/// identity and bootstrap-seeded employee linkage from <see cref="ClaimsPrincipal"/>.
+/// Avoids post-login profile lookups so auth and role gating do not depend on
+/// a second gRPC round-trip.
 /// </summary>
-public class CurrentUserService(EmployeeClient employeeClient)
+public class CurrentUserService
 {
-    private readonly EmployeeClient _employeeClient = employeeClient;
     private bool _initialized;
 
     /// <summary>The user's email or name identifier claim.</summary>
@@ -38,10 +37,9 @@ public class CurrentUserService(EmployeeClient employeeClient)
     /// Resolves the current user's identity and employee record from claims.
     /// Idempotent — subsequent calls within the same circuit are no-ops.
     /// </summary>
-    public async Task InitializeAsync(ClaimsPrincipal user)
+    public Task InitializeAsync(ClaimsPrincipal user)
     {
-        if (_initialized) return;
-        _initialized = true;
+        if (_initialized) return Task.CompletedTask;
         User = user;
 
         Username = user.FindFirst(ClaimTypes.Email)?.Value
@@ -52,59 +50,50 @@ public class CurrentUserService(EmployeeClient employeeClient)
             || user.IsInRole(Roles.RailroadAdmin);
 
         EmployeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
-        if (!string.IsNullOrWhiteSpace(EmployeeNumber))
-        {
-            try
-            {
-                Employee = await _employeeClient.GetByNumberAsync(EmployeeNumber);
-                IsEmployee = true;
-            }
-            catch
-            {
-                IsEmployee = false;
-            }
-        }
+        // Employee identity for gating is claim/bootstrap-based.
+        // Detailed employee profile is loaded by feature pages as needed.
+        IsEmployee = user.IsInRole(Roles.Employee) || !string.IsNullOrWhiteSpace(EmployeeNumber) || Employee is not null;
+
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// Seeds this service from bootstrap data, avoiding the separate gRPC call
-    /// to the Employee service. No-op if already initialized.
+    /// to the Employee service.
     /// </summary>
     public void SeedFromBootstrap(ClaimsPrincipal user, GetEmployeeResponse? employee)
     {
-        if (_initialized) return;
-        _initialized = true;
-        User = user;
+        User ??= user;
 
-        Username = user.FindFirst(ClaimTypes.Email)?.Value
+        Username ??= user.FindFirst(ClaimTypes.Email)?.Value
             ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        IsAdmin = user.IsInRole(Roles.SystemAdmin)
+        IsAdmin = IsAdmin
+            || user.IsInRole(Roles.SystemAdmin)
             || user.IsInRole(Roles.ParentAdmin)
             || user.IsInRole(Roles.RailroadAdmin);
 
-        EmployeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
+        EmployeeNumber ??= user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
 
         if (employee is not null)
         {
             Employee = employee;
             IsEmployee = true;
         }
+        else if (!IsEmployee)
+        {
+            IsEmployee = user.IsInRole(Roles.Employee) || !string.IsNullOrWhiteSpace(EmployeeNumber);
+        }
+
+        _initialized = true;
     }
 
     /// <summary>
-    /// Reloads the employee record from the API. Use after CRUD operations
-    /// that modify the employee's sub-collections (addresses, phones, etc.).
+    /// No-op placeholder retained for compatibility with existing call sites.
     /// </summary>
-    public async Task ReloadEmployeeAsync()
+    public Task ReloadEmployeeAsync()
     {
-        if (Employee is null || string.IsNullOrWhiteSpace(EmployeeNumber)) return;
-        try
-        {
-            Employee = await _employeeClient.GetByNumberAsync(Employee.EmployeeNumber);
-        }
-        catch
-        {
-        }
+        return Task.CompletedTask;
     }
 }

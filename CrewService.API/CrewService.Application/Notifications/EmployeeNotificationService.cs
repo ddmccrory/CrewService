@@ -193,7 +193,7 @@ public sealed class EmployeeNotificationService(
 
         Emit(uow, move.RailroadCtrlNbr, move.EmployeeCtrlNbr, NotificationCategories.SeniorityMove,
             $"You have been assigned to {positionClause} effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
-            requiresAcknowledgement: true, subject, move.EffectiveUtc);
+            requiresAcknowledgement: false, subject, move.EffectiveUtc);
     }
 
     /// <summary>

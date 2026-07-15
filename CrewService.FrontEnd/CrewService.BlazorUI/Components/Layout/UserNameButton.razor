@@ -3,6 +3,7 @@
 @inject CrewService.BlazorUI.Services.AppContextService AppContext
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @inject CrewService.BlazorUI.Services.CurrentUserService CurrentUser
+@inject CrewService.BlazorUI.Services.CircuitBootstrapService CircuitBootstrap
 
 <NavLink class="nav-link p-0" href="@profileHref">
     <div class="btn btn-outline-light" aria-hidden="true">@displayName</div>
@@ -15,6 +16,7 @@
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        await CircuitBootstrap.EnsureInitializedAsync(authState.User);
         await CurrentUser.InitializeAsync(authState.User);
 
         if (CurrentUser.IsEmployee && CurrentUser.Employee is not null)
