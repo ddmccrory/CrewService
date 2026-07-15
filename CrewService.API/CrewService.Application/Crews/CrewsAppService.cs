@@ -14,9 +14,10 @@ public sealed class CrewsAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IVacancyRepostService vacancyRepostService,
     DepartmentReassignmentService departmentReassignmentService,
-    ILogger<CrewsAppService> logger)
+    ILogger<CrewsAppService> logger,
+    IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
-    private const string ReassignmentCancellationReason = "Cancelled because employee was assigned to a different position.";
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
 
     // ── Crews ────────────────────────────────────────────────────────────────
 
@@ -191,34 +192,20 @@ public sealed class CrewsAppService(
             ?? throw new KeyNotFoundException($"CrewPosition {crewPositionCtrlNbr} not found.");
 
         var incumbency = CrewIncumbency.Create(crewPositionCtrlNbr, employeeCtrlNbr, startUtc, endUtc);
-        var positionAssignment = PositionAssignment.Create(
-            crewPosition.StaffablePositionCtrlNbr, empCtrlNbr, PositionAssignmentType.Direct, crewPosition.CtrlNbr,
-            assignedDateUtc: startUtc);
-
-        await CancelPendingOrApprovedSeniorityMovesAsync(uow, empCtrlNbr, ct);
+        await _incumbentAssignmentPath.AssignAsync(
+            uow,
+            crewPosition.StaffablePositionCtrlNbr,
+            empCtrlNbr,
+            PositionAssignmentType.Direct,
+            assignmentSourceCtrlNbr: crewPosition.CtrlNbr,
+            assignedDateUtc: startUtc,
+            cancellationReason: IncumbentAssignmentPath.DefaultCancellationReason,
+            excludeMoveCtrlNbr: null,
+            ct);
 
         uow.CrewIncumbencies.Add(incumbency);
-        uow.PositionAssignments.Add(positionAssignment);
         await uow.CommitAsync(ct);
         return incumbency;
-    }
-
-    private static async Task CancelPendingOrApprovedSeniorityMovesAsync(
-        IOrchestrationUnitOfWork uow,
-        ControlNumber employeeCtrlNbr,
-        CancellationToken ct)
-    {
-        var employeeMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
-        foreach (var move in employeeMoves)
-        {
-            if (move.Status != SeniorityMoveStatus.Pending && move.Status != SeniorityMoveStatus.Approved)
-                continue;
-            if (move.MoveType != SeniorityMoveType.Voluntary && move.MoveType != SeniorityMoveType.Hangout)
-                continue;
-
-            move.Cancel(ReassignmentCancellationReason);
-            await uow.SeniorityMoves.UpdateAsync(move, ct);
-        }
     }
 
     public async Task EndCrewIncumbencyAsync(ControlNumber ctrlNbr, DateTime endUtc, CancellationToken ct = default)

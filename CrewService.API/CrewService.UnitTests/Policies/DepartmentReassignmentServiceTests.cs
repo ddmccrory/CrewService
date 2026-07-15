@@ -24,6 +24,7 @@ using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
+using CrewService.UnitTests.Fixtures;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -554,7 +555,7 @@ public class DepartmentReassignmentServiceTests
         public IBulletinPolicyRepository BulletinPolicies => null!;
         public ICallSheetRuleRepository CallSheetRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
-        public ISeniorityMoveRepository SeniorityMoves => null!;
+        public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();
         public IDispatchProjectionRepository DispatchProjections => null!;
         public IDispatchDecisionLogRepository DispatchDecisionLogs => null!;
         public IDispatchOverrideRepository DispatchOverrides => null!;

@@ -6,6 +6,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Staffing;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -218,6 +219,45 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         return await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
     }
 
+    private async Task<List<SeniorityMove>> GetEmployeeMovesAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        await using var uow = await _host.UowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
+    }
+
+    private async Task SeedPendingAndApprovedMovesAsync(
+        Fixture f,
+        ControlNumber targetPositionCtrlNbr,
+        string moveType,
+        CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+
+        var pending = SeniorityMove.Create(
+            f.RailroadCtrlNbr,
+            f.EmployeeCtrlNbr,
+            f.CraftCtrlNbr,
+            targetPositionCtrlNbr,
+            displacedEmployeeCtrlNbr: null,
+            daysOnCurrentPosition: 30,
+            moveType: moveType,
+            effectiveUtc: DateTime.UtcNow.AddHours(3));
+
+        var approved = SeniorityMove.Create(
+            f.RailroadCtrlNbr,
+            f.EmployeeCtrlNbr,
+            f.CraftCtrlNbr,
+            targetPositionCtrlNbr,
+            displacedEmployeeCtrlNbr: null,
+            daysOnCurrentPosition: 30,
+            moveType: moveType,
+            effectiveUtc: DateTime.UtcNow.AddHours(4));
+        approved.Approve();
+
+        ctx.Set<SeniorityMove>().AddRange(pending, approved);
+        await ctx.SaveChangesAsync(ct);
+    }
+
     private async Task<CrewIncumbency?> GetIncumbencyAsync(ControlNumber incumbencyCtrlNbr, CancellationToken ct)
     {
         await using var uow = await _host.UowFactory.CreateAsync(cancellationToken: ct);
@@ -271,6 +311,30 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         var assignment = Assert.Single(assignments);
         Assert.Equal(PositionAssignmentType.BulletinAssignment, assignment.AssignmentType);
         Assert.Equal(targetCrewPositionCtrlNbr, assignment.AssignmentSourceCtrlNbr);
+    }
+
+    [Fact]
+    public async Task Award_CancelsPendingAndApprovedHangoutMovesForWinner()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedOutgoingBoardSlotAsync(f, ct);
+        var (bulletinCtrlNbr, _) = await SeedTargetCrewBulletinAsync(f, ct);
+
+        var targetPosition = StaffablePosition.Create(StaffablePositionType.Crew);
+        await using (var ctx = _host.CreateReadContext())
+        {
+            ctx.StaffablePositions.Add(targetPosition);
+            await ctx.SaveChangesAsync(ct);
+        }
+
+        await SeedPendingAndApprovedMovesAsync(f, targetPosition.CtrlNbr, SeniorityMoveType.Hangout, ct);
+
+        await _host.Bulletins.AwardBulletinAsync(bulletinCtrlNbr, f.EmployeeCtrlNbr, ct);
+
+        var moves = await GetEmployeeMovesAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Equal(2, moves.Count);
+        Assert.All(moves, move => Assert.Equal(SeniorityMoveStatus.Cancelled, move.Status));
     }
 
     // ── Force assign ──────────────────────────────────────────────────────────

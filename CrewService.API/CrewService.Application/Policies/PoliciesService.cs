@@ -14,8 +14,10 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+
     public async Task<CraftOperationsPolicy> GetCraftOperationsPolicyAsync(
         ControlNumber craftCtrlNbr, CancellationToken ct = default)
     {
@@ -679,11 +681,19 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
             var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
             var boardPosition = board.AddPosition(empCtrlNbr, nextOrder, staffablePosition.CtrlNbr);
-            var positionAssignment = PositionAssignment.Create(
-                staffablePosition.CtrlNbr, empCtrlNbr, PositionAssignmentType.Board, boardPosition.CtrlNbr);
 
             uow.StaffablePositions.Add(staffablePosition);
-            uow.PositionAssignments.Add(positionAssignment);
+            await _incumbentAssignmentPath.AssignAsync(
+                uow,
+                staffablePosition.CtrlNbr,
+                empCtrlNbr,
+                PositionAssignmentType.Board,
+                assignmentSourceCtrlNbr: boardPosition.CtrlNbr,
+                assignedDateUtc: null,
+                cancellationReason: IncumbentAssignmentPath.DefaultCancellationReason,
+                excludeMoveCtrlNbr: null,
+                ct);
+
             uow.RosterBoards.Update(board);
 
             targetPositionCtrlNbr = staffablePosition.CtrlNbr.Value;

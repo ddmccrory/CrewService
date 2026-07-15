@@ -172,6 +172,7 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
         public string FormatLocalIso(DateTime utc, TimeZoneInfo? tz) => throw new NotImplementedException();
         public DateTime ParseToUtc(string value, TimeZoneInfo? tz) => throw new NotImplementedException();
         public Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(ControlNumber workAreaCtrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<TimeZoneInfo?> GetWorkAreaTimeZoneAsync(CrewService.Domain.Interfaces.IOrchestrationUnitOfWork uow, ControlNumber workAreaCtrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<TimeZoneInfo?> GetCrewTimeZoneAsync(CrewService.Domain.Interfaces.IOrchestrationUnitOfWork uow, ControlNumber crewCtrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
     }
 }

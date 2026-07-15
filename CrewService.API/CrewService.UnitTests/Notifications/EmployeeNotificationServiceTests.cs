@@ -23,6 +23,7 @@ using CrewService.Domain.Modules.Safety;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
+using CrewService.UnitTests.Fixtures;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
@@ -638,7 +639,7 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => throw new NotImplementedException();
-    public ISeniorityMoveRepository SeniorityMoves => throw new NotImplementedException();
+    public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();
     public IDispatchProjectionRepository DispatchProjections => throw new NotImplementedException();
     public IDispatchDecisionLogRepository DispatchDecisionLogs => throw new NotImplementedException();
     public IDispatchOverrideRepository DispatchOverrides => throw new NotImplementedException();
