@@ -12,6 +12,7 @@ public interface IFraCertificationChecker
 
 public sealed class EmployeeEligibilityService(
     IOrchestrationUnitOfWorkFactory uowFactory,
+    RequirementEvaluationService? requirementEvaluationService = null,
     IFraCertificationChecker? fraCertificationChecker = null)
 {
     public async Task<EligibilityResult> CheckEligibilityAsync(
@@ -57,7 +58,13 @@ public sealed class EmployeeEligibilityService(
             }
 
             if (requirement.QualificationTypeCtrlNbr is not null)
-                await EvaluateQualificationTypeAsync(uow, employeeCtrlNbr, requirement.QualificationTypeCtrlNbr, blockingReasons, ct);
+                await EvaluateQualificationTypeAsync(
+                    uow,
+                    employeeCtrlNbr,
+                    requirement.QualificationTypeCtrlNbr,
+                    blockingReasons,
+                    enforceAllRequiredQualifications: false,
+                    ct);
         }
 
         // ── 2. Role-level required qualifications (B2: template-based) ───────
@@ -66,7 +73,13 @@ public sealed class EmployeeEligibilityService(
         {
             var roleQualifications = await uow.CraftRoleQualifications.GetByCraftRoleAsync(slot.CraftRoleCtrlNbr);
             foreach (var roleQual in roleQualifications)
-                await EvaluateQualificationTypeAsync(uow, employeeCtrlNbr, roleQual.QualificationTypeCtrlNbr, blockingReasons, ct);
+                await EvaluateQualificationTypeAsync(
+                    uow,
+                    employeeCtrlNbr,
+                    roleQual.QualificationTypeCtrlNbr,
+                    blockingReasons,
+                    enforceAllRequiredQualifications: false,
+                    ct);
         }
 
         return new EligibilityResult(
@@ -82,29 +95,42 @@ public sealed class EmployeeEligibilityService(
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var position = await uow.CrewPositions.GetByCtrlNbrAsync(crewPositionCtrlNbr, ct)
             ?? throw new KeyNotFoundException($"Crew position {crewPositionCtrlNbr.Value} not found.");
-        return await CheckEligibilityByCraftRoleAsync(employeeCtrlNbr, position.CraftRoleCtrlNbr, ct);
+        return await CheckEligibilityByCraftRoleAsync(employeeCtrlNbr, position.CraftRoleCtrlNbr, ct: ct);
     }
 
     public async Task<EligibilityResult> CheckEligibilityByCraftRoleAsync(
         ControlNumber employeeCtrlNbr,
         ControlNumber craftRoleCtrlNbr,
+        bool enforceAllRequiredQualifications = false,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await CheckEligibilityByCraftRoleAsync(uow, employeeCtrlNbr, craftRoleCtrlNbr, ct);
+        return await CheckEligibilityByCraftRoleAsync(
+            uow,
+            employeeCtrlNbr,
+            craftRoleCtrlNbr,
+            enforceAllRequiredQualifications,
+            ct);
     }
 
     internal async Task<EligibilityResult> CheckEligibilityByCraftRoleAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
         ControlNumber craftRoleCtrlNbr,
+        bool enforceAllRequiredQualifications = false,
         CancellationToken ct = default)
     {
         var blockingReasons = new List<BlockingReason>();
 
         var roleQualifications = await uow.CraftRoleQualifications.GetByCraftRoleAsync(craftRoleCtrlNbr);
         foreach (var roleQual in roleQualifications)
-            await EvaluateQualificationTypeAsync(uow, employeeCtrlNbr, roleQual.QualificationTypeCtrlNbr, blockingReasons, ct);
+            await EvaluateQualificationTypeAsync(
+                uow,
+                employeeCtrlNbr,
+                roleQual.QualificationTypeCtrlNbr,
+                blockingReasons,
+                enforceAllRequiredQualifications,
+                ct);
 
         return new EligibilityResult(
             IsEligible: blockingReasons.Count == 0,
@@ -116,6 +142,7 @@ public sealed class EmployeeEligibilityService(
         ControlNumber employeeCtrlNbr,
         ControlNumber qualificationTypeCtrlNbr,
         List<BlockingReason> blockingReasons,
+        bool enforceAllRequiredQualifications,
         CancellationToken ct)
     {
         var qualType = await uow.QualificationTypes.GetByCtrlNbrAsync(qualificationTypeCtrlNbr, ct);
@@ -147,14 +174,41 @@ public sealed class EmployeeEligibilityService(
         }
         else
         {
-            var qualification = await uow.EmployeeQualifications
-                .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualType.CtrlNbr);
+            var isManual = string.Equals(
+                qualType.EvaluationStrategy,
+                EvaluationStrategies.Manual,
+                StringComparison.OrdinalIgnoreCase);
 
-            if (qualification is null || qualification.Status is not ("Active" or "ExpiringSoon"))
+            bool isQualified;
+            string status;
+
+            if (!isManual && requirementEvaluationService is not null)
             {
-                if (qualType.IsBlocking)
+                var evaluation = await requirementEvaluationService.EvaluateAsync(
+                    employeeCtrlNbr,
+                    qualType,
+                    uow,
+                    ct);
+
+                isQualified = evaluation.AllSatisfied && !evaluation.IsSuspended;
+                status = evaluation.IsSuspended
+                    ? QualificationStatuses.Suspended
+                    : isQualified
+                        ? QualificationStatuses.Active
+                        : (evaluation.OverallFailureKind ?? QualificationStatuses.Pending);
+            }
+            else
+            {
+                var qualification = await uow.EmployeeQualifications
+                    .GetByEmployeeAndTypeAsync(employeeCtrlNbr, qualType.CtrlNbr);
+                isQualified = qualification is not null && qualification.Status is (QualificationStatuses.Active or QualificationStatuses.ExpiringSoon);
+                status = qualification?.Status ?? "None";
+            }
+
+            if (!isQualified)
+            {
+                if (enforceAllRequiredQualifications || qualType.IsBlocking)
                 {
-                    var status = qualification?.Status ?? "None";
                     blockingReasons.Add(new BlockingReason(
                         "NOT_QUALIFIED",
                         $"Missing or {status.ToLowerInvariant()} qualification: {qualType.Name}"));
