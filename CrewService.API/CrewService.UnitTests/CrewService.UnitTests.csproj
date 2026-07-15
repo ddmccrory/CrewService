@@ -27,6 +27,7 @@
     <ProjectReference Include="..\CrewService.Domain\CrewService.Domain.csproj" />
     <ProjectReference Include="..\CrewService.Persistance\CrewService.Persistance.csproj" />
     <ProjectReference Include="..\CrewService.Application\CrewService.Application.csproj" />
+    <ProjectReference Include="..\CrewService.Infrastructure\CrewService.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

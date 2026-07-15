@@ -1,4 +1,5 @@
 using CrewService.BlazorUI.Services;
+using Grpc.Core;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 
@@ -111,7 +112,17 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
             await CurrentUser.InitializeAsync(authState.User);
             await Permissions.InitializeAsync(authState.User);
             await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
-            await LoadDataAsync();
+            try
+            {
+                await LoadDataAsync();
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition)
+            {
+                // Notification acknowledgement guard blocks non-exempt API calls until
+                // required notices are accepted. Suppress page-load failures so the
+                // NotificationGate can render and drive acknowledgement.
+                errorMessage = ex.Status.Detail;
+            }
         }
 
         IsInitializing = false;
@@ -148,7 +159,14 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
         {
             if (_cts.IsCancellationRequested) return;
             await Permissions.LoadPermissionsAsync(SelectedParentCtrlNbr);
-            await OnAppContextChangedAsync();
+            try
+            {
+                await OnAppContextChangedAsync();
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition)
+            {
+                errorMessage = ex.Status.Detail;
+            }
             if (!_cts.IsCancellationRequested) StateHasChanged();
         });
     }
