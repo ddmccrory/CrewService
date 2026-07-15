@@ -121,6 +121,8 @@ public static class DependencyInjection
         // Policies
         services.AddScoped<PoliciesService>();
         services.AddScoped<DepartmentReassignmentService>();
+        services.AddScoped<SeniorityMoveCancellationPath>();
+        services.AddScoped<IncumbentAssignmentPath>();
 
         // Authorization
         services.AddScoped<Application.Authorization.AuthorizationService>();

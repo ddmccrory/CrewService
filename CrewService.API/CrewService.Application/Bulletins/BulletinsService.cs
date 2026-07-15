@@ -1,5 +1,6 @@
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Notifications;
+using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
@@ -16,8 +17,12 @@ public sealed class BulletinsService(
     ILogger<BulletinsService> logger,
     IBulletinScheduleSignal scheduleSignal,
     EmployeeNotificationService notifications,
-    EmployeeEligibilityService eligibility)
+    EmployeeEligibilityService eligibility,
+    SeniorityMoveCancellationPath? seniorityMoveCancellationPath = null,
+    IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(seniorityMoveCancellationPath ?? new());
+
     public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -801,6 +806,7 @@ public sealed class BulletinsService(
         CancellationToken ct)
     {
         var forceAssigned = assignmentType == PositionAssignmentType.ForceAssignment;
+        var cancelledMoves = (IReadOnlyList<SeniorityMove>)[];
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
         if (vacancy is not null)
         {
@@ -823,62 +829,48 @@ public sealed class BulletinsService(
             // The bulletin's target position is always vacant here: a position is vacated (its
             // incumbency ended) BEFORE the bulletin is created, and the vacate is what triggers
             // the bulletin. There is therefore no incumbent to displace on the target position.
-            await PlaceEmployeeOnCrewPositionAsync(uow, vacancy, employeeCtrlNbr, assignmentType, effectiveUtc, ct);
+            cancelledMoves = await PlaceEmployeeOnCrewPositionAsync(
+                uow,
+                vacancy,
+                employeeCtrlNbr,
+                assignmentType,
+                effectiveUtc,
+                $"Superseded by bulletin {bulletin.CtrlNbr.Value}.",
+                ct);
         }
 
         // Notify the awarded/force-assigned employee.
         await notifications.NotifyBulletinAwardedAsync(uow, bulletin, employeeCtrlNbr, forceAssigned, ct);
 
-        // A bulletin award/force-assign supersedes any pending voluntary seniority moves the
-        // awarded employee had outstanding (legacy: RailroadPoolEmployee.RemoveUnassignedSeniorityMoves).
-        await SupersedePendingSeniorityMovesAsync(uow, employeeCtrlNbr, bulletin.CtrlNbr, ct);
-        await uow.Bulletins.UpdateAsync(bulletin, ct);
-    }
-
-    /// <summary>
-    /// Cancels the employee's still-pending voluntary seniority moves because a bulletin award
-    /// or force-assignment now governs their position. Mirrors SA's
-    /// <c>RailroadPoolEmployee.RemoveUnassignedSeniorityMoves</c> (unassigned + voluntary).
-    /// Force-assign moves are left untouched.
-    /// </summary>
-    private async Task SupersedePendingSeniorityMovesAsync(
-        Domain.Interfaces.IOrchestrationUnitOfWork uow,
-        ControlNumber employeeCtrlNbr,
-        ControlNumber bulletinCtrlNbr,
-        CancellationToken ct)
-    {
-        var moves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
-        foreach (var move in moves)
+        foreach (var move in cancelledMoves)
         {
-            if (move.Status != SeniorityMoveStatus.Pending) continue;
-            if (move.MoveType != SeniorityMoveType.Voluntary) continue;
-
-            move.Cancel($"Superseded by bulletin {bulletinCtrlNbr.Value}.");
-            await uow.SeniorityMoves.UpdateAsync(move, ct);
             // Notify the previously-bumped employee the move is off, and clear the stale bump notice.
             await notifications.NotifySeniorityMoveCancelledAsync(uow, move, ct);
             if (logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation(
                     "Bulletin {BulletinCtrlNbr}: superseded pending seniority move {MoveCtrlNbr} for employee {EmployeeCtrlNbr}.",
-                    bulletinCtrlNbr.Value, move.CtrlNbr.Value, employeeCtrlNbr.Value);
+                    bulletin.CtrlNbr.Value, move.CtrlNbr.Value, employeeCtrlNbr.Value);
             }
         }
+
+        await uow.Bulletins.UpdateAsync(bulletin, ct);
     }
 
-    private static async Task PlaceEmployeeOnCrewPositionAsync(
+    private async Task<IReadOnlyList<SeniorityMove>> PlaceEmployeeOnCrewPositionAsync(
         Domain.Interfaces.IOrchestrationUnitOfWork uow,
         PositionVacancy vacancy,
         ControlNumber employeeCtrlNbr,
         string assignmentType,
         DateTime? effectiveUtc,
+        string cancellationReason,
         CancellationToken ct)
     {
         _ = ct;
-        if (vacancy.TargetType != StaffablePositionType.Crew) return;
+        if (vacancy.TargetType != StaffablePositionType.Crew) return [];
 
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(vacancy.TargetCtrlNbr);
-        if (crewPosition is null) return;
+        if (crewPosition is null) return [];
 
         // The effective datetime governs when the incoming assignment takes effect. Defaults to
         // "now" for awarded assignments. The target position is guaranteed vacant (vacated before
@@ -886,11 +878,20 @@ public sealed class BulletinsService(
         var effectiveDate = effectiveUtc ?? DateTime.UtcNow;
 
         var incumbency = CrewIncumbency.Create(crewPosition.CtrlNbr.Value, employeeCtrlNbr.Value, effectiveDate, null);
-        var positionAssignment = PositionAssignment.Create(
-            crewPosition.StaffablePositionCtrlNbr, employeeCtrlNbr, assignmentType, crewPosition.CtrlNbr, effectiveDate);
-
         uow.CrewIncumbencies.Add(incumbency);
-        uow.PositionAssignments.Add(positionAssignment);
+
+        var (_, cancelledMoves) = await _incumbentAssignmentPath.AssignAsync(
+            uow,
+            crewPosition.StaffablePositionCtrlNbr,
+            employeeCtrlNbr,
+            assignmentType,
+            assignmentSourceCtrlNbr: crewPosition.CtrlNbr,
+            assignedDateUtc: effectiveDate,
+            cancellationReason: cancellationReason,
+            excludeMoveCtrlNbr: null,
+            ct);
+
+        return cancelledMoves;
     }
 
     /// <summary>

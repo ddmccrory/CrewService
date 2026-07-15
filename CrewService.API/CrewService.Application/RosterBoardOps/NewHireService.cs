@@ -1,4 +1,5 @@
 using CrewService.Application.Qualifications;
+using CrewService.Application.Policies;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
@@ -20,8 +21,11 @@ namespace CrewService.Application.RosterBoardOps;
 /// </summary>
 public sealed class NewHireService(
     IOrchestrationUnitOfWorkFactory uowFactory,
-    QualificationReactiveService qualificationReactiveService)
+    QualificationReactiveService qualificationReactiveService,
+    IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+
     public async Task OnboardAsync(
         ControlNumber employeeCtrlNbr,
         ControlNumber craftCtrlNbr,
@@ -68,11 +72,16 @@ public sealed class NewHireService(
             uow.StaffablePositions.Add(staffablePosition);
             var nextOrder = newHireBoard.Positions.Count + 1;
             var position = newHireBoard.AddPosition(employeeCtrlNbr, nextOrder, staffablePosition.CtrlNbr);
-            uow.PositionAssignments.Add(PositionAssignment.Create(
+            await _incumbentAssignmentPath.AssignAsync(
+                uow,
                 staffablePosition.CtrlNbr,
                 employeeCtrlNbr,
                 PositionAssignmentType.Board,
-                assignmentSourceCtrlNbr: position.CtrlNbr));
+                assignmentSourceCtrlNbr: position.CtrlNbr,
+                assignedDateUtc: null,
+                cancellationReason: IncumbentAssignmentPath.DefaultCancellationReason,
+                excludeMoveCtrlNbr: null,
+                ct);
             uow.RosterBoards.Update(newHireBoard);
         }
 

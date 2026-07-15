@@ -7,8 +7,11 @@ using CrewService.Application.Notifications;
 namespace CrewService.Application.Policies;
 
 public sealed class DepartmentReassignmentService(
-    EmployeeNotificationService? notifications = null)
+    EmployeeNotificationService? notifications = null,
+    IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+
     public async Task ReassignEmployeeAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
@@ -63,12 +66,16 @@ public sealed class DepartmentReassignmentService(
         var boardPosition = targetBoard.AddPosition(employeeCtrlNbr, nextOrder, staffablePosition.CtrlNbr);
         uow.RosterBoards.Update(targetBoard);
 
-        var assignment = PositionAssignment.Create(
+        await _incumbentAssignmentPath.AssignAsync(
+            uow,
             staffablePosition.CtrlNbr,
             employeeCtrlNbr,
             PositionAssignmentType.Board,
-            assignmentSourceCtrlNbr: boardPosition.CtrlNbr);
-        uow.PositionAssignments.Add(assignment);
+            assignmentSourceCtrlNbr: boardPosition.CtrlNbr,
+            assignedDateUtc: null,
+            cancellationReason: IncumbentAssignmentPath.DefaultCancellationReason,
+            excludeMoveCtrlNbr: null,
+            ct);
 
         if (notifications is not null)
         {
