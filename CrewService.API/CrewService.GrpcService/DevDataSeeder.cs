@@ -14,6 +14,7 @@ using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.RailroadInfo;
 using CrewService.Domain.Modules.Safety;
 using CrewService.Domain.Modules.TenantConfig;
@@ -334,6 +335,12 @@ internal static class DevDataSeeder
         // Resolve railroad CtrlNbrs for group scoping
         var allRailroadsBackfill = await groupRepo.GetByGroupTypeNameAsync("Railroad");
         var csxRailroadCore = allRailroadsBackfill.First(g => g.Code == "CSX");
+
+        var notificationTypeConfigRepo = sp.GetRequiredService<INotificationTypeConfigRepository>();
+        await NotificationTypeConfigSeedDefaults.SeedForRailroadsAsync(
+            notificationTypeConfigRepo,
+            allRailroadsBackfill,
+            SetParent);
 
         // Backfill CSX groups
         var allGroupsCore = await groupRepo.GetAllAsync();
@@ -1311,14 +1318,14 @@ internal static class DevDataSeeder
 
         // Schedules: mask 62 = weekdays (Mon–Fri), 63 = 6-day (Sun–Fri), 127 = every day
         await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn130.CtrlNbr, ptraShift1.CtrlNbr, 63, new TimeOnly(7, 0), new TimeOnly(15, 0));
-        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn140.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0));
-        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn150.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 0), new TimeOnly(15, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn140.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 30), new TimeOnly(15, 30));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn150.CtrlNbr, ptraShift1.CtrlNbr, 127, new TimeOnly(7, 59), new TimeOnly(15, 59));
         await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn230.CtrlNbr, ptraShift2.CtrlNbr, 63, new TimeOnly(15, 0), new TimeOnly(23, 0));
-        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn240.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0));
-        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn250.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 0), new TimeOnly(23, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn240.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 30), new TimeOnly(23, 30));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn250.CtrlNbr, ptraShift2.CtrlNbr, 127, new TimeOnly(15, 59), new TimeOnly(23, 59));
         await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn330.CtrlNbr, ptraShift3.CtrlNbr, 63, new TimeOnly(23, 0), new TimeOnly(7, 0));
-        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn340.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0));
-        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn350.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 0), new TimeOnly(7, 0));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn340.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 30), new TimeOnly(7, 30));
+        await assignmentsSvcPtra.CreateAssignmentScheduleAsync(ptraAsgn350.CtrlNbr, ptraShift3.CtrlNbr, 127, new TimeOnly(23, 59), new TimeOnly(7, 59));
 
         // Regular crew → assignment links
         await crewsAppSvcPtra.CreateCrewAssignmentAsync(ptraCrew130.CtrlNbr.Value, ptraAsgn130.CtrlNbr.Value, 62, ptraStart, null);

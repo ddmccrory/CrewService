@@ -24,6 +24,7 @@ namespace CrewService.Application.Notifications;
 public sealed class EmployeeNotificationService(
     ILogger<EmployeeNotificationService> logger,
     IRailroadResolver railroadResolver,
+    NotificationTypeConfigResolver notificationTypeConfigResolver,
     IUserAccountService? userAccounts = null,
     IWorkAreaClock? clock = null)
 {
@@ -45,24 +46,33 @@ public sealed class EmployeeNotificationService(
         return await railroadResolver.ResolveFromWorkAreaAsync(uow, vacancy.WorkAreaGroupCtrlNbr, ct);
     }
 
-    private EmployeeNotification Emit(
+    private async Task<EmployeeNotification?> EmitAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber railroadCtrlNbr,
         ControlNumber employeeCtrlNbr,
-        string category,
+        string notificationTypeKey,
         string message,
-        bool requiresAcknowledgement,
+        bool? requiresAcknowledgementOverride,
         NotificationSubject? subject,
-        DateTime? effectiveAtUtc)
+        DateTime? effectiveAtUtc,
+        CancellationToken ct)
     {
+        var config = await notificationTypeConfigResolver.ResolveAsync(uow, railroadCtrlNbr, notificationTypeKey, ct);
+        if (config is null)
+            return null;
+
+        var requiresAcknowledgement = requiresAcknowledgementOverride ?? config.RequiresAcknowledgementDefault;
+
         var notification = EmployeeNotification.Create(
             railroadCtrlNbr,
             employeeCtrlNbr,
-            category,
+            config.Key,
             message,
             requiresAcknowledgement,
             subject,
-            effectiveAtUtc);
+            effectiveAtUtc,
+            audience: config.Audience,
+            includeInHistory: true);
 
         uow.EmployeeNotifications.Add(notification);
 
@@ -70,7 +80,7 @@ public sealed class EmployeeNotificationService(
         {
             logger.LogInformation(
                 "Notification queued: employee {Employee}, category {Category}, requiresAck {RequiresAck}.",
-                employeeCtrlNbr.Value, category, requiresAcknowledgement);
+                employeeCtrlNbr.Value, config.Key, requiresAcknowledgement);
         }
 
         return notification;
@@ -109,8 +119,8 @@ public sealed class EmployeeNotificationService(
 
         var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
 
-        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, category, message,
-            requiresAcknowledgement: true, subject, bulletin.EffectiveUtc);
+        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, category, message,
+            requiresAcknowledgementOverride: null, subject, bulletin.EffectiveUtc, ct);
     }
 
     /// <summary>
@@ -138,9 +148,9 @@ public sealed class EmployeeNotificationService(
         var positionName = vacancy?.TargetName ?? string.Empty;
         var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
 
-        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinAward,
+        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.GeneralInformation,
             $"Your bid for {positionClause} was not awarded.",
-            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
+            requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
     }
 
     /// <summary>
@@ -168,9 +178,9 @@ public sealed class EmployeeNotificationService(
         var positionName = vacancy?.TargetName ?? string.Empty;
         var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
 
-        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinCancellation,
+        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinCancellation,
             $"The bulletin for {positionClause} has been cancelled and your bid is no longer active.",
-            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
+            requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
     }
 
     // ── Seniority-move notifications ─────────────────────────────────────
@@ -191,9 +201,9 @@ public sealed class EmployeeNotificationService(
 
         var tz = await ResolvePositionTimeZoneAsync(uow, move.TargetPositionCtrlNbr, ct);
 
-        Emit(uow, move.RailroadCtrlNbr, move.EmployeeCtrlNbr, NotificationCategories.SeniorityMove,
+        await EmitAsync(uow, move.RailroadCtrlNbr, move.EmployeeCtrlNbr, NotificationCategories.SeniorityMove,
             $"You have been assigned to {positionClause} effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
-            requiresAcknowledgement: false, subject, move.EffectiveUtc);
+            requiresAcknowledgementOverride: null, subject, move.EffectiveUtc, ct);
     }
 
     /// <summary>
@@ -220,9 +230,9 @@ public sealed class EmployeeNotificationService(
 
         var tz = await ResolvePositionTimeZoneAsync(uow, move.TargetPositionCtrlNbr, ct);
 
-        Emit(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
+        await EmitAsync(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
             $"You will be bumped from {positionClause}{byClause}, effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
-            requiresAcknowledgement: true, subject, move.EffectiveUtc);
+            requiresAcknowledgementOverride: null, subject, move.EffectiveUtc, ct);
     }
 
     /// <summary>
@@ -254,9 +264,9 @@ public sealed class EmployeeNotificationService(
         var positionName = await StaffablePositionNameResolver.ResolveAsync(uow, move.TargetPositionCtrlNbr, ct);
         var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
 
-        Emit(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
+        await EmitAsync(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.GeneralInformation,
             $"The seniority move that would have bumped you from {positionClause} has been cancelled.",
-            requiresAcknowledgement: false, subject, effectiveAtUtc: null);
+            requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
     }
 
     /// <summary>
@@ -335,9 +345,9 @@ public sealed class EmployeeNotificationService(
             ?? NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, board.CtrlNbr);
         var boardClause = string.IsNullOrWhiteSpace(board.Name) ? "a board" : $"the {board.Name} board";
 
-        Emit(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BoardPlacement,
+        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BoardPlacement,
             $"You have been placed on {boardClause}.",
-            requiresAcknowledgement: board.PlacementRequiresAcknowledgement, placementSubject, effectiveAtUtc: null);
+            requiresAcknowledgementOverride: board.PlacementRequiresAcknowledgement, placementSubject, effectiveAtUtc: null, ct);
     }
 
     /// <summary>

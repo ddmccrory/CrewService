@@ -18,6 +18,7 @@ using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.HolidayManagement;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.Payroll;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.RailroadInfo;
@@ -179,6 +180,10 @@ public static class DependencyInjection
         services.AddScoped<IBulletinBidRepository, BulletinBidRepository>();
         services.AddScoped<IBulletinRuleRepository, BulletinRuleRepository>();
         services.AddScoped<IBulletinAccessAuditRepository, BulletinAccessAuditRepository>();
+
+        // Notifications Module Repositories
+        services.AddScoped<IEmployeeNotificationRepository, EmployeeNotificationRepository>();
+        services.AddScoped<INotificationTypeConfigRepository, NotificationTypeConfigRepository>();
 
         // Dispatching Module Repositories
         services.AddScoped<IDispatchProjectionRepository, DispatchProjectionRepository>();

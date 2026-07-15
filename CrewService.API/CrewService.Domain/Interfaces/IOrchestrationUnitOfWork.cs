@@ -245,6 +245,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // Notifications
     // ────────────────────────────────────────────────────
     IEmployeeNotificationRepository EmployeeNotifications { get; }
+    INotificationTypeConfigRepository NotificationTypeConfigs { get; }
 
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,

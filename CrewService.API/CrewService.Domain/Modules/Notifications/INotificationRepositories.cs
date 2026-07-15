@@ -28,3 +28,9 @@ public interface IEmployeeNotificationRepository : IRepository<EmployeeNotificat
     /// </summary>
     Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
 }
+
+public interface INotificationTypeConfigRepository : IRepository<NotificationTypeConfig>
+{
+    Task<List<NotificationTypeConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+    Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default);
+}

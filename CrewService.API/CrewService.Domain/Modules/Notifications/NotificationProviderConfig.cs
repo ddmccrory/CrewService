@@ -33,3 +33,94 @@ public sealed class NotificationProviderConfig : Entity
         };
     }
 }
+
+public sealed class NotificationTypeConfig : Entity
+{
+    public ControlNumber RailroadCtrlNbr { get; private set; }
+    public string Key { get; private set; } = string.Empty;
+    public string DisplayName { get; private set; } = string.Empty;
+    public bool IsEnabled { get; private set; }
+    public bool RequiresAcknowledgementDefault { get; private set; }
+    public NotificationAudience Audience { get; private set; }
+    public bool SendInApp { get; private set; }
+    public bool SendEmail { get; private set; }
+    public bool SendText { get; private set; }
+    public bool SendExternalApi { get; private set; }
+
+    private NotificationTypeConfig() { RailroadCtrlNbr = null!; }
+
+    public static NotificationTypeConfig Create(
+        ControlNumber railroadCtrlNbr,
+        string key,
+        string displayName,
+        bool isEnabled,
+        bool requiresAcknowledgementDefault,
+        NotificationAudience audience = NotificationAudience.Employee,
+        bool sendInApp = true,
+        bool sendEmail = false,
+        bool sendText = false,
+        bool sendExternalApi = false)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("Notification type key is required.", nameof(key));
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("Display name is required.", nameof(displayName));
+
+        var isBoardPlacement = string.Equals(key?.Trim(), NotificationCategories.BoardPlacement, StringComparison.Ordinal);
+        var normalizedRequiresAcknowledgementDefault = isEnabled && !isBoardPlacement && requiresAcknowledgementDefault;
+        var normalizedSendInApp = isEnabled && sendInApp;
+        var normalizedSendEmail = isEnabled && sendEmail;
+        var normalizedSendText = isEnabled && sendText;
+        var normalizedSendExternalApi = isEnabled && sendExternalApi;
+
+        if (isEnabled && !normalizedSendInApp && !normalizedSendEmail && !normalizedSendText && !normalizedSendExternalApi)
+            throw new ArgumentException("At least one delivery option is required when the rule is enabled.", nameof(sendInApp));
+
+        return new NotificationTypeConfig
+        {
+            RailroadCtrlNbr = railroadCtrlNbr,
+            Key = key.Trim(),
+            DisplayName = displayName.Trim(),
+            IsEnabled = isEnabled,
+            RequiresAcknowledgementDefault = normalizedRequiresAcknowledgementDefault,
+            Audience = audience,
+            SendInApp = normalizedSendInApp,
+            SendEmail = normalizedSendEmail,
+            SendText = normalizedSendText,
+            SendExternalApi = normalizedSendExternalApi
+        };
+    }
+
+    public void Update(
+        string displayName,
+        bool isEnabled,
+        bool requiresAcknowledgementDefault,
+        NotificationAudience audience,
+        bool sendInApp,
+        bool sendEmail,
+        bool sendText,
+        bool sendExternalApi)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("Display name is required.", nameof(displayName));
+
+        var isBoardPlacement = string.Equals(Key, NotificationCategories.BoardPlacement, StringComparison.Ordinal);
+        var normalizedRequiresAcknowledgementDefault = isEnabled && !isBoardPlacement && requiresAcknowledgementDefault;
+        var normalizedSendInApp = isEnabled && sendInApp;
+        var normalizedSendEmail = isEnabled && sendEmail;
+        var normalizedSendText = isEnabled && sendText;
+        var normalizedSendExternalApi = isEnabled && sendExternalApi;
+
+        if (isEnabled && !normalizedSendInApp && !normalizedSendEmail && !normalizedSendText && !normalizedSendExternalApi)
+            throw new ArgumentException("At least one delivery option is required when the rule is enabled.", nameof(sendInApp));
+
+        DisplayName = displayName.Trim();
+        IsEnabled = isEnabled;
+        RequiresAcknowledgementDefault = normalizedRequiresAcknowledgementDefault;
+        Audience = audience;
+        SendInApp = normalizedSendInApp;
+        SendEmail = normalizedSendEmail;
+        SendText = normalizedSendText;
+        SendExternalApi = normalizedSendExternalApi;
+    }
+}

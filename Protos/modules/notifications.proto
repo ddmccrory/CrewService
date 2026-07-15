@@ -28,6 +28,10 @@ service NotificationsSrvc {
   rpc AcknowledgeNotification (AcknowledgeNotificationRequest) returns (NotificationResponse) {
 	option (google.api.http) = { post: "/v1/notifications/me/{ctrl_nbr}/acknowledge" body: "*" };
   }
+	// Records a dispatcher/manual acknowledgement attempt for any notice.
+  rpc RecordManualAcknowledgement (RecordManualAcknowledgementRequest) returns (NotificationResponse) {
+	option (google.api.http) = { post: "/v1/notifications/{ctrl_nbr}/manual-ack" body: "*" };
+  }
   // Read-only global feed of all notifications for the given railroad, newest first.
   // Drives the reference notification menu for callers/managers/admins.
   rpc GetRailroadNotifications (RailroadNotificationsRequest) returns (GetNotificationsResponse) {
@@ -42,6 +46,14 @@ service NotificationsSrvc {
   rpc GetEmployeeNotifications (EmployeeNotificationsRequest) returns (GetNotificationsResponse) {
 	option (google.api.http) = { get: "/v1/notifications/employee/{employee_ctrl_nbr}" };
   }
+  // Tenant-scoped notification type config list for admin management.
+  rpc GetNotificationTypeConfigs (NotificationTypeConfigsRequest) returns (GetNotificationTypeConfigsResponse) {
+	option (google.api.http) = { get: "/v1/notifications/config/{railroad_ctrl_nbr}" };
+  }
+  // Upsert a tenant-scoped notification type config row.
+  rpc UpsertNotificationTypeConfig (UpsertNotificationTypeConfigRequest) returns (NotificationTypeConfigResponse) {
+	option (google.api.http) = { put: "/v1/notifications/config/{railroad_ctrl_nbr}/{key}" body: "*" };
+  }
 }
 
 message RailroadNotificationsRequest {
@@ -54,6 +66,49 @@ message EmployeeNotificationsRequest {
 
 message AcknowledgeNotificationRequest {
   int64 ctrl_nbr = 1;
+}
+
+message RecordManualAcknowledgementRequest {
+  int64 ctrl_nbr = 1;
+  string method = 2;
+  bool confirmed = 3;
+  optional string phone_number = 4;
+  optional string notes = 5;
+}
+
+message NotificationTypeConfigsRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message UpsertNotificationTypeConfigRequest {
+  int64 railroad_ctrl_nbr = 1;
+  string key = 2;
+  string display_name = 3;
+  bool is_enabled = 4;
+  bool requires_acknowledgement_default = 5;
+  string audience = 6;
+  bool send_in_app = 7;
+  bool send_email = 8;
+  bool send_text = 9;
+  bool send_external_api = 10;
+}
+
+message GetNotificationTypeConfigsResponse {
+  repeated NotificationTypeConfigResponse configs = 1;
+}
+
+message NotificationTypeConfigResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  string key = 3;
+  string display_name = 4;
+  bool is_enabled = 5;
+  bool requires_acknowledgement_default = 6;
+  string audience = 7;
+  bool send_in_app = 8;
+  bool send_email = 9;
+  bool send_text = 10;
+  bool send_external_api = 11;
 }
 
 message GetNotificationsResponse {
