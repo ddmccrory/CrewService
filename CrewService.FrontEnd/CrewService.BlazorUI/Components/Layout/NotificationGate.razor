@@ -8,7 +8,7 @@
 @inject NotificationsClient NotificationsClient
 @inject AuthenticationStateProvider AuthStateProvider
 
-@if (_loaded && _openNotices.Count > 0)
+@if (_loaded && (_openNotices.Count > 0 || _loadFailed))
 {
     <div class="notification-gate-backdrop">
         <div class="notification-gate-dialog card shadow-lg">
@@ -30,30 +30,45 @@
                     </div>
                 }
 
-                <ul class="list-group">
-                    @foreach (var n in _openNotices)
-                    {
-                        <li class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-start gap-3">
-                                <div>
-                                    <span class="badge bg-secondary mb-1">@NotificationCategories.Label(n.Category)</span>
-                                    <div>@n.Message</div>
-                                    <small class="text-muted">@FormatDisplayLocal(n.CreatedAtLocal)</small>
-                                    @if (!string.IsNullOrEmpty(n.EffectiveAtLocal))
-                                    {
-                                        <small class="text-muted d-block">Effective: @FormatDisplayLocal(n.EffectiveAtLocal)</small>
-                                    }
+                @if (_loadFailed)
+                {
+                    <div class="alert alert-warning mb-0" role="alert">
+                        Notification acknowledgement status could not be verified. Retry to continue, or logout.
+                    </div>
+                }
+                else
+                {
+                    <ul class="list-group">
+                        @foreach (var n in _openNotices)
+                        {
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <span class="badge bg-secondary mb-1">@NotificationCategories.Label(n.Category)</span>
+                                        <div>@n.Message</div>
+                                        <small class="text-muted">@FormatDisplayLocal(n.CreatedAtLocal)</small>
+                                        @if (!string.IsNullOrEmpty(n.EffectiveAtLocal))
+                                        {
+                                            <small class="text-muted d-block">Effective: @FormatDisplayLocal(n.EffectiveAtLocal)</small>
+                                        }
+                                    </div>
+                                    <button type="button" class="btn btn-success flex-shrink-0"
+                                            disabled="@_isBusy" @onclick="() => AcceptAsync(n.CtrlNbr)">
+                                        <span class="bi bi-check2-circle me-1"></span> Accept
+                                    </button>
                                 </div>
-                                <button type="button" class="btn btn-success flex-shrink-0"
-                                        disabled="@_isBusy" @onclick="() => AcceptAsync(n.CtrlNbr)">
-                                    <span class="bi bi-check2-circle me-1"></span> Accept
-                                </button>
-                            </div>
-                        </li>
-                    }
-                </ul>
+                            </li>
+                        }
+                    </ul>
+                }
             </div>
-            <div class="card-footer d-flex justify-content-end">
+            <div class="card-footer d-flex justify-content-end gap-2">
+                @if (_loadFailed)
+                {
+                    <button type="button" class="btn btn-primary" disabled="@_isBusy" @onclick="LoadOpenNoticesAsync">
+                        <span class="bi bi-arrow-clockwise me-1"></span> Retry
+                    </button>
+                }
                 <form action="Account/Logout" method="post" data-enhance="false">
                     <AntiforgeryToken />
                     <input type="hidden" name="ReturnUrl" value="" />
@@ -67,8 +82,12 @@
 }
 
 @code {
+    private const int MaxLoadAttempts = 3;
+    private const int RetryDelayMs = 250;
+
     private readonly List<NotificationResponse> _openNotices = [];
     private bool _loaded;
+    private bool _loadFailed;
     private bool _isBusy;
     private string? _errorMessage;
 
@@ -89,7 +108,10 @@
 
         // Only employees have a notification surface; admins without a linked
         // employee record are never gated.
-        if (CurrentUser.IsEmployee)
+        var hasEmployeeClaim = !string.IsNullOrWhiteSpace(
+            authState.User.FindFirst(CrewService.BlazorUI.Client.CustomClaimTypes.EmployeeNumber)?.Value);
+
+        if (CurrentUser.IsEmployee || hasEmployeeClaim)
         {
             await LoadOpenNoticesAsync();
         }
@@ -99,17 +121,41 @@
 
     private async Task LoadOpenNoticesAsync()
     {
+        if (_isBusy) return;
         try
         {
-            var response = await NotificationsClient.GetMyUnacknowledgedAsync();
+            _isBusy = true;
+            _errorMessage = null;
+            GetNotificationsResponse? response = null;
+            for (var attempt = 1; attempt <= MaxLoadAttempts; attempt++)
+            {
+                try
+                {
+                    response = await NotificationsClient.GetMyUnacknowledgedAsync();
+                    break;
+                }
+                catch (TaskCanceledException) when (attempt < MaxLoadAttempts)
+                {
+                    await Task.Delay(RetryDelayMs * attempt);
+                }
+            }
+
+            if (response is null)
+                throw new TaskCanceledException("Timed out while validating required notifications.");
+
             _openNotices.Clear();
             _openNotices.AddRange(response.Notifications);
+            _loadFailed = false;
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail open: if the notice list cannot be loaded, do not trap the
-            // user behind an empty gate.
             _openNotices.Clear();
+            _loadFailed = true;
+            _errorMessage = $"Failed to load required notifications: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
         }
     }
 

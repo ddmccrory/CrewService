@@ -130,6 +130,7 @@ public static class DependencyInjection
         // Notifications
         services.AddScoped<EmployeeNotificationService>();
         services.AddScoped<NotificationQueryService>();
+        services.AddScoped<INotificationAcknowledgementEnforcer, NotificationAcknowledgementEnforcer>();
         services.AddScoped<INotificationDeliveryService, LoggingNotificationDeliveryService>();
 
         // Bulletins

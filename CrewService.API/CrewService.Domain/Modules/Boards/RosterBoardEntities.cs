@@ -100,9 +100,15 @@ public sealed class RosterBoard : Entity
 
     public void SetAllowForceAssign(bool value) => AllowForceAssign = value;
 
-    public void SetNotifyOnPlacement(bool value) => NotifyOnPlacement = value;
+    public void SetNotifyOnPlacement(bool value)
+    {
+        NotifyOnPlacement = value;
+        if (!value)
+            PlacementRequiresAcknowledgement = false;
+    }
 
-    public void SetPlacementRequiresAcknowledgement(bool value) => PlacementRequiresAcknowledgement = value;
+    public void SetPlacementRequiresAcknowledgement(bool value) =>
+        PlacementRequiresAcknowledgement = NotifyOnPlacement && value;
 
     public void SetRequiredPositionsStrategy(ControlNumber? strategyCtrlNbr) =>
         RequiredPositionsStrategyCtrlNbr = strategyCtrlNbr;

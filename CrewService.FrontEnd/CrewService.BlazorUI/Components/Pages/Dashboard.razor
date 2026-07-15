@@ -2,15 +2,10 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
-@using System.Security.Claims
-@using CrewService.BlazorUI.Clients
-@using CrewService.BlazorUI.Models.Auth
 
 @inherits AppComponentBase
 
 @attribute [Authorize]
-
-@inject ParentsClient ParentsClient
 
 <PageTitle>Dashboard</PageTitle>
 
@@ -19,49 +14,9 @@
 <AuthorizeView>
     <Authorized>
         <p>Welcome, @context.User.Identity?.Name</p>
-        @* DEBUG: Remove later *@
-        <div class="alert alert-info mt-3">
-            <strong>Roles:</strong> @string.Join(", ", context.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value))
-            <br />
-            <strong>Parent Roles:</strong> @string.Join(", ", parentRoleDisplay)
-        </div>
     </Authorized>
 </AuthorizeView>
 
 @code {
-    private List<string> parentRoleDisplay = [];
-
-    protected override async Task LoadDataAsync()
-    {
-        var user = CurrentUser.User!;
-        var parentRoleClaims = user.Claims
-            .Where(c => c.Type == CustomClaimTypes.ParentRole)
-            .Select(c => c.Value.Split(':'))
-            .Where(parts => parts.Length >= 2)
-            .ToList();
-
-        if (parentRoleClaims.Count == 0) return;
-
-        var parents = await ParentsClient.GetAllAsync();
-        var nameMap = parents.Parent.ToDictionary(p => p.CtrlNbr, p => p.Name);
-        var railroadNameMap = parents.Parent
-            .SelectMany(p => p.Railroads)
-            .DistinctBy(r => r.CtrlNbr)
-            .ToDictionary(r => r.CtrlNbr, r => string.IsNullOrWhiteSpace(r.RrMark) ? r.Name : $"{r.RrMark} — {r.Name}");
-
-        parentRoleDisplay = parentRoleClaims
-            .Select(parts =>
-            {
-                var ctrlNbr = long.TryParse(parts[0], out var id) ? id : 0;
-                var name = nameMap.TryGetValue(ctrlNbr, out var n) ? n : parts[0];
-                var display = $"{name}:{parts[1]}";
-                if (parts.Length >= 3 && long.TryParse(parts[2], out var rrId))
-                {
-                    var rrName = railroadNameMap.TryGetValue(rrId, out var rn) ? rn : rrId.ToString();
-                    display += $" ({rrName})";
-                }
-                return display;
-            })
-            .ToList();
-    }
+    protected override Task LoadDataAsync() => Task.CompletedTask;
 }

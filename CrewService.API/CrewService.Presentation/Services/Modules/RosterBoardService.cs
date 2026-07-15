@@ -139,9 +139,12 @@ public class RosterBoardService(
         var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
             await svc.CreateRosterBoardAsync(request.CraftCtrlNbr, request.RosterCtrlNbr, request.Name,
                 boardType, rotationType, request.IsActive, request.RequiredPositions,
-                request.AllowBulletinBidding, request.AllowSeniorityMove,
-                request.AllowForceAssign, request.NotifyOnPlacement,
-                request.PlacementRequiresAcknowledgement, context.CancellationToken);
+                request.HasAllowBulletinBidding ? request.AllowBulletinBidding : null,
+                request.HasAllowSeniorityMove ? request.AllowSeniorityMove : null,
+                request.HasAllowForceAssign ? request.AllowForceAssign : null,
+                request.HasNotifyOnPlacement ? request.NotifyOnPlacement : null,
+                request.HasPlacementRequiresAcknowledgement ? request.PlacementRequiresAcknowledgement : null,
+                context.CancellationToken);
         var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
         return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
     }
@@ -157,9 +160,12 @@ public class RosterBoardService(
             var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
                 await svc.UpdateRosterBoardAsync(ControlNumber.Create(request.CtrlNbr), request.Name,
                     boardType, rotationType, request.IsActive, request.RequiredPositions,
-                    request.AllowBulletinBidding, request.AllowSeniorityMove,
-                    request.AllowForceAssign, request.NotifyOnPlacement,
-                    request.PlacementRequiresAcknowledgement, context.CancellationToken);
+                    request.HasAllowBulletinBidding ? request.AllowBulletinBidding : null,
+                    request.HasAllowSeniorityMove ? request.AllowSeniorityMove : null,
+                    request.HasAllowForceAssign ? request.AllowForceAssign : null,
+                    request.HasNotifyOnPlacement ? request.NotifyOnPlacement : null,
+                    request.HasPlacementRequiresAcknowledgement ? request.PlacementRequiresAcknowledgement : null,
+                    context.CancellationToken);
             var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
             return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
         }

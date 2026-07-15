@@ -68,11 +68,11 @@ message CreateRosterBoardRequest {
   string rotation_type = 5;
   bool is_active = 6;
   int32 required_positions = 7;
-  bool allow_bulletin_bidding = 8;
-  bool allow_seniority_move = 9;
-  bool allow_force_assign = 10;
-  bool notify_on_placement = 11;
-  bool placement_requires_acknowledgement = 12;
+  optional bool allow_bulletin_bidding = 8;
+  optional bool allow_seniority_move = 9;
+  optional bool allow_force_assign = 10;
+  optional bool notify_on_placement = 11;
+  optional bool placement_requires_acknowledgement = 12;
 }
 
 message UpdateRosterBoardRequest {
@@ -82,11 +82,11 @@ message UpdateRosterBoardRequest {
   string rotation_type = 4;
   bool is_active = 5;
   int32 required_positions = 6;
-  bool allow_bulletin_bidding = 7;
-  bool allow_seniority_move = 8;
-  bool allow_force_assign = 9;
-  bool notify_on_placement = 10;
-  bool placement_requires_acknowledgement = 11;
+  optional bool allow_bulletin_bidding = 7;
+  optional bool allow_seniority_move = 8;
+  optional bool allow_force_assign = 9;
+  optional bool notify_on_placement = 10;
+  optional bool placement_requires_acknowledgement = 11;
 }
 
 message DeleteRosterBoardRequest {

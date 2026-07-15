@@ -127,6 +127,50 @@ public class RosterBoardTests
         Assert.DoesNotContain(board.DomainEvents, e => e is PositionsReorderedDomainEvent);
     }
 
+    [Theory]
+    [InlineData(BoardType.ExtraBoard, false, false)]
+    [InlineData(BoardType.Hangout, true, true)]
+    [InlineData(BoardType.ExtendedAbsence, false, false)]
+    [InlineData(BoardType.Training, false, false)]
+    [InlineData(BoardType.NewHire, false, false)]
+    public void Create_SetsPlacementNotificationDefaultsByBoardType(
+        BoardType boardType,
+        bool expectedNotifyOnPlacement,
+        bool expectedPlacementRequiresAcknowledgement)
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Board", boardType);
+
+        Assert.Equal(expectedNotifyOnPlacement, board.NotifyOnPlacement);
+        Assert.Equal(expectedPlacementRequiresAcknowledgement, board.PlacementRequiresAcknowledgement);
+    }
+
+    [Fact]
+    public void SetNotifyOnPlacement_False_ClearsPlacementRequiresAcknowledgement()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Hangout", BoardType.Hangout);
+        Assert.True(board.NotifyOnPlacement);
+        Assert.True(board.PlacementRequiresAcknowledgement);
+
+        board.SetNotifyOnPlacement(false);
+
+        Assert.False(board.NotifyOnPlacement);
+        Assert.False(board.PlacementRequiresAcknowledgement);
+    }
+
+    [Fact]
+    public void SetPlacementRequiresAcknowledgement_True_WhenNotifyDisabled_RemainsFalse()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Extra", BoardType.ExtraBoard);
+        Assert.False(board.NotifyOnPlacement);
+
+        board.SetPlacementRequiresAcknowledgement(true);
+
+        Assert.False(board.PlacementRequiresAcknowledgement);
+    }
+
     }
 
     public class RosterBoardPositionTests

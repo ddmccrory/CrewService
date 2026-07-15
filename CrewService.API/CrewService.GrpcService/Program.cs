@@ -57,6 +57,7 @@ builder.Services.AddApplication()
 
 builder.Services.AddGrpc(options =>
 {
+    options.Interceptors.Add<NotificationAcknowledgementInterceptor>();
     options.Interceptors.Add<GrpcExceptionInterceptor>();
 }).AddJsonTranscoding();
 builder.Services.AddTransient<ParentService>();

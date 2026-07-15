@@ -203,7 +203,17 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             var policy = await svc.GetSeniorityMovePolicyAsync(ControlNumber.Create(request.RailroadCtrlNbr), ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
             return MapSeniorityMovePolicy(policy);
         }
-        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (KeyNotFoundException)
+        {
+            // Missing policy is a valid configuration state for a craft.
+            // Return an empty response (CtrlNbr == 0) so callers can treat it as "not configured"
+            // without relying on exception flow.
+            return new SeniorityMovePolicyResponse
+            {
+                RailroadCtrlNbr = request.RailroadCtrlNbr,
+                CraftCtrlNbr = request.CraftCtrlNbr
+            };
+        }
     }
 
     public override async Task<SeniorityMovePolicyResponse> UpsertSeniorityMovePolicy(UpsertSeniorityMovePolicyRequest request, ServerCallContext context)
