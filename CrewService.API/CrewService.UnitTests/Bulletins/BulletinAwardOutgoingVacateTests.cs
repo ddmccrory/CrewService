@@ -5,6 +5,7 @@ using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.TenantConfig;
@@ -178,6 +179,58 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         await ctx.SaveChangesAsync(ct);
 
         return (bulletin.CtrlNbr, crewPosition.CtrlNbr);
+    }
+
+    private async Task<(ControlNumber BulletinCtrlNbr, ControlNumber TargetCrewPositionCtrlNbr)>
+        SeedOpenTargetCrewBulletinAsync(Fixture f, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+
+        var crew = Crew.Create("REGULAR", f.WorkAreaCtrlNbr, "Open Bid Target Crew");
+        ctx.Crews.Add(crew);
+        var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
+        ctx.StaffablePositions.Add(staffablePosition);
+        await ctx.SaveChangesAsync(ct);
+
+        var crewPosition = CrewPosition.Create(crew.CtrlNbr, f.CraftRoleCtrlNbr, 1, staffablePosition.CtrlNbr);
+        ctx.CrewPositions.Add(crewPosition);
+
+        var vacancy = PositionVacancy.Create(
+            f.WorkAreaCtrlNbr, StaffablePositionType.Crew, staffablePosition.CtrlNbr, f.CraftCtrlNbr,
+            "INCUMBENT_VACATED", targetName: "Open Bid Target Crew — Position 1");
+        vacancy.MarkBulletined();
+        ctx.Set<PositionVacancy>().Add(vacancy);
+        await ctx.SaveChangesAsync(ct);
+
+        var now = DateTime.UtcNow;
+        var bulletin = Bulletin.Create(
+            vacancy.CtrlNbr, f.CraftCtrlNbr, now.AddHours(-1), now.AddHours(2), now.AddDays(1));
+        ctx.Set<Bulletin>().Add(bulletin);
+        await EnsureBulletinRuleAsync(ctx, f.CraftCtrlNbr, ct);
+        await ctx.SaveChangesAsync(ct);
+
+        return (bulletin.CtrlNbr, crewPosition.CtrlNbr);
+    }
+
+    private async Task AddRoleQualificationRequirementAsync(Fixture f, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+        var craftRole = await ctx.Set<CraftRole>()
+            .Include(r => r.RequiredQualifications)
+            .SingleAsync(r => r.CtrlNbr == f.CraftRoleCtrlNbr, ct);
+
+        var foremanQualification = QualificationType.Create(
+            f.ParentCtrlNbr,
+            "FOREMANQ",
+            "Foreman Qualification",
+            isBlocking: false);
+
+        ctx.Set<QualificationType>().Add(foremanQualification);
+        await ctx.SaveChangesAsync(ct);
+
+        craftRole.AddRequiredQualification(foremanQualification.CtrlNbr);
+        ctx.Set<CraftRole>().Update(craftRole);
+        await ctx.SaveChangesAsync(ct);
     }
 
     private static async Task EnsureBulletinRuleAsync(CrewServiceDbContext ctx, ControlNumber craftCtrlNbr, CancellationToken ct)
@@ -383,5 +436,21 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         var assignment = Assert.Single(assignments);
         Assert.Equal(PositionAssignmentType.ForceAssignment, assignment.AssignmentType);
         Assert.Equal(targetCrewPositionCtrlNbr, assignment.AssignmentSourceCtrlNbr);
+    }
+
+    [Fact]
+    public async Task SubmitBid_UnqualifiedForTargetRole_RejectsBid()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await AddRoleQualificationRequirementAsync(f, ct);
+        var (bulletinCtrlNbr, _) = await SeedOpenTargetCrewBulletinAsync(f, ct);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _host.Bulletins.SubmitBidAsync(bulletinCtrlNbr.Value, f.EmployeeCtrlNbr.Value, priority: 1, ct));
+
+        Assert.Contains("not eligible to bid", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var bids = await _host.Bulletins.GetBidsByBulletinAsync(bulletinCtrlNbr, ct);
+        Assert.Empty(bids);
     }
 }

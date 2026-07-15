@@ -210,7 +210,12 @@ public sealed class QualificationsService(
         var eligibleCtrlNbrs = new HashSet<ControlNumber>();
         foreach (var emp in candidates)
         {
-            var result = await eligibilityService.CheckEligibilityByCraftRoleAsync(uow, emp.CtrlNbr, craftRoleCtrlNbr, ct);
+            var result = await eligibilityService.CheckEligibilityByCraftRoleAsync(
+                uow,
+                emp.CtrlNbr,
+                craftRoleCtrlNbr,
+                enforceAllRequiredQualifications: true,
+                ct);
             if (result.IsEligible)
                 eligibleCtrlNbrs.Add(emp.CtrlNbr);
         }

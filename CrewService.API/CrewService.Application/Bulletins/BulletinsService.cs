@@ -157,6 +157,29 @@ public sealed class BulletinsService(
             throw new InvalidOperationException(
                 $"Cannot bid on bulletin {bulletinCtrlNbr}: the bid window has closed.");
 
+        // Enforce role-level eligibility for crew-position bulletins. A bidder must satisfy the
+        // target craft-role requirements (for example, Foreman qualification for a Foreman
+        // vacancy), regardless of client-side filtering.
+        var targetRole = await ResolveTargetCraftRoleAsync(uow, bulletin, ct);
+        if (targetRole is not null)
+        {
+            var eligibilityResult = await eligibility.CheckEligibilityByCraftRoleAsync(
+                uow,
+                ControlNumber.Create(employeeCtrlNbr),
+                targetRole.CtrlNbr,
+                enforceAllRequiredQualifications: true,
+                ct);
+
+            if (!eligibilityResult.IsEligible)
+            {
+                var roleLabel = string.IsNullOrWhiteSpace(targetRole.Code)
+                    ? targetRole.Name
+                    : $"{targetRole.Code} - {targetRole.Name}";
+                throw new InvalidOperationException(
+                    $"Employee {employeeCtrlNbr} is not eligible to bid on this bulletin because they are not qualified for role '{roleLabel}'.");
+            }
+        }
+
         // Enforce board-level bulletin bidding restriction.
         // If the employee is currently assigned to a roster board position, check AllowBulletinBidding.
         // Crew positions are always permitted to bid.
@@ -714,7 +737,11 @@ public sealed class BulletinsService(
         var qualified = new List<ControlNumber>();
         foreach (var empCtrlNbr in ordered)
         {
-            var result = await eligibility.CheckEligibilityByCraftRoleAsync(uow, empCtrlNbr, targetRole.CtrlNbr, ct);
+            var result = await eligibility.CheckEligibilityByCraftRoleAsync(
+                uow,
+                empCtrlNbr,
+                targetRole.CtrlNbr,
+                ct: ct);
             if (result.IsEligible)
                 qualified.Add(empCtrlNbr);
         }
