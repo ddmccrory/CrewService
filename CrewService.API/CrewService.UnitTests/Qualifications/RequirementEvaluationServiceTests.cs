@@ -88,6 +88,7 @@ public sealed class RequirementEvaluationServiceTests
         public IQualificationRequirementRepository QualificationRequirements => qualificationRequirements;
         public IEmployeeQualificationRepository EmployeeQualifications => employeeQualifications;
         public IEmployeeQualificationSuspensionRepository QualificationSuspensions => new FakeEmptySuspensionRepo();
+        public INotificationTypeConfigRepository NotificationTypeConfigs => null!;
         public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;

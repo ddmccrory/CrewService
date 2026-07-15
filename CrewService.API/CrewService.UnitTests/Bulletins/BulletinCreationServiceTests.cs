@@ -260,7 +260,8 @@ public class BulletinCreationServiceTests
         var repost = new RecordingVacancyRepostService();
         var notifications = new EmployeeNotificationService(
             NullLogger<EmployeeNotificationService>.Instance,
-            new FixedRailroadResolver(ControlNumber.Create(999)));
+            new FixedRailroadResolver(ControlNumber.Create(999)),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var sut = new CrewsAppService(
             new FakeUowFactory(uow),
             repost,
@@ -449,6 +450,31 @@ public class BulletinCreationServiceTests
         public Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber r, CancellationToken ct = default) => Task.FromResult(0);
     }
 
+    private sealed class FakeNotificationTypeConfigRepo : FakeRepoBase<NotificationTypeConfig>, INotificationTypeConfigRepository
+    {
+        public Task<List<NotificationTypeConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<NotificationTypeConfig>
+            {
+                NotificationTypeConfig.Create(
+                    railroadCtrlNbr,
+                    NotificationCategories.BoardPlacement,
+                    "Board Placement",
+                    isEnabled: true,
+                    requiresAcknowledgementDefault: true)
+            });
+
+        public Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default)
+            => Task.FromResult<NotificationTypeConfig?>(
+                string.Equals(key, NotificationCategories.BoardPlacement, StringComparison.Ordinal)
+                    ? NotificationTypeConfig.Create(
+                        railroadCtrlNbr,
+                        NotificationCategories.BoardPlacement,
+                        "Board Placement",
+                        isEnabled: true,
+                        requiresAcknowledgementDefault: true)
+                    : null);
+    }
+
     private sealed class FakeVacancyRepo : FakeRepoBase<PositionVacancy>, IPositionVacancyRepository
     {
         public Task<List<PositionVacancy>> GetOpenAsync() => Task.FromResult(new List<PositionVacancy>());
@@ -543,6 +569,7 @@ public class BulletinCreationServiceTests
         private readonly FakeStaffablePositionRepo _staffablePositions = new();
         private readonly FakeDynamicGroupRepo    _dynamicGroups;
         private readonly FakeEmployeeNotificationRepo _employeeNotifications = new();
+        private readonly FakeNotificationTypeConfigRepo _notificationTypeConfigs = new();
 
         public FakeOrchestrationUnitOfWork(
             BulletinRule?        bulletinRule,
@@ -594,6 +621,7 @@ public class BulletinCreationServiceTests
         public IPositionAssignmentRepository PositionAssignments => FakePositionAssignments;
         public IStaffablePositionRepository StaffablePositions  => _staffablePositions;
         public IEmployeeNotificationRepository EmployeeNotifications => FakeEmployeeNotifications;
+        public INotificationTypeConfigRepository NotificationTypeConfigs => _notificationTypeConfigs;
 
         public Task CommitAsync(CancellationToken ct = default) { Committed = true; return Task.CompletedTask; }
         public Task SaveAsync(CancellationToken ct = default)   => Task.CompletedTask;

@@ -317,6 +317,7 @@ public class CallSheetGenerationServiceTests
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
         public IEmployeeNotificationRepository EmployeeNotifications => null!;
+        public INotificationTypeConfigRepository NotificationTypeConfigs => null!;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateUserProfileAsync(string userId, string firstName, string? middleName, string lastName, string fullName, string fullNameLnf, string employeeNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public IUserParentAssignmentRepository UserParentAssignments => null!;

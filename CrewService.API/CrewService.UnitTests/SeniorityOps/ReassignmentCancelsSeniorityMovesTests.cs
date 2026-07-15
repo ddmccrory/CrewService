@@ -279,7 +279,8 @@ public sealed class ReassignmentCancelsSeniorityMovesTests : IDisposable
 
         var notifications = new EmployeeNotificationService(
             NullLogger<EmployeeNotificationService>.Instance,
-            new RailroadResolver());
+            new RailroadResolver(),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var executionService = new SeniorityMoveExecutionService(
             _host.UowFactory,
             NullLogger<SeniorityMoveExecutionService>.Instance,

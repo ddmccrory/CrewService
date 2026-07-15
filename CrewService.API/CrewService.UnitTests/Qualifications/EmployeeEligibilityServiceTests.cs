@@ -136,6 +136,7 @@ public sealed class EmployeeEligibilityServiceTests
         public IQualificationTypeRepository QualificationTypes => qualificationTypes;
         public IEmployeeQualificationRepository EmployeeQualifications => employeeQualifications;
         public IEmployeeQualificationSuspensionRepository QualificationSuspensions => new FakeEmptySuspensionRepo();
+        public INotificationTypeConfigRepository NotificationTypeConfigs => null!;
         public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;

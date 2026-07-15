@@ -169,6 +169,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Notifications Module
     public DbSet<Domain.Modules.Notifications.EmployeeNotification> EmployeeNotifications => Set<Domain.Modules.Notifications.EmployeeNotification>();
     public DbSet<Domain.Modules.Notifications.NotificationAcknowledgement> NotificationAcknowledgements => Set<Domain.Modules.Notifications.NotificationAcknowledgement>();
+    public DbSet<Domain.Modules.Notifications.NotificationTypeConfig> NotificationTypeConfigs => Set<Domain.Modules.Notifications.NotificationTypeConfig>();
 
     // AbsenceVacancy Module
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCode> AbsenceCodes => Set<Domain.Modules.AbsenceVacancy.AbsenceCode>();

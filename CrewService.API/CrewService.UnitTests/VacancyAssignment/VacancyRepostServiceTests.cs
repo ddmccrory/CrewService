@@ -85,7 +85,10 @@ public class VacancyRepostServiceTests
     {
         var factory = new FakeUowFactory(uow);
         var railroadResolver = new RailroadResolver();
-        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
+        var notifications = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            railroadResolver,
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var eligibility = new EmployeeEligibilityService(factory);
         var bulletins = new BulletinsService(
             factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
@@ -570,6 +573,7 @@ public class VacancyRepostServiceTests
         public IStaffablePositionRepository StaffablePositions  => _staffablePositions;
         public IDynamicGroupRepository      DynamicGroups       => _dynamicGroups;
         public IEmployeeNotificationRepository EmployeeNotifications => _employeeNotifications;
+        public INotificationTypeConfigRepository NotificationTypeConfigs => null!;
 
         public Task CommitAsync(CancellationToken ct = default) { Committed = true; return Task.CompletedTask; }
         public Task SaveAsync(CancellationToken ct = default)   => Task.CompletedTask;

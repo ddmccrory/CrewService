@@ -44,3 +44,24 @@ internal sealed class EmployeeNotificationRepository(CrewServiceDbContext dbCont
                 && !n.Acknowledgements.Any(a => a.Confirmed))
             .CountAsync(ct);
 }
+
+internal sealed class NotificationTypeConfigRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<NotificationTypeConfig>(dbContext, currentUserService), INotificationTypeConfigRepository
+{
+    public async Task<List<NotificationTypeConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<NotificationTypeConfig>()
+            .Where(c => c.RailroadCtrlNbr == railroadCtrlNbr)
+            .OrderBy(c => c.DisplayName)
+            .ToListAsync(ct);
+
+    public async Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        var normalized = key.Trim();
+
+        return await DbContext.Set<NotificationTypeConfig>()
+            .SingleOrDefaultAsync(c => c.RailroadCtrlNbr == railroadCtrlNbr && c.Key == normalized, ct);
+    }
+}

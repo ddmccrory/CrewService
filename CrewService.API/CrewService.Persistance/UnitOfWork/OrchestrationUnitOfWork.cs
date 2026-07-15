@@ -212,6 +212,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IBulletinRuleRepository? _bulletinRules;
     private IBulletinAccessAuditRepository? _bulletinAccessAudits;
     private IEmployeeNotificationRepository? _employeeNotifications;
+    private INotificationTypeConfigRepository? _notificationTypeConfigs;
     private IUserParentAssignmentRepository? _userParentAssignments;
     private IInvitationRepository? _invitations;
     private IPayrollTierRepository? _payrollTiers;
@@ -397,6 +398,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IBulletinRuleRepository BulletinRules => _bulletinRules ??= new BulletinRuleRepository(_crewContext, _currentUserService);
     public IBulletinAccessAuditRepository BulletinAccessAudits => _bulletinAccessAudits ??= new BulletinAccessAuditRepository(_crewContext, _currentUserService);
     public IEmployeeNotificationRepository EmployeeNotifications => _employeeNotifications ??= new EmployeeNotificationRepository(_crewContext, _currentUserService);
+    public INotificationTypeConfigRepository NotificationTypeConfigs => _notificationTypeConfigs ??= new NotificationTypeConfigRepository(_crewContext, _currentUserService);
     public IUserParentAssignmentRepository UserParentAssignments => _userParentAssignments ??= new UserParentAssignmentRepository(_crewContext, _currentUserService);
     public IInvitationRepository Invitations => _invitations ??= new InvitationRepository(_crewContext, _currentUserService);
     public IPayrollTierRepository PayrollTiers => _payrollTiers ??= new PayrollTierRepository(_crewContext, _currentUserService);

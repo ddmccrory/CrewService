@@ -1,4 +1,5 @@
 using CrewService.Application.Notifications;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Application.Time;
 using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.ValueObjects;
@@ -16,6 +17,15 @@ namespace CrewService.Presentation.Services.Modules;
 public class NotificationsService(IServiceProvider serviceProvider)
     : NotificationsSrvc.NotificationsSrvcBase
 {
+    private static readonly string[] NotificationReviewRoles =
+    [
+        Roles.SystemAdmin,
+        Roles.ParentAdmin,
+        Roles.RailroadAdmin,
+        "CrewManager",
+        "Dispatcher"
+    ];
+
     public override async Task<GetNotificationsResponse> GetMyNotifications(Empty request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
@@ -59,8 +69,42 @@ public class NotificationsService(IServiceProvider serviceProvider)
         }
     }
 
+    public override async Task<NotificationResponse> RecordManualAcknowledgement(
+        RecordManualAcknowledgementRequest request,
+        ServerCallContext context)
+    {
+        if (request.CtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "CtrlNbr must be greater than zero."));
+
+        if (!TryParseAcknowledgementMethod(request.Method, out var method))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Method must be PhoneCall, ReturnCall, CalledIn, Verbal, Automatic, or Electronic."));
+
+        var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+
+        try
+        {
+            var notification = await svc.RecordManualAcknowledgementAsync(
+                ControlNumber.Create(request.CtrlNbr),
+                method,
+                request.Confirmed,
+                string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber,
+                string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes,
+                context.CancellationToken);
+
+            var tz = await clock.GetWorkAreaTimeZoneAsync(notification.RailroadCtrlNbr, context.CancellationToken);
+            return MapNotification(notification, clock, tz);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
     public override async Task<GetNotificationsResponse> GetRailroadNotifications(RailroadNotificationsRequest request, ServerCallContext context)
     {
+        EnsureNotificationReviewAccess(context, "You do not have permission to review railroad notifications.");
+
         if (request.RailroadCtrlNbr <= 0) return new GetNotificationsResponse();
 
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
@@ -83,8 +127,62 @@ public class NotificationsService(IServiceProvider serviceProvider)
         return resp;
     }
 
+    public override async Task<GetNotificationTypeConfigsResponse> GetNotificationTypeConfigs(
+        NotificationTypeConfigsRequest request,
+        ServerCallContext context)
+    {
+        EnsureAdmin(context, "Only administrators can view notification type configuration.");
+
+        if (request.RailroadCtrlNbr <= 0)
+            return new GetNotificationTypeConfigsResponse();
+
+        var svc = serviceProvider.GetRequiredService<NotificationTypeConfigAppService>();
+        var items = await svc.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
+
+        var response = new GetNotificationTypeConfigsResponse();
+        response.Configs.AddRange(items.Select(MapTypeConfig));
+        return response;
+    }
+
+    public override async Task<NotificationTypeConfigResponse> UpsertNotificationTypeConfig(
+        UpsertNotificationTypeConfigRequest request,
+        ServerCallContext context)
+    {
+        EnsureAdmin(context, "Only administrators can update notification type configuration.");
+
+        if (request.RailroadCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "RailroadCtrlNbr must be greater than zero."));
+
+        if (string.IsNullOrWhiteSpace(request.Key))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Key is required."));
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "DisplayName is required."));
+
+        if (!System.Enum.TryParse<NotificationAudience>(request.Audience, ignoreCase: true, out var audience))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Audience must be Employee, Dispatcher, or Both."));
+
+        var svc = serviceProvider.GetRequiredService<NotificationTypeConfigAppService>();
+        var config = await svc.UpsertAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr),
+            request.Key,
+            request.DisplayName,
+            request.IsEnabled,
+            request.RequiresAcknowledgementDefault,
+            audience,
+            request.SendInApp,
+            request.SendEmail,
+            request.SendText,
+            request.SendExternalApi,
+            context.CancellationToken);
+
+        return MapTypeConfig(config);
+    }
+
     public override async Task<UnacknowledgedCountResponse> GetRailroadUnacknowledgedCount(RailroadNotificationsRequest request, ServerCallContext context)
     {
+        EnsureNotificationReviewAccess(context, "You do not have permission to review railroad notifications.");
+
         if (request.RailroadCtrlNbr <= 0) return new UnacknowledgedCountResponse { Count = 0 };
 
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
@@ -95,6 +193,8 @@ public class NotificationsService(IServiceProvider serviceProvider)
 
     public override async Task<GetNotificationsResponse> GetEmployeeNotifications(EmployeeNotificationsRequest request, ServerCallContext context)
     {
+        EnsureNotificationReviewAccess(context, "You do not have permission to review employee notifications.");
+
         if (request.EmployeeCtrlNbr <= 0) return new GetNotificationsResponse();
 
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
@@ -180,5 +280,48 @@ public class NotificationsService(IServiceProvider serviceProvider)
         }
 
         return resp;
+    }
+
+    private static NotificationTypeConfigResponse MapTypeConfig(NotificationTypeConfig config) => new()
+    {
+        CtrlNbr = config.CtrlNbr.Value,
+        RailroadCtrlNbr = config.RailroadCtrlNbr.Value,
+        Key = config.Key,
+        DisplayName = config.DisplayName,
+        IsEnabled = config.IsEnabled,
+        RequiresAcknowledgementDefault = config.RequiresAcknowledgementDefault,
+        Audience = config.Audience.ToString(),
+        SendInApp = config.SendInApp,
+        SendEmail = config.SendEmail,
+        SendText = config.SendText,
+        SendExternalApi = config.SendExternalApi
+    };
+
+    private static bool TryParseAcknowledgementMethod(string input, out AcknowledgementMethod method)
+    {
+        method = default;
+        if (string.IsNullOrWhiteSpace(input))
+            return false;
+
+        var normalized = input.Trim().Replace(" ", string.Empty).Replace("-", string.Empty).Replace("_", string.Empty);
+        return System.Enum.TryParse(normalized, ignoreCase: true, out method);
+    }
+
+    private static void EnsureAdmin(ServerCallContext context, string message)
+    {
+        var user = context.GetHttpContext().User;
+        if (!user.IsInRole(Roles.SystemAdmin)
+            && !user.IsInRole(Roles.ParentAdmin)
+            && !user.IsInRole(Roles.RailroadAdmin))
+        {
+            throw new RpcException(new Status(StatusCode.PermissionDenied, message));
+        }
+    }
+
+    private static void EnsureNotificationReviewAccess(ServerCallContext context, string message)
+    {
+        var user = context.GetHttpContext().User;
+        if (!NotificationReviewRoles.Any(user.IsInRole))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, message));
     }
 }

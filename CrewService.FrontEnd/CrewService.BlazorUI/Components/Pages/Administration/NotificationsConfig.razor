@@ -1,0 +1,345 @@
+@page "/admin/notifications"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject NotificationsClient NotificationsClient
+
+<PageTitle>Notification Config — Crew Service</PageTitle>
+
+<h1>Notification Config</h1>
+<p class="text-muted mb-3">Configure railroad notification type policies. If a type is missing or disabled, no notification is created.</p>
+
+<div class="alert alert-info" role="alert">
+    <div class="fw-semibold mb-1">Global notification policy</div>
+    <div class="small">
+        These settings are railroad-wide defaults by notification type.
+        <span class="fw-semibold">Board Placement</span> remains board-specific for
+        <span class="fw-semibold">Notify On Placement</span> and
+        <span class="fw-semibold">Placement Requires Acknowledgement</span>
+        in <span class="fw-semibold">Staffing → Roster Boards</span>.
+    </div>
+</div>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (!IsContextFullySelected)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent and railroad in the context switcher to manage notification config.
+    </div>
+}
+else
+{
+    <Modal Visible="showEditModal"
+           Title="Edit Notification Type"
+           Icon="bi bi-bell"
+           Size="xl"
+           OnClose="CloseEditModal">
+        <BodyContent>
+            <EditForm Model="editModel" OnValidSubmit="OnSave" id="edit-notification-config-form">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Key</label>
+                    <p class="form-control-plaintext fw-bold mb-0">@editModel.Key</p>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Display Name</label>
+                        <InputText class="form-control" @bind-Value="editModel.DisplayName" />
+                        <ValidationMessage For="() => editModel.DisplayName" class="text-danger" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Audience</label>
+                        <select class="form-select" @bind="editModel.Audience">
+                            <option value="Employee">Employee</option>
+                            <option value="Dispatcher">Dispatcher</option>
+                            <option value="Both">Both</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap align-items-center gap-4">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfg-enabled" @bind="editModel.IsEnabled" @bind:after="OnEnabledChanged" />
+                                <label class="form-check-label" for="cfg-enabled">Enabled</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfg-ack" @bind="editModel.RequiresAcknowledgementDefault" disabled="@(!editModel.IsEnabled || IsBoardPlacementKey)" />
+                                <label class="form-check-label" for="cfg-ack">Requires Ack</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfg-inapp" @bind="editModel.SendInApp" disabled="@(!editModel.IsEnabled)" />
+                                <label class="form-check-label" for="cfg-inapp">In-App</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfg-email" @bind="editModel.SendEmail" disabled="@(!editModel.IsEnabled)" />
+                                <label class="form-check-label" for="cfg-email">Email</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfg-text" @bind="editModel.SendText" disabled="@(!editModel.IsEnabled)" />
+                                <label class="form-check-label" for="cfg-text">Text</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfg-api" @bind="editModel.SendExternalApi" disabled="@(!editModel.IsEnabled)" />
+                                <label class="form-check-label" for="cfg-api">External API</label>
+                            </div>
+
+                            @if (IsBoardPlacementKey)
+                            {
+                                <div class="w-100">
+                                    <div class="form-text text-muted">Board Placement acknowledgement is controlled per board in Staffing → Roster Boards.</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    @if (editModel.IsEnabled && !HasAnyDeliveryPathSelected)
+                    {
+                        <div class="col-12">
+                            <div class="alert alert-warning py-2 mb-0" role="alert">
+                                At least one delivery option is required when this rule is enabled.
+                            </div>
+                        </div>
+                    }
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditModal">Cancel</button>
+            <button type="submit" form="edit-notification-config-form" class="btn btn-primary" disabled="@(isSaving || IsFeatureReadOnly || !CanSaveEditModel)">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (notificationTypeConfigs.Count == 0)
+    {
+        <div class="alert alert-info mb-0">No notification type configs exist for this railroad. Notifications will not be created until types are configured.</div>
+    }
+    else
+    {
+        <DataTable TItem="NotificationTypeConfigResponse"
+                   Items="notificationTypeConfigs"
+                   Columns="columns"
+                   SearchFilter="@((c, term) => c.Key.Contains(term, StringComparison.OrdinalIgnoreCase) || c.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                   SearchPlaceholder="Search notification type..."
+                   EmptyMessage="No notification type configs found."
+                   DefaultSortColumn="Key">
+            <RowContent Context="cfg">
+                <td class="fw-semibold">@cfg.Key</td>
+                <td>@cfg.DisplayName</td>
+                <td>@(cfg.IsEnabled ? "Yes" : "No")</td>
+                <td>@(cfg.RequiresAcknowledgementDefault ? "Yes" : "No")</td>
+                <td>@cfg.Audience</td>
+                <td>@(cfg.SendInApp ? "Yes" : "No")</td>
+                <td>@(cfg.SendEmail ? "Yes" : "No")</td>
+                <td>@(cfg.SendText ? "Yes" : "No")</td>
+                <td>@(cfg.SendExternalApi ? "Yes" : "No")</td>
+                <td class="text-end">
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-sm btn-outline-primary px-3"
+                                disabled="@isSaving"
+                                @onclick="() => OpenEditModal(cfg)">
+                            Edit
+                        </button>
+                    }
+                </td>
+            </RowContent>
+        </DataTable>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "admin/notifications";
+
+    private sealed class EditModel
+    {
+        public long CtrlNbr { get; set; }
+
+        public string Key { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(100)]
+        public string DisplayName { get; set; } = string.Empty;
+
+        public bool IsEnabled { get; set; }
+        public bool RequiresAcknowledgementDefault { get; set; }
+        public string Audience { get; set; } = "Employee";
+        public bool SendInApp { get; set; }
+        public bool SendEmail { get; set; }
+        public bool SendText { get; set; }
+        public bool SendExternalApi { get; set; }
+    }
+
+    private readonly IReadOnlyList<DataTableColumn<NotificationTypeConfigResponse>> columns =
+    [
+        new("Key", c => c.Key),
+        new("Display Name", c => c.DisplayName),
+        new("Enabled", c => c.IsEnabled),
+        new("Requires Ack", c => c.RequiresAcknowledgementDefault),
+        new("Audience", c => c.Audience),
+        new("In-App", c => c.SendInApp),
+        new("Email", c => c.SendEmail),
+        new("Text", c => c.SendText),
+        new("External API", c => c.SendExternalApi),
+        DataTableColumn<NotificationTypeConfigResponse>.Actions(),
+    ];
+
+    private List<NotificationTypeConfigResponse> notificationTypeConfigs = [];
+    private bool showEditModal;
+    private EditModel editModel = new();
+
+    private bool HasAnyDeliveryPathSelected =>
+        editModel.SendInApp || editModel.SendEmail || editModel.SendText || editModel.SendExternalApi;
+
+    private bool IsBoardPlacementKey =>
+        string.Equals(editModel.Key, "BoardPlacement", StringComparison.Ordinal);
+
+    private bool CanSaveEditModel =>
+        !editModel.IsEnabled || HasAnyDeliveryPathSelected;
+
+    private void OpenEditModal(NotificationTypeConfigResponse config)
+    {
+        editModel = new EditModel
+        {
+            CtrlNbr = config.CtrlNbr,
+            Key = config.Key,
+            DisplayName = config.DisplayName,
+            IsEnabled = config.IsEnabled,
+            RequiresAcknowledgementDefault = config.RequiresAcknowledgementDefault,
+            Audience = config.Audience,
+            SendInApp = config.SendInApp,
+            SendEmail = config.SendEmail,
+            SendText = config.SendText,
+            SendExternalApi = config.SendExternalApi,
+        };
+        showEditModal = true;
+    }
+
+    private void CloseEditModal()
+    {
+        showEditModal = false;
+    }
+
+    private Task OnEnabledChanged()
+    {
+        if (IsBoardPlacementKey)
+            editModel.RequiresAcknowledgementDefault = false;
+
+        if (!editModel.IsEnabled)
+        {
+            editModel.RequiresAcknowledgementDefault = false;
+            editModel.SendInApp = false;
+            editModel.SendEmail = false;
+            editModel.SendText = false;
+            editModel.SendExternalApi = false;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        RequireFeatureAccess();
+
+        if ((SelectedRailroadCtrlNbr ?? 0) <= 0)
+        {
+            notificationTypeConfigs = [];
+            return;
+        }
+
+        try
+        {
+            var railroadCtrlNbr = SelectedRailroadCtrlNbr ?? 0;
+            var configResponse = await NotificationsClient.GetNotificationTypeConfigsAsync(railroadCtrlNbr);
+            notificationTypeConfigs = [.. configResponse.Configs];
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load notification type config: {ex.Message}";
+            notificationTypeConfigs = [];
+        }
+    }
+
+    private async Task OnSave()
+    {
+        var railroadCtrlNbr = SelectedRailroadCtrlNbr ?? 0;
+        if (railroadCtrlNbr <= 0)
+            return;
+
+        if (!editModel.IsEnabled)
+        {
+            editModel.RequiresAcknowledgementDefault = false;
+            editModel.SendInApp = false;
+            editModel.SendEmail = false;
+            editModel.SendText = false;
+            editModel.SendExternalApi = false;
+        }
+
+        if (IsBoardPlacementKey)
+            editModel.RequiresAcknowledgementDefault = false;
+
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var saved = await NotificationsClient.UpsertNotificationTypeConfigAsync(
+                railroadCtrlNbr,
+                editModel.Key,
+                editModel.DisplayName,
+                editModel.IsEnabled,
+                editModel.RequiresAcknowledgementDefault,
+                editModel.Audience,
+                editModel.SendInApp,
+                editModel.SendEmail,
+                editModel.SendText,
+                editModel.SendExternalApi);
+
+            var idx = notificationTypeConfigs.FindIndex(c => c.Key == saved.Key);
+            if (idx >= 0)
+                notificationTypeConfigs[idx] = saved;
+
+            successMessage = "Notification type configuration saved.";
+            showEditModal = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save notification type config: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    protected override Task OnAppContextChangedAsync() => LoadDataAsync();
+}

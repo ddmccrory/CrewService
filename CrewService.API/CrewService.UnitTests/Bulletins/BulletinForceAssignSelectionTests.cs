@@ -134,7 +134,10 @@ public sealed class BulletinForceAssignSelectionTests
     {
         var factory = new FakeUowFactory(uow);
         var railroadResolver = new RailroadResolver();
-        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
+        var notifications = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            railroadResolver,
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var eligibility = new EmployeeEligibilityService(factory);
         return new BulletinsService(
             factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
@@ -369,6 +372,7 @@ file sealed class ForceAssignFakeUow : IOrchestrationUnitOfWork
     public IStaffablePositionRepository StaffablePositions => throw new NotImplementedException();
     public IDynamicGroupRepository DynamicGroups => throw new NotImplementedException();
     public IEmployeeNotificationRepository EmployeeNotifications => throw new NotImplementedException();
+    public INotificationTypeConfigRepository NotificationTypeConfigs => throw new NotImplementedException();
     public IRosterRepository Rosters => throw new NotImplementedException();
     public ICrewAssignmentRepository CrewAssignments => throw new NotImplementedException();
     public ICrewAttachmentInstanceRepository CrewAttachmentInstances => throw new NotImplementedException();

@@ -55,7 +55,10 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
 
         var scheduleSignal = new BulletinScheduleSignal();
         var railroadResolver = new RailroadResolver();
-        var notifications = new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, railroadResolver);
+        var notifications = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            railroadResolver,
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var requirementEvaluation = new RequirementEvaluationService(UowFactory, []);
         var eligibility = new EmployeeEligibilityService(UowFactory);
         Bulletins = new BulletinsService(

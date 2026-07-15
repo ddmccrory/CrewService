@@ -41,7 +41,10 @@ public class EmployeeNotificationServiceTests
     private static readonly ControlNumber TargetPositionCtrlNbr = ControlNumber.Create(200);
 
     private static EmployeeNotificationService BuildService() =>
-        new(NullLogger<EmployeeNotificationService>.Instance, new RailroadResolver());
+        new(
+            NullLogger<EmployeeNotificationService>.Instance,
+            new RailroadResolver(),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
 
     private static DynamicGroup MakeWorkArea() =>
         DynamicGroup.Create(ControlNumber.Create(9), "Houston Yard", parentGroupCtrlNbr: null,
@@ -339,7 +342,11 @@ public class EmployeeNotificationServiceTests
             daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
         var accounts = new FakeUserAccounts(bumping.UserId, "Smith, John D.");
 
-        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, new RailroadResolver(), accounts)
+        await new EmployeeNotificationService(
+                NullLogger<EmployeeNotificationService>.Instance,
+                new RailroadResolver(),
+                new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance),
+                accounts)
             .NotifySeniorityMoveRequestedAsync(uow, move, TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
@@ -363,7 +370,11 @@ public class EmployeeNotificationServiceTests
             daysOnCurrentPosition: 30, effectiveUtc: DateTime.UtcNow.AddDays(1));
         var accounts = new FakeUserAccounts(bumping.UserId, "Smith, John D.");
 
-        await new EmployeeNotificationService(NullLogger<EmployeeNotificationService>.Instance, new RailroadResolver(), accounts)
+        await new EmployeeNotificationService(
+                NullLogger<EmployeeNotificationService>.Instance,
+                new RailroadResolver(),
+                new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance),
+                accounts)
             .NotifySeniorityMoveRequestedAsync(uow, move, TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
@@ -397,7 +408,7 @@ public class EmployeeNotificationServiceTests
             TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
-        Assert.Equal(NotificationCategories.PositionChange, notification.Category);
+        Assert.Equal(NotificationCategories.GeneralInformation, notification.Category);
         Assert.Equal(ControlNumber.Create(101), notification.EmployeeCtrlNbr);
         Assert.False(notification.RequiresAcknowledgement);
         Assert.Contains("cancelled", notification.Message);
@@ -494,6 +505,31 @@ internal sealed class FakeEmployeeNotificationRepo
         Task.FromResult(Seeded.Count(n => n.RailroadCtrlNbr == r && n.RequiresAcknowledgement && !n.IsAcknowledged));
 }
 
+internal sealed class FakeNotificationTypeConfigRepo : FakeNotificationRepoBase<NotificationTypeConfig>, INotificationTypeConfigRepository
+{
+    public List<NotificationTypeConfig> Seeded { get; }
+
+    public FakeNotificationTypeConfigRepo(ControlNumber railroadCtrlNbr)
+    {
+        Seeded =
+        [
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinAward, "Bulletin Award", isEnabled: true, requiresAcknowledgementDefault: true),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.ForceAssign, "Force Assign", isEnabled: true, requiresAcknowledgementDefault: true),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.GeneralInformation, "General Information", isEnabled: true, requiresAcknowledgementDefault: false),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinCancellation, "Bulletin Cancellation", isEnabled: true, requiresAcknowledgementDefault: false),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.SeniorityMove, "Seniority Move", isEnabled: true, requiresAcknowledgementDefault: true),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.PositionChange, "Position Change", isEnabled: true, requiresAcknowledgementDefault: true),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BoardPlacement, "Board Placement", isEnabled: true, requiresAcknowledgementDefault: false)
+        ];
+    }
+
+    public Task<List<NotificationTypeConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Where(c => c.RailroadCtrlNbr == railroadCtrlNbr).ToList());
+
+    public Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default)
+        => Task.FromResult(Seeded.SingleOrDefault(c => c.RailroadCtrlNbr == railroadCtrlNbr && string.Equals(c.Key, key, StringComparison.Ordinal)));
+}
+
 internal sealed class FakeEmployeeRepo(Employee? employeeByUserId) : FakeNotificationRepoBase<Employee>, IEmployeeRepository
 {
     public override Task<Employee?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(employeeByUserId);
@@ -570,6 +606,7 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public FakeRosterBoardRepo RosterBoardRepo { get; } = new(board);
     public FakeCraftRepo CraftRepo { get; } = new(craft);
     public FakeRosterRepo RosterRepo { get; } = new(roster);
+    public FakeNotificationTypeConfigRepo NotificationTypeConfigRepo { get; } = new(ControlNumber.Create(1));
 
     public string CorrelationId => "test";
     public string OrchestrationId => "test";
@@ -582,6 +619,7 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IRosterBoardRepository RosterBoards => RosterBoardRepo;
     public ICraftRepository Crafts => CraftRepo;
     public IRosterRepository Rosters => RosterRepo;
+    public INotificationTypeConfigRepository NotificationTypeConfigs => NotificationTypeConfigRepo;
 
     public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
