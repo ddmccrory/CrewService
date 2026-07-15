@@ -299,7 +299,10 @@ else
         if (editCtrlNbr == 0)
         {
             saveModel.AllowBulletinBidding = boardType is "ExtraBoard" or "Hangout";
+            saveModel.AllowSeniorityMove = boardType is "ExtraBoard";
             saveModel.AllowForceAssign = boardType is "ExtraBoard" or "Hangout";
+            saveModel.NotifyOnPlacement = boardType is "Hangout";
+            saveModel.PlacementRequiresAcknowledgement = boardType is "Hangout";
         }
     }
 
