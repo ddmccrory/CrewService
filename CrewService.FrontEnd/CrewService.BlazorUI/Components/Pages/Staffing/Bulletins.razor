@@ -182,9 +182,10 @@ else
             </EditForm>
         </BodyContent>
         <Footer>
-            <button class="btn btn-secondary" @onclick="CloseAddBidModal">Cancel</button>
+            <button class="btn btn-outline-secondary" @onclick="CloseAddBidModal">Cancel</button>
             <button class="btn btn-primary" type="submit" form="list-add-bid-form" disabled="@(isSaving || listBidModel.EmployeeCtrlNbr <= 0)">
                 @if (isSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                <span class="bi bi-check-circle me-1"></span>
                 Add Bid
             </button>
         </Footer>
