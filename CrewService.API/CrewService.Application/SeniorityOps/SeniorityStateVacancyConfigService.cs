@@ -343,7 +343,11 @@ public sealed class SeniorityStateVacancyConfigService(
         {
             try
             {
-                await crewsAppService.EndCrewIncumbencyAsync(incumbencyCtrlNbr, DateTime.UtcNow, ct);
+                await crewsAppService.EndCrewIncumbencyAsync(
+                    incumbencyCtrlNbr,
+                    DateTime.UtcNow,
+                    reassignEmployee: false,
+                    ct);
             }
             catch (Exception ex)
             {
@@ -356,7 +360,10 @@ public sealed class SeniorityStateVacancyConfigService(
         {
             try
             {
-                await rosterBoardAppService.RemoveRosterBoardPositionAsync(boardPositionCtrlNbr, ct);
+                await rosterBoardAppService.RemoveRosterBoardPositionAsync(
+                    boardPositionCtrlNbr,
+                    reassignEmployee: false,
+                    ct);
             }
             catch (Exception ex)
             {

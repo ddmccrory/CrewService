@@ -208,7 +208,14 @@ public sealed class CrewsAppService(
         return incumbency;
     }
 
-    public async Task EndCrewIncumbencyAsync(ControlNumber ctrlNbr, DateTime endUtc, CancellationToken ct = default)
+    public Task EndCrewIncumbencyAsync(ControlNumber ctrlNbr, DateTime endUtc, CancellationToken ct = default)
+        => EndCrewIncumbencyAsync(ctrlNbr, endUtc, reassignEmployee: true, ct);
+
+    public async Task EndCrewIncumbencyAsync(
+        ControlNumber ctrlNbr,
+        DateTime endUtc,
+        bool reassignEmployee,
+        CancellationToken ct = default)
     {
         ControlNumber? vacatedStaffablePositionCtrlNbr = null;
         ControlNumber? previousIncumbentCtrlNbr = null;
@@ -228,11 +235,14 @@ public sealed class CrewsAppService(
                 if (crew.DepartmentCtrlNbr is null)
                     throw new InvalidOperationException($"Crew {crew.CtrlNbr.Value} is missing a department; department reassignment is required.");
 
-                await departmentReassignmentService.ReassignEmployeeAsync(
-                    uow,
-                    incumbency.EmployeeCtrlNbr,
-                    crew.DepartmentCtrlNbr,
-                    ct);
+                if (reassignEmployee)
+                {
+                    await departmentReassignmentService.ReassignEmployeeAsync(
+                        uow,
+                        incumbency.EmployeeCtrlNbr,
+                        crew.DepartmentCtrlNbr,
+                        ct);
+                }
 
                 var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
                 if (positionAssignment is not null)

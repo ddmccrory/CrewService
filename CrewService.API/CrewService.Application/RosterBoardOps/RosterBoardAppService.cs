@@ -258,7 +258,13 @@ public sealed class RosterBoardAppService(
         return (position, labels);
     }
 
-    public async Task<ControlNumber> RemoveRosterBoardPositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
+    public Task<ControlNumber> RemoveRosterBoardPositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
+        => RemoveRosterBoardPositionAsync(positionCtrlNbr, reassignEmployee: true, ct);
+
+    public async Task<ControlNumber> RemoveRosterBoardPositionAsync(
+        ControlNumber positionCtrlNbr,
+        bool reassignEmployee,
+        CancellationToken ct = default)
     {
         ControlNumber boardCtrlNbr;
         ControlNumber vacatedStaffablePositionCtrlNbr;
@@ -287,11 +293,14 @@ public sealed class RosterBoardAppService(
             if (craft.DepartmentCtrlNbr is null)
                 throw new InvalidOperationException($"Craft {craft.CtrlNbr.Value} is missing a department; department reassignment is required.");
 
-            await departmentReassignmentService.ReassignEmployeeAsync(
-                uow,
-                position.EmployeeCtrlNbr,
-                craft.DepartmentCtrlNbr,
-                ct);
+            if (reassignEmployee)
+            {
+                await departmentReassignmentService.ReassignEmployeeAsync(
+                    uow,
+                    position.EmployeeCtrlNbr,
+                    craft.DepartmentCtrlNbr,
+                    ct);
+            }
 
             board.RemovePosition(position);
             uow.RosterBoards.Update(board);
