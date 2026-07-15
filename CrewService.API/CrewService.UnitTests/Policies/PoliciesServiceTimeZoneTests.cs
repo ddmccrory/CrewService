@@ -109,7 +109,8 @@ public sealed class PoliciesServiceTimeZoneTests : IDisposable
 
         var notifications = new EmployeeNotificationService(
             NullLogger<EmployeeNotificationService>.Instance,
-            new RailroadResolver());
+            new RailroadResolver(),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var execution = new SeniorityMoveExecutionService(
             _host.UowFactory,
             NullLogger<SeniorityMoveExecutionService>.Instance,

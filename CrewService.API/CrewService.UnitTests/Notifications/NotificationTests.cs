@@ -18,6 +18,159 @@ public class VacancyCallRequestTests
         Assert.Empty(request.Responses);
     }
 
+public class NotificationTypeConfigTests
+{
+    [Fact]
+    public void Create_WhenDisabled_ClearsDependentFlags()
+    {
+        var config = NotificationTypeConfig.Create(
+            ControlNumber.Create(1),
+            key: NotificationCategories.BoardPlacement,
+            displayName: "Board Placement",
+            isEnabled: false,
+            requiresAcknowledgementDefault: true,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: true,
+            sendText: true,
+            sendExternalApi: true);
+
+        Assert.False(config.IsEnabled);
+        Assert.False(config.RequiresAcknowledgementDefault);
+        Assert.False(config.SendInApp);
+        Assert.False(config.SendEmail);
+        Assert.False(config.SendText);
+        Assert.False(config.SendExternalApi);
+    }
+
+    [Fact]
+    public void Update_WhenDisabled_ClearsDependentFlags()
+    {
+        var config = NotificationTypeConfig.Create(
+            ControlNumber.Create(1),
+            key: NotificationCategories.BoardPlacement,
+            displayName: "Board Placement",
+            isEnabled: true,
+            requiresAcknowledgementDefault: true,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: true,
+            sendText: true,
+            sendExternalApi: true);
+
+        config.Update(
+            displayName: "Board Placement",
+            isEnabled: false,
+            requiresAcknowledgementDefault: true,
+            audience: NotificationAudience.Both,
+            sendInApp: true,
+            sendEmail: true,
+            sendText: true,
+            sendExternalApi: true);
+
+        Assert.False(config.IsEnabled);
+        Assert.False(config.RequiresAcknowledgementDefault);
+        Assert.False(config.SendInApp);
+        Assert.False(config.SendEmail);
+        Assert.False(config.SendText);
+        Assert.False(config.SendExternalApi);
+    }
+
+    [Fact]
+    public void Create_WhenEnabledWithoutDeliveryPath_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            NotificationTypeConfig.Create(
+                ControlNumber.Create(1),
+                key: NotificationCategories.BoardPlacement,
+                displayName: "Board Placement",
+                isEnabled: true,
+                requiresAcknowledgementDefault: false,
+                audience: NotificationAudience.Employee,
+                sendInApp: false,
+                sendEmail: false,
+                sendText: false,
+                sendExternalApi: false));
+
+        Assert.Contains("At least one delivery option is required", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Update_WhenEnabledWithoutDeliveryPath_Throws()
+    {
+        var config = NotificationTypeConfig.Create(
+            ControlNumber.Create(1),
+            key: NotificationCategories.BoardPlacement,
+            displayName: "Board Placement",
+            isEnabled: true,
+            requiresAcknowledgementDefault: true,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: false,
+            sendText: false,
+            sendExternalApi: false);
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            config.Update(
+                displayName: "Board Placement",
+                isEnabled: true,
+                requiresAcknowledgementDefault: false,
+                audience: NotificationAudience.Both,
+                sendInApp: false,
+                sendEmail: false,
+                sendText: false,
+                sendExternalApi: false));
+
+        Assert.Contains("At least one delivery option is required", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Create_BoardPlacement_AlwaysDisablesRequiresAcknowledgementDefault()
+    {
+        var config = NotificationTypeConfig.Create(
+            ControlNumber.Create(1),
+            key: NotificationCategories.BoardPlacement,
+            displayName: "Board Placement",
+            isEnabled: true,
+            requiresAcknowledgementDefault: true,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: false,
+            sendText: false,
+            sendExternalApi: false);
+
+        Assert.False(config.RequiresAcknowledgementDefault);
+    }
+
+    [Fact]
+    public void Update_BoardPlacement_AlwaysDisablesRequiresAcknowledgementDefault()
+    {
+        var config = NotificationTypeConfig.Create(
+            ControlNumber.Create(1),
+            key: NotificationCategories.BoardPlacement,
+            displayName: "Board Placement",
+            isEnabled: true,
+            requiresAcknowledgementDefault: false,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: false,
+            sendText: false,
+            sendExternalApi: false);
+
+        config.Update(
+            displayName: "Board Placement",
+            isEnabled: true,
+            requiresAcknowledgementDefault: true,
+            audience: NotificationAudience.Both,
+            sendInApp: true,
+            sendEmail: false,
+            sendText: false,
+            sendExternalApi: false);
+
+        Assert.False(config.RequiresAcknowledgementDefault);
+    }
+}
+
     [Fact]
     public void RecordResponse_Accept_SetsAccepted()
     {

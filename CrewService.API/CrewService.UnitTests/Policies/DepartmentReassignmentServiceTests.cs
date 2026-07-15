@@ -172,7 +172,8 @@ public class DepartmentReassignmentServiceTests
 
         var notifications = new EmployeeNotificationService(
             NullLogger<EmployeeNotificationService>.Instance,
-            new RailroadResolver());
+            new RailroadResolver(),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
 
         var sut = new DepartmentReassignmentService(notifications);
 
@@ -458,6 +459,31 @@ public class DepartmentReassignmentServiceTests
             => Task.FromResult(0);
     }
 
+    private sealed class FakeNotificationTypeConfigRepo : RepoBase<NotificationTypeConfig>, INotificationTypeConfigRepository
+    {
+        public Task<List<NotificationTypeConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<NotificationTypeConfig>
+            {
+                NotificationTypeConfig.Create(
+                    railroadCtrlNbr,
+                    NotificationCategories.BoardPlacement,
+                    "Board Placement",
+                    isEnabled: true,
+                    requiresAcknowledgementDefault: true)
+            });
+
+        public Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default)
+            => Task.FromResult<NotificationTypeConfig?>(
+                string.Equals(key, NotificationCategories.BoardPlacement, StringComparison.Ordinal)
+                    ? NotificationTypeConfig.Create(
+                        railroadCtrlNbr,
+                        NotificationCategories.BoardPlacement,
+                        "Board Placement",
+                        isEnabled: true,
+                        requiresAcknowledgementDefault: true)
+                    : null);
+    }
+
     private sealed class FakeOrchestrationUnitOfWork : IOrchestrationUnitOfWork
     {
         public FakeDepartmentRuleRepo RuleRepo { get; }
@@ -470,6 +496,7 @@ public class DepartmentReassignmentServiceTests
         public FakeEmployeeNotificationRepo EmployeeNotificationRepo { get; } = new();
         public FakeStaffableRepo StaffableRepo { get; } = new();
         public FakeAssignmentRepo AssignmentRepo { get; }
+        private readonly FakeNotificationTypeConfigRepo _notificationTypeConfigs = new();
 
         public FakeOrchestrationUnitOfWork(
             DepartmentReassignmentRule? rule,
@@ -601,5 +628,6 @@ public class DepartmentReassignmentServiceTests
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
         public IEmployeeNotificationRepository EmployeeNotifications => EmployeeNotificationRepo;
+        public INotificationTypeConfigRepository NotificationTypeConfigs => _notificationTypeConfigs;
     }
 }
