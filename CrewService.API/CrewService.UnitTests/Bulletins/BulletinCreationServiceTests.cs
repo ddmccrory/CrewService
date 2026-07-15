@@ -26,6 +26,7 @@ using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
+using CrewService.UnitTests.Fixtures;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -625,7 +626,7 @@ public class BulletinCreationServiceTests
         public IBulletinPolicyRepository                 BulletinPolicies             => throw new NotImplementedException();
         public ICallSheetRuleRepository                  CallSheetRules              => throw new NotImplementedException();
         public ISeniorityMovePolicyRepository            SeniorityMovePolicies        => throw new NotImplementedException();
-        public ISeniorityMoveRepository                  SeniorityMoves               => throw new NotImplementedException();
+        public ISeniorityMoveRepository                  SeniorityMoves               => new NoOpSeniorityMoveRepository();
         public IRoleRepository                           Roles                        => throw new NotImplementedException();
         public IFeatureRepository                        Features                     => throw new NotImplementedException();
         public IPermissionRepository                     Permissions                  => throw new NotImplementedException();

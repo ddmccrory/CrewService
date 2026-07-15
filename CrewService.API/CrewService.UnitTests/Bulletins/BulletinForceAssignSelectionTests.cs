@@ -26,6 +26,7 @@ using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
+using CrewService.UnitTests.Fixtures;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -391,7 +392,7 @@ file sealed class ForceAssignFakeUow : IOrchestrationUnitOfWork
     public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => throw new NotImplementedException();
-    public ISeniorityMoveRepository SeniorityMoves => throw new NotImplementedException();
+    public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();
     public IEmployeeRepository Employees => throw new NotImplementedException();
     public IEmailAddressRepository EmailAddresses => throw new NotImplementedException();
     public IParentRepository Parents => throw new NotImplementedException();
