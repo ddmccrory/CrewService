@@ -239,6 +239,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
         int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
         int newHireToCrewEligibilityDays = 0,
+        bool allowScheduledHangoutMoves = false,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -252,7 +253,8 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
                 crewToCrewEligibilityDays, crewToBoardEligibilityDays,
                 extraBoardToCrewEligibilityDays, hangoutToCrewEligibilityDays,
                 extendedAbsenceToCrewEligibilityDays, trainingToCrewEligibilityDays,
-                newHireToCrewEligibilityDays);
+                newHireToCrewEligibilityDays,
+                allowScheduledHangoutMoves);
             await uow.SeniorityMovePolicies.UpdateAsync(existing, ct);
             await uow.CommitAsync(ct);
             return existing;
@@ -265,7 +267,8 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             crewToCrewEligibilityDays, crewToBoardEligibilityDays,
             extraBoardToCrewEligibilityDays, hangoutToCrewEligibilityDays,
             extendedAbsenceToCrewEligibilityDays, trainingToCrewEligibilityDays,
-            newHireToCrewEligibilityDays);
+            newHireToCrewEligibilityDays,
+            allowScheduledHangoutMoves);
         await uow.SeniorityMovePolicies.AddAsync(policy, ct);
         await uow.CommitAsync(ct);
         return policy;
@@ -624,6 +627,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         string moveType = SeniorityMoveType.Voluntary,
         long targetBoardCtrlNbr = 0,
         bool? willWork = null,
+        string? requestedEffectiveLocal = null,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -652,6 +656,10 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         // No Access is an administrative forced bump that bypasses the eligibility threshold.
         var isNoAccess = moveType == SeniorityMoveType.NoAccess;
+        var canScheduleHangoutMove = !isNoAccess
+            && targetBoardCtrlNbr == 0
+            && currentBoardType == BoardType.Hangout
+            && policy?.AllowScheduledHangoutMoves == true;
 
         if (!isNoAccess && daysOnCurrentPosition < requiredEligibilityDays)
             throw new InvalidOperationException(
@@ -659,12 +667,42 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         // Compute effective date. No Access uses a fixed next-day floor (legacy SA rule:
         // DateTime.Today.AddDays(1).AddMinutes(1)); all other moves use the policy-driven strategy.
-        var effectiveUtc = isNoAccess
+        var computedEffectiveUtc = isNoAccess
             ? workAreaClock.UtcNow.UtcDateTime.Date.AddDays(1).AddMinutes(1)
             : (await ComputeEffectiveDateAsync(
                 empCtrlNbr, ControlNumber.Create(craftCtrlNbr),
                 targetBoardCtrlNbr, targetPositionCtrlNbr, latestAssignment, daysOnCurrentPosition,
                 policy, uow, ct)).UtcDateTime;
+
+        DateTime effectiveUtc;
+        if (!string.IsNullOrWhiteSpace(requestedEffectiveLocal))
+        {
+            if (!canScheduleHangoutMove)
+                throw new InvalidOperationException("Scheduling a requested effective date is only allowed for Hangout-to-Crew moves when enabled by policy.");
+
+            var sourceTz = await ResolveCurrentAssignmentTimeZoneAsync(uow, latestAssignment, ct);
+            var requestedEffectiveUtc = workAreaClock.ParseToUtc(requestedEffectiveLocal, sourceTz);
+
+            if (requestedEffectiveUtc <= workAreaClock.UtcNow.UtcDateTime)
+                throw new InvalidOperationException("Requested effective date/time must be in the future.");
+
+            var pendingMoves = await uow.SeniorityMoves.GetByEmployeeAsync(empCtrlNbr, ct);
+            var earliestPendingEffectiveUtc = pendingMoves
+                .Where(m => m.Status == SeniorityMoveStatus.Pending && m.EffectiveUtc.HasValue)
+                .Select(m => m.EffectiveUtc!.Value)
+                .OrderBy(v => v)
+                .FirstOrDefault();
+
+            if (earliestPendingEffectiveUtc != default && requestedEffectiveUtc >= earliestPendingEffectiveUtc)
+                throw new InvalidOperationException(
+                    $"Requested effective date/time must be earlier than pending move effective time {earliestPendingEffectiveUtc:u}.");
+
+            effectiveUtc = requestedEffectiveUtc;
+        }
+        else
+        {
+            effectiveUtc = computedEffectiveUtc;
+        }
 
         // Board join path: create a new position at the bottom of the target board.
         if (targetBoardCtrlNbr > 0)
@@ -1017,7 +1055,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         long targetPositionCtrlNbr = 0, long targetBoardCtrlNbr = 0,
         CancellationToken ct = default)
     {
-        var (effectiveUtc, _) = await PreviewEffectiveDateWithWillWorkAsync(
+        var (effectiveUtc, _, _, _) = await PreviewEffectiveDateWithWillWorkAsync(
             railroadCtrlNbr, employeeCtrlNbr, craftCtrlNbr, targetPositionCtrlNbr, targetBoardCtrlNbr, ct);
         return effectiveUtc;
     }
@@ -1029,7 +1067,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
     /// position's on-duty time (i.e. the move takes effect at the start of a shift they would
     /// otherwise work). Mirrors SA's <c>SeniorityMove.WillWorkOption</c>.
     /// </summary>
-    public async Task<(DateTimeOffset EffectiveUtc, bool WillWorkOffered)> PreviewEffectiveDateWithWillWorkAsync(
+    public async Task<(DateTimeOffset EffectiveUtc, bool WillWorkOffered, bool CanScheduleHangoutMove, DateTimeOffset? MaxRequestedEffectiveUtc)> PreviewEffectiveDateWithWillWorkAsync(
         long railroadCtrlNbr, long employeeCtrlNbr, long craftCtrlNbr,
         long targetPositionCtrlNbr = 0, long targetBoardCtrlNbr = 0,
         CancellationToken ct = default)
@@ -1046,6 +1084,26 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ? (int)(workAreaClock.UtcNow.UtcDateTime - latestAssignment.AssignedDateUtc).TotalDays
             : 0;
 
+        var currentBoardType = await ResolveCurrentBoardTypeAsync(
+            uow, ControlNumber.Create(craftCtrlNbr), empCtrlNbr, latestAssignment, ct);
+        var canScheduleHangoutMove = targetBoardCtrlNbr == 0
+            && currentBoardType == BoardType.Hangout
+            && policy?.AllowScheduledHangoutMoves == true;
+
+        DateTimeOffset? maxRequestedEffectiveUtc = null;
+        if (canScheduleHangoutMove)
+        {
+            var pendingMoves = await uow.SeniorityMoves.GetByEmployeeAsync(empCtrlNbr, ct);
+            var earliestPendingEffectiveUtc = pendingMoves
+                .Where(m => m.Status == SeniorityMoveStatus.Pending && m.EffectiveUtc.HasValue)
+                .Select(m => m.EffectiveUtc!.Value)
+                .OrderBy(v => v)
+                .FirstOrDefault();
+
+            if (earliestPendingEffectiveUtc != default)
+                maxRequestedEffectiveUtc = new DateTimeOffset(earliestPendingEffectiveUtc.AddMinutes(-1), TimeSpan.Zero);
+        }
+
         var effectiveUtc = await ComputeEffectiveDateAsync(
             empCtrlNbr, ControlNumber.Create(craftCtrlNbr),
             targetBoardCtrlNbr, targetPositionCtrlNbr, latestAssignment, daysOnCurrentPosition,
@@ -1054,7 +1112,35 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         var willWorkOffered = await IsWillWorkOfferedAsync(
             policy, latestAssignment, effectiveUtc, uow, ct);
 
-        return (effectiveUtc, willWorkOffered);
+        return (effectiveUtc, willWorkOffered, canScheduleHangoutMove, maxRequestedEffectiveUtc);
+    }
+
+    private async Task<TimeZoneInfo?> ResolveCurrentAssignmentTimeZoneAsync(
+        IOrchestrationUnitOfWork uow,
+        PositionAssignment? currentAssignment,
+        CancellationToken ct)
+    {
+        if (currentAssignment is null || currentAssignment.AssignmentSourceCtrlNbr is null)
+            return null;
+
+        if (currentAssignment.AssignmentType == PositionAssignmentType.Direct)
+        {
+            var crewPos = await uow.CrewPositions.GetByCtrlNbrAsync(currentAssignment.AssignmentSourceCtrlNbr, ct);
+            return crewPos is null ? null : await workAreaClock.GetCrewTimeZoneAsync(uow, crewPos.CrewCtrlNbr, ct);
+        }
+
+        if (currentAssignment.AssignmentType == PositionAssignmentType.Board)
+        {
+            var board = await uow.RosterBoards.GetByPositionCtrlNbrAsync(currentAssignment.AssignmentSourceCtrlNbr, ct);
+            if (board is null) return null;
+
+            var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
+            if (roster is null) return null;
+
+            return await workAreaClock.GetWorkAreaTimeZoneAsync(uow, roster.WorkAreaGroupCtrlNbr, ct);
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -9,5 +9,5 @@ public sealed class DataTableColumn<TItem>(string title, Func<TItem, object?>? s
     public bool IsSortable => SortValue is not null;
 
     public static DataTableColumn<TItem> Actions(string width = "200px")
-        => new("", width: width);
+        => new("Actions", width: width);
 }

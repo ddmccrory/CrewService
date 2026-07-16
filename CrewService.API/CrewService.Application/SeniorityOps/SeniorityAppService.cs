@@ -6,6 +6,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 
@@ -54,8 +55,8 @@ public sealed class SeniorityAppService(
         }
 
         var empRestrictionLabels = new Dictionary<ControlNumber, List<string>>();
-        int? policyEligibilityDays = null; // null = no policy configured = ineligible
-        int  policyRequestHours     = 0;    // used for early-submission window
+        SeniorityMovePolicy? movePolicy = null;
+        int policyRequestHours = 0; // used for early-submission window
         var firstRosterCtrlNbr = seniorities.Select(s => s.RosterCtrlNbr).FirstOrDefault();
         if (firstRosterCtrlNbr is not null)
         {
@@ -67,18 +68,8 @@ public sealed class SeniorityAppService(
                     : null;
                 if (policy is not null)
                 {
-                    policyEligibilityDays = Math.Max(
-                        policy.CrewToCrewEligibilityDays,
-                        Math.Max(
-                            policy.CrewToBoardEligibilityDays,
-                            Math.Max(
-                                policy.ExtraBoardToCrewEligibilityDays,
-                                Math.Max(
-                                    policy.HangoutToCrewEligibilityDays,
-                                    Math.Max(
-                                        policy.ExtendedAbsenceToCrewEligibilityDays,
-                                        Math.Max(policy.TrainingToCrewEligibilityDays, policy.NewHireToCrewEligibilityDays))))));
-                    policyRequestHours   = policy.RequestHours;
+                    movePolicy = policy;
+                    policyRequestHours = policy.RequestHours;
                 }
                 var restrictingQualTypes = (await uow.QualificationTypes.GetActiveByCraftCtrlNbrAsync(roster.CraftCtrlNbr))
                     .Where(qt => qt.RestrictionLabel is not null).ToList();
@@ -119,7 +110,7 @@ public sealed class SeniorityAppService(
         }
 
         // Resolve current position for each employee (crew or board position name)
-        var empPositionMap = new Dictionary<ControlNumber, (string PositionName, string PositionType, long StaffablePositionCtrlNbr, DateTime AssignedDateUtc)>();
+        var empPositionMap = new Dictionary<ControlNumber, (string PositionName, string PositionType, long StaffablePositionCtrlNbr, DateTime AssignedDateUtc, BoardType? CurrentBoardType)>();
         foreach (var empCtrlNbr in uniqueEmpCtrlNbrs)
         {
             var positionAssignments = await uow.PositionAssignments.GetByEmployeeAsync(empCtrlNbr);
@@ -129,12 +120,14 @@ public sealed class SeniorityAppService(
             if (staffPos is null) continue;
 
             string posName;
+            BoardType? currentBoardType = null;
             if (staffPos.PositionType == StaffablePositionType.Board)
             {
                 RosterBoard? board = null;
                 if (pa.AssignmentSourceCtrlNbr is not null)
                     board = await uow.RosterBoards.GetByPositionCtrlNbrAsync(pa.AssignmentSourceCtrlNbr, ct);
                 posName = board?.Name ?? staffPos.PositionType;
+                currentBoardType = board?.BoardType;
             }
             else
             {
@@ -163,7 +156,7 @@ public sealed class SeniorityAppService(
                 }
             }
 
-            empPositionMap[empCtrlNbr] = (posName, staffPos.PositionType, pa.StaffablePositionCtrlNbr.Value, pa.AssignedDateUtc);
+            empPositionMap[empCtrlNbr] = (posName, staffPos.PositionType, pa.StaffablePositionCtrlNbr.Value, pa.AssignedDateUtc, currentBoardType);
         }
 
         return seniorities.Select(s =>
@@ -178,9 +171,12 @@ public sealed class SeniorityAppService(
                 : 0;
             // Employee can submit (RequestHours/24) days before fully qualifying (legacy early-submission window).
             var earlySubmitDays = policyRequestHours / 24;
+            var requiredEligibilityDays = ResolveRequiredEligibilityDays(movePolicy, pos.CurrentBoardType);
+            var strategy = ResolveMoveStrategy(movePolicy, pos.CurrentBoardType);
             var canExercise = hasPosition
-                && policyEligibilityDays is not null
-                && daysOnPosition >= (policyEligibilityDays.Value - earlySubmitDays);
+                && movePolicy is not null
+                && !string.IsNullOrWhiteSpace(strategy)
+                && daysOnPosition >= (requiredEligibilityDays - earlySubmitDays);
             return new SeniorityListItem(
                 s,
                 emp?.EmployeeNumber ?? string.Empty,
@@ -193,6 +189,35 @@ public sealed class SeniorityAppService(
                 pos.StaffablePositionCtrlNbr,
                 canExercise);
         }).ToList();
+    }
+
+    private static string ResolveMoveStrategy(SeniorityMovePolicy? policy, BoardType? currentBoardType) =>
+        currentBoardType switch
+        {
+            BoardType.ExtraBoard => policy?.ExtraBoardToCrewStrategy ?? string.Empty,
+            BoardType.Hangout => policy?.HangoutToCrewStrategy ?? string.Empty,
+            BoardType.ExtendedAbsence => policy?.ExtendedAbsenceToCrewStrategy ?? string.Empty,
+            BoardType.Training => policy?.TrainingToCrewStrategy ?? string.Empty,
+            BoardType.NewHire => policy?.NewHireToCrewStrategy ?? string.Empty,
+            null => policy?.CrewToCrewStrategy ?? string.Empty,
+            _ => string.Empty
+        };
+
+    private static int ResolveRequiredEligibilityDays(SeniorityMovePolicy? policy, BoardType? currentBoardType)
+    {
+        if (policy is null)
+            return 0;
+
+        return currentBoardType switch
+        {
+            BoardType.ExtraBoard => policy.ExtraBoardToCrewEligibilityDays,
+            BoardType.Hangout => policy.HangoutToCrewEligibilityDays,
+            BoardType.ExtendedAbsence => policy.ExtendedAbsenceToCrewEligibilityDays,
+            BoardType.Training => policy.TrainingToCrewEligibilityDays,
+            BoardType.NewHire => policy.NewHireToCrewEligibilityDays,
+            null => policy.CrewToCrewEligibilityDays,
+            _ => 0
+        };
     }
 
     private async Task<bool> IsComputedQualificationSatisfiedAsync(

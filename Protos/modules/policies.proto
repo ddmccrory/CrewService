@@ -207,6 +207,7 @@ message UpsertSeniorityMovePolicyRequest {
   int32 extended_absence_to_crew_eligibility_days = 20;
   int32 training_to_crew_eligibility_days = 21;
   int32 new_hire_to_crew_eligibility_days = 22;
+  bool allow_scheduled_hangout_moves = 23;
 }
 message SeniorityMovePolicyResponse {
   int64 ctrl_nbr = 1;
@@ -230,6 +231,7 @@ message SeniorityMovePolicyResponse {
   int32 extended_absence_to_crew_eligibility_days = 20;
   int32 training_to_crew_eligibility_days = 21;
   int32 new_hire_to_crew_eligibility_days = 22;
+  bool allow_scheduled_hangout_moves = 23;
 }
 
 message GetNoAccessPolicyRequest {
@@ -310,6 +312,7 @@ message ExerciseSeniorityMoveRequest {
   string move_type = 6;
   int64 target_board_ctrl_nbr = 8;
   optional bool will_work = 10;
+  optional string requested_effective_local = 11;
 }
 message ApproveSeniorityMoveRequest {
   int64 move_ctrl_nbr = 1;
@@ -339,6 +342,9 @@ message PreviewSeniorityMoveEffectiveDateRequest {
 message PreviewSeniorityMoveEffectiveDateResponse {
   string effective_local = 1;
   bool will_work_offered = 2;
+  bool can_schedule_hangout_move = 3;
+  string max_requested_effective_local = 4;
+  string current_local = 5;
 }
 message SeniorityMoveResponse {
   int64 ctrl_nbr = 1;

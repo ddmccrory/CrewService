@@ -281,6 +281,11 @@ public sealed class SeniorityMovePolicy : Entity
     /// that satisfy the eligibility threshold. Mirrors SA's <c>AutoProcess</c> flag.
     /// </summary>
     public bool AutoApprove { get; private set; } = true;
+    /// <summary>
+    /// When true, employees moving from Hangout to Crew may request a specific
+    /// effective date/time instead of using the policy strategy-computed value.
+    /// </summary>
+    public bool AllowScheduledHangoutMoves { get; private set; }
 
     // -- Effective-date strategies per transition path --------------------------
     // Empty string = that transition is not configured (moves blocked).
@@ -327,7 +332,8 @@ public sealed class SeniorityMovePolicy : Entity
         int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
         int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
         int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
-        int newHireToCrewEligibilityDays = 0)
+        int newHireToCrewEligibilityDays = 0,
+        bool allowScheduledHangoutMoves = false)
     {
         return new SeniorityMovePolicy
         {
@@ -350,7 +356,8 @@ public sealed class SeniorityMovePolicy : Entity
             HangoutToCrewEligibilityDays = hangoutToCrewEligibilityDays,
             ExtendedAbsenceToCrewEligibilityDays = extendedAbsenceToCrewEligibilityDays,
             TrainingToCrewEligibilityDays = trainingToCrewEligibilityDays,
-            NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays
+            NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays,
+            AllowScheduledHangoutMoves = allowScheduledHangoutMoves
         };
     }
 
@@ -362,7 +369,8 @@ public sealed class SeniorityMovePolicy : Entity
         int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
         int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
         int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
-        int newHireToCrewEligibilityDays = 0)
+        int newHireToCrewEligibilityDays = 0,
+        bool allowScheduledHangoutMoves = false)
     {
         RequestHours = requestHours;
         CancelHours = cancelHours;
@@ -382,6 +390,7 @@ public sealed class SeniorityMovePolicy : Entity
         ExtendedAbsenceToCrewEligibilityDays = extendedAbsenceToCrewEligibilityDays;
         TrainingToCrewEligibilityDays = trainingToCrewEligibilityDays;
         NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays;
+        AllowScheduledHangoutMoves = allowScheduledHangoutMoves;
     }
 }
 
