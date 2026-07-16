@@ -239,6 +239,7 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             request.ExtraBoardToCrewEligibilityDays, request.HangoutToCrewEligibilityDays,
             request.ExtendedAbsenceToCrewEligibilityDays, request.TrainingToCrewEligibilityDays,
             request.NewHireToCrewEligibilityDays,
+            request.AllowScheduledHangoutMoves,
             context.CancellationToken);
         return MapSeniorityMovePolicy(policy);
     }
@@ -369,6 +370,7 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         TrainingToCrewStrategy = p.TrainingToCrewStrategy,
         NewHireToCrewStrategy = p.NewHireToCrewStrategy,
         WillWorkEnabled = p.WillWorkEnabled,
+        AllowScheduledHangoutMoves = p.AllowScheduledHangoutMoves,
         CrewToCrewEligibilityDays = p.CrewToCrewEligibilityDays,
         CrewToBoardEligibilityDays = p.CrewToBoardEligibilityDays,
         ExtraBoardToCrewEligibilityDays = p.ExtraBoardToCrewEligibilityDays,
@@ -390,6 +392,7 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
                 string.IsNullOrEmpty(request.MoveType) ? SeniorityMoveType.Voluntary : request.MoveType,
                 request.TargetBoardCtrlNbr,
                 request.HasWillWork ? request.WillWork : null,
+                request.HasRequestedEffectiveLocal ? request.RequestedEffectiveLocal : null,
                 context.CancellationToken);
             return MapSeniorityMove(move);
         }
@@ -402,7 +405,7 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         try
         {
-            var (effectiveUtc, willWorkOffered) = await svc.PreviewEffectiveDateWithWillWorkAsync(
+            var (effectiveUtc, willWorkOffered, canScheduleHangoutMove, maxRequestedEffectiveUtc) = await svc.PreviewEffectiveDateWithWillWorkAsync(
                 request.RailroadCtrlNbr, request.EmployeeCtrlNbr, request.CraftCtrlNbr,
                 request.TargetPositionCtrlNbr, request.TargetBoardCtrlNbr,
                 context.CancellationToken);
@@ -413,7 +416,13 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
                 // Presentation field now carries work-area-localized wall clock emitted by backend.
                 EffectiveLocal = serviceProvider.GetRequiredService<IWorkAreaClock>()
                     .FormatLocalIso(effectiveUtc.UtcDateTime, tz),
-                WillWorkOffered = willWorkOffered
+                CurrentLocal = serviceProvider.GetRequiredService<IWorkAreaClock>()
+                    .FormatLocalIso(serviceProvider.GetRequiredService<IWorkAreaClock>().UtcNow.UtcDateTime, tz),
+                WillWorkOffered = willWorkOffered,
+                CanScheduleHangoutMove = canScheduleHangoutMove,
+                MaxRequestedEffectiveLocal = maxRequestedEffectiveUtc.HasValue
+                    ? serviceProvider.GetRequiredService<IWorkAreaClock>().FormatLocalIso(maxRequestedEffectiveUtc.Value.UtcDateTime, tz)
+                    : string.Empty
             };
         }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }

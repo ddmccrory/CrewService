@@ -103,6 +103,7 @@ internal class SeniorityMovePolicyConfiguration : IEntityTypeConfiguration<Senio
         builder.Property(p => p.RequestHours).IsRequired();
         builder.Property(p => p.CancelHours).IsRequired();
         builder.Property(p => p.AutoApprove).IsRequired();
+        builder.Property(p => p.AllowScheduledHangoutMoves).IsRequired();
         builder.Property(p => p.WillWorkEnabled).IsRequired();
         builder.Property(p => p.CrewToCrewStrategy).HasMaxLength(30).IsRequired();
         builder.Property(p => p.CrewToBoardStrategy).HasMaxLength(30).IsRequired();
