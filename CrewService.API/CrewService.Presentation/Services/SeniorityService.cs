@@ -4,6 +4,7 @@ using CrewService.Domain.Exceptions;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.ValueObjects;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 
 namespace CrewService.Presentation.Services;
@@ -11,7 +12,8 @@ namespace CrewService.Presentation.Services;
 public class SeniorityService(
     SeniorityAppService seniorityAppService,
     EmployeeNameService employeeNameService,
-    IWorkAreaClock workAreaClock) : SenioritySrvc.SenioritySrvcBase
+    IWorkAreaClock workAreaClock,
+    IServiceProvider serviceProvider) : SenioritySrvc.SenioritySrvcBase
 {
     public override async Task<GetAllSeniorityResponse> GetAllAsync(GetAllSeniorityRequest request, ServerCallContext context)
     {
@@ -265,12 +267,38 @@ public class SeniorityService(
     public override async Task<GetNextStateChangeEventResponse> GetNextStateChangeEventAsync(
         GetNextStateChangeEventRequest request, ServerCallContext context)
     {
-        var railroadCtrlNbr = ControlNumber.Create(request.RailroadCtrlNbr);
-        var (nextUtc, _, tzId) = await seniorityAppService.GetNextPendingChangeForRailroadAsync(railroadCtrlNbr, context.CancellationToken);
+        var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
+        var workAreaRepo = serviceProvider.GetRequiredService<CrewService.Domain.Modules.TenantConfig.IDynamicGroupRepository>();
+
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var workAreas = await workAreaRepo.GetWorkAreasAsync(railroadCtrlNbr);
+
+        DateTime? nextUtc = null;
+        string? nextTzId = null;
+
+        foreach (var workArea in workAreas)
+        {
+            var nextRun = await nextRunResolver.ResolveAsync(
+                "SeniorityStateChange",
+                workArea.CtrlNbr,
+                workArea.OwningRailroadCtrlNbr,
+                context.CancellationToken);
+
+            if (nextRun is null)
+                continue;
+
+            var candidateUtc = DateTime.SpecifyKind(nextRun.NextUtc, DateTimeKind.Utc);
+            if (!nextUtc.HasValue || candidateUtc < nextUtc.Value)
+            {
+                nextUtc = candidateUtc;
+                nextTzId = workArea.TimeZoneId;
+            }
+        }
+
         if (!nextUtc.HasValue)
             return new GetNextStateChangeEventResponse { NextEventLocal = string.Empty };
 
-        var tz = workAreaClock.ResolveTimeZone(tzId);
+        var tz = workAreaClock.ResolveTimeZone(nextTzId);
         return new GetNextStateChangeEventResponse
         {
             NextEventLocal = workAreaClock.FormatLocalIso(nextUtc.Value, tz)
