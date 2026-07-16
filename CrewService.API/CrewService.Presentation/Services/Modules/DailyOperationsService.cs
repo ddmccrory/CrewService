@@ -1,5 +1,6 @@
 using CrewService.Application.DailyOperations;
 using CrewService.Application.Time;
+using CrewService.Application.BackgroundWorkers;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Formatting;
@@ -14,22 +15,32 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
     public override async Task<GetNextCallSheetEventResponse> GetNextCallSheetEvent(
         GetNextCallSheetEventRequest request, ServerCallContext context)
     {
-        var scheduler = serviceProvider.GetRequiredService<IDailyCallSheetSchedulerService>();
+        var nextRunResolver = serviceProvider.GetRequiredService<IBackgroundJobNextRunResolver>();
         var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+        var workAreaRepo = serviceProvider.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
         var workAreaCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
-        var nextCandidate = await scheduler.GetNextCallSheetEventCandidateAsync(workAreaCtrlNbr, context.CancellationToken);
-        if (nextCandidate is null)
+        var workArea = await workAreaRepo.GetByCtrlNbrAsync(workAreaCtrlNbr, context.CancellationToken);
+        if (workArea is null)
+            return new GetNextCallSheetEventResponse { NextEventLocal = string.Empty };
+
+        var nextRun = await nextRunResolver.ResolveAsync(
+            "CallSheet",
+            workAreaCtrlNbr,
+            workArea.OwningRailroadCtrlNbr,
+            context.CancellationToken);
+
+        if (nextRun is null)
             return new GetNextCallSheetEventResponse { NextEventLocal = string.Empty };
 
         var tz = await clock.GetWorkAreaTimeZoneAsync(workAreaCtrlNbr, context.CancellationToken);
         return new GetNextCallSheetEventResponse
         {
-            NextEventLocal = clock.FormatLocalIso(DateTime.SpecifyKind(nextCandidate.EventUtc, DateTimeKind.Utc), tz),
-            ShiftCode = nextCandidate.ShiftCode,
-            ShiftDisplayName = nextCandidate.ShiftDisplayName,
-            TargetDate = nextCandidate.Item.TargetDate.ToString("yyyy-MM-dd"),
-            DepartmentName = nextCandidate.DepartmentName ?? string.Empty
+            NextEventLocal = clock.FormatLocalIso(DateTime.SpecifyKind(nextRun.NextUtc, DateTimeKind.Utc), tz),
+            ShiftCode = nextRun.ShiftCode ?? string.Empty,
+            ShiftDisplayName = nextRun.ShiftDisplayName ?? string.Empty,
+            TargetDate = nextRun.TargetDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+            DepartmentName = nextRun.DepartmentName ?? string.Empty
         };
     }
 
@@ -38,19 +49,26 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
     {
         var svc = serviceProvider.GetRequiredService<Application.DailyOperations.DailyOperationsService>();
         var employeeNameSvc = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
 
         if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
 
+        var workAreaCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
+        var tz = await clock.GetWorkAreaTimeZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+        var nowLocal = tz is null
+            ? clock.UtcNow.UtcDateTime
+            : TimeZoneInfo.ConvertTime(clock.UtcNow, tz).DateTime;
+
         var shifts = await svc.GetCallSheetAsync(
-            ControlNumber.Create(request.WorkAreaGroupCtrlNbr), targetDate, context.CancellationToken);
+            workAreaCtrlNbr, targetDate, context.CancellationToken);
 
         var response = new GetCallSheetResponse();
         foreach (var shift in shifts)
         {
             if (!request.IncludeClosed && shift.IsComplete)
                 continue;
-            response.Shifts.Add(await MapShiftToResponseAsync(shift, employeeNameSvc));
+            response.Shifts.Add(await MapShiftToResponseAsync(shift, employeeNameSvc, targetDate, nowLocal));
         }
         return response;
     }
@@ -60,6 +78,9 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
     {
         var svc = serviceProvider.GetRequiredService<CallSheetGenerationService>();
         var employeeNameSvc = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+        var callSheetSignal = serviceProvider.GetRequiredService<IDailyCallSheetScheduleSignal>();
+        var manualOverrideStore = serviceProvider.GetRequiredService<IDailyCallSheetManualOverrideStore>();
 
         var workAreaGroupCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
         var shiftDefinitionCtrlNbr = ControlNumber.Create(request.ShiftDefinitionCtrlNbr);
@@ -67,6 +88,37 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
 
         if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
+
+        if (!string.IsNullOrWhiteSpace(request.ScheduledCreateLocal))
+        {
+            if (!DateTime.TryParse(request.ScheduledCreateLocal, out var scheduledLocal))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid scheduled_create_local format. Use yyyy-MM-ddTHH:mm."));
+
+            var tz = await clock.GetWorkAreaTimeZoneAsync(workAreaGroupCtrlNbr, context.CancellationToken);
+            var scheduledUtc = clock.CombineLocalToUtc(
+                DateOnly.FromDateTime(scheduledLocal),
+                TimeOnly.FromDateTime(scheduledLocal),
+                tz).UtcDateTime;
+
+            var scheduledItem = new DailyCallSheetDueWorkItem(
+                workAreaGroupCtrlNbr,
+                shiftDefinitionCtrlNbr,
+                targetDate,
+                departmentCtrlNbr);
+            manualOverrideStore.Schedule(scheduledUtc, scheduledItem);
+            callSheetSignal.Notify(scheduledUtc);
+
+            return new GenerateCallSheetResponse
+            {
+                Shift = new DailyShiftInstanceResponse
+                {
+                    CtrlNbr = 0,
+                    ShiftCode = string.Empty,
+                    ShiftDisplayName = "Scheduled",
+                    Status = "Scheduled"
+                }
+            };
+        }
 
         try
         {
@@ -389,7 +441,10 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
     }
 
     private static async Task<DailyShiftInstanceResponse> MapShiftToResponseAsync(
-        ShiftInstance shift, EmployeeNameService employeeNameSvc)
+        ShiftInstance shift,
+        EmployeeNameService employeeNameSvc,
+        DateOnly? targetDate = null,
+        DateTime? nowLocal = null)
     {
         var employeeCtrlNbrs = shift.PositionSlots
             .Where(s => s.IncumbentEmployeeCtrlNbr is not null)
@@ -398,12 +453,16 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             .ToList();
         var employeeInfoMap = await employeeNameSvc.GetEmployeeInfoBatchAsync(employeeCtrlNbrs);
 
+        var effectiveShiftStatus = targetDate.HasValue && nowLocal.HasValue
+            ? ResolveShiftDisplayStatus(shift, targetDate.Value, nowLocal.Value)
+            : shift.Status;
+
         var shiftResp = new DailyShiftInstanceResponse
         {
             CtrlNbr = shift.CtrlNbr.Value,
             ShiftCode = shift.ShiftCode,
             ShiftDisplayName = shift.ShiftDisplayName,
-            Status = shift.Status,
+            Status = effectiveShiftStatus,
             DepartmentName = shift.DepartmentName ?? string.Empty,
         };
 
@@ -412,11 +471,15 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
 
         foreach (var slot in shift.PositionSlots)
         {
+            var effectiveSlotStatus = targetDate.HasValue && nowLocal.HasValue
+                ? ResolveSlotDisplayStatus(slot, targetDate.Value, nowLocal.Value)
+                : slot.Status;
+
             var slotResp = new DailyPositionSlotResponse
             {
                 CtrlNbr = slot.CtrlNbr.Value,
                 CrewPositionCtrlNbr = slot.CrewPositionCtrlNbr?.Value ?? 0,
-                Status = MapSlotStatus(slot.Status),
+                Status = MapSlotStatus(effectiveSlotStatus),
                 IsAnnulled = slot.IsAnnulled,
                 IsDoNotFill = slot.IsDoNotFill,
                 IsSkipped = slot.IsSkipped,
@@ -456,6 +519,55 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         }
 
         return shiftResp;
+    }
+
+    private static string ResolveShiftDisplayStatus(ShiftInstance shift, DateOnly targetDate, DateTime nowLocal)
+    {
+        if (shift.IsComplete || string.Equals(shift.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            return "Completed";
+
+        if (string.Equals(shift.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            return "Cancelled";
+
+        var firstOnDuty = shift.PositionSlots
+            .Select(s => (TimeOnly?)s.OnDutyTime)
+            .OrderBy(t => t)
+            .FirstOrDefault();
+
+        if (!firstOnDuty.HasValue)
+            return shift.Status;
+
+        var nowDate = DateOnly.FromDateTime(nowLocal);
+        if (nowDate > targetDate)
+            return "Active";
+
+        if (nowDate < targetDate)
+            return "Planned";
+
+        return nowLocal.TimeOfDay >= firstOnDuty.Value.ToTimeSpan()
+            ? "Active"
+            : "Planned";
+    }
+
+    private static PositionSlotStatus ResolveSlotDisplayStatus(PositionSlotInstance slot, DateOnly targetDate, DateTime nowLocal)
+    {
+        if (slot.IncumbentEmployeeCtrlNbr is null)
+            return slot.Status;
+
+        if (slot.Status is not (PositionSlotStatus.Filled or PositionSlotStatus.OnDuty or PositionSlotStatus.OnDutyOvertime))
+            return slot.Status;
+
+        var onDutyLocal = targetDate.ToDateTime(slot.OnDutyTime);
+        var offDutyDate = slot.OffDutyTime <= slot.OnDutyTime ? targetDate.AddDays(1) : targetDate;
+        var offDutyLocal = offDutyDate.ToDateTime(slot.OffDutyTime);
+
+        if (nowLocal < onDutyLocal)
+            return PositionSlotStatus.Filled;
+
+        if (nowLocal >= offDutyLocal)
+            return PositionSlotStatus.OnDutyOvertime;
+
+        return PositionSlotStatus.OnDuty;
     }
 
     private static PositionSlotStatusEnum MapSlotStatus(PositionSlotStatus status) => status switch

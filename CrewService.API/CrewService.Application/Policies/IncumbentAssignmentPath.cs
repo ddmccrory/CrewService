@@ -20,6 +20,15 @@ public sealed class IncumbentAssignmentPath(SeniorityMoveCancellationPath senior
         ControlNumber? excludeMoveCtrlNbr = null,
         CancellationToken ct = default)
     {
+        if (assignmentType == PositionAssignmentType.Board)
+        {
+            if (assignmentSourceCtrlNbr is null)
+            {
+                throw new InvalidOperationException(
+                    $"Board assignment for staffable position {staffablePositionCtrlNbr.Value} requires a roster board position source control number.");
+            }
+        }
+
         var assignment = PositionAssignment.Create(
             staffablePositionCtrlNbr,
             employeeCtrlNbr,

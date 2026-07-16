@@ -503,23 +503,40 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
     public override async Task<GetNextSeniorityMoveEventResponse> GetNextSeniorityMoveEvent(
         GetNextSeniorityMoveEventRequest request, ServerCallContext context)
     {
-        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
         var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+        var workAreaRepo = serviceProvider.GetRequiredService<CrewService.Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
-        var moves = await svc.GetActiveSeniorityMovesAsync(context.CancellationToken);
-        var nowUtc = clock.UtcNow.UtcDateTime;
-        var next = moves
-            .Where(m => m.Move.EffectiveUtc.HasValue && m.Move.EffectiveUtc.Value >= nowUtc)
-            .OrderBy(m => m.Move.EffectiveUtc)
-            .FirstOrDefault();
+        var workAreas = await workAreaRepo.GetWorkAreasAsync();
+        DateTime? nextUtc = null;
+        string? nextTzId = null;
 
-        if (next is null)
+        foreach (var workArea in workAreas)
+        {
+            var nextRun = await nextRunResolver.ResolveAsync(
+                "SeniorityMove",
+                workArea.CtrlNbr,
+                workArea.OwningRailroadCtrlNbr,
+                context.CancellationToken);
+
+            if (nextRun is null)
+                continue;
+
+            var candidateUtc = DateTime.SpecifyKind(nextRun.NextUtc, DateTimeKind.Utc);
+            if (!nextUtc.HasValue || candidateUtc < nextUtc.Value)
+            {
+                nextUtc = candidateUtc;
+                nextTzId = workArea.TimeZoneId;
+            }
+        }
+
+        if (!nextUtc.HasValue)
             return new GetNextSeniorityMoveEventResponse { NextEventLocal = string.Empty };
 
-        var tz = clock.ResolveTimeZone(next.WorkAreaTimeZoneId);
+        var tz = clock.ResolveTimeZone(nextTzId);
         return new GetNextSeniorityMoveEventResponse
         {
-            NextEventLocal = clock.FormatLocalIso(next.Move.EffectiveUtc!.Value, tz)
+            NextEventLocal = clock.FormatLocalIso(nextUtc.Value, tz)
         };
     }
 

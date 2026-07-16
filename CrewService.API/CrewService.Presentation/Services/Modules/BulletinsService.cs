@@ -678,14 +678,39 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
 
     public override async Task<GetNextBulletinEventResponse> GetNextBulletinEvent(GetNextBulletinEventRequest request, ServerCallContext context)
     {
-        var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
-        var (nextUtc, workAreaCtrlNbr) = await svc.GetNextBulletinEventAsync(context.CancellationToken);
+        var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
+        var workAreaRepo = serviceProvider.GetRequiredService<CrewService.Domain.Modules.TenantConfig.IDynamicGroupRepository>();
+
+        var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
+        var workAreas = await workAreaRepo.GetWorkAreasAsync(railroadCtrlNbr);
+
+        DateTime? nextUtc = null;
+        long? nextWorkAreaCtrlNbr = null;
+
+        foreach (var workArea in workAreas)
+        {
+            var nextRun = await nextRunResolver.ResolveAsync(
+                "Bulletin",
+                workArea.CtrlNbr,
+                workArea.OwningRailroadCtrlNbr,
+                context.CancellationToken);
+
+            if (nextRun is null)
+                continue;
+
+            var candidateUtc = DateTime.SpecifyKind(nextRun.NextUtc, DateTimeKind.Utc);
+            if (!nextUtc.HasValue || candidateUtc < nextUtc.Value)
+            {
+                nextUtc = candidateUtc;
+                nextWorkAreaCtrlNbr = workArea.CtrlNbr.Value;
+            }
+        }
+
         if (!nextUtc.HasValue)
             return new GetNextBulletinEventResponse { NextEventUtc = string.Empty };
 
-        // Resolve timezone from the bulletin's own work area, exactly as MapBulletin does
-        TimeZoneInfo? tz = workAreaCtrlNbr.HasValue
-            ? await GetWorkAreaTimeZoneAsync(workAreaCtrlNbr.Value, context.CancellationToken)
+        TimeZoneInfo? tz = nextWorkAreaCtrlNbr.HasValue
+            ? await GetWorkAreaTimeZoneAsync(nextWorkAreaCtrlNbr.Value, context.CancellationToken)
             : null;
 
         return new GetNextBulletinEventResponse { NextEventUtc = FormatLocalTime(nextUtc.Value, tz) };

@@ -148,7 +148,7 @@ public sealed class SeniorityMoveExecutionService(
                 await notifications.NotifyBoardPlacementAsync(
                     uow, placedBoard, displacedEmployeeCtrlNbr,
                     Domain.Modules.Notifications.NotificationSubject.Create(
-                        Domain.Modules.Notifications.NotificationSubjectTypes.SeniorityMove, moveCtrlNbr),
+                        Domain.Modules.Notifications.NotificationSubjectTypes.RosterBoard, placedBoard.CtrlNbr),
                     ct);
             }
         }
@@ -203,14 +203,26 @@ public sealed class SeniorityMoveExecutionService(
         }
 
         // Create a StaffablePosition to back the hangout board slot
-        var hangoutPosition = StaffablePosition.Create("Hangout");
+        var hangoutPosition = StaffablePosition.Create(StaffablePositionType.Board);
         await uow.StaffablePositions.AddAsync(hangoutPosition, ct);
 
         var nextOrder = hangoutBoard.Positions.Count > 0
             ? hangoutBoard.Positions.Max(p => p.PositionOrder) + 1
             : 1;
 
-        hangoutBoard.AddPosition(employeeCtrlNbr, nextOrder, hangoutPosition.CtrlNbr);
+        var boardPosition = hangoutBoard.AddPosition(employeeCtrlNbr, nextOrder, hangoutPosition.CtrlNbr);
+
+        await _incumbentAssignmentPath.AssignAsync(
+            uow,
+            hangoutPosition.CtrlNbr,
+            employeeCtrlNbr,
+            PositionAssignmentType.Board,
+            assignmentSourceCtrlNbr: boardPosition.CtrlNbr,
+            assignedDateUtc: null,
+            cancellationReason: IncumbentAssignmentPath.DefaultCancellationReason,
+            excludeMoveCtrlNbr: null,
+            ct);
+
         await uow.RosterBoards.UpdateAsync(hangoutBoard, ct);
 
         if (logger.IsEnabled(LogLevel.Information))

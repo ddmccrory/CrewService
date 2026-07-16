@@ -93,6 +93,7 @@ message GenerateCallSheetRequest {
   int64 shift_definition_ctrl_nbr = 2;
   string target_date = 3;
   optional int64 department_ctrl_nbr = 4;
+  optional string scheduled_create_local = 5;
 }
 
 message GenerateCallSheetResponse {

@@ -49,7 +49,9 @@ public sealed class NotificationQueryService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var employee = await ResolveCurrentEmployeeAsync(uow, ct);
-        return await uow.EmployeeNotifications.GetUnacknowledgedByEmployeeAsync(employee.CtrlNbr, ct);
+        var open = await uow.EmployeeNotifications.GetUnacknowledgedByEmployeeAsync(employee.CtrlNbr, ct);
+        var nowUtc = DateTime.UtcNow;
+        return [.. open.Where(n => IsAwaitingAcknowledgementAt(n, nowUtc))];
     }
 
     /// <summary>
@@ -61,7 +63,8 @@ public sealed class NotificationQueryService(
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var employee = await ResolveCurrentEmployeeAsync(uow, ct);
         var open = await uow.EmployeeNotifications.GetUnacknowledgedByEmployeeAsync(employee.CtrlNbr, ct);
-        return open.Count;
+        var nowUtc = DateTime.UtcNow;
+        return open.Count(n => IsAwaitingAcknowledgementAt(n, nowUtc));
     }
 
     /// <summary>
@@ -81,7 +84,17 @@ public sealed class NotificationQueryService(
     public async Task<int> GetRailroadUnacknowledgedCountAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.EmployeeNotifications.CountUnacknowledgedByRailroadAsync(railroadCtrlNbr, ct);
+        var open = await uow.EmployeeNotifications.GetByRailroadAsync(railroadCtrlNbr, ct);
+        var nowUtc = DateTime.UtcNow;
+        return open.Count(n => IsAwaitingAcknowledgementAt(n, nowUtc));
+    }
+
+    private static bool IsAwaitingAcknowledgementAt(EmployeeNotification notification, DateTime nowUtc)
+    {
+        if (!notification.RequiresAcknowledgement || notification.IsAcknowledged)
+            return false;
+
+        return !notification.EffectiveAtUtc.HasValue || notification.EffectiveAtUtc.Value > nowUtc;
     }
 
     /// <summary>
@@ -225,6 +238,16 @@ public sealed class NotificationQueryService(
             method, confirmed, currentUserService.GetUserName(),
             notifiedAtUtc: DateTime.UtcNow, phoneNumber: phoneNumber, notes: notes);
         uow.EmployeeNotifications.Update(notification);
+
+        if (confirmed)
+        {
+            var employee = await uow.Employees.GetByCtrlNbrAsync(notification.EmployeeCtrlNbr, ct)
+                ?? throw new InvalidOperationException(
+                    $"Employee {notification.EmployeeCtrlNbr.Value} linked to notification {notification.CtrlNbr.Value} was not found.");
+
+            await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
+        }
+
         await uow.CommitAsync(ct);
 
         return notification;

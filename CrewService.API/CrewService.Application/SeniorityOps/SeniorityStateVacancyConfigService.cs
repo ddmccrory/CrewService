@@ -251,6 +251,9 @@ public sealed class SeniorityStateVacancyConfigService(
         // understaffed) inside its own UoW.
         await VacateResolvedPositionsAsync(crewIncumbencyCtrlNbrs, boardPositionCtrlNbrs, employeeCtrlNbr, ct);
 
+        if (action == VacancyAction.MoveToBoard)
+            await EnsureEmployeeUnassignedAsync(employeeCtrlNbr, ct);
+
         // ── Placement phase (MoveToBoard only) ───────────────────────────────
         // Now that the employee holds no staffable position (AddRosterBoardPositionAsync rejects
         // an employee who still holds one), place them at the end of the resolved target board.
@@ -307,18 +310,13 @@ public sealed class SeniorityStateVacancyConfigService(
             else if (staffablePosition.PositionType == StaffablePositionType.Board)
             {
                 var boardPositionCtrlNbr = assignment.AssignmentSourceCtrlNbr;
-                if (boardPositionCtrlNbr is null)
-                {
-                    var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(assignment.StaffablePositionCtrlNbr, ct);
-                    boardPositionCtrlNbr = board?.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr)?.CtrlNbr;
-                }
 
                 if (boardPositionCtrlNbr is not null)
                     boardPositionCtrlNbrs.Add(boardPositionCtrlNbr);
                 else
-                    logger.LogWarning(
-                        "ApplyVacancyAction: Board assignment for staffable position {Position} / employee {Employee} could not be resolved to a board position.",
-                        assignment.StaffablePositionCtrlNbr.Value, employeeCtrlNbr.Value);
+                    throw new InvalidOperationException(
+                        $"Board assignment integrity violation for employee {employeeCtrlNbr.Value}: " +
+                        $"staffable position {assignment.StaffablePositionCtrlNbr.Value} is missing AssignmentSourceCtrlNbr.");
             }
         }
 
@@ -353,6 +351,7 @@ public sealed class SeniorityStateVacancyConfigService(
             {
                 logger.LogError(ex, "ApplyVacancyAction: Failed to end crew incumbency {Incumbency} for employee {Employee}.",
                     incumbencyCtrlNbr.Value, employeeCtrlNbr.Value);
+                throw;
             }
         }
 
@@ -369,8 +368,36 @@ public sealed class SeniorityStateVacancyConfigService(
             {
                 logger.LogError(ex, "ApplyVacancyAction: Failed to remove board position {Position} for employee {Employee}.",
                     boardPositionCtrlNbr.Value, employeeCtrlNbr.Value);
+                throw;
             }
         }
+    }
+
+    private async Task EnsureEmployeeUnassignedAsync(ControlNumber employeeCtrlNbr, CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var remainingAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        if (remainingAssignments.Count == 0)
+            return;
+
+        foreach (var assignment in remainingAssignments)
+        {
+            var staffable = await uow.StaffablePositions.GetByCtrlNbrAsync(assignment.StaffablePositionCtrlNbr, ct);
+            logger.LogError(
+                "MoveToBoard residual assignment: employee={Employee} assignmentType={AssignmentType} staffable={Staffable} staffableType={StaffableType} source={Source}",
+                employeeCtrlNbr.Value,
+                assignment.AssignmentType,
+                assignment.StaffablePositionCtrlNbr.Value,
+                staffable?.PositionType ?? "<missing>",
+                assignment.AssignmentSourceCtrlNbr?.Value);
+        }
+
+        var details = string.Join(", ",
+            remainingAssignments.Select(a =>
+                $"{a.AssignmentType}:{a.StaffablePositionCtrlNbr.Value}/src={(a.AssignmentSourceCtrlNbr?.Value.ToString() ?? "null")}"));
+
+        throw new InvalidOperationException(
+            $"MoveToBoard precondition failed for employee {employeeCtrlNbr.Value}: employee still has active assignments after vacate phase ({details}).");
     }
 
     /// <summary>
@@ -398,7 +425,9 @@ public sealed class SeniorityStateVacancyConfigService(
                 return;
             }
 
-            nextOrder = board.Positions.Count + 1;
+            nextOrder = board.Positions.Count > 0
+                ? board.Positions.Max(p => p.PositionOrder) + 1
+                : 1;
         }
 
         try
@@ -415,6 +444,7 @@ public sealed class SeniorityStateVacancyConfigService(
         {
             logger.LogError(ex, "ApplyVacancyAction (MoveToBoard): Failed to place employee {Employee} on board {Board}.",
                 employeeCtrlNbr.Value, targetBoardCtrlNbr.Value);
+            throw;
         }
     }
 }

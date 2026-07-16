@@ -1,7 +1,10 @@
 using CrewService.Application.Notifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Xunit;
 
@@ -11,6 +14,7 @@ public class NotificationQueryServiceTests
 {
     private static readonly Guid UserGuid = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly ControlNumber RailroadCtrlNbr = ControlNumber.Create(1);
+    private static readonly ControlNumber CraftCtrlNbr = ControlNumber.Create(42);
 
     private static Employee MakeEmployee(string userId) =>
         Employee.Create(
@@ -75,6 +79,58 @@ public class NotificationQueryServiceTests
     }
 
     [Fact]
+    public async Task Acknowledge_BoardPlacementWithRosterBoardSubject_SchedulesHangoutAutoMove()
+    {
+        var employee = MakeEmployee(UserGuid.ToString());
+        var (service, uow) = Build(employee, UserGuid);
+        var sourceBoard = SetupHangoutAutoMoveScenario(uow, employee);
+
+        var notification = EmployeeNotification.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            NotificationCategories.BoardPlacement,
+            "Placed on hangout board.",
+            requiresAcknowledgement: true,
+            subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
+        uow.Notifications.Seeded.Add(notification);
+
+        await service.AcknowledgeAsync(notification.CtrlNbr, TestContext.Current.CancellationToken);
+
+        var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
+        Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
+        Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
+    }
+
+    [Fact]
+    public async Task RecordManualAcknowledgement_BoardPlacementWithRosterBoardSubject_SchedulesHangoutAutoMove()
+    {
+        var employee = MakeEmployee(UserGuid.ToString());
+        var (service, uow) = Build(employee, UserGuid);
+        var sourceBoard = SetupHangoutAutoMoveScenario(uow, employee);
+
+        var notification = EmployeeNotification.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            NotificationCategories.BoardPlacement,
+            "Placed on hangout board.",
+            requiresAcknowledgement: true,
+            subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
+        uow.Notifications.Seeded.Add(notification);
+
+        await service.RecordManualAcknowledgementAsync(
+            notification.CtrlNbr,
+            AcknowledgementMethod.PhoneCall,
+            confirmed: true,
+            phoneNumber: "5551234567",
+            notes: "Reached employee",
+            TestContext.Current.CancellationToken);
+
+        var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
+        Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
+        Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
+    }
+
+    [Fact]
     public async Task Acknowledge_OtherEmployeesNotification_Throws()
     {
         var employee = MakeEmployee(UserGuid.ToString());
@@ -112,6 +168,38 @@ public class NotificationQueryServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.GetMyNotificationsAsync(TestContext.Current.CancellationToken));
+    }
+
+    private static RosterBoard SetupHangoutAutoMoveScenario(FakeNotificationUoW uow, Employee employee)
+    {
+        var sourceStaffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
+        var sourceBoard = RosterBoard.Create(
+            CraftCtrlNbr,
+            ControlNumber.Create(701),
+            "Trainman Hangout",
+            BoardType.Hangout);
+        sourceBoard.AddPosition(employee.CtrlNbr, positionOrder: 1, sourceStaffablePosition.CtrlNbr);
+
+        var targetBoard = RosterBoard.Create(
+            CraftCtrlNbr,
+            ControlNumber.Create(702),
+            "Trainman Extra Board",
+            BoardType.ExtraBoard);
+
+        uow.RosterBoardRepo.SeededBoards.Add(sourceBoard);
+        uow.RosterBoardRepo.SeededBoards.Add(targetBoard);
+        uow.CraftOperationsPolicyRepo.SeededPolicy = CraftOperationsPolicy.Create(
+            CraftCtrlNbr,
+            hangoutAutoMoveEnabled: true,
+            hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
+            hangoutAutoMoveDelayHours: 48);
+        uow.PositionAssignmentRepo.Seeded.Add(PositionAssignment.Create(
+            sourceStaffablePosition.CtrlNbr,
+            employee.CtrlNbr,
+            PositionAssignmentType.Board,
+            assignedDateUtc: DateTime.UtcNow.AddDays(-2)));
+
+        return sourceBoard;
     }
 }
 
