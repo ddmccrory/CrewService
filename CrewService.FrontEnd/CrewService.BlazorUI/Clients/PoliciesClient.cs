@@ -11,7 +11,11 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
 
     public async Task<CraftOperationsPolicyResponse?> GetCraftOperationsPolicyAsync(long craftCtrlNbr)
     {
-        try { return await _client.GetCraftOperationsPolicyAsync(new GetCraftOperationsPolicyRequest { CraftCtrlNbr = craftCtrlNbr }); }
+        try
+        {
+            var response = await _client.GetCraftOperationsPolicyAsync(new GetCraftOperationsPolicyRequest { CraftCtrlNbr = craftCtrlNbr });
+            return response.CtrlNbr > 0 ? response : null;
+        }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
         catch (Exception ex) { LogException(ex); throw; }
     }
