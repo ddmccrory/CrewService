@@ -1,0 +1,49 @@
+@using CrewService.BlazorUI.Services
+@implements IDisposable
+
+@inject ApiHeartbeatService HeartbeatService
+
+<span class="badge rounded-pill api-status-badge @BadgeClass" title="@Tooltip" aria-label="@Tooltip" role="status">
+    API
+</span>
+
+@code {
+    protected override void OnInitialized()
+    {
+        HeartbeatService.OnStatusChanged += HandleStatusChanged;
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            HeartbeatService.EnsureStarted();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private string BadgeClass => HeartbeatService.Status switch
+    {
+        ApiConnectivityStatus.Good => "bg-success",
+        ApiConnectivityStatus.Down => "bg-danger",
+        _ => "bg-warning text-dark"
+    };
+
+    private string Tooltip => HeartbeatService.Status switch
+    {
+        ApiConnectivityStatus.Good => "API status: good",
+        ApiConnectivityStatus.Down => "API status: down",
+        _ => "API status: degraded"
+    };
+
+    private void HandleStatusChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        HeartbeatService.OnStatusChanged -= HandleStatusChanged;
+    }
+}
