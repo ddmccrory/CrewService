@@ -9,21 +9,25 @@
         <nav class="navbar navbar-expand-lg bg-primary sticky-top">
             <div class="container-fluid">
                 <h4 class="text-light mb-0">Crew Service Management</h4>
-                <AuthorizeView>
-                    <Authorized>
-                        <div class="topbar-auth d-flex align-items-center ms-auto gap-2">
-                            <CrewService.BlazorUI.Components.Layout.ContextSwitcher @rendermode="new InteractiveServerRenderMode(prerender: false)" />
-                            <CrewService.BlazorUI.Components.Layout.NotificationMenu @rendermode="new InteractiveServerRenderMode(prerender: false)" />
-                            <div class="nav-item px-1">
-                                <CrewService.BlazorUI.Components.Layout.UserNameButton @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                <div class="d-flex align-items-center ms-auto gap-2">
+                    <AuthorizeView>
+                        <Authorized>
+                            <div class="topbar-auth d-flex align-items-center gap-2">
+                                <CrewService.BlazorUI.Components.Layout.ContextSwitcher @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                                <CrewService.BlazorUI.Components.Layout.NotificationMenu @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                                <div class="nav-item px-1">
+                                    <CrewService.BlazorUI.Components.Layout.UserNameButton @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                                </div>
                             </div>
-                        </div>
-                    </Authorized>
-                </AuthorizeView>
+                        </Authorized>
+                    </AuthorizeView>
+                    <CrewService.BlazorUI.Components.Layout.ApiStatusIndicator @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                </div>
             </div>
         </nav>
 
         <article class="content px-4">
+            <CrewService.BlazorUI.Components.Layout.ApiConnectivityGate @rendermode="new InteractiveServerRenderMode(prerender: false)" />
             @Body
         </article>
     </main>

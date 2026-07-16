@@ -1,0 +1,10 @@
+.api-status-badge {
+    font-size: 0.95rem;
+    line-height: 1;
+    min-width: 3.2rem;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.04em;
+}

@@ -74,6 +74,7 @@ builder.Services.AddScoped<ContextOptionsService>();
 builder.Services.AddScoped<CircuitBootstrapService>();
 builder.Services.AddScoped<EmployeeProfileService>();
 builder.Services.AddScoped<RailroadReferenceDataService>();
+builder.Services.AddScoped<ApiHeartbeatService>();
 
 var app = builder.Build();
 

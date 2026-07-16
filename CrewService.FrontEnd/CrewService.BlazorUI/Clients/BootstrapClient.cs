@@ -19,11 +19,11 @@ public sealed class BootstrapClient(GrpcChannelProvider channelProvider, Circuit
         }
     }
 
-    public async Task<GetContextOptionsResponse> GetContextOptionsAsync()
+    public async Task<GetContextOptionsResponse> GetContextOptionsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _client.GetContextOptionsAsync(new GetContextOptionsRequest());
+            return await _client.GetContextOptionsAsync(new GetContextOptionsRequest(), cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
