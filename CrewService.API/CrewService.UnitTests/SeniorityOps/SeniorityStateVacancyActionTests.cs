@@ -709,4 +709,96 @@ public sealed class SeniorityStateVacancyActionTests : IDisposable
         Assert.Single(assignments);
         Assert.Equal(PositionAssignmentType.Direct, assignments[0].AssignmentType);
     }
+
+    [Fact]
+    public async Task MoveToBoard_TargetBoardWithOrderGap_PlacesAtMaxOrderPlusOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        await SeedCrewIncumbencyAsync(f, ct);
+        var targetBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.Hangout, ct);
+
+        await using (var ctx = _host.CreateReadContext())
+        {
+            var board = await ctx.Set<RosterBoard>().SingleAsync(b => b.CtrlNbr == targetBoardCtrlNbr, ct);
+            var otherOne = Employee.Create(
+                f.WorkAreaCtrlNbr, "gapemp1", "E901", "000-00-0901", Gender.Male, Race.White,
+                new DateTime(1990, 1, 1), DateTime.UtcNow, ctx.EmploymentStatuses.First().CtrlNbr,
+                "gapemp1@example.com", "admin", "Admin User");
+            var otherTwo = Employee.Create(
+                f.WorkAreaCtrlNbr, "gapemp2", "E902", "000-00-0902", Gender.Male, Race.White,
+                new DateTime(1990, 1, 1), DateTime.UtcNow, ctx.EmploymentStatuses.First().CtrlNbr,
+                "gapemp2@example.com", "admin", "Admin User");
+            ctx.Employees.AddRange(otherOne, otherTwo);
+
+            var slot1 = StaffablePosition.Create(StaffablePositionType.Board);
+            var slot2 = StaffablePosition.Create(StaffablePositionType.Board);
+            ctx.StaffablePositions.AddRange(slot1, slot2);
+
+            board.AddPosition(otherOne.CtrlNbr, 1, slot1.CtrlNbr);
+            board.AddPosition(otherTwo.CtrlNbr, 3, slot2.CtrlNbr);
+
+            ctx.PositionAssignments.Add(PositionAssignment.Create(slot1.CtrlNbr, otherOne.CtrlNbr, PositionAssignmentType.Board));
+            ctx.PositionAssignments.Add(PositionAssignment.Create(slot2.CtrlNbr, otherTwo.CtrlNbr, PositionAssignmentType.Board));
+            await ctx.SaveChangesAsync(ct);
+        }
+
+        await _host.VacancyConfig.UpsertAsync(
+            f.ParentCtrlNbr,
+            f.RailroadCtrlNbr,
+            f.NewSeniorityStateCtrlNbr,
+            VacancyAction.MoveToBoard,
+            targetBoardType: BoardType.Hangout,
+            ct: ct);
+
+        await _host.VacancyConfig.ApplyVacancyActionAsync(
+            f.EmployeeCtrlNbr, f.NewSeniorityStateCtrlNbr, f.RosterCtrlNbr, ct);
+
+        var boardAfter = await GetBoardAsync(targetBoardCtrlNbr, ct);
+        Assert.NotNull(boardAfter);
+        var employeePosition = boardAfter!.Positions.Single(p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+        Assert.Equal(4, employeePosition.PositionOrder);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignments[0].AssignmentType);
+    }
+
+    [Fact]
+    public async Task MoveToBoard_ExtendedAbsenceSource_MovesToHangoutWithSourceIntegrity()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        var extendedAbsenceBoardCtrlNbr = await SeedBoardWithEmployeeAsync(f, BoardType.ExtendedAbsence, ct);
+        var hangoutBoardCtrlNbr = await SeedEmptyBoardAsync(f, BoardType.Hangout, ct);
+
+        await _host.VacancyConfig.UpsertAsync(
+            f.ParentCtrlNbr,
+            f.RailroadCtrlNbr,
+            f.NewSeniorityStateCtrlNbr,
+            VacancyAction.MoveToBoard,
+            targetBoardType: BoardType.Hangout,
+            ct: ct);
+
+        await _host.VacancyConfig.ApplyVacancyActionAsync(
+            f.EmployeeCtrlNbr,
+            f.NewSeniorityStateCtrlNbr,
+            f.RosterCtrlNbr,
+            ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        var assignmentAfter = Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignmentAfter.AssignmentType);
+        Assert.NotNull(assignmentAfter.AssignmentSourceCtrlNbr);
+
+        var extendedAbsenceAfter = await GetBoardAsync(extendedAbsenceBoardCtrlNbr, ct);
+        Assert.NotNull(extendedAbsenceAfter);
+        Assert.DoesNotContain(extendedAbsenceAfter!.Positions, p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+
+        var hangoutAfter = await GetBoardAsync(hangoutBoardCtrlNbr, ct);
+        Assert.NotNull(hangoutAfter);
+        var hangoutPosition = hangoutAfter!.Positions.Single(p => p.EmployeeCtrlNbr == f.EmployeeCtrlNbr);
+        Assert.Equal(hangoutPosition.StaffablePositionCtrlNbr, assignmentAfter.StaffablePositionCtrlNbr);
+        Assert.Equal(hangoutPosition.CtrlNbr, assignmentAfter.AssignmentSourceCtrlNbr);
+    }
 }

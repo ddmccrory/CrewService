@@ -140,4 +140,5 @@ message NotificationResponse {
   string effective_at_local = 14;
   optional google.protobuf.Timestamp accepted_at = 15;
   string accepted_at_local = 16;
+  int32 attempt_count = 17;
 }

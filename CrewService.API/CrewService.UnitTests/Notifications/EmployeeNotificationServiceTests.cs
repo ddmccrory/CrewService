@@ -546,13 +546,112 @@ internal sealed class FakeStaffablePositionRepo(StaffablePosition? position) : F
     public Task<List<StaffablePosition>> GetByPositionTypeAsync(string positionType) => Task.FromResult(new List<StaffablePosition>());
 }
 
+internal sealed class FakePositionAssignmentRepo : FakeNotificationRepoBase<PositionAssignment>, IPositionAssignmentRepository
+{
+    public List<PositionAssignment> Seeded { get; } = [];
+
+    public Task<PositionAssignment?> GetByStaffablePositionAsync(ControlNumber staffablePositionCtrlNbr)
+        => Task.FromResult(Seeded.SingleOrDefault(a => a.StaffablePositionCtrlNbr == staffablePositionCtrlNbr));
+
+    public Task<List<PositionAssignment>> GetByStaffablePositionsAsync(IEnumerable<ControlNumber> staffablePositionCtrlNbrs)
+    {
+        var keys = staffablePositionCtrlNbrs.ToHashSet();
+        return Task.FromResult(Seeded.Where(a => keys.Contains(a.StaffablePositionCtrlNbr)).ToList());
+    }
+
+    public Task<List<PositionAssignment>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr)
+        => Task.FromResult(Seeded.Where(a => a.EmployeeCtrlNbr == employeeCtrlNbr).ToList());
+
+    public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsAsync()
+        => Task.FromResult(Seeded.Select(a => a.EmployeeCtrlNbr.Value).ToHashSet());
+
+    public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsByTypeAsync(string assignmentType)
+        => Task.FromResult(Seeded.Where(a => string.Equals(a.AssignmentType, assignmentType, StringComparison.Ordinal))
+            .Select(a => a.EmployeeCtrlNbr.Value).ToHashSet());
+}
+
+internal sealed class FakeCraftOperationsPolicyRepo(CraftOperationsPolicy? policy)
+    : FakeNotificationRepoBase<CraftOperationsPolicy>, ICraftOperationsPolicyRepository
+{
+    public CraftOperationsPolicy? SeededPolicy { get; set; } = policy;
+
+    public Task<CraftOperationsPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(SeededPolicy is not null && SeededPolicy.CraftCtrlNbr == craftCtrlNbr ? SeededPolicy : null);
+}
+
+internal sealed class FakeSeniorityMoveRepo : FakeNotificationRepoBase<SeniorityMove>, ISeniorityMoveRepository
+{
+    public List<SeniorityMove> Seeded { get; } = [];
+
+    public override Task<SeniorityMove?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).SingleOrDefault(m => m.CtrlNbr == ctrlNbr));
+
+    public Task<List<SeniorityMove>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(m => m.EmployeeCtrlNbr == employeeCtrlNbr).ToList());
+
+    public Task<List<SeniorityMove>> GetByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(m => m.CraftCtrlNbr == craftCtrlNbr).ToList());
+
+    public Task<List<SeniorityMove>> GetByStatusAsync(string status, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(m => string.Equals(m.Status, status, StringComparison.Ordinal)).ToList());
+
+    public Task<List<SeniorityMove>> GetByCraftByStatusAsync(ControlNumber craftCtrlNbr, string status, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities)
+            .Where(m => m.CraftCtrlNbr == craftCtrlNbr && string.Equals(m.Status, status, StringComparison.Ordinal))
+            .ToList());
+
+    public Task<List<SeniorityMove>> GetPendingAsync(CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(m => m.Status == SeniorityMoveStatus.Pending).ToList());
+
+    public Task<List<SeniorityMove>> GetActiveAsync(CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities)
+            .Where(m => m.Status == SeniorityMoveStatus.Pending || m.Status == SeniorityMoveStatus.Approved)
+            .ToList());
+
+    public Task<List<SeniorityMove>> GetAllMovesAsync(CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).ToList());
+
+    public Task<List<SeniorityMove>> GetApprovedDueAsync(DateTime asOf, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities)
+            .Where(m => m.Status == SeniorityMoveStatus.Approved && m.EffectiveUtc.HasValue && m.EffectiveUtc.Value <= asOf)
+            .ToList());
+
+    public Task<DateTime?> GetNextApprovedEffectiveUtcAsync(CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities)
+            .Where(m => m.Status == SeniorityMoveStatus.Approved && m.EffectiveUtc.HasValue)
+            .Select(m => (DateTime?)m.EffectiveUtc)
+            .OrderBy(d => d)
+            .FirstOrDefault());
+
+    public Task<List<SeniorityMove>> GetPendingByTargetPositionAsync(ControlNumber targetPositionCtrlNbr, ControlNumber excludeCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities)
+            .Where(m => m.TargetPositionCtrlNbr == targetPositionCtrlNbr && m.CtrlNbr != excludeCtrlNbr && m.Status == SeniorityMoveStatus.Pending)
+            .ToList());
+}
+
 internal sealed class FakeRosterBoardRepo(RosterBoard? board) : FakeNotificationRepoBase<RosterBoard>, IRosterBoardRepository
 {
+    public List<RosterBoard> SeededBoards { get; } = board is null ? [] : [board];
+    private readonly RosterBoard? _defaultBoard = board;
+
+    public override Task<RosterBoard?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+        => Task.FromResult(SeededBoards.SingleOrDefault(b => b.CtrlNbr == ctrlNbr));
+
     public Task<IReadOnlyList<RosterBoard>> GetActiveByWorkAreaAsync(ControlNumber w, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RosterBoard>>([]);
-    public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrAsync(ControlNumber c, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RosterBoard>>([]);
-    public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> c, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RosterBoard>>([]);
+    public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrAsync(ControlNumber c, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<RosterBoard>>(SeededBoards.Where(b => b.CraftCtrlNbr == c).ToList());
+
+    public Task<IReadOnlyList<RosterBoard>> GetByCraftCtrlNbrsAsync(IEnumerable<ControlNumber> c, CancellationToken ct = default)
+    {
+        var craftKeys = c.ToHashSet();
+        return Task.FromResult<IReadOnlyList<RosterBoard>>(SeededBoards.Where(b => craftKeys.Contains(b.CraftCtrlNbr)).ToList());
+    }
+
     public Task<RosterBoard?> GetByPositionCtrlNbrAsync(ControlNumber p, CancellationToken ct = default) => Task.FromResult<RosterBoard?>(null);
-    public Task<RosterBoard?> GetByStaffablePositionCtrlNbrAsync(ControlNumber s, CancellationToken ct = default) => Task.FromResult(board);
+    public Task<RosterBoard?> GetByStaffablePositionCtrlNbrAsync(ControlNumber s, CancellationToken ct = default)
+        => Task.FromResult(
+            SeededBoards.FirstOrDefault(b => b.Positions.Any(p => p.StaffablePositionCtrlNbr == s))
+            ?? _defaultBoard);
 }
 
 internal sealed class FakeRosterRepo(Roster? roster) : FakeNotificationRepoBase<Roster>, IRosterRepository
@@ -607,6 +706,9 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public FakeCraftRepo CraftRepo { get; } = new(craft);
     public FakeRosterRepo RosterRepo { get; } = new(roster);
     public FakeNotificationTypeConfigRepo NotificationTypeConfigRepo { get; } = new(ControlNumber.Create(1));
+    public FakePositionAssignmentRepo PositionAssignmentRepo { get; } = new();
+    public FakeCraftOperationsPolicyRepo CraftOperationsPolicyRepo { get; } = new(policy: null);
+    public FakeSeniorityMoveRepo SeniorityMoveRepo { get; } = new();
 
     public string CorrelationId => "test";
     public string OrchestrationId => "test";
@@ -620,6 +722,9 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public ICraftRepository Crafts => CraftRepo;
     public IRosterRepository Rosters => RosterRepo;
     public INotificationTypeConfigRepository NotificationTypeConfigs => NotificationTypeConfigRepo;
+    public IPositionAssignmentRepository PositionAssignments => PositionAssignmentRepo;
+    public ICraftOperationsPolicyRepository CraftOperationsPolicies => CraftOperationsPolicyRepo;
+    public ISeniorityMoveRepository SeniorityMoves => SeniorityMoveRepo;
 
     public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
@@ -648,7 +753,6 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IGroupTypeRepository GroupTypes => throw new NotImplementedException();
     public IGroupAttributeDefinitionRepository AttributeDefinitions => throw new NotImplementedException();
     public IGroupAttributeValueRepository AttributeValues => throw new NotImplementedException();
-    public IPositionAssignmentRepository PositionAssignments => throw new NotImplementedException();
     public IBoardCascadePolicyRepository BoardCascadePolicies => throw new NotImplementedException();
     public IRequiredPositionsStrategyRepository RequiredPositionsStrategies => throw new NotImplementedException();
     public ICraftRequiredPositionsStrategyRepository CraftRequiredPositionsStrategies => throw new NotImplementedException();
@@ -669,7 +773,6 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public IShiftInstanceRepository ShiftInstances => throw new NotImplementedException();
     public IOnDutyRecordRepository OnDutyRecords => throw new NotImplementedException();
     public IOffDutyRecordRepository OffDutyRecords => throw new NotImplementedException();
-    public ICraftOperationsPolicyRepository CraftOperationsPolicies => throw new NotImplementedException();
     public ICraftDisplacementPolicyRepository CraftDisplacementPolicies => throw new NotImplementedException();
     public IDisplacementCaseRepository DisplacementCases => throw new NotImplementedException();
     public IDisplacementClaimRepository DisplacementClaims => throw new NotImplementedException();
@@ -677,7 +780,6 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => throw new NotImplementedException();
-    public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();
     public IDispatchProjectionRepository DispatchProjections => throw new NotImplementedException();
     public IDispatchDecisionLogRepository DispatchDecisionLogs => throw new NotImplementedException();
     public IDispatchOverrideRepository DispatchOverrides => throw new NotImplementedException();

@@ -254,6 +254,7 @@ public class NotificationsService(IServiceProvider serviceProvider)
             IsAcknowledged = n.IsAcknowledged,
             CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(n.CreatedAtUtc, DateTimeKind.Utc)),
             CreatedAtLocal = clock.FormatLocalIso(n.CreatedAtUtc, tz),
+            AttemptCount = n.Acknowledgements.Count,
         };
 
         if (n.EffectiveAtUtc.HasValue)

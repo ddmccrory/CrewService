@@ -10,11 +10,12 @@
 @attribute [Authorize]
 
 @inject NotificationsClient NotificationsClient
+@inject EmployeeClient EmployeeClient
 
 <PageTitle>Notifications — Crew Service</PageTitle>
 
 <h1>Notifications</h1>
-<p class="text-muted mb-3">Railroad notification feed for managerial review (reference only).</p>
+<p class="text-muted mb-3">Railroad notification feed for managerial review and manual notification attempts.</p>
 
 <div class="d-flex align-items-center gap-3 mb-3">
     <div class="form-check form-switch mb-0">
@@ -71,13 +72,119 @@
             {
                 <span class="badge bg-success">Accepted</span>
             }
+            else if (!IsAwaitingAcknowledgement(n))
+            {
+                <span class="badge bg-secondary">Closed</span>
+            }
             else
             {
                 <span class="badge bg-warning text-dark">Open</span>
             }
         </td>
+        <td>
+            <span class="badge bg-secondary">@n.AttemptCount</span>
+        </td>
+        <td>
+            @if (IsAwaitingAcknowledgement(n))
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenNotifyModal(n)">
+                    <span class="bi bi-bell me-1"></span>Notify
+                </button>
+            }
+        </td>
     </RowContent>
 </DataTable>
+
+<Modal Visible="showNotifyModal"
+       Title="@notifyModalTitle"
+       Icon="bi bi-bell"
+       Size="lg"
+       StaticBackdrop="true"
+       OnClose="CloseNotifyModal">
+    <BodyContent>
+        @if (selectedNotification is null)
+        {
+            <div class="alert alert-info mb-0">
+                <span class="bi bi-info-circle"></span>
+                Notification is no longer available.
+            </div>
+        }
+        else
+        {
+            <EditForm Model="notifyModel" OnValidSubmit="ConfirmNotify" id="notification-notify-form">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Employee</label>
+                        <input class="form-control" value="@selectedNotification.EmployeeName" readonly />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Notification (read to employee)</label>
+                        <div class="border rounded p-3 bg-body-tertiary">
+                            <div class="fw-semibold">@selectedNotification.Message</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Method</label>
+                        <select class="form-select" @bind="notifyModel.Method">
+                            <option value="PhoneCall">Phone Call</option>
+                            <option value="ReturnCall">Return Call</option>
+                            <option value="CalledIn">Called In</option>
+                            <option value="Verbal">Verbal</option>
+                            <option value="Automatic">Automatic</option>
+                            <option value="Electronic">Electronic</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="notifyModel.Confirmed" class="form-check-input" id="notify-confirmed" />
+                            <label class="form-check-label" for="notify-confirmed">Employee confirmed acknowledgement</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Employee Phone Numbers</label>
+                        @if (notifyEmployeePhoneNumbers.Count == 0)
+                        {
+                            <div class="form-text">No phone numbers on file for this employee.</div>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="notifyModel.PhoneNumber">
+                                <option value="">-- Select employee phone number --</option>
+                                @foreach (var phone in notifyEmployeePhoneNumbers)
+                                {
+                                    <option value="@phone.Number">@FormatNotifyPhoneDisplay(phone)</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Phone Number (manual override)</label>
+                        <InputText @bind-Value="notifyModel.PhoneNumber" class="form-control" placeholder="Enter a different phone number if needed" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Notes (optional)</label>
+                        <InputTextArea @bind-Value="notifyModel.Notes" class="form-control" rows="3" />
+                    </div>
+                </div>
+            </EditForm>
+        }
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="CloseNotifyModal">Cancel</button>
+        @if (selectedNotification is not null)
+        {
+            <button type="submit" form="notification-notify-form" class="btn btn-primary" disabled="@isSavingNotify">
+                @if (isSavingNotify)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <span class="bi bi-bell me-1"></span> Record Attempt
+            </button>
+        }
+    </Footer>
+</Modal>
 
 @code {
     protected override string? FeatureKey => "employees/notifications";
@@ -90,11 +197,20 @@
         new("Message", n => n.Message),
         new("Accepted", n => n.AcceptedAt?.ToDateTime()),
         new("Status", n => n.RequiresAcknowledgement ? (n.IsAcknowledged ? "Accepted" : "Open") : ""),
+        new("Attempts", n => n.AttemptCount),
+        new("Actions", width: "140px"),
     ];
 
     private IReadOnlyList<NotificationResponse> notifications = [];
     private bool showAllNotifications;
     private DateTime historyFrom = DateTime.UtcNow.Date.AddDays(-7);
+
+    private bool showNotifyModal;
+    private bool isSavingNotify;
+    private NotificationResponse? selectedNotification;
+    private string notifyModalTitle = "Notify Employee";
+    private NotifyAttemptModel notifyModel = new();
+    private List<PhoneNumberResponse> notifyEmployeePhoneNumbers = [];
 
     private IReadOnlyList<NotificationResponse> DisplayedNotifications => notifications;
 
@@ -126,8 +242,9 @@
             var allNotifications = response.Notifications;
 
             notifications = showAllNotifications
-                ? [.. allNotifications.Where(n => n.CreatedAt.ToDateTime().ToUniversalTime() >= historyFrom.Date.ToUniversalTime())]
-                : [.. allNotifications.Where(n => n.RequiresAcknowledgement && !n.IsAcknowledged)];
+                ? [.. allNotifications.Where(n => n.CreatedAt.ToDateTime().ToUniversalTime() >= historyFrom.Date.ToUniversalTime()
+                    && !IsAwaitingAcknowledgement(n))]
+                : [.. allNotifications.Where(IsAwaitingAcknowledgement)];
         }
         catch (Exception ex)
         {
@@ -138,6 +255,96 @@
 
     private string ResolveCategoryLabel(string category)
         => NotificationCategories.Label(category);
+
+    private static bool IsAwaitingAcknowledgement(NotificationResponse notification)
+    {
+        if (!notification.RequiresAcknowledgement || notification.IsAcknowledged)
+            return false;
+
+        var effectiveAtUtc = notification.EffectiveAt?.ToDateTime();
+        return !effectiveAtUtc.HasValue || effectiveAtUtc.Value > DateTime.UtcNow;
+    }
+
+    private async Task OpenNotifyModal(NotificationResponse notification)
+    {
+        selectedNotification = notification;
+        notifyModalTitle = $"Notify — {notification.EmployeeName}";
+        notifyModel = new NotifyAttemptModel();
+        notifyEmployeePhoneNumbers = [];
+        try
+        {
+            var employee = await EmployeeClient.GetByCtrlNbrAsync(notification.EmployeeCtrlNbr);
+            notifyEmployeePhoneNumbers = employee.PhoneNumbers
+                .OrderBy(p => p.CallingOrder)
+                .ThenBy(p => p.Number)
+                .ToList();
+
+            if (notifyEmployeePhoneNumbers.Count > 0)
+                notifyModel.PhoneNumber = notifyEmployeePhoneNumbers[0].Number;
+        }
+        catch
+        {
+            notifyEmployeePhoneNumbers = [];
+        }
+        showNotifyModal = true;
+    }
+
+    private void CloseNotifyModal() => showNotifyModal = false;
+
+    private static string FormatNotifyPhoneDisplay(PhoneNumberResponse phone)
+    {
+        var dialOne = phone.DialOne ? "Dial 1" : "No 1";
+        return $"{phone.Number} (Order {phone.CallingOrder}, {dialOne})";
+    }
+
+    private async Task ConfirmNotify()
+    {
+        if (selectedNotification is null)
+            return;
+
+        isSavingNotify = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var notificationCtrlNbr = selectedNotification.CtrlNbr;
+
+            await NotificationsClient.RecordManualAcknowledgementAsync(
+                notificationCtrlNbr,
+                notifyModel.Method,
+                notifyModel.Confirmed,
+                notifyModel.PhoneNumber,
+                notifyModel.Notes);
+
+            successMessage = "Notification attempt recorded.";
+            notifyModel.Confirmed = false;
+            notifyModel.PhoneNumber = string.Empty;
+            notifyModel.Notes = string.Empty;
+            await LoadDataAsync();
+
+            selectedNotification = notifications.FirstOrDefault(n => n.CtrlNbr == notificationCtrlNbr);
+            if (selectedNotification is null || selectedNotification.IsAcknowledged || !selectedNotification.RequiresAcknowledgement)
+                showNotifyModal = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to record notification attempt: {ex.Message}";
+        }
+        finally
+        {
+            isSavingNotify = false;
+        }
+    }
+
+    private sealed class NotifyAttemptModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Method { get; set; } = "PhoneCall";
+        public bool Confirmed { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Notes { get; set; }
+    }
 
     protected override Task OnAppContextChangedAsync() => LoadDataAsync();
 }
