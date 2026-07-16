@@ -1,0 +1,41 @@
+@using CrewService.BlazorUI.Services
+@implements IDisposable
+
+@inject ApiHeartbeatService HeartbeatService
+
+@if (HeartbeatService.Status == ApiConnectivityStatus.Down)
+{
+    <div class="alert alert-danger mt-2 mb-2 api-offline-banner" role="alert">
+        <span class="bi bi-plug me-1"></span>
+        API is currently unavailable. Page interaction is temporarily disabled.
+    </div>
+
+    <div class="api-page-overlay" aria-hidden="true"></div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        HeartbeatService.OnStatusChanged += HandleStatusChanged;
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            HeartbeatService.EnsureStarted();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void HandleStatusChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        HeartbeatService.OnStatusChanged -= HandleStatusChanged;
+    }
+}

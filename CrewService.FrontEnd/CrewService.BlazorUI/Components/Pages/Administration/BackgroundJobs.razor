@@ -3,15 +3,15 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
+@using CrewService.BlazorUI.Services
 @using CrewService.Presentation
-@using Grpc.Core
 
 @inherits AppComponentBase
 
 @attribute [Authorize]
 
 @inject BackgroundServicesClient BackgroundServicesClient
-@inject BootstrapClient BootstrapClient
+@inject ApiHeartbeatService HeartbeatService
 
 <PageTitle>Background Jobs — Crew Service</PageTitle>
 
@@ -36,36 +36,11 @@ else
 {
     <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
 
-    <div class="d-flex align-items-center gap-2 mt-2">
-        <span class="fw-semibold">API Host:</span>
-        @if (!hasHeartbeatResult)
-        {
-            <span class="badge bg-secondary">Checking...</span>
-        }
-        else if (isHostOffline)
-        {
-            <span class="badge bg-danger">Offline</span>
-        }
-        else
-        {
-            <span class="badge bg-success">Online</span>
-        }
-        <span class="text-muted small">Last check: @lastHeartbeatDisplay</span>
-    </div>
-
     @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
         <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
             @errorMessage
             <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
-        </div>
-    }
-
-    @if (isHostOffline)
-    {
-        <div class="alert alert-warning mt-2" role="alert">
-            <span class="bi bi-plug me-1"></span>
-            API host appears to be offline. Start or restart CrewService.GrpcService, then refresh this page.
         </div>
     }
 
@@ -218,10 +193,7 @@ else
 
     private bool isLoading;
     private bool isLoadingLogs;
-    private bool isHostOffline;
-    private bool hasHeartbeatResult;
-    private bool heartbeatStarted;
-    private string lastHeartbeatDisplay = "—";
+    private bool refreshStarted;
     private bool showLogsModal;
     private long selectedScheduleCtrlNbr;
     private string selectedScheduleWorkAreaName = string.Empty;
@@ -241,10 +213,12 @@ else
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && RendererInfo.IsInteractive && !heartbeatStarted)
+        if (firstRender && RendererInfo.IsInteractive && !refreshStarted)
         {
-            heartbeatStarted = true;
-            _ = Task.Run(RunHeartbeatLoopAsync, ComponentToken);
+            refreshStarted = true;
+            HeartbeatService.EnsureStarted();
+            HeartbeatService.OnStatusChanged += HandleHeartbeatStatusChanged;
+            _ = Task.Run(RunRefreshLoopAsync, ComponentToken);
         }
 
         return Task.CompletedTask;
@@ -257,7 +231,6 @@ else
 
         isLoading = true;
         errorMessage = null;
-        isHostOffline = false;
         try
         {
             if (!SelectedRailroadCtrlNbr.HasValue)
@@ -284,7 +257,6 @@ else
         }
         catch (Exception ex)
         {
-            isHostOffline = IsHostOffline(ex);
             errorMessage = $"Failed to load background jobs: {ex.Message}";
         }
         finally
@@ -299,7 +271,6 @@ else
 
         isSaving = true;
         errorMessage = null;
-        isHostOffline = false;
         try
         {
             var updated = await BackgroundServicesClient.UpdateScheduleAsync(row.CtrlNbr, !row.IsEnabled);
@@ -315,7 +286,6 @@ else
         }
         catch (Exception ex)
         {
-            isHostOffline = IsHostOffline(ex);
             errorMessage = $"Failed to update job schedule: {ex.Message}";
         }
         finally
@@ -340,7 +310,6 @@ else
 
         isLoadingLogs = true;
         errorMessage = null;
-        isHostOffline = false;
         try
         {
             var response = await BackgroundServicesClient.GetExecutionLogsAsync(selectedScheduleCtrlNbr, 25);
@@ -350,7 +319,6 @@ else
         catch (Exception ex)
         {
             logs.Clear();
-            isHostOffline = IsHostOffline(ex);
             errorMessage = $"Failed to load execution logs: {ex.Message}";
         }
         finally
@@ -414,27 +382,11 @@ else
             : value;
     }
 
-    private static bool IsHostOffline(Exception ex)
-    {
-        if (ex is RpcException rpcEx)
-        {
-            if (rpcEx.StatusCode == StatusCode.Unavailable || rpcEx.StatusCode == StatusCode.DeadlineExceeded)
-                return true;
-        }
-
-        var message = ex.ToString();
-        return message.Contains("StatusCode=\"Unavailable\"", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("connection refused", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("actively refused", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("no connection could be made", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private async Task RunHeartbeatLoopAsync()
+    private async Task RunRefreshLoopAsync()
     {
         while (!ComponentToken.IsCancellationRequested)
         {
-            var apiOnline = await CheckHeartbeatAsync();
-            if (apiOnline)
+            if (!HeartbeatService.IsApiUnavailable)
             {
                 await RefreshSchedulesAsync();
             }
@@ -450,35 +402,12 @@ else
         }
     }
 
-    private async Task<bool> CheckHeartbeatAsync()
+    private void HandleHeartbeatStatusChanged()
     {
-        var apiOnline = false;
-        try
-        {
-            await BootstrapClient.GetContextOptionsAsync();
-            isHostOffline = false;
-            apiOnline = true;
-        }
-        catch (Exception ex)
-        {
-            if (IsHostOffline(ex))
-            {
-                isHostOffline = true;
-                apiOnline = false;
-            }
-        }
-        finally
-        {
-            hasHeartbeatResult = true;
-            lastHeartbeatDisplay = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+        if (ComponentToken.IsCancellationRequested)
+            return;
 
-            if (!ComponentToken.IsCancellationRequested)
-            {
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-
-        return apiOnline;
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task RefreshSchedulesAsync()
@@ -512,13 +441,13 @@ else
         }
         catch
         {
-            // Host heartbeat handles offline state; avoid replacing current grid with transient refresh errors.
+            // Global heartbeat handles offline state; avoid replacing current grid with transient refresh errors.
         }
     }
 
     private string HeartbeatBadgeText(WorkerScheduleRow row)
     {
-        if (isHostOffline || !row.IsEnabled)
+        if (HeartbeatService.IsApiUnavailable || !row.IsEnabled)
             return "Red";
 
         if (IsWorkerReady(row))
@@ -537,7 +466,7 @@ else
 
     private bool IsReady(WorkerScheduleRow row)
     {
-        if (!row.IsEnabled || isHostOffline)
+        if (!row.IsEnabled || HeartbeatService.IsApiUnavailable)
             return false;
 
         if (!string.IsNullOrWhiteSpace(row.NextFireUtc) || !string.IsNullOrWhiteSpace(row.NextFireLocalDisplay))
@@ -552,7 +481,7 @@ else
 
     private bool IsWorkerReady(WorkerScheduleRow row)
     {
-        if (isHostOffline || !row.IsEnabled)
+        if (HeartbeatService.IsApiUnavailable || !row.IsEnabled)
             return false;
 
         if (!ImplementedWorkers.Contains(row.WorkerType))
@@ -573,7 +502,7 @@ else
 
     private string GetDisplayStatus(WorkerScheduleRow row)
     {
-        if (isHostOffline)
+        if (HeartbeatService.IsApiUnavailable)
             return "HostOffline";
 
         if (!row.IsEnabled)
@@ -589,6 +518,12 @@ else
             return row.LastRunStatus;
 
         return IsReady(row) ? "Ready" : "Ready";
+    }
+
+    public override void Dispose()
+    {
+        HeartbeatService.OnStatusChanged -= HandleHeartbeatStatusChanged;
+        base.Dispose();
     }
 
 }
