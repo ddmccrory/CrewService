@@ -20,13 +20,29 @@ public sealed class NotificationsServiceTests
     private static readonly ControlNumber RailroadCtrlNbr = ControlNumber.Create(1);
     private static readonly ControlNumber EmployeeCtrlNbr = ControlNumber.Create(2);
 
+    private static Employee MakeEmployee(string userId = "ack-user") =>
+        Employee.Create(
+            ControlNumber.Create(50),
+            userId,
+            "E1001",
+            "000-00-0001",
+            Gender.Male,
+            Race.PreferNotToSay,
+            new DateTime(1990, 1, 1),
+            new DateTime(2015, 1, 1),
+            ControlNumber.Create(60),
+            "e1001@example.com",
+            "system",
+            "System");
+
     [Fact]
     public async Task RecordManualAcknowledgement_WithValidRequest_RecordsAcknowledgement()
     {
-        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: null);
+        var employee = MakeEmployee();
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: employee);
         var notification = EmployeeNotification.Create(
             RailroadCtrlNbr,
-            EmployeeCtrlNbr,
+            employee.CtrlNbr,
             NotificationCategories.SeniorityMove,
             "Pending acknowledgement",
             requiresAcknowledgement: true);
