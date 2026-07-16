@@ -2,7 +2,7 @@ using System.Net.Http;
 
 namespace CrewService.BlazorUI.Services;
 
-public sealed class ApiHeartbeatService : IDisposable
+public sealed class ApiHeartbeatService : IAppConnectivityService
 {
     private static readonly TimeSpan ProbeInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(3);
