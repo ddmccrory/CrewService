@@ -21,7 +21,16 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             var policy = await svc.GetCraftOperationsPolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
             return MapCraftOperationsPolicy(policy);
         }
-        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (KeyNotFoundException)
+        {
+            // Missing policy is a valid configuration state for a craft.
+            // Return an empty response (CtrlNbr == 0) so callers can treat it as "not configured"
+            // without relying on exception flow.
+            return new CraftOperationsPolicyResponse
+            {
+                CraftCtrlNbr = request.CraftCtrlNbr
+            };
+        }
     }
 
     public override async Task<CraftOperationsPolicyResponse> UpsertCraftOperationsPolicy(
