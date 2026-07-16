@@ -346,9 +346,6 @@ internal sealed class DailyCallSheetSchedulerService(
 
     private static bool IsCandidateDueNow(GroupedCandidate candidate, DateTime nowUtc)
     {
-        if (candidate.EarliestOnDutyUtc <= nowUtc)
-            return false;
-
         var graceMinutes = GlobalFutureGuardMinutes;
 
         return candidate.EventUtc <= nowUtc

@@ -117,6 +117,54 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
         Assert.Empty(due);
     }
 
+    [Fact]
+    public async Task GetDueWorkItemsAsync_WhenEventHitsOnDutyBoundary_ReturnsDueItem()
+    {
+        await using var context = _dbFactory.CreateContext();
+
+        var workArea = await SeedWorkAreaAsync(context, "America/Chicago", TestContext.Current.CancellationToken);
+        var shiftDefinition = ShiftDefinition.Create(workArea.CtrlNbr, "1", "First", 1, isActive: true);
+        await context.Set<ShiftDefinition>().AddAsync(shiftDefinition, TestContext.Current.CancellationToken);
+
+        var department = Department.Create(parentCtrlNbr: null, dynamicGroupCtrlNbr: workArea.CtrlNbr, name: "Transportation");
+        await context.Set<Department>().AddAsync(department, TestContext.Current.CancellationToken);
+
+        var assignment = Assignment.Create(workArea.CtrlNbr, "A1", "Scheduled", false, true, department.CtrlNbr);
+        await context.Set<Assignment>().AddAsync(assignment, TestContext.Current.CancellationToken);
+        await context.Set<CallSheetRule>().AddAsync(
+            CallSheetRule.Create(
+                department.CtrlNbr,
+                callLeadMinutes: 0,
+                callDurationMinutes: 30,
+                holidayAdjustment: CallSheetHolidayAdjustmentType.None,
+                holidayCustomOffsetMinutes: null,
+                globalPreCreateOffsetMinutes: 0,
+                isEnabled: true),
+            TestContext.Current.CancellationToken);
+
+        await context.Set<AssignmentSchedule>().AddAsync(
+            AssignmentSchedule.Create(
+                assignment.CtrlNbr,
+                shiftDefinition.CtrlNbr,
+                operatingDaysMask: DayMask(DayOfWeek.Monday),
+                onDutyTime: new TimeOnly(7, 0),
+                offDutyTime: new TimeOnly(15, 0)),
+            TestContext.Current.CancellationToken);
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var nowUtc = new DateTime(2026, 7, 6, 12, 0, 0, DateTimeKind.Utc); // Monday 07:00 CDT
+        var sut = new DailyCallSheetSchedulerService(context, new FakeWorkAreaClock(new DateTimeOffset(nowUtc)));
+
+        var due = await sut.GetDueWorkItemsAsync(workArea.CtrlNbr, nowUtc, TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(due);
+        Assert.Equal(workArea.CtrlNbr, item.WorkAreaGroupCtrlNbr);
+        Assert.Equal(shiftDefinition.CtrlNbr, item.ShiftDefinitionCtrlNbr);
+        Assert.Equal(new DateOnly(2026, 7, 6), item.TargetDate);
+        Assert.Equal(department.CtrlNbr, item.DepartmentCtrlNbr);
+    }
+
     private static int DayMask(DayOfWeek dayOfWeek) => 1 << (int)dayOfWeek;
 
     private static async Task<DynamicGroup> SeedWorkAreaAsync(CrewServiceDbContext context, string timeZoneId, CancellationToken ct)
