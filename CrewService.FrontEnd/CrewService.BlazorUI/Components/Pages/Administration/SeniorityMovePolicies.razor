@@ -81,6 +81,15 @@ else
                                 </label>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="allowScheduledHangoutMoves" @bind="editModel.AllowScheduledHangoutMoves" />
+                                <label class="form-check-label" for="allowScheduledHangoutMoves">
+                                    Allow Scheduled Hangout Moves
+                                    <span class="text-muted small d-block">When enabled, Hangout → Crew move requests may specify an effective date/time.</span>
+                                </label>
+                            </div>
+                        </div>
                         <hr />
                         <p class="fw-semibold mb-2">Hangout Auto-Move</p>
                         <div class="mb-3">
@@ -286,6 +295,7 @@ else
         [Range(0, 168)] public int CancelHours { get; set; } = 0;
         public bool AutoApprove { get; set; } = true;
         public bool WillWorkEnabled { get; set; }
+        public bool AllowScheduledHangoutMoves { get; set; }
         public bool HangoutAutoMoveEnabled { get; set; }
         public string HangoutAutoMoveTargetBoardType { get; set; } = "ExtraBoard";
         [Range(0, 720)] public int HangoutAutoMoveDelayHours { get; set; } = 48;
@@ -368,6 +378,7 @@ else
             CancelHours = row.Policy?.CancelHours ?? 0,
             AutoApprove = row.Policy?.AutoApprove ?? true,
             WillWorkEnabled = row.Policy?.WillWorkEnabled ?? false,
+            AllowScheduledHangoutMoves = row.Policy?.AllowScheduledHangoutMoves ?? false,
             HangoutAutoMoveEnabled = row.CraftOperationsPolicy?.HangoutAutoMoveEnabled ?? false,
             HangoutAutoMoveTargetBoardType = row.CraftOperationsPolicy?.HangoutAutoMoveTargetBoardType ?? "ExtraBoard",
             HangoutAutoMoveDelayHours = row.CraftOperationsPolicy?.HangoutAutoMoveDelayHours ?? 48,
@@ -442,7 +453,8 @@ else
                 editModel.HangoutToCrewEligibilityDays,
                 editModel.ExtendedAbsenceToCrewEligibilityDays,
                 editModel.TrainingToCrewEligibilityDays,
-                editModel.NewHireToCrewEligibilityDays);
+                editModel.NewHireToCrewEligibilityDays,
+                editModel.AllowScheduledHangoutMoves);
 
             await PoliciesClient.UpsertCraftOperationsPolicyAsync(
                 editModel.CraftCtrlNbr,

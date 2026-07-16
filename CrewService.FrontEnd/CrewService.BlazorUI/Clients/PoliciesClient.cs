@@ -126,7 +126,8 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         int crewToCrewEligibilityDays = 0, int crewToBoardEligibilityDays = 0,
         int extraBoardToCrewEligibilityDays = 0, int hangoutToCrewEligibilityDays = 0,
         int extendedAbsenceToCrewEligibilityDays = 0, int trainingToCrewEligibilityDays = 0,
-        int newHireToCrewEligibilityDays = 0)
+        int newHireToCrewEligibilityDays = 0,
+        bool allowScheduledHangoutMoves = false)
     {
         try
         {
@@ -151,7 +152,8 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
                 HangoutToCrewEligibilityDays = hangoutToCrewEligibilityDays,
                 ExtendedAbsenceToCrewEligibilityDays = extendedAbsenceToCrewEligibilityDays,
                 TrainingToCrewEligibilityDays = trainingToCrewEligibilityDays,
-                NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays
+                NewHireToCrewEligibilityDays = newHireToCrewEligibilityDays,
+                AllowScheduledHangoutMoves = allowScheduledHangoutMoves
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

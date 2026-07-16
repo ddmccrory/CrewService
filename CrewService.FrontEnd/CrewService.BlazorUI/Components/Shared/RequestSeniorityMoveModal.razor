@@ -10,12 +10,14 @@
      - The target position identifies the displaced employee (shown in its text),
        so there is no separate displaced-employee control.
      - Move Type is always Voluntary.
-     - Effective Date shown read-only (server-calculated preview).
+      - Effective Date shown read-only (server-calculated preview), unless policy allows
+        scheduling Hangout -> Crew moves.
 
    Employee context (LockedEmployee = true)
      - Craft / Employee / Target Position shown read-only (pre-supplied by host).
      - Move Type is always Voluntary.
-     - Effective Date shown read-only (server-calculated preview).
+      - Effective Date shown read-only (server-calculated preview), unless policy allows
+        scheduling Hangout -> Crew moves.
 ───────────────────────────────────────────────────────────────────────────── *@
 
 <Modal Visible="Visible"
@@ -159,6 +161,31 @@
                 }
             </div>
 
+            @if (CanScheduleHangoutMove)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        Requested Effective Date &amp; Time
+                        <span class="text-muted fw-normal small ms-1">(optional)</span>
+                    </label>
+                    <div class="input-group">
+                        <InputDate Type="InputDateType.DateTimeLocal"
+                                   @bind-Value="_model.RequestedEffectiveLocal"
+                                   max="@MaxRequestedEffectiveInput"
+                                   class="form-control" />
+                        <button type="button" class="btn btn-outline-secondary" @onclick="SetRequestedEffectiveNextDay" title="Set requested effective date/time to next day at 12:01 AM">Next Day</button>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(MaxRequestedEffectiveLocal))
+                    {
+                        <div class="form-text">Latest allowed requested time: @FormatEffectiveDate(MaxRequestedEffectiveLocal).</div>
+                    }
+                    @if (IsRequestedEffectiveAfterMax)
+                    {
+                        <div class="text-danger small mt-1">Requested effective date/time must be earlier than the employee's earliest pending move.</div>
+                    }
+                </div>
+            }
+
             @* ── Will Work election (only when offered by the server) ──── *@
             @if (WillWorkOffered)
             {
@@ -283,16 +310,42 @@
     /// </summary>
     [Parameter] public bool WillWorkOffered { get; set; }
 
+    /// <summary>
+    /// Whether this move request can optionally specify a requested effective date/time
+    /// (Hangout -> Crew with policy flag enabled).
+    /// </summary>
+    [Parameter] public bool CanScheduleHangoutMove { get; set; }
+
+    /// <summary>
+    /// Optional latest allowed requested effective datetime (work-area local ISO with offset).
+    /// Empty when no pending-move cap applies.
+    /// </summary>
+    [Parameter] public string MaxRequestedEffectiveLocal { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Backend-localized current work-area time (ISO with offset) for defaulting/requesting "Now".
+    /// </summary>
+    [Parameter] public string CurrentLocal { get; set; } = string.Empty;
+
     // ── Internal state ────────────────────────────────────────────────────
 
     private readonly string _formId = $"request-move-form-{Guid.NewGuid():N}";
 
     private MoveModel _model = new();
 
+    private bool IsRequestedEffectiveAfterMax
+        => _model.RequestedEffectiveLocal.HasValue
+           && ParsePreviewEffectiveDate(MaxRequestedEffectiveLocal) is DateTime maxLocal
+           && _model.RequestedEffectiveLocal.Value >= maxLocal;
+
+    private string? MaxRequestedEffectiveInput
+        => ParsePreviewEffectiveDate(MaxRequestedEffectiveLocal)?.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
     private bool CanSubmit
         => !IsSaving
            && string.IsNullOrWhiteSpace(PreviewError)
            && !string.IsNullOrWhiteSpace(PreviewEffectiveUtc)
+           && !IsRequestedEffectiveAfterMax
            && _model.EmployeeCtrlNbr > 0
            && (BoardMode ? _model.TargetBoardCtrlNbr > 0 : _model.TargetPositionCtrlNbr > 0);
 
@@ -309,6 +362,15 @@
         // In board mode with exactly one eligible board, pre-select it so submit is enabled.
         if (BoardMode && Boards.Count == 1)
             _model.TargetBoardCtrlNbr = Boards[0].CtrlNbr;
+
+        if (!CanScheduleHangoutMove)
+        {
+            _model.RequestedEffectiveLocal = null;
+            return;
+        }
+
+        if (!_model.RequestedEffectiveLocal.HasValue)
+            _model.RequestedEffectiveLocal = ParsePreviewEffectiveDate(CurrentLocal);
     }
 
     // ── Host-callable seed method ─────────────────────────────────────────
@@ -405,7 +467,28 @@
         if (WillWorkOffered)
             req.WillWork = _model.WillWork;
 
+        if (CanScheduleHangoutMove && _model.RequestedEffectiveLocal.HasValue)
+            req.RequestedEffectiveLocal = _model.RequestedEffectiveLocal.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
         await OnConfirm.InvokeAsync(req);
+    }
+
+    private static DateTime? ParsePreviewEffectiveDate(string isoUtc)
+    {
+        if (DateTimeOffset.TryParse(isoUtc, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var dto))
+            return dto.DateTime;
+        return null;
+    }
+
+    private void SetRequestedEffectiveNextDay()
+    {
+        var baseLocal = ParsePreviewEffectiveDate(CurrentLocal)
+            ?? ParsePreviewEffectiveDate(PreviewEffectiveUtc);
+        if (!baseLocal.HasValue)
+            return;
+
+        _model.RequestedEffectiveLocal = baseLocal.Value.Date.AddDays(1).AddMinutes(1);
     }
 
     // ── Display helpers ───────────────────────────────────────────────────
@@ -442,5 +525,7 @@
         public string MoveType { get; set; } = "Voluntary";
 
         public bool WillWork { get; set; }
+
+        public DateTime? RequestedEffectiveLocal { get; set; }
     }
 }

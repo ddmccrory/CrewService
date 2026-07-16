@@ -51,7 +51,8 @@ else
                         }
                         else
                         {
-                            <th style="@(col.Width is not null ? $"width: {col.Width}; min-width: {col.Width};" : "")">@col.Title</th>
+                            <th class="@GetHeaderClass(col)"
+                                style="@(col.Width is not null ? $"width: {col.Width}; min-width: {col.Width};" : "")">@col.Title</th>
                         }
                     }
                 </tr>
@@ -144,6 +145,9 @@ else
         return Columns.Any(c => c.SortValue is not null
             && c.SortValue(item)?.ToString()?.Contains(term, StringComparison.OrdinalIgnoreCase) == true);
     }
+
+    private static string? GetHeaderClass(DataTableColumn<TItem> col)
+        => string.Equals(col.Title, "Actions", StringComparison.OrdinalIgnoreCase) ? "text-end" : null;
 
     private static readonly IComparer<object?> SortComparer = Comparer<object?>.Create((a, b) =>
     {

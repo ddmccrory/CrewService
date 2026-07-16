@@ -50,6 +50,9 @@ else
                                IsSaving="isSaving"
                                LockedEmployee="false"
                                RailroadCtrlNbr="@(SelectedRailroadCtrlNbr ?? 0)"
+                               CanScheduleHangoutMove="@canScheduleHangoutMove"
+                               MaxRequestedEffectiveLocal="@maxRequestedEffectiveLocal"
+                               CurrentLocal="@currentLocal"
                                Crafts="craftItems"
                                ActiveEmployees="activeEmployeeItems"
                                JuniorPositions="juniorPositionItems"
@@ -175,7 +178,7 @@ else
                SearchFilter="@((m, term) => DisplayEmployee(m).Contains(term, StringComparison.OrdinalIgnoreCase) || DisplayPosition(m).Contains(term, StringComparison.OrdinalIgnoreCase) || m.MoveType.Contains(term, StringComparison.OrdinalIgnoreCase) || FormatResult(m.Status).Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search moves..."
                EmptyMessage="@MovesEmptyMessage"
-               DefaultSortColumn="Requested">
+               DefaultSortColumn="Effective">
         <ToolbarContent>
             @if (!Permissions.IsReadOnly(FeatureKey!))
             {
@@ -191,12 +194,12 @@ else
             <td>@DisplayEmployee(move)</td>
             <td>@DisplayPosition(move)</td>
             <td>@FormatMoveType(move.MoveType)</td>
-            <td>@FormatResult(move.Status)</td>
             <td>@FormatDisplayLocal(move.RequestedLocal)</td>
             <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
-            <td class="text-end">
-                @if (!Permissions.IsReadOnly(FeatureKey!))
-                {
+            <td>@FormatResult(move.Status)</td>
+            @if (ShowActionsColumn)
+            {
+                <td class="text-end">
                     <div class="d-flex gap-1 flex-nowrap justify-content-end">
                         @if (move.Status == "Pending")
                         {
@@ -228,8 +231,8 @@ else
                             }
                         }
                     </div>
-                }
-            </td>
+                </td>
+            }
         </RowContent>
     </DataTable>
 }
@@ -255,6 +258,9 @@ else
     private RequestSeniorityMoveModal? requestMoveModal;
     private string previewEffectiveUtc = string.Empty;
     private string previewError = string.Empty;
+    private bool canScheduleHangoutMove;
+    private string maxRequestedEffectiveLocal = string.Empty;
+    private string currentLocal = string.Empty;
     private long requestCraftCtrlNbr;
     private long requestEmployeeCtrlNbr;
     private List<CraftResponse> crafts = [];
@@ -275,16 +281,40 @@ else
     private List<SeniorityMoveNamedItem> boardItems = [];
 
     // ── columns
-    private IReadOnlyList<DataTableColumn<SeniorityMoveResponse>> Columns =>
-    [
-        new("Employee",        DisplayEmployee, sortKey: "Employee"),
-        new("Target Position", DisplayPosition),
-        new("Move Type",       m => FormatMoveType(m.MoveType), width: "140px"),
-        new("Requested",       m => SortableInstant(m.RequestedLocal), sortKey: "Requested", width: "170px"),
-        new("Effective",       m => SortableInstant(m.EffectiveLocal), sortKey: "Effective", width: "170px"),
-        new("Result",          m => FormatResult(m.Status), width: "130px"),
-        DataTableColumn<SeniorityMoveResponse>.Actions()
-    ];
+    private IReadOnlyList<DataTableColumn<SeniorityMoveResponse>> Columns
+    {
+        get
+        {
+            var cols = new List<DataTableColumn<SeniorityMoveResponse>>
+            {
+                new("Employee",        DisplayEmployee, sortKey: "Employee"),
+                new("Target Position", DisplayPosition),
+                new("Move Type",       m => FormatMoveType(m.MoveType), width: "140px"),
+                new("Requested",       m => SortableInstant(m.RequestedLocal), sortKey: "Requested", width: "170px"),
+                new("Effective",       m => SortableInstant(m.EffectiveLocal), sortKey: "Effective", width: "170px"),
+                new("Status",          m => FormatResult(m.Status), width: "130px")
+            };
+
+            if (ShowActionsColumn)
+                cols.Add(DataTableColumn<SeniorityMoveResponse>.Actions());
+
+            return cols;
+        }
+    }
+
+    private bool ShowActionsColumn
+        => !Permissions.IsReadOnly(FeatureKey!) && moves.Any(HasVisibleActions);
+
+    private bool HasVisibleActions(SeniorityMoveResponse move)
+    {
+        if (move.Status == "Pending")
+            return !move.AutoApprove || CurrentUser.IsAdmin || move.MoveType != "Hangout";
+
+        if (move.Status == "Approved")
+            return CurrentUser.IsAdmin || move.MoveType != "Hangout";
+
+        return false;
+    }
 
 
 
@@ -408,7 +438,7 @@ else
 
             var loadedMoves = resp.Moves.AsEnumerable();
             if (showHistory)
-                loadedMoves = loadedMoves.Where(IsOnOrAfterHistoryFrom);
+                loadedMoves = loadedMoves.Where(m => IsClosedMoveStatus(m.Status) && IsOnOrAfterHistoryFrom(m));
 
             moves = [.. loadedMoves];
             nextSeniorityMoveEventFormatted = string.IsNullOrWhiteSpace(next?.NextEventLocal)
@@ -445,6 +475,9 @@ else
 
         previewEffectiveUtc = string.Empty;
         previewError = string.Empty;
+        canScheduleHangoutMove = false;
+        maxRequestedEffectiveLocal = string.Empty;
+        currentLocal = string.Empty;
         showRequestModal = true;
     }
 
@@ -453,6 +486,9 @@ else
         showRequestModal = false;
         previewEffectiveUtc = string.Empty;
         previewError = string.Empty;
+        canScheduleHangoutMove = false;
+        maxRequestedEffectiveLocal = string.Empty;
+        currentLocal = string.Empty;
         requestCraftCtrlNbr = 0;
         requestEmployeeCtrlNbr = 0;
     }
@@ -463,6 +499,9 @@ else
         juniorPositionItems = [];
         previewEffectiveUtc = string.Empty;
         previewError = string.Empty;
+        canScheduleHangoutMove = false;
+        maxRequestedEffectiveLocal = string.Empty;
+        currentLocal = string.Empty;
         await LoadActiveEmployeesForCraftAsync(craftCtrlNbr);
     }
 
@@ -472,6 +511,9 @@ else
         LoadJuniorPositionsForEmployee(employeeCtrlNbr);
         previewEffectiveUtc = string.Empty;
         previewError = string.Empty;
+        canScheduleHangoutMove = false;
+        maxRequestedEffectiveLocal = string.Empty;
+        currentLocal = string.Empty;
         if (employeeCtrlNbr > 0)
         {
             // Show a preliminary preview before a target position is chosen.
@@ -487,10 +529,16 @@ else
                             EmployeeCtrlNbr = employeeCtrlNbr,
                             CraftCtrlNbr    = craftCtrlNbr
                         });
-                    previewEffectiveUtc = FormatDisplayLocal(preview.EffectiveLocal);
+                    previewEffectiveUtc = preview.EffectiveLocal;
+                    canScheduleHangoutMove = preview.CanScheduleHangoutMove;
+                    maxRequestedEffectiveLocal = preview.MaxRequestedEffectiveLocal;
+                    currentLocal = preview.CurrentLocal;
                 }
                 catch (Exception ex)
                 {
+                    canScheduleHangoutMove = false;
+                    maxRequestedEffectiveLocal = string.Empty;
+                    currentLocal = string.Empty;
                     previewError = DescribePreviewError(ex);
                 }
             }
@@ -515,10 +563,16 @@ else
                         CraftCtrlNbr          = requestCraftCtrlNbr,
                         TargetPositionCtrlNbr = staffablePositionCtrlNbr
                     });
-                previewEffectiveUtc = FormatDisplayLocal(preview.EffectiveLocal);
+                previewEffectiveUtc = preview.EffectiveLocal;
+                canScheduleHangoutMove = preview.CanScheduleHangoutMove;
+                maxRequestedEffectiveLocal = preview.MaxRequestedEffectiveLocal;
+                currentLocal = preview.CurrentLocal;
             }
             catch (Exception ex)
             {
+                canScheduleHangoutMove = false;
+                maxRequestedEffectiveLocal = string.Empty;
+                currentLocal = string.Empty;
                 previewError = DescribePreviewError(ex);
             }
         }
@@ -821,6 +875,9 @@ else
         "Pending"   => "Pending",
         _            => status
     };
+
+    private static bool IsClosedMoveStatus(string? status)
+        => status is "Completed" or "Cancelled" or "Rejected";
 
     private bool IsOnOrAfterHistoryFrom(SeniorityMoveResponse move)
     {

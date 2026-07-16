@@ -52,6 +52,9 @@ else
                                IsSaving="isRequestingMove"
                                LockedEmployee="true"
                                RailroadCtrlNbr="@(SelectedRailroadCtrlNbr ?? 0)"
+                               CanScheduleHangoutMove="@canScheduleHangoutMove"
+                               MaxRequestedEffectiveLocal="@maxRequestedEffectiveLocal"
+                               CurrentLocal="@currentLocal"
                                LockedCraftName="@(crafts?.FirstOrDefault(c => c.CtrlNbr == selectedCraftCtrlNbr)?.CraftName ?? string.Empty)"
                                LockedEmployeeName="@lockedEmployeeName"
                                LockedDisplacedEmployeeName="@lockedDisplacedEmployeeName"
@@ -712,6 +715,9 @@ else
         previewEffectiveUtc = string.Empty;
         previewWillWorkOffered = false;
         previewError = string.Empty;
+        canScheduleHangoutMove = false;
+        maxRequestedEffectiveLocal = string.Empty;
+        currentLocal = string.Empty;
         errorMessage = null;
         showRequestMoveModal = true;
 
@@ -728,10 +734,16 @@ else
                 });
             previewEffectiveUtc = preview.EffectiveLocal;
             previewWillWorkOffered = preview.WillWorkOffered;
+            canScheduleHangoutMove = preview.CanScheduleHangoutMove;
+            maxRequestedEffectiveLocal = preview.MaxRequestedEffectiveLocal;
+            currentLocal = preview.CurrentLocal;
         }
         catch (Exception ex)
         {
             previewError = ex.Message;
+            canScheduleHangoutMove = false;
+            maxRequestedEffectiveLocal = string.Empty;
+            currentLocal = string.Empty;
         }
     }
 
@@ -741,6 +753,9 @@ else
         previewEffectiveUtc = string.Empty;
         previewWillWorkOffered = false;
         previewError = string.Empty;
+        canScheduleHangoutMove = false;
+        maxRequestedEffectiveLocal = string.Empty;
+        currentLocal = string.Empty;
         errorMessage = null;
     }
 
@@ -1168,6 +1183,9 @@ else
     private string previewEffectiveUtc = string.Empty;
     private string previewError = string.Empty;
     private bool previewWillWorkOffered;
+    private bool canScheduleHangoutMove;
+    private string maxRequestedEffectiveLocal = string.Empty;
+    private string currentLocal = string.Empty;
     /// <summary>Whether the current craft has a configured seniority move policy.</summary>
     private bool craftHasMovePolicy;
     /// <summary>Maps employee ctrl nbr → their current board position info (for bump target display and move request).</summary>
