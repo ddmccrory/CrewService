@@ -44,11 +44,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         var currentUserService = serviceProvider.GetRequiredService<Domain.Interfaces.ICurrentUserService>();
         var workAreaRepo = serviceProvider.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
         var workAreaClock = serviceProvider.GetRequiredService<Time.IWorkAreaClock>();
-        var callSheetScheduler = serviceProvider.GetRequiredService<Application.DailyOperations.IDailyCallSheetSchedulerService>();
-        var bulletinsService = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
-        var policiesService = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
-        var seniorityService = serviceProvider.GetRequiredService<Application.SeniorityOps.SeniorityAppService>();
-        var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
+        var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
         var heartbeatRegistry = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IWorkerHeartbeatRegistry>();
 
         var schedules = await scheduleRepo.GetAllAsync(request.WorkerType, context.CancellationToken);
@@ -102,10 +98,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
             var effectiveNextFireUtc = await ResolveDisplayNextRunUtcAsync(
                 s,
                 workArea,
-                callSheetScheduler,
-                bulletinsService,
-                policiesService,
-                seniorityService,
+                nextRunResolver,
                 context.CancellationToken);
             var lastHeartbeatUtc = heartbeatRegistry.GetLastHeartbeatUtc(s.CtrlNbr);
             response.Schedules.Add(new WorkerScheduleResponse
@@ -205,43 +198,19 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
     private static async Task<DateTime?> ResolveDisplayNextRunUtcAsync(
         Domain.Modules.Infrastructure.WorkerSchedule schedule,
         Domain.Modules.TenantConfig.DynamicGroup workArea,
-        Application.DailyOperations.IDailyCallSheetSchedulerService callSheetScheduler,
-        Application.Bulletins.BulletinsService bulletinsService,
-        Application.Policies.PoliciesService policiesService,
-        Application.SeniorityOps.SeniorityAppService seniorityService,
+        Application.BackgroundWorkers.IBackgroundJobNextRunResolver nextRunResolver,
         CancellationToken ct)
     {
         if (!EventDrivenWorkers.Contains(schedule.WorkerType))
             return null;
 
-        if (schedule.WorkerType.Equals("CallSheet", StringComparison.OrdinalIgnoreCase))
-            return await callSheetScheduler.GetNextCallSheetEventUtcAsync(schedule.WorkAreaGroupCtrlNbr, ct);
+        var nextRun = await nextRunResolver.ResolveAsync(
+            schedule.WorkerType,
+            schedule.WorkAreaGroupCtrlNbr,
+            workArea.OwningRailroadCtrlNbr,
+            ct);
 
-        if (schedule.WorkerType.Equals("Bulletin", StringComparison.OrdinalIgnoreCase))
-        {
-            var (nextUtc, workAreaCtrlNbr) = await bulletinsService.GetNextBulletinEventAsync(ct);
-            return workAreaCtrlNbr == workArea.CtrlNbr.Value ? nextUtc : null;
-        }
-
-        if (schedule.WorkerType.Equals("SeniorityMove", StringComparison.OrdinalIgnoreCase))
-        {
-            return await policiesService.GetNextActiveSeniorityMoveEffectiveUtcForRailroadAsync(
-                workArea.OwningRailroadCtrlNbr,
-                ct);
-        }
-
-        if (schedule.WorkerType.Equals("SeniorityStateChange", StringComparison.OrdinalIgnoreCase))
-        {
-            var (nextUtc, nextWorkAreaCtrlNbr, _) = await seniorityService.GetNextPendingChangeForRailroadAsync(
-                workArea.OwningRailroadCtrlNbr,
-                ct);
-            if (!nextUtc.HasValue)
-                return null;
-
-            return nextWorkAreaCtrlNbr == workArea.CtrlNbr ? nextUtc : null;
-        }
-
-        return null;
+        return nextRun?.NextUtc;
     }
 
     public override async Task<GetExecutionLogsResponse> GetExecutionLogs(

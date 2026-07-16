@@ -64,6 +64,8 @@ public static class DependencyInjection
 
         // B02 – Daily Operations
         services.AddSingleton<IDailyCallSheetScheduleSignal, DailyCallSheetScheduleSignal>();
+        services.AddSingleton<IDailyCallSheetManualOverrideStore, DailyCallSheetManualOverrideStore>();
+        services.AddScoped<IBackgroundJobNextRunResolver, BackgroundJobNextRunResolver>();
         services.AddSingleton<IWorkerHeartbeatRegistry, WorkerHeartbeatRegistry>();
         services.AddHostedService<BackgroundWorkers.Workers.DailyCallSheetWorker>();
         services.AddScoped<DailyOperationsService>();

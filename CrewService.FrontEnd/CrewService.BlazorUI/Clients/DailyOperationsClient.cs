@@ -32,7 +32,12 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<GenerateCallSheetResponse> GenerateCallSheetAsync(long workAreaGroupCtrlNbr, long shiftDefinitionCtrlNbr, string targetDate, long departmentCtrlNbr = 0)
+    public async Task<GenerateCallSheetResponse> GenerateCallSheetAsync(
+        long workAreaGroupCtrlNbr,
+        long shiftDefinitionCtrlNbr,
+        string targetDate,
+        long departmentCtrlNbr = 0,
+        string? scheduledCreateLocal = null)
     {
         try
         {
@@ -43,6 +48,7 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
                 TargetDate = targetDate
             };
             if (departmentCtrlNbr > 0) req.DepartmentCtrlNbr = departmentCtrlNbr;
+            if (!string.IsNullOrWhiteSpace(scheduledCreateLocal)) req.ScheduledCreateLocal = scheduledCreateLocal;
             return await _client.GenerateCallSheetAsync(req);
         }
         catch (Exception ex) { LogException(ex); throw; }

@@ -549,6 +549,16 @@ else
                                  Placeholder="-- None --"
                                  class="form-select" />
                 </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        Scheduled Create Date &amp; Time
+                        <span class="text-muted fw-normal small ms-1">(leave blank to generate now)</span>
+                    </label>
+                    <div class="input-group">
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="generateModel.ScheduledCreateLocal" class="form-control" />
+                        <button type="button" class="btn btn-outline-secondary" @onclick="() => generateModel.ScheduledCreateLocal = DateTime.Now" title="Set to now">Now</button>
+                    </div>
+                </div>
                 <p class="text-muted">
                     This will generate the call sheet for the selected shift on <strong>@selectedDate.ToString("yyyy-MM-dd")</strong>,
                     creating all scheduled positions as open vacancies.
@@ -1210,7 +1220,8 @@ else
                 selectedWorkAreaCtrlNbr,
                 generateModel.ShiftDefinitionCtrlNbr,
                 selectedDate.ToString("yyyy-MM-dd"),
-                generateModel.DepartmentCtrlNbr);
+                generateModel.DepartmentCtrlNbr,
+                generateModel.ScheduledCreateLocal?.ToString("yyyy-MM-ddTHH:mm"));
             showGenerateModal = false;
             successMessage = "Shift call sheet generated successfully.";
             await LoadCallSheet();
@@ -1280,6 +1291,7 @@ else
     private static string GetStatusBadgeClass(string status) => status switch
     {
         "Active" => "bg-success",
+        "Planned" => "bg-warning text-dark",
         "Completed" => "bg-secondary",
         "Cancelled" => "bg-danger",
         _ => "bg-info"
@@ -1333,12 +1345,13 @@ else
 
     private static string GetSlotEmployeeCssClass(DailyPositionSlotResponse slot) => slot.Status switch
     {
+        PositionSlotStatusEnum.PositionSlotStatusFilled => "",
         PositionSlotStatusEnum.PositionSlotStatusOnDuty => "text-success fw-bold",
         PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "text-danger fw-bold",
         PositionSlotStatusEnum.PositionSlotStatusTiedUp => "",
         PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "text-danger text-decoration-line-through",
         PositionSlotStatusEnum.PositionSlotStatusUnavailable => "text-danger text-decoration-line-through",
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "text-decoration-line-through",
+        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "text-primary",
         _ => ""
     };
 
@@ -1588,6 +1601,7 @@ else
     {
         public long ShiftDefinitionCtrlNbr { get; set; }
         public long DepartmentCtrlNbr { get; set; }
+        public DateTime? ScheduledCreateLocal { get; set; }
     }
 
     private class AnnulModel

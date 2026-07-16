@@ -14,7 +14,8 @@ namespace CrewService.Application.BackgroundWorkers.Workers;
 public sealed class DailyCallSheetWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<DailyCallSheetWorker> logger,
-    IDailyCallSheetScheduleSignal scheduleSignal)
+    IDailyCallSheetScheduleSignal scheduleSignal,
+    IDailyCallSheetManualOverrideStore manualOverrideStore)
     : WorkerBase(scopeFactory, logger, "CallSheet", TimeSpan.FromMinutes(5))
 {
     protected override bool UseDueScheduleGate => false;
@@ -53,8 +54,29 @@ public sealed class DailyCallSheetWorker(
     {
         var scheduler = services.GetRequiredService<DailyOperations.IDailyCallSheetSchedulerService>();
         var generator = services.GetRequiredService<DailyOperations.CallSheetGenerationService>();
+        var nextRunResolver = services.GetRequiredService<IBackgroundJobNextRunResolver>();
+        var dynamicGroupRepo = services.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
         var dueItems = await scheduler.GetDueWorkItemsAsync(schedule.WorkAreaGroupCtrlNbr, DateTime.UtcNow, ct);
+        var manualDue = manualOverrideStore.DequeueDue(schedule.WorkAreaGroupCtrlNbr, DateTime.UtcNow);
+        if (manualDue.Count > 0)
+        {
+            var merged = dueItems.ToList();
+            foreach (var item in manualDue)
+            {
+                if (!merged.Any(x =>
+                    x.WorkAreaGroupCtrlNbr == item.WorkAreaGroupCtrlNbr
+                    && x.ShiftDefinitionCtrlNbr == item.ShiftDefinitionCtrlNbr
+                    && x.TargetDate == item.TargetDate
+                    && x.DepartmentCtrlNbr == item.DepartmentCtrlNbr))
+                {
+                    merged.Add(item);
+                }
+            }
+
+            dueItems = merged;
+        }
+
         if (dueItems.Count == 0)
             return false;
 
@@ -94,7 +116,18 @@ public sealed class DailyCallSheetWorker(
             }
         }
 
-        var nextEvent = await scheduler.GetNextCallSheetEventUtcAsync(schedule.WorkAreaGroupCtrlNbr, ct);
+        var workArea = await dynamicGroupRepo.GetByCtrlNbrAsync(schedule.WorkAreaGroupCtrlNbr, ct);
+        DateTime? nextEvent = null;
+        if (workArea is not null)
+        {
+            var nextRun = await nextRunResolver.ResolveAsync(
+                "CallSheet",
+                schedule.WorkAreaGroupCtrlNbr,
+                workArea.OwningRailroadCtrlNbr,
+                ct);
+            nextEvent = nextRun?.NextUtc;
+        }
+
         if (nextEvent.HasValue)
             scheduleSignal.Notify(nextEvent.Value);
 
