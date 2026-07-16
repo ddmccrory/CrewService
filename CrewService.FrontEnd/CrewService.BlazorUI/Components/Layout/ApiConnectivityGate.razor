@@ -1,7 +1,7 @@
 @using CrewService.BlazorUI.Services
 @implements IDisposable
 
-@inject ApiHeartbeatService HeartbeatService
+@inject IAppConnectivityService HeartbeatService
 
 @if (HeartbeatService.Status == ApiConnectivityStatus.Down)
 {
