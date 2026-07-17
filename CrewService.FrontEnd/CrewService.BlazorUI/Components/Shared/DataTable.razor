@@ -147,7 +147,7 @@ else
     }
 
     private static string? GetHeaderClass(DataTableColumn<TItem> col)
-        => string.Equals(col.Title, "Actions", StringComparison.OrdinalIgnoreCase) ? "text-end" : null;
+        => string.Equals(col.Title, "Actions", StringComparison.OrdinalIgnoreCase) ? "text-center" : null;
 
     private static readonly IComparer<object?> SortComparer = Comparer<object?>.Create((a, b) =>
     {
