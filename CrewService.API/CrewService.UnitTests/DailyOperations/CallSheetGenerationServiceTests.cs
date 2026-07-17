@@ -70,6 +70,9 @@ public class CallSheetGenerationServiceTests
         public Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, ControlNumber? departmentCtrlNbr, CancellationToken ct = default)
             => Task.FromResult(false);
 
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByCrewPositionAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>([]);
+
         public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
             => Task.CompletedTask;
 
@@ -269,6 +272,7 @@ public class CallSheetGenerationServiceTests
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
         public ICallSheetRuleRepository CallSheetRules => null!;
+        public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => null!;

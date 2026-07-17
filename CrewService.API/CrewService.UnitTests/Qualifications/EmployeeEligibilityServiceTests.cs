@@ -182,6 +182,7 @@ public sealed class EmployeeEligibilityServiceTests
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
         public ICallSheetRuleRepository CallSheetRules => null!;
+        public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => null!;

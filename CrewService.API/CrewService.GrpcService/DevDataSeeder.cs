@@ -1435,6 +1435,7 @@ internal static class DevDataSeeder
         var bulletinPolicyRepo = sp.GetRequiredService<IBulletinPolicyRepository>();
         var senMovePolicyRepo = sp.GetRequiredService<ISeniorityMovePolicyRepository>();
         var craftOpsPolicyRepo = sp.GetRequiredService<ICraftOperationsPolicyRepository>();
+        var craftCallSheetRuleRepo = sp.GetRequiredService<ICraftCallSheetRuleRepository>();
         var noAccessPolicyRepo = sp.GetRequiredService<INoAccessPolicyRepository>();
 
         var existingPolicies = await displacementPolicyRepo.GetAllAsync();
@@ -1557,6 +1558,22 @@ internal static class DevDataSeeder
                         blockIfLastVacatedIncumbent: true,
                         defaultEffectiveMode: NoAccessEffectiveDateMode.NextDay0001);
                     await noAccessPolicyRepo.UpdateAsync(existingNoAccessPolicy);
+                }
+
+                var existingCraftCallSheetRule = await craftCallSheetRuleRepo.GetByCraftAsync(craft.CtrlNbr);
+                if (existingCraftCallSheetRule is null)
+                {
+                    await craftCallSheetRuleRepo.AddAsync(CraftCallSheetRule.Create(
+                        craft.CtrlNbr,
+                        isEnabled: true,
+                        preOnDutyChangeCutoffMinutes: 180));
+                }
+                else
+                {
+                    existingCraftCallSheetRule.Update(
+                        isEnabled: true,
+                        preOnDutyChangeCutoffMinutes: 180);
+                    await craftCallSheetRuleRepo.UpdateAsync(existingCraftCallSheetRule);
                 }
             }
         }

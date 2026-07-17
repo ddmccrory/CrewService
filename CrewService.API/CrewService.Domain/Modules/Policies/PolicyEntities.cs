@@ -187,6 +187,34 @@ public sealed class CallSheetRule : Entity
     }
 }
 
+public sealed class CraftCallSheetRule : Entity
+{
+    public ControlNumber CraftCtrlNbr { get; private set; }
+    public bool IsEnabled { get; private set; }
+    public int PreOnDutyChangeCutoffMinutes { get; private set; }
+
+    private CraftCallSheetRule() { CraftCtrlNbr = null!; }
+
+    public static CraftCallSheetRule Create(
+        ControlNumber craftCtrlNbr,
+        bool isEnabled,
+        int preOnDutyChangeCutoffMinutes)
+    {
+        return new CraftCallSheetRule
+        {
+            CraftCtrlNbr = craftCtrlNbr,
+            IsEnabled = isEnabled,
+            PreOnDutyChangeCutoffMinutes = preOnDutyChangeCutoffMinutes
+        };
+    }
+
+    public void Update(bool isEnabled, int preOnDutyChangeCutoffMinutes)
+    {
+        IsEnabled = isEnabled;
+        PreOnDutyChangeCutoffMinutes = preOnDutyChangeCutoffMinutes;
+    }
+}
+
 public sealed class DepartmentReassignmentRule : Entity
 {
     public ControlNumber DepartmentCtrlNbr { get; private set; }

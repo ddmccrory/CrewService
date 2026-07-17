@@ -1,4 +1,5 @@
 using CrewService.Application.Boards;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.Notifications;
 using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
@@ -305,7 +306,14 @@ public sealed class RosterBoardAppService(
             board.RemovePosition(position);
             uow.RosterBoards.Update(board);
             if (positionAssignment is not null)
+            {
                 uow.PositionAssignments.Remove(positionAssignment);
+                await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+                    uow,
+                    position.StaffablePositionCtrlNbr,
+                    incumbentEmployeeCtrlNbr: null,
+                    ct);
+            }
 
             // Refresh the required-position threshold using the craft's assigned strategy (ExtraBoard only).
             if (isExtraBoard)

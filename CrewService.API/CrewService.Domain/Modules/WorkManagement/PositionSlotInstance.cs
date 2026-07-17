@@ -85,6 +85,26 @@ public sealed class PositionSlotInstance : Entity
         Status = PositionSlotStatus.Filled;
     }
 
+    public void SetIncumbent(ControlNumber? employeeCtrlNbr, bool isIncumbent = true)
+    {
+        IncumbentEmployeeCtrlNbr = employeeCtrlNbr;
+        IsIncumbent = employeeCtrlNbr is not null && isIncumbent;
+
+        if (Status == PositionSlotStatus.OnDuty
+            || Status == PositionSlotStatus.OnDutyOvertime
+            || Status == PositionSlotStatus.TiedUp
+            || IsAnnulled
+            || IsDoNotFill
+            || IsSkipped)
+        {
+            return;
+        }
+
+        Status = employeeCtrlNbr is null
+            ? PositionSlotStatus.Open
+            : PositionSlotStatus.Filled;
+    }
+
     public void MarkOnDuty()
     {
         Status = PositionSlotStatus.OnDuty;

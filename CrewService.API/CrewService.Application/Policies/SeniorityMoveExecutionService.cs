@@ -1,4 +1,5 @@
 using CrewService.Application.Notifications;
+using CrewService.Application.DailyOperations;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
@@ -82,8 +83,14 @@ public sealed class SeniorityMoveExecutionService(
         var moverAssignments = await uow.PositionAssignments.GetByEmployeeAsync(move.EmployeeCtrlNbr);
         foreach (var assignment in moverAssignments)
         {
+            var vacatedStaffablePositionCtrlNbr = assignment.StaffablePositionCtrlNbr;
             assignment.Vacate();
             await uow.PositionAssignments.DeleteAsync(assignment.CtrlNbr, ct);
+            await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+                uow,
+                vacatedStaffablePositionCtrlNbr,
+                incumbentEmployeeCtrlNbr: null,
+                ct);
             if (logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("SeniorityMoveExecution: Vacated employee {Employee} from position {Position}.",
@@ -100,10 +107,16 @@ public sealed class SeniorityMoveExecutionService(
 
         if (targetCurrentAssignment is not null)
         {
+            var targetStaffablePositionCtrlNbr = targetCurrentAssignment.StaffablePositionCtrlNbr;
             // Prefer the live assignment over the recorded displaced field (same-day bumps, etc.)
             displacedEmployeeCtrlNbr ??= targetCurrentAssignment.EmployeeCtrlNbr;
             targetCurrentAssignment.Vacate();
             await uow.PositionAssignments.DeleteAsync(targetCurrentAssignment.CtrlNbr, ct);
+            await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+                uow,
+                targetStaffablePositionCtrlNbr,
+                incumbentEmployeeCtrlNbr: null,
+                ct);
             if (logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("SeniorityMoveExecution: Vacated displaced employee {Displaced} from target position {Position}.",

@@ -394,6 +394,7 @@ file sealed class ForceAssignFakeUow : IOrchestrationUnitOfWork
     public IDisplacementClaimRepository DisplacementClaims => throw new NotImplementedException();
     public IBulletinPolicyRepository BulletinPolicies => throw new NotImplementedException();
     public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
+        public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => throw new NotImplementedException();
     public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();

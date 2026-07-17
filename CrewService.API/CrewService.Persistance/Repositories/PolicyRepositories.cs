@@ -62,6 +62,24 @@ internal sealed class CallSheetRuleRepository(CrewServiceDbContext dbContext, IC
     }
 }
 
+internal sealed class CraftCallSheetRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<CraftCallSheetRule>(dbContext, currentUserService), ICraftCallSheetRuleRepository
+{
+    public async Task<CraftCallSheetRule?> GetByCraftAsync(ControlNumber craftCtrlNbr) =>
+        await DbContext.Set<CraftCallSheetRule>().SingleOrDefaultAsync(r => r.CraftCtrlNbr == craftCtrlNbr);
+
+    public async Task<List<CraftCallSheetRule>> GetByCraftsAsync(IEnumerable<ControlNumber> craftCtrlNbrs)
+    {
+        var ctrlNbrList = craftCtrlNbrs.ToList();
+        if (ctrlNbrList.Count == 0)
+            return [];
+
+        return await DbContext.Set<CraftCallSheetRule>()
+            .Where(r => ctrlNbrList.Contains(r.CraftCtrlNbr))
+            .ToListAsync();
+    }
+}
+
 internal sealed class DepartmentReassignmentRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<DepartmentReassignmentRule>(dbContext, currentUserService), IDepartmentReassignmentRuleRepository
 {

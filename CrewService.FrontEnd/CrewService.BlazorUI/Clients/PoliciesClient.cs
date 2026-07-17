@@ -75,6 +75,30 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<CraftCallSheetRuleResponse?> GetCraftCallSheetRuleAsync(long craftCtrlNbr)
+    {
+        try { return await _client.GetCraftCallSheetRuleAsync(new GetCraftCallSheetRuleRequest { CraftCtrlNbr = craftCtrlNbr }); }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<CraftCallSheetRuleResponse> UpsertCraftCallSheetRuleAsync(
+        long craftCtrlNbr,
+        bool isEnabled,
+        int preOnDutyChangeCutoffMinutes)
+    {
+        try
+        {
+            return await _client.UpsertCraftCallSheetRuleAsync(new UpsertCraftCallSheetRuleRequest
+            {
+                CraftCtrlNbr = craftCtrlNbr,
+                IsEnabled = isEnabled,
+                PreOnDutyChangeCutoffMinutes = preOnDutyChangeCutoffMinutes
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Department Reassignment Rules ────────────────────────────────────
 
     public async Task<DepartmentReassignmentRuleResponse?> GetDepartmentReassignmentRuleAsync(long departmentCtrlNbr)
