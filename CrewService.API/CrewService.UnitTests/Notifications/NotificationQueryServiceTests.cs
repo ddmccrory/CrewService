@@ -71,10 +71,22 @@ public class NotificationQueryServiceTests
         var (service, uow) = Build(employee, UserGuid);
         var notification = MakeNotification(employee.CtrlNbr, requiresAck: true);
         uow.Notifications.Seeded.Add(notification);
+        var projection = PositionChangeRecord.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            PositionChangeSourceTypes.Notification,
+            sourceCtrlNbr: null,
+            PositionChangeTypes.Informational,
+            "Open change",
+            requiresAcknowledgement: true,
+            employeeNotificationCtrlNbr: notification.CtrlNbr);
+        uow.PositionChanges.Seeded.Add(projection);
 
         var result = await service.AcknowledgeAsync(notification.CtrlNbr, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsAcknowledged);
+        Assert.False(projection.IsOpen);
+        Assert.Equal(PositionChangeClosedReasons.Acknowledged, projection.ClosedReason);
         Assert.Equal(0, await service.GetMyUnacknowledgedCountAsync(TestContext.Current.CancellationToken));
     }
 
@@ -93,12 +105,24 @@ public class NotificationQueryServiceTests
             requiresAcknowledgement: true,
             subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
         uow.Notifications.Seeded.Add(notification);
+        var projection = PositionChangeRecord.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            NotificationSubjectTypes.RosterBoard,
+            sourceBoard.CtrlNbr,
+            PositionChangeTypes.BoardPlacement,
+            "Placed on hangout board.",
+            requiresAcknowledgement: true,
+            employeeNotificationCtrlNbr: notification.CtrlNbr);
+        uow.PositionChanges.Seeded.Add(projection);
 
         await service.AcknowledgeAsync(notification.CtrlNbr, TestContext.Current.CancellationToken);
 
         var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
         Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
         Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
+        Assert.False(projection.IsOpen);
+        Assert.Equal(PositionChangeClosedReasons.Acknowledged, projection.ClosedReason);
     }
 
     [Fact]

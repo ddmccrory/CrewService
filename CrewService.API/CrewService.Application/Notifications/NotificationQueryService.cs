@@ -128,6 +128,7 @@ public sealed class NotificationQueryService(
 
         notification.AcknowledgeElectronically(currentUserService.GetUserName());
         uow.EmployeeNotifications.Update(notification);
+        await CloseProjectionRecordsForNotificationAsync(uow, notification, PositionChangeClosedReasons.Acknowledged, ct);
 
         await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
         await uow.CommitAsync(ct);
@@ -241,6 +242,8 @@ public sealed class NotificationQueryService(
 
         if (confirmed)
         {
+            await CloseProjectionRecordsForNotificationAsync(uow, notification, PositionChangeClosedReasons.Acknowledged, ct);
+
             var employee = await uow.Employees.GetByCtrlNbrAsync(notification.EmployeeCtrlNbr, ct)
                 ?? throw new InvalidOperationException(
                     $"Employee {notification.EmployeeCtrlNbr.Value} linked to notification {notification.CtrlNbr.Value} was not found.");
@@ -251,5 +254,27 @@ public sealed class NotificationQueryService(
         await uow.CommitAsync(ct);
 
         return notification;
+    }
+
+    private static async Task CloseProjectionRecordsForNotificationAsync(
+        IOrchestrationUnitOfWork uow,
+        EmployeeNotification notification,
+        string closeReason,
+        CancellationToken ct)
+    {
+        var linked = await uow.EmployeeNotifications.GetOpenPositionChangesByNotificationAsync(notification.CtrlNbr, ct);
+        foreach (var record in linked)
+        {
+            if (closeReason == PositionChangeClosedReasons.Acknowledged)
+            {
+                record.MarkAcknowledged("system");
+            }
+            else
+            {
+                record.MarkSuperseded(closeReason);
+            }
+
+            uow.PositionChangeRecords.Update(record);
+        }
     }
 }

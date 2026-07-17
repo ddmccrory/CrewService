@@ -101,7 +101,8 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
         return await DbContext.Set<Bulletin>()
             .Where(b => b.Status == "Posted"
                      && b.AwardedEmployeeCtrlNbr == null
-                     && b.BidWindowClosesUtc <= now)
+                     && b.BidWindowClosesUtc <= now
+                     && b.EffectiveUtc <= now)
             .ToListAsync(ct);
     }
 
@@ -131,10 +132,17 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
     {
         var now = DateTime.UtcNow;
 
-        // Earliest future bid-window close among Posted bulletins
+        // Earliest future assignment-ready time among Posted bulletins.
+        // Assignment-ready = max(BidWindowClosesUtc, EffectiveUtc).
         var nextBidClose = await DbContext.Set<Bulletin>()
-            .Where(b => b.Status == "Posted" && b.BidWindowClosesUtc > now)
-            .MinAsync(b => (DateTime?)b.BidWindowClosesUtc, ct);
+            .Where(b => b.Status == "Posted" &&
+                        (b.BidWindowClosesUtc > b.EffectiveUtc
+                            ? b.BidWindowClosesUtc
+                            : b.EffectiveUtc) > now)
+            .MinAsync(b => (DateTime?)
+                (b.BidWindowClosesUtc > b.EffectiveUtc
+                    ? b.BidWindowClosesUtc
+                    : b.EffectiveUtc), ct);
 
         // Earliest future force-assign deadline among NoBid bulletins
         var nextForceAssign = await DbContext.Set<Bulletin>()
@@ -151,8 +159,13 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
         var now = DateTime.UtcNow;
 
         var nextBidClose = await DbContext.Set<Bulletin>()
-            .Where(b => b.Status == "Posted" && b.BidWindowClosesUtc > now)
-            .OrderBy(b => b.BidWindowClosesUtc)
+            .Where(b => b.Status == "Posted" &&
+                        (b.BidWindowClosesUtc > b.EffectiveUtc
+                            ? b.BidWindowClosesUtc
+                            : b.EffectiveUtc) > now)
+            .OrderBy(b => b.BidWindowClosesUtc > b.EffectiveUtc
+                ? b.BidWindowClosesUtc
+                : b.EffectiveUtc)
             .FirstOrDefaultAsync(ct);
 
         var nextForceAssign = await DbContext.Set<Bulletin>()
@@ -162,7 +175,13 @@ internal sealed class BulletinRepository(CrewServiceDbContext dbContext, ICurren
 
         if (nextBidClose is null) return nextForceAssign;
         if (nextForceAssign is null) return nextBidClose;
-        return nextBidClose.BidWindowClosesUtc <= nextForceAssign.ForceAssignDeadlineUtc
+        var nextBidCloseEventUtc = nextBidClose.BidWindowClosesUtc > nextBidClose.EffectiveUtc
+            ? nextBidClose.BidWindowClosesUtc
+            : nextBidClose.EffectiveUtc;
+        var nextForceAssignDeadlineUtc = nextForceAssign.ForceAssignDeadlineUtc;
+        if (nextForceAssignDeadlineUtc is null) return nextBidClose;
+
+        return nextBidCloseEventUtc <= nextForceAssignDeadlineUtc.Value
             ? nextBidClose
             : nextForceAssign;
     }

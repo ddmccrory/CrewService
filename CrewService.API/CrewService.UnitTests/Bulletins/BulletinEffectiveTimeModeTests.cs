@@ -174,3 +174,46 @@ public class BulletinRuleEffectiveTimeModePersistenceTests
         Assert.Equal(expected, BulletinEffectiveTimeMode.IsValid(mode));
     }
 }
+
+public class BulletinAssignmentReadyTests
+{
+    [Fact]
+    public void GetAssignmentReadyUtc_Posted_UsesLaterOfCloseOrEffective()
+    {
+        var closeUtc = new DateTime(2026, 1, 15, 17, 0, 0, DateTimeKind.Utc);
+        var effectiveUtc = new DateTime(2026, 1, 16, 4, 0, 0, DateTimeKind.Utc);
+        var bulletin = Bulletin.Create(
+            ControlNumber.Create(1),
+            ControlNumber.Create(2),
+            bidWindowOpensUtc: closeUtc.AddHours(-24),
+            bidWindowClosesUtc: closeUtc,
+            effectiveUtc: effectiveUtc);
+
+        var readyUtc = bulletin.GetAssignmentReadyUtc();
+
+        Assert.Equal(effectiveUtc, readyUtc);
+        Assert.False(bulletin.IsAssignmentReady(effectiveUtc.AddSeconds(-1)));
+        Assert.True(bulletin.IsAssignmentReady(effectiveUtc));
+    }
+
+    [Fact]
+    public void GetAssignmentReadyUtc_NoBid_UsesForceAssignDeadline()
+    {
+        var closeUtc = new DateTime(2026, 1, 15, 17, 0, 0, DateTimeKind.Utc);
+        var effectiveUtc = new DateTime(2026, 1, 16, 4, 0, 0, DateTimeKind.Utc);
+        var deadlineUtc = new DateTime(2026, 1, 15, 22, 0, 0, DateTimeKind.Utc);
+        var bulletin = Bulletin.Create(
+            ControlNumber.Create(11),
+            ControlNumber.Create(12),
+            bidWindowOpensUtc: closeUtc.AddHours(-24),
+            bidWindowClosesUtc: closeUtc,
+            effectiveUtc: effectiveUtc);
+        bulletin.SetAsNoBid(deadlineUtc);
+
+        var readyUtc = bulletin.GetAssignmentReadyUtc();
+
+        Assert.Equal(deadlineUtc, readyUtc);
+        Assert.False(bulletin.IsAssignmentReady(deadlineUtc.AddSeconds(-1)));
+        Assert.True(bulletin.IsAssignmentReady(deadlineUtc));
+    }
+}

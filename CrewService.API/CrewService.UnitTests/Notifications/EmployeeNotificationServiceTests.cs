@@ -92,6 +92,11 @@ public class EmployeeNotificationServiceTests
         Assert.Equal(EmployeeCtrlNbr, notification.EmployeeCtrlNbr);
         Assert.Equal(RailroadCtrlNbr, notification.RailroadCtrlNbr);
         Assert.True(notification.RequiresAcknowledgement);
+
+        var projection = Assert.Single(uow.PositionChanges.AddedEntities);
+        Assert.Equal(notification.CtrlNbr, projection.EmployeeNotificationCtrlNbr);
+        Assert.Equal(PositionChangeTypes.BulletinAwarded, projection.ChangeType);
+        Assert.True(projection.IsOpen);
     }
 
     [Fact]
@@ -426,11 +431,23 @@ public class EmployeeNotificationServiceTests
             NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr));
         var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
         uow.Notifications.Seeded.Add(stale);
+        var staleProjection = PositionChangeRecord.Create(
+            RailroadCtrlNbr,
+            displaced,
+            NotificationSubjectTypes.SeniorityMove,
+            move.CtrlNbr,
+            PositionChangeTypes.BumpRequested,
+            "You will be bumped...",
+            requiresAcknowledgement: true,
+            employeeNotificationCtrlNbr: stale.CtrlNbr);
+        uow.PositionChanges.Seeded.Add(staleProjection);
 
         await BuildService().NotifySeniorityMoveCancelledAsync(uow, move,
             TestContext.Current.CancellationToken);
 
         Assert.True(stale.IsAcknowledged);
+        Assert.False(staleProjection.IsOpen);
+        Assert.Equal(PositionChangeClosedReasons.Cancelled, staleProjection.ClosedReason);
     }
 }
 
@@ -485,6 +502,7 @@ internal sealed class FakeEmployeeNotificationRepo
     : FakeNotificationRepoBase<EmployeeNotification>, IEmployeeNotificationRepository
 {
     public List<EmployeeNotification> Seeded { get; } = [];
+    public FakePositionChangeRecordRepo? PositionChanges { get; set; }
 
     public override Task<EmployeeNotification?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
         => Task.FromResult(Seeded.SingleOrDefault(n => n.CtrlNbr == ctrlNbr));
@@ -503,6 +521,19 @@ internal sealed class FakeEmployeeNotificationRepo
 
     public Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber r, CancellationToken ct = default) =>
         Task.FromResult(Seeded.Count(n => n.RailroadCtrlNbr == r && n.RequiresAcknowledgement && !n.IsAcknowledged));
+
+    public Task<List<PositionChangeRecord>> GetOpenPositionChangesByNotificationAsync(
+        ControlNumber employeeNotificationCtrlNbr,
+        CancellationToken ct = default)
+    {
+        if (PositionChanges is null)
+            return Task.FromResult(new List<PositionChangeRecord>());
+
+        return Task.FromResult(PositionChanges.Seeded.Concat(PositionChanges.AddedEntities)
+            .Where(r => r.EmployeeNotificationCtrlNbr == employeeNotificationCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToList());
+    }
 }
 
 internal sealed class FakeNotificationTypeConfigRepo : FakeNotificationRepoBase<NotificationTypeConfig>, INotificationTypeConfigRepository
@@ -528,6 +559,42 @@ internal sealed class FakeNotificationTypeConfigRepo : FakeNotificationRepoBase<
 
     public Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default)
         => Task.FromResult(Seeded.SingleOrDefault(c => c.RailroadCtrlNbr == railroadCtrlNbr && string.Equals(c.Key, key, StringComparison.Ordinal)));
+}
+
+internal sealed class FakePositionChangeRecordRepo : FakeNotificationRepoBase<PositionChangeRecord>, IPositionChangeRecordRepository
+{
+    public List<PositionChangeRecord> Seeded { get; } = [];
+
+    public override Task<PositionChangeRecord?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).SingleOrDefault(r => r.CtrlNbr == ctrlNbr));
+
+    public Task<List<PositionChangeRecord>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
+            .OrderByDescending(r => r.OpenedAtUtc).ToList());
+
+    public Task<List<PositionChangeRecord>> GetOpenByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc).ToList());
+
+    public Task<List<PositionChangeRecord>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(r => r.RailroadCtrlNbr == railroadCtrlNbr)
+            .OrderByDescending(r => r.OpenedAtUtc).ToList());
+
+    public Task<List<PositionChangeRecord>> GetOpenByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+        => Task.FromResult(Seeded.Concat(AddedEntities).Where(r => r.RailroadCtrlNbr == railroadCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc).ToList());
+
+    public Task<List<PositionChangeRecord>> GetOpenBySourceAsync(string sourceType, ControlNumber sourceCtrlNbr, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourceType))
+            return Task.FromResult(new List<PositionChangeRecord>());
+
+        var normalized = sourceType.Trim();
+        return Task.FromResult(Seeded.Concat(AddedEntities)
+            .Where(r => r.SourceType == normalized && r.SourceCtrlNbr == sourceCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToList());
+    }
 }
 
 internal sealed class FakeEmployeeRepo(Employee? employeeByUserId) : FakeNotificationRepoBase<Employee>, IEmployeeRepository
@@ -695,20 +762,42 @@ internal sealed class FakeUserAccounts(string userId, string fullNameLnf) : IUse
 /// Employees, PositionVacancies, DynamicGroups, and EmployeeNotifications.
 /// All other members throw to keep the surface intentional.
 /// </summary>
-internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup? workArea, Employee? employee = null, StaffablePosition? position = null, RosterBoard? board = null, Craft? craft = null, Roster? roster = null) : IOrchestrationUnitOfWork
+internal sealed class FakeNotificationUoW : IOrchestrationUnitOfWork
 {
-    public FakePositionVacancyRepo Vacancies { get; } = new(vacancy);
-    public FakeDynamicGroupRepo Groups { get; } = new(workArea);
-    public FakeEmployeeNotificationRepo Notifications { get; } = new();
-    public FakeEmployeeRepo EmployeeRepo { get; } = new(employee);
-    public FakeStaffablePositionRepo StaffablePositionRepo { get; } = new(position);
-    public FakeRosterBoardRepo RosterBoardRepo { get; } = new(board);
-    public FakeCraftRepo CraftRepo { get; } = new(craft);
-    public FakeRosterRepo RosterRepo { get; } = new(roster);
+    public FakePositionVacancyRepo Vacancies { get; }
+    public FakeDynamicGroupRepo Groups { get; }
+    public FakeEmployeeNotificationRepo Notifications { get; }
+    public FakeEmployeeRepo EmployeeRepo { get; }
+    public FakeStaffablePositionRepo StaffablePositionRepo { get; }
+    public FakeRosterBoardRepo RosterBoardRepo { get; }
+    public FakeCraftRepo CraftRepo { get; }
+    public FakeRosterRepo RosterRepo { get; }
     public FakeNotificationTypeConfigRepo NotificationTypeConfigRepo { get; } = new(ControlNumber.Create(1));
+    public FakePositionChangeRecordRepo PositionChanges { get; } = new();
     public FakePositionAssignmentRepo PositionAssignmentRepo { get; } = new();
     public FakeCraftOperationsPolicyRepo CraftOperationsPolicyRepo { get; } = new(policy: null);
     public FakeSeniorityMoveRepo SeniorityMoveRepo { get; } = new();
+
+    public FakeNotificationUoW(
+        PositionVacancy? vacancy,
+        DynamicGroup? workArea,
+        Employee? employee = null,
+        StaffablePosition? position = null,
+        RosterBoard? board = null,
+        Craft? craft = null,
+        Roster? roster = null)
+    {
+        Vacancies = new FakePositionVacancyRepo(vacancy);
+        Groups = new FakeDynamicGroupRepo(workArea);
+        Notifications = new FakeEmployeeNotificationRepo();
+        EmployeeRepo = new FakeEmployeeRepo(employee);
+        StaffablePositionRepo = new FakeStaffablePositionRepo(position);
+        RosterBoardRepo = new FakeRosterBoardRepo(board);
+        CraftRepo = new FakeCraftRepo(craft);
+        RosterRepo = new FakeRosterRepo(roster);
+
+        Notifications.PositionChanges = PositionChanges;
+    }
 
     public string CorrelationId => "test";
     public string OrchestrationId => "test";
@@ -722,6 +811,7 @@ internal sealed class FakeNotificationUoW(PositionVacancy? vacancy, DynamicGroup
     public ICraftRepository Crafts => CraftRepo;
     public IRosterRepository Rosters => RosterRepo;
     public INotificationTypeConfigRepository NotificationTypeConfigs => NotificationTypeConfigRepo;
+    public IPositionChangeRecordRepository PositionChangeRecords => PositionChanges;
     public IPositionAssignmentRepository PositionAssignments => PositionAssignmentRepo;
     public ICraftOperationsPolicyRepository CraftOperationsPolicies => CraftOperationsPolicyRepo;
     public ISeniorityMoveRepository SeniorityMoves => SeniorityMoveRepo;

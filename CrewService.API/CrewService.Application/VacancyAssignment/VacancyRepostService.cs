@@ -1,5 +1,6 @@
 using CrewService.Application.Bulletins;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ public sealed class VacancyRepostService(
 {
     private const string CrewVacatedReason = "INCUMBENT_VACATED";
     private const string BoardUnderstaffedReason = "BOARD_UNDERSTAFFED";
+    private const string VacatedTargetCancellationReason = "Cancelled because target position no longer has an incumbent and is being filled through bulletin posting.";
 
     /// <summary>
     /// Evaluates a single vacated staffable position and, if it still requires staffing,
@@ -37,6 +39,8 @@ public sealed class VacancyRepostService(
         ControlNumber? previousIncumbentCtrlNbr = null,
         CancellationToken ct = default)
     {
+        await CancelMovesForVacatedTargetAsync(staffablePositionCtrlNbr, ct);
+
         var plan = await BuildRepostPlanAsync(staffablePositionCtrlNbr, ct);
         if (plan is null)
         {
@@ -116,6 +120,8 @@ public sealed class VacancyRepostService(
         ControlNumber? previousIncumbentCtrlNbr = null,
         CancellationToken ct = default)
     {
+        await CancelMovesForVacatedTargetAsync(vacatedStaffablePositionCtrlNbr, ct);
+
         RepostPlan? plan;
         await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
@@ -351,6 +357,36 @@ public sealed class VacancyRepostService(
         }
 
         return true;
+    }
+
+    private async Task CancelMovesForVacatedTargetAsync(ControlNumber targetPositionCtrlNbr, CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var activeMoves = await uow.SeniorityMoves.GetActiveAsync(ct);
+        var staleMoves = activeMoves
+            .Where(move => move.TargetPositionCtrlNbr == targetPositionCtrlNbr
+                           && (move.MoveType == SeniorityMoveType.Voluntary || move.MoveType == SeniorityMoveType.Hangout))
+            .ToList();
+
+        if (staleMoves.Count == 0)
+            return;
+
+        foreach (var move in staleMoves)
+        {
+            move.Cancel(VacatedTargetCancellationReason);
+            await uow.SeniorityMoves.UpdateAsync(move, ct);
+        }
+
+        await uow.CommitAsync(ct);
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "VacancyRepost: Cancelled {Count} stale seniority move(s) targeting vacated position {Position}.",
+                staleMoves.Count,
+                targetPositionCtrlNbr.Value);
+        }
     }
 
     private sealed record RepostPlan(

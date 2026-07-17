@@ -55,7 +55,10 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
 
         Assert.NotNull(next);
         Assert.Equal(DateTimeKind.Utc, next!.NextUtc.Kind);
-        Assert.Equal(DateTime.SpecifyKind(seeded.BulletinEventUtc, DateTimeKind.Utc), next.NextUtc);
+        Assert.Equal(
+            DateTime.SpecifyKind(seeded.BulletinAssignmentReadyUtc, DateTimeKind.Utc),
+            next.NextUtc,
+            precision: TimeSpan.FromSeconds(1));
     }
 
     [Fact]
@@ -270,7 +273,7 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
             railroad.CtrlNbr,
             workAreaOne.CtrlNbr,
             workAreaTwo.CtrlNbr,
-            DateTime.SpecifyKind(bulletinEventUtc, DateTimeKind.Utc),
+            DateTime.SpecifyKind(bulletinEffectiveUtc, DateTimeKind.Utc),
             DateTime.SpecifyKind(moveEventUtc, DateTimeKind.Utc),
             DateTime.SpecifyKind(stateChangeEventUtc, DateTimeKind.Utc));
     }
@@ -279,7 +282,7 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
         ControlNumber RailroadCtrlNbr,
         ControlNumber WorkAreaOneCtrlNbr,
         ControlNumber WorkAreaTwoCtrlNbr,
-        DateTime BulletinEventUtc,
+        DateTime BulletinAssignmentReadyUtc,
         DateTime SeniorityMoveEventUtc,
         DateTime StateChangeEventUtc);
 

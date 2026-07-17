@@ -35,6 +35,8 @@ namespace CrewService.UnitTests.VacancyAssignment;
 
 public class VacancyRepostServiceTests
 {
+    private const string VacatedTargetCancellationReason = "Cancelled because target position no longer has an incumbent and is being filled through bulletin posting.";
+
     // shared control numbers
     private static readonly ControlNumber WorkAreaCtrlNbr   = ControlNumber.Create(1);
     private static readonly ControlNumber CraftCtrlNbr      = ControlNumber.Create(2);
@@ -81,6 +83,24 @@ public class VacancyRepostServiceTests
     private static PositionAssignment MakeBoardAssignment(ControlNumber staffablePositionCtrlNbr, long employeeCtrlNbr) =>
         PositionAssignment.Create(staffablePositionCtrlNbr, ControlNumber.Create(employeeCtrlNbr), PositionAssignmentType.Board);
 
+    private static SeniorityMove MakePendingMove(ControlNumber employeeCtrlNbr, ControlNumber targetPositionCtrlNbr, string moveType) =>
+        SeniorityMove.Create(
+            railroadCtrlNbr: ControlNumber.Create(500),
+            employeeCtrlNbr: employeeCtrlNbr,
+            craftCtrlNbr: CraftCtrlNbr,
+            targetPositionCtrlNbr: targetPositionCtrlNbr,
+            displacedEmployeeCtrlNbr: null,
+            daysOnCurrentPosition: 7,
+            moveType: moveType,
+            effectiveUtc: DateTime.UtcNow.AddHours(2));
+
+    private static SeniorityMove MakeApprovedMove(ControlNumber employeeCtrlNbr, ControlNumber targetPositionCtrlNbr, string moveType)
+    {
+        var move = MakePendingMove(employeeCtrlNbr, targetPositionCtrlNbr, moveType);
+        move.Approve();
+        return move;
+    }
+
     private static VacancyRepostService BuildService(FakeOrchestrationUnitOfWork uow)
     {
         var factory = new FakeUowFactory(uow);
@@ -111,6 +131,50 @@ public class VacancyRepostServiceTests
         Assert.Single(uow.FakeVacancies.AddedEntities);
         Assert.Single(uow.FakeBulletins.AddedEntities);
         Assert.True(uow.Committed);
+    }
+
+    [Fact]
+    public async Task RepostVacatedPosition_CancelsVoluntaryAndHangoutMoves_WhenTargetIncumbentVacated()
+    {
+        var voluntaryMove = MakePendingMove(ControlNumber.Create(2001), CrewStaffPos, SeniorityMoveType.Voluntary);
+        var hangoutMove = MakeApprovedMove(ControlNumber.Create(2002), CrewStaffPos, SeniorityMoveType.Hangout);
+        var differentTargetMove = MakePendingMove(ControlNumber.Create(2003), BoardSlot1, SeniorityMoveType.Voluntary);
+
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(),
+            craftRole: MakeCraftRole(),
+            crew: MakeCrew(),
+            crewPositionByStaffPos: MakeCrewPosition(CrewStaffPos),
+            activeSeniorityMoves: [voluntaryMove, hangoutMove, differentTargetMove]);
+        var sut = BuildService(uow);
+
+        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr, TestContext.Current.CancellationToken);
+
+        Assert.Equal(SeniorityMoveStatus.Cancelled, voluntaryMove.Status);
+        Assert.Equal(SeniorityMoveStatus.Cancelled, hangoutMove.Status);
+        Assert.Equal(VacatedTargetCancellationReason, voluntaryMove.CancellationReason);
+        Assert.Equal(VacatedTargetCancellationReason, hangoutMove.CancellationReason);
+        Assert.Equal(SeniorityMoveStatus.Pending, differentTargetMove.Status);
+        Assert.Null(differentTargetMove.CancellationReason);
+    }
+
+    [Fact]
+    public async Task RepostVacatedPosition_DoesNotCancelNoAccessMoves_WhenTargetIncumbentVacated()
+    {
+        var noAccessMove = MakePendingMove(ControlNumber.Create(2101), CrewStaffPos, SeniorityMoveType.NoAccess);
+
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(),
+            craftRole: MakeCraftRole(),
+            crew: MakeCrew(),
+            crewPositionByStaffPos: MakeCrewPosition(CrewStaffPos),
+            activeSeniorityMoves: [noAccessMove]);
+        var sut = BuildService(uow);
+
+        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr, TestContext.Current.CancellationToken);
+
+        Assert.Equal(SeniorityMoveStatus.Pending, noAccessMove.Status);
+        Assert.Null(noAccessMove.CancellationReason);
     }
 
     [Fact]
@@ -487,6 +551,35 @@ public class VacancyRepostServiceTests
         public Task<HashSet<long>> GetAssignedEmployeeCtrlNbrsByTypeAsync(string t) => Task.FromResult(new HashSet<long>());
     }
 
+    private sealed class FakeSeniorityMoveRepo(IReadOnlyList<SeniorityMove> activeMoves) : FakeRepoBase<SeniorityMove>, ISeniorityMoveRepository
+    {
+        public Task<List<SeniorityMove>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.EmployeeCtrlNbr == employeeCtrlNbr).ToList());
+        public Task<List<SeniorityMove>> GetByCraftAsync(ControlNumber craftCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.CraftCtrlNbr == craftCtrlNbr).ToList());
+        public Task<List<SeniorityMove>> GetByStatusAsync(string status, CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.Status == status).ToList());
+        public Task<List<SeniorityMove>> GetByCraftByStatusAsync(ControlNumber craftCtrlNbr, string status, CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.CraftCtrlNbr == craftCtrlNbr && m.Status == status).ToList());
+        public Task<List<SeniorityMove>> GetPendingAsync(CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.Status == SeniorityMoveStatus.Pending).ToList());
+        public Task<List<SeniorityMove>> GetActiveAsync(CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.Status == SeniorityMoveStatus.Pending || m.Status == SeniorityMoveStatus.Approved).ToList());
+        public Task<List<SeniorityMove>> GetAllMovesAsync(CancellationToken ct = default) => Task.FromResult(activeMoves.ToList());
+        public Task<List<SeniorityMove>> GetApprovedDueAsync(DateTime asOf, CancellationToken ct = default)
+            => Task.FromResult(activeMoves.Where(m => m.Status == SeniorityMoveStatus.Approved && m.EffectiveUtc <= asOf).ToList());
+        public Task<DateTime?> GetNextApprovedEffectiveUtcAsync(CancellationToken ct = default)
+            => Task.FromResult(activeMoves
+                .Where(m => m.Status == SeniorityMoveStatus.Approved && m.EffectiveUtc.HasValue)
+                .OrderBy(m => m.EffectiveUtc)
+                .Select(m => m.EffectiveUtc)
+                .FirstOrDefault());
+        public Task<List<SeniorityMove>> GetPendingByTargetPositionAsync(ControlNumber targetPositionCtrlNbr, ControlNumber excludeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(activeMoves
+                .Where(m => m.Status == SeniorityMoveStatus.Pending && m.TargetPositionCtrlNbr == targetPositionCtrlNbr && m.CtrlNbr != excludeCtrlNbr)
+                .ToList());
+    }
+
     private sealed class FakeStaffablePositionRepo : FakeRepoBase<StaffablePosition>, IStaffablePositionRepository
     {
         public Task<List<StaffablePosition>> GetByPositionTypeAsync(string t) => Task.FromResult(new List<StaffablePosition>());
@@ -530,6 +623,7 @@ public class VacancyRepostServiceTests
         private readonly FakeStaffablePositionRepo _staffablePositions = new();
         private readonly FakeDynamicGroupRepo     _dynamicGroups;
         private readonly FakeEmployeeNotificationRepo _employeeNotifications = new();
+        private readonly FakeSeniorityMoveRepo    _seniorityMoves;
 
         public FakeOrchestrationUnitOfWork(
             BulletinRule?                    bulletinRule           = null,
@@ -541,7 +635,8 @@ public class VacancyRepostServiceTests
             Roster?                          roster                 = null,
             IReadOnlyList<PositionAssignment>? boardAssignments     = null,
             IReadOnlyList<PositionVacancy>?  existingVacancies      = null,
-            IReadOnlyList<ControlNumber>?    vacantCrewStaffPositions = null)
+            IReadOnlyList<ControlNumber>?    vacantCrewStaffPositions = null,
+            IReadOnlyList<SeniorityMove>?    activeSeniorityMoves   = null)
         {
             _crews          = new FakeCrewRepo(crew);
             _crewPositions  = new FakeCrewPositionRepo(crewPositionByStaffPos, vacantCrewStaffPositions);
@@ -550,6 +645,7 @@ public class VacancyRepostServiceTests
             _rosterBoards   = new FakeRosterBoardRepo(board);
             _rosters        = new FakeRosterRepo(roster);
             _dynamicGroups  = new FakeDynamicGroupRepo(null);
+            _seniorityMoves = new FakeSeniorityMoveRepo(activeSeniorityMoves ?? []);
             FakeVacancies   = new FakeVacancyRepo(existingVacancies);
 
             var assignments = new List<PositionAssignment>();
@@ -609,7 +705,7 @@ public class VacancyRepostServiceTests
         public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public IDepartmentReassignmentRuleRepository     DepartmentReassignmentRules => throw new NotImplementedException();
         public ISeniorityMovePolicyRepository            SeniorityMovePolicies        => throw new NotImplementedException();
-        public ISeniorityMoveRepository                  SeniorityMoves               => new NoOpSeniorityMoveRepository();
+        public ISeniorityMoveRepository                  SeniorityMoves               => _seniorityMoves;
         public IRoleRepository                           Roles                        => throw new NotImplementedException();
         public IFeatureRepository                        Features                     => throw new NotImplementedException();
         public IPermissionRepository                     Permissions                  => throw new NotImplementedException();

@@ -14,6 +14,7 @@ using CrewService.Domain.ValueObjects;
 using CrewService.Infrastructure.Outbox;
 using CrewService.Persistance.Encryption;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System.Linq.Expressions;
 using System.Text.Json;
@@ -171,6 +172,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Notifications.EmployeeNotification> EmployeeNotifications => Set<Domain.Modules.Notifications.EmployeeNotification>();
     public DbSet<Domain.Modules.Notifications.NotificationAcknowledgement> NotificationAcknowledgements => Set<Domain.Modules.Notifications.NotificationAcknowledgement>();
     public DbSet<Domain.Modules.Notifications.NotificationTypeConfig> NotificationTypeConfigs => Set<Domain.Modules.Notifications.NotificationTypeConfig>();
+    public DbSet<Domain.Modules.Notifications.PositionChangeRecord> PositionChangeRecords => Set<Domain.Modules.Notifications.PositionChangeRecord>();
 
     // AbsenceVacancy Module
     public DbSet<Domain.Modules.AbsenceVacancy.AbsenceCode> AbsenceCodes => Set<Domain.Modules.AbsenceVacancy.AbsenceCode>();
@@ -296,6 +298,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
             {
                 case EntityState.Added:
                     eventType = $"{aggregateType}Created";
+                    payloadJson = BuildAuditPayloadJson(entry, includeAllScalars: true);
                     break;
 
                 case EntityState.Deleted:
@@ -311,23 +314,10 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
                     }
                     else
                     {
-                        var changes = new Dictionary<string, object?>();
-                        foreach (var prop in entry.Properties)
-                        {
-                            if (!prop.IsModified) continue;
-                            if (s_auditPrefixes.Any(p => prop.Metadata.Name.StartsWith(p))) continue;
-
-                            var value = prop.CurrentValue;
-                            if (value is ControlNumber cn)
-                                value = cn.Value;
-
-                            changes[prop.Metadata.Name] = value;
-                        }
-
-                        if (changes.Count == 0) continue;
+                        payloadJson = BuildAuditPayloadJson(entry, includeAllScalars: false);
+                        if (payloadJson is null) continue;
 
                         eventType = $"{aggregateType}Updated";
-                        payloadJson = JsonSerializer.Serialize(changes, s_camelCase);
                     }
                     break;
             }
@@ -347,6 +337,27 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
         }
 
         return explicitDomainEvents;
+    }
+
+    private string? BuildAuditPayloadJson(EntityEntry<Entity> entry, bool includeAllScalars)
+    {
+        var values = new Dictionary<string, object?>();
+
+        foreach (var prop in entry.Properties)
+        {
+            if (!includeAllScalars && !prop.IsModified) continue;
+            if (s_auditPrefixes.Any(p => prop.Metadata.Name.StartsWith(p))) continue;
+
+            var value = prop.CurrentValue;
+            if (value is ControlNumber cn)
+                value = cn.Value;
+
+            values[prop.Metadata.Name] = value;
+        }
+
+        return values.Count == 0
+            ? null
+            : JsonSerializer.Serialize(values, s_camelCase);
     }
 
     /// <summary>

@@ -181,6 +181,52 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         return (bulletin.CtrlNbr, crewPosition.CtrlNbr);
     }
 
+    private async Task<(ControlNumber BulletinCtrlNbr, ControlNumber TargetBoardPositionCtrlNbr, ControlNumber TargetBoardStaffablePositionCtrlNbr)>
+        SeedTargetBoardBulletinAsync(Fixture f, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+
+        var boardMemberStatus = await ctx.EmploymentStatuses
+            .FirstAsync(es => es.ClientCtrlNbr == f.WorkAreaCtrlNbr, ct);
+        var boardMember = Employee.Create(
+            f.WorkAreaCtrlNbr, "boardmember", "E002", "000-00-0002", Gender.Female, Race.White,
+            new DateTime(1991, 1, 1), DateTime.UtcNow, boardMemberStatus.CtrlNbr,
+            "boardmember@example.com", "admin", "Admin User");
+        ctx.Employees.Add(boardMember);
+
+        var board = RosterBoard.Create(f.CraftCtrlNbr, f.RosterCtrlNbr, "Target Board", BoardType.ExtraBoard);
+        var boardSlot = StaffablePosition.Create(StaffablePositionType.Board);
+        ctx.StaffablePositions.Add(boardSlot);
+        await ctx.SaveChangesAsync(ct);
+
+        var boardPosition = board.AddPosition(boardMember.CtrlNbr, 1, boardSlot.CtrlNbr);
+        ctx.Set<RosterBoard>().Add(board);
+
+        var vacancy = PositionVacancy.Create(
+            f.WorkAreaCtrlNbr,
+            StaffablePositionType.Board,
+            boardSlot.CtrlNbr,
+            f.CraftCtrlNbr,
+            "INCUMBENT_VACATED",
+            targetName: "Target Board — Position 1");
+        vacancy.MarkBulletined();
+        ctx.Set<PositionVacancy>().Add(vacancy);
+        await ctx.SaveChangesAsync(ct);
+
+        var now = DateTime.UtcNow;
+        var bulletin = Bulletin.Create(
+            vacancy.CtrlNbr,
+            f.CraftCtrlNbr,
+            now.AddDays(-2),
+            now.AddDays(-1),
+            now);
+        ctx.Set<Bulletin>().Add(bulletin);
+        await EnsureBulletinRuleAsync(ctx, f.CraftCtrlNbr, ct);
+        await ctx.SaveChangesAsync(ct);
+
+        return (bulletin.CtrlNbr, boardPosition.CtrlNbr, boardSlot.CtrlNbr);
+    }
+
     private async Task<(ControlNumber BulletinCtrlNbr, ControlNumber TargetCrewPositionCtrlNbr)>
         SeedOpenTargetCrewBulletinAsync(Fixture f, CancellationToken ct)
     {
@@ -390,6 +436,22 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         Assert.All(moves, move => Assert.Equal(SeniorityMoveStatus.Cancelled, move.Status));
     }
 
+    [Fact]
+    public async Task Award_TargetIsBoard_AssignsWinnerToBoardSlot()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        var (bulletinCtrlNbr, targetBoardPositionCtrlNbr, targetBoardStaffablePositionCtrlNbr) = await SeedTargetBoardBulletinAsync(f, ct);
+
+        await _host.Bulletins.AwardBulletinAsync(bulletinCtrlNbr, f.EmployeeCtrlNbr, ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        var assignment = Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignment.AssignmentType);
+        Assert.Equal(targetBoardPositionCtrlNbr, assignment.AssignmentSourceCtrlNbr);
+        Assert.Equal(targetBoardStaffablePositionCtrlNbr, assignment.StaffablePositionCtrlNbr);
+    }
+
     // ── Force assign ──────────────────────────────────────────────────────────
 
     [Fact]
@@ -411,6 +473,23 @@ public sealed class BulletinAwardOutgoingVacateTests : IDisposable
         var assignment = Assert.Single(assignments);
         Assert.Equal(PositionAssignmentType.ForceAssignment, assignment.AssignmentType);
         Assert.Equal(targetCrewPositionCtrlNbr, assignment.AssignmentSourceCtrlNbr);
+    }
+
+    [Fact]
+    public async Task ForceAssign_TargetIsBoard_AssignsWinnerToBoardSlot()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedBaseAsync(ct);
+        var (bulletinCtrlNbr, targetBoardPositionCtrlNbr, targetBoardStaffablePositionCtrlNbr) = await SeedTargetBoardBulletinAsync(f, ct);
+
+        await _host.Bulletins.SetBulletinNoBidAsync(bulletinCtrlNbr, ct);
+        await _host.Bulletins.ForceAssignBulletinAsync(bulletinCtrlNbr, f.EmployeeCtrlNbr, ct);
+
+        var assignments = await GetAssignmentsAsync(f.EmployeeCtrlNbr, ct);
+        var assignment = Assert.Single(assignments);
+        Assert.Equal(PositionAssignmentType.Board, assignment.AssignmentType);
+        Assert.Equal(targetBoardPositionCtrlNbr, assignment.AssignmentSourceCtrlNbr);
+        Assert.Equal(targetBoardStaffablePositionCtrlNbr, assignment.StaffablePositionCtrlNbr);
     }
 
     [Fact]

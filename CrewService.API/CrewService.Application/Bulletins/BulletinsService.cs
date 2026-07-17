@@ -609,7 +609,11 @@ public sealed class BulletinsService(
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var bulletin = await uow.Bulletins.GetNextPendingEventBulletinAsync(ct);
         if (bulletin is null) return (null, null);
-        var eventUtc = bulletin.Status == "NoBid" ? bulletin.ForceAssignDeadlineUtc : (DateTime?)bulletin.BidWindowClosesUtc;
+        var eventUtc = bulletin.Status == "NoBid"
+            ? bulletin.ForceAssignDeadlineUtc
+            : (DateTime?)(bulletin.BidWindowClosesUtc > bulletin.EffectiveUtc
+                ? bulletin.BidWindowClosesUtc
+                : bulletin.EffectiveUtc);
         var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
         return (eventUtc, vacancy?.WorkAreaGroupCtrlNbr.Value);
     }
@@ -857,14 +861,25 @@ public sealed class BulletinsService(
             // The bulletin's target position is always vacant here: a position is vacated (its
             // incumbency ended) BEFORE the bulletin is created, and the vacate is what triggers
             // the bulletin. There is therefore no incumbent to displace on the target position.
-            cancelledMoves = await PlaceEmployeeOnCrewPositionAsync(
-                uow,
-                vacancy,
-                employeeCtrlNbr,
-                assignmentType,
-                effectiveUtc,
-                $"Superseded by bulletin {bulletin.CtrlNbr.Value}.",
-                ct);
+            cancelledMoves = vacancy.TargetType switch
+            {
+                StaffablePositionType.Crew => await PlaceEmployeeOnCrewPositionAsync(
+                    uow,
+                    vacancy,
+                    employeeCtrlNbr,
+                    assignmentType,
+                    effectiveUtc,
+                    $"Superseded by bulletin {bulletin.CtrlNbr.Value}.",
+                    ct),
+                StaffablePositionType.Board => await PlaceEmployeeOnBoardPositionAsync(
+                    uow,
+                    vacancy,
+                    employeeCtrlNbr,
+                    effectiveUtc,
+                    $"Superseded by bulletin {bulletin.CtrlNbr.Value}.",
+                    ct),
+                _ => []
+            };
         }
 
         // Notify the awarded/force-assigned employee.
@@ -914,6 +929,38 @@ public sealed class BulletinsService(
             employeeCtrlNbr,
             assignmentType,
             assignmentSourceCtrlNbr: crewPosition.CtrlNbr,
+            assignedDateUtc: effectiveDate,
+            cancellationReason: cancellationReason,
+            excludeMoveCtrlNbr: null,
+            ct);
+
+        return cancelledMoves;
+    }
+
+    private async Task<IReadOnlyList<SeniorityMove>> PlaceEmployeeOnBoardPositionAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        PositionVacancy vacancy,
+        ControlNumber employeeCtrlNbr,
+        DateTime? effectiveUtc,
+        string cancellationReason,
+        CancellationToken ct)
+    {
+        _ = ct;
+        if (vacancy.TargetType != StaffablePositionType.Board) return [];
+
+        var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(vacancy.TargetCtrlNbr, ct);
+        if (board is null) return [];
+
+        var boardPosition = board.Positions.FirstOrDefault(p => p.StaffablePositionCtrlNbr == vacancy.TargetCtrlNbr);
+        if (boardPosition is null) return [];
+
+        var effectiveDate = effectiveUtc ?? DateTime.UtcNow;
+        var (_, cancelledMoves) = await _incumbentAssignmentPath.AssignAsync(
+            uow,
+            vacancy.TargetCtrlNbr,
+            employeeCtrlNbr,
+            PositionAssignmentType.Board,
+            assignmentSourceCtrlNbr: boardPosition.CtrlNbr,
             assignedDateUtc: effectiveDate,
             cancellationReason: cancellationReason,
             excludeMoveCtrlNbr: null,
