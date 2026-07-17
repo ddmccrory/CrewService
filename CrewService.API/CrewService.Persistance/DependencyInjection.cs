@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Authorization;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.Employees;
@@ -75,6 +76,7 @@ public static class DependencyInjection
     public static IServiceCollection AddPersistance(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IRequestActorContextResolver, RequestActorContextResolver>();
         services.AddSingleton<IFieldEncryptor, AesFieldEncryptor>();
 
         string? connectionString = configuration.GetConnectionString("SQLiteConnection")

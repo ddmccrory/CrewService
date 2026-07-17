@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
 using CrewService.Application.Policies;
 using CrewService.Application.TenantConfig;
@@ -121,7 +122,9 @@ public sealed class PoliciesServiceTimeZoneTests : IDisposable
             new WorkAreaClock(TimeProvider.System, _host.UowFactory),
             notifications,
             new TestCurrentUserService(),
-            execution);
+            execution,
+            new TestRequestActorContextResolver(),
+            new RequestActorContextPolicy());
 
         var moves = await service.GetAllSeniorityMovesAsync(ct);
         var item = Assert.Single(moves);

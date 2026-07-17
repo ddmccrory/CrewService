@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
 using CrewService.Application.Staffing;
 using CrewService.Application.Time;
@@ -14,7 +15,7 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IncumbentAssignmentPath? incumbentAssignmentPath = null)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
     private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
 
@@ -858,11 +859,15 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         if (move.MoveType == SeniorityMoveType.Hangout)
         {
-            var isAdmin = currentUserService.IsInRole(Roles.SystemAdmin)
-                || currentUserService.IsInRole(Roles.ParentAdmin)
-                || currentUserService.IsInRole(Roles.RailroadAdmin);
+            var actorContext = await actorContextResolver.ResolveAsync(
+                requestedEmployeeCtrlNbr: move.EmployeeCtrlNbr.Value,
+                railroadCtrlNbr: move.RailroadCtrlNbr.Value,
+                ct: ct);
+            var allowOnBehalf = IsAdminRole();
+            var canCancelHangoutAsManager = actorContext.IsActingOnBehalfOfEmployee
+                && actorContextPolicy.CanAccessRequestedEmployee(actorContext, allowOnBehalf);
 
-            if (!isAdmin)
+            if (!canCancelHangoutAsManager)
                 throw new InvalidOperationException("Only admins can cancel Hangout auto-moves.");
         }
 
@@ -888,6 +893,11 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         await uow.CommitAsync(ct);
         return move;
     }
+
+    private bool IsAdminRole()
+        => currentUserService.IsInRole(Roles.SystemAdmin)
+            || currentUserService.IsInRole(Roles.ParentAdmin)
+            || currentUserService.IsInRole(Roles.RailroadAdmin);
 
     public async Task<SeniorityMove> CompleteSeniorityMoveAsync(
         ControlNumber moveCtrlNbr, CancellationToken ct = default)
