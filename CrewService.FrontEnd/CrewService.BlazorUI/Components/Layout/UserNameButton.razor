@@ -19,7 +19,7 @@
         await CircuitBootstrap.EnsureInitializedAsync(authState.User);
         await CurrentUser.InitializeAsync(authState.User);
 
-        if (CurrentUser.IsEmployee && CurrentUser.Employee is not null)
+        if (CurrentUser.UseEmployeeProfilePath && CurrentUser.Employee is not null)
         {
             profileHref = $"/employees/{CurrentUser.Employee.CtrlNbr}";
         }

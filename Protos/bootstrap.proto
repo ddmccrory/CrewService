@@ -27,6 +27,7 @@ message BootstrapResponse {
   repeated BootstrapFeature features = 5;
   repeated int64 user_role_ctrl_nbrs = 6;
   repeated BootstrapPermission permissions = 7;
+  bool use_employee_profile_path = 8;
 }
 
 message GetContextOptionsRequest {}

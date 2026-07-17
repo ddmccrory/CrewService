@@ -45,7 +45,7 @@ public sealed partial class CircuitBootstrapService(
                     EmployeeNumber = response.Employee.EmployeeNumber
                 };
             }
-            currentUser.SeedFromBootstrap(user, employee);
+            currentUser.SeedFromBootstrap(user, employee, response.UseEmployeeProfilePath);
 
             // ── Seed PermissionCatalogCache (singleton) ─────────────────
             catalogCache.SeedIfEmpty(
