@@ -2,6 +2,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.DailyOperations;
 
 namespace CrewService.Application.Policies;
 
@@ -37,6 +38,15 @@ public sealed class IncumbentAssignmentPath(SeniorityMoveCancellationPath senior
             assignedDateUtc);
 
         uow.PositionAssignments.Add(assignment);
+
+        if (assignmentType != PositionAssignmentType.Board)
+        {
+            await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+                uow,
+                staffablePositionCtrlNbr,
+                employeeCtrlNbr,
+                ct);
+        }
 
         var cancelledMoves = await seniorityMoveCancellationPath.CancelSupersededMovesAsync(
             uow,

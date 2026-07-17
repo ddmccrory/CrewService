@@ -148,6 +148,7 @@ public class EarningCodeResolverTests
         public IBulletinBidRepository BulletinBids => null!;
         public IBulletinRuleRepository BulletinRules => null!;
         public ICallSheetRuleRepository CallSheetRules => null!;
+        public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => null!;
         public IEmployeeNotificationRepository EmployeeNotifications => null!;
         public INotificationTypeConfigRepository NotificationTypeConfigs => null!;

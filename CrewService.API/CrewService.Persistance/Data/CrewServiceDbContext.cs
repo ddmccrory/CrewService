@@ -122,6 +122,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     // Policies Module
     public DbSet<Domain.Modules.Policies.CraftOperationsPolicy> CraftOperationsPolicies => Set<Domain.Modules.Policies.CraftOperationsPolicy>();
     public DbSet<Domain.Modules.Policies.CraftDisplacementPolicy> CraftDisplacementPolicies => Set<Domain.Modules.Policies.CraftDisplacementPolicy>();
+    public DbSet<Domain.Modules.Policies.CraftCallSheetRule> CraftCallSheetRules => Set<Domain.Modules.Policies.CraftCallSheetRule>();
     public DbSet<Domain.Modules.Policies.DisplacementCase> DisplacementCases => Set<Domain.Modules.Policies.DisplacementCase>();
     public DbSet<Domain.Modules.Policies.DisplacementClaim> DisplacementClaims => Set<Domain.Modules.Policies.DisplacementClaim>();
     public DbSet<Domain.Modules.Policies.BulletinPolicy> BulletinPolicies => Set<Domain.Modules.Policies.BulletinPolicy>();

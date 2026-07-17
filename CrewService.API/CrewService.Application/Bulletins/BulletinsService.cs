@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.Notifications;
 using CrewService.Application.Policies;
 using CrewService.Application.Qualifications;
@@ -943,6 +944,12 @@ public sealed class BulletinsService(
             // remove the assignment row so occupancy checks see the position as open.
             assignment.Vacate();
             uow.PositionAssignments.Remove(assignment);
+
+            await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+                uow,
+                assignment.StaffablePositionCtrlNbr,
+                incumbentEmployeeCtrlNbr: null,
+                ct);
 
             // If the outgoing position was a crew seat, end its active incumbency effective at the
             // incoming assignment's effective date (board slots have no incumbency record).

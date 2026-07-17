@@ -581,6 +581,7 @@ public class DepartmentReassignmentServiceTests
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
         public ICallSheetRuleRepository CallSheetRules => null!;
+        public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();
         public IDispatchProjectionRepository DispatchProjections => null!;

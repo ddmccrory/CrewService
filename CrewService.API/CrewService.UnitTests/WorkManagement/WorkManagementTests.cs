@@ -169,6 +169,32 @@ public class PositionSlotInstanceTests
         Assert.Equal(200, filled.IncumbentEmployeeCtrlNbr!.Value);
     }
 
+    [Fact]
+    public void SetIncumbent_WithEmployee_UpdatesIncumbentAndMarksFilled()
+    {
+        var slot = CreateSlot();
+
+        slot.SetIncumbent(ControlNumber.Create(300));
+
+        Assert.Equal(PositionSlotStatus.Filled, slot.Status);
+        Assert.True(slot.IsIncumbent);
+        Assert.Equal(300, slot.IncumbentEmployeeCtrlNbr!.Value);
+    }
+
+    [Fact]
+    public void SetIncumbent_OnDuty_KeepsStatusButUpdatesIncumbentReference()
+    {
+        var slot = CreateSlot();
+        slot.Fill(ControlNumber.Create(100));
+        slot.MarkOnDuty();
+
+        slot.SetIncumbent(null);
+
+        Assert.Equal(PositionSlotStatus.OnDuty, slot.Status);
+        Assert.False(slot.IsIncumbent);
+        Assert.Null(slot.IncumbentEmployeeCtrlNbr);
+    }
+
     private static PositionSlotInstance CreateSlot()
     {
         var shiftInstance = ShiftInstance.Create(ControlNumber.Create(1), ControlNumber.Create(1000), "DAY", "Day Shift");

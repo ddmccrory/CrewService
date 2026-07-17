@@ -167,6 +167,7 @@ public class NewHireServiceTests
         public IDisplacementClaimRepository DisplacementClaims => throw new NotImplementedException();
         public IBulletinPolicyRepository BulletinPolicies => throw new NotImplementedException();
         public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
+        public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => throw new NotImplementedException();
         public ISeniorityMoveRepository SeniorityMoves => new NoOpSeniorityMoveRepository();
@@ -354,6 +355,9 @@ public class NewHireServiceTests
     private sealed class FakeStaffablePositionRepository : FakeRepositoryBase<StaffablePosition>, IStaffablePositionRepository
     {
         public Task<List<StaffablePosition>> GetByPositionTypeAsync(string positionType) => Task.FromResult(new List<StaffablePosition>());
+
+        public override Task<StaffablePosition?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult<StaffablePosition?>(AddedEntities.FirstOrDefault(s => s.CtrlNbr == ctrlNbr));
     }
 
     private sealed class FakePositionAssignmentRepository : FakeRepositoryBase<PositionAssignment>, IPositionAssignmentRepository

@@ -12,12 +12,13 @@
 
 @inject PoliciesClient PoliciesClient
 @inject DepartmentClient DepartmentClient
+@inject CraftClient CraftClient
 
 <PageTitle>Call Sheet Rules — Crew Service</PageTitle>
 
 <h1>Call Sheet Rules</h1>
 <p class="text-muted">
-    Configure department-level call sheet timing rules. Shifts are built from first calling start timing with holiday adjustment options.
+    Configure department-level call sheet timing rules and craft-level position-change cutoff rules.
 </p>
 
 @if (IsInitializing)
@@ -101,6 +102,43 @@ else
         </Footer>
     </Modal>
 
+    <Modal Visible="showCraftEditModal"
+           Title="@(craftEditCtrlNbr.HasValue ? "Edit Craft Call Sheet Rule" : "Configure Craft Call Sheet Rule")"
+           Icon="bi bi-sliders"
+           Size="lg"
+           OnClose="CloseCraftEditModal">
+        <BodyContent>
+            <EditForm Model="craftEditModel" OnValidSubmit="OnSaveCraftRule" id="edit-craft-call-sheet-rule-form">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Craft</label>
+                    <p class="form-control-plaintext fw-bold">@craftEditModel.CraftName</p>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Move Cutoff (minutes before on-duty)</label>
+                        <input type="number" class="form-control" min="0" max="1440" @bind="craftEditModel.PreOnDutyChangeCutoffMinutes" />
+                        <ValidationMessage For="() => craftEditModel.PreOnDutyChangeCutoffMinutes" class="text-danger" />
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="craftRuleEnabled" @bind="craftEditModel.IsEnabled" />
+                            <label class="form-check-label" for="craftRuleEnabled">Rule Enabled</label>
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseCraftEditModal">Cancel</button>
+            <button type="submit" form="edit-craft-call-sheet-rule-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
     @if (!string.IsNullOrEmpty(errorMessage))
     {
         <div class="alert alert-danger alert-dismissible mt-2" role="alert">
@@ -121,18 +159,21 @@ else
     }
     else
     {
-        <DataTable TItem="RuleRow" Items="rows" Columns="Columns"
-                   SearchFilter="@((r, term) => r.DepartmentName.Contains(term, StringComparison.OrdinalIgnoreCase))"
-                   SearchPlaceholder="Search departments..."
-                   EmptyMessage="No call sheet rule rows found."
-                   DefaultSortColumn="DEPARTMENT">
-            <RowContent Context="row">
-                <td class="text-uppercase fw-semibold">@row.DepartmentName</td>
-                <td>@(row.Rule is not null ? row.Rule.CallLeadMinutes.ToString() : "—")</td>
-                <td>@(row.Rule is not null ? row.Rule.CallDurationMinutes.ToString() : "—")</td>
-                <td>@(row.Rule is not null ? BuildLeadHoursFromOffset(row.Rule.GlobalPreCreateOffsetMinutes).ToString() : "—")</td>
-                <td>@(row.Rule is not null ? FormatHolidayAdjustment(row.Rule.HolidayAdjustment, row.Rule.HolidayCustomOffsetMinutes) : "—")</td>
-                <td>
+        <h5 class="mt-3">Department Rules</h5>
+
+        <div class="department-rules-table">
+            <DataTable TItem="RuleRow" Items="rows" Columns="Columns"
+                        SearchFilter="@((r, term) => r.DepartmentName.Contains(term, StringComparison.OrdinalIgnoreCase))"
+                        SearchPlaceholder="Search departments..."
+                        EmptyMessage="No call sheet rule rows found."
+                        DefaultSortColumn="DEPARTMENT">
+                <RowContent Context="row">
+                    <td class="text-uppercase fw-semibold">@row.DepartmentName</td>
+                    <td>@(row.Rule is not null ? row.Rule.CallLeadMinutes.ToString() : "—")</td>
+                    <td>@(row.Rule is not null ? row.Rule.CallDurationMinutes.ToString() : "—")</td>
+                    <td>@(row.Rule is not null ? BuildLeadHoursFromOffset(row.Rule.GlobalPreCreateOffsetMinutes).ToString() : "—")</td>
+                    <td>@(row.Rule is not null ? FormatHolidayAdjustment(row.Rule.HolidayAdjustment, row.Rule.HolidayCustomOffsetMinutes) : "—")</td>
+                    <td class="text-center">
                     @if (row.Rule is not null)
                     {
                         @if (row.Rule.IsEnabled)
@@ -148,17 +189,73 @@ else
                     {
                         <span class="text-muted">—</span>
                     }
-                </td>
-                <td class="text-end">
+                    </td>
+                    <td class="text-center">
                     @if (!IsFeatureReadOnly)
                     {
                         <button class="btn btn-sm btn-outline-primary px-3" @onclick="() => OpenEditModal(row)">
                             @(row.Rule is not null ? "Edit" : "Configure")
                         </button>
                     }
-                </td>
-            </RowContent>
-        </DataTable>
+                    </td>
+                </RowContent>
+            </DataTable>
+        </div>
+
+        <h5 class="mt-4">Craft Position-Change Rules</h5>
+        <p class="text-muted mb-2">These craft-scoped rules control whether incumbent changes are allowed close to a slot's on-duty time.</p>
+
+        @if (craftRows.Count == 0)
+        {
+            <div class="alert alert-info">No crafts found for this railroad.</div>
+        }
+        else
+        {
+            <table class="table table-hover align-middle craft-rules-table">
+                <thead>
+                    <tr>
+                        <th>Craft</th>
+                        <th>Move Cutoff (min before on-duty)</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in craftRows)
+                    {
+                        <tr>
+                            <td>@row.CraftName</td>
+                            <td>@(row.Rule is not null ? row.Rule.PreOnDutyChangeCutoffMinutes.ToString() : "—")</td>
+                            <td class="text-center">
+                                @if (row.Rule is not null)
+                                {
+                                    @if (row.Rule.IsEnabled)
+                                    {
+                                        <span class="badge bg-success">Enabled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Disabled</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (!IsFeatureReadOnly)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary px-3" @onclick="() => OpenCraftEditModal(row)">
+                                        @(row.Rule is not null ? "Edit" : "Configure")
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     }
 }
 
@@ -170,6 +267,13 @@ else
         public long DepartmentCtrlNbr { get; init; }
         public string DepartmentName { get; init; } = string.Empty;
         public CallSheetRuleResponse? Rule { get; set; }
+    }
+
+    private sealed class CraftRuleRow
+    {
+        public long CraftCtrlNbr { get; init; }
+        public string CraftName { get; init; } = string.Empty;
+        public CraftCallSheetRuleResponse? Rule { get; set; }
     }
 
     private sealed class HolidayAdjustmentOption
@@ -199,6 +303,17 @@ else
         public bool IsEnabled { get; set; } = true;
     }
 
+    private sealed class CraftEditModel
+    {
+        public long CraftCtrlNbr { get; set; }
+        public string CraftName { get; set; } = string.Empty;
+
+        [Range(0, 1440)]
+        public int PreOnDutyChangeCutoffMinutes { get; set; } = 180;
+
+        public bool IsEnabled { get; set; } = true;
+    }
+
     private readonly List<HolidayAdjustmentOption> holidayAdjustmentOptions =
     [
         new() { Value = "None", Label = "None" },
@@ -209,10 +324,14 @@ else
 
     private bool isLoading = true;
     private bool showEditModal;
+    private bool showCraftEditModal;
     private long? editCtrlNbr;
+    private long? craftEditCtrlNbr;
 
     private List<RuleRow> rows = [];
+    private List<CraftRuleRow> craftRows = [];
     private EditModel editModel = new();
+    private CraftEditModel craftEditModel = new();
 
     private IReadOnlyList<DataTableColumn<RuleRow>> Columns =>
     [
@@ -221,7 +340,8 @@ else
         new("Calling Duration (min)", r => r.Rule?.CallDurationMinutes ?? int.MinValue),
         new("Build Lead (hrs)", r => r.Rule is null ? int.MinValue : BuildLeadHoursFromOffset(r.Rule.GlobalPreCreateOffsetMinutes)),
         new("Holiday Adjustment", r => r.Rule is null ? string.Empty : FormatHolidayAdjustment(r.Rule.HolidayAdjustment, r.Rule.HolidayCustomOffsetMinutes)),
-        new("Status", r => r.Rule?.IsEnabled ?? false),
+        new("Status", width: "140px"),
+        DataTableColumn<RuleRow>.Actions("140px"),
     ];
 
     protected override async Task OnAppContextChangedAsync()
@@ -256,6 +376,22 @@ else
             rows = (await Task.WhenAll(tasks))
                 .OrderBy(r => r.DepartmentName)
                 .ToList();
+
+            var craftResponse = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
+            var craftTasks = craftResponse.Crafts.Select(async c =>
+            {
+                var rule = await PoliciesClient.GetCraftCallSheetRuleAsync(c.CtrlNbr);
+                return new CraftRuleRow
+                {
+                    CraftCtrlNbr = c.CtrlNbr,
+                    CraftName = c.CraftName,
+                    Rule = rule
+                };
+            });
+
+            craftRows = (await Task.WhenAll(craftTasks))
+                .OrderBy(r => r.CraftName)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -289,6 +425,22 @@ else
 
     private void CloseEditModal() => showEditModal = false;
 
+    private void OpenCraftEditModal(CraftRuleRow row)
+    {
+        craftEditCtrlNbr = row.Rule?.CtrlNbr;
+        craftEditModel = new CraftEditModel
+        {
+            CraftCtrlNbr = row.CraftCtrlNbr,
+            CraftName = row.CraftName,
+            PreOnDutyChangeCutoffMinutes = row.Rule?.PreOnDutyChangeCutoffMinutes ?? 180,
+            IsEnabled = row.Rule?.IsEnabled ?? true
+        };
+
+        showCraftEditModal = true;
+    }
+
+    private void CloseCraftEditModal() => showCraftEditModal = false;
+
     private async Task OnSave()
     {
         isSaving = true;
@@ -321,6 +473,34 @@ else
         }
     }
 
+    private async Task OnSaveCraftRule()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var saved = await PoliciesClient.UpsertCraftCallSheetRuleAsync(
+                craftEditModel.CraftCtrlNbr,
+                craftEditModel.IsEnabled,
+                craftEditModel.PreOnDutyChangeCutoffMinutes);
+
+            var row = craftRows.First(r => r.CraftCtrlNbr == craftEditModel.CraftCtrlNbr);
+            row.Rule = saved;
+
+            successMessage = $"Craft call sheet rule saved for {row.CraftName}.";
+            showCraftEditModal = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
     private static int BuildLeadHoursFromOffset(int globalOffsetMinutes)
     {
         var minutes = Math.Abs(globalOffsetMinutes);
@@ -337,3 +517,24 @@ else
         _ => "None"
     };
 }
+
+<style>
+    .department-rules-table table th:nth-child(6),
+    .department-rules-table table td:nth-child(6),
+    .craft-rules-table th:nth-child(3),
+    .craft-rules-table td:nth-child(3) {
+        width: 140px;
+    }
+
+    .department-rules-table table th:nth-child(6),
+    .department-rules-table table th:nth-child(7) {
+        text-align: center;
+    }
+
+    .department-rules-table table th:nth-child(7),
+    .department-rules-table table td:nth-child(7),
+    .craft-rules-table th:nth-child(4),
+    .craft-rules-table td:nth-child(4) {
+        width: 140px;
+    }
+</style>

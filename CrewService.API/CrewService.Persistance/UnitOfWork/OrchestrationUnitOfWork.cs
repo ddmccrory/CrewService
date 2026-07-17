@@ -138,6 +138,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IDisplacementClaimRepository? _displacementClaims;
     private IBulletinPolicyRepository? _bulletinPolicies;
     private ICallSheetRuleRepository? _callSheetRules;
+    private ICraftCallSheetRuleRepository? _craftCallSheetRules;
     private IDepartmentReassignmentRuleRepository? _departmentReassignmentRules;
     private ISeniorityMovePolicyRepository? _seniorityMovePolicies;
     private INoAccessPolicyRepository? _noAccessPolicies;
@@ -313,6 +314,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IDisplacementClaimRepository DisplacementClaims => _displacementClaims ??= new DisplacementClaimRepository(_crewContext, _currentUserService);
     public IBulletinPolicyRepository BulletinPolicies => _bulletinPolicies ??= new BulletinPolicyRepository(_crewContext, _currentUserService);
     public ICallSheetRuleRepository CallSheetRules => _callSheetRules ??= new CallSheetRuleRepository(_crewContext, _currentUserService);
+    public ICraftCallSheetRuleRepository CraftCallSheetRules => _craftCallSheetRules ??= new CraftCallSheetRuleRepository(_crewContext, _currentUserService);
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => _departmentReassignmentRules ??= new DepartmentReassignmentRuleRepository(_crewContext, _currentUserService);
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => _seniorityMovePolicies ??= new SeniorityMovePolicyRepository(_crewContext, _currentUserService);
     public INoAccessPolicyRepository NoAccessPolicies => _noAccessPolicies ??= new NoAccessPolicyRepository(_crewContext, _currentUserService);

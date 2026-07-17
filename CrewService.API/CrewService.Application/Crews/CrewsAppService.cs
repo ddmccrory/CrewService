@@ -1,4 +1,5 @@
 using CrewService.Application.VacancyAssignment;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.Policies;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
@@ -253,6 +254,11 @@ public sealed class CrewsAppService(
                     // is also handled by the domain-event reactor and could race with the
                     // synchronous repost, creating duplicate bulletins for the same position.
                     uow.PositionAssignments.Remove(positionAssignment);
+                    await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+                        uow,
+                        crewPosition.StaffablePositionCtrlNbr,
+                        incumbentEmployeeCtrlNbr: null,
+                        ct);
                     vacatedStaffablePositionCtrlNbr = crewPosition.StaffablePositionCtrlNbr;
                     previousIncumbentCtrlNbr = incumbency.EmployeeCtrlNbr;
                 }

@@ -28,6 +28,12 @@ service PoliciesSrvc {
   rpc UpsertCallSheetRule(UpsertCallSheetRuleRequest) returns (CallSheetRuleResponse) {
     option (google.api.http) = { put: "/v1/policies/call-sheet/{department_ctrl_nbr}" body: "*" };
   }
+  rpc GetCraftCallSheetRule(GetCraftCallSheetRuleRequest) returns (CraftCallSheetRuleResponse) {
+    option (google.api.http) = { get: "/v1/policies/call-sheet/craft/{craft_ctrl_nbr}" };
+  }
+  rpc UpsertCraftCallSheetRule(UpsertCraftCallSheetRuleRequest) returns (CraftCallSheetRuleResponse) {
+    option (google.api.http) = { put: "/v1/policies/call-sheet/craft/{craft_ctrl_nbr}" body: "*" };
+  }
   rpc GetDepartmentReassignmentRule(GetDepartmentReassignmentRuleRequest) returns (DepartmentReassignmentRuleResponse) {
     option (google.api.http) = { get: "/v1/policies/department-reassignment/{department_ctrl_nbr}" };
   }
@@ -165,6 +171,19 @@ message CallSheetRuleResponse {
   int32 holiday_custom_offset_minutes = 9;
   int32 global_pre_create_offset_minutes = 10;
   bool is_enabled = 11;
+}
+
+message GetCraftCallSheetRuleRequest { int64 craft_ctrl_nbr = 1; }
+message UpsertCraftCallSheetRuleRequest {
+  int64 craft_ctrl_nbr = 1;
+  bool is_enabled = 2;
+  int32 pre_on_duty_change_cutoff_minutes = 3;
+}
+message CraftCallSheetRuleResponse {
+  int64 ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  bool is_enabled = 3;
+  int32 pre_on_duty_change_cutoff_minutes = 4;
 }
 
 // Department Reassignment Rule

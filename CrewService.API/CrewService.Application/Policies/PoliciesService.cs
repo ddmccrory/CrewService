@@ -189,6 +189,44 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ?? throw new KeyNotFoundException($"Call sheet rule for department {departmentCtrlNbr} not found.");
     }
 
+    public async Task<CraftCallSheetRule> GetOrUpsertCraftCallSheetRuleAsync(
+        long craftCtrlNbr,
+        bool isEnabled,
+        int preOnDutyChangeCutoffMinutes,
+        CancellationToken ct = default)
+    {
+        if (preOnDutyChangeCutoffMinutes is < 0 or > 1440)
+            throw new InvalidOperationException("Pre-on-duty change cutoff minutes must be between 0 and 1440.");
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var craftCn = ControlNumber.Create(craftCtrlNbr);
+        var craft = await uow.Crafts.GetByCtrlNbrAsync(craftCn, ct)
+            ?? throw new KeyNotFoundException($"Craft {craftCtrlNbr} not found.");
+
+        var existing = await uow.CraftCallSheetRules.GetByCraftAsync(craft.CtrlNbr);
+        if (existing is not null)
+        {
+            existing.Update(isEnabled, preOnDutyChangeCutoffMinutes);
+            await uow.CraftCallSheetRules.UpdateAsync(existing, ct);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var rule = CraftCallSheetRule.Create(craft.CtrlNbr, isEnabled, preOnDutyChangeCutoffMinutes);
+        await uow.CraftCallSheetRules.AddAsync(rule, ct);
+        await uow.CommitAsync(ct);
+        return rule;
+    }
+
+    public async Task<CraftCallSheetRule> GetCraftCallSheetRuleAsync(
+        ControlNumber craftCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.CraftCallSheetRules.GetByCraftAsync(craftCtrlNbr)
+            ?? throw new KeyNotFoundException($"Craft call sheet rule for craft {craftCtrlNbr} not found.");
+    }
+
     public async Task<DepartmentReassignmentRule> GetOrUpsertDepartmentReassignmentRuleAsync(
         long departmentCtrlNbr,
         string targetBoardType,

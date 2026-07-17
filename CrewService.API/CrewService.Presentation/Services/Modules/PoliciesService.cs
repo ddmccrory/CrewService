@@ -143,6 +143,43 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
+    public override async Task<CraftCallSheetRuleResponse> GetCraftCallSheetRule(GetCraftCallSheetRuleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var rule = await svc.GetCraftCallSheetRuleAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
+            return MapCraftCallSheetRule(rule);
+        }
+        catch (KeyNotFoundException)
+        {
+            // Missing policy is a valid configuration state for a craft.
+            // Return an empty response (CtrlNbr == 0) so callers can treat it as "not configured"
+            // without relying on exception flow.
+            return new CraftCallSheetRuleResponse
+            {
+                CraftCtrlNbr = request.CraftCtrlNbr
+            };
+        }
+    }
+
+    public override async Task<CraftCallSheetRuleResponse> UpsertCraftCallSheetRule(UpsertCraftCallSheetRuleRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var rule = await svc.GetOrUpsertCraftCallSheetRuleAsync(
+                request.CraftCtrlNbr,
+                request.IsEnabled,
+                request.PreOnDutyChangeCutoffMinutes,
+                context.CancellationToken);
+
+            return MapCraftCallSheetRule(rule);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
     public override async Task<DepartmentReassignmentRuleResponse> GetDepartmentReassignmentRule(
         GetDepartmentReassignmentRuleRequest request,
         ServerCallContext context)
@@ -194,6 +231,14 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         HolidayCustomOffsetMinutes = r.HolidayCustomOffsetMinutes ?? 0,
         GlobalPreCreateOffsetMinutes = r.GlobalPreCreateOffsetMinutes,
         IsEnabled = r.IsEnabled
+    };
+
+    private static CraftCallSheetRuleResponse MapCraftCallSheetRule(CraftCallSheetRule r) => new()
+    {
+        CtrlNbr = r.CtrlNbr.Value,
+        CraftCtrlNbr = r.CraftCtrlNbr.Value,
+        IsEnabled = r.IsEnabled,
+        PreOnDutyChangeCutoffMinutes = r.PreOnDutyChangeCutoffMinutes
     };
 
     private static DepartmentReassignmentRuleResponse MapDepartmentReassignmentRule(DepartmentReassignmentRule r) => new()
