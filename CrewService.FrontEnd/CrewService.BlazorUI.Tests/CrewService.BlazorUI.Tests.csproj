@@ -19,8 +19,4 @@
     <ProjectReference Include="..\CrewService.BlazorUI\CrewService.BlazorUI.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Components\" />
-  </ItemGroup>
-
 </Project>
