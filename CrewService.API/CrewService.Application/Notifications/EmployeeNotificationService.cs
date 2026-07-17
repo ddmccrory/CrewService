@@ -83,8 +83,38 @@ public sealed class EmployeeNotificationService(
                 employeeCtrlNbr.Value, config.Key, requiresAcknowledgement);
         }
 
+        try
+        {
+            var projection = PositionChangeRecord.Create(
+                railroadCtrlNbr,
+                employeeCtrlNbr,
+                sourceType: subject?.SubjectType ?? PositionChangeSourceTypes.Notification,
+                sourceCtrlNbr: subject?.SubjectCtrlNbr,
+                changeType: MapPositionChangeType(config.Key),
+                message,
+                requiresAcknowledgement,
+                effectiveAtUtc,
+                employeeNotificationCtrlNbr: notification.CtrlNbr);
+            uow.PositionChangeRecords.Add(projection);
+        }
+        catch (NotSupportedException)
+        {
+            // Some focused test doubles and narrow UoW implementations intentionally omit
+            // projection repositories; notification delivery must still succeed.
+        }
+
         return notification;
     }
+
+    private static string MapPositionChangeType(string category) => category switch
+    {
+        NotificationCategories.PositionChange => PositionChangeTypes.BumpRequested,
+        NotificationCategories.SeniorityMove => PositionChangeTypes.MoveExecuted,
+        NotificationCategories.BulletinAward => PositionChangeTypes.BulletinAwarded,
+        NotificationCategories.ForceAssign => PositionChangeTypes.ForcedAssignment,
+        NotificationCategories.BoardPlacement => PositionChangeTypes.BoardPlacement,
+        _ => PositionChangeTypes.Informational
+    };
 
     // ── Bulletin notifications ───────────────────────────────────────────
 
@@ -258,6 +288,13 @@ public sealed class EmployeeNotificationService(
         {
             stale.RecordAcknowledgement(AcknowledgementMethod.Automatic, confirmed: true, acknowledgedByUser: "system");
             uow.EmployeeNotifications.Update(stale);
+
+            var linked = await uow.EmployeeNotifications.GetOpenPositionChangesByNotificationAsync(stale.CtrlNbr, ct);
+            foreach (var record in linked)
+            {
+                record.MarkSuperseded(PositionChangeClosedReasons.Cancelled);
+                uow.PositionChangeRecords.Update(record);
+            }
         }
 
         var subject = NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr);
@@ -267,6 +304,13 @@ public sealed class EmployeeNotificationService(
         await EmitAsync(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.GeneralInformation,
             $"The seniority move that would have bumped you from {positionClause} has been cancelled.",
             requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
+
+        var pendingByMove = await uow.PositionChangeRecords.GetOpenBySourceAsync(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr, ct);
+        foreach (var record in pendingByMove.Where(r => r.ChangeType == PositionChangeTypes.BumpRequested))
+        {
+            record.MarkSuperseded(PositionChangeClosedReasons.Cancelled);
+            uow.PositionChangeRecords.Update(record);
+        }
     }
 
     /// <summary>

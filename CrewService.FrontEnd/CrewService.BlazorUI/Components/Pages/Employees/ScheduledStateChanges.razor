@@ -72,7 +72,7 @@ else
                         <th>Effective Date</th>
                         <th>Scheduled By</th>
                         <th>Scheduled At</th>
-                        <th></th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -81,12 +81,12 @@ else
                         <tr>
                             <td class="text-uppercase fw-semibold">@item.EmployeeNumber.ToUpperInvariant()</td>
                             <td>@item.EmployeeFullNameLnf</td>
-                            <td>@item.FromStateName</td>
+                            <td><span class="badge bg-secondary">@item.FromStateName</span></td>
                             <td><span class="badge bg-primary">@item.ToStateName</span></td>
                             <td>@FormatDateTime(item.EffectiveDateUtc)</td>
                             <td>@item.ScheduledByUserName</td>
                             <td>@FormatDateTime(item.ScheduledAtUtc)</td>
-                            <td>
+                            <td class="text-end">
                                 <button class="btn btn-sm btn-outline-danger"
                                         @onclick="() => ConfirmCancel(item)"
                                         title="Cancel">

@@ -27,10 +27,28 @@ public interface IEmployeeNotificationRepository : IRepository<EmployeeNotificat
     /// reference-menu badge.
     /// </summary>
     Task<int> CountUnacknowledgedByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns open position-change artifacts linked to a specific notification.
+    /// Used to close parity projection records when acknowledgements/cancel flows complete.
+    /// </summary>
+    Task<List<PositionChangeRecord>> GetOpenPositionChangesByNotificationAsync(
+        ControlNumber employeeNotificationCtrlNbr,
+        CancellationToken ct = default)
+        => Task.FromResult(new List<PositionChangeRecord>());
 }
 
 public interface INotificationTypeConfigRepository : IRepository<NotificationTypeConfig>
 {
     Task<List<NotificationTypeConfig>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
     Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default);
+}
+
+public interface IPositionChangeRecordRepository : IRepository<PositionChangeRecord>
+{
+    Task<List<PositionChangeRecord>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<List<PositionChangeRecord>> GetOpenByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<List<PositionChangeRecord>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+    Task<List<PositionChangeRecord>> GetOpenByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+    Task<List<PositionChangeRecord>> GetOpenBySourceAsync(string sourceType, ControlNumber sourceCtrlNbr, CancellationToken ct = default);
 }

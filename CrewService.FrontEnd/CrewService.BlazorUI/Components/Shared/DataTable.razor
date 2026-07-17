@@ -1,5 +1,12 @@
 @typeparam TItem
 
+<style>
+    .table:has(> thead > tr > th.dt-actions-col:last-child):not(:has(> tbody > tr > td:last-child :is(button, a, [role='button'], input[type='button'], input[type='submit']))) > thead > tr > th.dt-actions-col:last-child,
+    .table:has(> thead > tr > th.dt-actions-col:last-child):not(:has(> tbody > tr > td:last-child :is(button, a, [role='button'], input[type='button'], input[type='submit']))) > tbody > tr > td:last-child {
+        display: none;
+    }
+</style>
+
 @if (ToolbarContent is not null || HasSearch)
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -147,7 +154,7 @@ else
     }
 
     private static string? GetHeaderClass(DataTableColumn<TItem> col)
-        => string.Equals(col.Title, "Actions", StringComparison.OrdinalIgnoreCase) ? "text-center" : null;
+        => string.Equals(col.Title, "Actions", StringComparison.OrdinalIgnoreCase) ? "dt-actions-col text-center" : null;
 
     private static readonly IComparer<object?> SortComparer = Comparer<object?>.Create((a, b) =>
     {

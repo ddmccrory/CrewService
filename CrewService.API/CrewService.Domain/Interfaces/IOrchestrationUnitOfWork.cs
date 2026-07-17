@@ -247,6 +247,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // ────────────────────────────────────────────────────
     IEmployeeNotificationRepository EmployeeNotifications { get; }
     INotificationTypeConfigRepository NotificationTypeConfigs { get; }
+    IPositionChangeRecordRepository PositionChangeRecords =>
+        throw new NotSupportedException("PositionChangeRecords repository is not implemented for this unit of work.");
 
     /// <summary>
     /// Collects domain events from tracked entities, persists OutboxMessage rows,

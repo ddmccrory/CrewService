@@ -16,8 +16,7 @@ internal sealed class AuditLogQuery(CrewServiceDbContext dbContext) : IAuditLogQ
         if (filter is not null)
         {
             if (filter.ParentCtrlNbr.HasValue)
-                query = query.Where(e => e.ParentCtrlNbr == filter.ParentCtrlNbr.Value
-                                      || e.ParentCtrlNbr == null);
+                query = query.Where(e => e.ParentCtrlNbr == filter.ParentCtrlNbr.Value);
 
             if (!string.IsNullOrWhiteSpace(filter.SearchText))
             {

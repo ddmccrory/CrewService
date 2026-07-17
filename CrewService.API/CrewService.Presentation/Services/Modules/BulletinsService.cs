@@ -1,4 +1,5 @@
 using CrewService.Application.Time;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
@@ -93,7 +94,18 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
     {
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
         var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
-        var bulletins = await svc.GetActiveBulletinsAsync(railroadCtrlNbr, request.EmployeeCtrlNbr > 0, context.CancellationToken);
+        var isSelfEmployeeContext = await ShouldRecordEmployeeBulletinAccessAsync(request.EmployeeCtrlNbr, context.CancellationToken);
+        var bulletins = await svc.GetActiveBulletinsAsync(railroadCtrlNbr, isSelfEmployeeContext, context.CancellationToken);
+
+        if (isSelfEmployeeContext)
+        {
+            var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+            foreach (var b in bulletins)
+            {
+                await svc.RecordBulletinAccessAuditAsync(b.CtrlNbr, employeeCtrlNbr, context.CancellationToken);
+            }
+        }
+
         var (vacancyIndex, tzIndex) = await BuildVacancyIndexAsync(svc, bulletins, context.CancellationToken);
         var response = new GetBulletinsResponse { TotalCount = bulletins.Count };
         foreach (var b in bulletins)
@@ -122,7 +134,18 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         var fromUtc = DateTime.TryParse(request.FromUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
             ? dt
             : DateTime.UtcNow.AddDays(-7);
-        var bulletins = await svc.GetBulletinsInDateRangeAsync(fromUtc, railroadCtrlNbr, request.EmployeeCtrlNbr > 0, context.CancellationToken);
+        var isSelfEmployeeContext = await ShouldRecordEmployeeBulletinAccessAsync(request.EmployeeCtrlNbr, context.CancellationToken);
+        var bulletins = await svc.GetBulletinsInDateRangeAsync(fromUtc, railroadCtrlNbr, isSelfEmployeeContext, context.CancellationToken);
+
+        if (isSelfEmployeeContext)
+        {
+            var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+            foreach (var b in bulletins)
+            {
+                await svc.RecordBulletinAccessAuditAsync(b.CtrlNbr, employeeCtrlNbr, context.CancellationToken);
+            }
+        }
+
         var (vacancyIndex, tzIndex) = await BuildVacancyIndexAsync(svc, bulletins, context.CancellationToken);
         var response = new GetBulletinsResponse { TotalCount = bulletins.Count };
         foreach (var b in bulletins)
@@ -222,7 +245,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         var svc = serviceProvider.GetRequiredService<Application.Bulletins.BulletinsService>();
         try
         {
-            if (request.EmployeeCtrlNbr > 0)
+            if (await ShouldRecordEmployeeBulletinAccessAsync(request.EmployeeCtrlNbr, context.CancellationToken))
             {
                 await svc.RecordBulletinAccessAuditAsync(
                     ControlNumber.Create(request.CtrlNbr),
@@ -266,6 +289,22 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    private async Task<bool> ShouldRecordEmployeeBulletinAccessAsync(long employeeCtrlNbr, CancellationToken ct)
+    {
+        if (employeeCtrlNbr <= 0)
+            return false;
+
+        var currentUserService = serviceProvider.GetRequiredService<ICurrentUserService>();
+        var userId = currentUserService.GetUserId();
+        if (userId == Guid.Empty)
+            return false;
+
+        var uowFactory = serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var currentEmployee = await uow.Employees.GetByUserIdAsync(userId.ToString(), ct);
+        return currentEmployee is not null && currentEmployee.CtrlNbr.Value == employeeCtrlNbr;
     }
 
     public override async Task<BulletinResponse> AwardBulletin(AwardBulletinRequest request, ServerCallContext context)

@@ -258,6 +258,29 @@ public sealed class Bulletin : Entity
     public bool IsBiddable(DateTime utcNow) =>
         Status == "Posted" && IsBidWindowOpen(utcNow);
 
+    /// <summary>
+    /// Returns the earliest UTC instant at which this bulletin is eligible to be assigned
+    /// by automated processing. Legacy parity:
+    /// - Posted bulletins are assignable no earlier than both close and effective time.
+    /// - NoBid bulletins are assignable at their force-assign deadline.
+    /// - Other terminal/non-assignable states return null.
+    /// </summary>
+    public DateTime? GetAssignmentReadyUtc() => Status switch
+    {
+        "Posted" => BidWindowClosesUtc > EffectiveUtc ? BidWindowClosesUtc : EffectiveUtc,
+        "NoBid" => ForceAssignDeadlineUtc,
+        _ => null
+    };
+
+    /// <summary>
+    /// True when this bulletin is currently assignable by automated processing.
+    /// </summary>
+    public bool IsAssignmentReady(DateTime utcNow)
+    {
+        var readyUtc = GetAssignmentReadyUtc();
+        return readyUtc.HasValue && utcNow >= readyUtc.Value && AwardedEmployeeCtrlNbr is null;
+    }
+
     public static Bulletin Create(
         ControlNumber positionVacancyCtrlNbr,
         ControlNumber craftCtrlNbr,

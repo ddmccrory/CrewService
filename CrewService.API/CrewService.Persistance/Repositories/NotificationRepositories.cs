@@ -43,6 +43,14 @@ internal sealed class EmployeeNotificationRepository(CrewServiceDbContext dbCont
                 && n.RequiresAcknowledgement
                 && !n.Acknowledgements.Any(a => a.Confirmed))
             .CountAsync(ct);
+
+    public async Task<List<PositionChangeRecord>> GetOpenPositionChangesByNotificationAsync(
+        ControlNumber employeeNotificationCtrlNbr,
+        CancellationToken ct = default) =>
+        await DbContext.Set<PositionChangeRecord>()
+            .Where(r => r.EmployeeNotificationCtrlNbr == employeeNotificationCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToListAsync(ct);
 }
 
 internal sealed class NotificationTypeConfigRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
@@ -63,5 +71,46 @@ internal sealed class NotificationTypeConfigRepository(CrewServiceDbContext dbCo
 
         return await DbContext.Set<NotificationTypeConfig>()
             .SingleOrDefaultAsync(c => c.RailroadCtrlNbr == railroadCtrlNbr && c.Key == normalized, ct);
+    }
+}
+
+internal sealed class PositionChangeRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<PositionChangeRecord>(dbContext, currentUserService), IPositionChangeRecordRepository
+{
+    public async Task<List<PositionChangeRecord>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<PositionChangeRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<PositionChangeRecord>> GetOpenByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<PositionChangeRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<PositionChangeRecord>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<PositionChangeRecord>()
+            .Where(r => r.RailroadCtrlNbr == railroadCtrlNbr)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<PositionChangeRecord>> GetOpenByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<PositionChangeRecord>()
+            .Where(r => r.RailroadCtrlNbr == railroadCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<PositionChangeRecord>> GetOpenBySourceAsync(string sourceType, ControlNumber sourceCtrlNbr, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourceType))
+            return [];
+
+        var normalized = sourceType.Trim();
+
+        return await DbContext.Set<PositionChangeRecord>()
+            .Where(r => r.SourceType == normalized && r.SourceCtrlNbr == sourceCtrlNbr && r.IsOpen)
+            .OrderByDescending(r => r.OpenedAtUtc)
+            .ToListAsync(ct);
     }
 }
