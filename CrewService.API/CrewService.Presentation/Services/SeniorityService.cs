@@ -1,4 +1,5 @@
 using CrewService.Application.SeniorityOps;
+using CrewService.Application.Authorization;
 using CrewService.Application.Time;
 using CrewService.Domain.Exceptions;
 using CrewService.Domain.Models.UserAccess;
@@ -135,6 +136,11 @@ public class SeniorityService(
 
     public override async Task<ActiveCraftResponse> GetActiveCraftForEmployee(GetActiveCraftRequest request, ServerCallContext context)
     {
+        await EnsureEmployeeSubjectAccessAsync(
+            request.EmployeeCtrlNbr,
+            context,
+            "You do not have permission to view active craft for this employee.");
+
         var (found, craftCtrlNbr, craftName) = await seniorityAppService.GetActiveCraftForEmployeeAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
 
@@ -196,7 +202,7 @@ public class SeniorityService(
     public override async Task<DeleteResponse> CancelPendingStateChangeAsync(CancelPendingStateChangeRequest request, ServerCallContext context)
     {
         var user = context.GetHttpContext().User;
-        if (!user.IsInRole(Roles.SystemAdmin) && !user.IsInRole(Roles.ParentAdmin) && !user.IsInRole(Roles.RailroadAdmin))
+        if (!IsAdmin(user))
             throw new RpcException(new Status(StatusCode.PermissionDenied, "Only administrators can cancel scheduled state changes."));
 
         var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -224,7 +230,7 @@ public class SeniorityService(
         GetAllPendingStateChangesRequest request, ServerCallContext context)
     {
         var user = context.GetHttpContext().User;
-        if (!user.IsInRole(Roles.SystemAdmin) && !user.IsInRole(Roles.ParentAdmin) && !user.IsInRole(Roles.RailroadAdmin))
+        if (!IsAdmin(user))
             throw new RpcException(new Status(StatusCode.PermissionDenied, "Only administrators can view scheduled state changes."));
 
         var railroadCtrlNbr = ControlNumber.Create(request.RailroadCtrlNbr);
@@ -338,4 +344,25 @@ public class SeniorityService(
             CanTrain = seniority.CanTrain
         };
     }
+
+    private async Task EnsureEmployeeSubjectAccessAsync(long requestedEmployeeCtrlNbr, ServerCallContext context, string message)
+    {
+        if (requestedEmployeeCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "EmployeeCtrlNbr must be greater than zero."));
+
+        var user = context.GetHttpContext().User;
+        var allowOnBehalf = IsAdmin(user);
+
+        var actorContextResolver = serviceProvider.GetRequiredService<IRequestActorContextResolver>();
+        var actorPolicy = serviceProvider.GetRequiredService<IRequestActorContextPolicy>();
+        var actorContext = await actorContextResolver.ResolveAsync(requestedEmployeeCtrlNbr, ct: context.CancellationToken);
+
+        if (!actorPolicy.CanAccessRequestedEmployee(actorContext, allowOnBehalf))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, message));
+    }
+
+    private static bool IsAdmin(ClaimsPrincipal user)
+        => user.IsInRole(Roles.SystemAdmin)
+            || user.IsInRole(Roles.ParentAdmin)
+            || user.IsInRole(Roles.RailroadAdmin);
 }

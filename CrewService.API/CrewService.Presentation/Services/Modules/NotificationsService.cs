@@ -1,4 +1,5 @@
 using CrewService.Application.Notifications;
+using CrewService.Application.Authorization;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Application.Time;
 using CrewService.Domain.Modules.Notifications;
@@ -193,9 +194,12 @@ public class NotificationsService(IServiceProvider serviceProvider)
 
     public override async Task<GetNotificationsResponse> GetEmployeeNotifications(EmployeeNotificationsRequest request, ServerCallContext context)
     {
-        EnsureNotificationReviewAccess(context, "You do not have permission to review employee notifications.");
-
         if (request.EmployeeCtrlNbr <= 0) return new GetNotificationsResponse();
+
+        await EnsureEmployeeNotificationAccessAsync(
+            request.EmployeeCtrlNbr,
+            context,
+            "You do not have permission to review employee notifications.");
 
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var nameService = serviceProvider.GetRequiredService<EmployeeNameService>();
@@ -215,6 +219,24 @@ public class NotificationsService(IServiceProvider serviceProvider)
             resp.Notifications.Add(mapped);
         }
         return resp;
+    }
+
+    private async Task EnsureEmployeeNotificationAccessAsync(long requestedEmployeeCtrlNbr, ServerCallContext context, string message)
+    {
+        if (requestedEmployeeCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "EmployeeCtrlNbr must be greater than zero."));
+
+        var user = context.GetHttpContext().User;
+        var allowOnBehalf = NotificationReviewRoles.Any(user.IsInRole);
+
+        var actorContextResolver = serviceProvider.GetRequiredService<IRequestActorContextResolver>();
+        var actorPolicy = serviceProvider.GetRequiredService<IRequestActorContextPolicy>();
+        var actorContext = await actorContextResolver.ResolveAsync(
+            requestedEmployeeCtrlNbr,
+            ct: context.CancellationToken);
+
+        if (!actorPolicy.CanAccessRequestedEmployee(actorContext, allowOnBehalf))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, message));
     }
 
     private async Task<GetNotificationsResponse> MapListAsync(

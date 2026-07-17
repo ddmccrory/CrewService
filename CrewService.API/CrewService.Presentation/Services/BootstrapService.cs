@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CrewService.Application.Authorization;
 using CrewService.Application.Bootstrap;
 using CrewService.Domain.Constants;
 using CrewService.Domain.Models.UserAccess;
@@ -16,6 +17,8 @@ namespace CrewService.Presentation.Services;
 /// </summary>
 public sealed class BootstrapService(
     BootstrapQueryService bootstrapQueryService,
+    IRequestActorContextResolver actorContextResolver,
+    IRequestActorContextPolicy actorContextPolicy,
     IHttpContextAccessor httpContextAccessor) : BootstrapSrvc.BootstrapSrvcBase
 {
     // ── Full bootstrap ──────────────────────────────────────────────────
@@ -50,6 +53,16 @@ public sealed class BootstrapService(
             EmployeeNumber = employeeInfo.EmployeeNumber,
             Found = employeeInfo.Found
         };
+
+        response.UseEmployeeProfilePath = false;
+        if (employeeInfo.Found)
+        {
+            var actorContext = await actorContextResolver.ResolveAsync(
+                requestedEmployeeCtrlNbr: employeeInfo.CtrlNbr,
+                ct: context.CancellationToken);
+
+            response.UseEmployeeProfilePath = actorContextPolicy.ShouldUseEmployeeBehavior(actorContext);
+        }
 
         response.ActiveCraft = employeeInfo.Found
             ? await ResolveActiveCraftResponseAsync(employeeInfo.CtrlNbr, context.CancellationToken)

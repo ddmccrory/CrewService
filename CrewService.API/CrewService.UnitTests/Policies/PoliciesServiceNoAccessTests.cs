@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
 using CrewService.Application.Policies;
 using CrewService.Application.TenantConfig;
@@ -292,7 +293,9 @@ public sealed class PoliciesServiceNoAccessTests : IDisposable
             new WorkAreaClock(TimeProvider.System, _host.UowFactory),
             notifications,
             new TestCurrentUserService(),
-            execution);
+            execution,
+            new TestRequestActorContextResolver(),
+            new RequestActorContextPolicy());
     }
 
     private async Task<NoAccessScenarioSeed> SeedNoAccessScenarioAsync(

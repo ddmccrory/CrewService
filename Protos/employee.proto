@@ -192,6 +192,10 @@ message GetEmployeeByNumberRequest {
   string employee_number = 1;
 }
 
+message EmployeeActions {
+  bool can_edit_detail = 1;
+}
+
 message GetEmployeeResponse {
   int64 ctrl_nbr = 1;
   int64 client_ctrl_nbr = 2;
@@ -217,6 +221,10 @@ message GetEmployeeResponse {
   string first_name = 22;
   string middle_name = 23;
   string last_name = 24;
+  bool can_edit_employee_detail = 25;
+  EmployeeActions actions = 26;
+  string theme_name = 27;
+  string theme_mode = 28;
 }
 
 message CreateEmployeeRequest {

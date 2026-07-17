@@ -1,3 +1,17 @@
 <ThemeTemplateSelection ShowHeading="false"
                         ShowUserSettingsMenu="false"
-                        ShowBackToEmployeeDetail="false" />
+                        ShowBackToEmployeeDetail="false"
+                        ReadOnlyThemeName="ReadOnlyThemeName"
+                        ReadOnlyThemeMode="ReadOnlyThemeMode"
+                        IsReadOnly="IsReadOnly" />
+
+@code {
+    [Parameter]
+    public bool IsReadOnly { get; set; }
+
+    [Parameter]
+    public string? ReadOnlyThemeName { get; set; }
+
+    [Parameter]
+    public string? ReadOnlyThemeMode { get; set; }
+}

@@ -129,6 +129,7 @@ public static class DependencyInjection
 
         // Authorization
         services.AddScoped<Application.Authorization.AuthorizationService>();
+        services.AddScoped<IRequestActorContextPolicy, RequestActorContextPolicy>();
 
         // Notifications
         services.AddScoped<EmployeeNotificationService>();

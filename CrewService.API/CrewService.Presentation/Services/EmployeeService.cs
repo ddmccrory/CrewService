@@ -3,12 +3,15 @@ using CrewService.Presentation.Services;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.ValueObjects;
 using CrewService.Application.Employees;
+using CrewService.Application.Authorization;
 using CrewService.Application.Time;
 using CrewService.Application.Modules.UserAccount;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Authorization;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace CrewService.Presentation.Services;
 
@@ -16,12 +19,18 @@ public class EmployeeService(
     EmployeeAppService employeeAppService,
     IUserAccountService userAccountService,
     IOrchestrationUnitOfWorkFactory uowFactory,
+    IRequestActorContextResolver actorContextResolver,
+    IRequestActorContextPolicy actorContextPolicy,
     IWorkAreaClock workAreaClock,
     ILogger<EmployeeService> logger) : EmployeeSrvc.EmployeeSrvcBase
 {
+    private const string EmployeeFeatureKey = "employees";
+
     private readonly EmployeeAppService _employeeAppService = employeeAppService;
     private readonly IUserAccountService _userAccountService = userAccountService;
     private readonly IOrchestrationUnitOfWorkFactory _uowFactory = uowFactory;
+    private readonly IRequestActorContextResolver _actorContextResolver = actorContextResolver;
+    private readonly IRequestActorContextPolicy _actorContextPolicy = actorContextPolicy;
     private readonly IWorkAreaClock _workAreaClock = workAreaClock;
     private readonly ILogger<EmployeeService> _logger = logger;
     #region Employee Operations
@@ -65,6 +74,12 @@ public class EmployeeService(
 
         var resp = MapToEmployeeResponse(employee);
         await EnrichWithUserNameAsync(resp, employee.UserId);
+        var canEditEmployeeDetail = await CanEditEmployeeDetailAsync(employee.CtrlNbr.Value, context);
+        resp.CanEditEmployeeDetail = canEditEmployeeDetail;
+        resp.Actions = new EmployeeActions
+        {
+            CanEditDetail = canEditEmployeeDetail
+        };
         return resp;
     }
 
@@ -78,6 +93,12 @@ public class EmployeeService(
 
         var resp = MapToEmployeeResponse(employee);
         await EnrichWithUserNameAsync(resp, employee.UserId);
+        var canEditEmployeeDetail = await CanEditEmployeeDetailAsync(employee.CtrlNbr.Value, context);
+        resp.CanEditEmployeeDetail = canEditEmployeeDetail;
+        resp.Actions = new EmployeeActions
+        {
+            CanEditDetail = canEditEmployeeDetail
+        };
         return resp;
     }
 
@@ -130,6 +151,8 @@ public class EmployeeService(
     {
         if (request.CtrlNbr <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid employee control number."));
+
+        await EnsureCanEditEmployeeDetailAsync(request.CtrlNbr, context);
 
         Employee employee;
         try
@@ -187,6 +210,8 @@ public class EmployeeService(
 
     public override async Task<AddressResponse> AddAddressAsync(AddAddressRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         var (_, address) = await _employeeAppService.AddAddressAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             request.Address1, request.City, request.State, request.ZipCode,
@@ -210,6 +235,8 @@ public class EmployeeService(
 
     public override async Task<AddressResponse> UpdateAddressAsync(UpdateAddressRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         var (_, address) = await _employeeAppService.UpdateAddressAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.CtrlNbr),
@@ -236,6 +263,8 @@ public class EmployeeService(
 
     public override async Task<DeleteResponse> DeleteAddressAsync(DeleteAddressRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         await _employeeAppService.DeleteAddressAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.CtrlNbr),
@@ -250,6 +279,8 @@ public class EmployeeService(
 
     public override async Task<PhoneNumberResponse> AddPhoneNumberAsync(AddPhoneNumberRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         var (_, phone) = await _employeeAppService.AddPhoneNumberAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             request.Number, request.CallingOrder, request.DialOne,
@@ -269,6 +300,8 @@ public class EmployeeService(
 
     public override async Task<PhoneNumberResponse> UpdatePhoneNumberAsync(UpdatePhoneNumberRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         var (_, phone) = await _employeeAppService.UpdatePhoneNumberAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.CtrlNbr),
@@ -291,6 +324,8 @@ public class EmployeeService(
 
     public override async Task<DeleteResponse> DeletePhoneNumberAsync(DeletePhoneNumberRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         await _employeeAppService.DeletePhoneNumberAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.CtrlNbr),
@@ -305,6 +340,8 @@ public class EmployeeService(
 
     public override async Task<EmailAddressResponse> AddEmailAddressAsync(AddEmailAddressRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         var (_, email) = await _employeeAppService.AddEmailAddressAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             request.Email, request.EmailTypeCtrlNbr, context.CancellationToken);
@@ -321,6 +358,8 @@ public class EmployeeService(
 
     public override async Task<EmailAddressResponse> UpdateEmailAddressAsync(UpdateEmailAddressRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         var (_, email) = await _employeeAppService.UpdateEmailAddressAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.CtrlNbr),
@@ -339,6 +378,8 @@ public class EmployeeService(
 
     public override async Task<DeleteResponse> DeleteEmailAddressAsync(DeleteEmailAddressRequest request, ServerCallContext context)
     {
+        await EnsureCanEditEmployeeDetailAsync(request.EmployeeCtrlNbr, context);
+
         await _employeeAppService.DeleteEmailAddressAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             ControlNumber.Create(request.CtrlNbr),
@@ -355,6 +396,59 @@ public class EmployeeService(
     {
         var normalized = value.Replace(" ", string.Empty, StringComparison.Ordinal);
         return System.Enum.Parse<Race>(normalized, ignoreCase: true);
+    }
+
+    private async Task EnsureCanEditEmployeeDetailAsync(long requestedEmployeeCtrlNbr, ServerCallContext context)
+    {
+        if (requestedEmployeeCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "EmployeeCtrlNbr must be greater than zero."));
+
+        if (!await CanEditEmployeeDetailAsync(requestedEmployeeCtrlNbr, context))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "You do not have permission to edit this employee detail."));
+    }
+
+    private async Task<bool> CanEditEmployeeDetailAsync(long requestedEmployeeCtrlNbr, ServerCallContext context)
+    {
+        var actorContext = await _actorContextResolver.ResolveAsync(
+            requestedEmployeeCtrlNbr,
+            ct: context.CancellationToken);
+
+        var hasFullRoleAccess = await HasFullEmployeeDetailRoleAccessAsync(context, actorContext.ParentCtrlNbr, context.CancellationToken);
+        var allowOnBehalf = actorContext.IsLinkedEmployee && hasFullRoleAccess;
+        return _actorContextPolicy.CanAccessRequestedEmployee(actorContext, allowOnBehalf);
+    }
+
+    private async Task<bool> HasFullEmployeeDetailRoleAccessAsync(ServerCallContext context, long? parentCtrlNbr, CancellationToken ct)
+    {
+        var user = context.GetHttpContext().User;
+        if (user.Identity?.IsAuthenticated != true)
+            return false;
+
+        await using var uow = await _uowFactory.CreateAsync(cancellationToken: ct);
+        var feature = await uow.Features.GetByKeyAsync(EmployeeFeatureKey, ct);
+        if (feature is null)
+            return false;
+
+        var parent = parentCtrlNbr.HasValue ? ControlNumber.Create(parentCtrlNbr.Value) : null;
+        var roleNames = user.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var roleName in roleNames)
+        {
+            var role = await uow.Roles.GetByNameAsync(roleName, ct);
+            if (role is null)
+                continue;
+
+            var permissions = await uow.Permissions.GetEffectivePermissionsAsync(role.CtrlNbr, parent, craftCtrlNbr: null, ct);
+            var hasFullAccess = permissions.Any(p => p.FeatureCtrlNbr == feature.CtrlNbr && p.AccessLevel == AccessLevel.FullAccess);
+            if (hasFullAccess)
+                return true;
+        }
+
+        return false;
     }
 
     private static string FormatRace(Race race) => race switch
@@ -446,6 +540,8 @@ public class EmployeeService(
                 response.FirstName = user.FirstName ?? string.Empty;
                 response.MiddleName = user.MiddleName ?? string.Empty;
                 response.LastName = user.LastName ?? string.Empty;
+                response.ThemeName = user.ThemeName ?? string.Empty;
+                response.ThemeMode = user.ThemeMode ?? string.Empty;
             }
         }
     }

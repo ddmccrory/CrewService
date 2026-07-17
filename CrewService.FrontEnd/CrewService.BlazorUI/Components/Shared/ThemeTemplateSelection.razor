@@ -36,6 +36,7 @@
                       TextSelector="v => v"
                       @bind-Value="SelectedThemeName"
                       Placeholder="Select a Theme"
+                      disabled="@IsReadOnly"
                       class="form-select" />
     </div>
     <div style="min-width: 180px;">
@@ -45,14 +46,14 @@
                       TextSelector="v => v"
                       @bind-Value="SelectedMode"
                       Placeholder="Select a Mode"
+                      disabled="@IsReadOnly"
                       class="form-select" />
     </div>
-    @if (hasThemeChanges)
+    @if (!IsReadOnly && hasThemeChanges)
     {
         <button type="button" class="btn btn-primary" @onclick="OnSaveAsync" disabled="@(isSaving || IsInitializing)">Save</button>
         <button type="button" class="btn btn-secondary" @onclick="OnCancel" disabled="@(isSaving || IsInitializing)">Cancel</button>
     }
-</div>
 <SuccessAlert @bind-Message="successMessage" />
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -1398,6 +1399,7 @@
         </div>
       </div>
 </div>
+</div>
 
 
 @code {
@@ -1422,6 +1424,15 @@
     [Parameter]
     public bool ShowBackToEmployeeDetail { get; set; }
 
+    [Parameter]
+    public bool IsReadOnly { get; set; }
+
+    [Parameter]
+    public string? ReadOnlyThemeName { get; set; }
+
+    [Parameter]
+    public string? ReadOnlyThemeMode { get; set; }
+
     private string ThemeName = "Spacelab";
     private string ThemeDescription = "Silvery and sleek";
     private string selectedThemeName = "Spacelab";
@@ -1442,6 +1453,22 @@
 
     protected override Task OnInitializedAsync()
     {
+        if (IsReadOnly)
+        {
+            var readOnlyThemeName = NormalizeThemeName(ReadOnlyThemeName);
+            var readOnlyMode = NormalizeThemeMode(ReadOnlyThemeMode);
+
+            selectedThemeName = readOnlyThemeName;
+            selectedMode = readOnlyMode;
+            initialThemeName = readOnlyThemeName;
+            initialMode = readOnlyMode;
+            hasThemeChanges = false;
+
+            ThemeName = $"{readOnlyThemeName} ({readOnlyMode})";
+            ThemeDescription = ResolveThemeDescription(readOnlyThemeName);
+            return base.OnInitializedAsync();
+        }
+
         if (!string.IsNullOrWhiteSpace(SelectedThemeQuery))
         {
             AppThemeService.SetTheme(SelectedThemeQuery);
@@ -1491,6 +1518,9 @@
 
     private void SelectTheme(string theme)
     {
+        if (IsReadOnly)
+            return;
+
         selectedThemeName = theme;
         AppThemeService.SetTheme(theme);
         UpdateThemePreview();
@@ -1500,6 +1530,9 @@
 
     private void SelectMode(string mode)
     {
+        if (IsReadOnly)
+            return;
+
         selectedMode = mode;
         AppThemeService.SetMode(mode);
         UpdateThemePreview();
@@ -1509,6 +1542,9 @@
 
     private async Task OnSaveAsync()
     {
+        if (IsReadOnly)
+            return;
+
         successMessage = null;
         errorMessage = null;
         isSaving = true;
@@ -1544,6 +1580,9 @@
 
     private void OnCancel()
     {
+        if (IsReadOnly)
+            return;
+
         if (!string.IsNullOrEmpty(AppThemeService.PreviousTheme))
         {
             AppThemeService.SetTheme(AppThemeService.PreviousTheme);
@@ -1565,6 +1604,42 @@
     private bool HasChanges() =>
         !string.Equals(selectedThemeName, initialThemeName, StringComparison.Ordinal) ||
         !string.Equals(selectedMode, initialMode, StringComparison.Ordinal);
+
+    private static string NormalizeThemeName(string? themeName)
+        => string.IsNullOrWhiteSpace(themeName) ? "Spacelab" : themeName;
+
+    private static string NormalizeThemeMode(string? mode)
+        => string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase) ? "Dark" : "Light";
+
+    private static string ResolveThemeDescription(string themeName) => themeName switch
+    {
+        "Cerulean" => "A calm blue sky",
+        "Cosmo" => "An ode to Metro",
+        "Cyborg" => "Jet black and electric blue",
+        "Darkly" => "Flatly in night mode",
+        "Flatly" => "Flat and modern",
+        "Journal" => "Crisp like a new sheet of paper",
+        "Litera" => "The medium is the message",
+        "Lumen" => "Light and shadow",
+        "Lux" => "A touch of class",
+        "Materia" => "Material is the metaphor",
+        "Minty" => "A fresh feel",
+        "Morph" => "A neumorphic layer",
+        "Pulse" => "A trace of purple",
+        "Quartz" => "A glassmorphic layer",
+        "Sandstone" => "A touch of warmth",
+        "Simplex" => "Mini and minimalist",
+        "Sketchy" => "A hand-drawn look for mockups and mirth",
+        "Slate" => "Shades of gunmetal gray",
+        "Solar" => "A spin on Solarized",
+        "Spacelab" => "Silvery and sleek",
+        "Superhero" => "The brave and the blue",
+        "United" => "Ubuntu orange and unique font",
+        "Vapor" => "A cyberpunk aesthetic",
+        "Yeti" => "A friendly foundation",
+        "Zephyr" => "Breezy and beautiful",
+        _ => "Silvery and sleek"
+    };
 
     private void UpdateThemePreview()
     {

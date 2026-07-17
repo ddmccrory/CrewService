@@ -1,4 +1,5 @@
 using CrewService.Application.Modules.UserAccount;
+using CrewService.Application.Authorization;
 using CrewService.Application.Staffing;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
@@ -19,6 +20,8 @@ public sealed class EmployeeAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IUserAccountService userAccountService,
     ICurrentUserService currentUserService,
+    IRequestActorContextResolver actorContextResolver,
+    IRequestActorContextPolicy actorContextPolicy,
     IWorkAreaClock workAreaClock,
     IEmployeeOnDutyQueryService onDutyQueryService)
 {
@@ -402,9 +405,13 @@ public sealed class EmployeeAppService(
         var policyCache = new Dictionary<ControlNumber, SeniorityMovePolicy?>();
         var targetNameCache = new Dictionary<ControlNumber, string>();
         var moveItems = new List<WorkProfileSeniorityMoveItem>();
-        var isAdmin = currentUserService.IsInRole(Roles.SystemAdmin)
-            || currentUserService.IsInRole(Roles.ParentAdmin)
-            || currentUserService.IsInRole(Roles.RailroadAdmin);
+        var actorContext = await actorContextResolver.ResolveAsync(
+            requestedEmployeeCtrlNbr: employeeCtrlNbr.Value,
+            parentCtrlNbr: parentCtrlNbr?.Value,
+            railroadCtrlNbr: railroadCtrlNbr?.Value,
+            ct: ct);
+        var canCancelHangoutAsManager = actorContext.IsActingOnBehalfOfEmployee
+            && actorContextPolicy.CanAccessRequestedEmployee(actorContext, allowOnBehalf: IsAdminRole());
         foreach (var m in moves)
         {
             if (!policyCache.TryGetValue(m.CraftCtrlNbr, out var policy))
@@ -431,7 +438,7 @@ public sealed class EmployeeAppService(
                 m.Status,
                 m.RejectionReason,
                 m.CancellationReason,
-                CanCancelMove(m, policy, isAdmin),
+                CanCancelMove(m, policy, canCancelHangoutAsManager),
                 targetName));
         }
 
@@ -684,9 +691,14 @@ public sealed class EmployeeAppService(
     /// completed/cancelled moves can never be cancelled; an Approved move with an effective
     /// time cannot be cancelled once inside the policy's cancel window.
     /// </summary>
-    private static bool CanCancelMove(SeniorityMove move, SeniorityMovePolicy? policy, bool isAdmin)
+    private bool IsAdminRole()
+        => currentUserService.IsInRole(Roles.SystemAdmin)
+            || currentUserService.IsInRole(Roles.ParentAdmin)
+            || currentUserService.IsInRole(Roles.RailroadAdmin);
+
+    private static bool CanCancelMove(SeniorityMove move, SeniorityMovePolicy? policy, bool canCancelHangoutAsManager)
     {
-        if (move.MoveType == SeniorityMoveType.Hangout && !isAdmin)
+        if (move.MoveType == SeniorityMoveType.Hangout && !canCancelHangoutAsManager)
             return false;
 
         if (move.Status == SeniorityMoveStatus.Completed || move.Status == SeniorityMoveStatus.Cancelled
@@ -703,4 +715,5 @@ public sealed class EmployeeAppService(
 
         return true;
     }
+
 }

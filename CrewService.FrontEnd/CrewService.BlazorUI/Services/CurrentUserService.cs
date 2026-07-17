@@ -34,6 +34,12 @@ public class CurrentUserService
     public ClaimsPrincipal? User { get; private set; }
 
     /// <summary>
+    /// Backend-authoritative profile navigation signal.
+    /// When true, profile navigation should use the employee detail route.
+    /// </summary>
+    public bool UseEmployeeProfilePath { get; private set; }
+
+    /// <summary>
     /// Resolves the current user's identity and employee record from claims.
     /// Idempotent — subsequent calls within the same circuit are no-ops.
     /// </summary>
@@ -63,6 +69,13 @@ public class CurrentUserService
     /// to the Employee service.
     /// </summary>
     public void SeedFromBootstrap(ClaimsPrincipal user, GetEmployeeResponse? employee)
+        => SeedFromBootstrap(user, employee, useEmployeeProfilePath: false);
+
+    /// <summary>
+    /// Seeds this service from bootstrap data, including backend-authoritative
+    /// profile path routing behavior.
+    /// </summary>
+    public void SeedFromBootstrap(ClaimsPrincipal user, GetEmployeeResponse? employee, bool useEmployeeProfilePath)
     {
         User ??= user;
 
@@ -85,6 +98,8 @@ public class CurrentUserService
         {
             IsEmployee = user.IsInRole(Roles.Employee) || !string.IsNullOrWhiteSpace(EmployeeNumber);
         }
+
+        UseEmployeeProfilePath = useEmployeeProfilePath;
 
         _initialized = true;
     }

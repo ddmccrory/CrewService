@@ -1,6 +1,7 @@
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Bulletins;
 using CrewService.Application.DailyOperations;
+using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
 using CrewService.Application.Policies;
 using CrewService.Application.SeniorityOps;
@@ -131,7 +132,9 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
             new WorkAreaClock(TimeProvider.System, _host.UowFactory),
             notifications,
             new TestCurrentUserService(),
-            execution);
+            execution,
+            new TestRequestActorContextResolver(),
+            new RequestActorContextPolicy());
     }
 
     private async Task<SeededScenario> SeedScenarioAsync()

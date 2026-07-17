@@ -1,4 +1,5 @@
 using CrewService.Application.Employees;
+using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
@@ -174,7 +175,33 @@ public sealed class NotificationsServiceTests
         if (queryService is not null)
             services.AddSingleton(queryService);
         services.AddSingleton<IWorkAreaClock, StubWorkAreaClock>();
+        services.AddSingleton<IRequestActorContextResolver, StubRequestActorContextResolver>();
+        services.AddSingleton<IRequestActorContextPolicy, RequestActorContextPolicy>();
         return services.BuildServiceProvider();
+    }
+
+    private sealed class StubRequestActorContextResolver : IRequestActorContextResolver
+    {
+        public Task<RequestActorContext> ResolveAsync(
+            long? requestedEmployeeCtrlNbr = null,
+            long? parentCtrlNbr = null,
+            long? railroadCtrlNbr = null,
+            long? workAreaCtrlNbr = null,
+            CancellationToken ct = default)
+        {
+            var context = new RequestActorContext(
+                CurrentUserId: "test-user",
+                CurrentEmployeeCtrlNbr: null,
+                RequestedEmployeeCtrlNbr: requestedEmployeeCtrlNbr,
+                IsLinkedEmployee: false,
+                IsSelfEmployeeContext: false,
+                IsActingOnBehalfOfEmployee: requestedEmployeeCtrlNbr.HasValue,
+                ParentCtrlNbr: parentCtrlNbr,
+                RailroadCtrlNbr: railroadCtrlNbr,
+                WorkAreaCtrlNbr: workAreaCtrlNbr);
+
+            return Task.FromResult(context);
+        }
     }
 
     private sealed class StubWorkAreaClock : IWorkAreaClock
