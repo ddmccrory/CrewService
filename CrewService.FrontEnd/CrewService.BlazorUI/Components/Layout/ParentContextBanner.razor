@@ -1,0 +1,10 @@
+@using Microsoft.AspNetCore.Authorization
+@inherits AppComponentBase
+
+@if (!IsInitializing && !HasParent)
+{
+    <div class="alert alert-warning mt-3 mb-3">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent in the context switcher to continue.
+    </div>
+}

@@ -31,6 +31,7 @@ internal sealed class DesignTimeCrewServiceDbContextFactory
     {
         public Guid GetUserId() => Guid.Empty;
         public string GetUserName() => "design-time";
+        public string? GetUserIdentifier() => null;
         public bool IsInRole(string roleName) => false;
         public long? GetParentCtrlNbr() => null;
         public void SetAuditOverride(string name) { }

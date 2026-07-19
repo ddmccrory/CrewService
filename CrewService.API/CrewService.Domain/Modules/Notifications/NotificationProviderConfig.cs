@@ -61,12 +61,12 @@ public sealed class NotificationTypeConfig : Entity
         bool sendText = false,
         bool sendExternalApi = false)
     {
-        if (string.IsNullOrWhiteSpace(key))
-            throw new ArgumentException("Notification type key is required.", nameof(key));
-        if (string.IsNullOrWhiteSpace(displayName))
-            throw new ArgumentException("Display name is required.", nameof(displayName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
-        var isBoardPlacement = string.Equals(key?.Trim(), NotificationCategories.BoardPlacement, StringComparison.Ordinal);
+        var normalizedKey = key.Trim();
+        var normalizedDisplayName = displayName.Trim();
+        var isBoardPlacement = string.Equals(normalizedKey, NotificationCategories.BoardPlacement, StringComparison.Ordinal);
         var normalizedRequiresAcknowledgementDefault = isEnabled && !isBoardPlacement && requiresAcknowledgementDefault;
         var normalizedSendInApp = isEnabled && sendInApp;
         var normalizedSendEmail = isEnabled && sendEmail;
@@ -79,8 +79,8 @@ public sealed class NotificationTypeConfig : Entity
         return new NotificationTypeConfig
         {
             RailroadCtrlNbr = railroadCtrlNbr,
-            Key = key.Trim(),
-            DisplayName = displayName.Trim(),
+            Key = normalizedKey,
+            DisplayName = normalizedDisplayName,
             IsEnabled = isEnabled,
             RequiresAcknowledgementDefault = normalizedRequiresAcknowledgementDefault,
             Audience = audience,

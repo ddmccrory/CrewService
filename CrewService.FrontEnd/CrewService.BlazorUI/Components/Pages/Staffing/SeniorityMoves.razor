@@ -173,12 +173,14 @@ else
     </div>
 
     <DataTable TItem="SeniorityMoveResponse"
+               @key="showHistory"
                Items="moves"
                Columns="Columns"
                SearchFilter="@((m, term) => DisplayEmployee(m).Contains(term, StringComparison.OrdinalIgnoreCase) || DisplayPosition(m).Contains(term, StringComparison.OrdinalIgnoreCase) || m.MoveType.Contains(term, StringComparison.OrdinalIgnoreCase) || FormatResult(m.Status).Contains(term, StringComparison.OrdinalIgnoreCase))"
                SearchPlaceholder="Search moves..."
                EmptyMessage="@MovesEmptyMessage"
-               DefaultSortColumn="Effective">
+               DefaultSortColumn="Effective"
+               DefaultSortAscending="@(!showHistory)">
         <ToolbarContent>
             @if (!Permissions.IsReadOnly(FeatureKey!))
             {
@@ -195,7 +197,7 @@ else
             <td>@DisplayPosition(move)</td>
             <td>@FormatMoveType(move.MoveType)</td>
             <td>@FormatDisplayLocal(move.RequestedLocal)</td>
-            <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
+            <td>@FormatDisplayLocal(GetDisplayedTimelineLocal(move))</td>
             <td>@FormatResult(move.Status)</td>
             @if (ShowActionsColumn)
             {
@@ -291,7 +293,7 @@ else
                 new("Target Position", DisplayPosition),
                 new("Move Type",       m => FormatMoveType(m.MoveType), width: "140px"),
                 new("Requested",       m => SortableInstant(m.RequestedLocal), sortKey: "Requested", width: "170px"),
-                new("Effective",       m => SortableInstant(m.EffectiveLocal), sortKey: "Effective", width: "170px"),
+                new(showHistory ? "Closed/Cancelled" : "Effective", m => GetPrimarySortInstant(m), sortKey: "Effective", width: "170px"),
                 new("Status",          m => FormatResult(m.Status), width: "130px")
             };
 
@@ -851,13 +853,15 @@ else
     // ── display helpers ────────────────────────────────────────────────
     private string MovesEmptyMessage => showHistory ? "No seniority move history found." : "No active seniority moves.";
 
-    // Employee/position names are resolved server-side; fall back to the
-    // control number when the server could not resolve a display name.
+    // Employee/position names are resolved server-side.
     private static string DisplayEmployee(SeniorityMoveResponse move) =>
-        string.IsNullOrWhiteSpace(move.EmployeeName) ? move.EmployeeCtrlNbr.ToString() : move.EmployeeName;
+        move.EmployeeName;
 
     private static string DisplayPosition(SeniorityMoveResponse move) =>
-        string.IsNullOrWhiteSpace(move.TargetPositionName) ? move.TargetPositionCtrlNbr.ToString() : move.TargetPositionName;
+        move.TargetPositionName;
+
+    private string GetDisplayedTimelineLocal(SeniorityMoveResponse move)
+        => showHistory ? move.ClosedLocal : move.EffectiveLocal;
 
     private static string FormatMoveType(string moveType) => moveType switch
     {
@@ -881,13 +885,20 @@ else
 
     private bool IsOnOrAfterHistoryFrom(SeniorityMoveResponse move)
     {
-        if (DateTime.TryParse(move.RequestedLocal, out var requestedLocal))
-            return requestedLocal.Date >= historyFrom.Date;
+        var historyInstant = GetHistorySortInstant(move);
+        return historyInstant == DateTimeOffset.MinValue || historyInstant.Date >= historyFrom.Date;
+    }
 
-        if (DateTime.TryParse(move.EffectiveLocal, out var effectiveLocal))
-            return effectiveLocal.Date >= historyFrom.Date;
+    private DateTimeOffset GetPrimarySortInstant(SeniorityMoveResponse move)
+        => showHistory ? GetHistorySortInstant(move) : SortableInstant(move.EffectiveLocal);
 
-        return true;
+    private static DateTimeOffset GetHistorySortInstant(SeniorityMoveResponse move)
+    {
+        var closeLikeIso = !string.IsNullOrWhiteSpace(move.ClosedLocal)
+            ? move.ClosedLocal
+            : move.RequestedLocal;
+
+        return SortableInstant(closeLikeIso);
     }
 
     // Parses an offset-carrying ISO instant for chronological column sorting;

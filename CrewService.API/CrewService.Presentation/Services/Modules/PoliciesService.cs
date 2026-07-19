@@ -623,6 +623,8 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             mapped.RequestedLocal = clock.FormatLocalIso(item.Move.RequestedUtc, tz);
             if (item.Move.EffectiveUtc.HasValue)
                 mapped.EffectiveLocal = clock.FormatLocalIso(item.Move.EffectiveUtc.Value, tz);
+            if (item.Move.Status is "Completed" or "Cancelled" or "Rejected")
+                mapped.ClosedLocal = clock.FormatLocalIso(item.Move.ModifiedBy?.AuditDateTime ?? item.Move.RequestedUtc, tz);
             if (employeeNames.TryGetValue(item.Move.EmployeeCtrlNbr, out var info))
             {
                 var number = string.IsNullOrWhiteSpace(info.EmployeeNumber)

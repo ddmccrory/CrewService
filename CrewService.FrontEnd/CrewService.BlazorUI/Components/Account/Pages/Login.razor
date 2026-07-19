@@ -79,9 +79,9 @@
 
         if (registeredUser.Success)
         {
+            string? userId = null;
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, Input!.Email),
                 new Claim(ClaimTypes.Name, registeredUser.FullName),
                 new Claim(ClaimTypes.Email, Input!.Email),
                 new Claim("AccessToken", registeredUser.Token),
@@ -100,6 +100,12 @@
                 }
                 var payloadJson = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payload));
                 using var doc = JsonDocument.Parse(payloadJson);
+
+                if (doc.RootElement.TryGetProperty("sub", out var subElement)
+                    && subElement.ValueKind == JsonValueKind.String)
+                {
+                    userId = subElement.GetString();
+                }
 
                 if (doc.RootElement.TryGetProperty("role", out var roleElement))
                 {
@@ -140,6 +146,14 @@
                     }
                 }
             }
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                errorMessage = "Error: Invalid login token payload.";
+                return;
+            }
+
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, userId));
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 

@@ -125,6 +125,75 @@ public sealed class BulletinForceAssignSelectionTests
         Assert.Equal(EmpMidQualified, candidate);
     }
 
+    [Fact]
+    public async Task GetForceAssignCandidate_EnforcesNonBlockingRequiredQualification()
+    {
+        var leadRole       = CraftRole.Create(CraftCtrlNbr, "LEAD", "Lead", hierarchyLevel: 1);
+        var apprenticeRole = CraftRole.Create(CraftCtrlNbr, "APPR", "Apprentice", hierarchyLevel: 0);
+
+        var leadQual = QualificationType.Create(
+            ControlNumber.Create(710),
+            "LEADNB",
+            "Lead Non-Blocking Qualification",
+            isBlocking: false);
+        leadRole.AddRequiredQualification(leadQual.CtrlNbr);
+
+        var crew         = Crew.Create("REGULAR", WorkAreaCtrlNbr, "Crew B");
+        var leadStaffPos = ControlNumber.Create(910);
+        var apprStaffPos = ControlNumber.Create(911);
+        var leadPosition = CrewPosition.Create(crew.CtrlNbr, leadRole.CtrlNbr, 1, leadStaffPos);
+        var apprPosition = CrewPosition.Create(crew.CtrlNbr, apprenticeRole.CtrlNbr, 2, apprStaffPos);
+
+        var incumbency = CrewIncumbency.Create(apprPosition.CtrlNbr, EmpJuniorUnqualified, DateTime.UtcNow.AddDays(-5));
+
+        var board = RosterBoard.Create(CraftCtrlNbr, RosterCtrlNbr, "Extra Board", BoardType.ExtraBoard);
+        board.AddPosition(EmpSeniorQualified, 1, ControlNumber.Create(960));
+
+        var seniorities = new[]
+        {
+            MakeSeniority(EmpJuniorUnqualified, DateTime.UtcNow.AddDays(-10)),
+            MakeSeniority(EmpSeniorQualified, DateTime.UtcNow.AddDays(-1000)),
+        };
+
+        var employeeQualifications = new[]
+        {
+            EmployeeQualification.Create(EmpSeniorQualified, leadQual.CtrlNbr, "test", achievedAtUtc: DateTime.UtcNow.AddDays(-200)),
+        };
+
+        var vacancy = PositionVacancy.Create(WorkAreaCtrlNbr, StaffablePositionType.Crew, leadStaffPos, CraftCtrlNbr, "VACANCY");
+        var bulletin = Bulletin.Create(vacancy.CtrlNbr, CraftCtrlNbr, DateTime.UtcNow.AddDays(-2), DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        var rule = BulletinRule.Create(
+            CraftCtrlNbr,
+            48,
+            new TimeSpan(8, 0, 0),
+            new TimeSpan(17, 0, 0),
+            5,
+            new TimeSpan(8, 0, 0),
+            8,
+            ForceAssignSelectionMode.JuniorHelperOrExtraBoard);
+
+        var uow = new ForceAssignFakeUow(
+            bulletin: bulletin,
+            rule: rule,
+            vacancy: vacancy,
+            craftRoles: [leadRole, apprenticeRole],
+            crewPositionsByStaffPos: new() { [leadStaffPos] = leadPosition },
+            crewPositionsByCrew: new() { [crew.CtrlNbr] = [leadPosition, apprPosition] },
+            crewsByWorkArea: new() { [WorkAreaCtrlNbr] = [crew] },
+            incumbenciesByPosition: new() { [apprPosition.CtrlNbr] = incumbency },
+            boardsByCraft: [board],
+            seniorities: seniorities,
+            craftRoleQualifications: leadRole.RequiredQualifications.ToList(),
+            qualificationTypes: [leadQual],
+            employeeQualifications: employeeQualifications);
+
+        var sut = BuildBulletins(uow);
+
+        var candidate = await sut.GetForceAssignCandidateAsync(bulletin.CtrlNbr, TestContext.Current.CancellationToken);
+
+        Assert.Equal(EmpSeniorQualified, candidate);
+    }
+
     private static Seniority MakeSeniority(ControlNumber employeeCtrlNbr, DateTime rosterDate) =>
         Seniority.Create(
             RosterCtrlNbr, employeeCtrlNbr, lastActiveRoster: true,

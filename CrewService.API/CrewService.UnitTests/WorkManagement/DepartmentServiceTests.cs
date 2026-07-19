@@ -140,7 +140,7 @@ public sealed class DepartmentServiceTests : IDisposable
             _currentUser,
             NullLoggerFactory.Instance);
 
-        return new DepartmentService(factory);
+        return new DepartmentService(factory, _currentUser);
     }
 
     private async Task<(ControlNumber ParentCtrlNbr, ControlNumber RailroadCtrlNbr)> SeedParentAndRailroadAsync(CancellationToken ct)

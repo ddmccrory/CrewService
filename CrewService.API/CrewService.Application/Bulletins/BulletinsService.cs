@@ -62,6 +62,10 @@ public sealed class BulletinsService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var bulletins = await uow.Bulletins.GetInDateRangeAsync(fromUtc, railroadCtrlNbr);
+
+        // History is closed items only. Open bulletin states must not appear in history views.
+        bulletins = [.. bulletins.Where(IsClosedHistoryBulletin)];
+
         // Employees must not see bulletins whose bid window has not opened yet (legacy parity).
         // Past/closed bulletins remain visible in history; only not-yet-open ones are hidden.
         if (employeeScoped)
@@ -71,6 +75,9 @@ public sealed class BulletinsService(
         }
         return bulletins;
     }
+
+    private static bool IsClosedHistoryBulletin(Bulletin bulletin)
+        => bulletin.Status is "Awarded" or "Forced" or "Cancelled" or "Completed" or "Closed";
 
         public async Task<IReadOnlyList<Bulletin>> GetActiveBulletinsAsync(ControlNumber? railroadCtrlNbr = null, bool employeeScoped = false, CancellationToken ct = default)
     {
@@ -746,6 +753,7 @@ public sealed class BulletinsService(
                 uow,
                 empCtrlNbr,
                 targetRole.CtrlNbr,
+                enforceAllRequiredQualifications: true,
                 ct: ct);
             if (result.IsEligible)
                 qualified.Add(empCtrlNbr);

@@ -75,6 +75,18 @@ public sealed class SeniorityMoveExecutionService(
             }
         }
 
+        var targetStaffablePositionCtrlNbr = move.TargetPositionCtrlNbr;
+        var targetAssignmentType = "SeniorityMove";
+        ControlNumber? targetAssignmentSourceCtrlNbr = move.CtrlNbr;
+
+        if (move.MoveType == SeniorityMoveType.Hangout)
+        {
+            var hangoutTarget = await ResolveHangoutTargetForExecutionAsync(uow, move, ct);
+            targetStaffablePositionCtrlNbr = hangoutTarget.TargetStaffablePositionCtrlNbr;
+            targetAssignmentType = PositionAssignmentType.Board;
+            targetAssignmentSourceCtrlNbr = hangoutTarget.TargetBoardPositionCtrlNbr;
+        }
+
         // 1. Complete the move domain state
         move.Complete();
         await uow.SeniorityMoves.UpdateAsync(move, ct);
@@ -101,35 +113,35 @@ public sealed class SeniorityMoveExecutionService(
         // 3. Assign the mover to the target position
         //    Vacate whoever is currently on the target first (the displaced employee)
         var targetCurrentAssignment = await uow.PositionAssignments
-            .GetByStaffablePositionAsync(move.TargetPositionCtrlNbr);
+            .GetByStaffablePositionAsync(targetStaffablePositionCtrlNbr);
 
         ControlNumber? displacedEmployeeCtrlNbr = move.DisplacedEmployeeCtrlNbr;
 
         if (targetCurrentAssignment is not null)
         {
-            var targetStaffablePositionCtrlNbr = targetCurrentAssignment.StaffablePositionCtrlNbr;
+            var vacatedTargetStaffablePositionCtrlNbr = targetCurrentAssignment.StaffablePositionCtrlNbr;
             // Prefer the live assignment over the recorded displaced field (same-day bumps, etc.)
             displacedEmployeeCtrlNbr ??= targetCurrentAssignment.EmployeeCtrlNbr;
             targetCurrentAssignment.Vacate();
             await uow.PositionAssignments.DeleteAsync(targetCurrentAssignment.CtrlNbr, ct);
             await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
                 uow,
-                targetStaffablePositionCtrlNbr,
+                vacatedTargetStaffablePositionCtrlNbr,
                 incumbentEmployeeCtrlNbr: null,
                 ct);
             if (logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("SeniorityMoveExecution: Vacated displaced employee {Displaced} from target position {Position}.",
-                    displacedEmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+                    displacedEmployeeCtrlNbr, targetStaffablePositionCtrlNbr);
             }
         }
 
         await _incumbentAssignmentPath.AssignAsync(
             uow,
-            move.TargetPositionCtrlNbr,
+            targetStaffablePositionCtrlNbr,
             move.EmployeeCtrlNbr,
-            "SeniorityMove",
-            assignmentSourceCtrlNbr: moveCtrlNbr,
+            targetAssignmentType,
+            assignmentSourceCtrlNbr: targetAssignmentSourceCtrlNbr,
             assignedDateUtc: null,
             cancellationReason: move.MoveType == SeniorityMoveType.NoAccess
                 ? SupersededByNoAccessReason
@@ -139,14 +151,14 @@ public sealed class SeniorityMoveExecutionService(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("SeniorityMoveExecution: Assigned employee {Employee} to position {Position}.",
-                move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+                move.EmployeeCtrlNbr, targetStaffablePositionCtrlNbr);
         }
 
         // 3b. No Access additionally co-assigns any open bulletin on the claimed position.
 
         if (move.MoveType == SeniorityMoveType.NoAccess)
         {
-            await CoAssignOpenBulletinAsync(uow, move.TargetPositionCtrlNbr, move.EmployeeCtrlNbr, ct);
+            await CoAssignOpenBulletinAsync(uow, targetStaffablePositionCtrlNbr, move.EmployeeCtrlNbr, ct);
         }
 
         // 4. Place the displaced employee on the craft Hangout board (if any)
@@ -167,7 +179,10 @@ public sealed class SeniorityMoveExecutionService(
         }
 
         // 5. Cancel other pending/approved moves targeting the same position
-        await CancelCompetingMovesAsync(uow, move.TargetPositionCtrlNbr, move.EmployeeCtrlNbr, moveCtrlNbr, ct);
+        if (move.MoveType != SeniorityMoveType.Hangout)
+        {
+            await CancelCompetingMovesAsync(uow, targetStaffablePositionCtrlNbr, move.EmployeeCtrlNbr, moveCtrlNbr, ct);
+        }
 
         // 6. Notify the mover that their move executed (position-affecting; requires acknowledgement).
         await notifications.NotifySeniorityMoveExecutedAsync(uow, move, ct);
@@ -178,8 +193,66 @@ public sealed class SeniorityMoveExecutionService(
         {
             logger.LogInformation(
                 "SeniorityMoveExecution: Move {MoveCtrlNbr} completed — employee {Employee} → position {Position}.",
-                moveCtrlNbr, move.EmployeeCtrlNbr, move.TargetPositionCtrlNbr);
+                moveCtrlNbr, move.EmployeeCtrlNbr, targetStaffablePositionCtrlNbr);
         }
+    }
+
+    private async Task<(ControlNumber TargetStaffablePositionCtrlNbr, ControlNumber TargetBoardPositionCtrlNbr)> ResolveHangoutTargetForExecutionAsync(
+        IOrchestrationUnitOfWork uow,
+        SeniorityMove move,
+        CancellationToken ct)
+    {
+        var targetBoardByCtrlNbr = await uow.RosterBoards.GetByCtrlNbrAsync(move.TargetPositionCtrlNbr, ct);
+        if (targetBoardByCtrlNbr is not null)
+        {
+            var existingPosition = targetBoardByCtrlNbr.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == move.EmployeeCtrlNbr);
+            if (existingPosition is not null)
+            {
+                return (existingPosition.StaffablePositionCtrlNbr, existingPosition.CtrlNbr);
+            }
+
+            var targetPosition = StaffablePosition.Create(StaffablePositionType.Board);
+            await uow.StaffablePositions.AddAsync(targetPosition, ct);
+
+            var nextOrder = targetBoardByCtrlNbr.Positions.Count > 0
+                ? targetBoardByCtrlNbr.Positions.Max(p => p.PositionOrder) + 1
+                : 1;
+
+            var boardPosition = targetBoardByCtrlNbr.AddPosition(
+                move.EmployeeCtrlNbr,
+                nextOrder,
+                targetPosition.CtrlNbr);
+
+            await uow.RosterBoards.UpdateAsync(targetBoardByCtrlNbr, ct);
+            return (targetPosition.CtrlNbr, boardPosition.CtrlNbr);
+        }
+
+        var targetBoardByStaffablePosition = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(move.TargetPositionCtrlNbr, ct);
+        if (targetBoardByStaffablePosition is null)
+        {
+            throw new InvalidOperationException(
+                $"Hangout move {move.CtrlNbr.Value} target {move.TargetPositionCtrlNbr.Value} could not be resolved to a roster board or board position.");
+        }
+
+        var boardPositionForTarget = targetBoardByStaffablePosition.Positions
+            .FirstOrDefault(p => p.StaffablePositionCtrlNbr == move.TargetPositionCtrlNbr);
+
+        if (boardPositionForTarget is not null)
+        {
+            return (move.TargetPositionCtrlNbr, boardPositionForTarget.CtrlNbr);
+        }
+
+        var nextFallbackOrder = targetBoardByStaffablePosition.Positions.Count > 0
+            ? targetBoardByStaffablePosition.Positions.Max(p => p.PositionOrder) + 1
+            : 1;
+
+        var fallbackBoardPosition = targetBoardByStaffablePosition.AddPosition(
+            move.EmployeeCtrlNbr,
+            nextFallbackOrder,
+            move.TargetPositionCtrlNbr);
+
+        await uow.RosterBoards.UpdateAsync(targetBoardByStaffablePosition, ct);
+        return (move.TargetPositionCtrlNbr, fallbackBoardPosition.CtrlNbr);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

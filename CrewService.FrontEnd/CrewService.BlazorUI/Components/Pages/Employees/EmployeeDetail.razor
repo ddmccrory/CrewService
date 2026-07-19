@@ -1586,6 +1586,10 @@ else
     /// </summary>
     private RenderFragment RenderOnDutyTable(IReadOnlyList<EmployeeOnDutyRecord> records, bool isHistory) => __builder =>
     {
+        var orderedRecords = isHistory
+            ? records.OrderByDescending(r => ParseDisplayInstantOrMin(r.OffDutyLocal)).ToList()
+            : records.OrderBy(r => ParseDisplayInstantOrMin(r.OnDutyLocal)).ToList();
+
         <div class="table-responsive">
             <table class="table table-striped table-hover align-middle">
                 <thead>
@@ -1603,7 +1607,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in records)
+                    @foreach (var r in orderedRecords)
                     {
                         <tr>
                             <td>@FormatRestHours(r.PreviousRestHours)</td>
@@ -1690,6 +1694,12 @@ else
         "TiedUp"    => "bg-dark",
         _           => "bg-light text-dark border",
     };
+
+    private static DateTimeOffset ParseDisplayInstantOrMin(string? iso)
+        => DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var dto)
+            ? dto
+            : DateTimeOffset.MinValue;
 
     private async Task LoadNotificationsTabAsync()
     {

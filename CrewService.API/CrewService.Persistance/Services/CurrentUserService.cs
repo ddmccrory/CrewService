@@ -44,6 +44,13 @@ namespace CrewService.Persistance.Services
             return user?.IsInRole(roleName) ?? false;
         }
 
+        public string? GetUserIdentifier()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        }
+
         public long? GetParentCtrlNbr()
         {
             var header = _httpContextAccessor.HttpContext?.Request.Headers["x-parent-ctrl-nbr"].FirstOrDefault();

@@ -224,6 +224,7 @@ public sealed class NotificationsServiceTests
     {
         public Guid GetUserId() => userId;
         public string GetUserName() => userName;
+        public string? GetUserIdentifier() => userId.ToString();
         public bool IsInRole(string roleName) => false;
         public long? GetParentCtrlNbr() => null;
         public void SetAuditOverride(string name) { }

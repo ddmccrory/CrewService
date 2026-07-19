@@ -1,9 +1,13 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu @rendermode="InteractiveServer" />
-    </div>
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar">
+                <NavMenu @rendermode="InteractiveServer" />
+            </div>
+        </Authorized>
+    </AuthorizeView>
 
     <main>
         <nav class="navbar navbar-expand-lg bg-primary sticky-top">
@@ -28,6 +32,11 @@
 
         <article class="content px-4">
             <CrewService.BlazorUI.Components.Layout.ApiConnectivityGate @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+            <AuthorizeView>
+                <Authorized>
+                    <CrewService.BlazorUI.Components.Layout.ParentContextBanner @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+                </Authorized>
+            </AuthorizeView>
             @Body
         </article>
     </main>
