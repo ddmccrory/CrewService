@@ -23,6 +23,7 @@ public sealed class RequestActorContextResolver(
             ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
         var resolvedParentCtrlNbr = parentCtrlNbr ?? TryGetHeaderLong("x-parent-ctrl-nbr");
+        var resolvedRailroadCtrlNbr = railroadCtrlNbr ?? TryGetHeaderLong("x-railroad-ctrl-nbr");
 
         long? currentEmployeeCtrlNbr = null;
         if (!string.IsNullOrWhiteSpace(currentUserId))
@@ -56,7 +57,7 @@ public sealed class RequestActorContextResolver(
             IsSelfEmployeeContext: isSelfEmployeeContext,
             IsActingOnBehalfOfEmployee: isActingOnBehalfOfEmployee,
             ParentCtrlNbr: resolvedParentCtrlNbr,
-            RailroadCtrlNbr: railroadCtrlNbr,
+            RailroadCtrlNbr: resolvedRailroadCtrlNbr,
             WorkAreaCtrlNbr: workAreaCtrlNbr);
     }
 

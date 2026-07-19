@@ -52,8 +52,20 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     /// <summary><c>true</c> when a parent is selected.</summary>
     protected bool HasParent => AppContext.HasParent;
 
+    /// <summary>
+    /// <c>true</c> when pages that require parent context should show the
+    /// standard "select parent" warning.
+    /// </summary>
+    protected bool ShowSelectParentBanner => !HasParent;
+
     /// <summary><c>true</c> when a railroad is selected.</summary>
     protected bool HasRailroad => AppContext.HasRailroad;
+
+    /// <summary>
+    /// <c>true</c> when pages that require railroad context should show the
+    /// standard "select railroad" warning.
+    /// </summary>
+    protected bool ShowSelectRailroadBanner => HasParent && !HasRailroad;
 
     /// <summary><c>true</c> when both a parent and railroad are selected.</summary>
     protected bool IsContextFullySelected => AppContext.IsFullySelected;
@@ -138,9 +150,9 @@ public abstract class AppComponentBase : ComponentBase, IDisposable
     /// <summary>
     /// Called when the user changes the parent or railroad in the context switcher.
     /// Override this to reload data that is scoped to the selected context.
-    /// The base implementation calls <see cref="ComponentBase.StateHasChanged"/>.
+    /// The base implementation reloads page data by calling <see cref="LoadDataAsync"/>.
     /// </summary>
-    protected virtual Task OnAppContextChangedAsync() => Task.CompletedTask;
+    protected virtual Task OnAppContextChangedAsync() => LoadDataAsync();
 
     private readonly CancellationTokenSource _cts = new();
 

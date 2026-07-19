@@ -14,7 +14,14 @@
 
 <PageTitle>Drug & Alcohol Detail</PageTitle>
 
-@if (employeeName is null)
+@if (ShowSelectParentBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a parent in the context switcher to view Drug &amp; Alcohol detail.
+    </div>
+}
+else if (employeeName is null)
 {
     <p><em>Loading...</em></p>
 }
@@ -187,6 +194,15 @@ else
 
     protected override async Task LoadDataAsync()
     {
+        if (!HasParent)
+        {
+            employeeName = null;
+            drugAlcoholTests = [];
+            drugAlcoholActions = [];
+            voluntaryReferrals = [];
+            return;
+        }
+
         var employeeResponse = await EmployeeClient.GetByCtrlNbrAsync(EmployeeCtrlNbr);
         employeeName = employeeResponse.FullNameLnf;
         await LoadDataForEmployee();

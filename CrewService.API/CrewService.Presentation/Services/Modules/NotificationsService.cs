@@ -31,6 +31,9 @@ public class NotificationsService(IServiceProvider serviceProvider)
     {
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var items = await svc.GetMyNotificationsAsync(context.CancellationToken);
+        var selectedRailroadCtrlNbr = GetSelectedRailroadCtrlNbr(context);
+        if (selectedRailroadCtrlNbr.HasValue)
+            items = [.. items.Where(n => n.RailroadCtrlNbr.Value == selectedRailroadCtrlNbr.Value)];
         return await MapListAsync(items, context.CancellationToken);
     }
 
@@ -38,13 +41,19 @@ public class NotificationsService(IServiceProvider serviceProvider)
     {
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
         var items = await svc.GetMyUnacknowledgedAsync(context.CancellationToken);
+        var selectedRailroadCtrlNbr = GetSelectedRailroadCtrlNbr(context);
+        if (selectedRailroadCtrlNbr.HasValue)
+            items = [.. items.Where(n => n.RailroadCtrlNbr.Value == selectedRailroadCtrlNbr.Value)];
         return await MapListAsync(items, context.CancellationToken);
     }
 
     public override async Task<UnacknowledgedCountResponse> GetMyUnacknowledgedCount(Empty request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<NotificationQueryService>();
-        var count = await svc.GetMyUnacknowledgedCountAsync(context.CancellationToken);
+        var selectedRailroadCtrlNbr = GetSelectedRailroadCtrlNbr(context);
+        var count = selectedRailroadCtrlNbr.HasValue
+            ? (await svc.GetMyUnacknowledgedAsync(context.CancellationToken)).Count(n => n.RailroadCtrlNbr.Value == selectedRailroadCtrlNbr.Value)
+            : await svc.GetMyUnacknowledgedCountAsync(context.CancellationToken);
         return new UnacknowledgedCountResponse { Count = count };
     }
 
@@ -261,6 +270,12 @@ public class NotificationsService(IServiceProvider serviceProvider)
         var tz = await clock.GetWorkAreaTimeZoneAsync(railroadCtrlNbr, ct);
         cache[railroadCtrlNbr.Value] = tz;
         return tz;
+    }
+
+    private static long? GetSelectedRailroadCtrlNbr(ServerCallContext context)
+    {
+        var raw = context.GetHttpContext().Request.Headers["x-railroad-ctrl-nbr"].FirstOrDefault();
+        return long.TryParse(raw, out var railroadCtrlNbr) && railroadCtrlNbr > 0 ? railroadCtrlNbr : null;
     }
 
     private static NotificationResponse MapNotification(EmployeeNotification n, IWorkAreaClock clock, TimeZoneInfo? tz)

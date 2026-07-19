@@ -17,14 +17,14 @@
 
 <h1>Call Sheet</h1>
 
-@if (!HasRailroad)
+@if (ShowSelectRailroadBanner)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>
         Please select a railroad in the context switcher to view call sheets.
     </div>
 }
-else
+else if (HasRailroad)
 {
     <p class="text-muted mb-1">Daily operations for <strong>@SelectedRailroadName</strong></p>
 

@@ -40,6 +40,7 @@ public class AssignmentsService(IServiceProvider serviceProvider) : AssignmentsS
         var svc = serviceProvider.GetRequiredService<Application.Assignments.AssignmentsService>();
         try
         {
+            await EnsureAssignmentInSelectedRailroadAsync(svc, request.CtrlNbr, context.CancellationToken);
             var assignment = await svc.GetAssignmentAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
             return MapAssignment(assignment, null, 0);
         }
@@ -106,6 +107,7 @@ public class AssignmentsService(IServiceProvider serviceProvider) : AssignmentsS
     public override async Task<GetAssignmentSchedulesResponse> GetAssignmentSchedules(GetAssignmentSchedulesRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Assignments.AssignmentsService>();
+        await EnsureAssignmentInSelectedRailroadAsync(svc, request.AssignmentCtrlNbr, context.CancellationToken);
         var (schedules, shiftNames) = await svc.GetAssignmentSchedulesAsync(
             ControlNumber.Create(request.AssignmentCtrlNbr), context.CancellationToken);
 
@@ -123,6 +125,7 @@ public class AssignmentsService(IServiceProvider serviceProvider) : AssignmentsS
     public override async Task<AssignmentScheduleResponse> CreateAssignmentSchedule(CreateAssignmentScheduleRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Assignments.AssignmentsService>();
+        await EnsureAssignmentInSelectedRailroadAsync(svc, request.AssignmentCtrlNbr, context.CancellationToken);
         var schedule = await svc.CreateAssignmentScheduleAsync(
             ControlNumber.Create(request.AssignmentCtrlNbr),
             ControlNumber.Create(request.ShiftDefinitionCtrlNbr),
@@ -189,4 +192,33 @@ public class AssignmentsService(IServiceProvider serviceProvider) : AssignmentsS
         OnDutyTime = ScheduleTimeFormat.Format(s.OnDutyTime),
         OffDutyTime = ScheduleTimeFormat.Format(s.OffDutyTime)
     };
+
+    private async Task EnsureAssignmentInSelectedRailroadAsync(
+        Application.Assignments.AssignmentsService svc,
+        long assignmentCtrlNbr,
+        CancellationToken ct)
+    {
+        if (assignmentCtrlNbr <= 0)
+            return;
+
+        var selectedRailroadCtrlNbr = TryGetSelectedRailroadCtrlNbr();
+        if (!selectedRailroadCtrlNbr.HasValue)
+            return;
+
+        var assignments = await svc.GetAssignmentsAsync(
+            workAreaGroupCtrlNbr: null,
+            departmentCtrlNbr: null,
+            railroadCtrlNbr: ControlNumber.Create(selectedRailroadCtrlNbr.Value),
+            ct: ct);
+
+        if (!assignments.Any(a => a.CtrlNbr.Value == assignmentCtrlNbr))
+            throw new RpcException(new Status(StatusCode.NotFound, $"Assignment {assignmentCtrlNbr} not found."));
+    }
+
+    private long? TryGetSelectedRailroadCtrlNbr()
+    {
+        var httpContextAccessor = serviceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>();
+        var raw = httpContextAccessor.HttpContext?.Request.Headers["x-railroad-ctrl-nbr"].FirstOrDefault();
+        return long.TryParse(raw, out var railroadCtrlNbr) && railroadCtrlNbr > 0 ? railroadCtrlNbr : null;
+    }
 }
