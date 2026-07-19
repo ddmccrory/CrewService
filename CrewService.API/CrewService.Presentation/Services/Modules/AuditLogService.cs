@@ -11,6 +11,9 @@ public class AuditLogService(IAuditLogQuery auditLogQuery)
     public override async Task<GetAllAuditLogsResponse> GetAllAuditLogsAsync(
         GetAllAuditLogsRequest request, ServerCallContext context)
     {
+        if (!TryGetSelectedRailroadCtrlNbr(context).HasValue)
+            return new GetAllAuditLogsResponse();
+
         var pageSize = request.PageSize > 0 ? request.PageSize : 200;
         var pageNumber = request.PageNumber > 0 ? request.PageNumber : 1;
 
@@ -81,5 +84,13 @@ public class AuditLogService(IAuditLogQuery auditLogQuery)
             .FirstOrDefault();
 
         return firstParent > 0 ? firstParent : null;
+    }
+
+    private static long? TryGetSelectedRailroadCtrlNbr(ServerCallContext context)
+    {
+        var header = context.GetHttpContext().Request.Headers["x-railroad-ctrl-nbr"].FirstOrDefault();
+        return long.TryParse(header, out var railroadCtrlNbr) && railroadCtrlNbr > 0
+            ? railroadCtrlNbr
+            : null;
     }
 }

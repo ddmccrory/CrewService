@@ -164,6 +164,7 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        await EnsureEmployeeInSelectedParentAsync(request.EmployeeCtrlNbr, context.CancellationToken);
         decimal? alcoholResult = request.HasAlcoholResult ? Convert.ToDecimal(request.AlcoholResult) : null;
         var testRecord = await svc.RecordDrugAlcoholTestAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), request.TestType,
@@ -179,6 +180,7 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        await EnsureEmployeeInSelectedParentAsync(request.EmployeeCtrlNbr, context.CancellationToken);
         var tests = await svc.GetDrugAlcoholTestsAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetDrugAlcoholTestsResponse();
@@ -191,6 +193,7 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        await EnsureEmployeeInSelectedParentAsync(request.EmployeeCtrlNbr, context.CancellationToken);
         var actions = await svc.GetDrugAlcoholActionsAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetDrugAlcoholActionsResponse();
@@ -203,6 +206,7 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        await EnsureEmployeeInSelectedParentAsync(request.EmployeeCtrlNbr, context.CancellationToken);
         var referral = await svc.CreateVoluntaryReferralAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         return MapVoluntaryReferral(referral);
@@ -213,6 +217,7 @@ public class FraComplianceService(
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
+        await EnsureEmployeeInSelectedParentAsync(request.EmployeeCtrlNbr, context.CancellationToken);
         var referrals = await svc.GetVoluntaryReferralsAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr), context.CancellationToken);
         var response = new GetVoluntaryReferralsResponse();
@@ -226,6 +231,7 @@ public class FraComplianceService(
     {
         var svc = serviceProvider.GetRequiredService<Application.FraCompliance.FraComplianceService>();
         var referral = await svc.GetVoluntaryReferralAsync(ControlNumber.Create(request.ReferralCtrlNbr), context.CancellationToken);
+        await EnsureEmployeeInSelectedParentAsync(referral.EmployeeCtrlNbr.Value, context.CancellationToken);
 
         var actionDate = request.ActionDate is not null
             ? DateTime.SpecifyKind(request.ActionDate.ToDateTime(), DateTimeKind.Utc)
@@ -251,6 +257,32 @@ public class FraComplianceService(
 
         await svc.UpdateVoluntaryReferralAsync(referral, context.CancellationToken);
         return MapVoluntaryReferral(referral);
+    }
+
+    private async Task EnsureEmployeeInSelectedParentAsync(long employeeCtrlNbr, CancellationToken ct)
+    {
+        if (employeeCtrlNbr <= 0)
+            return;
+
+        var selectedParentCtrlNbr = GetSelectedParentCtrlNbr();
+        if (!selectedParentCtrlNbr.HasValue)
+            return;
+
+        var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(employeeCtrlNbr), ct)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Employee {employeeCtrlNbr} not found."));
+
+        if (employee.ClientCtrlNbr.Value != selectedParentCtrlNbr.Value)
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "The requested employee is outside the selected parent scope."));
+    }
+
+    private long? GetSelectedParentCtrlNbr()
+    {
+        var accessor = serviceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>();
+        var raw = accessor.HttpContext?.Request.Headers["x-parent-ctrl-nbr"].FirstOrDefault();
+        return long.TryParse(raw, out var parentCtrlNbr) && parentCtrlNbr > 0 ? parentCtrlNbr : null;
     }
 
     public override async Task<DutyTourResponse> GetDutyTour(

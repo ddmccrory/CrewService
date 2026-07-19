@@ -7,7 +7,7 @@ namespace CrewService.BlazorUI.Interceptors;
 /// <summary>
 /// gRPC client interceptor that reads the bearer token from <see cref="CircuitTokenProvider"/>
 /// on every call, ensuring the current token is always used.
-/// Also sends the selected parent context as <c>x-parent-ctrl-nbr</c> metadata.
+/// Also sends selected context values as metadata headers.
 /// </summary>
 public sealed class PerCallAuthInterceptor(CircuitTokenProvider tokenProvider, AppContextService appContext) : Interceptor
 {
@@ -28,6 +28,9 @@ public sealed class PerCallAuthInterceptor(CircuitTokenProvider tokenProvider, A
 
             if (_appContext.SelectedParentCtrlNbr.HasValue)
                 headers.Add("x-parent-ctrl-nbr", _appContext.SelectedParentCtrlNbr.Value.ToString());
+
+            if (_appContext.SelectedRailroadCtrlNbr.HasValue)
+                headers.Add("x-railroad-ctrl-nbr", _appContext.SelectedRailroadCtrlNbr.Value.ToString());
 
             var newOptions = context.Options.WithHeaders(headers);
             context = new ClientInterceptorContext<TRequest, TResponse>(
