@@ -54,9 +54,39 @@ else
                    value="@selectedDate.ToString("yyyy-MM-dd")"
                    @onchange="OnDateChanged" />
             <div class="btn-group mt-1" style="position: absolute; width: 180px; font-size: 0.7rem;">
-                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(-1)">Yesterday</button>
-                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(0)">Today</button>
-                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(1)">Tomorrow</button>
+                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(-1)">
+                    <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
+                        <span>Yesterday</span>
+                        <span style="min-height: 0.85rem; margin-top: 0.2rem;">
+                            @if (yesterdayActiveShiftCount.HasValue)
+                            {
+                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@yesterdayActiveShiftCount.Value</span>
+                            }
+                        </span>
+                    </span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(0)">
+                    <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
+                        <span>Today</span>
+                        <span style="min-height: 0.85rem; margin-top: 0.2rem;">
+                            @if (todayActiveShiftCount.HasValue)
+                            {
+                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@todayActiveShiftCount.Value</span>
+                            }
+                        </span>
+                    </span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(1)">
+                    <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
+                        <span>Tomorrow</span>
+                        <span style="min-height: 0.85rem; margin-top: 0.2rem;">
+                            @if (tomorrowActiveShiftCount.HasValue)
+                            {
+                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@tomorrowActiveShiftCount.Value</span>
+                            }
+                        </span>
+                    </span>
+                </button>
             </div>
         </div>
         <div class="col-auto">
@@ -90,7 +120,17 @@ else
         </div>
     }
 
-    @if (selectedWorkAreaCtrlNbr > 0 && callSheetLoaded)
+    @if (selectedWorkAreaCtrlNbr > 0 && isResolvingInitialDisplay)
+    {
+        <div class="mt-2">
+            <span class="badge text-bg-secondary">
+                <span class="spinner-border spinner-border-sm me-1" role="status" style="width: 0.7rem; height: 0.7rem;"></span>
+                Loading call sheet...
+            </span>
+        </div>
+    }
+
+    @if (selectedWorkAreaCtrlNbr > 0 && callSheetLoaded && !isResolvingInitialDisplay)
     {
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">
@@ -943,6 +983,10 @@ else
     private bool showClosedShifts;
     private string? nextCallSheetEventFormatted;
     private string? nextShiftToBuildFormatted;
+    private int? yesterdayActiveShiftCount;
+    private int? todayActiveShiftCount;
+    private int? tomorrowActiveShiftCount;
+    private bool isResolvingInitialDisplay;
 
     private bool showGenerateModal;
     private bool isGenerating;
@@ -1032,6 +1076,10 @@ else
         callSheetLoaded = false;
         availableShifts = null;
         showClosedShifts = false;
+        yesterdayActiveShiftCount = null;
+        todayActiveShiftCount = null;
+        tomorrowActiveShiftCount = null;
+        isResolvingInitialDisplay = false;
 
         if (HasRailroad)
             await LoadReferenceData();
@@ -1051,6 +1099,16 @@ else
         allGroups = await ReferenceData.GetGroupsAsync();
         departments = await ReferenceData.GetDepartmentsAsync();
         craftRoles = await ReferenceData.GetCraftRolesAsync();
+
+        if (selectedDepartmentCtrlNbr > 0 && (departments?.All(d => d.CtrlNbr != selectedDepartmentCtrlNbr) ?? true))
+            selectedDepartmentCtrlNbr = 0;
+
+        if (selectedDepartmentCtrlNbr == 0 && departments?.Count == 1)
+        {
+            selectedDepartmentCtrlNbr = departments[0].CtrlNbr;
+            var onlyDepartment = departments[0];
+            useHorizontalLayout = onlyDepartment.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase);
+        }
 
         if (workAreas?.Count == 1)
         {
@@ -1137,6 +1195,8 @@ else
 
         errorMessage = null;
         successMessage = null;
+        callSheetLoaded = false;
+        isResolvingInitialDisplay = true;
 
         await LoadNextCallSheetEventAsync();
 
@@ -1145,13 +1205,18 @@ else
             var response = await DailyOperationsClient.GetCallSheetAsync(
                 selectedWorkAreaCtrlNbr, selectedDate.ToString("yyyy-MM-dd"), showClosedShifts);
             shifts = response.Shifts;
+
+            ApplyInitialDepartmentAndShiftSelection();
+            await LoadRelativeActiveShiftCountsAsync();
             callSheetLoaded = true;
+            isResolvingInitialDisplay = false;
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to load call sheet: {ex.Message}";
             shifts = null;
             callSheetLoaded = true;
+            isResolvingInitialDisplay = false;
         }
     }
 
@@ -1190,11 +1255,147 @@ else
         showGenerateModal = true;
     }
 
-    private void OnDepartmentSelected()
+    private async Task OnDepartmentSelected()
     {
         activeShiftCtrlNbr = 0;
         var dept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
         useHorizontalLayout = dept?.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase) == true;
+
+        SelectEarliestPlannedShiftForCurrentDepartment();
+        await LoadRelativeActiveShiftCountsAsync();
+    }
+
+    private async Task LoadRelativeActiveShiftCountsAsync()
+    {
+        if (selectedWorkAreaCtrlNbr == 0)
+        {
+            yesterdayActiveShiftCount = null;
+            todayActiveShiftCount = null;
+            tomorrowActiveShiftCount = null;
+            return;
+        }
+
+        try
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var offsets = new[] { -1, 0, 1 };
+
+            var tasks = offsets.Select(async offset =>
+            {
+                var date = today.AddDays(offset).ToString("yyyy-MM-dd");
+                var response = await DailyOperationsClient.GetCallSheetAsync(selectedWorkAreaCtrlNbr, date, includeClosed: false);
+                return (offset, response);
+            });
+
+            var results = await Task.WhenAll(tasks);
+
+            yesterdayActiveShiftCount = ToDisplayCount(CountActiveShifts(results.First(r => r.offset == -1).response));
+            todayActiveShiftCount = ToDisplayCount(CountActiveShifts(results.First(r => r.offset == 0).response));
+            tomorrowActiveShiftCount = ToDisplayCount(CountActiveShifts(results.First(r => r.offset == 1).response));
+        }
+        catch
+        {
+            yesterdayActiveShiftCount = null;
+            todayActiveShiftCount = null;
+            tomorrowActiveShiftCount = null;
+        }
+    }
+
+    private int CountActiveShifts(GetCallSheetResponse response)
+    {
+        var shiftsForCount = response.Shifts.AsEnumerable();
+
+        if (selectedDepartmentCtrlNbr > 0)
+            shiftsForCount = shiftsForCount.Where(s => s.DepartmentCtrlNbr == selectedDepartmentCtrlNbr);
+
+        return shiftsForCount.Count(s => string.Equals(s.Status, "Active", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int? ToDisplayCount(int count) => count > 0 ? count : null;
+
+    private void ApplyInitialDepartmentAndShiftSelection()
+    {
+        if (shifts is null || shifts.Count == 0)
+            return;
+
+        var plannedShift = shifts
+            .Where(s => string.Equals(s.Status, "Planned", StringComparison.OrdinalIgnoreCase)
+                        && s.DepartmentCtrlNbr > 0
+                        && IsVisibleDepartment(s.DepartmentCtrlNbr))
+            .OrderBy(s => ParseShiftOnDutyMinutes(s))
+            .ThenBy(s => s.DepartmentCtrlNbr)
+            .ThenBy(s => s.ShiftCode)
+            .FirstOrDefault();
+
+        if (plannedShift is null)
+            return;
+
+        selectedDepartmentCtrlNbr = plannedShift.DepartmentCtrlNbr;
+
+        var dept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
+        useHorizontalLayout = dept?.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase) == true;
+
+        SelectEarliestPlannedShiftForCurrentDepartment();
+    }
+
+    private void SelectEarliestPlannedShiftForCurrentDepartment()
+    {
+        if (shifts is null || selectedDepartmentCtrlNbr == 0)
+            return;
+
+        var plannedShift = shifts
+            .Where(s => s.DepartmentCtrlNbr == selectedDepartmentCtrlNbr
+                        && string.Equals(s.Status, "Planned", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(s => ParseShiftOnDutyMinutes(s))
+            .ThenBy(s => s.ShiftCode)
+            .FirstOrDefault();
+
+        if (plannedShift is not null)
+        {
+            activeShiftCtrlNbr = plannedShift.CtrlNbr;
+            return;
+        }
+
+        var fallbackShift = shifts
+            .Where(s => s.DepartmentCtrlNbr == selectedDepartmentCtrlNbr)
+            .OrderBy(s => ParseShiftOnDutyMinutes(s))
+            .ThenBy(s => s.ShiftCode)
+            .FirstOrDefault();
+
+        if (fallbackShift is not null)
+            activeShiftCtrlNbr = fallbackShift.CtrlNbr;
+    }
+
+    private bool IsVisibleDepartment(long departmentCtrlNbr)
+        => departments is null || departments.Any(d => d.CtrlNbr == departmentCtrlNbr);
+
+    private static int ParseShiftOnDutyMinutes(DailyShiftInstanceResponse shift)
+    {
+        var earliestSlot = shift.PositionSlots
+            .Select(slot => ParseTimeToMinutes(slot.OnDutyTime))
+            .Where(minutes => minutes >= 0)
+            .DefaultIfEmpty(int.MaxValue)
+            .Min();
+
+        return earliestSlot;
+    }
+
+    private static int ParseTimeToMinutes(string? hhmm)
+    {
+        if (string.IsNullOrWhiteSpace(hhmm))
+            return -1;
+
+        var parts = hhmm.Split(':');
+        if (parts.Length < 2)
+            return -1;
+
+        if (!int.TryParse(parts[0], out var hour) || !int.TryParse(parts[1], out var minute))
+            return -1;
+
+        if (hour is < 0 or > 23 || minute is < 0 or > 59)
+            return -1;
+
+        return (hour * 60) + minute;
     }
 
     private async Task OnShowClosedChanged(ChangeEventArgs e)

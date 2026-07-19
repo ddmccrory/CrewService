@@ -50,13 +50,14 @@
 }
 
 <DataTable TItem="NotificationResponse"
+           @key="showAllNotifications"
            Items="DisplayedNotifications"
            Columns="columns"
            SearchFilter="@((n, term) => n.Message.Contains(term, StringComparison.OrdinalIgnoreCase) || ResolveCategoryLabel(n.Category).Contains(term, StringComparison.OrdinalIgnoreCase) || n.EmployeeName.Contains(term, StringComparison.OrdinalIgnoreCase))"
            SearchPlaceholder="Search by message, category, or employee..."
            EmptyMessage="@(showAllNotifications ? "No notifications found for selected date range." : "No open notifications.")"
            DefaultSortColumn="Date"
-           DefaultSortAscending="false">
+           DefaultSortAscending="@(!showAllNotifications)">
     <RowContent Context="n">
         <td>@FormatDisplayLocal(n.CreatedAtLocal)</td>
         <td>@n.EmployeeName</td>

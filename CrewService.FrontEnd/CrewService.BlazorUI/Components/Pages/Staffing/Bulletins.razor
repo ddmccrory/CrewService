@@ -87,11 +87,12 @@ else
             }
         </div>
         <DataTable TItem="BulletinResponse"
+                   @key="showAllBulletins"
                    Items="bulletins"
                    Columns="bulletinColumns"
                    EmptyMessage="@(showAllBulletins ? "No bulletins found for selected date range." : "No active bulletins.")"
                    DefaultSortColumn="Bid Window Closes"
-                   DefaultSortAscending="true">
+                   DefaultSortAscending="@(!showAllBulletins)">
             <RowContent Context="b">
                 <td>@(string.IsNullOrEmpty(b.PositionName) ? "—" : b.PositionName)</td>
                 <td>@FormatDateTime(b.BidWindowOpensUtc)</td>
