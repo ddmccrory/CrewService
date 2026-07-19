@@ -2,8 +2,11 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.UnitTests.Fixtures;
@@ -28,9 +31,13 @@ public sealed class SeniorityOffPropertyCascadeTests : IDisposable
     /// <summary>The seeded graph the cascade reads and mutates.</summary>
     private sealed record Fixture(
         ControlNumber EmployeeCtrlNbr,
+        ControlNumber WorkAreaCtrlNbr,
+        ControlNumber CraftCtrlNbr,
         ControlNumber PrimarySeniorityCtrlNbr,
         ControlNumber SecondarySeniorityCtrlNbr,
         ControlNumber ActiveStateCtrlNbr,
+        ControlNumber CutBackStateCtrlNbr,
+        ControlNumber InactiveStateCtrlNbr,
         ControlNumber OffPropertyStateCtrlNbr,
         ControlNumber QualificationCtrlNbr,
         ControlNumber LiveCertificationCtrlNbr,
@@ -80,8 +87,12 @@ public sealed class SeniorityOffPropertyCascadeTests : IDisposable
         ctx.Employees.Add(employee);
 
         var activeState = SeniorityState.Create("Active", StateType.Active, parent.CtrlNbr.Value);
+        var cutBackState = SeniorityState.Create("Cut Back", StateType.CutBack, parent.CtrlNbr.Value);
+        var inactiveState = SeniorityState.Create("Inactive", StateType.Inactive, parent.CtrlNbr.Value);
         var offPropertyState = SeniorityState.Create("Terminated", StateType.OffProperty, parent.CtrlNbr.Value);
         ctx.Set<SeniorityState>().Add(activeState);
+        ctx.Set<SeniorityState>().Add(cutBackState);
+        ctx.Set<SeniorityState>().Add(inactiveState);
         ctx.Set<SeniorityState>().Add(offPropertyState);
         await ctx.SaveChangesAsync(ct);
 
@@ -127,9 +138,112 @@ public sealed class SeniorityOffPropertyCascadeTests : IDisposable
         await ctx.SaveChangesAsync(ct);
 
         return new Fixture(
-            employee.CtrlNbr, primarySeniority.CtrlNbr, secondarySeniority.CtrlNbr,
-            activeState.CtrlNbr, offPropertyState.CtrlNbr, qualification.CtrlNbr,
+            employee.CtrlNbr, workArea.CtrlNbr, craft.CtrlNbr, primarySeniority.CtrlNbr, secondarySeniority.CtrlNbr,
+            activeState.CtrlNbr, cutBackState.CtrlNbr, inactiveState.CtrlNbr, offPropertyState.CtrlNbr, qualification.CtrlNbr,
             liveCertification.CtrlNbr, revokedCertification.CtrlNbr);
+    }
+
+    private async Task<(ControlNumber PendingMoveCtrlNbr, ControlNumber ApprovedMoveCtrlNbr, ControlNumber CompletedMoveCtrlNbr, ControlNumber SubmittedBidCtrlNbr, ControlNumber WithdrawnBidCtrlNbr)>
+        SeedPendingMoveAndBidAsync(Fixture f, CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+
+        var targetPosition = StaffablePosition.Create(StaffablePositionType.Crew);
+        ctx.Set<StaffablePosition>().Add(targetPosition);
+        await ctx.SaveChangesAsync(ct);
+
+        var pendingMove = SeniorityMove.Create(
+            f.WorkAreaCtrlNbr,
+            f.EmployeeCtrlNbr,
+            f.CraftCtrlNbr,
+            targetPosition.CtrlNbr,
+            null,
+            daysOnCurrentPosition: 0);
+
+        var approvedMove = SeniorityMove.Create(
+            f.WorkAreaCtrlNbr,
+            f.EmployeeCtrlNbr,
+            f.CraftCtrlNbr,
+            targetPosition.CtrlNbr,
+            null,
+            daysOnCurrentPosition: 0);
+        approvedMove.Approve(DateTime.UtcNow.AddDays(1));
+
+        var completedMove = SeniorityMove.Create(
+            f.WorkAreaCtrlNbr,
+            f.EmployeeCtrlNbr,
+            f.CraftCtrlNbr,
+            targetPosition.CtrlNbr,
+            null,
+            daysOnCurrentPosition: 0);
+        completedMove.Approve(DateTime.UtcNow.AddDays(1));
+        completedMove.Complete();
+
+        ctx.Set<SeniorityMove>().Add(pendingMove);
+        ctx.Set<SeniorityMove>().Add(approvedMove);
+        ctx.Set<SeniorityMove>().Add(completedMove);
+
+        var vacancy = PositionVacancy.Create(
+            f.WorkAreaCtrlNbr,
+            StaffablePositionType.Crew,
+            targetPosition.CtrlNbr,
+            f.CraftCtrlNbr,
+            "TEST");
+        ctx.Set<PositionVacancy>().Add(vacancy);
+        await ctx.SaveChangesAsync(ct);
+
+        var bulletin = Bulletin.Create(
+            vacancy.CtrlNbr,
+            f.CraftCtrlNbr,
+            DateTime.UtcNow.AddHours(-1),
+            DateTime.UtcNow.AddHours(4),
+            DateTime.UtcNow.AddHours(4));
+        ctx.Set<Bulletin>().Add(bulletin);
+        await ctx.SaveChangesAsync(ct);
+
+        var submittedBid = BulletinBid.Create(
+            bulletin.CtrlNbr,
+            f.EmployeeCtrlNbr,
+            priority: 1,
+            seniorityDate: DateTime.UtcNow.AddYears(-1),
+            seniorityRank: 1);
+
+        var withdrawnBid = BulletinBid.Create(
+            bulletin.CtrlNbr,
+            f.EmployeeCtrlNbr,
+            priority: 2,
+            seniorityDate: DateTime.UtcNow.AddYears(-1),
+            seniorityRank: 2);
+        withdrawnBid.Withdraw();
+
+        ctx.Set<BulletinBid>().Add(submittedBid);
+        ctx.Set<BulletinBid>().Add(withdrawnBid);
+        await ctx.SaveChangesAsync(ct);
+
+        return (pendingMove.CtrlNbr, approvedMove.CtrlNbr, completedMove.CtrlNbr, submittedBid.CtrlNbr, withdrawnBid.CtrlNbr);
+    }
+
+    private async Task AssertPendingMovesAndBidsClearedAsync(
+        ControlNumber pendingMoveCtrlNbr,
+        ControlNumber approvedMoveCtrlNbr,
+        ControlNumber completedMoveCtrlNbr,
+        ControlNumber submittedBidCtrlNbr,
+        ControlNumber withdrawnBidCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+
+        var pendingMove = await ctx.Set<SeniorityMove>().SingleAsync(m => m.CtrlNbr == pendingMoveCtrlNbr, ct);
+        var approvedMove = await ctx.Set<SeniorityMove>().SingleAsync(m => m.CtrlNbr == approvedMoveCtrlNbr, ct);
+        var completedMove = await ctx.Set<SeniorityMove>().SingleAsync(m => m.CtrlNbr == completedMoveCtrlNbr, ct);
+        var submittedBid = await ctx.Set<BulletinBid>().SingleAsync(b => b.CtrlNbr == submittedBidCtrlNbr, ct);
+        var withdrawnBid = await ctx.Set<BulletinBid>().SingleAsync(b => b.CtrlNbr == withdrawnBidCtrlNbr, ct);
+
+        Assert.Equal(SeniorityMoveStatus.Cancelled, pendingMove.Status);
+        Assert.Equal(SeniorityMoveStatus.Cancelled, approvedMove.Status);
+        Assert.Equal(SeniorityMoveStatus.Completed, completedMove.Status);
+        Assert.Equal("Withdrawn", submittedBid.Status);
+        Assert.Equal("Withdrawn", withdrawnBid.Status);
     }
 
     private async Task<Domain.Models.Seniority.Seniority?> GetSeniorityAsync(ControlNumber ctrlNbr, CancellationToken ct)
@@ -221,5 +335,65 @@ public sealed class SeniorityOffPropertyCascadeTests : IDisposable
         Assert.NotNull(revoked);
         Assert.Equal(CertificationStatuses.Revoked, revoked!.Status);
         Assert.Null(revoked.CancelledAtUtc);
+    }
+
+    [Fact]
+    public async Task Update_ActiveToCutBack_CancelsPendingMovesAndWithdrawsSubmittedBids()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedAsync(ct);
+        var seeded = await SeedPendingMoveAndBidAsync(f, ct);
+
+        await _host.Seniority.UpdateAsync(
+            f.PrimarySeniorityCtrlNbr, lastActiveRoster: true, rosterDate: DateTime.UtcNow.AddYears(-5),
+            rank: 1, seniorityStateCtrlNbr: f.CutBackStateCtrlNbr, canTrain: false, ct);
+
+        await AssertPendingMovesAndBidsClearedAsync(
+            seeded.PendingMoveCtrlNbr,
+            seeded.ApprovedMoveCtrlNbr,
+            seeded.CompletedMoveCtrlNbr,
+            seeded.SubmittedBidCtrlNbr,
+            seeded.WithdrawnBidCtrlNbr,
+            ct);
+    }
+
+    [Fact]
+    public async Task Update_ActiveToInactive_CancelsPendingMovesAndWithdrawsSubmittedBids()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedAsync(ct);
+        var seeded = await SeedPendingMoveAndBidAsync(f, ct);
+
+        await _host.Seniority.UpdateAsync(
+            f.PrimarySeniorityCtrlNbr, lastActiveRoster: true, rosterDate: DateTime.UtcNow.AddYears(-5),
+            rank: 1, seniorityStateCtrlNbr: f.InactiveStateCtrlNbr, canTrain: false, ct);
+
+        await AssertPendingMovesAndBidsClearedAsync(
+            seeded.PendingMoveCtrlNbr,
+            seeded.ApprovedMoveCtrlNbr,
+            seeded.CompletedMoveCtrlNbr,
+            seeded.SubmittedBidCtrlNbr,
+            seeded.WithdrawnBidCtrlNbr,
+            ct);
+    }
+
+    [Fact]
+    public async Task Update_ActiveToOffProperty_CancelsPendingMovesAndWithdrawsSubmittedBids()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedAsync(ct);
+        var seeded = await SeedPendingMoveAndBidAsync(f, ct);
+
+        await _host.Seniority.UpdateAsync(
+            f.PrimarySeniorityCtrlNbr, lastActiveRoster: true, rosterDate: DateTime.UtcNow.AddYears(-5),
+            rank: 1, seniorityStateCtrlNbr: f.OffPropertyStateCtrlNbr, canTrain: false, ct);
+
+        await AssertPendingMovesAndBidsClearedAsync(
+            seeded.PendingMoveCtrlNbr,
+            seeded.ApprovedMoveCtrlNbr,
+            seeded.CompletedMoveCtrlNbr,
+            seeded.SubmittedBidCtrlNbr,
+            seeded.WithdrawnBidCtrlNbr,
+            ct);
     }
 }

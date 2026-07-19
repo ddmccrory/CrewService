@@ -279,6 +279,7 @@ public sealed class SeniorityAppService(
             ?? throw new KeyNotFoundException($"Seniority state {seniorityStateCtrlNbr.Value} not found.");
 
         var previousStateCtrlNbr = seniority.SeniorityStateCtrlNbr;
+        var previousState = await uow.SeniorityStates.GetByCtrlNbrAsync(previousStateCtrlNbr, ct);
         seniority.Update(lastActiveRoster, rosterDate, rank, seniorityStateCtrlNbr, canTrain);
 
         if (newState.StateType == StateType.OffProperty)
@@ -294,6 +295,9 @@ public sealed class SeniorityAppService(
             seniority.ClearEndDate();
             uow.Seniority.Update(seniority);
         }
+
+        if (ShouldClearPendingMovesAndBids(previousState?.StateType, newState.StateType))
+            await ClearPendingMovesAndBidsAsync(uow, seniority.EmployeeCtrlNbr, ct);
 
         await uow.CommitAsync(ct);
 
@@ -359,6 +363,31 @@ public sealed class SeniorityAppService(
         status is not (CertificationStatuses.Cancelled
             or CertificationStatuses.Revoked
             or CertificationStatuses.Expired);
+
+    private static bool ShouldClearPendingMovesAndBids(StateType? previousStateType, StateType? newStateType) =>
+        previousStateType == StateType.Active && newStateType is not null && newStateType != StateType.Active;
+
+    private static async Task ClearPendingMovesAndBidsAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        const string pendingMoveCancellationReason = "Cancelled due to seniority state change to non-active";
+
+        var moves = await uow.SeniorityMoves.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var move in moves.Where(m => m.Status is SeniorityMoveStatus.Pending or SeniorityMoveStatus.Approved))
+        {
+            move.Cancel(pendingMoveCancellationReason);
+            uow.SeniorityMoves.Update(move);
+        }
+
+        var bids = await uow.BulletinBids.GetActiveByEmployeeAsync(employeeCtrlNbr);
+        foreach (var bid in bids)
+        {
+            bid.Withdraw();
+            uow.BulletinBids.Update(bid);
+        }
+    }
 
     public async Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
@@ -511,6 +540,7 @@ public sealed class SeniorityAppService(
             var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(pending.ToSeniorityStateCtrlNbr, ct);
 
             var previousState = seniority.SeniorityStateCtrlNbr;
+            var previousStateEntity = await uow.SeniorityStates.GetByCtrlNbrAsync(previousState, ct);
             seniority.Update(
                 seniority.LastActiveRoster,
                 seniority.RosterDate,
@@ -522,6 +552,9 @@ public sealed class SeniorityAppService(
                 await ApplyOffPropertyCascadeAsync(uow, seniority.EmployeeCtrlNbr, pending.ToSeniorityStateCtrlNbr, DateTime.UtcNow, ct);
             else
                 seniority.ClearEndDate();
+
+            if (ShouldClearPendingMovesAndBids(previousStateEntity?.StateType, newState?.StateType))
+                await ClearPendingMovesAndBidsAsync(uow, seniority.EmployeeCtrlNbr, ct);
 
             uow.Seniority.Update(seniority);
 

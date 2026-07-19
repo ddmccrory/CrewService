@@ -16,6 +16,13 @@ public static class StaffablePositionNameResolver
     public static async Task<string> ResolveAsync(
         IOrchestrationUnitOfWork uow, ControlNumber staffablePositionCtrlNbr, CancellationToken ct = default)
     {
+        // Authoritative rule: Hangout auto-moves can persist the target roster-board
+        // control number before execution creates a concrete board position. Resolve
+        // that board control number directly to the board name.
+        var boardByCtrlNbr = await uow.RosterBoards.GetByCtrlNbrAsync(staffablePositionCtrlNbr, ct);
+        if (boardByCtrlNbr is not null)
+            return boardByCtrlNbr.Name;
+
         var pos = await uow.StaffablePositions.GetByCtrlNbrAsync(staffablePositionCtrlNbr, ct);
         if (pos is null) return string.Empty;
 

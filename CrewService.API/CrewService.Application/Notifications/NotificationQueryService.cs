@@ -142,47 +142,63 @@ public sealed class NotificationQueryService(
         EmployeeNotification notification,
         CancellationToken ct)
     {
-        if (notification.Category != NotificationCategories.BoardPlacement)
+        if (!string.Equals(notification.Category?.Trim(), NotificationCategories.BoardPlacement, StringComparison.OrdinalIgnoreCase))
             return;
 
         var subject = notification.Subject;
-        if (subject is null || subject.SubjectType != NotificationSubjectTypes.RosterBoard)
+        if (subject is null || !string.Equals(subject.SubjectType?.Trim(), NotificationSubjectTypes.RosterBoard, StringComparison.OrdinalIgnoreCase))
             return;
 
         var sourceBoard = await uow.RosterBoards.GetByCtrlNbrAsync(subject.SubjectCtrlNbr, ct);
         if (sourceBoard is null || sourceBoard.BoardType != BoardType.Hangout)
             return;
 
-        var sourcePosition = sourceBoard.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employee.CtrlNbr);
-        if (sourcePosition is null)
+        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employee.CtrlNbr);
+        var currentAssignment = assignments
+            .OrderByDescending(a => a.AssignedDateUtc)
+            .FirstOrDefault();
+        if (currentAssignment is null)
             return;
 
-        var craftPolicy = await uow.CraftOperationsPolicies.GetByCraftAsync(sourceBoard.CraftCtrlNbr, ct);
+        var currentBoard = currentAssignment.AssignmentSourceCtrlNbr is not null
+            ? await uow.RosterBoards.GetByPositionCtrlNbrAsync(currentAssignment.AssignmentSourceCtrlNbr, ct)
+            : null;
+
+        currentBoard ??= await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(currentAssignment.StaffablePositionCtrlNbr, ct);
+        if (currentBoard is null || currentBoard.BoardType != BoardType.Hangout)
+            return;
+
+        var craftPolicy = await uow.CraftOperationsPolicies.GetByCraftAsync(currentBoard.CraftCtrlNbr, ct);
         if (craftPolicy is null || !craftPolicy.HangoutAutoMoveEnabled)
             return;
 
         if (!Enum.TryParse<BoardType>(craftPolicy.HangoutAutoMoveTargetBoardType, ignoreCase: true, out var targetBoardType))
             return;
 
-        var craftBoards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(sourceBoard.CraftCtrlNbr, ct);
+        var craftBoards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(currentBoard.CraftCtrlNbr, ct);
         var targetBoard = craftBoards.FirstOrDefault(b => b.IsActive && b.BoardType == targetBoardType);
         if (targetBoard is null)
             return;
 
-        // Avoid duplicate active Hangout auto-moves for the same employee.
-        var existingMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employee.CtrlNbr, ct);
-        if (existingMoves.Any(m =>
-                m.MoveType == SeniorityMoveType.Hangout
-                && (m.Status == SeniorityMoveStatus.Pending || m.Status == SeniorityMoveStatus.Approved)))
-        {
+        // Idempotency guard: acknowledgement can be retried or raced with another process.
+        // If the employee is already currently assigned to the target board, there is nothing to schedule.
+        if (currentBoard.CtrlNbr == targetBoard.CtrlNbr)
             return;
+
+        var existingMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employee.CtrlNbr, ct);
+        var activeHangoutMoves = existingMoves
+            .Where(m =>
+                m.MoveType == SeniorityMoveType.Hangout
+                && (m.Status == SeniorityMoveStatus.Pending || m.Status == SeniorityMoveStatus.Approved))
+            .ToList();
+
+        foreach (var activeMove in activeHangoutMoves)
+        {
+            activeMove.Cancel("Superseded by a newer acknowledged hangout placement.");
+            await uow.SeniorityMoves.UpdateAsync(activeMove, ct);
         }
 
-        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employee.CtrlNbr);
-        var earliestAssignment = assignments.OrderBy(a => a.AssignedDateUtc).FirstOrDefault();
-        var daysOnCurrentPosition = earliestAssignment is null
-            ? 0
-            : (int)(DateTime.UtcNow - earliestAssignment.AssignedDateUtc).TotalDays;
+        var daysOnCurrentPosition = (int)(DateTime.UtcNow - currentAssignment.AssignedDateUtc).TotalDays;
 
         var acceptedAtUtc = notification.Acknowledgements
             .Where(a => a.Confirmed)
@@ -193,20 +209,16 @@ public sealed class NotificationQueryService(
         var delayHours = Math.Max(0, craftPolicy.HangoutAutoMoveDelayHours);
         var effectiveUtc = acceptedAtUtc.AddHours(delayHours);
 
-        var nextOrder = targetBoard.Positions.Count > 0
-            ? targetBoard.Positions.Max(p => p.PositionOrder) + 1
-            : 1;
-
-        var targetStaffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
-        uow.StaffablePositions.Add(targetStaffablePosition);
-        targetBoard.AddPosition(employee.CtrlNbr, nextOrder, targetStaffablePosition.CtrlNbr);
-        uow.RosterBoards.Update(targetBoard);
+        // Acknowledgement only schedules the move request. It must not create board positions.
+        // For hangout auto-moves, store the target board control number here; execution resolves
+        // or creates the concrete target position when the move is executed.
+        var targetPositionOrBoardCtrlNbr = targetBoard.CtrlNbr;
 
         var move = SeniorityMove.Create(
             notification.RailroadCtrlNbr,
             employee.CtrlNbr,
-            sourceBoard.CraftCtrlNbr,
-            targetStaffablePosition.CtrlNbr,
+            currentBoard.CraftCtrlNbr,
+            targetPositionOrBoardCtrlNbr,
             displacedEmployeeCtrlNbr: null,
             daysOnCurrentPosition,
             moveType: SeniorityMoveType.Hangout,

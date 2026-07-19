@@ -4,6 +4,7 @@ public interface ICurrentUserService
 {
     Guid GetUserId();
     string GetUserName();
+    string? GetUserIdentifier();
     bool IsInRole(string roleName);
 
     /// <summary>

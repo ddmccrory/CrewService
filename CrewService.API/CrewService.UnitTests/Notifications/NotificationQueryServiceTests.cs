@@ -121,6 +121,9 @@ public class NotificationQueryServiceTests
         var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
         Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
         Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
+        var targetBoard = Assert.Single(uow.RosterBoardRepo.SeededBoards, b => b.BoardType == BoardType.ExtraBoard);
+        Assert.DoesNotContain(targetBoard.Positions, p => p.EmployeeCtrlNbr == employee.CtrlNbr);
+        Assert.Empty(uow.StaffablePositionRepo.AddedEntities);
         Assert.False(projection.IsOpen);
         Assert.Equal(PositionChangeClosedReasons.Acknowledged, projection.ClosedReason);
     }
@@ -139,6 +142,125 @@ public class NotificationQueryServiceTests
             "Placed on hangout board.",
             requiresAcknowledgement: true,
             subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
+        uow.Notifications.Seeded.Add(notification);
+
+        await service.RecordManualAcknowledgementAsync(
+            notification.CtrlNbr,
+            AcknowledgementMethod.PhoneCall,
+            confirmed: true,
+            phoneNumber: "5551234567",
+            notes: "Reached employee",
+            TestContext.Current.CancellationToken);
+
+        var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
+        Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
+        Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
+        var targetBoard = Assert.Single(uow.RosterBoardRepo.SeededBoards, b => b.BoardType == BoardType.ExtraBoard);
+        Assert.DoesNotContain(targetBoard.Positions, p => p.EmployeeCtrlNbr == employee.CtrlNbr);
+        Assert.Empty(uow.StaffablePositionRepo.AddedEntities);
+    }
+
+    [Fact]
+    public async Task RecordManualAcknowledgement_WhenAlreadyOnTargetBoard_DoesNotScheduleDuplicateHangoutMove()
+    {
+        var employee = MakeEmployee(UserGuid.ToString());
+        var (service, uow) = Build(employee, UserGuid);
+        var sourceBoard = SetupHangoutAutoMoveScenario(uow, employee);
+        var targetBoard = Assert.Single(uow.RosterBoardRepo.SeededBoards, b => b.BoardType == BoardType.ExtraBoard);
+
+        var existingTargetStaffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
+        var existingTargetPosition = targetBoard.AddPosition(employee.CtrlNbr, positionOrder: 1, existingTargetStaffablePosition.CtrlNbr);
+
+        // Deterministic idempotency is based on the employee's current assignment board.
+        // Make the current assignment explicitly point at the target board position.
+        uow.PositionAssignmentRepo.Seeded.Clear();
+        uow.PositionAssignmentRepo.Seeded.Add(PositionAssignment.Create(
+            existingTargetStaffablePosition.CtrlNbr,
+            employee.CtrlNbr,
+            PositionAssignmentType.Board,
+            assignmentSourceCtrlNbr: existingTargetPosition.CtrlNbr,
+            assignedDateUtc: DateTime.UtcNow.AddMinutes(-30)));
+
+        var notification = EmployeeNotification.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            NotificationCategories.BoardPlacement,
+            "Placed on hangout board.",
+            requiresAcknowledgement: true,
+            subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
+        uow.Notifications.Seeded.Add(notification);
+
+        await service.RecordManualAcknowledgementAsync(
+            notification.CtrlNbr,
+            AcknowledgementMethod.PhoneCall,
+            confirmed: true,
+            phoneNumber: "5551234567",
+            notes: "Reached employee",
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(uow.SeniorityMoveRepo.AddedEntities);
+    }
+
+    [Fact]
+    public async Task RecordManualAcknowledgement_NewBoardPlacement_ReplacesExistingActiveHangoutMove()
+    {
+        var employee = MakeEmployee(UserGuid.ToString());
+        var (service, uow) = Build(employee, UserGuid);
+        var sourceBoard = SetupHangoutAutoMoveScenario(uow, employee);
+        var targetBoard = Assert.Single(uow.RosterBoardRepo.SeededBoards, b => b.BoardType == BoardType.ExtraBoard);
+
+        var existingMove = SeniorityMove.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            CraftCtrlNbr,
+            targetBoard.CtrlNbr,
+            displacedEmployeeCtrlNbr: null,
+            daysOnCurrentPosition: 1,
+            moveType: SeniorityMoveType.Hangout,
+            effectiveUtc: DateTime.UtcNow.AddHours(12),
+            willWork: null);
+        uow.SeniorityMoveRepo.Seeded.Add(existingMove);
+
+        var notification = EmployeeNotification.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            NotificationCategories.BoardPlacement,
+            "Placed on hangout board.",
+            requiresAcknowledgement: true,
+            subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
+        uow.Notifications.Seeded.Add(notification);
+
+        await service.RecordManualAcknowledgementAsync(
+            notification.CtrlNbr,
+            AcknowledgementMethod.PhoneCall,
+            confirmed: true,
+            phoneNumber: "5551234567",
+            notes: "Reached employee",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(SeniorityMoveStatus.Cancelled, existingMove.Status);
+        Assert.Equal("Superseded by a newer acknowledged hangout placement.", existingMove.CancellationReason);
+
+        var replacementMove = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
+        Assert.Equal(SeniorityMoveType.Hangout, replacementMove.MoveType);
+        Assert.Equal(targetBoard.CtrlNbr, replacementMove.TargetPositionCtrlNbr);
+    }
+
+    [Fact]
+    public async Task RecordManualAcknowledgement_ConfirmedOnAlreadyAcknowledgedBoardPlacement_StillSchedulesHangoutAutoMove()
+    {
+        var employee = MakeEmployee(UserGuid.ToString());
+        var (service, uow) = Build(employee, UserGuid);
+        var sourceBoard = SetupHangoutAutoMoveScenario(uow, employee);
+
+        var notification = EmployeeNotification.Create(
+            RailroadCtrlNbr,
+            employee.CtrlNbr,
+            NotificationCategories.BoardPlacement,
+            "Placed on hangout board.",
+            requiresAcknowledgement: true,
+            subject: NotificationSubject.Create(NotificationSubjectTypes.RosterBoard, sourceBoard.CtrlNbr));
+        notification.AcknowledgeElectronically("already-acknowledged");
         uow.Notifications.Seeded.Add(notification);
 
         await service.RecordManualAcknowledgementAsync(
@@ -232,6 +354,7 @@ internal sealed class StubCurrentUserService(Guid userId) : ICurrentUserService
 {
     public Guid GetUserId() => userId;
     public string GetUserName() => "test-user";
+    public string? GetUserIdentifier() => userId.ToString();
     public bool IsInRole(string roleName) => false;
     public long? GetParentCtrlNbr() => null;
     public void SetAuditOverride(string name) { }

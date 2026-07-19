@@ -387,6 +387,9 @@ message SeniorityMoveResponse {
   string employee_name = 16;
   // Resolved display name of the target position (e.g. "350 / Engineer"); empty if unresolved.
   string target_position_name = 17;
+  // Work-area-local close timestamp for closed statuses (Completed/Cancelled/Rejected).
+  // Empty when the move is not closed.
+  string closed_local = 18;
 }
 message GetSeniorityMovesByEmployeeRequest { int64 employee_ctrl_nbr = 1; }
 message GetSeniorityMovesByCraftRequest {
