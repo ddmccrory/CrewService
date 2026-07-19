@@ -14,7 +14,14 @@
 
 <BackNavButton Text="Assignments" FallbackUrl="/daily/assignments" />
 
-@if (assignment is null)
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning mt-2">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view assignment detail.
+    </div>
+}
+else if (assignment is null)
 {
     <p><em>Loading...</em></p>
 }
@@ -169,6 +176,15 @@ else
 
     protected override async Task LoadDataAsync()
     {
+        if (!HasRailroad)
+        {
+            assignment = null;
+            schedules = [];
+            shiftDefinitions = [];
+            crewAssignments = [];
+            return;
+        }
+
         await LoadAssignment();
         await LoadShiftDefinitions();
         await LoadSchedules();

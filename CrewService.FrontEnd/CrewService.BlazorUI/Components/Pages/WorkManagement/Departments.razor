@@ -17,14 +17,14 @@
 
 <h1>Departments</h1>
 
-@if (!HasRailroad)
+@if (ShowSelectRailroadBanner)
 {
     <div class="alert alert-warning">
         <span class="bi bi-exclamation-triangle"></span>
         Please select a railroad in the context switcher to manage departments.
     </div>
 }
-else
+else if (HasRailroad)
 {
     <p class="text-muted mb-3">Managing departments for <strong>@SelectedRailroadName</strong></p>
 

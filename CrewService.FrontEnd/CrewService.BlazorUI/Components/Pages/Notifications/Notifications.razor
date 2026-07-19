@@ -15,7 +15,14 @@
 
 <h1>Notifications</h1>
 
-@if (!CurrentUser.IsEmployee)
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view notifications.
+    </div>
+}
+else if (!CurrentUser.IsEmployee)
 {
     <div class="alert alert-info">
         <span class="bi bi-info-circle"></span>
@@ -79,6 +86,7 @@ else
 
     protected override async Task LoadDataAsync()
     {
+        if (!HasRailroad) { notifications = []; return; }
         if (!CurrentUser.IsEmployee) { notifications = []; return; }
         try
         {
