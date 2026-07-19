@@ -665,7 +665,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
 
     private static async Task<int> GetBidCountAsync(Application.Bulletins.BulletinsService svc, Domain.ValueObjects.ControlNumber bulletinCtrlNbr, CancellationToken ct)
     {
-        try { return (await svc.GetBidsByBulletinAsync(bulletinCtrlNbr, ct)).Count; }
+        try { return (await svc.GetBidsByBulletinAsync(bulletinCtrlNbr, ct)).Count(b => string.Equals(b.Status, "Submitted", StringComparison.OrdinalIgnoreCase)); }
         catch { return 0; }
     }
 
