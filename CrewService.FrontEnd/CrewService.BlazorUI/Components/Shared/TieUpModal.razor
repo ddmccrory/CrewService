@@ -1,0 +1,47 @@
+<Modal Visible="Visible"
+       Title="@Title"
+       Icon="bi bi-exclamation-triangle"
+       Size="lg"
+       OnClose="OnCancel">
+    <BodyContent>
+        <p>Are you sure you want to tie up <strong>@ItemName</strong>?</p>
+        <div class="mb-2">
+            <label class="form-label fw-semibold">@DateTimeLabel</label>
+            <div class="input-group">
+                <input type="datetime-local" class="form-control"
+                       value="@TieUpDateTimeLocal.ToString("yyyy-MM-ddTHH:mm")"
+                       @onchange="OnDateTimeChanged" />
+                <button type="button" class="btn btn-outline-secondary" disabled="@IsSaving" @onclick="OnNow">
+                    Now
+                </button>
+            </div>
+        </div>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn btn-danger" disabled="@IsSaving" @onclick="OnConfirm">
+            <span class="bi bi-box-arrow-right me-1"></span> Tie Up
+        </button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string ItemName { get; set; } = string.Empty;
+    [Parameter] public string DateTimeLabel { get; set; } = "Estimated Tie Up Date/Time (Work Area Local)";
+    [Parameter] public DateTime TieUpDateTimeLocal { get; set; }
+    [Parameter] public EventCallback<DateTime> TieUpDateTimeLocalChanged { get; set; }
+    [Parameter] public EventCallback OnNowSelected { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task OnDateTimeChanged(ChangeEventArgs args)
+    {
+        if (DateTime.TryParse(args.Value?.ToString(), out var parsed))
+            await TieUpDateTimeLocalChanged.InvokeAsync(DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified));
+    }
+
+    private Task OnNow() => OnNowSelected.InvokeAsync();
+}

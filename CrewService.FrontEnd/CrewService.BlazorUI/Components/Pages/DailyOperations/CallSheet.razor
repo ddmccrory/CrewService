@@ -338,6 +338,10 @@ else if (HasRailroad)
                                                                                                 @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDuty
                                                                                                     || slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime)
                                                                                                 {
+                                                                                                    <li><button class="dropdown-item" @onclick="() => OpenTieUpModal(activeShift.CtrlNbr, slot)"><span class="bi bi-box-arrow-right me-2"></span>Tie Up</button></li>
+                                                                                                }
+                                                                                                else if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusTiedUp)
+                                                                                                {
                                                                                                     <li><button class="dropdown-item" disabled><span class="bi bi-box-arrow-right me-2"></span>Tie Up</button></li>
                                                                                                 }
                                                                                                 @if (slot.Status != PositionSlotStatusEnum.PositionSlotStatusAnnulled
@@ -526,6 +530,10 @@ else if (HasRailroad)
                                                                         @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDuty
                                                                             || slot.Status == PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime)
                                                                         {
+                                                                            <li><button class="dropdown-item" @onclick="() => OpenTieUpModal(activeShift.CtrlNbr, slot)"><span class="bi bi-box-arrow-right me-2"></span>Tie Up</button></li>
+                                                                        }
+                                                                        else if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusTiedUp)
+                                                                        {
                                                                             <li><button class="dropdown-item" disabled><span class="bi bi-box-arrow-right me-2"></span>Tie Up</button></li>
                                                                         }
                                                                         @if (slot.Status != PositionSlotStatusEnum.PositionSlotStatusAnnulled
@@ -659,6 +667,18 @@ else if (HasRailroad)
     <ConfirmModal Visible="showDoNotFillModal" ItemName="@doNotFillItemName" IsSaving="isDoNotFilling"
                         ActionVerb="Do Not Fill" ButtonIcon="bi bi-slash-circle" ButtonClass="btn-warning"
                         OnConfirm="ConfirmDoNotFill" OnCancel="() => showDoNotFillModal = false" />
+
+    @* ── Tie Up Confirmation Modal ── *@
+    <TieUpModal Visible="showTieUpModal"
+                IsSaving="isTyingUp"
+                Title="@tieUpModalTitle"
+                ItemName="@tieUpItemName"
+                DateTimeLabel="Estimated Tie Up Date/Time (Work Area Local)"
+                TieUpDateTimeLocal="tieUpDateTimeLocal"
+                TieUpDateTimeLocalChanged="OnTieUpDateTimeLocalChanged"
+                OnNowSelected="SetTieUpDateTimeToNow"
+                OnConfirm="ConfirmTieUp"
+                OnCancel="CloseTieUpModal" />
 
     @* ── Restore Position Confirmation Modal ── *@
     <ConfirmModal Visible="showRestoreModal" ItemName="@restoreItemName" IsSaving="isRestoring"
@@ -1010,6 +1030,16 @@ else if (HasRailroad)
     private long doNotFillSlotCtrlNbr;
     private string doNotFillItemName = "";
 
+    // Tie up modal state
+    private bool showTieUpModal;
+    private bool isTyingUp;
+    private string tieUpModalTitle = "";
+    private string tieUpItemName = "";
+    private DateTime tieUpDateTimeLocal = DateTime.UtcNow;
+    private DateTime tieUpDateTimeUtc = DateTime.UtcNow;
+    private TimeSpan tieUpWorkAreaOffset = TimeSpan.Zero;
+    private TieUpModel tieUpModel = new();
+
     // Restore modal state
     private bool showRestoreModal;
     private bool isRestoring;
@@ -1063,6 +1093,159 @@ else if (HasRailroad)
     {
         if (HasRailroad)
             await LoadReferenceData();
+    }
+
+    private void OpenTieUpModal(long shiftCtrlNbr, DailyPositionSlotResponse slot)
+    {
+        tieUpModel = new TieUpModel
+        {
+            ShiftInstanceCtrlNbr = shiftCtrlNbr,
+            PositionSlotCtrlNbr = slot.CtrlNbr,
+            OnDutyRecordCtrlNbr = slot.OnDutyRecordCtrlNbr,
+            CraftCtrlNbr = ResolveCraftCtrlNbrForSlot(slot)
+        };
+
+        var employeeName = string.IsNullOrWhiteSpace(slot.IncumbentEmployeeName)
+            ? (string.IsNullOrWhiteSpace(slot.IncumbentEmployeeNumber)
+                ? $"Employee #{slot.IncumbentEmployeeCtrlNbr}"
+                : slot.IncumbentEmployeeNumber.ToUpperInvariant())
+            : slot.IncumbentEmployeeName;
+        var job = string.IsNullOrWhiteSpace(slot.AssignmentCode)
+            ? slot.AssignmentName
+            : slot.AssignmentCode.ToUpperInvariant();
+        var positionName = string.IsNullOrWhiteSpace(slot.CraftRoleName)
+            ? "Position"
+            : slot.CraftRoleName;
+
+        tieUpModalTitle = $"Tie Up — {employeeName} — {job} — {positionName}";
+        tieUpItemName = $"{employeeName} ({job} / {positionName})";
+        (DateTime Local, DateTime Utc, TimeSpan Offset) defaultTieUp;
+        try
+        {
+            defaultTieUp = ResolveDefaultTieUpDateTime(slot);
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+            return;
+        }
+
+        tieUpDateTimeLocal = defaultTieUp.Local;
+        tieUpDateTimeUtc = defaultTieUp.Utc;
+        tieUpWorkAreaOffset = defaultTieUp.Offset;
+        showTieUpModal = true;
+    }
+
+    private void CloseTieUpModal() => showTieUpModal = false;
+
+    private async Task ConfirmTieUp()
+    {
+        if (tieUpModel.OnDutyRecordCtrlNbr <= 0)
+        {
+            errorMessage = "No on-duty record is available for this position slot.";
+            return;
+        }
+
+        if (tieUpModel.CraftCtrlNbr <= 0)
+        {
+            errorMessage = "Unable to resolve craft for tie-up.";
+            return;
+        }
+
+        isTyingUp = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.TieUpAsync(
+                tieUpModel.OnDutyRecordCtrlNbr,
+                DateTime.SpecifyKind(tieUpDateTimeUtc, DateTimeKind.Utc),
+                string.Empty,
+                tieUpModel.CraftCtrlNbr,
+                offDutyTimeConfirmed: false);
+
+            showTieUpModal = false;
+            successMessage = "Employee tied up successfully.";
+            await LoadCallSheet();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to tie up employee: {ex.Message}";
+        }
+        finally
+        {
+            isTyingUp = false;
+        }
+    }
+
+    private long ResolveCraftCtrlNbrForSlot(DailyPositionSlotResponse slot)
+    {
+        if (craftRoles is null || craftRoles.Count == 0)
+            return 0;
+
+        var role = craftRoles.FirstOrDefault(r =>
+            string.Equals(r.Name, slot.CraftRoleName, StringComparison.OrdinalIgnoreCase));
+
+        return role?.CraftCtrlNbr ?? 0;
+    }
+
+    private void OnTieUpDateTimeLocalChanged(DateTime local)
+    {
+        tieUpDateTimeLocal = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+        var workAreaTz = ResolveSelectedWorkAreaTimeZone();
+        tieUpDateTimeUtc = TimeZoneInfo.ConvertTimeToUtc(tieUpDateTimeLocal, workAreaTz);
+        tieUpWorkAreaOffset = workAreaTz.GetUtcOffset(tieUpDateTimeLocal);
+    }
+
+    private void SetTieUpDateTimeToNow()
+    {
+        var nowUtc = DateTime.UtcNow;
+        var workAreaTz = ResolveSelectedWorkAreaTimeZone();
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, workAreaTz);
+
+        tieUpDateTimeLocal = DateTime.SpecifyKind(nowLocal, DateTimeKind.Unspecified);
+        tieUpWorkAreaOffset = workAreaTz.GetUtcOffset(tieUpDateTimeLocal);
+        tieUpDateTimeUtc = nowUtc;
+    }
+
+    private (DateTime Local, DateTime Utc, TimeSpan Offset) ResolveDefaultTieUpDateTime(DailyPositionSlotResponse slot)
+    {
+        var workAreaTz = ResolveSelectedWorkAreaTimeZone();
+
+        if (!string.IsNullOrWhiteSpace(slot.OffDutyTime)
+            && TimeOnly.TryParse(slot.OffDutyTime, out var offDutyTime))
+        {
+            var local = selectedDate.ToDateTime(offDutyTime);
+            var unspecifiedLocal = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+            var localizedUtc = TimeZoneInfo.ConvertTimeToUtc(unspecifiedLocal, workAreaTz);
+            var localizedOffset = workAreaTz.GetUtcOffset(unspecifiedLocal);
+            return (unspecifiedLocal, localizedUtc, localizedOffset);
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, workAreaTz);
+        var unspecifiedNowLocal = DateTime.SpecifyKind(nowLocal, DateTimeKind.Unspecified);
+        return (unspecifiedNowLocal, nowUtc, workAreaTz.GetUtcOffset(unspecifiedNowLocal));
+    }
+
+    private TimeZoneInfo ResolveSelectedWorkAreaTimeZone()
+    {
+        var tzId = workAreas?
+            .FirstOrDefault(w => w.CtrlNbr == selectedWorkAreaCtrlNbr)
+            ?.TimeZoneId;
+
+        if (string.IsNullOrWhiteSpace(tzId))
+            throw new InvalidOperationException("Work area timezone is required for tie-up.");
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Invalid work area timezone '{tzId}' for tie-up.");
+        }
     }
 
     protected override async Task OnAppContextChangedAsync()
@@ -1318,6 +1501,19 @@ else if (HasRailroad)
         if (shifts is null || shifts.Count == 0)
             return;
 
+        if (activeShiftCtrlNbr > 0)
+        {
+            var existingActiveShift = shifts.FirstOrDefault(s => s.CtrlNbr == activeShiftCtrlNbr);
+            if (existingActiveShift is not null)
+            {
+                selectedDepartmentCtrlNbr = existingActiveShift.DepartmentCtrlNbr;
+
+                var activeDept = departments?.FirstOrDefault(d => d.CtrlNbr == selectedDepartmentCtrlNbr);
+                useHorizontalLayout = activeDept?.DefaultCallSheetView.Equals("Horizontal", StringComparison.OrdinalIgnoreCase) == true;
+                return;
+            }
+        }
+
         var plannedShift = shifts
             .Where(s => string.Equals(s.Status, "Planned", StringComparison.OrdinalIgnoreCase)
                         && s.DepartmentCtrlNbr > 0
@@ -1549,7 +1745,7 @@ else if (HasRailroad)
         PositionSlotStatusEnum.PositionSlotStatusFilled => "",
         PositionSlotStatusEnum.PositionSlotStatusOnDuty => "text-success fw-bold",
         PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "text-danger fw-bold",
-        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "",
+        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "text-warning fw-bold",
         PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "text-danger text-decoration-line-through",
         PositionSlotStatusEnum.PositionSlotStatusUnavailable => "text-danger text-decoration-line-through",
         PositionSlotStatusEnum.PositionSlotStatusAnnulled => "text-primary",
@@ -2110,5 +2306,13 @@ else if (HasRailroad)
         public TimeOnly OffDutyTime { get; set; }
         public long GroupCtrlNbr { get; set; }
         public List<string> CraftRoleNames { get; set; } = [];
+    }
+
+    private class TieUpModel
+    {
+        public long ShiftInstanceCtrlNbr { get; set; }
+        public long PositionSlotCtrlNbr { get; set; }
+        public long OnDutyRecordCtrlNbr { get; set; }
+        public long CraftCtrlNbr { get; set; }
     }
 }

@@ -278,5 +278,41 @@ public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitT
         }
     }
 
+    public async Task<DeleteResponse> CompleteDeferredOnDutyRecordAsync(long employeeCtrlNbr, long onDutyRecordCtrlNbr, DateTime? offDutyTimeUtc = null)
+    {
+        try
+        {
+            return await _client.CompleteDeferredOnDutyRecordAsync(new CompleteDeferredOnDutyRecordRequest
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr,
+                OffDutyTimeUtc = offDutyTimeUtc.HasValue
+                    ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(offDutyTimeUtc.Value, DateTimeKind.Utc))
+                    : null,
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<EmployeeOnDutyRecordsResponse> GetDutyStatusNotStartedAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetDutyStatusNotStartedAsync(new GetDutyStatusNotStartedRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     #endregion
 }

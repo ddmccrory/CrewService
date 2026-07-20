@@ -89,15 +89,8 @@ public class CurrentUserService
 
         EmployeeNumber ??= user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
 
-        if (employee is not null)
-        {
-            Employee = employee;
-            IsEmployee = true;
-        }
-        else if (!IsEmployee)
-        {
-            IsEmployee = user.IsInRole(Roles.Employee) || !string.IsNullOrWhiteSpace(EmployeeNumber);
-        }
+        Employee = employee;
+        IsEmployee = employee is not null;
 
         UseEmployeeProfilePath = useEmployeeProfilePath;
 

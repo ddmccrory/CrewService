@@ -82,7 +82,7 @@ public sealed partial class CircuitBootstrapService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Bootstrap call failed; services will initialize individually");
-            // Don't rethrow — individual services will do their own initialization.
+            throw;
         }
     }
 
