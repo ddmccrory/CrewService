@@ -299,6 +299,9 @@ public class BulletinCreationServiceTests
             IOrchestrationUnitOfWork uow,
             ControlNumber workAreaGroupCtrlNbr,
             CancellationToken ct = default) => Task.FromResult<ControlNumber?>(railroadCtrlNbr);
+
+        public ControlNumber? ResolveFromGroup(DynamicGroup? group)
+            => railroadCtrlNbr;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
