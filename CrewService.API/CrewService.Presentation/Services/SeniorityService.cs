@@ -1,4 +1,5 @@
 using CrewService.Application.SeniorityOps;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Authorization;
 using CrewService.Application.Time;
 using CrewService.Domain.Exceptions;
@@ -274,6 +275,7 @@ public class SeniorityService(
         GetNextStateChangeEventRequest request, ServerCallContext context)
     {
         var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
+        var railroadResolver = serviceProvider.GetRequiredService<IRailroadResolver>();
         var workAreaRepo = serviceProvider.GetRequiredService<CrewService.Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
         var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
@@ -284,10 +286,14 @@ public class SeniorityService(
 
         foreach (var workArea in workAreas)
         {
+            var owningRailroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
+            if (owningRailroadCtrlNbr is null)
+                continue;
+
             var nextRun = await nextRunResolver.ResolveAsync(
                 "SeniorityStateChange",
                 workArea.CtrlNbr,
-                workArea.OwningRailroadCtrlNbr,
+                owningRailroadCtrlNbr,
                 context.CancellationToken);
 
             if (nextRun is null)

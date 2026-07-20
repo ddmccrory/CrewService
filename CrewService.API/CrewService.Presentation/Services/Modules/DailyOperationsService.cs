@@ -1,6 +1,8 @@
 using CrewService.Application.DailyOperations;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Formatting;
@@ -16,6 +18,7 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         GetNextCallSheetEventRequest request, ServerCallContext context)
     {
         var nextRunResolver = serviceProvider.GetRequiredService<IBackgroundJobNextRunResolver>();
+        var railroadResolver = serviceProvider.GetRequiredService<IRailroadResolver>();
         var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
         var workAreaRepo = serviceProvider.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
@@ -24,10 +27,14 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         if (workArea is null)
             return new GetNextCallSheetEventResponse { NextEventLocal = string.Empty };
 
+        var railroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
+        if (railroadCtrlNbr is null)
+            return new GetNextCallSheetEventResponse { NextEventLocal = string.Empty };
+
         var nextRun = await nextRunResolver.ResolveAsync(
             "CallSheet",
             workAreaCtrlNbr,
-            workArea.OwningRailroadCtrlNbr,
+            railroadCtrlNbr,
             context.CancellationToken);
 
         if (nextRun is null)
@@ -168,6 +175,7 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             request.OffDutyTime.ToDateTime(),
             request.ReleaseReason,
             ControlNumber.Create(request.CraftCtrlNbr),
+            request.OffDutyTimeConfirmed,
             context.CancellationToken);
 
         return new OffDutyRecordResponse
@@ -177,6 +185,11 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             OffDutyTime = Timestamp.FromDateTime(DateTime.SpecifyKind(record.OffDutyTimeUtc, DateTimeKind.Utc)),
             TotalTimeOnDutyMinutes = record.TotalTimeOnDutyMinutes,
             ReleaseReason = record.ReleaseReason,
+            OffDutyTimeConfirmed = record.OffDutyTimeConfirmed,
+            OffDutyTimeConfirmedAt = record.OffDutyTimeConfirmedAtUtc.HasValue
+                ? Timestamp.FromDateTime(DateTime.SpecifyKind(record.OffDutyTimeConfirmedAtUtc.Value, DateTimeKind.Utc))
+                : null,
+            OffDutyTimeConfirmedBy = record.OffDutyTimeConfirmedBy,
         };
     }
 
@@ -440,12 +453,24 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
-    private static async Task<DailyShiftInstanceResponse> MapShiftToResponseAsync(
+    private async Task<DailyShiftInstanceResponse> MapShiftToResponseAsync(
         ShiftInstance shift,
         EmployeeNameService employeeNameSvc,
         DateOnly? targetDate = null,
         DateTime? nowLocal = null)
     {
+        var slotCtrlNbrs = shift.PositionSlots.Select(s => s.CtrlNbr).ToList();
+        IReadOnlyList<CrewService.Domain.Modules.Dispatching.OnDutyRecord> onDutyRecords;
+        await using (var uow = await serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>()
+            .CreateAsync())
+        {
+            onDutyRecords = await uow.OnDutyRecords.GetByPositionSlotsAsync(slotCtrlNbrs);
+        }
+
+        var slotOnDutyMap = onDutyRecords
+            .GroupBy(r => r.PositionSlotCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.OnDutyTimeUtc).First().CtrlNbr);
+
         var employeeCtrlNbrs = shift.PositionSlots
             .Where(s => s.IncumbentEmployeeCtrlNbr is not null)
             .Select(s => s.IncumbentEmployeeCtrlNbr!)
@@ -495,6 +520,8 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                 GroupCode = slot.GroupCode,
                 IsIncumbent = slot.IsIncumbent,
             };
+            if (slotOnDutyMap.TryGetValue(slot.CtrlNbr, out var onDutyCtrlNbr))
+                slotResp.OnDutyRecordCtrlNbr = onDutyCtrlNbr.Value;
             slotResp.CrewName = slot.CrewName;
             slotResp.CrewType = slot.CrewType;
             if (slot.IncumbentEmployeeCtrlNbr is not null)

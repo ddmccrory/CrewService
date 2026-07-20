@@ -1,4 +1,5 @@
 using CrewService.Application.Policies;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
@@ -567,6 +568,7 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         GetNextSeniorityMoveEventRequest request, ServerCallContext context)
     {
         var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
+        var railroadResolver = serviceProvider.GetRequiredService<IRailroadResolver>();
         var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
         var workAreaRepo = serviceProvider.GetRequiredService<CrewService.Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
@@ -576,10 +578,14 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
 
         foreach (var workArea in workAreas)
         {
+            var owningRailroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
+            if (owningRailroadCtrlNbr is null)
+                continue;
+
             var nextRun = await nextRunResolver.ResolveAsync(
                 "SeniorityMove",
                 workArea.CtrlNbr,
-                workArea.OwningRailroadCtrlNbr,
+                owningRailroadCtrlNbr,
                 context.CancellationToken);
 
             if (nextRun is null)

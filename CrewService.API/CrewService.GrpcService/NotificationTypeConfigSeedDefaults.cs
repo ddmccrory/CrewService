@@ -13,6 +13,7 @@ public static class NotificationTypeConfigSeedDefaults
         (NotificationCategories.SeniorityMove, "Seniority Move", true),
         (NotificationCategories.PositionChange, "Position Change", true),
         (NotificationCategories.BoardPlacement, "Board Placement", false),
+        (NotificationCategories.TieUp, "Tie-Up", true),
         (NotificationCategories.GeneralInformation, "General Information", false)
     ];
 

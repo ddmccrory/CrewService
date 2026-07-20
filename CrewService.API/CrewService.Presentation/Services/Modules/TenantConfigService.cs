@@ -43,6 +43,10 @@ public class TenantConfigService(IServiceProvider serviceProvider) : TenantConfi
                 context.CancellationToken);
             return MapGroupType(gt);
         }
+        catch (ArgumentException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
+        }
         catch (InvalidOperationException ex)
         {
             throw new RpcException(new Status(StatusCode.AlreadyExists, ex.Message));
@@ -120,6 +124,10 @@ public class TenantConfigService(IServiceProvider serviceProvider) : TenantConfi
         try
         {
             return MapGroup(await svc.GetGroupAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken));
+        }
+        catch (ArgumentException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
         }
         catch (KeyNotFoundException ex)
         {

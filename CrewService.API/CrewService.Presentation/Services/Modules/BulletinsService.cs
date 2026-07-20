@@ -1,4 +1,5 @@
 using CrewService.Application.Time;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Staffing;
@@ -718,6 +719,7 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
     public override async Task<GetNextBulletinEventResponse> GetNextBulletinEvent(GetNextBulletinEventRequest request, ServerCallContext context)
     {
         var nextRunResolver = serviceProvider.GetRequiredService<Application.BackgroundWorkers.IBackgroundJobNextRunResolver>();
+        var railroadResolver = serviceProvider.GetRequiredService<IRailroadResolver>();
         var workAreaRepo = serviceProvider.GetRequiredService<CrewService.Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
         var railroadCtrlNbr = request.RailroadCtrlNbr > 0 ? ControlNumber.Create(request.RailroadCtrlNbr) : null;
@@ -728,10 +730,14 @@ public class BulletinsService(IServiceProvider serviceProvider) : BulletinsSrvc.
 
         foreach (var workArea in workAreas)
         {
+            var owningRailroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
+            if (owningRailroadCtrlNbr is null)
+                continue;
+
             var nextRun = await nextRunResolver.ResolveAsync(
                 "Bulletin",
                 workArea.CtrlNbr,
-                workArea.OwningRailroadCtrlNbr,
+                owningRailroadCtrlNbr,
                 context.CancellationToken);
 
             if (nextRun is null)

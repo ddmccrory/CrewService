@@ -116,6 +116,35 @@ public sealed class EmployeeNotificationService(
         _ => PositionChangeTypes.Informational
     };
 
+    /// <summary>
+    /// Creates a blocking tie-up follow-up notice when an on-duty record remains incomplete after
+    /// tie-up (for example, quick tie-up requiring employee completion after rest).
+    /// </summary>
+    public async Task NotifyTieUpOutstandingAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber railroadCtrlNbr,
+        ControlNumber workAreaGroupCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        string assignmentCode,
+        DateTime onDutyTimeUtc,
+        CancellationToken ct = default)
+    {
+        var tz = await ResolveWorkAreaTimeZoneAsync(uow, workAreaGroupCtrlNbr, ct);
+        var assignmentLabel = string.IsNullOrWhiteSpace(assignmentCode) ? "your assignment" : $"assignment {assignmentCode}";
+        var message = $"You have an outstanding on-duty record from {assignmentLabel} on duty at {FormatEffectiveLocal(onDutyTimeUtc, tz)} that requires completion.";
+
+        await EmitAsync(
+            uow,
+            railroadCtrlNbr,
+            employeeCtrlNbr,
+            NotificationCategories.TieUp,
+            message,
+            requiresAcknowledgementOverride: true,
+            subject: null,
+            effectiveAtUtc: null,
+            ct);
+    }
+
     // ── Bulletin notifications ───────────────────────────────────────────
 
     /// <summary>
