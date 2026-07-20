@@ -68,7 +68,7 @@ public sealed class CallSheetIncumbentSyncService(IOrchestrationUnitOfWorkFactor
 
             foreach (var slot in slots)
             {
-                var slotOnDutyTimeUtc = ResolveSlotOnDutyTimeUtc(slot, workInstance);
+                var slotOnDutyTimeUtc = await ResolveSlotOnDutyTimeUtcAsync(uow, slot, workInstance, ct);
 
                 if (craftPolicy is { IsEnabled: true }
                     && !CanChangeSlotIncumbent(slotOnDutyTimeUtc, craftPolicy.PreOnDutyChangeCutoffMinutes))
@@ -129,17 +129,44 @@ public sealed class CallSheetIncumbentSyncService(IOrchestrationUnitOfWorkFactor
         if (cutoffMinutes <= 0)
             return true;
 
-        return DateTime.UtcNow < slotOnDutyTimeUtc.AddMinutes(-cutoffMinutes);
+        return DateTime.UtcNow <= slotOnDutyTimeUtc.AddMinutes(-cutoffMinutes);
     }
 
-    private static DateTime ResolveSlotOnDutyTimeUtc(
+    private static async Task<DateTime> ResolveSlotOnDutyTimeUtcAsync(
+        IOrchestrationUnitOfWork uow,
         PositionSlotInstance slot,
-        WorkInstance workInstance)
+        WorkInstance workInstance,
+        CancellationToken ct)
     {
-        return workInstance.StartUtc.Date
-            .AddHours(slot.OnDutyTime.Hour)
-            .AddMinutes(slot.OnDutyTime.Minute)
-            .AddSeconds(slot.OnDutyTime.Second);
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workInstance.WorkAreaGroupCtrlNbr, ct);
+        var tz = ResolveTimeZone(workArea?.TimeZoneId);
+
+        var localDate = DateOnly.FromDateTime(workInstance.StartUtc);
+        var localOnDuty = localDate.ToDateTime(slot.OnDutyTime, DateTimeKind.Unspecified);
+
+        if (tz is null)
+            return DateTime.SpecifyKind(localOnDuty, DateTimeKind.Utc);
+
+        return TimeZoneInfo.ConvertTimeToUtc(localOnDuty, tz);
+    }
+
+    private static TimeZoneInfo? ResolveTimeZone(string? timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            return null;
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return null;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return null;
+        }
     }
 
     private static void RemoveOnDutyRecordsForEmployee(
