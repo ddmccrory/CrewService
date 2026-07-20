@@ -3,6 +3,7 @@ using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Queries;
 using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,7 +21,7 @@ internal sealed class CrewRepository(CrewServiceDbContext dbContext, ICurrentUse
     public async Task<List<Crew>> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
     {
         var groupCtrlNbrs = await DbContext.Set<DynamicGroup>()
-            .Where(g => g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr)
+            .WhereOwnedByRailroad(railroadCtrlNbr)
             .Select(g => g.CtrlNbr)
             .ToListAsync();
 
