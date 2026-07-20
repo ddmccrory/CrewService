@@ -621,7 +621,7 @@ else
             }
         </div>
 
-        @if (employee.Addresses.Count == 0)
+        @if (EmployeeAddresses.Count == 0)
         {
             <p class="text-muted">No addresses on file.</p>
         }
@@ -634,7 +634,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var addr in employee.Addresses)
+                    @foreach (var addr in EmployeeAddresses)
                     {
                         <tr>
                             <td>@(addressTypes.FirstOrDefault(t => t.CtrlNbr == addr.AddressTypeCtrlNbr)?.Name)</td>
@@ -716,7 +716,7 @@ else
             }
         </div>
 
-        @if (employee.EmailAddresses.Count == 0)
+        @if (EmployeeEmailAddresses.Count == 0)
         {
             <p class="text-muted">No email addresses on file.</p>
         }
@@ -729,7 +729,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var email in employee.EmailAddresses)
+                    @foreach (var email in EmployeeEmailAddresses)
                     {
                         <tr>
                             <td>@(emailTypes.FirstOrDefault(t => t.CtrlNbr == email.EmailTypeCtrlNbr)?.Name)</td>
@@ -827,7 +827,7 @@ else
             }
         </div>
 
-        @if (employee.PhoneNumbers.Count == 0)
+        @if (EmployeePhoneNumbers.Count == 0)
         {
             <p class="text-muted">No phone numbers on file.</p>
         }
@@ -840,7 +840,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var phone in employee.PhoneNumbers)
+                    @foreach (var phone in EmployeePhoneNumbers)
                     {
                         <tr>
                             <td>@(phoneTypes.FirstOrDefault(t => t.CtrlNbr == phone.PhoneTypeCtrlNbr)?.Name)</td>
@@ -1175,6 +1175,10 @@ else
     private bool IsOwnRecord => CurrentUser.Employee?.CtrlNbr == CtrlNbr;
 
     private GetEmployeeResponse? employee;
+
+    private IReadOnlyList<AddressResponse> EmployeeAddresses => employee?.Addresses ?? [];
+    private IReadOnlyList<EmailAddressResponse> EmployeeEmailAddresses => employee?.EmailAddresses ?? [];
+    private IReadOnlyList<PhoneNumberResponse> EmployeePhoneNumbers => employee?.PhoneNumbers ?? [];
 
     private List<AddressTypeResponse> addressTypes = [];
     private List<PhoneNumberTypeResponse> phoneTypes = [];

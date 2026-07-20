@@ -1,5 +1,4 @@
 using CrewService.Domain.Interfaces;
-using CrewService.Application.Employees;
 using CrewService.Application.TenantConfig;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Dispatching;
@@ -15,7 +14,6 @@ public sealed class TieUpService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     FraRestValidator fraRestValidator,
     EmployeeNotificationService notifications,
-    IEmployeeOnDutyQueryService onDutyQueryService,
     IRailroadResolver railroadResolver,
     ICurrentUserService currentUserService)
 {

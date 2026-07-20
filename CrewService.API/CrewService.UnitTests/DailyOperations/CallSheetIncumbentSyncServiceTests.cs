@@ -91,6 +91,66 @@ public sealed class CallSheetIncumbentSyncServiceTests
     }
 
     [Fact]
+    public async Task SyncStaffablePositionIncumbentAsync_UsesWorkAreaTimezoneForScheduledOnDutyUtc()
+    {
+        var nonUtcZone = TimeZoneInfo.GetSystemTimeZones().FirstOrDefault(z => z.BaseUtcOffset != TimeSpan.Zero)
+            ?? throw new InvalidOperationException("No non-UTC timezone available on this system.");
+
+        var staffablePositionCtrlNbr = ControlNumber.Create(510);
+        var craftRole = CraftRole.Create(ControlNumber.Create(35), "ENG", "Engineer");
+        var crewPosition = CrewPosition.Create(ControlNumber.Create(20), craftRole.CtrlNbr, 1, staffablePositionCtrlNbr);
+        var workArea = DynamicGroup.Create(
+            groupTypeCtrlNbr: ControlNumber.Create(900),
+            name: "Test Work Area",
+            parentGroupCtrlNbr: null,
+            path: "/700",
+            isWorkArea: true,
+            timeZoneId: nonUtcZone.Id);
+
+        var workInstance = WorkInstance.Create(
+            assignmentGroupCtrlNbr: null,
+            workAreaGroupCtrlNbr: workArea.CtrlNbr,
+            startUtc: new DateTime(2026, 7, 20, 0, 0, 0, DateTimeKind.Utc),
+            endUtc: new DateTime(2026, 7, 21, 0, 0, 0, DateTimeKind.Utc),
+            callTimeUtc: null);
+
+        var shift = ShiftInstance.Create(workInstance.CtrlNbr, ControlNumber.Create(1010), "1", "First Shift");
+        var slot = shift.AddPositionSlot(
+            crewPosition.CtrlNbr,
+            incumbentEmployeeCtrlNbr: null,
+            displayOrder: 1,
+            assignmentCtrlNbr: ControlNumber.Create(2500),
+            assignmentCode: "ASG-TZ",
+            assignmentName: "Timezone Assignment",
+            craftRoleName: "Engineer",
+            groupName: "Group",
+            groupCode: "G1",
+            onDutyTime: new TimeOnly(7, 0),
+            offDutyTime: new TimeOnly(15, 0));
+
+        var uow = new FakeUow(
+            crewPosition,
+            craftRole,
+            craftPolicy: CraftCallSheetRule.Create(craftRole.CraftCtrlNbr, isEnabled: true, preOnDutyChangeCutoffMinutes: 0),
+            shifts: [shift],
+            workInstances: [workInstance],
+            onDutySeed: [],
+            dynamicGroup: workArea);
+
+        await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+            uow,
+            staffablePositionCtrlNbr,
+            ControlNumber.Create(999),
+            TestContext.Current.CancellationToken);
+
+        var added = Assert.Single(uow.OnDutyRepo.Added);
+        var expectedOnDutyUtc = TimeZoneInfo.ConvertTimeToUtc(new DateTime(2026, 7, 20, 7, 0, 0, DateTimeKind.Unspecified), nonUtcZone);
+
+        Assert.Equal(expectedOnDutyUtc, added.ScheduledOnDutyTimeUtc);
+        Assert.Equal(ControlNumber.Create(999), slot.IncumbentEmployeeCtrlNbr);
+    }
+
+    [Fact]
     public async Task SyncStaffablePositionIncumbentAsync_WhenInsideCutoff_DoesNotChangeIncumbent()
     {
         var staffablePositionCtrlNbr = ControlNumber.Create(501);
@@ -184,7 +244,8 @@ public sealed class CallSheetIncumbentSyncServiceTests
         CraftCallSheetRule? craftPolicy,
         IReadOnlyList<ShiftInstance> shifts,
         IReadOnlyList<WorkInstance> workInstances,
-        IReadOnlyList<OnDutyRecord> onDutySeed) : IOrchestrationUnitOfWork
+        IReadOnlyList<OnDutyRecord> onDutySeed,
+        DynamicGroup? dynamicGroup = null) : IOrchestrationUnitOfWork
     {
         public string CorrelationId => "test";
         public string OrchestrationId => "test";
@@ -196,6 +257,7 @@ public sealed class CallSheetIncumbentSyncServiceTests
         public FakeWorkInstanceRepo WorkInstanceRepo { get; } = new(workInstances);
         public FakeOnDutyRepo OnDutyRepo { get; } = new(onDutySeed);
         public FakeOffDutyRepo OffDutyRepo { get; } = new();
+        public FakeDynamicGroupRepo DynamicGroupRepo { get; } = new(dynamicGroup);
 
         public ICrewPositionRepository CrewPositions => CrewPositionRepo;
         public ICraftRoleRepository CraftRoles => CraftRoleRepo;
@@ -232,7 +294,7 @@ public sealed class CallSheetIncumbentSyncServiceTests
         public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => null!;
         public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => null!;
         public IGroupTypeRepository GroupTypes => null!;
-        public IDynamicGroupRepository DynamicGroups => null!;
+        public IDynamicGroupRepository DynamicGroups => DynamicGroupRepo;
         public IGroupAttributeDefinitionRepository AttributeDefinitions => null!;
         public IGroupAttributeValueRepository AttributeValues => null!;
         public IStaffablePositionRepository StaffablePositions => null!;
@@ -353,6 +415,38 @@ public sealed class CallSheetIncumbentSyncServiceTests
 
         public Task<List<CraftCallSheetRule>> GetByCraftsAsync(IEnumerable<ControlNumber> craftCtrlNbrs)
             => Task.FromResult(new List<CraftCallSheetRule>());
+    }
+
+    private sealed class FakeDynamicGroupRepo(DynamicGroup? group) : RepoBase<DynamicGroup>, IDynamicGroupRepository
+    {
+        public override Task<DynamicGroup?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(group?.CtrlNbr == ctrlNbr ? group : null);
+
+        public Task<List<DynamicGroup>> GetByParentCtrlNbrAsync(ControlNumber? parentGroupCtrlNbr)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetByCtrlNbrsAsync(IEnumerable<ControlNumber> ctrlNbrs)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<DynamicGroup?> GetByGroupTypeAndNameIncludingDeletedAsync(ControlNumber groupTypeCtrlNbr, string name)
+            => Task.FromResult<DynamicGroup?>(null);
+
+        public Task<List<DynamicGroup>> GetWorkAreasAsync(ControlNumber? railroadCtrlNbr = null)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetWorkAreasWithDescendantsAsync()
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetAncestorsAsync(ControlNumber groupCtrlNbr)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, ControlNumber? parentCtrlNbr = null)
+            => Task.FromResult(new List<DynamicGroup>());
+
+        public Task BackfillPathsAsync() => Task.CompletedTask;
     }
 
     private sealed class FakeShiftInstanceRepo(IReadOnlyList<ShiftInstance> shifts) : RepoBase<ShiftInstance>, IShiftInstanceRepository

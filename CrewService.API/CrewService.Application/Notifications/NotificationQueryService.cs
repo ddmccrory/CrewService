@@ -5,6 +5,8 @@ using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.Policies;
+using CrewService.Application.BackgroundWorkers;
 
 namespace CrewService.Application.Notifications;
 
@@ -16,7 +18,8 @@ namespace CrewService.Application.Notifications;
 /// </summary>
 public sealed class NotificationQueryService(
     IOrchestrationUnitOfWorkFactory uowFactory,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    ISeniorityMoveSignal? seniorityMoveSignal = null)
 {
     private async Task<Employee> ResolveCurrentEmployeeAsync(IOrchestrationUnitOfWork uow, CancellationToken ct)
     {
@@ -130,35 +133,38 @@ public sealed class NotificationQueryService(
         uow.EmployeeNotifications.Update(notification);
         await CloseProjectionRecordsForNotificationAsync(uow, notification, PositionChangeClosedReasons.Acknowledged, ct);
 
-        await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
+        var scheduledMove = await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
         await uow.CommitAsync(ct);
+
+        if (scheduledMove?.EffectiveUtc is { } eventUtc)
+            seniorityMoveSignal?.Notify(eventUtc);
 
         return notification;
     }
 
-    private static async Task TryScheduleHangoutAutoMoveAsync(
+    private async Task<SeniorityMove?> TryScheduleHangoutAutoMoveAsync(
         IOrchestrationUnitOfWork uow,
         Employee employee,
         EmployeeNotification notification,
         CancellationToken ct)
     {
         if (!string.Equals(notification.Category?.Trim(), NotificationCategories.BoardPlacement, StringComparison.OrdinalIgnoreCase))
-            return;
+            return null;
 
         var subject = notification.Subject;
         if (subject is null || !string.Equals(subject.SubjectType?.Trim(), NotificationSubjectTypes.RosterBoard, StringComparison.OrdinalIgnoreCase))
-            return;
+            return null;
 
         var sourceBoard = await uow.RosterBoards.GetByCtrlNbrAsync(subject.SubjectCtrlNbr, ct);
         if (sourceBoard is null || sourceBoard.BoardType != BoardType.Hangout)
-            return;
+            return null;
 
         var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employee.CtrlNbr);
         var currentAssignment = assignments
             .OrderByDescending(a => a.AssignedDateUtc)
             .FirstOrDefault();
         if (currentAssignment is null)
-            return;
+            return null;
 
         var currentBoard = currentAssignment.AssignmentSourceCtrlNbr is not null
             ? await uow.RosterBoards.GetByPositionCtrlNbrAsync(currentAssignment.AssignmentSourceCtrlNbr, ct)
@@ -166,24 +172,24 @@ public sealed class NotificationQueryService(
 
         currentBoard ??= await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(currentAssignment.StaffablePositionCtrlNbr, ct);
         if (currentBoard is null || currentBoard.BoardType != BoardType.Hangout)
-            return;
+            return null;
 
         var craftPolicy = await uow.CraftOperationsPolicies.GetByCraftAsync(currentBoard.CraftCtrlNbr, ct);
         if (craftPolicy is null || !craftPolicy.HangoutAutoMoveEnabled)
-            return;
+            return null;
 
         if (!Enum.TryParse<BoardType>(craftPolicy.HangoutAutoMoveTargetBoardType, ignoreCase: true, out var targetBoardType))
-            return;
+            return null;
 
         var craftBoards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(currentBoard.CraftCtrlNbr, ct);
         var targetBoard = craftBoards.FirstOrDefault(b => b.IsActive && b.BoardType == targetBoardType);
         if (targetBoard is null)
-            return;
+            return null;
 
         // Idempotency guard: acknowledgement can be retried or raced with another process.
         // If the employee is already currently assigned to the target board, there is nothing to schedule.
         if (currentBoard.CtrlNbr == targetBoard.CtrlNbr)
-            return;
+            return null;
 
         var existingMoves = await uow.SeniorityMoves.GetByEmployeeAsync(employee.CtrlNbr, ct);
         var activeHangoutMoves = existingMoves
@@ -214,7 +220,8 @@ public sealed class NotificationQueryService(
         // or creates the concrete target position when the move is executed.
         var targetPositionOrBoardCtrlNbr = targetBoard.CtrlNbr;
 
-        var move = SeniorityMove.Create(
+        var move = await PoliciesService.StageSeniorityMoveAsync(
+            uow,
             notification.RailroadCtrlNbr,
             employee.CtrlNbr,
             currentBoard.CraftCtrlNbr,
@@ -222,10 +229,12 @@ public sealed class NotificationQueryService(
             displacedEmployeeCtrlNbr: null,
             daysOnCurrentPosition,
             moveType: SeniorityMoveType.Hangout,
-            effectiveUtc: effectiveUtc,
-            willWork: null);
+            effectiveUtc,
+            willWork: null,
+            autoApprove: true,
+            ct);
 
-        await uow.SeniorityMoves.AddAsync(move, ct);
+        return move;
     }
 
     /// <summary>
@@ -260,7 +269,14 @@ public sealed class NotificationQueryService(
                 ?? throw new InvalidOperationException(
                     $"Employee {notification.EmployeeCtrlNbr.Value} linked to notification {notification.CtrlNbr.Value} was not found.");
 
-            await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
+            var scheduledMove = await TryScheduleHangoutAutoMoveAsync(uow, employee, notification, ct);
+
+            await uow.CommitAsync(ct);
+
+            if (scheduledMove?.EffectiveUtc is { } eventUtc)
+                seniorityMoveSignal?.Notify(eventUtc);
+
+            return notification;
         }
 
         await uow.CommitAsync(ct);

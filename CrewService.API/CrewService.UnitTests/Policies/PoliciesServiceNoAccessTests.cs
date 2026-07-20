@@ -97,7 +97,7 @@ public sealed class PoliciesServiceNoAccessTests : IDisposable
             TestContext.Current.CancellationToken);
 
         Assert.Equal(SeniorityMoveType.NoAccess, move.MoveType);
-        Assert.Equal(SeniorityMoveStatus.Pending, move.Status);
+        Assert.Equal(SeniorityMoveStatus.Approved, move.Status);
         Assert.Equal(seeded.RailroadCtrlNbr, move.RailroadCtrlNbr);
         Assert.Equal(seeded.CraftCtrlNbr, move.CraftCtrlNbr);
         Assert.Equal(seeded.TargetPositionCtrlNbr, move.TargetPositionCtrlNbr);
