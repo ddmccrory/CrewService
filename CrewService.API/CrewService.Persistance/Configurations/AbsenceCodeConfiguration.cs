@@ -1,5 +1,6 @@
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -12,10 +13,12 @@ internal class AbsenceCodeConfiguration : IEntityTypeConfiguration<AbsenceCode>
     {
         builder.HasKey(a => a.CtrlNbr);
         builder.Property(a => a.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(a => a.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
         builder.Property(a => a.Code).HasMaxLength(10).IsRequired();
         builder.Property(a => a.Description).HasMaxLength(100).IsRequired();
         builder.Property(a => a.DefaultAutoMarkUpHours).HasPrecision(6, 2);
-        builder.HasIndex(a => a.Code).IsUnique();
+        builder.HasIndex(a => new { a.RailroadCtrlNbr, a.Code }).IsUnique();
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(a => a.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(a => a.CreatedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(a => a.ModifiedBy, au => { au.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
