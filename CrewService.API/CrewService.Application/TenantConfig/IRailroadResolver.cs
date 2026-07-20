@@ -24,4 +24,10 @@ public interface IRailroadResolver
         IOrchestrationUnitOfWork uow,
         ControlNumber workAreaGroupCtrlNbr,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolves the owning railroad from a loaded group entity using the same canonical rule.
+    /// Returns <c>null</c> when the group is <c>null</c>.
+    /// </summary>
+    ControlNumber? ResolveFromGroup(Domain.Modules.TenantConfig.DynamicGroup? group);
 }

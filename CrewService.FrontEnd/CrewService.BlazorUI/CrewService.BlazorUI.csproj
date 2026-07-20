@@ -66,6 +66,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="obj\**\*.cs" />
+    <None Include="obj\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Interfaces\" />
     <Folder Include="Middleware\" />
   </ItemGroup>

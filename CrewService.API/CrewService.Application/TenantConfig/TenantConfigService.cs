@@ -8,6 +8,31 @@ namespace CrewService.Application.TenantConfig;
 
 public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFactory)
 {
+    private static string? ValidateAndNormalizeWorkAreaTimeZone(bool isWorkArea, string? timeZoneId)
+    {
+        if (!isWorkArea)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            throw new ArgumentException("Work area timezone is required.", nameof(timeZoneId));
+
+        var normalized = timeZoneId.Trim();
+        try
+        {
+            _ = TimeZoneInfo.FindSystemTimeZoneById(normalized);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            throw new ArgumentException($"Invalid work area timezone id '{normalized}'.", nameof(timeZoneId));
+        }
+        catch (InvalidTimeZoneException)
+        {
+            throw new ArgumentException($"Invalid work area timezone id '{normalized}'.", nameof(timeZoneId));
+        }
+
+        return normalized;
+    }
+
     // ── Group Types ──────────────────────────────────────────────────────────
 
     public async Task<List<GroupType>> GetAllGroupTypesAsync(CancellationToken ct = default)
@@ -102,6 +127,8 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         string? timeZoneId = null,
         CancellationToken ct = default)
     {
+        timeZoneId = ValidateAndNormalizeWorkAreaTimeZone(isWorkArea, timeZoneId);
+
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
         string? parentPath = null;
@@ -160,6 +187,8 @@ public sealed class TenantConfigService(IOrchestrationUnitOfWorkFactory uowFacto
         string? timeZoneId = null,
         CancellationToken ct = default)
     {
+        timeZoneId = ValidateAndNormalizeWorkAreaTimeZone(isWorkArea, timeZoneId);
+
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var group = await uow.DynamicGroups.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Group {ctrlNbr.Value} not found.");

@@ -3,16 +3,19 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CrewService.Persistance.Data.Migrations.CrewService
+namespace CrewService.Persistance.Data.Migrations
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719173022_AddOnDutyCompletionAndOffDutyConfirmation")]
+    partial class AddOnDutyCompletionAndOffDutyConfirmation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");

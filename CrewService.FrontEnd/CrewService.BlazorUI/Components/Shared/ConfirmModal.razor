@@ -1,4 +1,4 @@
-<Modal Visible="@Visible" Title="@($"Confirm {ActionVerb}")" Icon="bi bi-exclamation-triangle"
+<Modal Visible="@Visible" Title="@ResolveTitle()" Icon="bi bi-exclamation-triangle"
        OnClose="OnCancel" Size="sm">
     <BodyContent>
         <p>Are you sure you want to @ActionVerb.ToLowerInvariant() <strong>@ItemName</strong>?</p>
@@ -26,4 +26,14 @@
 
     /// <summary>Bootstrap button class for the confirm button. Default is "btn-danger".</summary>
     [Parameter] public string ButtonClass { get; set; } = "btn-danger";
+
+    /// <summary>
+    /// Optional explicit modal title. When omitted, the title defaults to "Confirm {ActionVerb}".
+    /// </summary>
+    [Parameter] public string? Title { get; set; }
+
+    private string ResolveTitle()
+        => string.IsNullOrWhiteSpace(Title)
+            ? $"Confirm {ActionVerb}"
+            : Title;
 }

@@ -30,14 +30,24 @@ public sealed class BootstrapQueryService(IOrchestrationUnitOfWorkFactory uowFac
         return result;
     }
 
-    public async Task<EmployeeInfo> ResolveEmployeeAsync(string? employeeNumber, CancellationToken ct = default)
+    public async Task<EmployeeInfo> ResolveEmployeeAsync(string? userId, string? employeeNumber, CancellationToken ct = default)
     {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var byUserId = await uow.Employees.GetByUserIdAsync(userId, ct);
+            if (byUserId is not null)
+                return new EmployeeInfo(true, byUserId.CtrlNbr.Value, byUserId.EmployeeNumber);
+        }
+
         if (string.IsNullOrWhiteSpace(employeeNumber))
             return new EmployeeInfo(false, 0, string.Empty);
 
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var employee = await uow.Employees.GetByEmployeeNumberAsync(employeeNumber);
-        if (employee is null) return new EmployeeInfo(false, 0, string.Empty);
+        if (employee is null)
+            return new EmployeeInfo(false, 0, string.Empty);
+
         return new EmployeeInfo(true, employee.CtrlNbr.Value, employee.EmployeeNumber);
     }
 

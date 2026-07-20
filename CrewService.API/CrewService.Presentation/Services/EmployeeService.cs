@@ -673,6 +673,42 @@ public class EmployeeService(
         return MapOnDutyRecords(records);
     }
 
+    public override async Task<DeleteResponse> CompleteDeferredOnDutyRecord(
+        CompleteDeferredOnDutyRecordRequest request, ServerCallContext context)
+    {
+        try
+        {
+            await _employeeAppService.CompleteDeferredOnDutyRecordAsync(
+                ControlNumber.Create(request.OnDutyRecordCtrlNbr),
+                ControlNumber.Create(request.EmployeeCtrlNbr),
+                request.OffDutyTimeUtc is null ? null : request.OffDutyTimeUtc.ToDateTime(),
+                context.CancellationToken);
+
+            return new DeleteResponse { Success = true, Messages = { "On-duty record completed successfully." } };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+    }
+
+    public override async Task<EmployeeOnDutyRecordsResponse> GetDutyStatusNotStarted(
+        GetDutyStatusNotStartedRequest request, ServerCallContext context)
+    {
+        if (request.RailroadCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "RailroadCtrlNbr must be greater than zero."));
+
+        var records = await _employeeAppService.GetDutyStatusNotStartedAsync(
+            ControlNumber.Create(request.RailroadCtrlNbr),
+            context.CancellationToken);
+
+        return MapOnDutyRecords(records);
+    }
+
     public override async Task<EmployeeOnDutyRecordsResponse> GetEmployeeOnDutyHistory(
         GetEmployeeOnDutyHistoryRequest request, ServerCallContext context)
     {
@@ -711,6 +747,20 @@ public class EmployeeService(
                 IsAssigned         = r.IsAssigned,
                 IsLateCall         = r.IsLateCall,
                 Status             = r.Status,
+                WorkAreaCtrlNbr    = r.WorkAreaCtrlNbr ?? 0,
+                WorkAreaName       = r.WorkAreaName,
+                CompletionStatus   = r.CompletionStatus,
+                IsQuickTieUp       = r.IsQuickTieUp,
+                RestedAtUtc        = r.RestedAtUtc?.ToString("o") ?? string.Empty,
+                OffDutyTimeConfirmed = r.OffDutyTimeConfirmed,
+                OffDutyTimeConfirmedAtUtc = r.OffDutyTimeConfirmedAtUtc?.ToString("o") ?? string.Empty,
+                OffDutyTimeConfirmedBy = r.OffDutyTimeConfirmedBy,
+                WorkAreaCode = r.WorkAreaCode,
+                EmployeeName = r.EmployeeName,
+                EmployeeNumber = r.EmployeeNumber,
+                EmployeeCtrlNbr = r.EmployeeCtrlNbr,
+                CraftCtrlNbr = r.CraftCtrlNbr,
+                AssignmentOffDutyLocal = r.AssignmentOffDutyLocalIso,
             });
         }
         return response;

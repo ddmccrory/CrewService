@@ -266,4 +266,25 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         }
         catch (Exception ex) { LogException(ex); throw; }
     }
+
+    public async Task<OffDutyRecordResponse> TieUpAsync(
+        long onDutyRecordCtrlNbr,
+        DateTime offDutyTimeUtc,
+        string releaseReason,
+        long craftCtrlNbr,
+        bool offDutyTimeConfirmed)
+    {
+        try
+        {
+            return await _client.TieUpAsync(new TieUpRequest
+            {
+                OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr,
+                OffDutyTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(offDutyTimeUtc),
+                ReleaseReason = releaseReason,
+                CraftCtrlNbr = craftCtrlNbr,
+                OffDutyTimeConfirmed = offDutyTimeConfirmed,
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
 }

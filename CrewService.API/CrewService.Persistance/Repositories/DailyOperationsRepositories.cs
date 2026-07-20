@@ -1,9 +1,11 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Queries;
 using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,6 +68,50 @@ internal sealed class OnDutyRecordRepository(CrewServiceDbContext dbContext, ICu
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<OnDutyCompletionStatus>> GetCompletionStatusesForShiftAsync(
+        ControlNumber shiftInstanceCtrlNbr,
+        CancellationToken ct = default)
+    {
+        var completionStatusValues = await (
+            from onDuty in DbContext.Set<OnDutyRecord>()
+            join slot in DbContext.Set<PositionSlotInstance>() on onDuty.PositionSlotCtrlNbr equals slot.CtrlNbr
+            where slot.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr
+            select onDuty.CompletionStatus.Value)
+            .ToListAsync(ct);
+
+        return completionStatusValues
+            .Select(OnDutyCompletionStatus.FromValue)
+            .ToList();
+    }
+
+    public async Task<OnDutyTieUpContext?> GetTieUpContextAsync(
+        ControlNumber onDutyRecordCtrlNbr,
+        CancellationToken ct = default)
+    {
+        var row = await (
+            from onDuty in DbContext.Set<OnDutyRecord>()
+            join slot in DbContext.Set<PositionSlotInstance>() on onDuty.PositionSlotCtrlNbr equals slot.CtrlNbr
+            join shift in DbContext.Set<ShiftInstance>() on slot.ShiftInstanceCtrlNbr equals shift.CtrlNbr
+            join work in DbContext.Set<WorkInstance>() on shift.WorkInstanceCtrlNbr equals work.CtrlNbr
+            where onDuty.CtrlNbr == onDutyRecordCtrlNbr
+            select new
+            {
+                onDuty.CtrlNbr,
+                slot.AssignmentCode,
+                slot.ShiftInstanceCtrlNbr,
+                work.WorkAreaGroupCtrlNbr
+            })
+            .SingleOrDefaultAsync(ct);
+
+        return row is null
+            ? null
+            : new OnDutyTieUpContext(
+                row.CtrlNbr,
+                row.AssignmentCode,
+                row.ShiftInstanceCtrlNbr,
+                row.WorkAreaGroupCtrlNbr);
+    }
+
     public async Task<IReadOnlyList<OnDutyRecord>> GetByPositionSlotsAsync(
         IReadOnlyList<ControlNumber> positionSlotCtrlNbrs, CancellationToken ct = default)
     {
@@ -82,6 +128,48 @@ internal sealed class OnDutyRecordRepository(CrewServiceDbContext dbContext, ICu
             .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status != OnDutyStatus.TiedUp)
             .OrderByDescending(r => r.OnDutyTimeUtc)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<OnDutyRecord>> GetIncompleteForEmployeeAsync(
+        ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    {
+        var records = await DbContext.Set<OnDutyRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.CompletionStatus != OnDutyCompletionStatus.Completed)
+            .OrderByDescending(r => r.OnDutyTimeUtc)
+            .ToListAsync(ct);
+
+        return records
+            .Where(r => r.CompletionStatus != OnDutyCompletionStatus.Completed)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<OnDutyRecord>> GetNotStartedForRailroadAsync(
+        ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+    {
+        var railroadWorkAreaIds = await DbContext.Set<DynamicGroup>()
+            .Where(g => g.IsWorkArea)
+            .WhereOwnedByRailroad(railroadCtrlNbr)
+            .Select(g => g.CtrlNbr)
+            .ToListAsync(ct);
+
+        if (railroadWorkAreaIds.Count == 0)
+            return [];
+
+        var query = from onDuty in DbContext.Set<OnDutyRecord>()
+                    join slot in DbContext.Set<PositionSlotInstance>() on onDuty.PositionSlotCtrlNbr equals slot.CtrlNbr
+                    join shift in DbContext.Set<ShiftInstance>() on slot.ShiftInstanceCtrlNbr equals shift.CtrlNbr
+                    join work in DbContext.Set<WorkInstance>() on shift.WorkInstanceCtrlNbr equals work.CtrlNbr
+                    where railroadWorkAreaIds.Contains(work.WorkAreaGroupCtrlNbr)
+                    select onDuty;
+
+        var records = await query
+            .Distinct()
+            .OrderBy(r => r.OnDutyTimeUtc)
+            .ToListAsync(ct);
+
+        return records
+            .Where(r => r.CompletionStatus != OnDutyCompletionStatus.Completed)
+            .ToList();
+    }
 
     public async Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(
         ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default) =>

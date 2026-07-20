@@ -1,4 +1,5 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
@@ -6,7 +7,9 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.SeniorityOps;
 
-public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class CraftAppService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IRailroadResolver railroadResolver)
 {
     // ── Queries ───────────────────────────────────────────────────────────────
 
@@ -109,13 +112,17 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
 
             var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaCtrlNbr, ct)
                 ?? throw new KeyNotFoundException($"Work area {workAreaCtrlNbr.Value} not found.");
-            policyRailroadCtrlNbrs.Add(workArea.OwningRailroadCtrlNbr);
+            var railroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea)
+                ?? throw new InvalidOperationException($"Unable to resolve owning railroad for work area {workArea.CtrlNbr.Value}.");
+            policyRailroadCtrlNbrs.Add(railroadCtrlNbr);
         }
         else if (dynamicGroupCtrlNbr is not null)
         {
             var selectedGroup = await uow.DynamicGroups.GetByCtrlNbrAsync(dynamicGroupCtrlNbr, ct)
                 ?? throw new KeyNotFoundException($"Dynamic group {dynamicGroupCtrlNbr.Value} not found.");
-            policyRailroadCtrlNbrs.Add(selectedGroup.OwningRailroadCtrlNbr);
+            var selectedRailroadCtrlNbr = railroadResolver.ResolveFromGroup(selectedGroup)
+                ?? throw new InvalidOperationException($"Unable to resolve owning railroad for group {selectedGroup.CtrlNbr.Value}.");
+            policyRailroadCtrlNbrs.Add(selectedRailroadCtrlNbr);
 
             // Auto-create for every work area already under this railroad
             var workAreas = await uow.DynamicGroups.GetWorkAreasAsync(dynamicGroupCtrlNbr);
@@ -124,7 +131,9 @@ public sealed class CraftAppService(IOrchestrationUnitOfWorkFactory uowFactory)
                 var (r, b) = CreateRostersAndBoards(uow, craft, wa.CtrlNbr, provisioningOptions);
                 roster ??= r;
                 boards.AddRange(b);
-                policyRailroadCtrlNbrs.Add(wa.OwningRailroadCtrlNbr);
+                var waRailroadCtrlNbr = railroadResolver.ResolveFromGroup(wa)
+                    ?? throw new InvalidOperationException($"Unable to resolve owning railroad for work area {wa.CtrlNbr.Value}.");
+                policyRailroadCtrlNbrs.Add(waRailroadCtrlNbr);
             }
         }
 

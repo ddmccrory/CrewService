@@ -1,0 +1,250 @@
+@page "/daily/duty-status"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject EmployeeClient EmployeeClient
+@inject DailyOperationsClient DailyOperationsClient
+
+<PageTitle>On-Duty / Off-Duty</PageTitle>
+
+<h1>On-Duty / Off-Duty</h1>
+
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view on-duty records.
+    </div>
+}
+else if (HasRailroad)
+{
+    <p class="text-muted mb-3">Not-started on-duty records for <strong>@SelectedRailroadName</strong></p>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</div>
+    }
+    else if (records.Count == 0)
+    {
+        <div class="alert alert-info mb-0">No not-started on-duty records were found.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Work Area</th>
+                        <th>Location</th>
+                        <th>Assignment</th>
+                        <th>Employee</th>
+                        <th>Crew</th>
+                        <th>Role</th>
+                        <th>Employee Status</th>
+                        <th>On Duty (Local)</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in records)
+                    {
+                        <tr>
+                            <td>@(string.IsNullOrWhiteSpace(item.WorkAreaCode) ? item.WorkAreaName : item.WorkAreaCode.ToUpperInvariant())</td>
+                            <td>@item.Location</td>
+                            <td>@(string.IsNullOrWhiteSpace(item.AssignmentCode) ? "—" : item.AssignmentCode.ToUpperInvariant())</td>
+                            <td>@GetEmployeeDisplay(item)</td>
+                            <td>@item.CrewName</td>
+                            <td>@item.CraftRoleName</td>
+                            <td>@item.Status</td>
+                            <td>@FormatDisplayLocal(item.OnDutyLocal)</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger"
+                                        disabled="@(isTyingUp || item.CtrlNbr <= 0 || item.CraftCtrlNbr <= 0 || string.Equals(item.Status, "TiedUp", StringComparison.OrdinalIgnoreCase))"
+                                        @onclick="() => OpenTieUpModal(item)">
+                                    <span class="bi bi-box-arrow-right me-1"></span>Tie Up
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <TieUpModal Visible="showTieUpModal"
+                    IsSaving="isTyingUp"
+                    Title="@tieUpModalTitle"
+                    ItemName="@tieUpItemName"
+                    DateTimeLabel="Estimated Tie Up Date/Time (Work Area Local)"
+                    TieUpDateTimeLocal="tieUpDateTimeLocal"
+                    TieUpDateTimeLocalChanged="OnTieUpDateTimeLocalChanged"
+                    OnNowSelected="SetTieUpDateTimeToNow"
+                    OnConfirm="ConfirmTieUp"
+                    OnCancel="CloseTieUpModal" />
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "daily/duty-status";
+
+    private bool isLoading;
+    private List<EmployeeOnDutyRecord> records = [];
+    private bool showTieUpModal;
+    private bool isTyingUp;
+    private DateTime tieUpDateTimeLocal = DateTime.UtcNow;
+    private DateTime tieUpDateTimeUtc = DateTime.UtcNow;
+    private TimeSpan tieUpWorkAreaOffset = TimeSpan.Zero;
+    private string tieUpModalTitle = "";
+    private string tieUpItemName = "";
+    private EmployeeOnDutyRecord? tieUpRecord;
+
+    protected override async Task LoadDataAsync()
+    {
+        await base.LoadDataAsync();
+
+        records.Clear();
+        errorMessage = null;
+
+        if (SelectedRailroadCtrlNbr is not { } railroadCtrlNbr || railroadCtrlNbr <= 0)
+            return;
+
+        isLoading = true;
+        try
+        {
+            var response = await EmployeeClient.GetDutyStatusNotStartedAsync(railroadCtrlNbr);
+            records = response.Records
+                .OrderBy(r => r.WorkAreaName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => ParseDisplayInstantOrMin(r.OnDutyLocal))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenTieUpModal(EmployeeOnDutyRecord record)
+    {
+        tieUpRecord = record;
+
+        var employee = GetEmployeeDisplay(record);
+        var assignment = string.IsNullOrWhiteSpace(record.AssignmentCode)
+            ? (string.IsNullOrWhiteSpace(record.AssignmentName) ? "Assignment" : record.AssignmentName)
+            : record.AssignmentCode.ToUpperInvariant();
+        var position = string.IsNullOrWhiteSpace(record.CraftRoleName) ? "Position" : record.CraftRoleName;
+
+        tieUpModalTitle = $"Tie Up — {employee} — {assignment} — {position}";
+        tieUpItemName = $"{employee} ({assignment} / {position})";
+        var defaultTieUp = ResolveDefaultTieUpDateTime(record);
+        tieUpDateTimeLocal = defaultTieUp.Local;
+        tieUpDateTimeUtc = defaultTieUp.Utc;
+        tieUpWorkAreaOffset = defaultTieUp.Offset;
+        showTieUpModal = true;
+    }
+
+    private void CloseTieUpModal()
+    {
+        showTieUpModal = false;
+        tieUpRecord = null;
+    }
+
+    private async Task ConfirmTieUp()
+    {
+        if (tieUpRecord is null)
+            return;
+
+        if (tieUpRecord.CtrlNbr <= 0 || tieUpRecord.CraftCtrlNbr <= 0)
+        {
+            errorMessage = "Unable to tie up this record due to missing on-duty/craft data.";
+            return;
+        }
+
+        isTyingUp = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.TieUpAsync(
+                tieUpRecord.CtrlNbr,
+                DateTime.SpecifyKind(tieUpDateTimeUtc, DateTimeKind.Utc),
+                string.Empty,
+                tieUpRecord.CraftCtrlNbr,
+                offDutyTimeConfirmed: false);
+
+            showTieUpModal = false;
+            successMessage = "Employee tied up successfully.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to tie up employee: {ex.Message}";
+        }
+        finally
+        {
+            isTyingUp = false;
+        }
+    }
+
+    private static string GetEmployeeDisplay(EmployeeOnDutyRecord record)
+    {
+        if (!string.IsNullOrWhiteSpace(record.EmployeeName))
+            return record.EmployeeName;
+
+        if (!string.IsNullOrWhiteSpace(record.EmployeeNumber))
+            return record.EmployeeNumber.ToUpperInvariant();
+
+        return record.EmployeeCtrlNbr > 0 ? $"Employee #{record.EmployeeCtrlNbr}" : "—";
+    }
+
+    private void OnTieUpDateTimeLocalChanged(DateTime local)
+    {
+        tieUpDateTimeLocal = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+        tieUpDateTimeUtc = new DateTimeOffset(tieUpDateTimeLocal, tieUpWorkAreaOffset).UtcDateTime;
+    }
+
+    private void SetTieUpDateTimeToNow()
+    {
+        var nowUtc = DateTime.UtcNow;
+        var nowLocal = new DateTimeOffset(nowUtc, TimeSpan.Zero).ToOffset(tieUpWorkAreaOffset).DateTime;
+        tieUpDateTimeLocal = DateTime.SpecifyKind(nowLocal, DateTimeKind.Unspecified);
+        tieUpDateTimeUtc = nowUtc;
+    }
+
+    private static (DateTime Local, DateTime Utc, TimeSpan Offset) ResolveDefaultTieUpDateTime(EmployeeOnDutyRecord record)
+    {
+        if (!string.IsNullOrWhiteSpace(record.AssignmentOffDutyLocal)
+            && DateTimeOffset.TryParse(record.AssignmentOffDutyLocal, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var assignmentOffDutyLocal))
+        {
+            return (
+                DateTime.SpecifyKind(assignmentOffDutyLocal.DateTime, DateTimeKind.Unspecified),
+                assignmentOffDutyLocal.UtcDateTime,
+                assignmentOffDutyLocal.Offset);
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        return (nowUtc, nowUtc, TimeSpan.Zero);
+    }
+
+    private static DateTimeOffset ParseDisplayInstantOrMin(string? iso)
+        => DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var dto)
+            ? dto
+            : DateTimeOffset.MinValue;
+}

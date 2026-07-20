@@ -1,6 +1,7 @@
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
+using CrewService.Application.TenantConfig;
 using Domain = CrewService.Domain;
 using Time = CrewService.Application.Time;
 
@@ -99,6 +100,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
                 s,
                 workArea,
                 nextRunResolver,
+                serviceProvider.GetRequiredService<IRailroadResolver>(),
                 context.CancellationToken);
             var lastHeartbeatUtc = heartbeatRegistry.GetLastHeartbeatUtc(s.CtrlNbr);
             response.Schedules.Add(new WorkerScheduleResponse
@@ -199,15 +201,20 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
         Domain.Modules.Infrastructure.WorkerSchedule schedule,
         Domain.Modules.TenantConfig.DynamicGroup workArea,
         Application.BackgroundWorkers.IBackgroundJobNextRunResolver nextRunResolver,
+        IRailroadResolver railroadResolver,
         CancellationToken ct)
     {
         if (!EventDrivenWorkers.Contains(schedule.WorkerType))
             return null;
 
+        var railroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
+        if (railroadCtrlNbr is null)
+            return null;
+
         var nextRun = await nextRunResolver.ResolveAsync(
             schedule.WorkerType,
             schedule.WorkAreaGroupCtrlNbr,
-            workArea.OwningRailroadCtrlNbr,
+            railroadCtrlNbr,
             ct);
 
         return nextRun?.NextUtc;

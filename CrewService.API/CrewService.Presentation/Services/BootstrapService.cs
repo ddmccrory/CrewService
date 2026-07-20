@@ -29,12 +29,13 @@ public sealed class BootstrapService(
         var user = GetAuthenticatedUser();
         var response = new BootstrapResponse();
 
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         var employeeNumber = user.FindFirst(CustomClaimTypes.EmployeeNumber)?.Value;
 
         var parentsTask = bootstrapQueryService.GetAllParentsWithRailroadsAsync(context.CancellationToken);
         var rolesTask = bootstrapQueryService.GetAllRolesAsync(context.CancellationToken);
         var featuresTask = bootstrapQueryService.GetAllFeaturesAsync(context.CancellationToken);
-        var employeeTask = bootstrapQueryService.ResolveEmployeeAsync(employeeNumber, context.CancellationToken);
+        var employeeTask = bootstrapQueryService.ResolveEmployeeAsync(userId, employeeNumber, context.CancellationToken);
 
         await Task.WhenAll(parentsTask, rolesTask, featuresTask, employeeTask);
 

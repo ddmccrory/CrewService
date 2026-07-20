@@ -2,6 +2,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
+using CrewService.Persistance.Queries;
 using CrewService.Persistance.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,7 +56,7 @@ internal sealed class DynamicGroupRepository(CrewServiceDbContext dbContext, ICu
         var query = DbContext.Set<DynamicGroup>().Where(g => g.IsWorkArea);
 
         if (railroadCtrlNbr is not null)
-            query = query.Where(g => g.CtrlNbr == railroadCtrlNbr || g.RailroadCtrlNbr == railroadCtrlNbr);
+            query = query.WhereOwnedByRailroad(railroadCtrlNbr);
 
         return await query.OrderBy(g => g.Name).ToListAsync();
     }

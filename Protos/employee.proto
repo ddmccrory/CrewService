@@ -62,6 +62,12 @@ service EmployeeSrvc {
   rpc GetEmployeeOnDutyHistory(GetEmployeeOnDutyHistoryRequest) returns (EmployeeOnDutyRecordsResponse) {
     option (google.api.http) = { get: "/v1/employees/{employee_ctrl_nbr}/on-duty/history" };
   }
+  rpc CompleteDeferredOnDutyRecord(CompleteDeferredOnDutyRecordRequest) returns (common.DeleteResponse) {
+    option (google.api.http) = { post: "/v1/employees/{employee_ctrl_nbr}/on-duty/{on_duty_record_ctrl_nbr}/complete" body: "*" };
+  }
+  rpc GetDutyStatusNotStarted(GetDutyStatusNotStartedRequest) returns (EmployeeOnDutyRecordsResponse) {
+    option (google.api.http) = { get: "/v1/railroads/{railroad_ctrl_nbr}/on-duty/not-started" };
+  }
 }
 
 // ── Work Profile ─────────────────────────────────────────────────────────────
@@ -171,6 +177,30 @@ message EmployeeOnDutyRecord {
   bool   is_assigned            = 14;
   bool   is_late_call           = 15;
   string status                 = 16;
+  int64  work_area_ctrl_nbr     = 17;
+  string work_area_name         = 18;
+  string completion_status      = 19;
+  bool   is_quick_tie_up        = 20;
+  string rested_at_utc          = 21;
+  bool   off_duty_time_confirmed = 22;
+  string off_duty_time_confirmed_at_utc = 23;
+  string off_duty_time_confirmed_by = 24;
+  string work_area_code = 25;
+  string employee_name = 26;
+  string employee_number = 27;
+  int64  employee_ctrl_nbr = 28;
+  int64  craft_ctrl_nbr = 29;
+  string assignment_off_duty_local = 30;
+}
+
+message CompleteDeferredOnDutyRecordRequest {
+  int64 employee_ctrl_nbr = 1;
+  int64 on_duty_record_ctrl_nbr = 2;
+  google.protobuf.Timestamp off_duty_time_utc = 3;
+}
+
+message GetDutyStatusNotStartedRequest {
+  int64 railroad_ctrl_nbr = 1;
 }
 
 message GetAllEmployeesRequest {

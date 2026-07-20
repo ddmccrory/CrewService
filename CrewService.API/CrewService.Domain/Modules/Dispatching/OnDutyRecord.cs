@@ -16,7 +16,9 @@ public sealed class OnDutyRecord : Entity
     public decimal PreviousRestHours { get; private set; }
     public int ConsecutiveDays { get; private set; }
     public OnDutyStatus Status { get; private set; } = OnDutyStatus.Called;
+    public OnDutyCompletionStatus CompletionStatus { get; private set; } = OnDutyCompletionStatus.NotStarted;
     public bool IsAssigned { get; private set; }
+    public DateTime? CompletedAtUtc { get; private set; }
 
     private OnDutyRecord()
     {
@@ -48,6 +50,8 @@ public sealed class OnDutyRecord : Entity
             PreviousRestHours = previousRestHours,
             ConsecutiveDays = consecutiveDays,
             Status = OnDutyStatus.OnDuty,
+            CompletionStatus = OnDutyCompletionStatus.NotStarted,
+            CompletedAtUtc = null,
             IsAssigned = isAssigned
         };
         record.Raise(new OnDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, positionSlotCtrlNbr));
@@ -80,6 +84,8 @@ public sealed class OnDutyRecord : Entity
             PreviousRestHours = previousRestHours,
             ConsecutiveDays = consecutiveDays,
             Status = OnDutyStatus.Scheduled,
+            CompletionStatus = OnDutyCompletionStatus.NotStarted,
+            CompletedAtUtc = null,
             IsAssigned = isAssigned
         };
         record.Raise(new OnDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, positionSlotCtrlNbr));
@@ -91,8 +97,20 @@ public sealed class OnDutyRecord : Entity
         BookingCtrlNbr = bookingCtrlNbr;
     }
 
-    public void TieUp()
+    public void TieUp(bool requiresDeferredEmployeeCompletion)
     {
         Status = OnDutyStatus.TiedUp;
+        CompletionStatus = requiresDeferredEmployeeCompletion
+            ? OnDutyCompletionStatus.PendingEmployeeCompletion
+            : OnDutyCompletionStatus.NotStarted;
+    }
+
+    public void CompleteByEmployee()
+    {
+        if (Status != OnDutyStatus.TiedUp)
+            throw new InvalidOperationException("On-duty record cannot be completed until tied up.");
+
+        CompletionStatus = OnDutyCompletionStatus.Completed;
+        CompletedAtUtc = DateTime.UtcNow;
     }
 }

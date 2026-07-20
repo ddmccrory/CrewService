@@ -22,6 +22,9 @@ internal class OnDutyRecordConfiguration : IEntityTypeConfiguration<OnDutyRecord
         builder.Property(r => r.Status)
             .HasConversion(s => s.Value, v => OnDutyStatus.FromValue(v))
             .HasMaxLength(20).IsRequired();
+        builder.Property(r => r.CompletionStatus)
+            .HasConversion(s => s.Value, v => OnDutyCompletionStatus.FromValue(v))
+            .HasMaxLength(40).IsRequired();
 
         builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(r => r.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
@@ -43,6 +46,7 @@ internal class OffDutyRecordConfiguration : IEntityTypeConfiguration<OffDutyReco
         builder.Property(r => r.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.RestHoursRequired).HasPrecision(5, 2);
         builder.Property(r => r.ReleaseReason).HasMaxLength(50).IsRequired();
+        builder.Property(r => r.OffDutyTimeConfirmedBy).HasMaxLength(100).IsRequired();
 
         builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(r => r.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);

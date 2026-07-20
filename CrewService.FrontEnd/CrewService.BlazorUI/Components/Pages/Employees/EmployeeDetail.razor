@@ -1,4 +1,5 @@
 ﻿@page "/employees/{CtrlNbr:long}"
+@page "/employee-profile"
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -34,7 +35,10 @@
 }
 else
 {
-    <BackNavButton Text="Employees" OnClick="@(() => Nav.NavigateTo("/employees"))" />
+    @if (!IsOwnRecord)
+    {
+        <BackNavButton Text="Employees" OnClick="@(() => Nav.NavigateTo("/employees"))" />
+    }
 
     <h1>@employee.FullNameLnf</h1>
     <p class="text-muted mb-1">
@@ -356,6 +360,8 @@ else
                 .Where(m => IsOpenMoveStatus(m.Status))
                 .OrderByDescending(m => m.RequestedLocal)
                 .ToList() ?? [];
+            var canManageWorkActions = !IsFeatureReadOnly || IsOwnRecord;
+            var showOpenMovesActionsColumn = canManageWorkActions && openMoves.Any(m => m.CanCancel);
 
             @if (openMoves.Count == 0)
             {
@@ -372,7 +378,10 @@ else
                                 <th>Requested</th>
                                 <th>Effective</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                 @if (showOpenMovesActionsColumn)
+                                 {
+                                     <th>Actions</th>
+                                 }
                             </tr>
                         </thead>
                         <tbody>
@@ -386,20 +395,23 @@ else
                                     <td>
                                         <span class="badge @GetMoveBadgeClass(move.Status)">@move.Status</span>
                                     </td>
-                                    <td>
-                                        <div class="d-flex gap-1 flex-nowrap">
-                                            @* Cancel is available to staff with write access (admins) OR the
-                                               employee viewing their own record. CanCancel encodes the
-                                               status/cancel-window policy server-side. *@
-                                            @if ((!IsFeatureReadOnly || IsOwnRecord) && move.CanCancel)
-                                            {
-                                                <button class="btn btn-sm btn-outline-warning"
-                                                        @onclick="() => OpenWorkCancelModal(move)">
-                                                    <span class="bi bi-slash-circle"></span> Cancel
-                                                </button>
-                                            }
-                                        </div>
-                                    </td>
+                                     @if (showOpenMovesActionsColumn)
+                                     {
+                                         <td>
+                                             <div class="d-flex gap-1 flex-nowrap">
+                                                 @* Cancel is available to staff with write access (admins) OR the
+                                                    employee viewing their own record. CanCancel encodes the
+                                                    status/cancel-window policy server-side. *@
+                                                 @if (canManageWorkActions && move.CanCancel)
+                                                 {
+                                                     <button class="btn btn-sm btn-outline-warning"
+                                                             @onclick="() => OpenWorkCancelModal(move)">
+                                                         <span class="bi bi-slash-circle"></span> Cancel
+                                                     </button>
+                                                 }
+                                             </div>
+                                         </td>
+                                     }
                                 </tr>
                             }
                         </tbody>
@@ -417,6 +429,9 @@ else
             }
             else
             {
+                var openBids = workProfile!.Bids.OrderBy(b => b.Priority).ToList();
+                var showOpenBidActionsColumn = canManageWorkActions && openBids.Any(b => b.Status == "Submitted");
+
                 <div class="table-responsive">
                     <table class="table table-striped table-hover align-middle">
                         <thead>
@@ -427,11 +442,14 @@ else
                                 <th>Window Closes</th>
                                 <th>Effective</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                @if (showOpenBidActionsColumn)
+                                {
+                                    <th>Actions</th>
+                                }
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var bid in workProfile!.Bids.OrderBy(b => b.Priority))
+                            @foreach (var bid in openBids)
                             {
                                 <tr>
                                     <td>@(string.IsNullOrEmpty(bid.PositionName) ? "—" : bid.PositionName)</td>
@@ -442,20 +460,23 @@ else
                                     <td>
                                         <span class="badge @GetBidStatusBadge(bid.Status)">@bid.Status</span>
                                     </td>
-                                    <td>
-                                        <div class="d-flex gap-1 flex-nowrap">
-                                            @* Withdraw is available to staff with write access OR the
-                                               employee viewing their own record, mirroring Cancel Move.
-                                               Only "Submitted" bids are surfaced, so all are withdrawable. *@
-                                            @if ((!IsFeatureReadOnly || IsOwnRecord) && bid.Status == "Submitted")
-                                            {
-                                                <button class="btn btn-sm btn-outline-danger"
-                                                        @onclick="() => OpenWithdrawBidModal(bid)">
-                                                    <span class="bi bi-x-circle"></span> Withdraw
-                                                </button>
-                                            }
-                                        </div>
-                                    </td>
+                                    @if (showOpenBidActionsColumn)
+                                    {
+                                        <td>
+                                            <div class="d-flex gap-1 flex-nowrap">
+                                                @* Withdraw is available to staff with write access OR the
+                                                   employee viewing their own record, mirroring Cancel Move.
+                                                   Only "Submitted" bids are surfaced, so all are withdrawable. *@
+                                                @if (canManageWorkActions && bid.Status == "Submitted")
+                                                {
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                            @onclick="() => OpenWithdrawBidModal(bid)">
+                                                        <span class="bi bi-x-circle"></span> Withdraw
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    }
                                 </tr>
                             }
                         </tbody>
@@ -1172,6 +1193,7 @@ else
     private List<EmployeeOnDutyRecord> onDutyHistoryRecords = [];
     private bool onDutyHistoryLoaded;
     private bool onDutyHistoryLoading;
+    private long? completingOnDutyRecordCtrlNbr;
     private int selectedOnDutyPeriod = 1; // 1 = Completed - Current Work Period (legacy default)
 
     private sealed record OnDutyPeriodOption(int Value, string Label);
@@ -1276,6 +1298,28 @@ else
 
     protected override async Task LoadDataAsync()
     {
+        if (CurrentUser.Employee is not null)
+        {
+            if (CtrlNbr <= 0)
+            {
+                CtrlNbr = CurrentUser.Employee.CtrlNbr;
+            }
+
+            var isIdRoute = Nav.Uri.Contains("/employees/", StringComparison.OrdinalIgnoreCase);
+            if (isIdRoute && CurrentUser.Employee.CtrlNbr == CtrlNbr)
+            {
+                var uri = Nav.ToAbsoluteUri(Nav.Uri);
+                Nav.NavigateTo($"/employee-profile{uri.Query}", replace: true);
+                return;
+            }
+
+            if (CurrentUser.UseEmployeeProfilePath && CurrentUser.Employee.CtrlNbr != CtrlNbr)
+            {
+                Nav.NavigateTo("/employee-profile", replace: true);
+                return;
+            }
+        }
+
         if (!HasParent)
         {
             return;
@@ -1367,7 +1411,7 @@ else
         var sectionQuery = tab == "profile"
             ? $"&section={activeProfileSection}"
             : (tab == "usersettings" ? $"&settings={activeUserSettingsSection}" : string.Empty);
-        Nav.NavigateTo($"/employees/{CtrlNbr}?tab={tab}{sectionQuery}", replace: true);
+        Nav.NavigateTo($"{GetEmployeeDetailBaseRoute()}?tab={tab}{sectionQuery}", replace: true);
 
         if (tab == "work" && !workTabLoaded)
             await LoadWorkTabAsync();
@@ -1442,16 +1486,21 @@ else
     private Task OnProfileSectionChangedAsync(string sectionId)
     {
         activeProfileSection = sectionId;
-        Nav.NavigateTo($"/employees/{CtrlNbr}?tab=profile&section={sectionId}", replace: true);
+        Nav.NavigateTo($"{GetEmployeeDetailBaseRoute()}?tab=profile&section={sectionId}", replace: true);
         return Task.CompletedTask;
     }
 
     private Task OnUserSettingsSectionChangedAsync(string sectionId)
     {
         activeUserSettingsSection = sectionId;
-        Nav.NavigateTo($"/employees/{CtrlNbr}?tab=usersettings&settings={sectionId}", replace: true);
+        Nav.NavigateTo($"{GetEmployeeDetailBaseRoute()}?tab=usersettings&settings={sectionId}", replace: true);
         return Task.CompletedTask;
     }
+
+    private string GetEmployeeDetailBaseRoute()
+        => CurrentUser.UseEmployeeProfilePath && IsOwnRecord
+            ? "/employee-profile"
+            : $"/employees/{CtrlNbr}";
 
     private void OnShowSsn()
     {
@@ -1656,13 +1705,19 @@ else
                                     }
                                     else
                                     {
-                                        <button class="btn btn-sm btn-outline-success" disabled title="Coming soon">
+                                        <button class="btn btn-sm btn-outline-success"
+                                                disabled="@(!CanCompleteDeferredOnDuty(r) || completingOnDutyRecordCtrlNbr == r.CtrlNbr)"
+                                                @onclick="() => OpenCompleteOnDutyModal(r)">
+                                            @if (completingOnDutyRecordCtrlNbr == r.CtrlNbr)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                            }
                                             <span class="bi bi-check2-circle"></span> Complete
                                         </button>
-                                        <button class="btn btn-sm btn-outline-info" disabled title="Coming soon">
+                                        <button class="btn btn-sm btn-outline-info" disabled title="Not in scope">
                                             <span class="bi bi-arrow-up-circle"></span> Move to Foreman
                                         </button>
-                                        <button class="btn btn-sm btn-outline-warning" disabled title="Coming soon">
+                                        <button class="btn btn-sm btn-outline-warning" disabled title="Not in scope">
                                             <span class="bi bi-clock"></span> Confirm On-Duty Time
                                         </button>
                                     }
@@ -1673,6 +1728,32 @@ else
                 </tbody>
             </table>
         </div>
+
+        <Modal Visible="showCompleteOnDutyModal"
+               Title="@completeOnDutyModalTitle"
+               Icon="bi bi-exclamation-triangle"
+               Size="lg"
+               OnClose="CloseCompleteOnDutyModal">
+            <BodyContent>
+                <p>Are you sure you want to complete on-duty record <strong>@completeOnDutyItemName</strong>?</p>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Actual Tie Up Date/Time (Work Area Local)</label>
+                    <input type="datetime-local" class="form-control"
+                           value="@completeOnDutyTieUpLocal.ToString("yyyy-MM-ddTHH:mm")"
+                           @onchange="OnCompleteOnDutyTieUpLocalChanged" />
+                </div>
+                <div class="form-check mt-3">
+                    <input id="confirm-off-duty-time" class="form-check-input" type="checkbox" @bind="isOffDutyTimeConfirmedByEmployee" />
+                    <label class="form-check-label" for="confirm-off-duty-time">I confirm the actual off-duty time is accurate.</label>
+                </div>
+            </BodyContent>
+            <Footer>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CloseCompleteOnDutyModal">Cancel</button>
+                <button type="button" class="btn btn-success" disabled="@(completingOnDutyRecordCtrlNbr.HasValue || !isOffDutyTimeConfirmedByEmployee)" @onclick="ConfirmCompleteOnDutyAsync">
+                    <span class="bi bi-check2-circle me-1"></span> Complete
+                </button>
+            </Footer>
+        </Modal>
     };
 
     private static string FormatRestHours(string previousRestHours)
@@ -1700,6 +1781,150 @@ else
             System.Globalization.DateTimeStyles.RoundtripKind, out var dto)
             ? dto
             : DateTimeOffset.MinValue;
+
+    private bool CanCompleteDeferredOnDuty(EmployeeOnDutyRecord record)
+    {
+        var isPendingEmployeeCompletion = string.Equals(
+            record.CompletionStatus,
+            "PendingEmployeeCompletion",
+            StringComparison.OrdinalIgnoreCase);
+
+        var isNotStarted = string.Equals(
+            record.CompletionStatus,
+            "NotStarted",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (isNotStarted)
+            return true;
+
+        if (!isPendingEmployeeCompletion)
+            return false;
+
+        if (!DateTimeOffset.TryParse(record.RestedAtUtc, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var restedAtUtc))
+            return false;
+
+        return DateTimeOffset.UtcNow >= restedAtUtc.ToUniversalTime();
+    }
+
+    private bool showCompleteOnDutyModal;
+    private string completeOnDutyModalTitle = string.Empty;
+    private string completeOnDutyItemName = string.Empty;
+    private DateTime completeOnDutyTieUpLocal = DateTime.UtcNow;
+    private TimeSpan completeOnDutyWorkAreaOffset = TimeSpan.Zero;
+    private bool isOffDutyTimeConfirmedByEmployee;
+    private EmployeeOnDutyRecord? pendingCompleteOnDutyRecord;
+
+    private void OpenCompleteOnDutyModal(EmployeeOnDutyRecord record)
+    {
+        if (!CanCompleteDeferredOnDuty(record))
+            return;
+
+        pendingCompleteOnDutyRecord = record;
+        var assignment = string.IsNullOrWhiteSpace(record.AssignmentCode) ? "Assignment" : record.AssignmentCode.ToUpperInvariant();
+        var position = string.IsNullOrWhiteSpace(record.CraftRoleName) ? "Position" : record.CraftRoleName;
+        completeOnDutyModalTitle = $"Complete On-Duty — {assignment} — {position}";
+        completeOnDutyItemName = $"{assignment} / {position}";
+
+        completeOnDutyTieUpLocal = ResolveDefaultCompleteTieUpLocal(record);
+        completeOnDutyWorkAreaOffset = ResolveWorkAreaOffset(record);
+        isOffDutyTimeConfirmedByEmployee = false;
+        showCompleteOnDutyModal = true;
+    }
+
+    private void CloseCompleteOnDutyModal()
+    {
+        showCompleteOnDutyModal = false;
+        pendingCompleteOnDutyRecord = null;
+        isOffDutyTimeConfirmedByEmployee = false;
+    }
+
+    private async Task ConfirmCompleteOnDutyAsync()
+    {
+        if (pendingCompleteOnDutyRecord is null)
+            return;
+
+        var offDutyTimeUtc = new DateTimeOffset(
+            DateTime.SpecifyKind(completeOnDutyTieUpLocal, DateTimeKind.Unspecified),
+            completeOnDutyWorkAreaOffset).UtcDateTime;
+
+        await CompleteDeferredOnDutyAsync(pendingCompleteOnDutyRecord, offDutyTimeUtc);
+        showCompleteOnDutyModal = false;
+        pendingCompleteOnDutyRecord = null;
+    }
+
+    private void OnCompleteOnDutyTieUpLocalChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var parsed))
+            completeOnDutyTieUpLocal = DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified);
+    }
+
+    private static DateTime ResolveDefaultCompleteTieUpLocal(EmployeeOnDutyRecord record)
+    {
+        if (!string.IsNullOrWhiteSpace(record.OffDutyLocal)
+            && DateTimeOffset.TryParse(record.OffDutyLocal, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var offDutyLocal))
+        {
+            return DateTime.SpecifyKind(offDutyLocal.DateTime, DateTimeKind.Unspecified);
+        }
+
+        if (DateTimeOffset.TryParse(record.OnDutyLocal, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var onDutyLocal))
+        {
+            return DateTimeOffset.UtcNow.ToOffset(onDutyLocal.Offset).DateTime;
+        }
+
+        return DateTime.UtcNow;
+    }
+
+    private static TimeSpan ResolveWorkAreaOffset(EmployeeOnDutyRecord record)
+    {
+        if (!string.IsNullOrWhiteSpace(record.OffDutyLocal)
+            && DateTimeOffset.TryParse(record.OffDutyLocal, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var offDutyLocal))
+        {
+            return offDutyLocal.Offset;
+        }
+
+        if (DateTimeOffset.TryParse(record.OnDutyLocal, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var onDutyLocal))
+        {
+            return onDutyLocal.Offset;
+        }
+
+        return TimeSpan.Zero;
+    }
+
+    private async Task CompleteDeferredOnDutyAsync(EmployeeOnDutyRecord record, DateTime offDutyTimeUtc)
+    {
+        if (!CanCompleteDeferredOnDuty(record))
+            return;
+
+        completingOnDutyRecordCtrlNbr = record.CtrlNbr;
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            var response = await EmployeeClient.CompleteDeferredOnDutyRecordAsync(CtrlNbr, record.CtrlNbr, offDutyTimeUtc);
+            if (!response.Success)
+            {
+                errorMessage = response.Messages.Count > 0 ? string.Join(" ", response.Messages) : "Failed to complete on-duty record.";
+                return;
+            }
+
+            successMessage = "On-duty record completed successfully.";
+            await LoadWorkTabAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to complete on-duty record: {ex.Message}";
+        }
+        finally
+        {
+            completingOnDutyRecordCtrlNbr = null;
+        }
+    }
 
     private async Task LoadNotificationsTabAsync()
     {

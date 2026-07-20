@@ -127,6 +127,7 @@ enum PositionSlotStatusEnum {
 }
 message DailyPositionSlotResponse {
   int64 ctrl_nbr = 1;
+  optional int64 on_duty_record_ctrl_nbr = 23;
   int64 crew_position_ctrl_nbr = 2;
   optional int64 incumbent_employee_ctrl_nbr = 3;
   PositionSlotStatusEnum status = 4;
@@ -172,6 +173,7 @@ message TieUpRequest {
   google.protobuf.Timestamp off_duty_time = 2;
   string release_reason = 3;
   int64 craft_ctrl_nbr = 4;
+  bool off_duty_time_confirmed = 5;
 }
 
 message OffDutyRecordResponse {
@@ -180,6 +182,9 @@ message OffDutyRecordResponse {
   google.protobuf.Timestamp off_duty_time = 3;
   int32 total_time_on_duty_minutes = 4;
   string release_reason = 5;
+  bool off_duty_time_confirmed = 6;
+  google.protobuf.Timestamp off_duty_time_confirmed_at = 7;
+  string off_duty_time_confirmed_by = 8;
 }
 
 message AnnulPositionRequest {

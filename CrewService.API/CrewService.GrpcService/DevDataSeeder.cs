@@ -768,6 +768,8 @@ internal static class DevDataSeeder
 
             var callLeadMinutes = 90;
             var callDurationMinutes = 30;
+            var buildLeadHours = 14;
+            var globalPreCreateOffsetMinutes = -(buildLeadHours * 60);
 
             if (!existingRuleByDept.TryGetValue(dept.CtrlNbr, out var existingRule))
             {
@@ -777,7 +779,7 @@ internal static class DevDataSeeder
                     callDurationMinutes,
                     CallSheetHolidayAdjustmentType.None,
                     holidayCustomOffsetMinutes: null,
-                    globalPreCreateOffsetMinutes: -720,
+                    globalPreCreateOffsetMinutes: globalPreCreateOffsetMinutes,
                     isEnabled: true));
                 continue;
             }
@@ -787,7 +789,7 @@ internal static class DevDataSeeder
                 callDurationMinutes,
                 CallSheetHolidayAdjustmentType.None,
                 holidayCustomOffsetMinutes: null,
-                globalPreCreateOffsetMinutes: -720,
+                globalPreCreateOffsetMinutes: globalPreCreateOffsetMinutes,
                 isEnabled: true);
             await callSheetRuleRepo.UpdateAsync(existingRule);
         }

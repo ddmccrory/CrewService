@@ -17,6 +17,9 @@ public sealed class RailroadResolver : IRailroadResolver
         CancellationToken ct = default)
     {
         var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaGroupCtrlNbr, ct);
-        return workArea?.OwningRailroadCtrlNbr;
+        return ResolveFromGroup(workArea);
     }
+
+    public ControlNumber? ResolveFromGroup(Domain.Modules.TenantConfig.DynamicGroup? group)
+        => group?.OwningRailroadCtrlNbr;
 }

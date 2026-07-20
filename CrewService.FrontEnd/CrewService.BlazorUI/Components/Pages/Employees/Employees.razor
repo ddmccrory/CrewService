@@ -292,6 +292,12 @@ else
 
     protected override async Task LoadDataAsync()
     {
+        if (CurrentUser.UseEmployeeProfilePath && CurrentUser.Employee is not null)
+        {
+            NavigationManager.NavigateTo("/employee-profile", replace: true);
+            return;
+        }
+
         if (HasParent)
         {
             await LoadEmployees();
