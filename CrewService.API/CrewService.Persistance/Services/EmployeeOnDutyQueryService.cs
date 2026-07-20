@@ -119,7 +119,7 @@ internal sealed class EmployeeOnDutyQueryService(CrewServiceDbContext dbContext)
                 slot.GroupCode,
                 workAreaCtrlNbr,
                 workAreaName,
-                workAreaCode,
+                workAreaCode ?? string.Empty,
                 timeZoneId,
                 slot.OffDutyTime);
         }
