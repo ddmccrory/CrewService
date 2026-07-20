@@ -356,8 +356,13 @@ public class RosterBoardService(
             : (string.Empty, string.Empty);
 
         PositionAssignment? positionAssignment = null;
-        if (position.StaffablePositionCtrlNbr is not null)
-            positionAssignment = await svc.GetPositionAssignmentAsync(position.StaffablePositionCtrlNbr, ct);
+        if (position.EmployeeCtrlNbr is not null)
+        {
+            positionAssignment = await svc.GetBoardPositionAssignmentAsync(
+                position.CtrlNbr,
+                position.EmployeeCtrlNbr,
+                ct);
+        }
 
         var pr = new RosterBoardPositionResponse
         {

@@ -387,6 +387,18 @@ public sealed class RosterBoardAppService(
         return await uow.PositionAssignments.GetByStaffablePositionAsync(staffablePositionCtrlNbr);
     }
 
+    public async Task<PositionAssignment?> GetBoardPositionAssignmentAsync(
+        ControlNumber boardPositionCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var employeeAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        return employeeAssignments.FirstOrDefault(a =>
+            a.AssignmentType == PositionAssignmentType.Board
+            && a.AssignmentSourceCtrlNbr == boardPositionCtrlNbr);
+    }
+
     public async Task<Dictionary<ControlNumber, PositionAssignment>> GetPositionAssignmentsBatchAsync(
         IEnumerable<ControlNumber?> staffablePositionCtrlNbrs, CancellationToken ct = default)
     {
