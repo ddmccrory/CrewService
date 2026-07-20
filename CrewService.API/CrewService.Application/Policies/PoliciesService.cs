@@ -20,6 +20,38 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 {
     private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
 
+    internal static async Task<SeniorityMove> StageSeniorityMoveAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber railroadCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        ControlNumber targetPositionCtrlNbr,
+        ControlNumber? displacedEmployeeCtrlNbr,
+        int daysOnCurrentPosition,
+        string moveType,
+        DateTime effectiveUtc,
+        bool? willWork,
+        bool autoApprove,
+        CancellationToken ct)
+    {
+        var move = SeniorityMove.Create(
+            railroadCtrlNbr,
+            employeeCtrlNbr,
+            craftCtrlNbr,
+            targetPositionCtrlNbr,
+            displacedEmployeeCtrlNbr,
+            daysOnCurrentPosition,
+            moveType,
+            effectiveUtc,
+            willWork);
+
+        if (autoApprove)
+            move.Approve();
+
+        await uow.SeniorityMoves.AddAsync(move, ct);
+        return move;
+    }
+
     public async Task<CraftOperationsPolicy> GetCraftOperationsPolicyAsync(
         ControlNumber craftCtrlNbr, CancellationToken ct = default)
     {
@@ -793,12 +825,24 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         // Will-work election is only honored when the governing policy enables it.
         // Otherwise no election is recorded (null), matching the legacy "option not offered" case.
         var willWorkElection = policy?.WillWorkEnabled == true ? willWork : null;
+        var autoApprove = moveType == SeniorityMoveType.Hangout
+            || (moveType == SeniorityMoveType.NoAccess
+                ? noAccessAutoApprove != false
+                : policy?.AutoApprove == true);
 
-        var move = SeniorityMove.Create(ControlNumber.Create(railroadCtrlNbr), ControlNumber.Create(employeeCtrlNbr), ControlNumber.Create(craftCtrlNbr),
+        var move = await StageSeniorityMoveAsync(
+            uow,
+            ControlNumber.Create(railroadCtrlNbr),
+            ControlNumber.Create(employeeCtrlNbr),
+            ControlNumber.Create(craftCtrlNbr),
             ControlNumber.Create(targetPositionCtrlNbr),
             displacedEmployeeCtrlNbr is null or 0 ? null : ControlNumber.Create(displacedEmployeeCtrlNbr.Value),
-            daysOnCurrentPosition, moveType, effectiveUtc, willWorkElection);
-        await uow.SeniorityMoves.AddAsync(move, ct);
+            daysOnCurrentPosition,
+            moveType,
+            effectiveUtc,
+            willWorkElection,
+            autoApprove,
+            ct);
 
         // Notify the soon-to-be-displaced employee at request time (position-affecting; requires
         // acknowledgement). Mirrors the legacy SeniorityMoveNotification raised on creation.
@@ -807,15 +851,10 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         await uow.CommitAsync(ct);
         seniorityMoveSignal.Notify(move.EffectiveUtc ?? workAreaClock.UtcNow.UtcDateTime);
 
-        var autoApprove = move.MoveType == SeniorityMoveType.Hangout
-            || (move.MoveType == SeniorityMoveType.NoAccess
-                ? noAccessAutoApprove != false
-                : policy?.AutoApprove == true);
         var dueNow = move.EffectiveUtc.HasValue && move.EffectiveUtc.Value <= workAreaClock.UtcNow.UtcDateTime;
 
         if (autoApprove && dueNow)
         {
-            await ApproveSeniorityMoveAsync(move.CtrlNbr, ct: ct);
             await seniorityMoveExecutionService.ExecuteAsync(move.CtrlNbr, ct);
 
             await using var refreshUow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -996,6 +1035,9 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             // display the move's UTC instants as work-area-local wall-clock times.
             // Crew targets resolve via Crew -> WorkArea. Board targets resolve via
             // Board -> Roster -> WorkArea.
+            // Authoritative deterministic mapping supports both persisted target-key forms:
+            // 1) target = board-position StaffablePositionCtrlNbr (current model)
+            // 2) target = RosterBoard.CtrlNbr (legacy rows)
             if (!timeZoneIdCache.TryGetValue(move.TargetPositionCtrlNbr, out var timeZoneId))
             {
                 var crewPos = await uow.CrewPositions.GetByStaffablePositionAsync(move.TargetPositionCtrlNbr);
@@ -1007,7 +1049,9 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
                 }
                 else
                 {
-                    var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(move.TargetPositionCtrlNbr, ct);
+                    var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(move.TargetPositionCtrlNbr, ct)
+                        ?? await uow.RosterBoards.GetByCtrlNbrAsync(move.TargetPositionCtrlNbr, ct);
+
                     if (board is not null)
                     {
                         var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
