@@ -19,7 +19,7 @@
 <PageTitle>Seniority Moves</PageTitle>
 
 <h1>Seniority Moves</h1>
-<p class="text-muted mb-1">Review, approve, reject, or cancel seniority move requests.</p>
+<p class="text-muted mb-1">Review, approve, reject, process, or cancel seniority move requests.</p>
 
 @if (nextSeniorityMoveEventFormatted is not null)
 {
@@ -90,7 +90,10 @@ else
             <p>Approve the seniority move for <strong>@actionEmployee</strong>?</p>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Effective Date <span class="text-muted fw-normal small">(optional)</span></label>
-                <input type="date" class="form-control" @bind="approveEffectiveDate" />
+                <div class="input-group">
+                    <input type="date" class="form-control" @bind="approveEffectiveDate" />
+                    <button type="button" class="btn btn-outline-secondary" @onclick="SetApproveEffectiveDateNow">Now</button>
+                </div>
                 <div class="form-text">Leave blank to use the requested effective date.</div>
             </div>
         </BodyContent>
@@ -98,6 +101,25 @@ else
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseApproveModal">Cancel</button>
             <button type="button" class="btn btn-success" @onclick="ConfirmApprove" disabled="@isSaving">
                 <span class="bi bi-check-circle me-1"></span> Approve
+            </button>
+        </Footer>
+    </Modal>
+
+    @* ── Process Modal ──────────────────────────────────────────────── *@
+    <Modal Visible="showProcessModal"
+           Title="Process Seniority Move"
+           Icon="bi bi-play-circle"
+           OnClose="CloseProcessModal">
+        <BodyContent>
+            <p>Manually process the approved seniority move for <strong>@actionEmployee</strong>?</p>
+            <div class="form-text">Use this only when an approved move was missed by background processing.</div>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseProcessModal">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="ConfirmProcess"
+                    disabled="@(isSaving || !CanProcessSelectedMove)"
+                    title="@(CanProcessSelectedMove ? "Process move" : "Cannot process before the effective date/time.")">
+                <span class="bi bi-play-circle me-1"></span> Process Move
             </button>
         </Footer>
     </Modal>
@@ -205,17 +227,12 @@ else
                     <div class="d-flex gap-1 flex-nowrap justify-content-end">
                         @if (move.Status == "Pending")
                         {
-                            @* Approve/Reject are hidden when the craft policy auto-approves —
-                               the background worker approves these moves automatically. *@
-                            @if (!move.AutoApprove)
-                            {
-                                <button class="btn btn-sm btn-outline-success" @onclick="() => OpenApproveModal(move)">
-                                    <span class="bi bi-check-circle"></span> Approve
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRejectModal(move)">
-                                    <span class="bi bi-x-circle"></span> Reject
-                                </button>
-                            }
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => OpenApproveModal(move)">
+                                <span class="bi bi-check-circle"></span> Approve
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenRejectModal(move)">
+                                <span class="bi bi-x-circle"></span> Reject
+                            </button>
                             @if (CurrentUser.IsAdmin || move.MoveType != "Hangout")
                             {
                                 <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
@@ -225,6 +242,12 @@ else
                         }
                         else if (move.Status == "Approved")
                         {
+                            <button class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => OpenProcessModal(move)"
+                                    disabled="@(!CanProcessMove(move.EffectiveLocal) || isSaving)"
+                                    title="@(CanProcessMove(move.EffectiveLocal) ? "Process move" : "Cannot process before the effective date/time.")">
+                                <span class="bi bi-play-circle"></span> Process
+                            </button>
                             @if (CurrentUser.IsAdmin || move.MoveType != "Hangout")
                             {
                                 <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenCancelModal(move)">
@@ -245,6 +268,7 @@ else
     private bool showApproveModal;
     private bool showRejectModal;
     private bool showCancelModal;
+    private bool showProcessModal;
 
     // Position type code for board (extra board / hangout / etc.) positions; these
     // never displace an employee and are excluded from the Target Position list.
@@ -256,6 +280,7 @@ else
     private string actionReason = string.Empty;
     private long actionMoveCtrlNbr;
     private string actionEmployee = string.Empty;
+    private string actionMoveEffectiveLocal = string.Empty;
 
     private RequestSeniorityMoveModal? requestMoveModal;
     private string previewEffectiveUtc = string.Empty;
@@ -310,13 +335,24 @@ else
     private bool HasVisibleActions(SeniorityMoveResponse move)
     {
         if (move.Status == "Pending")
-            return !move.AutoApprove || CurrentUser.IsAdmin || move.MoveType != "Hangout";
+            return true;
 
         if (move.Status == "Approved")
-            return CurrentUser.IsAdmin || move.MoveType != "Hangout";
+            return true;
 
         return false;
     }
+
+    private static bool CanProcessMove(string? effectiveLocal)
+    {
+        return DateTimeOffset.TryParse(effectiveLocal,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind,
+            out var effectiveInstant)
+            && DateTimeOffset.UtcNow >= effectiveInstant;
+    }
+
+    private bool CanProcessSelectedMove => CanProcessMove(actionMoveEffectiveLocal);
 
 
 
@@ -780,6 +816,8 @@ else
 
     private void CloseApproveModal() => showApproveModal = false;
 
+    private void SetApproveEffectiveDateNow() => approveEffectiveDate = DateTime.Now;
+
     private async Task ConfirmApprove()
     {
         isSaving = true;
@@ -792,6 +830,42 @@ else
             await PoliciesClient.ApproveSeniorityMoveAsync(actionMoveCtrlNbr, effectiveUtc);
             showApproveModal = false;
             successMessage   = "Seniority move approved.";
+            await LoadMovesAsync();
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    // ── process modal ──────────────────────────────────────────────────
+    private void OpenProcessModal(SeniorityMoveResponse move)
+    {
+        actionMoveCtrlNbr = move.CtrlNbr;
+        actionEmployee    = DisplayEmployee(move);
+        actionMoveEffectiveLocal = move.EffectiveLocal;
+        showProcessModal  = true;
+    }
+
+    private void CloseProcessModal()
+    {
+        showProcessModal = false;
+        actionMoveEffectiveLocal = string.Empty;
+    }
+
+    private async Task ConfirmProcess()
+    {
+        if (!CanProcessSelectedMove)
+        {
+            errorMessage = "Cannot process this move before its effective date/time.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await PoliciesClient.CompleteSeniorityMoveAsync(actionMoveCtrlNbr);
+            showProcessModal = false;
+            successMessage = "Seniority move processed.";
             await LoadMovesAsync();
         }
         catch (Exception ex) { errorMessage = ex.Message; }
