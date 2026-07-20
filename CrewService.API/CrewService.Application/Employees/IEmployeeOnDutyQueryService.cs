@@ -26,9 +26,15 @@ public interface IEmployeeOnDutyQueryService
 /// configured timezone id (used to localize the record's UTC on/off-duty times for display).
 /// </summary>
 public sealed record EmployeeOnDutySlotDisplay(
+    long    ShiftInstanceCtrlNbr,
     string  AssignmentName,
     string  AssignmentCode,
     string  CrewName,
     string  CraftRoleName,
+    long    CraftCtrlNbr,
     string  Location,
-    string? TimeZoneId);
+    long?   WorkAreaCtrlNbr,
+    string  WorkAreaName,
+    string  WorkAreaCode,
+    string? TimeZoneId,
+    TimeOnly AssignmentOffDutyTime);

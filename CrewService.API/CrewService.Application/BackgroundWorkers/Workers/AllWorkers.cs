@@ -6,6 +6,7 @@ using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Application.Qualifications;
 using CrewService.Application.SeniorityOps;
 using CrewService.Application.Policies;
+using CrewService.Application.TenantConfig;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -55,6 +56,7 @@ public sealed class DailyCallSheetWorker(
         var scheduler = services.GetRequiredService<DailyOperations.IDailyCallSheetSchedulerService>();
         var generator = services.GetRequiredService<DailyOperations.CallSheetGenerationService>();
         var nextRunResolver = services.GetRequiredService<IBackgroundJobNextRunResolver>();
+        var railroadResolver = services.GetRequiredService<IRailroadResolver>();
         var dynamicGroupRepo = services.GetRequiredService<Domain.Modules.TenantConfig.IDynamicGroupRepository>();
 
         var dueItems = await scheduler.GetDueWorkItemsAsync(schedule.WorkAreaGroupCtrlNbr, DateTime.UtcNow, ct);
@@ -120,10 +122,14 @@ public sealed class DailyCallSheetWorker(
         DateTime? nextEvent = null;
         if (workArea is not null)
         {
+            var railroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
+            if (railroadCtrlNbr is null)
+                return didWork;
+
             var nextRun = await nextRunResolver.ResolveAsync(
                 "CallSheet",
                 schedule.WorkAreaGroupCtrlNbr,
-                workArea.OwningRailroadCtrlNbr,
+                railroadCtrlNbr,
                 ct);
             nextEvent = nextRun?.NextUtc;
         }

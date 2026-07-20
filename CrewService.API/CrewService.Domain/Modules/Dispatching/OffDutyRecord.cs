@@ -14,6 +14,9 @@ public sealed class OffDutyRecord : Entity
     public DateTime RestedAtUtc { get; private set; }
     public DateTime ConsecutiveDayRestedAtUtc { get; private set; }
     public string ReleaseReason { get; private set; } = string.Empty;
+    public bool OffDutyTimeConfirmed { get; private set; }
+    public DateTime? OffDutyTimeConfirmedAtUtc { get; private set; }
+    public string OffDutyTimeConfirmedBy { get; private set; } = string.Empty;
 
     private OffDutyRecord()
     {
@@ -28,7 +31,10 @@ public sealed class OffDutyRecord : Entity
         int totalTimeOnDutyMinutes,
         decimal restHoursRequired,
         decimal consecutiveDayResetHours,
-        string releaseReason)
+        string releaseReason,
+        bool offDutyTimeConfirmed = false,
+        DateTime? offDutyTimeConfirmedAtUtc = null,
+        string? offDutyTimeConfirmedBy = null)
     {
         var record = new OffDutyRecord
         {
@@ -39,9 +45,33 @@ public sealed class OffDutyRecord : Entity
             RestHoursRequired = restHoursRequired,
             RestedAtUtc = offDutyTimeUtc.AddHours((double)restHoursRequired),
             ConsecutiveDayRestedAtUtc = offDutyTimeUtc.AddHours((double)consecutiveDayResetHours),
-            ReleaseReason = releaseReason
+            ReleaseReason = releaseReason,
+            OffDutyTimeConfirmed = offDutyTimeConfirmed,
+            OffDutyTimeConfirmedAtUtc = offDutyTimeConfirmedAtUtc,
+            OffDutyTimeConfirmedBy = offDutyTimeConfirmedBy ?? string.Empty
         };
         record.Raise(new OffDutyRecordCreatedDomainEvent(record.CtrlNbr, employeeCtrlNbr, onDutyRecordCtrlNbr));
         return record;
+    }
+
+    public void ConfirmOffDutyTime(
+        DateTime offDutyTimeUtc,
+        int totalTimeOnDutyMinutes,
+        decimal restHoursRequired,
+        decimal consecutiveDayResetHours,
+        string releaseReason,
+        DateTime confirmedAtUtc,
+        string confirmedBy)
+    {
+        OffDutyTimeUtc = offDutyTimeUtc;
+        TotalTimeOnDutyMinutes = totalTimeOnDutyMinutes;
+        RestHoursRequired = restHoursRequired;
+        RestedAtUtc = offDutyTimeUtc.AddHours((double)restHoursRequired);
+        ConsecutiveDayRestedAtUtc = offDutyTimeUtc.AddHours((double)consecutiveDayResetHours);
+        if (!string.IsNullOrWhiteSpace(releaseReason))
+            ReleaseReason = releaseReason;
+        OffDutyTimeConfirmed = true;
+        OffDutyTimeConfirmedAtUtc = confirmedAtUtc;
+        OffDutyTimeConfirmedBy = confirmedBy;
     }
 }

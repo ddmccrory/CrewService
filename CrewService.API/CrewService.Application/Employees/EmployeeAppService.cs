@@ -1,4 +1,5 @@
 using CrewService.Application.Modules.UserAccount;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.Authorization;
 using CrewService.Application.Staffing;
 using CrewService.Application.Time;
@@ -23,7 +24,8 @@ public sealed class EmployeeAppService(
     IRequestActorContextResolver actorContextResolver,
     IRequestActorContextPolicy actorContextPolicy,
     IWorkAreaClock workAreaClock,
-    IEmployeeOnDutyQueryService onDutyQueryService)
+    IEmployeeOnDutyQueryService onDutyQueryService,
+    TieUpService tieUpService)
 {
     // ── Employee CRUD ────────────────────────────────────────────────────────
 
@@ -503,8 +505,193 @@ public sealed class EmployeeAppService(
         ControlNumber employeeCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var records = await uow.OnDutyRecords.GetOpenForEmployeeAsync(employeeCtrlNbr, ct);
+        var records = await uow.OnDutyRecords.GetIncompleteForEmployeeAsync(employeeCtrlNbr, ct);
         return await EnrichAsync(uow, records, ct);
+    }
+
+    public async Task<IReadOnlyList<EmployeeOnDutyRecordItem>> GetDutyStatusNotStartedAsync(
+        ControlNumber railroadCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var records = await uow.OnDutyRecords.GetNotStartedForRailroadAsync(railroadCtrlNbr, ct);
+        var enriched = await EnrichAsync(uow, records, ct);
+
+        return enriched
+            .OrderBy(r => r.WorkAreaName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => ParseIsoOrMin(r.OnDutyLocalIso))
+            .ToList();
+    }
+
+    public async Task CompleteDeferredOnDutyRecordAsync(
+        ControlNumber onDutyRecordCtrlNbr,
+        ControlNumber requestedEmployeeCtrlNbr,
+        DateTime? offDutyTimeUtc = null,
+        CancellationToken ct = default)
+    {
+        var actorContext = await actorContextResolver.ResolveAsync(
+            requestedEmployeeCtrlNbr: requestedEmployeeCtrlNbr.Value,
+            ct: ct);
+
+        if (!actorContextPolicy.ShouldUseEmployeeBehavior(actorContext))
+            throw new InvalidOperationException("Only the employee may complete deferred on-duty records.");
+
+        ControlNumber positionSlotCtrlNbr;
+        OnDutyStatus onDutyStatus;
+
+        await using (var precheckUow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var onDuty = await precheckUow.OnDutyRecords.GetByCtrlNbrAsync(onDutyRecordCtrlNbr, ct)
+                ?? throw new KeyNotFoundException("On-duty record not found.");
+
+            if (onDuty.EmployeeCtrlNbr != requestedEmployeeCtrlNbr)
+                throw new InvalidOperationException("Employee mismatch for on-duty completion.");
+
+            positionSlotCtrlNbr = onDuty.PositionSlotCtrlNbr;
+            onDutyStatus = onDuty.Status;
+        }
+
+        if (onDutyStatus != OnDutyStatus.TiedUp)
+        {
+            var slotDisplayMap = await onDutyQueryService.GetSlotDisplayAsync([positionSlotCtrlNbr], ct);
+            if (!slotDisplayMap.TryGetValue(positionSlotCtrlNbr, out var slotDisplay)
+                || slotDisplay.CraftCtrlNbr <= 0)
+            {
+                throw new InvalidOperationException("Unable to resolve craft for employee tie-up.");
+            }
+
+            await tieUpService.ExecuteAsync(
+                onDutyRecordCtrlNbr,
+                DateTime.SpecifyKind(offDutyTimeUtc ?? workAreaClock.UtcNow.UtcDateTime, DateTimeKind.Utc),
+                string.Empty,
+                ControlNumber.Create(slotDisplay.CraftCtrlNbr),
+                offDutyTimeConfirmed: true,
+                ct);
+
+            ControlNumber? postTieUpShiftInstanceCtrlNbr;
+            await using (var postTieUpUow = await uowFactory.CreateAsync(cancellationToken: ct))
+            {
+                postTieUpShiftInstanceCtrlNbr = await CompleteIfRestedAsync(postTieUpUow, onDutyRecordCtrlNbr, requestedEmployeeCtrlNbr, ct);
+            }
+
+            if (postTieUpShiftInstanceCtrlNbr is not null)
+            {
+                await tieUpService.AutoCloseShiftIfAllOnDutyStartedAsync(postTieUpShiftInstanceCtrlNbr, ct);
+            }
+
+            return;
+        }
+
+        ControlNumber? tiedUpShiftInstanceCtrlNbr;
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var tiedUpOnDuty = await uow.OnDutyRecords.GetByCtrlNbrAsync(onDutyRecordCtrlNbr, ct)
+                ?? throw new KeyNotFoundException("On-duty record not found.");
+
+            if (tiedUpOnDuty.EmployeeCtrlNbr != requestedEmployeeCtrlNbr)
+                throw new InvalidOperationException("Employee mismatch for on-duty completion.");
+
+            if (offDutyTimeUtc.HasValue)
+            {
+                await ConfirmExistingTieUpAsync(
+                    uow,
+                    tiedUpOnDuty,
+                    DateTime.SpecifyKind(offDutyTimeUtc.Value, DateTimeKind.Utc),
+                    ct);
+            }
+
+            tiedUpShiftInstanceCtrlNbr = await CompleteIfRestedAsync(uow, onDutyRecordCtrlNbr, requestedEmployeeCtrlNbr, ct);
+        }
+
+        if (tiedUpShiftInstanceCtrlNbr is not null)
+        {
+            await tieUpService.AutoCloseShiftIfAllOnDutyStartedAsync(tiedUpShiftInstanceCtrlNbr, ct);
+        }
+    }
+
+    private async Task ConfirmExistingTieUpAsync(
+        IOrchestrationUnitOfWork uow,
+        OnDutyRecord onDuty,
+        DateTime actualOffDutyTimeUtc,
+        CancellationToken ct)
+    {
+        if (actualOffDutyTimeUtc < onDuty.OnDutyTimeUtc)
+            throw new InvalidOperationException("Off-duty time cannot be earlier than on-duty time.");
+
+        var offDuty = (await uow.OffDutyRecords.GetByOnDutyRecordsAsync([onDuty.CtrlNbr], ct)).FirstOrDefault()
+            ?? throw new InvalidOperationException("Off-duty record not found for on-duty completion.");
+
+        var slotDisplayMap = await onDutyQueryService.GetSlotDisplayAsync([onDuty.PositionSlotCtrlNbr], ct);
+        if (!slotDisplayMap.TryGetValue(onDuty.PositionSlotCtrlNbr, out var slotDisplay)
+            || slotDisplay.CraftCtrlNbr <= 0)
+        {
+            throw new InvalidOperationException("Unable to resolve craft for employee tie-up confirmation.");
+        }
+
+        var policy = await uow.CraftOperationsPolicies.GetByCraftAsync(ControlNumber.Create(slotDisplay.CraftCtrlNbr), ct);
+        var totalMinutes = Math.Max(0, (int)(actualOffDutyTimeUtc - onDuty.OnDutyTimeUtc).TotalMinutes);
+        var restHours = CalculateRestHours(policy, totalMinutes);
+        var consecutiveDayResetHours = policy?.ConsecutiveDayResetHours ?? 24m;
+
+        offDuty.ConfirmOffDutyTime(
+            actualOffDutyTimeUtc,
+            totalMinutes,
+            restHours,
+            consecutiveDayResetHours,
+            releaseReason: offDuty.ReleaseReason,
+            confirmedAtUtc: workAreaClock.UtcNow.UtcDateTime,
+            confirmedBy: currentUserService.GetUserName());
+
+        uow.OffDutyRecords.Update(offDuty);
+    }
+
+    private static decimal CalculateRestHours(CraftOperationsPolicy? policy, int totalMinutes)
+    {
+        if (policy is null) return 10m;
+
+        return policy.RestCalculationStrategy switch
+        {
+            "FixedHours" => policy.FixedRestHours ?? 10m,
+            "CraftConfigured" => CalculateCraftConfiguredRest(totalMinutes),
+            _ => 10m
+        };
+    }
+
+    private static decimal CalculateCraftConfiguredRest(int totalMinutes)
+    {
+        var baseRest = 10m;
+        var excessMinutes = Math.Max(0, totalMinutes - 720);
+        var penalty = excessMinutes > 0 ? Math.Ceiling(excessMinutes / 60m) : 0;
+        return baseRest + penalty;
+    }
+
+    private async Task<ControlNumber?> CompleteIfRestedAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber onDutyRecordCtrlNbr,
+        ControlNumber requestedEmployeeCtrlNbr,
+        CancellationToken ct)
+    {
+        var onDuty = await uow.OnDutyRecords.GetByCtrlNbrAsync(onDutyRecordCtrlNbr, ct)
+            ?? throw new KeyNotFoundException("On-duty record not found.");
+
+        if (onDuty.EmployeeCtrlNbr != requestedEmployeeCtrlNbr)
+            throw new InvalidOperationException("Employee mismatch for on-duty completion.");
+
+        if (onDuty.Status != OnDutyStatus.TiedUp)
+            throw new InvalidOperationException("On-duty record cannot be completed until tied up.");
+
+        var offDuty = (await uow.OffDutyRecords.GetByOnDutyRecordsAsync([onDuty.CtrlNbr], ct)).FirstOrDefault()
+            ?? throw new InvalidOperationException("Off-duty record not found for on-duty completion.");
+
+        var tieUpContext = await uow.OnDutyRecords.GetTieUpContextAsync(onDuty.CtrlNbr, ct);
+
+        if (offDuty.RestedAtUtc > workAreaClock.UtcNow.UtcDateTime)
+            throw new InvalidOperationException("Employee is not yet rested for deferred completion.");
+
+        onDuty.CompleteByEmployee();
+        await uow.CommitAsync(ct);
+
+        return tieUpContext?.ShiftInstanceCtrlNbr;
     }
 
     /// <summary>
@@ -526,6 +713,9 @@ public sealed class EmployeeAppService(
         return await EnrichAsync(uow, records, ct);
     }
 
+    private static DateTimeOffset ParseIsoOrMin(string? iso)
+        => DateTimeOffset.TryParse(iso, out var dto) ? dto : DateTimeOffset.MinValue;
+
     /// <summary>
     /// Enriches raw on-duty records with slot display data (assignment, crew, craft, location),
     /// tie-up (off-duty) data, and work-area-localized ISO on/off-duty timestamps.
@@ -534,6 +724,21 @@ public sealed class EmployeeAppService(
         IOrchestrationUnitOfWork uow, IReadOnlyList<OnDutyRecord> records, CancellationToken ct)
     {
         if (records.Count == 0) return [];
+
+        var employeeIds = records.Select(r => r.EmployeeCtrlNbr).Distinct().ToList();
+        var employees = await uow.Employees.GetByCtrlNbrsAsync(employeeIds, ct);
+        var employeeMap = employees.ToDictionary(e => e.CtrlNbr, e => e);
+
+        var userIds = employees
+            .Select(e => e.UserId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var userNames = userIds.Count == 0
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : (await userAccountService.GetNamesByIdsAsync(userIds))
+                .Where(u => !string.IsNullOrWhiteSpace(u.FullNameLNF))
+                .ToDictionary(u => u.Id, u => u.FullNameLNF!, StringComparer.Ordinal);
 
         var slotIds = records.Select(r => r.PositionSlotCtrlNbr).Distinct().ToList();
         var slotDisplay = await onDutyQueryService.GetSlotDisplayAsync(slotIds, ct);
@@ -565,6 +770,8 @@ public sealed class EmployeeAppService(
                 display?.CrewName ?? string.Empty,
                 display?.CraftRoleName ?? string.Empty,
                 display?.Location ?? string.Empty,
+                display?.WorkAreaCtrlNbr,
+                display?.WorkAreaName ?? string.Empty,
                 r.OnDutyTimeUtc,
                 workAreaClock.FormatLocalIso(r.OnDutyTimeUtc, tz),
                 offUtc,
@@ -573,10 +780,76 @@ public sealed class EmployeeAppService(
                 r.ConsecutiveDays,
                 r.IsAssigned,
                 r.IsLateCall,
-                r.Status.Value));
+                r.Status.Value,
+                r.CompletionStatus.Value,
+                r.CompletionStatus == OnDutyCompletionStatus.PendingEmployeeCompletion,
+                off?.RestedAtUtc,
+                off?.OffDutyTimeConfirmed ?? false,
+                off?.OffDutyTimeConfirmedAtUtc,
+                off?.OffDutyTimeConfirmedBy ?? string.Empty,
+                display?.WorkAreaCode ?? string.Empty,
+                ResolveEmployeeName(r.EmployeeCtrlNbr, employeeMap, userNames),
+                ResolveEmployeeNumber(r.EmployeeCtrlNbr, employeeMap),
+                r.EmployeeCtrlNbr.Value,
+                display?.CraftCtrlNbr ?? 0,
+                ResolveAssignmentOffDutyLocalIso(r.OnDutyTimeUtc, display, tz)));
         }
 
         return items;
+    }
+
+    private static string ResolveEmployeeName(
+        ControlNumber employeeCtrlNbr,
+        IReadOnlyDictionary<ControlNumber, Employee> employeeMap,
+        IReadOnlyDictionary<string, string> userNames)
+    {
+        if (!employeeMap.TryGetValue(employeeCtrlNbr, out var employee))
+            return string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(employee.UserId)
+            && userNames.TryGetValue(employee.UserId, out var fullNameLnf)
+            && !string.IsNullOrWhiteSpace(fullNameLnf))
+        {
+            return fullNameLnf;
+        }
+
+        return string.Empty;
+    }
+
+    private static string ResolveEmployeeNumber(
+        ControlNumber employeeCtrlNbr,
+        IReadOnlyDictionary<ControlNumber, Employee> employeeMap)
+        => employeeMap.TryGetValue(employeeCtrlNbr, out var employee)
+            ? employee.EmployeeNumber ?? string.Empty
+            : string.Empty;
+
+    private string ResolveAssignmentOffDutyLocalIso(
+        DateTime onDutyUtc,
+        EmployeeOnDutySlotDisplay? display,
+        TimeZoneInfo? tz)
+    {
+        if (display is null)
+            return string.Empty;
+
+        var onDutyLocal = tz is null
+            ? DateTime.SpecifyKind(onDutyUtc, DateTimeKind.Utc)
+            : TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(onDutyUtc, DateTimeKind.Utc), tz);
+
+        var offDutyLocal = new DateTime(
+            onDutyLocal.Year,
+            onDutyLocal.Month,
+            onDutyLocal.Day,
+            display.AssignmentOffDutyTime.Hour,
+            display.AssignmentOffDutyTime.Minute,
+            display.AssignmentOffDutyTime.Second,
+            DateTimeKind.Unspecified);
+
+        if (display.AssignmentOffDutyTime <= TimeOnly.FromDateTime(onDutyLocal))
+            offDutyLocal = offDutyLocal.AddDays(1);
+
+        return tz is null
+            ? DateTime.SpecifyKind(offDutyLocal, DateTimeKind.Utc).ToString("o")
+            : new DateTimeOffset(offDutyLocal, tz.GetUtcOffset(offDutyLocal)).ToString("o");
     }
 
     private TimeZoneInfo? ResolveTimeZone(string? timeZoneId, Dictionary<string, TimeZoneInfo?> cache)

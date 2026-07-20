@@ -37,12 +37,42 @@ public interface IOnDutyRecordRepository : IRepository<OnDutyRecord>
     Task<IReadOnlyList<OnDutyRecord>> GetOpenForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
 
     /// <summary>
+    /// Incomplete on-duty records for an employee (anything not in completion state Completed),
+    /// most recent first. Includes tied-up records awaiting employee completion.
+    /// </summary>
+    Task<IReadOnlyList<OnDutyRecord>> GetIncompleteForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
+    /// Not-started on-duty records scoped to a railroad's work areas, used by the manager
+    /// On-Duty / Off-Duty page. Excludes deferred quick-tie-up employee-completion items.
+    /// </summary>
+    Task<IReadOnlyList<OnDutyRecord>> GetNotStartedForRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
     /// On-duty records for an employee whose on-duty time falls within <paramref name="startUtc"/>
     /// (inclusive) and <paramref name="endUtc"/> (exclusive), most recent first. Backs the legacy
     /// completed pay-period history windows (current/previous work period, month, year-to-date).
     /// </summary>
     Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns completion statuses for on-duty records that belong to a shift instance via
+    /// PositionSlotInstance relationships.
+    /// </summary>
+    Task<IReadOnlyList<OnDutyCompletionStatus>> GetCompletionStatusesForShiftAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns tie-up context for a single on-duty record, including assignment code, shift,
+    /// and work-area identifiers resolved through position-slot and work-instance joins.
+    /// </summary>
+    Task<OnDutyTieUpContext?> GetTieUpContextAsync(ControlNumber onDutyRecordCtrlNbr, CancellationToken ct = default);
 }
+
+public sealed record OnDutyTieUpContext(
+    ControlNumber OnDutyRecordCtrlNbr,
+    string AssignmentCode,
+    ControlNumber ShiftInstanceCtrlNbr,
+    ControlNumber WorkAreaCtrlNbr);
 
 public interface IOffDutyRecordRepository : IRepository<OffDutyRecord>
 {

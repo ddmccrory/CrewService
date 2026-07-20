@@ -16,6 +16,8 @@ public sealed record EmployeeOnDutyRecordItem(
     string        CrewName,
     string        CraftRoleName,
     string        Location,
+    long?         WorkAreaCtrlNbr,
+    string        WorkAreaName,
     DateTime      OnDutyTimeUtc,
     string        OnDutyLocalIso,
     DateTime?     OffDutyTimeUtc,
@@ -24,7 +26,19 @@ public sealed record EmployeeOnDutyRecordItem(
     int           ConsecutiveDays,
     bool          IsAssigned,
     bool          IsLateCall,
-    string        Status);
+    string        Status,
+    string        CompletionStatus,
+    bool          IsQuickTieUp,
+    DateTime?     RestedAtUtc,
+    bool          OffDutyTimeConfirmed,
+    DateTime?     OffDutyTimeConfirmedAtUtc,
+    string        OffDutyTimeConfirmedBy,
+    string        WorkAreaCode,
+    string        EmployeeName,
+    string        EmployeeNumber,
+    long          EmployeeCtrlNbr,
+    long          CraftCtrlNbr,
+    string        AssignmentOffDutyLocalIso);
 
 /// <summary>
 /// The completed on-duty history windows offered on the employee-detail On-Duty History tab,

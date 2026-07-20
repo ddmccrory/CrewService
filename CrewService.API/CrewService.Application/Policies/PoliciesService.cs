@@ -2,6 +2,7 @@ using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
 using CrewService.Application.Staffing;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
@@ -15,7 +16,7 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IncumbentAssignmentPath? incumbentAssignmentPath = null)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
     private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
 
@@ -460,7 +461,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
                 throw new InvalidOperationException("Employee is not eligible for No Access on a position they most recently vacated.");
 
             var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
-            var vacancyRailroadCn = workArea?.OwningRailroadCtrlNbr ?? workArea?.RailroadCtrlNbr;
+            var vacancyRailroadCn = railroadResolver.ResolveFromGroup(workArea);
             if (vacancyRailroadCn is null || vacancyRailroadCn != railroadCn)
                 throw new InvalidOperationException("Bulletin railroad does not match the selected railroad.");
 
@@ -639,7 +640,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
         var craftIdsForRailroad = allRosters
             .Where(r => workAreaById.TryGetValue(r.WorkAreaGroupCtrlNbr, out var wa)
-                        && wa.OwningRailroadCtrlNbr == railroadCtrlNbr)
+                        && railroadResolver.ResolveFromGroup(wa) == railroadCtrlNbr)
             .Select(r => r.CraftCtrlNbr)
             .Distinct()
             .ToHashSet();
