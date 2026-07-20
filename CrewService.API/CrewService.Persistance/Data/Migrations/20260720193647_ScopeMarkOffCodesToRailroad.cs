@@ -21,6 +21,15 @@ namespace CrewService.Persistance.Data.Migrations
                 nullable: false,
                 defaultValue: 0L);
 
+            migrationBuilder.Sql(@"
+                DELETE FROM AbsenceCodes
+                WHERE CtrlNbr NOT IN (
+                    SELECT MIN(CtrlNbr)
+                    FROM AbsenceCodes
+                    GROUP BY RailroadCtrlNbr, Code
+                );
+            ");
+
             migrationBuilder.CreateIndex(
                 name: "IX_AbsenceCodes_RailroadCtrlNbr_Code",
                 table: "AbsenceCodes",
