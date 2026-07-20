@@ -250,7 +250,7 @@
                 }
 
                 @* ── Work Management ── *@
-                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles", "work-management/shift-definitions", "work-management/rosters", "work-management/seniority-states", "work-management/group-types", "work-management/qualification-types"))
+                @if (Permissions.HasAccessToAny("work-management/departments", "work-management/crafts", "work-management/craft-roles", "work-management/shift-definitions", "work-management/rosters", "work-management/seniority-states", "work-management/group-types", "work-management/qualification-types", "work-management/markoff-codes"))
                 {
                     <NavMenuGroup Title="Work Management" Icon="bi-briefcase-fill" IsInitiallyExpanded="@IsCurrentPath("work-management")">
                         @if (Permissions.HasAccess("work-management/departments"))
@@ -314,6 +314,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="work-management/qualification-types">
                                     <span class="bi bi-award" aria-hidden="true"></span> Qualification Types
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("work-management/markoff-codes"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="work-management/absence-codes">
+                                    <span class="bi bi-calendar-minus" aria-hidden="true"></span> Absence Codes
                                 </NavLink>
                             </div>
                         }

@@ -1,4 +1,4 @@
-using CrewService.Application.MarkOff;
+using CrewService.Application.Absence;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.ValueObjects;
@@ -11,6 +11,11 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class AbsenceCodeRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<AbsenceCode>(dbContext, currentUserService), IAbsenceCodeRepository
 {
+    public async Task<List<AbsenceCode>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<AbsenceCode>()
+            .Where(c => c.RailroadCtrlNbr == railroadCtrlNbr)
+            .ToListAsync(ct);
+
     public async Task<AbsenceCodeCraftOverride?> GetOverrideAsync(
         ControlNumber absenceCodeCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<AbsenceCodeCraftOverride>()

@@ -20,6 +20,7 @@ using CrewService.Domain.Modules.Safety;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Application.FraCompliance;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Infrastructure.Models.UserAccount;
@@ -30,6 +31,7 @@ using CrewService.Application.Parents;
 using CrewService.Application.Qualifications;
 using CrewService.Application.Assignments;
 using CrewService.Application.Crews;
+using CrewService.Application.Absence;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Application.SeniorityOps;
 using CrewService.Application.WorkManagement;
@@ -190,6 +192,53 @@ internal static class DevDataSeeder
         var simpleCorpCore = allParentsCore.First(p => p.Name.Value == "Simple Corp");
         var ptraParentCore = allParentsCore.First(p => p.Name.Value == "Port Terminal Railroad Association");
         var csxParentCore = allParentsCore.First(p => p.Name.Value == "CSX Corporation");
+
+        // Seed baseline mark-off codes for each railroad context.
+        var absenceCodeRepo = sp.GetRequiredService<IAbsenceCodeRepository>();
+        var baselineMarkOffCodes = new (string Code, string Description)[]
+        {
+            ("PB", "Personal Business"),
+            ("S", "Sick"),
+            ("CT", "Car Trouble"),
+            ("WR", "Weather Related"),
+            ("D", "Discipline"),
+            ("SR", "Safety Rest"),
+            ("VD", "Vacation Day"),
+            ("V", "Vacation"),
+            ("MD", "Medical/Dental")
+        };
+
+        foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
+        {
+            SetParent(parentCore.CtrlNbr.Value);
+
+            var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad", parentCore.CtrlNbr);
+
+            foreach (var railroad in railroads)
+            {
+                var existingCodes = await absenceCodeRepo.GetByRailroadAsync(railroad.CtrlNbr);
+
+                foreach (var (code, description) in baselineMarkOffCodes)
+                {
+                    if (existingCodes.Any(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+
+                    var markOffCode = AbsenceCode.Create(
+                        railroad.CtrlNbr.Value,
+                        code,
+                        description,
+                        isExcused: false,
+                        isCompensated: false,
+                        requiresApproval: false,
+                        isSystemOnly: false,
+                        isHolidayExempt: false,
+                        defaultAutoMarkUpHours: null,
+                        isActive: true);
+
+                    await absenceCodeRepo.AddAsync(markOffCode);
+                }
+            }
+        }
 
         // Backfill per-parent system types for pre-existing parents that may be missing types
         var groupTypesBackfill = await groupTypeRepo.GetAllAsync();

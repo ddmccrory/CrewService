@@ -9,7 +9,7 @@ public class AbsenceCodeTests
     [Fact]
     public void Create_SetsProperties()
     {
-        var code = AbsenceCode.Create("VAC", "Vacation", true, true, true, false, false, 8m, true);
+        var code = AbsenceCode.Create(1, "VAC", "Vacation", true, true, true, false, false, 8m, true);
 
         Assert.Equal("VAC", code.Code);
         Assert.True(code.IsExcused);
@@ -21,7 +21,7 @@ public class AbsenceCodeTests
     [Fact]
     public void Update_ChangesOnlySpecifiedFields()
     {
-        var code = AbsenceCode.Create("VAC", "Vacation", true, true, true, false, false, 8m, true);
+        var code = AbsenceCode.Create(1, "VAC", "Vacation", true, true, true, false, false, 8m, true);
 
         code.Update(description: "PTO", isActive: false);
 

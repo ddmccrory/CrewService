@@ -1,6 +1,6 @@
 using CrewService.Domain.ValueObjects;
 
-namespace CrewService.Domain.DomainEvents.MarkOff;
+namespace CrewService.Domain.DomainEvents.Absence;
 
 public sealed record AbsenceApprovalDecidedDomainEvent : DomainEvent
 {
