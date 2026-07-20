@@ -79,7 +79,7 @@ public sealed class CraftDeletionCascadeTests : IDisposable
             _currentUser,
             NullLoggerFactory.Instance);
 
-        return new CraftAppService(factory);
+        return new CraftAppService(factory, new CrewService.Application.TenantConfig.RailroadResolver());
     }
 
     private async Task<(CrewService.Domain.ValueObjects.ControlNumber CraftCtrlNbr, List<CrewService.Domain.ValueObjects.ControlNumber> BoardCtrlNbrs)> SeedCraftWithBoardsAsync(CancellationToken ct)
