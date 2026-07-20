@@ -134,7 +134,8 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
             new TestCurrentUserService(),
             execution,
             new TestRequestActorContextResolver(),
-            new RequestActorContextPolicy());
+            new RequestActorContextPolicy(),
+            new RailroadResolver());
     }
 
     private async Task<SeededScenario> SeedScenarioAsync()

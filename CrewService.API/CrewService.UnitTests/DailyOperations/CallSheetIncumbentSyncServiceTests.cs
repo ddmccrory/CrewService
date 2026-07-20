@@ -399,8 +399,20 @@ public sealed class CallSheetIncumbentSyncServiceTests
         public Task<IReadOnlyList<OnDutyRecord>> GetOpenForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
 
+        public Task<IReadOnlyList<OnDutyRecord>> GetIncompleteForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetNotStartedForRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
         public Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
+        public Task<IReadOnlyList<OnDutyCompletionStatus>> GetCompletionStatusesForShiftAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyCompletionStatus>>([]);
+
+        public Task<OnDutyTieUpContext?> GetTieUpContextAsync(ControlNumber onDutyRecordCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<OnDutyTieUpContext?>(null);
 
         public override Task AddAsync(OnDutyRecord entity, CancellationToken ct = default)
         {

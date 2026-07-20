@@ -1,4 +1,5 @@
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.TenantConfig;
@@ -128,6 +129,7 @@ public sealed class NextProcessingEventPresentationTests
         var services = new ServiceCollection();
         services.AddSingleton(resolver);
         services.AddSingleton(clock);
+        services.AddSingleton<IRailroadResolver>(new RailroadResolver());
         services.AddSingleton<IDynamicGroupRepository>(new FakeDynamicGroupRepository(workAreas));
         return services.BuildServiceProvider();
     }

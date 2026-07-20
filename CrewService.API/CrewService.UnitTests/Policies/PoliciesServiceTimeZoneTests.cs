@@ -124,7 +124,8 @@ public sealed class PoliciesServiceTimeZoneTests : IDisposable
             new TestCurrentUserService(),
             execution,
             new TestRequestActorContextResolver(),
-            new RequestActorContextPolicy());
+            new RequestActorContextPolicy(),
+            new RailroadResolver());
 
         var moves = await service.GetAllSeniorityMovesAsync(ct);
         var item = Assert.Single(moves);
