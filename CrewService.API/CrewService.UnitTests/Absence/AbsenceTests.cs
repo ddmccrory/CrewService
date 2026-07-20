@@ -2,14 +2,14 @@ using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.ValueObjects;
 using Xunit;
 
-namespace CrewService.UnitTests.MarkOff;
+namespace CrewService.UnitTests.Absence;
 
 public class AbsenceCodeTests
 {
     [Fact]
     public void Create_SetsAllProperties()
     {
-        var code = AbsenceCode.Create("V1", "Vacation Week 1", true, true, true, false, false, 168m, true);
+        var code = AbsenceCode.Create(1, "V1", "Vacation Week 1", true, true, true, false, false, 168m, true);
         Assert.Equal("V1", code.Code);
         Assert.True(code.IsCompensated);
         Assert.True(code.RequiresApproval);
@@ -19,7 +19,7 @@ public class AbsenceCodeTests
     [Fact]
     public void SystemOnlyCodes_CannotBeCreatedByUser()
     {
-        var code = AbsenceCode.Create("SR", "Safety Rest", true, false, false, true, false, null, true);
+        var code = AbsenceCode.Create(1, "SR", "Safety Rest", true, false, false, true, false, null, true);
         Assert.True(code.IsSystemOnly);
     }
 }

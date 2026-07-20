@@ -1,0 +1,403 @@
+@page "/work-management/absence-codes"
+@page "/work-management/markoff-codes"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject AbsenceClient AbsenceClient
+
+<PageTitle>Absence Codes</PageTitle>
+
+<h1>Absence Codes</h1>
+
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage absence codes.
+    </div>
+}
+else if (HasRailroad)
+{
+    <p class="text-muted mb-3">Managing absence codes for <strong>@SelectedRailroadName</strong></p>
+
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="form-check form-switch mb-0">
+            <InputCheckbox @bind-Value="activeOnly" class="form-check-input" id="markOffActiveOnly" />
+            <label class="form-check-label" for="markOffActiveOnly">Show active codes only</label>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="LoadCodes" disabled="@isSaving">
+            <span class="bi bi-arrow-repeat"></span> Refresh
+        </button>
+    </div>
+
+    <Modal Visible="showSaveModal"
+           Title="@(editCtrlNbr > 0 ? "Edit Absence Code" : "Create Absence Code")"
+           Icon="@(editCtrlNbr > 0 ? "bi bi-pencil" : "bi bi-plus-circle")"
+           OnClose="CloseSaveModal">
+        <BodyContent>
+            <EditForm Model="saveModel" OnValidSubmit="OnSave" id="save-absence-code-form">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Code</label>
+                    <InputText @bind-Value="saveModel.Code" @bind-Value:event="oninput" class="form-control text-uppercase" style="text-transform: uppercase;" placeholder="e.g. SI" />
+                    <ValidationMessage For="() => saveModel.Code" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Description</label>
+                    <InputText @bind-Value="saveModel.Description" class="form-control" placeholder="e.g. Sick" />
+                    <ValidationMessage For="() => saveModel.Description" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsExcused" class="form-check-input" id="markOffIsExcused" />
+                        <label class="form-check-label" for="markOffIsExcused">Excused</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsCompensated" class="form-check-input" id="markOffIsCompensated" />
+                        <label class="form-check-label" for="markOffIsCompensated">Compensated</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.RequiresApproval" class="form-check-input" id="markOffRequiresApproval" />
+                        <label class="form-check-label" for="markOffRequiresApproval">Requires Approval</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsSystemOnly" class="form-check-input" id="markOffIsSystemOnly" />
+                        <label class="form-check-label" for="markOffIsSystemOnly">System Use Only</label>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Default Auto Mark-Up Hours</label>
+                    <InputNumber @bind-Value="saveModel.DefaultAutoMarkUpHours" class="form-control" step="0.25" />
+                    <ValidationMessage For="() => saveModel.DefaultAutoMarkUpHours" class="text-danger" />
+                </div>
+                <div class="mb-3 mt-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsHolidayExempt" class="form-check-input" id="markOffIsHolidayExempt" />
+                        <label class="form-check-label" for="markOffIsHolidayExempt">Holiday Exempt</label>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <div class="form-check form-switch">
+                        <InputCheckbox @bind-Value="saveModel.IsActive" class="form-check-input" id="markOffIsActive" />
+                        <label class="form-check-label" for="markOffIsActive">Active</label>
+                    </div>
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
+            <button type="submit" form="save-absence-code-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
+            </button>
+        </Footer>
+    </Modal>
+
+    <ConfirmModal Visible="showDeleteModal" ItemName="@deleteName" IsSaving="isSaving"
+                        OnConfirm="ConfirmDelete" OnCancel="() => showDeleteModal = false" />
+
+    <SuccessAlert @bind-Message="successMessage" />
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <DataTable TItem="MarkOffCodeResponse" Items="codes" Columns="columns"
+               SearchFilter="@((c, term) => c.Code.Contains(term, StringComparison.OrdinalIgnoreCase) || c.Description.Contains(term, StringComparison.OrdinalIgnoreCase))"
+               SearchPlaceholder="Search by code or description..."
+               EmptyMessage="No absence codes found."
+               DefaultSortColumn="Code">
+        <ToolbarContent>
+            @if (!IsFeatureReadOnly)
+            {
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <span class="bi bi-plus-circle"></span> Create Absence Code
+                </button>
+            }
+        </ToolbarContent>
+        <RowContent Context="absenceCode">
+            <td>@absenceCode.Code</td>
+            <td>@absenceCode.Description</td>
+            <td>
+                @if (absenceCode.IsExcused)
+                {
+                    <span class="badge bg-success">Yes</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">No</span>
+                }
+            </td>
+            <td>
+                @if (absenceCode.IsCompensated)
+                {
+                    <span class="badge bg-success">Yes</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">No</span>
+                }
+            </td>
+            <td>
+                @if (absenceCode.RequiresApproval)
+                {
+                    <span class="badge bg-success">Yes</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">No</span>
+                }
+            </td>
+            <td>
+                @if (absenceCode.IsSystemOnly)
+                {
+                    <span class="badge bg-warning text-dark">System</span>
+                }
+                else
+                {
+                    <span class="badge bg-light text-dark border">User</span>
+                }
+            </td>
+            <td>
+                @if (absenceCode.IsActive)
+                {
+                    <span class="badge bg-success">Active</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Inactive</span>
+                }
+            </td>
+            <td>
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => OpenEditModal(absenceCode)">
+                            <span class="bi bi-pencil"></span> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => OpenDeleteModal(absenceCode)">
+                            <span class="bi bi-trash"></span> Delete
+                        </button>
+                    </div>
+                }
+            </td>
+        </RowContent>
+    </DataTable>
+}
+
+@code {
+    protected override string? FeatureKey => "work-management/markoff-codes";
+
+    private IReadOnlyList<MarkOffCodeResponse>? codes;
+    private bool activeOnly = true;
+
+    private static readonly IReadOnlyList<DataTableColumn<MarkOffCodeResponse>> columns =
+    [
+        new("Code", c => c.Code),
+        new("Description", c => c.Description),
+        new("Excused", c => c.IsExcused ? "Yes" : "No", width: "100px"),
+        new("Compensated", c => c.IsCompensated ? "Yes" : "No", width: "130px"),
+        new("Requires Approval", c => c.RequiresApproval ? "Yes" : "No", width: "170px"),
+        new("Type", c => c.IsSystemOnly ? "System" : "User", width: "120px"),
+        new("Status", c => c.IsActive ? "Active" : "Inactive", width: "100px"),
+        DataTableColumn<MarkOffCodeResponse>.Actions()
+    ];
+
+    private bool showSaveModal;
+    private long editCtrlNbr;
+    private AbsenceCodeInputModel saveModel = new();
+
+    private bool showDeleteModal;
+    private long deleteCtrlNbr;
+    private string deleteName = string.Empty;
+
+    protected override async Task LoadDataAsync()
+    {
+        if (HasRailroad)
+            await LoadCodes();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        codes = null;
+
+        if (HasRailroad)
+            await LoadCodes();
+    }
+
+    private async Task LoadCodes()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await AbsenceClient.GetAbsenceCodesAsync(activeOnly);
+            codes = response.Codes;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load absence codes: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editCtrlNbr = 0;
+        saveModel = new() { IsActive = true };
+        showSaveModal = true;
+    }
+
+    private void OpenEditModal(MarkOffCodeResponse code)
+    {
+        editCtrlNbr = code.CtrlNbr;
+        saveModel = new()
+        {
+            Code = code.Code,
+            Description = code.Description,
+            IsExcused = code.IsExcused,
+            IsCompensated = code.IsCompensated,
+            RequiresApproval = code.RequiresApproval,
+            IsSystemOnly = code.IsSystemOnly,
+            IsHolidayExempt = code.IsHolidayExempt,
+            DefaultAutoMarkUpHours = code.HasDefaultAutoMarkUpHours ? Convert.ToDecimal(code.DefaultAutoMarkUpHours) : null,
+            IsActive = code.IsActive
+        };
+        showSaveModal = true;
+    }
+
+    private void OpenDeleteModal(MarkOffCodeResponse code)
+    {
+        deleteCtrlNbr = code.CtrlNbr;
+        deleteName = $"{code.Code} - {code.Description}";
+        showDeleteModal = true;
+    }
+
+    private void CloseSaveModal()
+    {
+        showSaveModal = false;
+        editCtrlNbr = 0;
+        saveModel = new();
+    }
+
+    private async Task OnSave()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (editCtrlNbr > 0)
+            {
+                await AbsenceClient.UpdateAbsenceCodeAsync(
+                    editCtrlNbr,
+                    saveModel.Code!,
+                    saveModel.Description!,
+                    saveModel.IsExcused,
+                    saveModel.IsCompensated,
+                    saveModel.RequiresApproval,
+                    saveModel.IsSystemOnly,
+                    saveModel.IsHolidayExempt,
+                    saveModel.DefaultAutoMarkUpHours,
+                    saveModel.IsActive);
+
+                successMessage = "Absence code updated.";
+            }
+            else
+            {
+                await AbsenceClient.CreateAbsenceCodeAsync(
+                    saveModel.Code!,
+                    saveModel.Description!,
+                    saveModel.IsExcused,
+                    saveModel.IsCompensated,
+                    saveModel.RequiresApproval,
+                    saveModel.IsSystemOnly,
+                    saveModel.IsHolidayExempt,
+                    saveModel.DefaultAutoMarkUpHours,
+                    saveModel.IsActive);
+
+                successMessage = "Absence code created.";
+            }
+
+            CloseSaveModal();
+            await LoadCodes();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save absence code: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await AbsenceClient.DeleteAbsenceCodeAsync(deleteCtrlNbr);
+
+            successMessage = "Absence code deleted.";
+            showDeleteModal = false;
+            await LoadCodes();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete absence code: {ex.Message}";
+            showDeleteModal = false;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private sealed class AbsenceCodeInputModel
+    {
+        private string? _code;
+
+        [Required(ErrorMessage = "Code is required.")]
+        [StringLength(10, MinimumLength = 1)]
+        public string? Code
+        {
+            get => _code;
+            set => _code = value?.ToUpperInvariant();
+        }
+
+        [Required(ErrorMessage = "Description is required.")]
+        [StringLength(100, MinimumLength = 1)]
+        public string? Description { get; set; }
+
+        public bool IsExcused { get; set; }
+        public bool IsCompensated { get; set; }
+        public bool RequiresApproval { get; set; }
+        public bool IsSystemOnly { get; set; }
+        public bool IsHolidayExempt { get; set; }
+
+        [Range(0, 9999, ErrorMessage = "Default auto mark-up hours must be 0 or greater.")]
+        public decimal? DefaultAutoMarkUpHours { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+}

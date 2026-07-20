@@ -1,4 +1,4 @@
-using CrewService.Domain.DomainEvents.MarkOff;
+using CrewService.Domain.DomainEvents.Absence;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 

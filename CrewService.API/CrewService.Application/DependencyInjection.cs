@@ -19,7 +19,7 @@ using CrewService.Application.Employees;
 using CrewService.Application.Employment;
 using CrewService.Application.FraCompliance;
 using CrewService.Application.HolidayManagement;
-using CrewService.Application.MarkOff;
+using CrewService.Application.Absence;
 using CrewService.Application.Notifications;
 using CrewService.Application.Parents;
 using CrewService.Application.Payroll;
@@ -222,6 +222,9 @@ public static class DependencyInjection
 
         // AbsenceVacancy
         services.AddScoped<AbsenceRequestService>();
+
+        // Absence
+        services.AddScoped<AbsenceCodeService>();
 
         // Safety
         services.AddScoped<Application.Safety.SafetyService>();

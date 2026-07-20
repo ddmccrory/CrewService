@@ -58,6 +58,7 @@
     <Protobuf Include="..\..\Protos\modules\dispatching.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\background_services.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\absence_vacancy.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\absence.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\payroll.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\fra_compliance.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\daily_operations.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />

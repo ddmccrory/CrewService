@@ -3,7 +3,7 @@ using CrewService.Application.Authorization;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.ElectronicCalling;
 using CrewService.Application.Employees;
-using CrewService.Application.MarkOff;
+using CrewService.Application.Absence;
 using CrewService.Application.Qualifications;
 using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.RosterBoardOps;
@@ -232,7 +232,7 @@ public static class DependencyInjection
         services.AddScoped<IAssignmentQueryService, AssignmentQueryService>();
         services.AddScoped<IEmployeeOnDutyQueryService, EmployeeOnDutyQueryService>();
 
-        // Mark-Off Repositories (B03)
+        // Absence Repositories (B03)
         services.AddScoped<IAbsenceCodeRepository, AbsenceCodeRepository>();
         services.AddScoped<ICompensationBalanceRepository, CompensationBalanceRepository>();
 

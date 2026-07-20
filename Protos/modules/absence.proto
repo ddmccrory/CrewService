@@ -4,6 +4,7 @@ option csharp_namespace = "CrewService.Presentation";
 
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
+import "common.proto";
 
 service MarkOffSrvc {
   rpc CreateAbsenceRequest (CreateAbsenceRequestMsg) returns (MarkOffAbsenceResponse) {
@@ -20,6 +21,18 @@ service MarkOffSrvc {
   }
   rpc GetAbsenceCodes (GetAbsenceCodesMsg) returns (GetAbsenceCodesResponse) {
     option (google.api.http) = { get: "/v1/mark-off/absence-codes/{work_area_group_ctrl_nbr}" };
+  }
+  rpc GetMarkOffCodes (GetMarkOffCodesMsg) returns (GetMarkOffCodesResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/codes" };
+  }
+  rpc CreateMarkOffCode (CreateMarkOffCodeMsg) returns (MarkOffCodeResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/codes" body: "*" };
+  }
+  rpc UpdateMarkOffCode (UpdateMarkOffCodeMsg) returns (MarkOffCodeResponse) {
+    option (google.api.http) = { put: "/v1/mark-off/codes/{ctrl_nbr}" body: "*" };
+  }
+  rpc DeleteMarkOffCode (DeleteMarkOffCodeMsg) returns (common.DeleteResponse) {
+    option (google.api.http) = { delete: "/v1/mark-off/codes/{ctrl_nbr}" };
   }
 }
 
@@ -93,4 +106,55 @@ message AbsenceCodeResponse {
   bool is_system_only = 7;
   optional double default_auto_mark_up_hours = 8;
   bool is_active = 9;
+}
+
+message GetMarkOffCodesMsg {
+  bool active_only = 1;
+}
+
+message GetMarkOffCodesResponse {
+  repeated MarkOffCodeResponse codes = 1;
+  int32 total_count = 2;
+}
+
+message MarkOffCodeResponse {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string description = 3;
+  bool is_excused = 4;
+  bool is_system_only = 5;
+  bool is_active = 6;
+  bool is_compensated = 7;
+  bool requires_approval = 8;
+  bool is_holiday_exempt = 9;
+  optional double default_auto_mark_up_hours = 10;
+}
+
+message CreateMarkOffCodeMsg {
+  string code = 1;
+  string description = 2;
+  bool is_excused = 3;
+  bool is_system_only = 4;
+  bool is_active = 5;
+  bool is_compensated = 6;
+  bool requires_approval = 7;
+  bool is_holiday_exempt = 8;
+  optional double default_auto_mark_up_hours = 9;
+}
+
+message UpdateMarkOffCodeMsg {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string description = 3;
+  bool is_excused = 4;
+  bool is_system_only = 5;
+  bool is_active = 6;
+  bool is_compensated = 7;
+  bool requires_approval = 8;
+  bool is_holiday_exempt = 9;
+  optional double default_auto_mark_up_hours = 10;
+}
+
+message DeleteMarkOffCodeMsg {
+  int64 ctrl_nbr = 1;
 }

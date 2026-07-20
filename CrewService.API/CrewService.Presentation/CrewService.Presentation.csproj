@@ -68,7 +68,7 @@
     <Protobuf Include="..\..\Protos\modules\payroll.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\fra_compliance.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\daily_operations.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
-    <Protobuf Include="..\..\Protos\modules\mark_off.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\absence.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\vacancy_assignment.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\payroll_engine.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\electronic_calling.proto" GrpcServices="Server" ProtoRoot="..\..\Protos" />

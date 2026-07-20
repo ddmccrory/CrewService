@@ -74,6 +74,7 @@ internal static class BaselineSeeder
         ("work-management/seniority-states", "Seniority States", "Work Management", "/work-management/seniority-states"),
         ("work-management/group-types", "Group Types", "Work Management", "/work-management/group-types"),
         ("work-management/qualification-types", "Qualification Types", "Work Management", "/work-management/qualification-types"),
+        ("work-management/markoff-codes", "Mark-Off Codes", "Work Management", "/work-management/markoff-codes"),
 
         // Employee Management
         ("employees", "Employees", "Employee Management", "/employees"),
@@ -148,6 +149,7 @@ internal static class BaselineSeeder
         ["work-management/seniority-states"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["work-management/group-types"] = ["SystemAdmin", "ParentAdmin"],
         ["work-management/qualification-types"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
+        ["work-management/markoff-codes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
 
         // Employee Management
         ["employees"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin", "CraftManager"],
