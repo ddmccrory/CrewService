@@ -1,0 +1,11 @@
+<div class="@ContainerClass">
+    <div class="spinner-border @SpinnerSizeClass @SpinnerColorClass" role="status" aria-hidden="true"></div>
+    <span>@Text</span>
+</div>
+
+@code {
+    [Parameter] public string Text { get; set; } = "Loading data...";
+    [Parameter] public string ContainerClass { get; set; } = "d-flex align-items-center gap-2 text-muted";
+    [Parameter] public string SpinnerSizeClass { get; set; } = "spinner-border-sm";
+    [Parameter] public string SpinnerColorClass { get; set; } = "text-primary";
+}

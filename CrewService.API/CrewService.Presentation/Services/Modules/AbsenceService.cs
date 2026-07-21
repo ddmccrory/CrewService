@@ -1,6 +1,8 @@
 using CrewService.Application.AbsenceVacancy;
 using CrewService.Application.Authorization;
 using CrewService.Application.Absence;
+using CrewService.Application.Time;
+using CrewService.Application.TenantConfig;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
@@ -14,6 +16,10 @@ public class AbsenceService(IServiceProvider serviceProvider)
 {
     private readonly IRequestActorContextResolver _actorContextResolver =
         serviceProvider.GetRequiredService<IRequestActorContextResolver>();
+    private readonly IRailroadResolver _railroadResolver =
+        serviceProvider.GetRequiredService<IRailroadResolver>();
+    private readonly IWorkAreaClock _workAreaClock =
+        serviceProvider.GetRequiredService<IWorkAreaClock>();
 
     public override async Task<MarkOffAbsenceResponse> CreateAbsenceRequest(
         CreateAbsenceRequestMsg request, ServerCallContext context)
@@ -55,6 +61,65 @@ public class AbsenceService(IServiceProvider serviceProvider)
         {
             throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
         }
+    }
+
+    public override async Task<GetMarkOffAbsenceRequestsResponse> GetAbsenceRequests(
+        GetAbsenceRequestsMsg request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
+        var requestDateUtc = request.RequestDateUtc is not null
+            ? DateTime.SpecifyKind(request.RequestDateUtc.ToDateTime(), DateTimeKind.Utc)
+            : DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+
+        var dayRange = await ResolveDayRangeUtcAsync(
+            requestDateUtc,
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        var requests = await svc.GetByDateRangeAsync(
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            dayRange.StartUtc,
+            dayRange.EndUtc,
+            request.IncludeAllStatuses,
+            context.CancellationToken);
+
+        var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = requests.Count };
+        foreach (var item in requests)
+        {
+            response.Requests.Add(MapAbsenceRequest(item));
+        }
+
+        return response;
+    }
+
+    public override async Task<GetOpenAbsencesResponse> GetOpenAbsences(
+        GetOpenAbsencesMsg request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
+
+        var rangeStart = request.RangeStartUtc is not null
+            ? request.RangeStartUtc.ToDateTime()
+            : DateTime.UtcNow.Date;
+
+        var rangeEnd = request.RangeEndUtc is not null
+            ? request.RangeEndUtc.ToDateTime()
+            : rangeStart.AddDays(1);
+
+        var requests = await svc.GetOpenAbsencesByRangeAsync(
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            rangeStart,
+            rangeEnd,
+            context.CancellationToken);
+
+        var response = new GetOpenAbsencesResponse { TotalCount = requests.Count };
+        foreach (var item in requests)
+            response.Requests.Add(MapOpenAbsence(item));
+
+        return response;
     }
 
     public override async Task<AbsenceApprovalResponse> DeclineAbsence(
@@ -102,6 +167,40 @@ public class AbsenceService(IServiceProvider serviceProvider)
             response.Codes.Add(MapMarkOffCode(code));
 
         return response;
+    }
+
+    private static MarkOffAbsenceRequestListItem MapAbsenceRequest(AbsenceRequest request)
+    {
+        var item = new MarkOffAbsenceRequestListItem
+        {
+            CtrlNbr = request.CtrlNbr.Value,
+            EmployeeCtrlNbr = request.EmployeeCtrlNbr.Value,
+            AbsenceCodeCtrlNbr = request.AbsenceCodeCtrlNbr?.Value ?? 0,
+            ReasonCode = request.ReasonCode,
+            Status = request.Status,
+            StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(request.StartUtc, DateTimeKind.Utc)),
+            IsSystemGenerated = request.IsSystemGenerated,
+            IsWaitlisted = string.Equals(request.Status, "WAITLISTED", StringComparison.OrdinalIgnoreCase)
+        };
+
+        if (request.EndUtc.HasValue)
+            item.EndUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(request.EndUtc.Value, DateTimeKind.Utc));
+
+        if (request.PositionSlotCtrlNbr is not null)
+            item.PositionSlotCtrlNbr = request.PositionSlotCtrlNbr.Value;
+
+        if (!string.IsNullOrWhiteSpace(request.Notes))
+            item.Notes = request.Notes;
+
+        return item;
+    }
+
+    private static MarkOffAbsenceRequestListItem MapOpenAbsence(AbsenceRequest request)
+    {
+        var item = MapAbsenceRequest(request);
+        item.Status = "OPEN";
+        item.IsWaitlisted = false;
+        return item;
     }
 
     public override async Task<MarkOffCodeResponse> CreateMarkOffCode(
@@ -211,9 +310,54 @@ public class AbsenceService(IServiceProvider serviceProvider)
     private async Task<long> GetSelectedRailroadCtrlNbrAsync(CancellationToken ct)
     {
         var actorContext = await _actorContextResolver.ResolveAsync(ct: ct);
-        if (!actorContext.RailroadCtrlNbr.HasValue || actorContext.RailroadCtrlNbr.Value <= 0)
-            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Railroad context is required."));
+        if (actorContext.RailroadCtrlNbr.HasValue && actorContext.RailroadCtrlNbr.Value > 0)
+            return actorContext.RailroadCtrlNbr.Value;
 
-        return actorContext.RailroadCtrlNbr.Value;
+        if (actorContext.WorkAreaCtrlNbr.HasValue && actorContext.WorkAreaCtrlNbr.Value > 0)
+        {
+            await using var uow = await serviceProvider
+                .GetRequiredService<CrewService.Domain.Interfaces.IOrchestrationUnitOfWorkFactory>()
+                .CreateAsync(cancellationToken: ct);
+
+            var resolved = await _railroadResolver.ResolveFromWorkAreaAsync(
+                uow,
+                ControlNumber.Create(actorContext.WorkAreaCtrlNbr.Value),
+                ct);
+
+            if (resolved is not null)
+                return resolved.Value;
+        }
+
+        throw new RpcException(new Status(StatusCode.FailedPrecondition, "Railroad context is required."));
+
+    }
+
+    private async Task<(DateTime StartUtc, DateTime EndUtc)> ResolveDayRangeUtcAsync(
+        DateTime requestDateUtc,
+        long? workAreaGroupCtrlNbr,
+        CancellationToken ct)
+    {
+        var utcDay = requestDateUtc.Date;
+
+        if (workAreaGroupCtrlNbr is null || workAreaGroupCtrlNbr.Value <= 0)
+            return (utcDay, utcDay.AddDays(1));
+
+        var timeZone = await _workAreaClock.GetWorkAreaTimeZoneAsync(
+            ControlNumber.Create(workAreaGroupCtrlNbr.Value),
+            ct);
+
+        if (timeZone is null)
+            return (utcDay, utcDay.AddDays(1));
+
+        // requestDateUtc carries the selected calendar day intent from the UI.
+        // Do not reinterpret that date by converting the UTC midnight instant to local,
+        // or west-of-UTC time zones shift it to the previous day.
+        var localDate = requestDateUtc.Date;
+        var localStart = DateTime.SpecifyKind(localDate, DateTimeKind.Unspecified);
+        var localEnd = localStart.AddDays(1);
+
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, timeZone);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(localEnd, timeZone);
+        return (startUtc, endUtc);
     }
 }
