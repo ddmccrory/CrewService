@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using CrewService.BlazorUI.Clients
 @using CrewService.Presentation
+@using Grpc.Core
 
 @inherits AppComponentBase
 
@@ -26,6 +27,12 @@
 }
 else if (HasRailroad)
 {
+    @if (isPageLoading)
+    {
+        <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
+    }
+    else
+    {
     <p class="text-muted mb-1">Daily operations for <strong>@SelectedRailroadName</strong></p>
 
     @if (nextCallSheetEventFormatted is not null)
@@ -122,12 +129,9 @@ else if (HasRailroad)
 
     @if (selectedWorkAreaCtrlNbr > 0 && isResolvingInitialDisplay)
     {
-        <div class="mt-2">
-            <span class="badge text-bg-secondary">
-                <span class="spinner-border spinner-border-sm me-1" role="status" style="width: 0.7rem; height: 0.7rem;"></span>
-                Loading call sheet...
-            </span>
-        </div>
+        <LoadingMessage ContainerClass="mt-2 d-flex align-items-center gap-2 text-muted"
+                        SpinnerSizeClass="spinner-border-sm"
+                        Text="Loading data..." />
     }
 
     @if (selectedWorkAreaCtrlNbr > 0 && callSheetLoaded && !isResolvingInitialDisplay)
@@ -202,7 +206,7 @@ else if (HasRailroad)
                                 <button class="btn btn-sm btn-outline-secondary"
                                         @onclick="() => RefreshShift(activeShift.CtrlNbr)"
                                         title="Rebuild this call sheet">
-                                    <span class="bi bi-arrow-clockwise"></span> Refresh
+                                    <span class="bi bi-arrow-clockwise"></span> Rebuild
                                 </button>
                                 @if (!IsFeatureReadOnly)
                                 {
@@ -983,6 +987,8 @@ else if (HasRailroad)
             </button>
         </Footer>
     </Modal>
+
+    }
 }
 
 @code {
@@ -1007,6 +1013,7 @@ else if (HasRailroad)
     private int? todayActiveShiftCount;
     private int? tomorrowActiveShiftCount;
     private bool isResolvingInitialDisplay;
+    private bool isPageLoading = true;
 
     private bool showGenerateModal;
     private bool isGenerating;
@@ -1092,7 +1099,17 @@ else if (HasRailroad)
     protected override async Task LoadDataAsync()
     {
         if (HasRailroad)
-            await LoadReferenceData();
+        {
+            isPageLoading = true;
+            try
+            {
+                await LoadReferenceData();
+            }
+            finally
+            {
+                isPageLoading = false;
+            }
+        }
     }
 
     private void OpenTieUpModal(long shiftCtrlNbr, DailyPositionSlotResponse slot)
@@ -1265,23 +1282,41 @@ else if (HasRailroad)
         isResolvingInitialDisplay = false;
 
         if (HasRailroad)
-            await LoadReferenceData();
+        {
+            isPageLoading = true;
+            try
+            {
+                await LoadReferenceData();
+            }
+            finally
+            {
+                isPageLoading = false;
+            }
+        }
         else
         {
             workAreas = null;
             allGroups = null;
             departments = null;
             craftRoles = null;
+            isPageLoading = false;
         }
     }
 
     private async Task LoadReferenceData()
     {
         ReferenceData.Invalidate();
-        workAreas = await ReferenceData.GetWorkAreasAsync();
-        allGroups = await ReferenceData.GetGroupsAsync();
-        departments = await ReferenceData.GetDepartmentsAsync();
-        craftRoles = await ReferenceData.GetCraftRolesAsync();
+
+        var workAreasTask = ReferenceData.GetWorkAreasAsync();
+        var allGroupsTask = ReferenceData.GetGroupsAsync();
+        var departmentsTask = ReferenceData.GetDepartmentsAsync();
+        var craftRolesTask = ReferenceData.GetCraftRolesAsync();
+        await Task.WhenAll(workAreasTask, allGroupsTask, departmentsTask, craftRolesTask);
+
+        workAreas = workAreasTask.Result;
+        allGroups = allGroupsTask.Result;
+        departments = departmentsTask.Result;
+        craftRoles = craftRolesTask.Result;
 
         if (selectedDepartmentCtrlNbr > 0 && (departments?.All(d => d.CtrlNbr != selectedDepartmentCtrlNbr) ?? true))
             selectedDepartmentCtrlNbr = 0;
@@ -1413,6 +1448,13 @@ else if (HasRailroad)
             await DailyOperationsClient.RefreshShiftInstanceAsync(shiftCtrlNbr);
             await LoadCallSheet();
             successMessage = "Call sheet rebuilt successfully.";
+        }
+        catch (RpcException rpcEx) when (rpcEx.StatusCode == StatusCode.FailedPrecondition
+            && rpcEx.Status.Detail.Contains("Shift instance", StringComparison.OrdinalIgnoreCase)
+            && rpcEx.Status.Detail.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadCallSheet();
+            successMessage = "Call sheet reloaded. The selected shift was no longer available.";
         }
         catch (Exception ex)
         {

@@ -1,0 +1,107 @@
+using System.Reflection;
+using CrewService.BlazorUI.Components.Pages.DailyOperations;
+using CrewService.Presentation;
+using Xunit;
+
+namespace CrewService.BlazorUI.Tests.Pages.DailyOperations;
+
+public class AbsencesTests
+{
+    [Fact]
+    public void BuildAbsenceCodeDisplay_ReturnsCombinedCodeAndDescription()
+    {
+        var code = new MarkOffCodeResponse
+        {
+            Code = "VAC",
+            Description = "Vacation"
+        };
+
+        var result = InvokePrivateStatic<string>(nameof(BuildAbsenceCodeDisplay_ReturnsCombinedCodeAndDescription), "BuildAbsenceCodeDisplay", code);
+
+        Assert.Equal("VAC — Vacation", result);
+    }
+
+    [Fact]
+    public void GetReasonDisplay_ReturnsLookupDisplay_WhenConfigured()
+    {
+        var component = new Absences();
+        var lookup = new Dictionary<long, string> { [77] = "VAC — Vacation" };
+        SetPrivateField(component, "absenceCodeDisplayLookup", lookup);
+
+        var request = new MarkOffAbsenceRequestListItem
+        {
+            AbsenceCodeCtrlNbr = 77
+        };
+
+        var result = InvokePrivateInstance<string>(component, "GetReasonDisplay", request);
+
+        Assert.Equal("VAC — Vacation", result);
+    }
+
+    [Fact]
+    public void GetEmployeeDisplay_ReturnsUnknownEmployee_WhenMissing()
+    {
+        var component = new Absences();
+        SetPrivateField(component, "employeeDisplayLookup", new Dictionary<long, string>());
+
+        var result = InvokePrivateInstance<string>(component, "GetEmployeeDisplay", 123L);
+
+        Assert.Equal("Unknown employee (123)", result);
+    }
+
+    [Fact]
+    public void AbsencesPage_NotesColumn_UsesNotesIconMarkup()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+
+        Assert.Contains("bi bi-chat-left-text", source, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Has notes\"", source, StringComparison.Ordinal);
+    }
+
+    private static string GetAbsencesRazorPath()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var blazorRoot = Path.Combine(dir.FullName, "CrewService.BlazorUI");
+            if (Directory.Exists(blazorRoot))
+            {
+                return Path.Combine(blazorRoot, "Components", "Pages", "DailyOperations", "Absences.razor");
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate CrewService.BlazorUI project directory from test output path.");
+    }
+
+    private static T InvokePrivateStatic<T>(string testName, string methodName, params object?[] args)
+    {
+        var method = typeof(Absences).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"{testName}: could not find static method '{methodName}'.");
+
+        var result = method.Invoke(null, args);
+        return result is T typed
+            ? typed
+            : throw new InvalidOperationException($"{testName}: method '{methodName}' returned an unexpected type.");
+    }
+
+    private static T InvokePrivateInstance<T>(Absences component, string methodName, params object?[] args)
+    {
+        var method = typeof(Absences).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"could not find instance method '{methodName}'.");
+
+        var result = method.Invoke(component, args);
+        return result is T typed
+            ? typed
+            : throw new InvalidOperationException($"method '{methodName}' returned an unexpected type.");
+    }
+
+    private static void SetPrivateField<TValue>(Absences component, string fieldName, TValue value)
+    {
+        var field = typeof(Absences).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"could not find field '{fieldName}'.");
+
+        field.SetValue(component, value);
+    }
+}
