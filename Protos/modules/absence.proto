@@ -34,6 +34,12 @@ service MarkOffSrvc {
   rpc DeleteMarkOffCode (DeleteMarkOffCodeMsg) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/mark-off/codes/{ctrl_nbr}" };
   }
+  rpc GetAbsenceRequests (GetAbsenceRequestsMsg) returns (GetMarkOffAbsenceRequestsResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/requests" };
+  }
+  rpc GetOpenAbsences (GetOpenAbsencesMsg) returns (GetOpenAbsencesResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/open-absences" };
+  }
 }
 
 message CreateAbsenceRequestMsg {
@@ -157,4 +163,39 @@ message UpdateMarkOffCodeMsg {
 
 message DeleteMarkOffCodeMsg {
   int64 ctrl_nbr = 1;
+}
+
+message GetAbsenceRequestsMsg {
+  google.protobuf.Timestamp request_date_utc = 1;
+  bool include_all_statuses = 2;
+  optional int64 work_area_group_ctrl_nbr = 3;
+}
+
+message GetOpenAbsencesMsg {
+  google.protobuf.Timestamp range_start_utc = 1;
+  google.protobuf.Timestamp range_end_utc = 2;
+}
+
+message GetOpenAbsencesResponse {
+  repeated MarkOffAbsenceRequestListItem requests = 1;
+  int32 total_count = 2;
+}
+
+message GetMarkOffAbsenceRequestsResponse {
+  repeated MarkOffAbsenceRequestListItem requests = 1;
+  int32 total_count = 2;
+}
+
+message MarkOffAbsenceRequestListItem {
+  int64 ctrl_nbr = 1;
+  int64 employee_ctrl_nbr = 2;
+  int64 absence_code_ctrl_nbr = 3;
+  string reason_code = 4;
+  string status = 5;
+  google.protobuf.Timestamp start_utc = 6;
+  optional google.protobuf.Timestamp end_utc = 7;
+  bool is_system_generated = 8;
+  bool is_waitlisted = 9;
+  optional int64 position_slot_ctrl_nbr = 10;
+  optional string notes = 11;
 }

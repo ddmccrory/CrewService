@@ -42,6 +42,37 @@ public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFac
         return await uow.AbsenceRequests.GetByEmployeeAsync(employeeCtrlNbr);
     }
 
+    public async Task<List<AbsenceRequest>> GetByDateAsync(
+        ControlNumber railroadCtrlNbr,
+        DateTime requestDateUtc,
+        bool includeAllStatuses,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        return await uow.AbsenceRequests.GetByDateAsync(railroadCtrlNbr, requestDateUtc, includeAllStatuses, ct);
+    }
+
+    public async Task<List<AbsenceRequest>> GetByDateRangeAsync(
+        ControlNumber railroadCtrlNbr,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        bool includeAllStatuses,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        return await uow.AbsenceRequests.GetByDateRangeAsync(railroadCtrlNbr, rangeStartUtc, rangeEndUtc, includeAllStatuses, ct);
+    }
+
+    public async Task<List<AbsenceRequest>> GetOpenAbsencesByRangeAsync(
+        ControlNumber railroadCtrlNbr,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        return await uow.AbsenceRequests.GetOpenAbsencesByRangeAsync(railroadCtrlNbr, rangeStartUtc, rangeEndUtc, ct);
+    }
+
     public async Task<AbsenceRequest> ApproveAsync(ControlNumber ctrlNbr, ControlNumber approvedByCtrlNbr)
     {
         await using var uow = await uowFactory.CreateAsync();

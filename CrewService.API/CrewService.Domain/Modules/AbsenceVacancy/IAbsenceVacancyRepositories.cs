@@ -7,6 +7,22 @@ public interface IAbsenceRequestRepository : IRepository<AbsenceRequest>
 {
     Task<List<AbsenceRequest>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr);
     Task<List<AbsenceRequest>> GetPendingAsync();
+    Task<List<AbsenceRequest>> GetByDateAsync(
+        ControlNumber railroadCtrlNbr,
+        DateTime requestDateUtc,
+        bool includeAllStatuses,
+        CancellationToken ct = default);
+    Task<List<AbsenceRequest>> GetByDateRangeAsync(
+        ControlNumber railroadCtrlNbr,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        bool includeAllStatuses,
+        CancellationToken ct = default);
+    Task<List<AbsenceRequest>> GetOpenAbsencesByRangeAsync(
+        ControlNumber railroadCtrlNbr,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        CancellationToken ct = default);
     Task<List<AbsenceRequest>> GetActiveMarkupBoundAsync(ControlNumber employeeCtrlNbr);
 }
 

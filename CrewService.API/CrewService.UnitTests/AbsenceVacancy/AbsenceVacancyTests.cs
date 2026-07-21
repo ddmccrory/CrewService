@@ -88,6 +88,30 @@ public class AbsenceRequestTests
     }
 
     [Fact]
+    public void Approve_DoesNotAutoCompleteRequest()
+    {
+        var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
+
+        request.Approve(200);
+
+        Assert.Equal("APPROVED", request.Status);
+        Assert.Null(request.EndUtc);
+    }
+
+    [Fact]
+    public void CompleteByMarkUp_TransitionsApprovedRequestToCompleted()
+    {
+        var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
+        request.Approve(200);
+        var completionUtc = DateTime.UtcNow.AddHours(4);
+
+        request.CompleteByMarkUp(completionUtc);
+
+        Assert.Equal("COMPLETED", request.Status);
+        Assert.Equal(completionUtc, request.EndUtc);
+    }
+
+    [Fact]
     public void AddApproval_AddsToCollection()
     {
         var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");

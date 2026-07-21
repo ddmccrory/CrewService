@@ -60,6 +60,18 @@ public class AbsenceApprovalTests
         Assert.Equal("DECLINED", approval.Status);
         Assert.NotNull(approval.DecidedAtUtc);
     }
+
+    [Fact]
+    public void Approve_DoesNotCompleteRequest()
+    {
+        var request = AbsenceRequest.CreateWithCode(
+            1, DateTime.UtcNow, null, ControlNumber.Create(10), "V1");
+
+        request.Approve(ControlNumber.Create(99));
+
+        Assert.Equal("APPROVED", request.Status);
+        Assert.Null(request.EndUtc);
+    }
 }
 
 public class AbsenceMarkUpTests
