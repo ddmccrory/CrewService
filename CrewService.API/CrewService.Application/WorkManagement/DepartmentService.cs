@@ -1,5 +1,5 @@
 using CrewService.Domain.Interfaces;
-using CrewService.Domain.Models.UserAccess;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.WorkManagement;
@@ -9,6 +9,7 @@ namespace CrewService.Application.WorkManagement;
 
 public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory, ICurrentUserService currentUserService)
 {
+    private const string CallSheetFeatureKey = "daily-operations/call-sheet";
     private const int DefaultCallLeadMinutes = 90;
     private const int DefaultCallDurationMinutes = 30;
     private const int DefaultGlobalPreCreateOffsetMinutes = -720;
@@ -19,12 +20,40 @@ public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory
 
         var departments = await uow.Departments.GetByParentAndRailroadAsync(parentCtrlNbr, dynamicGroupCtrlNbr);
 
-        if (!currentUserService.IsInRole(Roles.Employee))
-            return departments;
-
         var userId = currentUserService.GetUserIdentifier();
         if (string.IsNullOrWhiteSpace(userId))
             return [];
+
+        var feature = await uow.Features.GetByKeyAsync(CallSheetFeatureKey);
+        if (feature is not null)
+        {
+            var assignments = await uow.UserParentAssignments.GetByUserIdAsync(userId);
+            var contextAssignments = assignments
+                .Where(a => parentCtrlNbr is not null
+                            && a.ParentCtrlNbr == parentCtrlNbr
+                            && (a.RailroadCtrlNbr is null || a.RailroadCtrlNbr == dynamicGroupCtrlNbr))
+                .ToList();
+
+            var parentScope = parentCtrlNbr;
+            var maxAccessLevel = AccessLevel.None;
+            foreach (var roleName in contextAssignments.Select(a => a.Role).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var role = await uow.Roles.GetByNameAsync(roleName);
+                if (role is null)
+                    continue;
+
+                var permissions = await uow.Permissions.GetEffectivePermissionsAsync(role.CtrlNbr, parentScope, craftCtrlNbr: null);
+                var permission = permissions.FirstOrDefault(p => p.FeatureCtrlNbr == feature.CtrlNbr);
+                if (permission is null)
+                    continue;
+
+                if (permission.AccessLevel > maxAccessLevel)
+                    maxAccessLevel = permission.AccessLevel;
+            }
+
+            if (maxAccessLevel > AccessLevel.None)
+                return departments;
+        }
 
         var employee = await uow.Employees.GetByUserIdAsync(userId);
         if (employee is null)

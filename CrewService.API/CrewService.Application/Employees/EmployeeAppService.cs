@@ -280,6 +280,75 @@ public sealed class EmployeeAppService(
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         return await uow.Employees.GetByCtrlNbrsAsync(ctrlNbrs, ct);
     }
+
+    public async Task<List<Employee>> GetEligibleAbsenceEmployeesAsync(
+        ControlNumber parentCtrlNbr,
+        ControlNumber railroadCtrlNbr,
+        ControlNumber? craftCtrlNbr = null,
+        ControlNumber? departmentCtrlNbr = null,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        var crafts = await uow.Crafts.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+        if (crafts.Count == 0)
+            return [];
+
+        var scopedCrafts = crafts
+            .Where(c => (craftCtrlNbr is null || c.CtrlNbr == craftCtrlNbr)
+                        && (departmentCtrlNbr is null || c.DepartmentCtrlNbr == departmentCtrlNbr))
+            .ToList();
+        if (scopedCrafts.Count == 0)
+            return [];
+
+        var rosters = await uow.Rosters.GetByCraftCtrlNbrsAsync(scopedCrafts.Select(c => c.CtrlNbr));
+        if (rosters.Count == 0)
+            return [];
+
+        var eligibleEmployeeCtrlNbrs = new HashSet<ControlNumber>();
+        foreach (var roster in rosters)
+        {
+            var seniorityRows = await uow.Seniority.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
+            foreach (var seniority in seniorityRows)
+            {
+                if (seniority.LastActiveRoster)
+                    eligibleEmployeeCtrlNbrs.Add(seniority.EmployeeCtrlNbr);
+            }
+        }
+
+        if (eligibleEmployeeCtrlNbrs.Count == 0)
+            return [];
+
+        var employees = await uow.Employees.GetByCtrlNbrsAsync(eligibleEmployeeCtrlNbrs, ct);
+        if (employees.Count == 0)
+            return [];
+
+        var statusIds = employees.Select(e => e.EmploymentStatusCtrlNbr).Distinct().ToList();
+        var statuses = new Dictionary<ControlNumber, bool>();
+        foreach (var statusId in statusIds)
+        {
+            var status = await uow.EmploymentStatuses.GetByCtrlNbrAsync(statusId, ct);
+            statuses[statusId] = IsActiveEmploymentStatus(status);
+        }
+
+        return employees
+            .Where(e => statuses.TryGetValue(e.EmploymentStatusCtrlNbr, out var isActive) && isActive)
+            .OrderBy(e => e.EmployeeNumber)
+            .ThenBy(e => e.CtrlNbr.Value)
+            .ToList();
+    }
+
+    private static bool IsActiveEmploymentStatus(Domain.Models.Employment.EmploymentStatus? status)
+    {
+        if (status is null)
+            return false;
+
+        return string.Equals(status.StatusName, "Active", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status.StatusCode, "A", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status.StatusCode, "ACT", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status.EmploymentCode, "A", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status.EmploymentCode, "ACT", StringComparison.OrdinalIgnoreCase);
+    }
     // ── Work Profile ─────────────────────────────────────────────────────────
 
     /// <summary>

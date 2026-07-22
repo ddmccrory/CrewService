@@ -66,6 +66,49 @@ public class EmployeeService(
         return response;
     }
 
+    public override async Task<GetAllEmployeesResponse> GetEligibleAbsenceEmployeesAsync(GetEligibleAbsenceEmployeesRequest request, ServerCallContext context)
+    {
+        if (request.ParentCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid parent control number."));
+
+        if (request.RailroadCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid railroad control number."));
+
+        var parentCtrlNbr = ControlNumber.Create(request.ParentCtrlNbr);
+        var railroadCtrlNbr = ControlNumber.Create(request.RailroadCtrlNbr);
+        ControlNumber? craftCtrlNbr = request.CraftCtrlNbr > 0 ? ControlNumber.Create(request.CraftCtrlNbr) : null;
+        ControlNumber? departmentCtrlNbr = request.DepartmentCtrlNbr > 0 ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+
+        var employees = await _employeeAppService.GetEligibleAbsenceEmployeesAsync(
+            parentCtrlNbr,
+            railroadCtrlNbr,
+            craftCtrlNbr,
+            departmentCtrlNbr,
+            context.CancellationToken);
+
+        var response = new GetAllEmployeesResponse();
+        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().Cast<string>().ToList();
+        var userList = await _userAccountService.GetNamesByIdsAsync(userIds);
+        var userDict = userList.ToDictionary(u => u.Id, StringComparer.Ordinal);
+
+        foreach (var employee in employees)
+        {
+            var mapped = MapToEmployeeResponse(employee);
+            if (!string.IsNullOrEmpty(employee.UserId) && userDict.TryGetValue(employee.UserId, out var user))
+            {
+                mapped.FullNameLnf = EmployeeNameService.FormatFullNameLnf(user.FirstName ?? string.Empty, user.MiddleName ?? string.Empty, user.LastName ?? string.Empty);
+                mapped.FirstName = user.FirstName ?? string.Empty;
+                mapped.MiddleName = user.MiddleName ?? string.Empty;
+                mapped.LastName = user.LastName ?? string.Empty;
+            }
+
+            response.Employees.Add(mapped);
+        }
+
+        response.TotalCount = response.Employees.Count;
+        return response;
+    }
+
     public override async Task<GetEmployeeResponse> GetEmployeeAsync(GetEmployeeRequest request, ServerCallContext context)
     {
         Employee employee;
