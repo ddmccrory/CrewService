@@ -68,6 +68,9 @@ service EmployeeSrvc {
   rpc GetDutyStatusNotStarted(GetDutyStatusNotStartedRequest) returns (EmployeeOnDutyRecordsResponse) {
     option (google.api.http) = { get: "/v1/railroads/{railroad_ctrl_nbr}/on-duty/not-started" };
   }
+  rpc GetEligibleAbsenceEmployeesAsync(GetEligibleAbsenceEmployeesRequest) returns (GetAllEmployeesResponse) {
+    option (google.api.http) = { get: "/v1/employees/eligible-absence" };
+  }
 }
 
 // ── Work Profile ─────────────────────────────────────────────────────────────
@@ -201,6 +204,13 @@ message CompleteDeferredOnDutyRecordRequest {
 
 message GetDutyStatusNotStartedRequest {
   int64 railroad_ctrl_nbr = 1;
+}
+
+message GetEligibleAbsenceEmployeesRequest {
+  int64 parent_ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  int64 craft_ctrl_nbr = 3;
+  int64 department_ctrl_nbr = 4;
 }
 
 message GetAllEmployeesRequest {
