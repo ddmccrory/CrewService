@@ -1,9 +1,13 @@
 using CrewService.Application.WorkManagement;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Models.Employees;
+using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Models.Parents;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.ValueObjects;
@@ -129,6 +133,107 @@ public sealed class DepartmentServiceTests : IDisposable
             .ToListAsync(TestContext.Current.CancellationToken);
         Assert.NotEmpty(deletedRoles);
         Assert.All(deletedRoles, r => Assert.True(r.IsDeleted));
+    }
+
+    [Fact]
+    public async Task GetByParentAndRailroadAsync_WithCallSheetPermission_ReturnsAllContextDepartments()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(ct);
+
+        await using (var seed = CreateReadContext())
+        {
+            seed.Set<Department>().AddRange(
+                Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical"),
+                Department.Create(parentCtrlNbr, railroadCtrlNbr, "Mechanical", "Vertical"));
+
+            var role = Role.Create("RailroadAdmin", "Railroad admin", isSystem: true, level: 80);
+            var feature = Feature.Create("daily-operations/call-sheet", "Call Sheet", "Daily Operations", "/daily-operations/call-sheet");
+            var permission = Permission.Create(role.CtrlNbr, feature.CtrlNbr, AccessLevel.FullAccess, parentCtrlNbr, null);
+            var assignment = UserParentAssignment.Create(_currentUser.GetUserIdentifier()!, parentCtrlNbr, role.Name, railroadCtrlNbr);
+
+            seed.Set<Role>().Add(role);
+            seed.Set<Feature>().Add(feature);
+            seed.Set<Permission>().Add(permission);
+            seed.Set<UserParentAssignment>().Add(assignment);
+
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var service = BuildService();
+        var departments = await service.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+
+        Assert.Equal(2, departments.Count);
+        Assert.Contains(departments, d => d.Name == "Transportation");
+        Assert.Contains(departments, d => d.Name == "Mechanical");
+    }
+
+    [Fact]
+    public async Task GetByParentAndRailroadAsync_WithoutPermissionAndWithoutEmployee_ReturnsEmpty()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(ct);
+
+        await using (var seed = CreateReadContext())
+        {
+            seed.Set<Department>().Add(Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical"));
+
+            var role = Role.Create("Dispatcher", "Dispatcher", isSystem: false, level: 50);
+            var assignment = UserParentAssignment.Create(_currentUser.GetUserIdentifier()!, parentCtrlNbr, role.Name, railroadCtrlNbr);
+
+            seed.Set<Role>().Add(role);
+            seed.Set<UserParentAssignment>().Add(assignment);
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var service = BuildService();
+        var departments = await service.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+
+        Assert.Empty(departments);
+    }
+
+    [Fact]
+    public async Task GetByParentAndRailroadAsync_EmployeeWithoutRosterAndWithoutPermission_ReturnsEmpty()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(ct);
+
+        await using (var seed = CreateReadContext())
+        {
+            var department = Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical");
+            seed.Set<Department>().Add(department);
+
+            var role = Role.Create("Employee", "Employee", isSystem: true, level: 10);
+            var assignment = UserParentAssignment.Create(_currentUser.GetUserIdentifier()!, parentCtrlNbr, role.Name, railroadCtrlNbr);
+            seed.Set<Role>().Add(role);
+            seed.Set<UserParentAssignment>().Add(assignment);
+
+            var employmentStatus = EmploymentStatus.Create(railroadCtrlNbr, "ACT", "Active", 1, "A");
+            seed.EmploymentStatuses.Add(employmentStatus);
+            await seed.SaveChangesAsync(ct);
+
+            var employee = Employee.Create(
+                clientCtrlNbr: railroadCtrlNbr,
+                userId: _currentUser.GetUserIdentifier()!,
+                employeeNumber: "EMP001",
+                ssn: "123-45-6789",
+                gender: Gender.Male,
+                race: Race.White,
+                birthDate: new DateTime(1990, 1, 1),
+                employmentDate: new DateTime(2020, 1, 1),
+                employmentStatusCtrlNbr: employmentStatus.CtrlNbr,
+                email: "emp001@example.com",
+                invitedByUserId: "system",
+                invitedByUserName: "System");
+
+            seed.Employees.Add(employee);
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var service = BuildService();
+        var departments = await service.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+
+        Assert.Empty(departments);
     }
 
     private DepartmentService BuildService()
