@@ -58,6 +58,38 @@ public class AbsencesTests
         Assert.Contains("aria-label=\"Has notes\"", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AbsencesPage_CreateRequestEmployees_UsesBackendEligibleAbsenceEmployeesQuery()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+
+        Assert.Contains("EmployeeClient.GetEligibleAbsenceEmployeesAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RosterClient.GetAllAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SeniorityClient.GetAllByRosterAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("item.LastActiveRoster", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AbsencesPage_CreateRequestEmployees_DoesNotUnionParentAndRailroadEmployeeLists()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+        var methodSource = GetMethodSource(source, "private async Task LoadCreateRequestEmployeesAsync", "private async Task CreateRequestAsync");
+
+        Assert.DoesNotContain("EmployeeClient.GetAllAsync(SelectedRailroadCtrlNbr.Value)", methodSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EmployeeClient.GetAllAsync(SelectedParentCtrlNbr.Value)", methodSource, StringComparison.Ordinal);
+    }
+
+    private static string GetMethodSource(string source, string methodStartMarker, string nextMethodMarker)
+    {
+        var startIndex = source.IndexOf(methodStartMarker, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Method marker '{methodStartMarker}' not found.");
+
+        var endIndex = source.IndexOf(nextMethodMarker, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex > startIndex, $"Method marker '{nextMethodMarker}' not found after '{methodStartMarker}'.");
+
+        return source[startIndex..endIndex];
+    }
+
     private static string GetAbsencesRazorPath()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

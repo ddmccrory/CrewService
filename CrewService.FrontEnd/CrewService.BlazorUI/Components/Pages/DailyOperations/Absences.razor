@@ -13,7 +13,6 @@
 
 @inject AbsenceClient AbsenceClient
 @inject CraftClient CraftClient
-@inject CurrentUserService CurrentUser
 @inject RailroadReferenceDataService ReferenceData
 @inject DailyOperationsClient DailyOperationsClient
 @inject EmployeeClient EmployeeClient
@@ -465,7 +464,7 @@ else if (HasRailroad)
 
                         @if (createRequestEmployees.Count == 0)
                         {
-                            <div class="form-text text-warning">No employees match the selected Work Area/Department/Craft filters.</div>
+                            <div class="form-text text-warning">No employees are available.</div>
                         }
                     }
                     <ValidationMessage For="() => createModel.EmployeeCtrlNbr" class="text-danger" />
@@ -1103,21 +1102,21 @@ else if (HasRailroad)
 
         try
         {
-            if (!SelectedParentCtrlNbr.HasValue)
+            if (!SelectedParentCtrlNbr.HasValue || !SelectedRailroadCtrlNbr.HasValue)
             {
                 createModel.EmployeeCtrlNbr = 0;
                 return;
             }
 
-            var employeesResponse = await EmployeeClient.GetAllAsync(SelectedParentCtrlNbr.Value);
-            var employees = employeesResponse.Employees;
+            var response = await EmployeeClient.GetEligibleAbsenceEmployeesAsync(
+                SelectedParentCtrlNbr.Value,
+                SelectedRailroadCtrlNbr.Value,
+                selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : 0,
+                selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : 0);
 
-            HashSet<long>? allowedEmployeeCtrlNbrs = null;
-            if (selectedWorkAreaCtrlNbr > 0)
-                allowedEmployeeCtrlNbrs = await GetFilteredEmployeeCtrlNbrsFromCallSheetAsync(DateTime.Today);
+            var employees = response.Employees;
 
             createRequestEmployees = employees
-                .Where(e => allowedEmployeeCtrlNbrs is null || allowedEmployeeCtrlNbrs.Contains(e.CtrlNbr))
                 .Select(e => new EmployeePickerOption(
                     e.CtrlNbr,
                     string.IsNullOrWhiteSpace(e.EmployeeNumber) ? e.CtrlNbr.ToString() : e.EmployeeNumber,
@@ -1150,51 +1149,6 @@ else if (HasRailroad)
         {
             isLoadingCreateEmployees = false;
         }
-    }
-
-    private async Task<HashSet<long>> GetFilteredEmployeeCtrlNbrsFromCallSheetAsync(DateTime targetDate)
-    {
-        var allowedEmployeeCtrlNbrs = new HashSet<long>();
-
-        try
-        {
-            var callSheet = await DailyOperationsClient.GetCallSheetAsync(
-                selectedWorkAreaCtrlNbr,
-                targetDate.ToString("yyyy-MM-dd"),
-                includeClosed: true);
-
-            foreach (var shift in callSheet.Shifts)
-            {
-                if (selectedDepartmentCtrlNbr > 0)
-                {
-                    if (!shift.HasDepartmentCtrlNbr || shift.DepartmentCtrlNbr != selectedDepartmentCtrlNbr)
-                        continue;
-                }
-
-                foreach (var slot in shift.PositionSlots)
-                {
-                    if (!slot.HasIncumbentEmployeeCtrlNbr || slot.IncumbentEmployeeCtrlNbr <= 0)
-                        continue;
-
-                    if (selectedCraftCtrlNbr > 0)
-                    {
-                        if (string.IsNullOrWhiteSpace(slot.CraftRoleName)
-                            || !craftRoleToCraftLookup.TryGetValue(slot.CraftRoleName, out var slotCraftCtrlNbr)
-                            || slotCraftCtrlNbr != selectedCraftCtrlNbr)
-                        {
-                            continue;
-                        }
-                    }
-
-                    allowedEmployeeCtrlNbrs.Add(slot.IncumbentEmployeeCtrlNbr);
-                }
-            }
-        }
-        catch
-        {
-        }
-
-        return allowedEmployeeCtrlNbrs;
     }
 
     private async Task CreateRequestAsync()

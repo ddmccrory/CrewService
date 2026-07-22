@@ -26,6 +26,29 @@ public sealed class EmployeeClient(GrpcChannelProvider channelProvider, CircuitT
         }
     }
 
+    public async Task<GetAllEmployeesResponse> GetEligibleAbsenceEmployeesAsync(
+        long parentCtrlNbr,
+        long railroadCtrlNbr,
+        long craftCtrlNbr = 0,
+        long departmentCtrlNbr = 0)
+    {
+        try
+        {
+            return await _client.GetEligibleAbsenceEmployeesAsyncAsync(new GetEligibleAbsenceEmployeesRequest
+            {
+                ParentCtrlNbr = parentCtrlNbr,
+                RailroadCtrlNbr = railroadCtrlNbr,
+                CraftCtrlNbr = craftCtrlNbr,
+                DepartmentCtrlNbr = departmentCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<GetEmployeeResponse> GetByNumberAsync(string employeeNumber)
     {
         try
