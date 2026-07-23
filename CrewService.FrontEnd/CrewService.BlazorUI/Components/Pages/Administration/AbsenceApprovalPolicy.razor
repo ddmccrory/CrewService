@@ -1,0 +1,221 @@
+@page "/admin/absence-approval-policy"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject PoliciesClient PoliciesClient
+
+<PageTitle>Absence Approval Policy — Crew Service</PageTitle>
+
+<h1>Absence Approval Policy</h1>
+<p class="text-muted">
+    Configure how absence requests are approved for the selected railroad.
+</p>
+
+@if (IsInitializing)
+{
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Loading...</span>
+    </div>
+}
+else if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to manage the absence approval policy.
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible mt-2" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <SuccessAlert @bind-Message="successMessage" Class="mt-2" />
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border" /></div>
+    }
+    else
+    {
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="card-title mb-1">@SelectedRailroadName</h5>
+                        <div class="text-muted small">
+                            @(hasConfiguredPolicy ? "Configured policy loaded." : "No policy configured yet. Defaults are shown.")
+                        </div>
+                    </div>
+                    <span class="badge @(editModel.IsEnabled ? "bg-success" : "bg-secondary")">
+                        @(editModel.IsEnabled ? "Enabled" : "Disabled")
+                    </span>
+                </div>
+
+                <EditForm Model="editModel" OnValidSubmit="OnSave" id="absence-approval-policy-form">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Approval Level</label>
+                        <select class="form-select" @bind="editModel.ApprovalLevel">
+                            @foreach (var option in levelOptions)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                        <ValidationMessage For="() => editModel.ApprovalLevel" class="text-danger" />
+                        <div class="form-text mt-2">@GetSelectedLevelDescription()</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="absenceApprovalPolicyEnabled" @bind="editModel.IsEnabled" />
+                            <label class="form-check-label" for="absenceApprovalPolicyEnabled">Policy enabled</label>
+                        </div>
+                    </div>
+
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            <span class="bi bi-check-circle me-1"></span> Save
+                        </button>
+                    }
+                </EditForm>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "admin/absence-approval-policy";
+
+    private sealed class ApprovalLevelOption
+    {
+        public string Value { get; init; } = string.Empty;
+        public string Label { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+    }
+
+    private sealed class EditModel
+    {
+        [Required]
+        public string ApprovalLevel { get; set; } = CallerManagerLevel;
+
+        public bool IsEnabled { get; set; } = true;
+    }
+
+    private const string AutomaticLevel = "Automatic";
+    private const string CallerManagerLevel = "CallerManager";
+    private const string ManagerOnlyLevel = "ManagerOnly";
+
+    private readonly IReadOnlyList<ApprovalLevelOption> levelOptions =
+    [
+        new() { Value = AutomaticLevel, Label = "Automatic", Description = "Level 1 — requests are automatically approved by the system." },
+        new() { Value = CallerManagerLevel, Label = "Caller or Manager", Description = "Level 2 — approval may be completed by a caller or a manager." },
+        new() { Value = ManagerOnlyLevel, Label = "Manager Only", Description = "Level 3 — only manager approvers can approve requests." }
+    ];
+
+    private bool isLoading = true;
+    private bool hasConfiguredPolicy;
+    private EditModel editModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        RequireFeatureAccess();
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        await LoadDataAsync();
+        StateHasChanged();
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!IsContextFullySelected || SelectedRailroadCtrlNbr is null)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var policy = await PoliciesClient.GetAbsenceApprovalPolicyAsync(SelectedRailroadCtrlNbr.Value);
+            hasConfiguredPolicy = policy is not null;
+
+            editModel = new EditModel
+            {
+                ApprovalLevel = NormalizeLevel(policy?.ApprovalLevel),
+                IsEnabled = policy?.IsEnabled ?? true
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load absence approval policy: {ex.Message}";
+            hasConfiguredPolicy = false;
+            editModel = new EditModel();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnSave()
+    {
+        if (SelectedRailroadCtrlNbr is not { } railroadCtrlNbr)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var saved = await PoliciesClient.UpsertAbsenceApprovalPolicyAsync(
+                railroadCtrlNbr,
+                NormalizeLevel(editModel.ApprovalLevel),
+                editModel.IsEnabled);
+
+            editModel.ApprovalLevel = NormalizeLevel(saved.ApprovalLevel);
+            editModel.IsEnabled = saved.IsEnabled;
+            hasConfiguredPolicy = true;
+            successMessage = "Absence approval policy saved.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save absence approval policy: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private string GetSelectedLevelDescription()
+        => levelOptions.FirstOrDefault(o => string.Equals(o.Value, editModel.ApprovalLevel, StringComparison.OrdinalIgnoreCase))?.Description
+            ?? levelOptions[1].Description;
+
+    private static string NormalizeLevel(string? value)
+    {
+        if (string.Equals(value, AutomaticLevel, StringComparison.OrdinalIgnoreCase))
+            return AutomaticLevel;
+
+        if (string.Equals(value, ManagerOnlyLevel, StringComparison.OrdinalIgnoreCase))
+            return ManagerOnlyLevel;
+
+        return CallerManagerLevel;
+    }
+}

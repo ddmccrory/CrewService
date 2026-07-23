@@ -1,11 +1,18 @@
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.Absence;
 
 namespace CrewService.Application.AbsenceVacancy;
 
-public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class AbsenceRequestService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    IAbsenceCodeRepository absenceCodeRepository,
+    IAbsenceApprovalPolicyResolver approvalPolicyResolver)
 {
+    public const long SystemApprovalOfficerCtrlNbr = 1;
+
     public async Task<AbsenceRequest> SubmitAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc, string reasonCode, string? notes)
     {
         var absence = AbsenceRequest.Create(employeeCtrlNbr, startUtc, endUtc, reasonCode, notes);
@@ -18,15 +25,128 @@ public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task<AbsenceRequest> SubmitWithCodeAsync(
         ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
         ControlNumber absenceCodeCtrlNbr, string reasonCode,
-        bool isSystemGenerated = false, string? notes = null)
+        bool isSystemGenerated = false, string? notes = null,
+        ControlNumber? approvedByCtrlNbr = null,
+        bool autoMarkOffOnApproval = false,
+        DateTime? markOffStartUtc = null)
     {
+        var absenceCode = await absenceCodeRepository.GetByCtrlNbrAsync(absenceCodeCtrlNbr)
+            ?? throw new KeyNotFoundException($"Absence code {absenceCodeCtrlNbr.Value} not found.");
+        var approvalPolicy = await approvalPolicyResolver.ResolveAsync(absenceCode);
+
         var absence = AbsenceRequest.CreateWithCode(
             employeeCtrlNbr, startUtc, endUtc, absenceCodeCtrlNbr, reasonCode,
             isSystemGenerated, notes);
+
+        if (approvalPolicy.Level == AbsenceApprovalLevel.Automatic)
+        {
+            var systemOfficerCtrlNbr = ControlNumber.Create(SystemApprovalOfficerCtrlNbr);
+            absence.AddApproval(systemOfficerCtrlNbr).Approve("Automatically approved by system policy.");
+            absence.Approve(systemOfficerCtrlNbr);
+        }
+        else if (approvedByCtrlNbr is not null)
+        {
+            absence.AddApproval(approvedByCtrlNbr).Approve("Approved during request creation.");
+            absence.Approve(approvedByCtrlNbr);
+        }
+
+        if (autoMarkOffOnApproval && string.Equals(absence.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+        {
+            absence.Exercise(DateTime.SpecifyKind(markOffStartUtc ?? DateTime.UtcNow, DateTimeKind.Utc));
+        }
+
         await using var uow = await uowFactory.CreateAsync();
         uow.AbsenceRequests.Add(absence);
         await uow.CommitAsync();
         return absence;
+    }
+
+    public async Task<AbsenceApprovalPolicy> ResolveApprovalPolicyAsync(ControlNumber absenceCodeCtrlNbr, CancellationToken ct = default)
+    {
+        var absenceCode = await absenceCodeRepository.GetByCtrlNbrAsync(absenceCodeCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Absence code {absenceCodeCtrlNbr.Value} not found.");
+
+        return await approvalPolicyResolver.ResolveAsync(absenceCode, ct);
+    }
+
+    public async Task<List<AbsenceApprovalOfficer>> GetApprovalOfficersAsync(
+        ControlNumber parentCtrlNbr,
+        ControlNumber railroadCtrlNbr,
+        AbsenceApprovalLevel level,
+        CancellationToken ct = default)
+    {
+        if (level == AbsenceApprovalLevel.Automatic)
+        {
+            return
+            [
+                new AbsenceApprovalOfficer(
+                    SystemApprovalOfficerCtrlNbr,
+                    "SYSTEM",
+                    "SYSTEM",
+                    "SYSTEM",
+                    null)
+            ];
+        }
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var assignments = await uow.UserParentAssignments.GetByParentCtrlNbrAsync(parentCtrlNbr);
+
+        var scopedAssignments = assignments
+            .Where(a => a.RailroadCtrlNbr is null || a.RailroadCtrlNbr == railroadCtrlNbr)
+            .ToList();
+
+        var distinctRoleNames = scopedAssignments
+            .Select(a => a.Role)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var roleMap = new Dictionary<string, CrewService.Domain.Modules.Authorization.Role>(StringComparer.OrdinalIgnoreCase);
+        foreach (var roleName in distinctRoleNames)
+        {
+            var role = await uow.Roles.GetByNameAsync(roleName, ct);
+            if (role is not null)
+                roleMap[roleName] = role;
+        }
+
+        scopedAssignments = scopedAssignments
+            .Where(a => IsEligibleApproverRole(a.Role, level, roleMap))
+            .ToList();
+
+        if (scopedAssignments.Count == 0)
+            return [];
+
+        var userIds = scopedAssignments
+            .Select(a => a.UserId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (userIds.Count == 0)
+            return [];
+
+        var officers = new List<AbsenceApprovalOfficer>();
+        foreach (var userId in userIds)
+        {
+            var employee = await uow.Employees.GetByUserIdAsync(userId, ct);
+            if (employee is null)
+                continue;
+
+            var assignment = scopedAssignments.FirstOrDefault(a => string.Equals(a.UserId, userId, StringComparison.Ordinal));
+            var role = assignment?.Role;
+
+            officers.Add(new AbsenceApprovalOfficer(
+                employee.CtrlNbr.Value,
+                employee.EmployeeNumber,
+                employee.EmployeeNumber,
+                employee.EmployeeNumber,
+                role));
+        }
+
+        return officers
+            .OrderBy(o => o.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(o => o.OfficerCtrlNbr)
+            .ToList();
     }
 
     public async Task<List<AbsenceRequest>> GetPendingAsync()
@@ -120,4 +240,41 @@ public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFac
         await uow.CommitAsync();
         return absence;
     }
+
+    private static bool IsEligibleApproverRole(
+        string? roleName,
+        AbsenceApprovalLevel level,
+        IReadOnlyDictionary<string, CrewService.Domain.Modules.Authorization.Role> roleMap)
+    {
+        if (string.IsNullOrWhiteSpace(roleName)
+            || !roleMap.TryGetValue(roleName, out var role))
+            return false;
+
+        if (string.Equals(role.Name, Roles.SystemAdmin, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role.Name, Roles.ParentAdmin, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role.Name, Roles.RailroadAdmin, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (role.Level <= 20)
+            return false;
+
+        var isManagerRole = !string.IsNullOrWhiteSpace(role.Description)
+            && role.Description.Contains("manage", StringComparison.OrdinalIgnoreCase);
+
+        return level switch
+        {
+            AbsenceApprovalLevel.CallerManager => true,
+            AbsenceApprovalLevel.ManagerOnly => isManagerRole,
+            _ => false
+        };
+    }
 }
+
+public sealed record AbsenceApprovalOfficer(
+    long OfficerCtrlNbr,
+    string DisplayName,
+    string FullName,
+    string EmployeeNumber,
+    string? Role);

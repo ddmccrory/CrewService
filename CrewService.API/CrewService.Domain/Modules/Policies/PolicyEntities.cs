@@ -215,6 +215,61 @@ public sealed class CraftCallSheetRule : Entity
     }
 }
 
+public static class AbsenceApprovalPolicyLevel
+{
+    public const string Automatic = "Automatic";
+    public const string CallerManager = "CallerManager";
+    public const string ManagerOnly = "ManagerOnly";
+}
+
+public sealed class AbsenceApprovalPolicy : Entity
+{
+    public ControlNumber RailroadCtrlNbr { get; private set; }
+    public string ApprovalLevel { get; private set; } = AbsenceApprovalPolicyLevel.CallerManager;
+    public bool IsEnabled { get; private set; }
+
+    private AbsenceApprovalPolicy()
+    {
+        RailroadCtrlNbr = null!;
+    }
+
+    public static AbsenceApprovalPolicy Create(
+        ControlNumber railroadCtrlNbr,
+        string approvalLevel,
+        bool isEnabled = true)
+    {
+        ValidateApprovalLevel(approvalLevel);
+
+        return new AbsenceApprovalPolicy
+        {
+            RailroadCtrlNbr = railroadCtrlNbr,
+            ApprovalLevel = approvalLevel,
+            IsEnabled = isEnabled
+        };
+    }
+
+    public void Update(string approvalLevel, bool isEnabled)
+    {
+        ValidateApprovalLevel(approvalLevel);
+
+        ApprovalLevel = approvalLevel;
+        IsEnabled = isEnabled;
+    }
+
+    private static void ValidateApprovalLevel(string approvalLevel)
+    {
+        if (string.IsNullOrWhiteSpace(approvalLevel))
+            throw new InvalidOperationException("Approval level is required.");
+
+        if (!approvalLevel.Equals(AbsenceApprovalPolicyLevel.Automatic, StringComparison.OrdinalIgnoreCase)
+            && !approvalLevel.Equals(AbsenceApprovalPolicyLevel.CallerManager, StringComparison.OrdinalIgnoreCase)
+            && !approvalLevel.Equals(AbsenceApprovalPolicyLevel.ManagerOnly, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Invalid absence approval level '{approvalLevel}'.");
+        }
+    }
+}
+
 public sealed class DepartmentReassignmentRule : Entity
 {
     public ControlNumber DepartmentCtrlNbr { get; private set; }

@@ -80,6 +80,13 @@ internal sealed class CraftCallSheetRuleRepository(CrewServiceDbContext dbContex
     }
 }
 
+internal sealed class AbsenceApprovalPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<AbsenceApprovalPolicy>(dbContext, currentUserService), IAbsenceApprovalPolicyRepository
+{
+    public async Task<AbsenceApprovalPolicy?> GetByRailroadAsync(ControlNumber railroadCtrlNbr) =>
+        await DbContext.Set<AbsenceApprovalPolicy>().SingleOrDefaultAsync(p => p.RailroadCtrlNbr == railroadCtrlNbr);
+}
+
 internal sealed class DepartmentReassignmentRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<DepartmentReassignmentRule>(dbContext, currentUserService), IDepartmentReassignmentRuleRepository
 {

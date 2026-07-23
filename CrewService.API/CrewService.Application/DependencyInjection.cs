@@ -222,6 +222,7 @@ public static class DependencyInjection
 
         // AbsenceVacancy
         services.AddScoped<AbsenceRequestService>();
+        services.AddScoped<IAbsenceApprovalPolicyResolver, DbAbsenceApprovalPolicyResolver>();
 
         // Absence
         services.AddScoped<AbsenceCodeService>();
