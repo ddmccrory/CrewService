@@ -867,6 +867,7 @@ internal sealed class FakeNotificationUoW : IOrchestrationUnitOfWork
     public IDisplacementCaseRepository DisplacementCases => throw new NotImplementedException();
     public IDisplacementClaimRepository DisplacementClaims => throw new NotImplementedException();
     public IBulletinPolicyRepository BulletinPolicies => throw new NotImplementedException();
+    public IAbsenceApprovalPolicyRepository AbsenceApprovalPolicies => throw new NotImplementedException();
     public ICallSheetRuleRepository CallSheetRules => throw new NotImplementedException();
         public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => throw new NotImplementedException();

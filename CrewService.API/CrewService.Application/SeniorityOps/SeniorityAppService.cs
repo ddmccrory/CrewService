@@ -271,45 +271,52 @@ public sealed class SeniorityAppService(
         ControlNumber ctrlNbr, bool lastActiveRoster, DateTime rosterDate, int rank,
         ControlNumber seniorityStateCtrlNbr, bool canTrain, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var seniority = await uow.Seniority.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"Seniority {ctrlNbr.Value} not found.");
+        Domain.Models.Seniority.Seniority seniority;
+        ControlNumber employeeCtrlNbr;
+        ControlNumber rosterCtrlNbr;
+        ControlNumber previousStateCtrlNbr;
 
-        var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(seniorityStateCtrlNbr, ct)
-            ?? throw new KeyNotFoundException($"Seniority state {seniorityStateCtrlNbr.Value} not found.");
-
-        var previousStateCtrlNbr = seniority.SeniorityStateCtrlNbr;
-        var previousState = await uow.SeniorityStates.GetByCtrlNbrAsync(previousStateCtrlNbr, ct);
-        seniority.Update(lastActiveRoster, rosterDate, rank, seniorityStateCtrlNbr, canTrain);
-
-        if (newState.StateType == StateType.OffProperty)
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            // Off-property applies employee-wide: every seniority record is end-dated and moved into
-            // the off-property state, all individual qualifications are deleted, and every live
-            // certification is administratively cancelled.
-            await ApplyOffPropertyCascadeAsync(uow, seniority.EmployeeCtrlNbr, seniorityStateCtrlNbr, DateTime.UtcNow, ct);
+            seniority = await uow.Seniority.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Seniority {ctrlNbr.Value} not found.");
+
+            var newState = await uow.SeniorityStates.GetByCtrlNbrAsync(seniorityStateCtrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Seniority state {seniorityStateCtrlNbr.Value} not found.");
+
+            previousStateCtrlNbr = seniority.SeniorityStateCtrlNbr;
+            var previousState = await uow.SeniorityStates.GetByCtrlNbrAsync(previousStateCtrlNbr, ct);
+            seniority.Update(lastActiveRoster, rosterDate, rank, seniorityStateCtrlNbr, canTrain);
+
+            if (newState.StateType == StateType.OffProperty)
+            {
+                // Off-property applies employee-wide: every seniority record is end-dated and moved into
+                // the off-property state, all individual qualifications are deleted, and every live
+                // certification is administratively cancelled.
+                await ApplyOffPropertyCascadeAsync(uow, seniority.EmployeeCtrlNbr, seniorityStateCtrlNbr, DateTime.UtcNow, ct);
+            }
+            else
+            {
+                // Any non-off-property state re-opens this record's seniority (reactivation clears the end date).
+                seniority.ClearEndDate();
+                uow.Seniority.Update(seniority);
+            }
+
+            if (ShouldClearPendingMovesAndBids(previousState?.StateType, newState.StateType))
+                await ClearPendingMovesAndBidsAsync(uow, seniority.EmployeeCtrlNbr, ct);
+
+            employeeCtrlNbr = seniority.EmployeeCtrlNbr;
+            rosterCtrlNbr = seniority.RosterCtrlNbr;
+
+            await uow.CommitAsync(ct);
         }
-        else
-        {
-            // Any non-off-property state re-opens this record's seniority (reactivation clears the end date).
-            seniority.ClearEndDate();
-            uow.Seniority.Update(seniority);
-        }
 
-        if (ShouldClearPendingMovesAndBids(previousState?.StateType, newState.StateType))
-            await ClearPendingMovesAndBidsAsync(uow, seniority.EmployeeCtrlNbr, ct);
-
-        await uow.CommitAsync(ct);
-
-        // Apply the configured vacancy action once the seniority state changes. Runs after the UoW is
-        // committed and disposed so the canonical vacate/repost services each open their own
-        // transaction on the shared connection. Positions are collected employee-wide, so a single
-        // call detaches the employee from every position they currently hold.
+        // Apply the configured vacancy action once the seniority-state write UoW is committed and
+        // disposed so the canonical vacate/repost services each open their own transaction on the
+        // shared connection. Positions are collected employee-wide, so a single call detaches the
+        // employee from every position they currently hold.
         if (previousStateCtrlNbr != seniorityStateCtrlNbr)
-        {
-            await vacancyConfigService.ApplyVacancyActionAsync(
-                seniority.EmployeeCtrlNbr, seniorityStateCtrlNbr, seniority.RosterCtrlNbr, ct);
-        }
+            await vacancyConfigService.ApplyVacancyActionAsync(employeeCtrlNbr, seniorityStateCtrlNbr, rosterCtrlNbr, ct);
 
         return seniority;
     }

@@ -158,6 +158,7 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IBulletinPolicyRepository BulletinPolicies { get; }
     ICallSheetRuleRepository CallSheetRules { get; }
     ICraftCallSheetRuleRepository CraftCallSheetRules { get; }
+    IAbsenceApprovalPolicyRepository AbsenceApprovalPolicies { get; }
     IDepartmentReassignmentRuleRepository DepartmentReassignmentRules { get; }
     ISeniorityMovePolicyRepository SeniorityMovePolicies { get; }
     INoAccessPolicyRepository NoAccessPolicies =>
