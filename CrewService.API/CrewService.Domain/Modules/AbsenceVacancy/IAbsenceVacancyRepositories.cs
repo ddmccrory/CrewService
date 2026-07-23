@@ -17,11 +17,15 @@ public interface IAbsenceRequestRepository : IRepository<AbsenceRequest>
         DateTime rangeStartUtc,
         DateTime rangeEndUtc,
         bool includeAllStatuses,
+        ControlNumber? craftCtrlNbr = null,
+        ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default);
     Task<List<AbsenceRequest>> GetOpenAbsencesByRangeAsync(
         ControlNumber railroadCtrlNbr,
         DateTime rangeStartUtc,
         DateTime rangeEndUtc,
+        ControlNumber? craftCtrlNbr = null,
+        ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default);
     Task<List<AbsenceRequest>> GetActiveMarkupBoundAsync(ControlNumber employeeCtrlNbr);
 }

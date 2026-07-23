@@ -8,14 +8,12 @@ namespace CrewService.Domain.Modules.AbsenceVacancy;
 public sealed class AbsenceRequest : Entity
 {
     public ControlNumber EmployeeCtrlNbr { get; private set; }
-    public DateTime StartUtc { get; private set; }
-    public DateTime? EndUtc { get; private set; }
+    public DateTime ScheduledStartUtc { get; private set; }
     public string ReasonCode { get; private set; } = string.Empty;
     public string Status { get; private set; } = "PENDING";
     public ControlNumber? ApprovedByCtrlNbr { get; private set; }
     public string? Notes { get; private set; }
     public ControlNumber? AbsenceCodeCtrlNbr { get; private set; }
-    public ControlNumber? PositionSlotCtrlNbr { get; private set; }
     public DateTime? MarkOffStartUtc { get; private set; }
     public bool IsSystemGenerated { get; private set; }
 
@@ -31,11 +29,12 @@ public sealed class AbsenceRequest : Entity
         var request = new AbsenceRequest
         {
             EmployeeCtrlNbr = employeeCtrlNbr,
-            StartUtc = startUtc,
-            EndUtc = endUtc,
+            ScheduledStartUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc),
             ReasonCode = reasonCode,
             Notes = notes
         };
+        if (endUtc.HasValue)
+            request.AddMarkUp(DateTime.SpecifyKind(endUtc.Value, DateTimeKind.Utc), isAutoMarkUp: true);
         request.Raise(new AbsenceRequestedDomainEvent(request));
         return request;
     }
@@ -43,21 +42,19 @@ public sealed class AbsenceRequest : Entity
     public static AbsenceRequest CreateWithCode(
         ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
         ControlNumber absenceCodeCtrlNbr, string reasonCode,
-        ControlNumber? positionSlotCtrlNbr = null,
         bool isSystemGenerated = false, string? notes = null)
     {
         var request = new AbsenceRequest
         {
             EmployeeCtrlNbr = employeeCtrlNbr,
-            StartUtc = startUtc,
-            EndUtc = endUtc,
+            ScheduledStartUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc),
             ReasonCode = reasonCode,
             AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
-            PositionSlotCtrlNbr = positionSlotCtrlNbr,
-            MarkOffStartUtc = startUtc,
             IsSystemGenerated = isSystemGenerated,
             Notes = notes
         };
+        if (endUtc.HasValue)
+            request.AddMarkUp(DateTime.SpecifyKind(endUtc.Value, DateTimeKind.Utc), isAutoMarkUp: true);
         request.Raise(new AbsenceRequestedDomainEvent(request));
         return request;
     }
@@ -82,9 +79,19 @@ public sealed class AbsenceRequest : Entity
 
     public void CompleteByMarkUp(DateTime markUpUtc)
     {
-        Status = "COMPLETED";
-        EndUtc = markUpUtc;
+        if (!string.Equals(Status, "EXERCISED", StringComparison.OrdinalIgnoreCase))
+            Status = "EXERCISED";
         Raise(new AbsenceCompletedByMarkUpDomainEvent(this));
+    }
+
+    public void Exercise(DateTime exercisedUtc)
+    {
+        if (!string.Equals(Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only approved absence requests can be marked off.");
+
+        var exercised = DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc);
+        MarkOffStartUtc = exercised < ScheduledStartUtc ? ScheduledStartUtc : exercised;
+        Status = "EXERCISED";
     }
 
     public AbsenceApproval AddApproval(ControlNumber approvalOfficerCtrlNbr)

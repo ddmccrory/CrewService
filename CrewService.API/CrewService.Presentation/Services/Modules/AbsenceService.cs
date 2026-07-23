@@ -31,7 +31,6 @@ public class AbsenceService(IServiceProvider serviceProvider)
             request.EndUtc?.ToDateTime(),
             ControlNumber.Create(request.AbsenceCodeCtrlNbr),
             "MARKOFF",
-            request.HasPositionSlotCtrlNbr ? ControlNumber.Create(request.PositionSlotCtrlNbr) : null,
             request.IsSystemGenerated,
             request.HasNotes ? request.Notes : null);
 
@@ -41,7 +40,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
             EmployeeCtrlNbr = absence.EmployeeCtrlNbr.Value,
             ReasonCode = absence.ReasonCode,
             Status = absence.Status,
-            StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(absence.StartUtc, DateTimeKind.Utc)),
+            StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(absence.ScheduledStartUtc, DateTimeKind.Utc)),
             IsSystemGenerated = absence.IsSystemGenerated,
         };
     }
@@ -60,6 +59,27 @@ public class AbsenceService(IServiceProvider serviceProvider)
         catch (KeyNotFoundException ex)
         {
             throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<AbsenceApprovalResponse> MarkOffAbsence(
+        MarkOffAbsenceMsg request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        try
+        {
+            var absence = await svc.MarkOffAsync(
+                ControlNumber.Create(request.AbsenceRequestCtrlNbr),
+                _workAreaClock.UtcNow.UtcDateTime);
+            return new AbsenceApprovalResponse { Status = absence.Status };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
         }
     }
 
@@ -83,13 +103,84 @@ public class AbsenceService(IServiceProvider serviceProvider)
             dayRange.StartUtc,
             dayRange.EndUtc,
             request.IncludeAllStatuses,
+            request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            context.CancellationToken);
+
+        var displayTimeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
             context.CancellationToken);
 
         var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = requests.Count };
         foreach (var item in requests)
         {
-            response.Requests.Add(MapAbsenceRequest(item));
+            response.Requests.Add(MapAbsenceRequest(item, displayTimeZone));
         }
+
+        return response;
+    }
+
+    public override async Task<GetMarkOffAbsenceRequestsResponse> GetScheduledAbsences(
+        GetScheduledAbsencesMsg request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
+
+        var displayTimeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        var nowUtc = _workAreaClock.UtcNow.UtcDateTime;
+        var next24Utc = nowUtc.AddHours(24);
+
+        DateTime todayStartUtc;
+        DateTime todayEndUtc;
+
+        if (displayTimeZone is null)
+        {
+            todayStartUtc = nowUtc.Date;
+            todayEndUtc = todayStartUtc.AddDays(1);
+        }
+        else
+        {
+            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, displayTimeZone);
+            var todayLocal = nowLocal.Date;
+            var startLocal = DateTime.SpecifyKind(todayLocal, DateTimeKind.Unspecified);
+            var endLocal = startLocal.AddDays(1);
+            todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, displayTimeZone);
+            todayEndUtc = TimeZoneInfo.ConvertTimeToUtc(endLocal, displayTimeZone);
+        }
+
+        var todayApproved = await svc.GetByDateRangeAsync(
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            todayStartUtc,
+            todayEndUtc,
+            includeAllStatuses: true,
+            craftCtrlNbr: request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            departmentCtrlNbr: request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            context.CancellationToken);
+
+        var next24Approved = await svc.GetByDateRangeAsync(
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            nowUtc,
+            next24Utc,
+            includeAllStatuses: true,
+            craftCtrlNbr: request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            departmentCtrlNbr: request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            context.CancellationToken);
+
+        var scheduled = todayApproved
+            .Concat(next24Approved)
+            .Where(r => string.Equals(r.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(r => r.CtrlNbr)
+            .Select(g => g.First())
+            .OrderBy(r => r.ScheduledStartUtc)
+            .ToList();
+
+        var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = scheduled.Count };
+        foreach (var item in scheduled)
+            response.Requests.Add(MapAbsenceRequest(item, displayTimeZone));
 
         return response;
     }
@@ -113,11 +204,17 @@ public class AbsenceService(IServiceProvider serviceProvider)
             ControlNumber.Create(selectedRailroadCtrlNbr),
             rangeStart,
             rangeEnd,
+            request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            context.CancellationToken);
+
+        var displayTimeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
             context.CancellationToken);
 
         var response = new GetOpenAbsencesResponse { TotalCount = requests.Count };
         foreach (var item in requests)
-            response.Requests.Add(MapOpenAbsence(item));
+            response.Requests.Add(MapOpenAbsence(item, displayTimeZone));
 
         return response;
     }
@@ -169,25 +266,33 @@ public class AbsenceService(IServiceProvider serviceProvider)
         return response;
     }
 
-    private static MarkOffAbsenceRequestListItem MapAbsenceRequest(AbsenceRequest request)
+    private MarkOffAbsenceRequestListItem MapAbsenceRequest(AbsenceRequest request, TimeZoneInfo? displayTimeZone)
     {
+        var scheduledStartUtc = DateTime.SpecifyKind(request.ScheduledStartUtc, DateTimeKind.Utc);
         var item = new MarkOffAbsenceRequestListItem
         {
             CtrlNbr = request.CtrlNbr.Value,
             EmployeeCtrlNbr = request.EmployeeCtrlNbr.Value,
             AbsenceCodeCtrlNbr = request.AbsenceCodeCtrlNbr?.Value ?? 0,
             ReasonCode = request.ReasonCode,
-            Status = request.Status,
-            StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(request.StartUtc, DateTimeKind.Utc)),
+            Status = GetDerivedStatus(request),
+            StartUtc = Timestamp.FromDateTime(scheduledStartUtc),
+            StartLocal = _workAreaClock.FormatLocalIso(scheduledStartUtc, displayTimeZone),
             IsSystemGenerated = request.IsSystemGenerated,
             IsWaitlisted = string.Equals(request.Status, "WAITLISTED", StringComparison.OrdinalIgnoreCase)
         };
 
-        if (request.EndUtc.HasValue)
-            item.EndUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(request.EndUtc.Value, DateTimeKind.Utc));
+        var latestScheduledMarkUpUtc = request.MarkUps
+            .OrderByDescending(m => m.ScheduledMarkUpUtc)
+            .Select(m => (DateTime?)DateTime.SpecifyKind(m.ScheduledMarkUpUtc, DateTimeKind.Utc))
+            .FirstOrDefault();
 
-        if (request.PositionSlotCtrlNbr is not null)
-            item.PositionSlotCtrlNbr = request.PositionSlotCtrlNbr.Value;
+        if (latestScheduledMarkUpUtc.HasValue)
+        {
+            var endUtc = latestScheduledMarkUpUtc.Value;
+            item.EndUtc = Timestamp.FromDateTime(endUtc);
+            item.EndLocal = _workAreaClock.FormatLocalIso(endUtc, displayTimeZone);
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Notes))
             item.Notes = request.Notes;
@@ -195,12 +300,47 @@ public class AbsenceService(IServiceProvider serviceProvider)
         return item;
     }
 
-    private static MarkOffAbsenceRequestListItem MapOpenAbsence(AbsenceRequest request)
+    private MarkOffAbsenceRequestListItem MapOpenAbsence(AbsenceRequest request, TimeZoneInfo? displayTimeZone)
     {
-        var item = MapAbsenceRequest(request);
+        var item = MapAbsenceRequest(request, displayTimeZone);
+        var openStartUtc = request.MarkOffStartUtc.HasValue
+            ? DateTime.SpecifyKind(request.MarkOffStartUtc.Value, DateTimeKind.Utc)
+            : DateTime.SpecifyKind(request.ScheduledStartUtc, DateTimeKind.Utc);
+        item.StartUtc = Timestamp.FromDateTime(openStartUtc);
+        item.StartLocal = _workAreaClock.FormatLocalIso(openStartUtc, displayTimeZone);
         item.Status = "OPEN";
         item.IsWaitlisted = false;
         return item;
+    }
+
+    private string GetDerivedStatus(AbsenceRequest request)
+    {
+        if (!string.Equals(request.Status, "EXERCISED", StringComparison.OrdinalIgnoreCase))
+            return request.Status;
+
+        var latestActualMarkUpUtc = request.MarkUps
+            .Where(m => m.ActualMarkUpUtc.HasValue)
+            .OrderByDescending(m => m.ActualMarkUpUtc)
+            .Select(m => m.ActualMarkUpUtc)
+            .FirstOrDefault();
+
+        if (latestActualMarkUpUtc.HasValue
+            && DateTime.SpecifyKind(latestActualMarkUpUtc.Value, DateTimeKind.Utc) <= _workAreaClock.UtcNow.UtcDateTime)
+            return "COMPLETED";
+
+        return "EXERCISED";
+    }
+
+    private async Task<TimeZoneInfo?> ResolveDisplayTimeZoneAsync(long? workAreaGroupCtrlNbr, CancellationToken ct)
+    {
+        if (workAreaGroupCtrlNbr is > 0)
+            return await _workAreaClock.GetWorkAreaTimeZoneAsync(ControlNumber.Create(workAreaGroupCtrlNbr.Value), ct);
+
+        var actorContext = await _actorContextResolver.ResolveAsync(ct: ct);
+        if (actorContext.WorkAreaCtrlNbr is > 0)
+            return await _workAreaClock.GetWorkAreaTimeZoneAsync(ControlNumber.Create(actorContext.WorkAreaCtrlNbr.Value), ct);
+
+        return null;
     }
 
     public override async Task<MarkOffCodeResponse> CreateMarkOffCode(
