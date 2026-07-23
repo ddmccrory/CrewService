@@ -3,6 +3,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Persistance.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace CrewService.Persistance.UnitOfWork;
@@ -29,9 +30,17 @@ internal sealed class OrchestrationUnitOfWorkFactory(
         if (connection.State != System.Data.ConnectionState.Open)
             await connection.OpenAsync(cancellationToken);
 
-        var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        await crewContext.Database.UseTransactionAsync((DbTransaction)transaction, cancellationToken);
-        await userContext.Database.UseTransactionAsync((DbTransaction)transaction, cancellationToken);
+        var existingTransaction = crewContext.Database.CurrentTransaction?.GetDbTransaction()
+            ?? userContext.Database.CurrentTransaction?.GetDbTransaction();
+
+        var ownsTransaction = existingTransaction is null;
+        var transaction = existingTransaction ?? await connection.BeginTransactionAsync(cancellationToken);
+
+        if (ownsTransaction)
+        {
+            await crewContext.Database.UseTransactionAsync((DbTransaction)transaction, cancellationToken);
+            await userContext.Database.UseTransactionAsync((DbTransaction)transaction, cancellationToken);
+        }
 
         return new OrchestrationUnitOfWork(
             (DbTransaction)transaction,
@@ -41,6 +50,7 @@ internal sealed class OrchestrationUnitOfWorkFactory(
             correlationId,
             orchestrationId,
             options.IdempotencyKey,
+            ownsTransaction,
             logger,
             dispatcher,
             options.SuppressReactor ? null : reactor);

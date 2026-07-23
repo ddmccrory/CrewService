@@ -22,7 +22,9 @@ public sealed class AbsenceClient(
         DateTime startUtc,
         DateTime? endUtc,
         string? notes,
-        bool isSystemGenerated)
+        bool isSystemGenerated,
+        long? approvedByCtrlNbr = null,
+        bool autoMarkOffOnApproval = false)
     {
         try
         {
@@ -31,7 +33,8 @@ public sealed class AbsenceClient(
                 EmployeeCtrlNbr = employeeCtrlNbr,
                 AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
                 StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(startUtc, DateTimeKind.Utc)),
-                IsSystemGenerated = isSystemGenerated
+                IsSystemGenerated = isSystemGenerated,
+                AutoMarkOffOnApproval = autoMarkOffOnApproval
             };
 
             if (endUtc.HasValue)
@@ -40,7 +43,43 @@ public sealed class AbsenceClient(
             if (!string.IsNullOrWhiteSpace(notes))
                 request.Notes = notes;
 
+            if (approvedByCtrlNbr is > 0)
+                request.ApprovedByCtrlNbr = approvedByCtrlNbr.Value;
+
             return await _client.CreateAbsenceRequestAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetAbsenceApprovalContextResponse> GetCreateAbsenceApprovalContextAsync(long employeeCtrlNbr, long absenceCodeCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetCreateAbsenceApprovalContextAsync(new GetCreateAbsenceApprovalContextMsg
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                AbsenceCodeCtrlNbr = absenceCodeCtrlNbr
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetAbsenceApprovalContextResponse> GetAbsenceApprovalContextAsync(long absenceRequestCtrlNbr)
+    {
+        try
+        {
+            return await _client.GetAbsenceApprovalContextAsync(new GetAbsenceApprovalContextMsg
+            {
+                AbsenceRequestCtrlNbr = absenceRequestCtrlNbr
+            });
         }
         catch (Exception ex)
         {
@@ -70,11 +109,16 @@ public sealed class AbsenceClient(
     public async Task<GetMarkOffAbsenceRequestsResponse> GetScheduledAbsencesAsync(
         long? workAreaGroupCtrlNbr = null,
         long? craftCtrlNbr = null,
-        long? departmentCtrlNbr = null)
+        long? departmentCtrlNbr = null,
+        long? employeeCtrlNbr = null,
+        bool currentMonthOnly = false)
     {
         try
         {
-            var request = new GetScheduledAbsencesMsg();
+            var request = new GetScheduledAbsencesMsg
+            {
+                CurrentMonthOnly = currentMonthOnly
+            };
 
             if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
                 request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
@@ -84,6 +128,9 @@ public sealed class AbsenceClient(
 
             if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
                 request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
+                request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
 
             return await _client.GetScheduledAbsencesAsync(request);
         }
@@ -143,7 +190,8 @@ public sealed class AbsenceClient(
         bool includeAllStatuses,
         long? workAreaGroupCtrlNbr = null,
         long? craftCtrlNbr = null,
-        long? departmentCtrlNbr = null)
+        long? departmentCtrlNbr = null,
+        long? employeeCtrlNbr = null)
     {
         try
         {
@@ -162,6 +210,9 @@ public sealed class AbsenceClient(
             if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
                 request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
 
+            if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
+                request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
+
             return await _client.GetAbsenceRequestsAsync(request);
         }
         catch (Exception ex)
@@ -176,7 +227,8 @@ public sealed class AbsenceClient(
         DateTime rangeEndUtc,
         long? workAreaGroupCtrlNbr = null,
         long? craftCtrlNbr = null,
-        long? departmentCtrlNbr = null)
+        long? departmentCtrlNbr = null,
+        long? employeeCtrlNbr = null)
     {
         try
         {
@@ -194,6 +246,9 @@ public sealed class AbsenceClient(
 
             if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
                 request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
+                request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
 
             return await _client.GetOpenAbsencesAsync(request);
         }

@@ -205,6 +205,26 @@ internal class CraftCallSheetRuleConfiguration : IEntityTypeConfiguration<CraftC
     }
 }
 
+internal class AbsenceApprovalPolicyConfiguration : IEntityTypeConfiguration<AbsenceApprovalPolicy>
+{
+    public void Configure(EntityTypeBuilder<AbsenceApprovalPolicy> builder)
+    {
+        builder.HasKey(p => p.CtrlNbr);
+        builder.Property(p => p.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(p => p.RailroadCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(p => p.RailroadCtrlNbr).IsUnique();
+
+        builder.Property(p => p.ApprovalLevel).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.IsEnabled).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
 internal class DepartmentReassignmentRuleConfiguration : IEntityTypeConfiguration<DepartmentReassignmentRule>
 {
     public void Configure(EntityTypeBuilder<DepartmentReassignmentRule> builder)

@@ -7,6 +7,33 @@ namespace CrewService.BlazorUI.Clients;
 public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitTokenProvider tokenProvider, AppContextService appContext, ILogger<PoliciesClient> logger)
     : BaseGrpcClient<PoliciesSrvc.PoliciesSrvcClient>(channelProvider, tokenProvider, appContext, callInvoker => new PoliciesSrvc.PoliciesSrvcClient(callInvoker), logger)
 {
+    // ── Absence Approval Policy ───────────────────────────────────────
+
+    public async Task<AbsenceApprovalPolicyResponse?> GetAbsenceApprovalPolicyAsync(long railroadCtrlNbr)
+    {
+        try
+        {
+            var response = await _client.GetAbsenceApprovalPolicyAsync(new GetAbsenceApprovalPolicyRequest { RailroadCtrlNbr = railroadCtrlNbr });
+            return response.CtrlNbr > 0 ? response : null;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<AbsenceApprovalPolicyResponse> UpsertAbsenceApprovalPolicyAsync(long railroadCtrlNbr, string approvalLevel, bool isEnabled)
+    {
+        try
+        {
+            return await _client.UpsertAbsenceApprovalPolicyAsync(new UpsertAbsenceApprovalPolicyRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                ApprovalLevel = approvalLevel,
+                IsEnabled = isEnabled
+            });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Craft Operations Policy ───────────────────────────────────────
 
     public async Task<CraftOperationsPolicyResponse?> GetCraftOperationsPolicyAsync(long craftCtrlNbr)

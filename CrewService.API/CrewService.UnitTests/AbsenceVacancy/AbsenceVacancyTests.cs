@@ -1,5 +1,7 @@
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.AbsenceVacancy;
 using Xunit;
 
 namespace CrewService.UnitTests.AbsenceVacancy;
@@ -28,6 +30,72 @@ public class AbsenceCodeTests
         Assert.Equal("PTO", code.Description);
         Assert.False(code.IsActive);
         Assert.True(code.IsExcused);
+    }
+
+    [Fact]
+    public async Task StaticApprovalPolicyResolver_MapsRequiresApprovalFalse_ToAutomatic()
+    {
+        var code = AbsenceCode.Create(1, "SICK", "Sick", true, false, requiresApproval: false, false, false, null, true);
+        var resolver = new StaticAbsenceApprovalPolicyResolver();
+
+        var policy = await resolver.ResolveAsync(code, TestContext.Current.CancellationToken);
+
+        Assert.Equal(AbsenceApprovalLevel.Automatic, policy.Level);
+        Assert.Equal("Automatic approval (System)", policy.Description);
+    }
+
+    [Fact]
+    public async Task StaticApprovalPolicyResolver_MapsRequiresApprovalTrue_ToCallerManager()
+    {
+        var code = AbsenceCode.Create(1, "VAC", "Vacation", true, true, requiresApproval: true, false, false, 8m, true);
+        var resolver = new StaticAbsenceApprovalPolicyResolver();
+
+        var policy = await resolver.ResolveAsync(code, TestContext.Current.CancellationToken);
+
+        Assert.Equal(AbsenceApprovalLevel.CallerManager, policy.Level);
+        Assert.Equal("Caller or Manager approval required", policy.Description);
+    }
+
+    [Fact]
+    public async Task DbApprovalPolicyResolver_UsesRepositoryDirectly_AndDoesNotRequireUow()
+    {
+        var code = AbsenceCode.Create(1, "VAC", "Vacation", true, true, requiresApproval: true, false, false, 8m, true);
+        var repository = new FakeAbsenceApprovalPolicyRepository(
+            policy: Domain.Modules.Policies.AbsenceApprovalPolicy.Create(
+                railroadCtrlNbr: ControlNumber.Create(1),
+                approvalLevel: AbsenceApprovalPolicyLevel.ManagerOnly,
+                isEnabled: true));
+        var resolver = new DbAbsenceApprovalPolicyResolver(repository);
+
+        var policy = await resolver.ResolveAsync(code, TestContext.Current.CancellationToken);
+
+        Assert.Equal(AbsenceApprovalLevel.ManagerOnly, policy.Level);
+        Assert.Equal("Manager approval required", policy.Description);
+        Assert.Equal(1, repository.GetByRailroadCallCount);
+    }
+
+    private sealed class FakeAbsenceApprovalPolicyRepository(Domain.Modules.Policies.AbsenceApprovalPolicy? policy)
+        : IAbsenceApprovalPolicyRepository
+    {
+        public int GetByRailroadCallCount { get; private set; }
+
+        public Task<Domain.Modules.Policies.AbsenceApprovalPolicy?> GetByRailroadAsync(ControlNumber railroadCtrlNbr)
+        {
+            GetByRailroadCallCount++;
+            return Task.FromResult(policy);
+        }
+
+        public Task<List<Domain.Modules.Policies.AbsenceApprovalPolicy>> GetAllAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<Domain.Modules.Policies.AbsenceApprovalPolicy>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Domain.Modules.Policies.AbsenceApprovalPolicy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Domain.Modules.Policies.AbsenceApprovalPolicy?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task AddAsync(Domain.Modules.Policies.AbsenceApprovalPolicy entity, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task UpdateAsync(Domain.Modules.Policies.AbsenceApprovalPolicy entity, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => throw new NotImplementedException();
+        public void Add(Domain.Modules.Policies.AbsenceApprovalPolicy entity) => throw new NotImplementedException();
+        public void Update(Domain.Modules.Policies.AbsenceApprovalPolicy entity) => throw new NotImplementedException();
+        public void Remove(Domain.Modules.Policies.AbsenceApprovalPolicy entity) => throw new NotImplementedException();
     }
 }
 

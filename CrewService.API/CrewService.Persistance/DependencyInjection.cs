@@ -172,6 +172,7 @@ public static class DependencyInjection
         services.AddScoped<IBulletinPolicyRepository, BulletinPolicyRepository>();
         services.AddScoped<ICallSheetRuleRepository, CallSheetRuleRepository>();
         services.AddScoped<ICraftCallSheetRuleRepository, CraftCallSheetRuleRepository>();
+        services.AddScoped<IAbsenceApprovalPolicyRepository, AbsenceApprovalPolicyRepository>();
         services.AddScoped<IDepartmentReassignmentRuleRepository, DepartmentReassignmentRuleRepository>();
         services.AddScoped<ISeniorityMovePolicyRepository, SeniorityMovePolicyRepository>();
         services.AddScoped<INoAccessPolicyRepository, NoAccessPolicyRepository>();

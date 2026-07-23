@@ -362,6 +362,39 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             ?? throw new KeyNotFoundException($"No access policy for railroad {railroadCtrlNbr} / craft {craftCtrlNbr} not found.");
     }
 
+    public async Task<AbsenceApprovalPolicy> GetAbsenceApprovalPolicyAsync(
+        ControlNumber railroadCtrlNbr,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.AbsenceApprovalPolicies.GetByRailroadAsync(railroadCtrlNbr)
+            ?? throw new KeyNotFoundException($"Absence approval policy for railroad {railroadCtrlNbr} not found.");
+    }
+
+    public async Task<AbsenceApprovalPolicy> GetOrUpsertAbsenceApprovalPolicyAsync(
+        long railroadCtrlNbr,
+        string approvalLevel,
+        bool isEnabled,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var railroadCn = ControlNumber.Create(railroadCtrlNbr);
+
+        var existing = await uow.AbsenceApprovalPolicies.GetByRailroadAsync(railroadCn);
+        if (existing is not null)
+        {
+            existing.Update(approvalLevel, isEnabled);
+            await uow.AbsenceApprovalPolicies.UpdateAsync(existing, ct);
+            await uow.CommitAsync(ct);
+            return existing;
+        }
+
+        var policy = AbsenceApprovalPolicy.Create(railroadCn, approvalLevel, isEnabled);
+        await uow.AbsenceApprovalPolicies.AddAsync(policy, ct);
+        await uow.CommitAsync(ct);
+        return policy;
+    }
+
     public async Task<NoAccessPolicy> GetOrUpsertNoAccessPolicyAsync(
         long railroadCtrlNbr,
         long craftCtrlNbr,

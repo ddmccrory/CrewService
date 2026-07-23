@@ -45,6 +45,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private readonly ILogger<OrchestrationUnitOfWork> _logger;
     private readonly string _idempotencyKey;
     private readonly IOutboxDispatcher? _dispatcher;
+    private readonly bool _ownsTransaction;
 
     private bool _committed;
     private bool _disposed;
@@ -139,6 +140,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IBulletinPolicyRepository? _bulletinPolicies;
     private ICallSheetRuleRepository? _callSheetRules;
     private ICraftCallSheetRuleRepository? _craftCallSheetRules;
+    private IAbsenceApprovalPolicyRepository? _absenceApprovalPolicies;
     private IDepartmentReassignmentRuleRepository? _departmentReassignmentRules;
     private ISeniorityMovePolicyRepository? _seniorityMovePolicies;
     private INoAccessPolicyRepository? _noAccessPolicies;
@@ -316,6 +318,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IBulletinPolicyRepository BulletinPolicies => _bulletinPolicies ??= new BulletinPolicyRepository(_crewContext, _currentUserService);
     public ICallSheetRuleRepository CallSheetRules => _callSheetRules ??= new CallSheetRuleRepository(_crewContext, _currentUserService);
     public ICraftCallSheetRuleRepository CraftCallSheetRules => _craftCallSheetRules ??= new CraftCallSheetRuleRepository(_crewContext, _currentUserService);
+    public IAbsenceApprovalPolicyRepository AbsenceApprovalPolicies => _absenceApprovalPolicies ??= new AbsenceApprovalPolicyRepository(_crewContext, _currentUserService);
     public IDepartmentReassignmentRuleRepository DepartmentReassignmentRules => _departmentReassignmentRules ??= new DepartmentReassignmentRuleRepository(_crewContext, _currentUserService);
     public ISeniorityMovePolicyRepository SeniorityMovePolicies => _seniorityMovePolicies ??= new SeniorityMovePolicyRepository(_crewContext, _currentUserService);
     public INoAccessPolicyRepository NoAccessPolicies => _noAccessPolicies ??= new NoAccessPolicyRepository(_crewContext, _currentUserService);
@@ -415,6 +418,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
         string correlationId,
         string orchestrationId,
         string? idempotencyKey,
+        bool ownsTransaction,
         ILogger<OrchestrationUnitOfWork> logger,
         IOutboxDispatcher? dispatcher = null,
         IDomainEventReactor? reactor = null)
@@ -426,6 +430,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
         CorrelationId = correlationId;
         OrchestrationId = orchestrationId;
         _idempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();
+        _ownsTransaction = ownsTransaction;
         _logger = logger;
         _dispatcher = dispatcher;
         _reactor = reactor;
@@ -523,8 +528,11 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             // Save all entity changes + outbox rows in single SaveChanges
             await _crewContext.SaveChangesAsync(cancellationToken);
 
-            // Commit the shared transaction
-            await _transaction.CommitAsync(cancellationToken);
+            if (_ownsTransaction)
+            {
+                // Commit the shared transaction
+                await _transaction.CommitAsync(cancellationToken);
+            }
 
             _committed = true;
 
@@ -572,6 +580,9 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
     {
         if (_committed || _disposed)
+            return;
+
+        if (!_ownsTransaction)
             return;
 
         try
@@ -664,8 +675,11 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             await RollbackAsync();
         }
 
-        await _crewContext.Database.UseTransactionAsync(null);
-        await _userContext.Database.UseTransactionAsync(null);
-        await _transaction.DisposeAsync();
+        if (_ownsTransaction)
+        {
+            await _crewContext.Database.UseTransactionAsync(null);
+            await _userContext.Database.UseTransactionAsync(null);
+            await _transaction.DisposeAsync();
+        }
     }
 }

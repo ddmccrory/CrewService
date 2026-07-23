@@ -13,6 +13,43 @@ namespace CrewService.Presentation.Services.Modules;
 
 public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.PoliciesSrvcBase
 {
+    public override async Task<AbsenceApprovalPolicyResponse> GetAbsenceApprovalPolicy(
+        GetAbsenceApprovalPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetAbsenceApprovalPolicyAsync(ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
+            return MapAbsenceApprovalPolicy(policy);
+        }
+        catch (KeyNotFoundException)
+        {
+            return new AbsenceApprovalPolicyResponse
+            {
+                RailroadCtrlNbr = request.RailroadCtrlNbr
+            };
+        }
+    }
+
+    public override async Task<AbsenceApprovalPolicyResponse> UpsertAbsenceApprovalPolicy(
+        UpsertAbsenceApprovalPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetOrUpsertAbsenceApprovalPolicyAsync(
+                request.RailroadCtrlNbr,
+                request.ApprovalLevel,
+                request.IsEnabled,
+                context.CancellationToken);
+
+            return MapAbsenceApprovalPolicy(policy);
+        }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
     public override async Task<CraftOperationsPolicyResponse> GetCraftOperationsPolicy(
         GetCraftOperationsPolicyRequest request, ServerCallContext context)
     {
@@ -58,6 +95,14 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         HangoutAutoMoveEnabled = p.HangoutAutoMoveEnabled,
         HangoutAutoMoveTargetBoardType = p.HangoutAutoMoveTargetBoardType,
         HangoutAutoMoveDelayHours = p.HangoutAutoMoveDelayHours
+    };
+
+    private static AbsenceApprovalPolicyResponse MapAbsenceApprovalPolicy(AbsenceApprovalPolicy p) => new()
+    {
+        CtrlNbr = p.CtrlNbr.Value,
+        RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
+        ApprovalLevel = p.ApprovalLevel,
+        IsEnabled = p.IsEnabled
     };
 
     public override async Task<DisplacementPolicyResponse> GetDisplacementPolicy(GetDisplacementPolicyRequest request, ServerCallContext context)

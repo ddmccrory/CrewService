@@ -36,6 +36,11 @@ public interface ICraftCallSheetRuleRepository : IRepository<CraftCallSheetRule>
     Task<List<CraftCallSheetRule>> GetByCraftsAsync(IEnumerable<ControlNumber> craftCtrlNbrs);
 }
 
+public interface IAbsenceApprovalPolicyRepository : IRepository<AbsenceApprovalPolicy>
+{
+    Task<AbsenceApprovalPolicy?> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
+}
+
 public interface IDepartmentReassignmentRuleRepository : IRepository<DepartmentReassignmentRule>
 {
     Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);

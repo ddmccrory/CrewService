@@ -102,6 +102,7 @@ public class EarningCodeResolverTests
         public IDisplacementCaseRepository DisplacementCases => null!;
         public IDisplacementClaimRepository DisplacementClaims => null!;
         public IBulletinPolicyRepository BulletinPolicies => null!;
+        public IAbsenceApprovalPolicyRepository AbsenceApprovalPolicies => null!;
         public ISeniorityMovePolicyRepository SeniorityMovePolicies => null!;
         public ISeniorityMoveRepository SeniorityMoves => null!;
         public IDispatchProjectionRepository DispatchProjections => null!;

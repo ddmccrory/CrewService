@@ -301,38 +301,44 @@ public sealed class BulletinsService(
 
     public async Task<Bulletin> SetBulletinNoBidAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
-            ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
+        DateTime? forceAssignDeadline;
+        Bulletin bulletin;
 
-        var activeBids = await uow.BulletinBids.GetByBulletinAsync(ctrlNbr);
-        if (activeBids.Any(b => b.Status == "Submitted"))
-            throw new InvalidOperationException("Cannot mark a bulletin as No Bid when there are active bids. Withdraw all bids first.");
-
-        // For crew-position bulletins, compute a schedule-aware force-assign deadline.
-        DateTime? forceAssignDeadline = null;
-        var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
-        if (vacancy?.TargetType == StaffablePositionType.Crew)
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
-            if (rule is not null)
-                forceAssignDeadline = await CalculateScheduleAwareForceAssignDeadlineAsync(uow, bulletin, vacancy, rule, ct);
+            bulletin = await uow.Bulletins.GetByCtrlNbrAsync(ctrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Bulletin {ctrlNbr} not found.");
+
+            var activeBids = await uow.BulletinBids.GetByBulletinAsync(ctrlNbr);
+            if (activeBids.Any(b => b.Status == "Submitted"))
+                throw new InvalidOperationException("Cannot mark a bulletin as No Bid when there are active bids. Withdraw all bids first.");
+
+            // For crew-position bulletins, compute a schedule-aware force-assign deadline.
+            forceAssignDeadline = null;
+            var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(bulletin.PositionVacancyCtrlNbr, ct);
+            if (vacancy?.TargetType == StaffablePositionType.Crew)
+            {
+                var rule = await uow.BulletinRules.GetByCraftAsync(bulletin.CraftCtrlNbr);
+                if (rule is not null)
+                    forceAssignDeadline = await CalculateScheduleAwareForceAssignDeadlineAsync(uow, bulletin, vacancy, rule, ct);
+            }
+
+            bulletin.SetAsNoBid(forceAssignDeadline);
+            await uow.Bulletins.UpdateAsync(bulletin, ct);
+            // Mirrors the automatic no-bid transition (AutoAwardClosedBulletinsAsync): no notification is
+            // emitted here because there is no bidder to inform. The prospective force-assign candidate is
+            // notified when the force assignment runs; the two processes are back-to-back, so a separate
+            // no-bid notification would be redundant.
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "Bulletin {BulletinCtrlNbr}: Manually transitioned to NoBid. Force-assign deadline: {Deadline}.",
+                    bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
+            }
+
+            await uow.CommitAsync(ct);
         }
 
-        bulletin.SetAsNoBid(forceAssignDeadline);
-        await uow.Bulletins.UpdateAsync(bulletin, ct);
-        // Mirrors the automatic no-bid transition (AutoAwardClosedBulletinsAsync): no notification is
-        // emitted here because there is no bidder to inform. The prospective force-assign candidate is
-        // notified when the force assignment runs; the two processes are back-to-back, so a separate
-        // no-bid notification would be redundant.
-        if (logger.IsEnabled(LogLevel.Information))
-        {
-            logger.LogInformation(
-                "Bulletin {BulletinCtrlNbr}: Manually transitioned to NoBid. Force-assign deadline: {Deadline}.",
-                bulletin.CtrlNbr, forceAssignDeadline?.ToString("u") ?? "none");
-        }
-
-        await uow.CommitAsync(ct);
         if (forceAssignDeadline.HasValue)
             scheduleSignal.Notify(forceAssignDeadline.Value);
 

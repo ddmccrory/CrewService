@@ -655,6 +655,7 @@ public class BulletinCreationServiceTests
         public IDisplacementCaseRepository               DisplacementCases            => throw new NotImplementedException();
         public IDisplacementClaimRepository              DisplacementClaims           => throw new NotImplementedException();
         public IBulletinPolicyRepository                 BulletinPolicies             => throw new NotImplementedException();
+        public IAbsenceApprovalPolicyRepository          AbsenceApprovalPolicies      => throw new NotImplementedException();
         public ICallSheetRuleRepository                  CallSheetRules              => throw new NotImplementedException();
         public ICraftCallSheetRuleRepository CraftCallSheetRules => null!;
         public ISeniorityMovePolicyRepository            SeniorityMovePolicies        => throw new NotImplementedException();
