@@ -224,7 +224,6 @@ public class ForeignKeyIntegrityTests
     [InlineData("AbsenceRequest", "Employee", "EmployeeCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("AbsenceRequest", "Employee", "ApprovedByCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("AbsenceRequest", "AbsenceCode", "AbsenceCodeCtrlNbr", DeleteBehavior.Restrict)]
-    [InlineData("AbsenceRequest", "PositionSlot", "PositionSlotCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("DispatchProjection", "Employee", "ProjectedEmployeeCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("DispatchDecisionLog", "Employee", "SelectedEmployeeCtrlNbr", DeleteBehavior.Restrict)]
     [InlineData("PositionVacancy", "Employee", "PreviousIncumbentCtrlNbr", DeleteBehavior.Restrict)]

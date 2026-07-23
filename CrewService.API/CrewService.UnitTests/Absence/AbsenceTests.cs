@@ -70,7 +70,7 @@ public class AbsenceApprovalTests
         request.Approve(ControlNumber.Create(99));
 
         Assert.Equal("APPROVED", request.Status);
-        Assert.Null(request.EndUtc);
+        Assert.Empty(request.MarkUps);
     }
 }
 

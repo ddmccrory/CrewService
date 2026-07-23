@@ -228,15 +228,31 @@ else if (HasRailroad)
                 else
                 {
                     <div class="table-responsive">
-                        <table class="table table-sm table-striped align-middle mb-0">
+                        <table class="table table-sm table-striped align-middle mb-0" style="table-layout: fixed; width: 100%;">
+                            <colgroup>
+                                <col style="width: 10%;" />
+                                <col style="width: 26%;" />
+                                <col style="width: 17%;" />
+                                <col style="width: 15%;" />
+                                <col style="width: 15%;" />
+                                <col style="width:@(ShowScheduledActionsColumn ? "9%" : "17%")" />
+                                @if (ShowScheduledActionsColumn)
+                                {
+                                    <col style="width: 8%;" />
+                                }
+                            </colgroup>
                             <thead>
                                 <tr>
                                     <th>Status</th>
                                     <th>Employee</th>
                                     <th>Reason</th>
-                                    <th>Start (UTC)</th>
-                                    <th>End (UTC)</th>
+                                    <th>Start (Work Area Local)</th>
+                                    <th>End (Work Area Local)</th>
                                     <th>Notes</th>
+                                    @if (ShowScheduledActionsColumn)
+                                    {
+                                        <th></th>
+                                    }
                                 </tr>
                             </thead>
                             <tbody>
@@ -246,9 +262,22 @@ else if (HasRailroad)
                                         <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
                                         <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
                                         <td>@GetReasonDisplay(req)</td>
-                                        <td>@req.StartUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                        <td>@(req.EndUtc is null ? "—" : req.EndUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm"))</td>
-                                        <td>@(string.IsNullOrWhiteSpace(req.Notes) ? "—" : req.Notes)</td>
+                                        <td>@GetStartDisplay(req)</td>
+                                        <td>@GetEndDisplay(req)</td>
+                                        <td>
+                                            @if (string.IsNullOrWhiteSpace(req.Notes))
+                                            {
+                                                <span>—</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
+                                            }
+                                        </td>
+                                        @if (ShowScheduledActionsColumn)
+                                        {
+                                            <td></td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
@@ -259,7 +288,7 @@ else if (HasRailroad)
                 <hr />
 
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="mb-0">Sheduled Absences (Next 24 Hours)</h6>
+                    <h6 class="mb-0">Scheduled Absences (Next 24 Hours)</h6>
                     <span class="badge text-bg-secondary">@next24HourScheduledAbsences.Count Scheduled</span>
                 </div>
 
@@ -274,15 +303,31 @@ else if (HasRailroad)
                 else
                 {
                     <div class="table-responsive">
-                        <table class="table table-sm table-striped align-middle mb-0">
+                        <table class="table table-sm table-striped align-middle mb-0" style="table-layout: fixed; width: 100%;">
+                            <colgroup>
+                                <col style="width: 10%;" />
+                                <col style="width: 26%;" />
+                                <col style="width: 17%;" />
+                                <col style="width: 15%;" />
+                                <col style="width: 15%;" />
+                                <col style="width:@(ShowScheduledActionsColumn ? "9%" : "17%")" />
+                                @if (ShowScheduledActionsColumn)
+                                {
+                                    <col style="width: 8%;" />
+                                }
+                            </colgroup>
                             <thead>
                                 <tr>
                                     <th>Status</th>
                                     <th>Employee</th>
                                     <th>Reason</th>
-                                    <th>Start (UTC)</th>
-                                    <th>End (UTC)</th>
+                                    <th>Start (Work Area Local)</th>
+                                    <th>End (Work Area Local)</th>
                                     <th>Notes</th>
+                                    @if (ShowScheduledActionsColumn)
+                                    {
+                                        <th class="text-end">Actions</th>
+                                    }
                                 </tr>
                             </thead>
                             <tbody>
@@ -292,9 +337,31 @@ else if (HasRailroad)
                                         <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
                                         <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
                                         <td>@GetReasonDisplay(req)</td>
-                                        <td>@req.StartUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                        <td>@(req.EndUtc is null ? "—" : req.EndUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm"))</td>
-                                        <td>@(string.IsNullOrWhiteSpace(req.Notes) ? "—" : req.Notes)</td>
+                                        <td>@GetStartDisplay(req)</td>
+                                        <td>@GetEndDisplay(req)</td>
+                                        <td>
+                                            @if (string.IsNullOrWhiteSpace(req.Notes))
+                                            {
+                                                <span>—</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
+                                            }
+                                        </td>
+                                        @if (ShowScheduledActionsColumn)
+                                        {
+                                            <td class="text-end">
+                                                @if (IsStatus(req.Status, "APPROVED"))
+                                                {
+                                                    <button class="btn btn-outline-primary btn-sm"
+                                                            @onclick="() => OpenMarkOffModal(req.CtrlNbr)"
+                                                            disabled="@isSaving">
+                                                        Mark-off
+                                                    </button>
+                                                }
+                                            </td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
@@ -337,7 +404,7 @@ else if (HasRailroad)
                     <option value="PENDING">Requested</option>
                     <option value="WAITLISTED">Waitlisted</option>
                     <option value="APPROVED">Scheduled</option>
-                    <option value="COMPLETED">Exercised</option>
+                    <option value="EXERCISED">Exercised</option>
                     <option value="DENIED">Denied</option>
                     <option value="CANCELLED">Cancelled</option>
                 </select>
@@ -348,7 +415,7 @@ else if (HasRailroad)
                 <span class="badge text-bg-secondary">Requested @requests.Count(r => IsStatus(r.Status, "PENDING"))</span>
                 <span class="badge text-bg-secondary">Waitlisted @requests.Count(r => r.IsWaitlisted)</span>
                 <span class="badge text-bg-secondary">Scheduled @requests.Count(r => IsStatus(r.Status, "APPROVED"))</span>
-                <span class="badge text-bg-secondary">Exercised @requests.Count(r => IsStatus(r.Status, "COMPLETED"))</span>
+                <span class="badge text-bg-secondary">Exercised @requests.Count(r => IsStatus(r.Status, "EXERCISED"))</span>
             </div>
 
             @if (!IsFeatureReadOnly && absenceCodes.Count == 0)
@@ -383,10 +450,10 @@ else if (HasRailroad)
                                 <th>Status</th>
                                 <th>Employee</th>
                                 <th>Reason</th>
-                                <th>Start (UTC)</th>
-                                <th>End (UTC)</th>
+                                    <th>Start (Work Area Local)</th>
+                                    <th>End (Work Area Local)</th>
                                 <th>Notes</th>
-                                @if (!IsFeatureReadOnly)
+                                @if (ShowRequestActionsColumn)
                                 {
                                     <th class="text-end">Actions</th>
                                 }
@@ -399,8 +466,8 @@ else if (HasRailroad)
                                     <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
                                     <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
                                     <td>@GetReasonDisplay(req)</td>
-                                    <td>@req.StartUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                    <td>@(req.EndUtc is null ? "—" : req.EndUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm"))</td>
+                                    <td>@GetStartDisplay(req)</td>
+                                    <td>@GetEndDisplay(req)</td>
                                     <td>
                                         @if (string.IsNullOrWhiteSpace(req.Notes))
                                         {
@@ -411,7 +478,7 @@ else if (HasRailroad)
                                             <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
                                         }
                                     </td>
-                                    @if (!IsFeatureReadOnly)
+                                    @if (ShowRequestActionsColumn)
                                     {
                                         <td class="text-end">
                                             @if (IsStatus(req.Status, "PENDING") || req.IsWaitlisted)
@@ -525,6 +592,19 @@ else if (HasRailroad)
             </button>
         </Footer>
     </Modal>
+
+    <Modal Visible="showMarkOffModal"
+           Title="Mark-off Approved Absence"
+           Icon="bi bi-check2-square"
+           OnClose="CloseMarkOffModal">
+        <BodyContent>
+            <p class="mb-0">Confirm mark-off for this approved absence request?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseMarkOffModal">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="ConfirmMarkOffAsync" disabled="@isSaving">Mark-off</button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -536,8 +616,10 @@ else if (HasRailroad)
     private bool showRequestsModal;
     private bool showCreateRequestModal;
     private bool showDecisionModal;
+    private bool showMarkOffModal;
     private bool decisionIsApprove;
     private long decisionRequestCtrlNbr;
+    private long markOffRequestCtrlNbr;
     private string? decisionNotes;
     private string selectedStatusFilter = "ALL";
     private List<MarkOffCodeResponse> absenceCodes = [];
@@ -547,10 +629,6 @@ else if (HasRailroad)
     private List<GroupResponse> workAreas = [];
     private List<DepartmentResponse> departments = [];
     private List<CraftResponse> crafts = [];
-    private List<CraftRoleResponse> craftRoles = [];
-    private Dictionary<long, long> positionSlotCraftLookup = [];
-    private Dictionary<string, long> craftRoleToCraftLookup = new(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<long, long> positionSlotDepartmentLookup = [];
     private CreateAbsenceRequestInputModel createModel = new();
     private List<MarkOffAbsenceRequestListItem> requests = [];
     private List<MarkOffAbsenceRequestListItem> openAbsenceRecords = [];
@@ -588,6 +666,14 @@ else if (HasRailroad)
         .Where(r => MatchesStatusFilter(r, selectedStatusFilter))
         .ToList();
 
+    private bool ShowRequestActionsColumn
+        => !IsFeatureReadOnly
+            && filteredRequests.Any(r => IsStatus(r.Status, "PENDING") || r.IsWaitlisted);
+
+    private bool ShowScheduledActionsColumn
+        => !IsFeatureReadOnly
+            && tomorrowRequests.Any(r => IsStatus(r.Status, "APPROVED"));
+
     private List<EmployeePickerOption> createRequestEmployees = [];
 
     private bool CanSubmitCreateRequest
@@ -610,8 +696,7 @@ else if (HasRailroad)
                 LoadEmployeeDisplayLookupAsync(),
                 LoadWorkAreasAsync(),
                 LoadDepartmentsAsync(),
-                LoadCraftsAsync(),
-                LoadCraftRolesAsync());
+                LoadCraftsAsync());
 
             selectedCalendarMonth = displayedMonth.Month;
             selectedCalendarYear = displayedMonth.Year;
@@ -655,7 +740,6 @@ else if (HasRailroad)
         absenceCodes = [];
         employeeDisplayLookup = [];
         crafts = [];
-        craftRoles = [];
         workAreas = [];
         departments = [];
         openAbsenceRecords = [];
@@ -677,8 +761,7 @@ else if (HasRailroad)
                 LoadEmployeeDisplayLookupAsync(),
                 LoadWorkAreasAsync(),
                 LoadDepartmentsAsync(),
-                LoadCraftsAsync(),
-                LoadCraftRolesAsync());
+                LoadCraftsAsync());
 
             displayedMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
             selectedCalendarMonth = displayedMonth.Month;
@@ -724,34 +807,34 @@ else if (HasRailroad)
             isLoadingTomorrowRequests = type == "next24Hours";
             errorMessage = null;
 
-            DateTime startUtc, endUtc;
             var nowUtc = DateTime.UtcNow;
 
             if (type == "open")
             {
-                startUtc = new DateTime(displayedMonth.Year, displayedMonth.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-                endUtc = startUtc.AddMonths(1);
+                var openRangeStartUtc = nowUtc.AddDays(-1);
+                var openRangeEndUtc = nowUtc.AddDays(1);
+
+                var openResponse = await AbsenceClient.GetOpenAbsencesAsync(
+                    openRangeStartUtc,
+                    openRangeEndUtc,
+                    selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                    selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                    selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
+
+                var requestsToLoad = openResponse.Requests
+                    .ToList();
+
+                openAbsenceRecords = requestsToLoad;
             }
             else // next24Hours
             {
-                startUtc = nowUtc;
-                endUtc = nowUtc.AddHours(24);
-            }
+                var response = await AbsenceClient.GetScheduledAbsencesAsync(
+                    selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                    selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                    selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
 
-            var response = await AbsenceClient.GetAbsenceRequestsAsync(startUtc, includeAllStatuses, selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null);
-            var requestsToLoad = response.Requests
-                .Where(MatchesCraft)
-                .Where(MatchesDepartment)
-                .ToList();
-
-            if (type == "open")
-            {
-                openAbsenceRecords = requestsToLoad;
-            }
-            else
-            {
-                tomorrowRequests = requestsToLoad
-                    .Where(r => r.StartUtc.ToDateTime() >= nowUtc && r.StartUtc.ToDateTime() < endUtc)
+                tomorrowRequests = response.Requests
+                    .OrderBy(r => r.StartUtc.ToDateTime())
                     .ToList();
             }
         }
@@ -1012,15 +1095,6 @@ else if (HasRailroad)
             selectedCraftCtrlNbr = crafts[0].CtrlNbr;
     }
 
-    private async Task LoadCraftRolesAsync()
-    {
-        craftRoles = (await ReferenceData.GetCraftRolesAsync()).ToList();
-        craftRoleToCraftLookup = craftRoles
-            .Where(r => r.CraftCtrlNbr > 0 && !string.IsNullOrWhiteSpace(r.Name))
-            .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().CraftCtrlNbr, StringComparer.OrdinalIgnoreCase);
-    }
-
     private async Task OpenCreateRequestModalAsync()
     {
         createModel = CreateAbsenceRequestInputModel.CreateDefault(GetDefaultCreateStartLocal());
@@ -1197,7 +1271,6 @@ else if (HasRailroad)
                 createModel.AbsenceCodeCtrlNbr,
                 startUtc,
                 endUtc,
-                null,
                 createModel.Notes,
                 false);
 
@@ -1225,15 +1298,13 @@ else if (HasRailroad)
             isLoadingRequests = true;
             errorMessage = null;
 
-            await LoadPositionSlotCraftLookupAsync(selectedDate);
-
             var response = await AbsenceClient.GetAbsenceRequestsAsync(
                 selectedDate,
                 includeAllStatuses,
-                selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null);
+                selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
             requests = response.Requests
-                .Where(MatchesCraft)
-                .Where(MatchesDepartment)
                 .ToList();
         }
         catch (Exception ex)
@@ -1282,7 +1353,9 @@ else if (HasRailroad)
                         var response = await AbsenceClient.GetAbsenceRequestsAsync(
                             date,
                             includeAllStatuses,
-                            selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null);
+                            selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                            selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                            selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
                         var compensated = 0;
                         var notCompensated = 0;
 
@@ -1354,6 +1427,49 @@ else if (HasRailroad)
         showDecisionModal = false;
         decisionRequestCtrlNbr = 0;
         decisionNotes = null;
+    }
+
+    private void OpenMarkOffModal(long absenceRequestCtrlNbr)
+    {
+        markOffRequestCtrlNbr = absenceRequestCtrlNbr;
+        showMarkOffModal = true;
+    }
+
+    private void CloseMarkOffModal()
+    {
+        showMarkOffModal = false;
+        markOffRequestCtrlNbr = 0;
+    }
+
+    private async Task ConfirmMarkOffAsync()
+    {
+        if (markOffRequestCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await AbsenceClient.MarkOffAbsenceRequestAsync(markOffRequestCtrlNbr);
+            successMessage = "Absence request marked off.";
+
+            showMarkOffModal = false;
+            markOffRequestCtrlNbr = 0;
+            monthCountsCache.Clear();
+            await LoadRequests();
+            _ = LoadMonthCountsAsync();
+            await RefreshOpenAbsencesSectionAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to mark off absence request: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     private async Task SubmitDecisionAsync()
@@ -1465,71 +1581,6 @@ else if (HasRailroad)
         return $"{number} — {name}";
     }
 
-    private async Task LoadPositionSlotCraftLookupAsync(DateTime targetDateUtc)
-    {
-        positionSlotCraftLookup.Clear();
-        positionSlotDepartmentLookup.Clear();
-
-        if (selectedWorkAreaCtrlNbr <= 0)
-            return;
-
-        if (selectedCraftCtrlNbr <= 0 && selectedDepartmentCtrlNbr <= 0)
-            return;
-
-        try
-        {
-            var response = await DailyOperationsClient.GetCallSheetAsync(
-                selectedWorkAreaCtrlNbr,
-                targetDateUtc.ToString("yyyy-MM-dd"),
-                includeClosed: true);
-
-            foreach (var shift in response.Shifts)
-            {
-                foreach (var slot in shift.PositionSlots)
-                {
-                    if (slot.CtrlNbr > 0 && shift.HasDepartmentCtrlNbr && shift.DepartmentCtrlNbr > 0)
-                        positionSlotDepartmentLookup[slot.CtrlNbr] = shift.DepartmentCtrlNbr;
-
-                    if (slot.CtrlNbr > 0
-                        && !string.IsNullOrWhiteSpace(slot.CraftRoleName)
-                        && craftRoleToCraftLookup.TryGetValue(slot.CraftRoleName, out var craftCtrlNbr))
-                    {
-                        positionSlotCraftLookup[slot.CtrlNbr] = craftCtrlNbr;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            positionSlotCraftLookup.Clear();
-            positionSlotDepartmentLookup.Clear();
-        }
-    }
-
-    private bool MatchesCraft(MarkOffAbsenceRequestListItem request)
-    {
-        if (selectedCraftCtrlNbr <= 0)
-            return true;
-
-        if (!request.HasPositionSlotCtrlNbr)
-            return true;
-
-        return positionSlotCraftLookup.TryGetValue(request.PositionSlotCtrlNbr, out var craftCtrlNbr)
-            && craftCtrlNbr == selectedCraftCtrlNbr;
-    }
-
-    private bool MatchesDepartment(MarkOffAbsenceRequestListItem request)
-    {
-        if (selectedDepartmentCtrlNbr <= 0)
-            return true;
-
-        if (!request.HasPositionSlotCtrlNbr)
-            return true;
-
-        return positionSlotDepartmentLookup.TryGetValue(request.PositionSlotCtrlNbr, out var departmentCtrlNbr)
-            && departmentCtrlNbr == selectedDepartmentCtrlNbr;
-    }
-
     private static string GetStatusBadge(MarkOffAbsenceRequestListItem request)
     {
         if (request.IsWaitlisted)
@@ -1538,11 +1589,35 @@ else if (HasRailroad)
         return request.Status.ToUpperInvariant() switch
         {
             "APPROVED" => "text-bg-success",
-            "COMPLETED" => "text-bg-primary",
+            "EXERCISED" => "text-bg-info",
             "DENIED" => "text-bg-danger",
             "CANCELLED" => "text-bg-dark",
             _ => "text-bg-secondary"
         };
+    }
+
+    private static string GetStartDisplay(MarkOffAbsenceRequestListItem request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.StartLocal))
+            return FormatIsoForDisplay(request.StartLocal);
+
+        return request.StartUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm");
+    }
+
+    private static string GetEndDisplay(MarkOffAbsenceRequestListItem request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.EndLocal))
+            return FormatIsoForDisplay(request.EndLocal);
+
+        return request.EndUtc is null ? "—" : request.EndUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm");
+    }
+
+    private static string FormatIsoForDisplay(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+            return parsed.ToString("yyyy-MM-dd HH:mm");
+
+        return iso;
     }
 
     private sealed record EmployeePickerOption(long CtrlNbr, string EmployeeNumber, string FullNameLnf)
