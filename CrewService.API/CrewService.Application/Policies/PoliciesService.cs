@@ -525,7 +525,7 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             var employeeAbsences = await uow.AbsenceRequests.GetByEmployeeAsync(employeeCn);
             var hasActiveMarkOff = employeeAbsences.Any(a =>
                 a.Status == "APPROVED"
-                && a.EndUtc is null
+                && !a.MarkUps.Any(m => m.ActualMarkUpUtc.HasValue)
                 && string.Equals(a.ReasonCode, "MARKOFF", StringComparison.OrdinalIgnoreCase));
             if (policy.BlockIfEmployeeMarkedOff && hasActiveMarkOff)
                 throw new InvalidOperationException("Employee is currently marked off and is not eligible for No Access requests.");

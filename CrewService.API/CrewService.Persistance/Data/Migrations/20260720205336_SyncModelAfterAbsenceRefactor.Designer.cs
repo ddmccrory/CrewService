@@ -1143,9 +1143,6 @@ namespace CrewService.Persistance.Data.Migrations
                     b.Property<long>("EmployeeCtrlNbr")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime?>("EndUtc")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
@@ -1158,9 +1155,6 @@ namespace CrewService.Persistance.Data.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
-
-                    b.Property<long?>("PositionSlotCtrlNbr")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("ReasonCode")
                         .IsRequired()
@@ -1182,8 +1176,6 @@ namespace CrewService.Persistance.Data.Migrations
                     b.HasIndex("ApprovedByCtrlNbr");
 
                     b.HasIndex("EmployeeCtrlNbr");
-
-                    b.HasIndex("PositionSlotCtrlNbr");
 
                     b.ToTable("AbsenceRequests");
                 });
@@ -1981,9 +1973,6 @@ namespace CrewService.Persistance.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("EndUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")

@@ -1,6 +1,7 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -24,16 +25,22 @@ public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory
         if (string.IsNullOrWhiteSpace(userId))
             return [];
 
+        if (currentUserService.IsInRole(Roles.SystemAdmin))
+            return departments;
+
+        var assignments = await uow.UserParentAssignments.GetByUserIdAsync(userId);
+        var contextAssignments = assignments
+            .Where(a => parentCtrlNbr is not null
+                        && a.ParentCtrlNbr == parentCtrlNbr
+                        && (a.RailroadCtrlNbr is null || a.RailroadCtrlNbr == dynamicGroupCtrlNbr))
+            .ToList();
+
+        if (contextAssignments.Any(a => string.Equals(a.Role, Roles.SystemAdmin, StringComparison.OrdinalIgnoreCase)))
+            return departments;
+
         var feature = await uow.Features.GetByKeyAsync(CallSheetFeatureKey);
         if (feature is not null)
         {
-            var assignments = await uow.UserParentAssignments.GetByUserIdAsync(userId);
-            var contextAssignments = assignments
-                .Where(a => parentCtrlNbr is not null
-                            && a.ParentCtrlNbr == parentCtrlNbr
-                            && (a.RailroadCtrlNbr is null || a.RailroadCtrlNbr == dynamicGroupCtrlNbr))
-                .ToList();
-
             var parentScope = parentCtrlNbr;
             var maxAccessLevel = AccessLevel.None;
             foreach (var roleName in contextAssignments.Select(a => a.Role).Distinct(StringComparer.OrdinalIgnoreCase))

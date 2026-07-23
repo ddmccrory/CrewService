@@ -18,12 +18,11 @@ public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFac
     public async Task<AbsenceRequest> SubmitWithCodeAsync(
         ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
         ControlNumber absenceCodeCtrlNbr, string reasonCode,
-        ControlNumber? positionSlotCtrlNbr = null,
         bool isSystemGenerated = false, string? notes = null)
     {
         var absence = AbsenceRequest.CreateWithCode(
             employeeCtrlNbr, startUtc, endUtc, absenceCodeCtrlNbr, reasonCode,
-            positionSlotCtrlNbr, isSystemGenerated, notes);
+            isSystemGenerated, notes);
         await using var uow = await uowFactory.CreateAsync();
         uow.AbsenceRequests.Add(absence);
         await uow.CommitAsync();
@@ -57,20 +56,24 @@ public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFac
         DateTime rangeStartUtc,
         DateTime rangeEndUtc,
         bool includeAllStatuses,
+        ControlNumber? craftCtrlNbr = null,
+        ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync();
-        return await uow.AbsenceRequests.GetByDateRangeAsync(railroadCtrlNbr, rangeStartUtc, rangeEndUtc, includeAllStatuses, ct);
+        return await uow.AbsenceRequests.GetByDateRangeAsync(railroadCtrlNbr, rangeStartUtc, rangeEndUtc, includeAllStatuses, craftCtrlNbr, departmentCtrlNbr, ct);
     }
 
     public async Task<List<AbsenceRequest>> GetOpenAbsencesByRangeAsync(
         ControlNumber railroadCtrlNbr,
         DateTime rangeStartUtc,
         DateTime rangeEndUtc,
+        ControlNumber? craftCtrlNbr = null,
+        ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync();
-        return await uow.AbsenceRequests.GetOpenAbsencesByRangeAsync(railroadCtrlNbr, rangeStartUtc, rangeEndUtc, ct);
+        return await uow.AbsenceRequests.GetOpenAbsencesByRangeAsync(railroadCtrlNbr, rangeStartUtc, rangeEndUtc, craftCtrlNbr, departmentCtrlNbr, ct);
     }
 
     public async Task<AbsenceRequest> ApproveAsync(ControlNumber ctrlNbr, ControlNumber approvedByCtrlNbr)
@@ -101,6 +104,18 @@ public sealed class AbsenceRequestService(IOrchestrationUnitOfWorkFactory uowFac
         var absence = await uow.AbsenceRequests.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
         absence.Cancel();
+        uow.AbsenceRequests.Update(absence);
+        await uow.CommitAsync();
+        return absence;
+    }
+
+    public async Task<AbsenceRequest> MarkOffAsync(ControlNumber ctrlNbr, DateTime exercisedUtc)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        var absence = await uow.AbsenceRequests.GetByCtrlNbrAsync(ctrlNbr)
+            ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
+
+        absence.Exercise(DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc));
         uow.AbsenceRequests.Update(absence);
         await uow.CommitAsync();
         return absence;

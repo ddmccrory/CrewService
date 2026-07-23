@@ -20,10 +20,7 @@ internal class AbsenceRequestConfiguration : IEntityTypeConfiguration<AbsenceReq
         builder.Property(r => r.ApprovedByCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(r => r.PositionSlotCtrlNbr).HasConversion(
-            c => c == null ? (long?)null : c.Value,
-            v => v == null ? null : ControlNumber.Create(v.Value));
-        builder.Property(r => r.StartUtc).IsRequired();
+        builder.Property(r => r.ScheduledStartUtc).IsRequired();
         builder.Property(r => r.ReasonCode).HasMaxLength(50).IsRequired();
         builder.Property(r => r.Status).HasMaxLength(20).IsRequired();
         builder.Property(r => r.Notes).HasMaxLength(1000);
@@ -34,8 +31,6 @@ internal class AbsenceRequestConfiguration : IEntityTypeConfiguration<AbsenceReq
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<AbsenceCode>().WithMany().HasForeignKey(r => r.AbsenceCodeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.ApprovedByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(r => r.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

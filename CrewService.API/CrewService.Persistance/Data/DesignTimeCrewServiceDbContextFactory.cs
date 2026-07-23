@@ -16,9 +16,7 @@ internal sealed class DesignTimeCrewServiceDbContextFactory
     public CrewServiceDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<CrewServiceDbContext>();
-        // In-memory data source: EF only needs the provider to scaffold migrations,
-        // never opens the connection, so no scratch file is written to the repo.
-        optionsBuilder.UseSqlite("Data Source=:memory:");
+        optionsBuilder.UseSqlite("Data Source=C:\\Projects\\CrewService\\CrewService.API\\CrewService.Persistance\\Data\\CrewService.db;Mode=ReadWriteCreate");
 
         return new CrewServiceDbContext(
             optionsBuilder.Options,

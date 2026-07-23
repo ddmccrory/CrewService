@@ -21,7 +21,6 @@ public sealed class AbsenceClient(
         long absenceCodeCtrlNbr,
         DateTime startUtc,
         DateTime? endUtc,
-        long? positionSlotCtrlNbr,
         string? notes,
         bool isSystemGenerated)
     {
@@ -38,13 +37,55 @@ public sealed class AbsenceClient(
             if (endUtc.HasValue)
                 request.EndUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(endUtc.Value, DateTimeKind.Utc));
 
-            if (positionSlotCtrlNbr.HasValue)
-                request.PositionSlotCtrlNbr = positionSlotCtrlNbr.Value;
-
             if (!string.IsNullOrWhiteSpace(notes))
                 request.Notes = notes;
 
             return await _client.CreateAbsenceRequestAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<AbsenceApprovalResponse> MarkOffAbsenceRequestAsync(long absenceRequestCtrlNbr)
+    {
+        try
+        {
+            var request = new MarkOffAbsenceMsg
+            {
+                AbsenceRequestCtrlNbr = absenceRequestCtrlNbr
+            };
+
+            return await _client.MarkOffAbsenceAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetMarkOffAbsenceRequestsResponse> GetScheduledAbsencesAsync(
+        long? workAreaGroupCtrlNbr = null,
+        long? craftCtrlNbr = null,
+        long? departmentCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetScheduledAbsencesMsg();
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (craftCtrlNbr.HasValue && craftCtrlNbr.Value > 0)
+                request.CraftCtrlNbr = craftCtrlNbr.Value;
+
+            if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            return await _client.GetScheduledAbsencesAsync(request);
         }
         catch (Exception ex)
         {
@@ -100,7 +141,9 @@ public sealed class AbsenceClient(
     public async Task<GetMarkOffAbsenceRequestsResponse> GetAbsenceRequestsAsync(
         DateTime requestDateUtc,
         bool includeAllStatuses,
-        long? workAreaGroupCtrlNbr = null)
+        long? workAreaGroupCtrlNbr = null,
+        long? craftCtrlNbr = null,
+        long? departmentCtrlNbr = null)
     {
         try
         {
@@ -113,6 +156,12 @@ public sealed class AbsenceClient(
             if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
                 request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
 
+            if (craftCtrlNbr.HasValue && craftCtrlNbr.Value > 0)
+                request.CraftCtrlNbr = craftCtrlNbr.Value;
+
+            if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
             return await _client.GetAbsenceRequestsAsync(request);
         }
         catch (Exception ex)
@@ -122,15 +171,31 @@ public sealed class AbsenceClient(
         }
     }
 
-    public async Task<GetOpenAbsencesResponse> GetOpenAbsencesAsync(DateTime rangeStartUtc, DateTime rangeEndUtc)
+    public async Task<GetOpenAbsencesResponse> GetOpenAbsencesAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        long? workAreaGroupCtrlNbr = null,
+        long? craftCtrlNbr = null,
+        long? departmentCtrlNbr = null)
     {
         try
         {
-            return await _client.GetOpenAbsencesAsync(new GetOpenAbsencesMsg
+            var request = new GetOpenAbsencesMsg
             {
                 RangeStartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc)),
                 RangeEndUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc))
-            });
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (craftCtrlNbr.HasValue && craftCtrlNbr.Value > 0)
+                request.CraftCtrlNbr = craftCtrlNbr.Value;
+
+            if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            return await _client.GetOpenAbsencesAsync(request);
         }
         catch (Exception ex)
         {

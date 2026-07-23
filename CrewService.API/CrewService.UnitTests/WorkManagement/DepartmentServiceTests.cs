@@ -169,6 +169,58 @@ public sealed class DepartmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetByParentAndRailroadAsync_SystemAdminRoleWithoutAssignmentsOrEmployee_ReturnsAllContextDepartments()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(ct);
+
+        await using (var seed = CreateReadContext())
+        {
+            seed.Set<Department>().AddRange(
+                Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical"),
+                Department.Create(parentCtrlNbr, railroadCtrlNbr, "Mechanical", "Vertical"));
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var systemAdminUser = new RoleCurrentUserService(_currentUser.GetUserId(), _currentUser.GetUserName(), Roles.SystemAdmin);
+        var service = BuildService(systemAdminUser);
+        var departments = await service.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+
+        Assert.Equal(2, departments.Count);
+        Assert.Contains(departments, d => d.Name == "Transportation");
+        Assert.Contains(departments, d => d.Name == "Mechanical");
+    }
+
+    [Fact]
+    public async Task GetByParentAndRailroadAsync_SystemAdminWithoutEmployee_ReturnsAllContextDepartments()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(ct);
+
+        await using (var seed = CreateReadContext())
+        {
+            seed.Set<Department>().AddRange(
+                Department.Create(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical"),
+                Department.Create(parentCtrlNbr, railroadCtrlNbr, "Mechanical", "Vertical"));
+
+            var role = Role.Create(Roles.SystemAdmin, "System admin", isSystem: true, level: 100);
+            var assignment = UserParentAssignment.Create(_currentUser.GetUserIdentifier()!, parentCtrlNbr, role.Name);
+
+            seed.Set<Role>().Add(role);
+            seed.Set<UserParentAssignment>().Add(assignment);
+
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var service = BuildService();
+        var departments = await service.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+
+        Assert.Equal(2, departments.Count);
+        Assert.Contains(departments, d => d.Name == "Transportation");
+        Assert.Contains(departments, d => d.Name == "Mechanical");
+    }
+
+    [Fact]
     public async Task GetByParentAndRailroadAsync_WithoutPermissionAndWithoutEmployee_ReturnsEmpty()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -236,16 +288,29 @@ public sealed class DepartmentServiceTests : IDisposable
         Assert.Empty(departments);
     }
 
-    private DepartmentService BuildService()
+    private DepartmentService BuildService(ICurrentUserService? currentUser = null)
     {
+        var effectiveCurrentUser = currentUser ?? _currentUser;
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
             _crewContext,
             _userContext,
-            _currentUser,
+            effectiveCurrentUser,
             NullLoggerFactory.Instance);
 
-        return new DepartmentService(factory, _currentUser);
+        return new DepartmentService(factory, effectiveCurrentUser);
+    }
+
+    private sealed class RoleCurrentUserService(Guid userId, string userName, params string[] roles) : ICurrentUserService
+    {
+        private readonly HashSet<string> _roles = new(roles, StringComparer.OrdinalIgnoreCase);
+
+        public Guid GetUserId() => userId;
+        public string GetUserName() => userName;
+        public string? GetUserIdentifier() => userId.ToString();
+        public bool IsInRole(string roleName) => _roles.Contains(roleName);
+        public long? GetParentCtrlNbr() => null;
+        public void SetAuditOverride(string name) { }
     }
 
     private async Task<(ControlNumber ParentCtrlNbr, ControlNumber RailroadCtrlNbr)> SeedParentAndRailroadAsync(CancellationToken ct)
