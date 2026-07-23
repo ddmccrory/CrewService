@@ -63,7 +63,7 @@ public class AbsencesTests
     {
         var source = File.ReadAllText(GetAbsencesRazorPath());
 
-        Assert.Contains("EmployeeClient.GetEligibleAbsenceEmployeesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("<CreateAbsenceRequestModal", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RosterClient.GetAllAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SeniorityClient.GetAllByRosterAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("item.LastActiveRoster", source, StringComparison.Ordinal);
@@ -73,21 +73,32 @@ public class AbsencesTests
     public void AbsencesPage_CreateRequestEmployees_DoesNotUnionParentAndRailroadEmployeeLists()
     {
         var source = File.ReadAllText(GetAbsencesRazorPath());
-        var methodSource = GetMethodSource(source, "private async Task LoadCreateRequestEmployeesAsync", "private async Task CreateRequestAsync");
 
-        Assert.DoesNotContain("EmployeeClient.GetAllAsync(SelectedRailroadCtrlNbr.Value)", methodSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("EmployeeClient.GetAllAsync(SelectedParentCtrlNbr.Value)", methodSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EmployeeClient.GetAllAsync(SelectedRailroadCtrlNbr.Value)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Union(", source, StringComparison.Ordinal);
     }
 
-    private static string GetMethodSource(string source, string methodStartMarker, string nextMethodMarker)
+    [Fact]
+    public void AbsencesPage_DecisionModal_ShowsApprovalLevelDescriptionAndApproverDropdown()
     {
-        var startIndex = source.IndexOf(methodStartMarker, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Method marker '{methodStartMarker}' not found.");
+        var source = File.ReadAllText(GetAbsencesRazorPath());
 
-        var endIndex = source.IndexOf(nextMethodMarker, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Method marker '{nextMethodMarker}' not found after '{methodStartMarker}'.");
+        Assert.Contains("Approval Level", source, StringComparison.Ordinal);
+        Assert.Contains("decisionApprovalLevelDescription", source, StringComparison.Ordinal);
+        Assert.Contains("Approver", source, StringComparison.Ordinal);
+        Assert.Contains("decisionApprovers", source, StringComparison.Ordinal);
+        Assert.Contains("InputSelect @bind-Value=\"decisionOfficerCtrlNbr\"", source, StringComparison.Ordinal);
+    }
 
-        return source[startIndex..endIndex];
+    [Fact]
+    public void AbsencesPage_DecisionFlow_UsesApprovalContextAndSelectedOfficer()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+
+        Assert.Contains("AbsenceClient.GetAbsenceApprovalContextAsync", source, StringComparison.Ordinal);
+        Assert.Contains("decisionOfficerCtrlNbr", source, StringComparison.Ordinal);
+        Assert.Contains("ApproveAbsenceRequestAsync(decisionRequestCtrlNbr, decisionOfficerCtrlNbr", source, StringComparison.Ordinal);
+        Assert.Contains("DeclineAbsenceRequestAsync(decisionRequestCtrlNbr, decisionOfficerCtrlNbr", source, StringComparison.Ordinal);
     }
 
     private static string GetAbsencesRazorPath()

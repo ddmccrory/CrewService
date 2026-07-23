@@ -46,6 +46,12 @@ service MarkOffSrvc {
   rpc GetScheduledAbsences (GetScheduledAbsencesMsg) returns (GetMarkOffAbsenceRequestsResponse) {
     option (google.api.http) = { get: "/v1/mark-off/scheduled-absences" };
   }
+  rpc GetAbsenceApprovalContext (GetAbsenceApprovalContextMsg) returns (GetAbsenceApprovalContextResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/approval-context/{absence_request_ctrl_nbr}" };
+  }
+  rpc GetCreateAbsenceApprovalContext (GetCreateAbsenceApprovalContextMsg) returns (GetAbsenceApprovalContextResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/create-approval-context" body: "*" };
+  }
 }
 
 message CreateAbsenceRequestMsg {
@@ -55,6 +61,8 @@ message CreateAbsenceRequestMsg {
   optional google.protobuf.Timestamp end_utc = 4;
   optional string notes = 5;
   bool is_system_generated = 6;
+  optional int64 approved_by_ctrl_nbr = 7;
+  bool auto_mark_off_on_approval = 8;
 }
 
 message MarkOffAbsenceResponse {
@@ -180,6 +188,7 @@ message GetAbsenceRequestsMsg {
   optional int64 work_area_group_ctrl_nbr = 3;
   optional int64 craft_ctrl_nbr = 4;
   optional int64 department_ctrl_nbr = 5;
+  optional int64 employee_ctrl_nbr = 6;
 }
 
 message GetOpenAbsencesMsg {
@@ -188,12 +197,39 @@ message GetOpenAbsencesMsg {
   optional int64 work_area_group_ctrl_nbr = 3;
   optional int64 craft_ctrl_nbr = 4;
   optional int64 department_ctrl_nbr = 5;
+  optional int64 employee_ctrl_nbr = 6;
 }
 
 message GetScheduledAbsencesMsg {
   optional int64 work_area_group_ctrl_nbr = 1;
   optional int64 craft_ctrl_nbr = 2;
   optional int64 department_ctrl_nbr = 3;
+  optional int64 employee_ctrl_nbr = 4;
+  bool current_month_only = 5;
+}
+
+message GetAbsenceApprovalContextMsg {
+  int64 absence_request_ctrl_nbr = 1;
+}
+
+message GetCreateAbsenceApprovalContextMsg {
+  int64 employee_ctrl_nbr = 1;
+  int64 absence_code_ctrl_nbr = 2;
+}
+
+message GetAbsenceApprovalContextResponse {
+  string approval_level = 1;
+  string approval_level_description = 2;
+  repeated AbsenceApprovalOfficerItem approvers = 3;
+  int64 default_officer_ctrl_nbr = 4;
+  bool can_select_approved_by = 5;
+}
+
+message AbsenceApprovalOfficerItem {
+  int64 officer_ctrl_nbr = 1;
+  string display_name = 2;
+  string employee_number = 3;
+  string role = 4;
 }
 
 message GetOpenAbsencesResponse {
@@ -219,4 +255,6 @@ message MarkOffAbsenceRequestListItem {
   optional string notes = 10;
   string start_local = 11;
   string end_local = 12;
+  string approval_level = 13;
+  string approval_level_description = 14;
 }

@@ -4,6 +4,7 @@ using CrewService.Application.Absence;
 using CrewService.Application.Time;
 using CrewService.Application.TenantConfig;
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -20,11 +21,34 @@ public class AbsenceService(IServiceProvider serviceProvider)
         serviceProvider.GetRequiredService<IRailroadResolver>();
     private readonly IWorkAreaClock _workAreaClock =
         serviceProvider.GetRequiredService<IWorkAreaClock>();
+    private readonly IOrchestrationUnitOfWorkFactory _uowFactory =
+        serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>();
 
     public override async Task<MarkOffAbsenceResponse> CreateAbsenceRequest(
         CreateAbsenceRequestMsg request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var actorContext = await _actorContextResolver.ResolveAsync(
+            requestedEmployeeCtrlNbr: request.EmployeeCtrlNbr,
+            ct: context.CancellationToken);
+
+        var approvedByCtrlNbr = request.HasApprovedByCtrlNbr
+            ? ControlNumber.Create(request.ApprovedByCtrlNbr)
+            : (ControlNumber?)null;
+
+        if (approvedByCtrlNbr is not null)
+        {
+            var createContext = await ResolveCreateApprovalContextAsync(
+                svc,
+                request.AbsenceCodeCtrlNbr,
+                actorContext,
+                context.CancellationToken);
+
+            var allowedOfficerCtrlNbrs = createContext.Approvers.Select(a => a.OfficerCtrlNbr).ToHashSet();
+            if (!allowedOfficerCtrlNbrs.Contains(approvedByCtrlNbr.Value))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Selected Approved By is not allowed for this request."));
+        }
+
         var absence = await svc.SubmitWithCodeAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
             request.StartUtc.ToDateTime(),
@@ -32,7 +56,10 @@ public class AbsenceService(IServiceProvider serviceProvider)
             ControlNumber.Create(request.AbsenceCodeCtrlNbr),
             "MARKOFF",
             request.IsSystemGenerated,
-            request.HasNotes ? request.Notes : null);
+            request.HasNotes ? request.Notes : null,
+            approvedByCtrlNbr,
+            request.AutoMarkOffOnApproval,
+            _workAreaClock.UtcNow.UtcDateTime);
 
         return new MarkOffAbsenceResponse
         {
@@ -41,8 +68,111 @@ public class AbsenceService(IServiceProvider serviceProvider)
             ReasonCode = absence.ReasonCode,
             Status = absence.Status,
             StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(absence.ScheduledStartUtc, DateTimeKind.Utc)),
-            IsSystemGenerated = absence.IsSystemGenerated,
+            IsSystemGenerated = absence.IsSystemGenerated
         };
+    }
+
+    public override async Task<GetAbsenceApprovalContextResponse> GetAbsenceApprovalContext(
+        GetAbsenceApprovalContextMsg request,
+        ServerCallContext context)
+    {
+        if (request.AbsenceRequestCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Absence request control number is required."));
+
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+
+        await using var uow = await _uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
+        var absenceRequest = await uow.AbsenceRequests.GetByCtrlNbrAsync(ControlNumber.Create(request.AbsenceRequestCtrlNbr), context.CancellationToken)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Absence request {request.AbsenceRequestCtrlNbr} not found."));
+
+        if (absenceRequest.AbsenceCodeCtrlNbr is null)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Absence request is missing an absence code."));
+
+        var actorContext = await _actorContextResolver.ResolveAsync(ct: context.CancellationToken);
+        if (!actorContext.ParentCtrlNbr.HasValue || actorContext.ParentCtrlNbr.Value <= 0)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Parent context is required."));
+
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
+
+        var policy = await svc.ResolveApprovalPolicyAsync(absenceRequest.AbsenceCodeCtrlNbr, context.CancellationToken);
+        var approvers = await svc.GetApprovalOfficersAsync(
+            ControlNumber.Create(actorContext.ParentCtrlNbr.Value),
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            policy.Level,
+            context.CancellationToken);
+
+        var response = new GetAbsenceApprovalContextResponse
+        {
+            ApprovalLevel = policy.Level.ToString(),
+            ApprovalLevelDescription = policy.Description,
+            DefaultOfficerCtrlNbr = approvers.FirstOrDefault()?.OfficerCtrlNbr ?? 0,
+            CanSelectApprovedBy = true
+        };
+
+        response.Approvers.AddRange(approvers.Select(a => new AbsenceApprovalOfficerItem
+        {
+            OfficerCtrlNbr = a.OfficerCtrlNbr,
+            DisplayName = a.FullName,
+            EmployeeNumber = a.EmployeeNumber,
+            Role = a.Role ?? string.Empty
+        }));
+
+        return response;
+    }
+
+    public override async Task<GetAbsenceApprovalContextResponse> GetCreateAbsenceApprovalContext(
+        GetCreateAbsenceApprovalContextMsg request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var actorContext = await _actorContextResolver.ResolveAsync(
+            requestedEmployeeCtrlNbr: request.EmployeeCtrlNbr > 0 ? request.EmployeeCtrlNbr : null,
+            ct: context.CancellationToken);
+
+        return await ResolveCreateApprovalContextAsync(
+            svc,
+            request.AbsenceCodeCtrlNbr,
+            actorContext,
+            context.CancellationToken);
+    }
+
+    private async Task<GetAbsenceApprovalContextResponse> ResolveCreateApprovalContextAsync(
+        AbsenceRequestService svc,
+        long absenceCodeCtrlNbr,
+        Application.Authorization.RequestActorContext actorContext,
+        CancellationToken ct)
+    {
+        if (!actorContext.ParentCtrlNbr.HasValue || actorContext.ParentCtrlNbr.Value <= 0)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Parent context is required."));
+
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(ct);
+        var policy = absenceCodeCtrlNbr > 0
+            ? await svc.ResolveApprovalPolicyAsync(ControlNumber.Create(absenceCodeCtrlNbr), ct)
+            : AbsenceApprovalPolicy.ForLevel(AbsenceApprovalLevel.CallerManager);
+
+        var approvers = await svc.GetApprovalOfficersAsync(
+            ControlNumber.Create(actorContext.ParentCtrlNbr.Value),
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            policy.Level,
+            ct);
+
+        var response = new GetAbsenceApprovalContextResponse
+        {
+            ApprovalLevel = policy.Level.ToString(),
+            ApprovalLevelDescription = policy.Description,
+            DefaultOfficerCtrlNbr = approvers.FirstOrDefault()?.OfficerCtrlNbr ?? 0,
+            CanSelectApprovedBy = true
+        };
+
+        response.Approvers.AddRange(approvers.Select(a => new AbsenceApprovalOfficerItem
+        {
+            OfficerCtrlNbr = a.OfficerCtrlNbr,
+            DisplayName = a.FullName,
+            EmployeeNumber = a.EmployeeNumber,
+            Role = a.Role ?? string.Empty
+        }));
+
+        return response;
     }
 
     public override async Task<AbsenceApprovalResponse> ApproveAbsence(
@@ -107,6 +237,14 @@ public class AbsenceService(IServiceProvider serviceProvider)
             request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
             context.CancellationToken);
 
+        if (request.HasEmployeeCtrlNbr)
+        {
+            var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+            requests = requests
+                .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
+                .ToList();
+        }
+
         var displayTimeZone = await ResolveDisplayTimeZoneAsync(
             request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
             context.CancellationToken);
@@ -132,49 +270,91 @@ public class AbsenceService(IServiceProvider serviceProvider)
             context.CancellationToken);
 
         var nowUtc = _workAreaClock.UtcNow.UtcDateTime;
-        var next24Utc = nowUtc.AddHours(24);
+        var railroadCtrlNbr = ControlNumber.Create(selectedRailroadCtrlNbr);
+        var craftCtrlNbr = request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null;
+        var departmentCtrlNbr = request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        var employeeCtrlNbr = request.HasEmployeeCtrlNbr ? ControlNumber.Create(request.EmployeeCtrlNbr) : null;
 
-        DateTime todayStartUtc;
-        DateTime todayEndUtc;
-
-        if (displayTimeZone is null)
+        List<AbsenceRequest> scheduled;
+        if (request.CurrentMonthOnly)
         {
-            todayStartUtc = nowUtc.Date;
-            todayEndUtc = todayStartUtc.AddDays(1);
+            DateTime monthStartUtc;
+            DateTime monthEndUtc;
+
+            if (displayTimeZone is null)
+            {
+                var nowUtcMonth = _workAreaClock.UtcNow.UtcDateTime;
+                monthStartUtc = new DateTime(nowUtcMonth.Year, nowUtcMonth.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                monthEndUtc = monthStartUtc.AddMonths(1);
+            }
+            else
+            {
+                var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(_workAreaClock.UtcNow.UtcDateTime, displayTimeZone);
+                var monthStartLocal = new DateTime(nowLocal.Year, nowLocal.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+                var monthEndLocal = monthStartLocal.AddMonths(1);
+                monthStartUtc = TimeZoneInfo.ConvertTimeToUtc(monthStartLocal, displayTimeZone);
+                monthEndUtc = TimeZoneInfo.ConvertTimeToUtc(monthEndLocal, displayTimeZone);
+            }
+
+            scheduled = await svc.GetByDateRangeAsync(
+                railroadCtrlNbr,
+                monthStartUtc,
+                monthEndUtc,
+                includeAllStatuses: true,
+                craftCtrlNbr,
+                departmentCtrlNbr,
+                context.CancellationToken);
         }
         else
         {
-            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, displayTimeZone);
-            var todayLocal = nowLocal.Date;
-            var startLocal = DateTime.SpecifyKind(todayLocal, DateTimeKind.Unspecified);
-            var endLocal = startLocal.AddDays(1);
-            todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, displayTimeZone);
-            todayEndUtc = TimeZoneInfo.ConvertTimeToUtc(endLocal, displayTimeZone);
+            var next24Utc = nowUtc.AddHours(24);
+
+            DateTime todayStartUtc;
+            DateTime todayEndUtc;
+
+            if (displayTimeZone is null)
+            {
+                todayStartUtc = nowUtc.Date;
+                todayEndUtc = todayStartUtc.AddDays(1);
+            }
+            else
+            {
+                var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, displayTimeZone);
+                var todayLocal = nowLocal.Date;
+                var startLocal = DateTime.SpecifyKind(todayLocal, DateTimeKind.Unspecified);
+                var endLocal = startLocal.AddDays(1);
+                todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, displayTimeZone);
+                todayEndUtc = TimeZoneInfo.ConvertTimeToUtc(endLocal, displayTimeZone);
+            }
+
+            var todayApproved = await svc.GetByDateRangeAsync(
+                railroadCtrlNbr,
+                todayStartUtc,
+                todayEndUtc,
+                includeAllStatuses: true,
+                craftCtrlNbr,
+                departmentCtrlNbr,
+                context.CancellationToken);
+
+            var next24Approved = await svc.GetByDateRangeAsync(
+                railroadCtrlNbr,
+                nowUtc,
+                next24Utc,
+                includeAllStatuses: true,
+                craftCtrlNbr,
+                departmentCtrlNbr,
+                context.CancellationToken);
+
+            scheduled = todayApproved
+                .Concat(next24Approved)
+                .GroupBy(r => r.CtrlNbr)
+                .Select(g => g.First())
+                .ToList();
         }
 
-        var todayApproved = await svc.GetByDateRangeAsync(
-            ControlNumber.Create(selectedRailroadCtrlNbr),
-            todayStartUtc,
-            todayEndUtc,
-            includeAllStatuses: true,
-            craftCtrlNbr: request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
-            departmentCtrlNbr: request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
-            context.CancellationToken);
-
-        var next24Approved = await svc.GetByDateRangeAsync(
-            ControlNumber.Create(selectedRailroadCtrlNbr),
-            nowUtc,
-            next24Utc,
-            includeAllStatuses: true,
-            craftCtrlNbr: request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
-            departmentCtrlNbr: request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
-            context.CancellationToken);
-
-        var scheduled = todayApproved
-            .Concat(next24Approved)
+        scheduled = scheduled
             .Where(r => string.Equals(r.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
-            .GroupBy(r => r.CtrlNbr)
-            .Select(g => g.First())
+            .Where(r => employeeCtrlNbr is null || r.EmployeeCtrlNbr == employeeCtrlNbr)
             .OrderBy(r => r.ScheduledStartUtc)
             .ToList();
 
@@ -207,6 +387,14 @@ public class AbsenceService(IServiceProvider serviceProvider)
             request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
             request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
             context.CancellationToken);
+
+        if (request.HasEmployeeCtrlNbr)
+        {
+            var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+            requests = requests
+                .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
+                .ToList();
+        }
 
         var displayTimeZone = await ResolveDisplayTimeZoneAsync(
             request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
@@ -269,6 +457,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
     private MarkOffAbsenceRequestListItem MapAbsenceRequest(AbsenceRequest request, TimeZoneInfo? displayTimeZone)
     {
         var scheduledStartUtc = DateTime.SpecifyKind(request.ScheduledStartUtc, DateTimeKind.Utc);
+        var approvalMetadata = ResolveApprovalMetadata(request);
         var item = new MarkOffAbsenceRequestListItem
         {
             CtrlNbr = request.CtrlNbr.Value,
@@ -279,7 +468,9 @@ public class AbsenceService(IServiceProvider serviceProvider)
             StartUtc = Timestamp.FromDateTime(scheduledStartUtc),
             StartLocal = _workAreaClock.FormatLocalIso(scheduledStartUtc, displayTimeZone),
             IsSystemGenerated = request.IsSystemGenerated,
-            IsWaitlisted = string.Equals(request.Status, "WAITLISTED", StringComparison.OrdinalIgnoreCase)
+            IsWaitlisted = string.Equals(request.Status, "WAITLISTED", StringComparison.OrdinalIgnoreCase),
+            ApprovalLevel = approvalMetadata.Level,
+            ApprovalLevelDescription = approvalMetadata.Description
         };
 
         var latestScheduledMarkUpUtc = request.MarkUps
@@ -329,6 +520,18 @@ public class AbsenceService(IServiceProvider serviceProvider)
             return "COMPLETED";
 
         return "EXERCISED";
+    }
+
+    private static (string Level, string Description) ResolveApprovalMetadata(AbsenceRequest request)
+    {
+        if (request.IsSystemGenerated || request.AbsenceCodeCtrlNbr is null)
+            return (AbsenceApprovalLevel.Automatic.ToString(), "Automatic approval (System)");
+
+        var hasSystemApproval = request.Approvals.Any(a => a.ApprovalOfficerCtrlNbr.Value == AbsenceRequestService.SystemApprovalOfficerCtrlNbr);
+        if (hasSystemApproval)
+            return (AbsenceApprovalLevel.Automatic.ToString(), "Automatic approval (System)");
+
+        return (AbsenceApprovalLevel.CallerManager.ToString(), "Caller or Manager approval required");
     }
 
     private async Task<TimeZoneInfo?> ResolveDisplayTimeZoneAsync(long? workAreaGroupCtrlNbr, CancellationToken ct)

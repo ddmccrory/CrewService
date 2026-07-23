@@ -9,7 +9,7 @@
 
 @if (ToolbarContent is not null || HasSearch)
 {
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="@ToolbarContainerClass">
         @if (ToolbarContent is not null)
         {
             @ToolbarContent
@@ -87,6 +87,7 @@ else
     [Parameter] public string? DefaultSortColumn { get; set; }
     [Parameter] public bool DefaultSortAscending { get; set; } = true;
     [Parameter] public Func<TItem, string?>? RowClass { get; set; }
+    [Parameter] public string ToolbarContainerClass { get; set; } = "d-flex justify-content-between align-items-center mb-3";
 
     private string searchText = string.Empty;
     private string sortColumn = "";

@@ -22,7 +22,9 @@
 @inject PoliciesClient PoliciesClient
 @inject NotificationsClient NotificationsClient
 @inject BulletinsClient BulletinsClient
+@inject AbsenceClient AbsenceClient
 @inject AccountClient AccountClient
+@inject RailroadReferenceDataService ReferenceData
 @inject AppThemeService AppThemeService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Nav
@@ -31,7 +33,7 @@
 
 @if (employee is null)
 {
-    <p><em>Loading...</em></p>
+    <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
 }
 else
 {
@@ -281,13 +283,12 @@ else
     {
         @if (workTabLoading)
         {
-            <div class="d-flex align-items-center gap-2 mt-3">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                <span>Loading work information...</span>
-            </div>
+            <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
         }
         else
         {
+            var canManageWorkActions = !IsFeatureReadOnly || IsOwnRecord;
+
             @* ── Seniority / Roster section ── *@
             <h5 class="mt-3">Seniority &amp; Roster</h5>
 
@@ -342,6 +343,14 @@ else
                                                href="/employees/seniority?roster=@entry.RosterCtrlNbr&craft=@entry.CraftCtrlNbr&employee=@CtrlNbr">
                                                 <span class="bi bi-list-ol me-1"></span>Seniority List
                                             </a>
+                                            @if (canManageWorkActions)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        @onclick="OpenEmployeeAbsenceRequestModal"
+                                                        disabled="@(absenceCodes.Count == 0)">
+                                                    <span class="bi bi-plus-circle me-1"></span>Absence Request
+                                                </button>
+                                            }
                                         </div>
                                     </td>
                                 </tr>
@@ -353,70 +362,91 @@ else
 
             <hr />
 
-            @* ── Seniority Moves section ── *@
-            <h5>Seniority Moves</h5>
+            @* ── Open On-Duty Records section ── *@
+            <h5>Open On-Duty Records</h5>
 
-            var openMoves = workProfile?.Moves
-                .Where(m => IsOpenMoveStatus(m.Status))
-                .OrderByDescending(m => m.RequestedLocal)
-                .ToList() ?? [];
-            var canManageWorkActions = !IsFeatureReadOnly || IsOwnRecord;
-            var showOpenMovesActionsColumn = canManageWorkActions && openMoves.Any(m => m.CanCancel);
-
-            @if (openMoves.Count == 0)
+            @if (openOnDutyRecords.Count == 0)
             {
-                <p class="text-muted">No open seniority moves on record for this employee.</p>
+                <p class="text-muted">This employee has no open on-duty records.</p>
             }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th>Move Type</th>
-                                <th>Moving To</th>
-                                <th>Requested</th>
-                                <th>Effective</th>
-                                <th>Status</th>
-                                 @if (showOpenMovesActionsColumn)
-                                 {
-                                     <th>Actions</th>
-                                 }
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var move in openMoves)
+                @RenderOnDutyTable(openOnDutyRecords, isHistory: false)
+            }
+
+            <hr />
+
+            @* ── Absence Requests section ── *@
+            <h5 class="mb-0">Absence Requests</h5>
+
+            @if (openEmployeeAbsences.Count == 0)
+            {
+                <p class="text-muted mt-2">No open absence records on file for this employee.</p>
+            }
+            else
+            {
+                <DataTable TItem="MarkOffAbsenceRequestListItem"
+                           Items="openEmployeeAbsences"
+                           Columns="EmployeeAbsenceColumns"
+                           SearchFilter="MatchesEmployeeAbsenceSearch"
+                           SearchPlaceholder="Filter open absences..."
+                           ToolbarContainerClass="d-flex justify-content-between align-items-center"
+                           DefaultSortColumn="Start"
+                           DefaultSortAscending="false">
+                    <RowContent Context="req">
+                        <td><span class="badge @GetAbsenceStatusBadge(req.Status)">OPEN</span></td>
+                        <td>@GetAbsenceReasonDisplay(req)</td>
+                        <td>@GetAbsenceStartDisplay(req)</td>
+                        <td>@GetAbsenceEndDisplay(req)</td>
+                        <td>
+                            @if (string.IsNullOrWhiteSpace(req.Notes))
                             {
-                                <tr>
-                                    <td>@move.MoveType</td>
-                                    <td>@(string.IsNullOrEmpty(move.TargetPositionName) ? "—" : move.TargetPositionName)</td>
-                                    <td>@FormatDisplayLocal(move.RequestedLocal)</td>
-                                    <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
-                                    <td>
-                                        <span class="badge @GetMoveBadgeClass(move.Status)">@move.Status</span>
-                                    </td>
-                                     @if (showOpenMovesActionsColumn)
-                                     {
-                                         <td>
-                                             <div class="d-flex gap-1 flex-nowrap">
-                                                 @* Cancel is available to staff with write access (admins) OR the
-                                                    employee viewing their own record. CanCancel encodes the
-                                                    status/cancel-window policy server-side. *@
-                                                 @if (canManageWorkActions && move.CanCancel)
-                                                 {
-                                                     <button class="btn btn-sm btn-outline-warning"
-                                                             @onclick="() => OpenWorkCancelModal(move)">
-                                                         <span class="bi bi-slash-circle"></span> Cancel
-                                                     </button>
-                                                 }
-                                             </div>
-                                         </td>
-                                     }
-                                </tr>
+                                <span>—</span>
                             }
-                        </tbody>
-                    </table>
-                </div>
+                            else
+                            {
+                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
+                            }
+                        </td>
+                    </RowContent>
+                </DataTable>
+            }
+
+            <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
+                <h6 class="mb-0">Scheduled Absences (Current Month)</h6>
+                <span class="badge text-bg-secondary">@scheduledEmployeeAbsences.Count Scheduled</span>
+            </div>
+
+            @if (scheduledEmployeeAbsences.Count == 0)
+            {
+                <p class="text-muted">No scheduled absences in the current month.</p>
+            }
+            else
+            {
+                <DataTable TItem="MarkOffAbsenceRequestListItem"
+                           Items="scheduledEmployeeAbsences"
+                           Columns="EmployeeAbsenceColumns"
+                           SearchFilter="MatchesEmployeeAbsenceSearch"
+                           SearchPlaceholder="Filter scheduled absences..."
+                           ToolbarContainerClass="d-flex justify-content-between align-items-center"
+                           DefaultSortColumn="Start">
+                    <RowContent Context="req">
+                        <td><span class="badge @GetAbsenceStatusBadge(req.Status)">@req.Status</span></td>
+                        <td>@GetAbsenceReasonDisplay(req)</td>
+                        <td>@GetAbsenceStartDisplay(req)</td>
+                        <td>@GetAbsenceEndDisplay(req)</td>
+                        <td>
+                            @if (string.IsNullOrWhiteSpace(req.Notes))
+                            {
+                                <span>—</span>
+                            }
+                            else
+                            {
+                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
+                            }
+                        </td>
+                    </RowContent>
+                </DataTable>
             }
 
             @* ── Open Bulletin Bids section ── *@
@@ -484,17 +514,70 @@ else
                 </div>
             }
 
-            @* ── Open On-Duty Records section ── *@
+            @* ── Seniority Moves section ── *@
             <hr />
-            <h5>Open On-Duty Records</h5>
+            <h5>Seniority Moves</h5>
 
-            @if (openOnDutyRecords.Count == 0)
+            var openMoves = workProfile?.Moves
+                .Where(m => IsOpenMoveStatus(m.Status))
+                .OrderByDescending(m => m.RequestedLocal)
+                .ToList() ?? [];
+            var showOpenMovesActionsColumn = canManageWorkActions && openMoves.Any(m => m.CanCancel);
+
+            @if (openMoves.Count == 0)
             {
-                <p class="text-muted">This employee has no open on-duty records.</p>
+                <p class="text-muted">No open seniority moves on record for this employee.</p>
             }
             else
             {
-                @RenderOnDutyTable(openOnDutyRecords, isHistory: false)
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Move Type</th>
+                                <th>Moving To</th>
+                                <th>Requested</th>
+                                <th>Effective</th>
+                                <th>Status</th>
+                                @if (showOpenMovesActionsColumn)
+                                {
+                                    <th>Actions</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var move in openMoves)
+                            {
+                                <tr>
+                                    <td>@move.MoveType</td>
+                                    <td>@(string.IsNullOrEmpty(move.TargetPositionName) ? "—" : move.TargetPositionName)</td>
+                                    <td>@FormatDisplayLocal(move.RequestedLocal)</td>
+                                    <td>@FormatDisplayLocal(move.EffectiveLocal)</td>
+                                    <td>
+                                        <span class="badge @GetMoveBadgeClass(move.Status)">@move.Status</span>
+                                    </td>
+                                    @if (showOpenMovesActionsColumn)
+                                    {
+                                        <td>
+                                            <div class="d-flex gap-1 flex-nowrap">
+                                                @* Cancel is available to staff with write access (admins) OR the
+                                                   employee viewing their own record. CanCancel encodes the
+                                                   status/cancel-window policy server-side. *@
+                                                @if (canManageWorkActions && move.CanCancel)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-warning"
+                                                            @onclick="() => OpenWorkCancelModal(move)">
+                                                        <span class="bi bi-slash-circle"></span> Cancel
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
         }
     }
@@ -519,6 +602,22 @@ else
             </button>
         </Footer>
     </Modal>
+
+    <CreateAbsenceRequestModal Visible="showEmployeeAbsenceRequestModal"
+                              OnClose="CloseEmployeeAbsenceRequestModal"
+                              OnCreated="OnEmployeeAbsenceRequestCreatedAsync"
+                              OnError="OnEmployeeAbsenceRequestError"
+                              ShowApprovedBy="false"
+                              ParentCtrlNbr="SelectedParentCtrlNbr"
+                              RailroadCtrlNbr="SelectedRailroadCtrlNbr"
+                              SelectedCraftCtrlNbr="0"
+                              SelectedDepartmentCtrlNbr="0"
+                              SelectedWorkAreaCtrlNbr="selectedEmployeeAbsenceWorkAreaCtrlNbr"
+                              SelectedDate="DateTime.Today"
+                              DefaultEmployeeCtrlNbr="CtrlNbr"
+                              AbsenceCodes="absenceCodes"
+                              WorkAreas="employeeAbsenceWorkAreas"
+                              EmployeeDisplayLookup="employeeDisplayLookup" />
 
     @* ── Withdraw Bid Modal (Work tab) ── *@
     <Modal Visible="showWithdrawBidModal"
@@ -1089,10 +1188,7 @@ else
     {
         @if (notificationsLoading)
         {
-            <div class="d-flex align-items-center gap-2 mt-3">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                <span>Loading notifications...</span>
-            </div>
+            <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
         }
         else
         {
@@ -1148,10 +1244,7 @@ else
 
         @if (onDutyHistoryLoading)
         {
-            <div class="d-flex align-items-center gap-2 mt-3">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                <span>Loading on-duty history...</span>
-            </div>
+            <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
         }
         else if (onDutyHistoryRecords.Count == 0)
         {
@@ -1160,6 +1253,56 @@ else
         else
         {
             @RenderOnDutyTable(onDutyHistoryRecords, isHistory: true)
+        }
+    }
+
+    @if (activeTab == "absencehistory")
+    {
+        <div class="d-flex align-items-end gap-2 mt-3 mb-2" style="max-width: 320px;">
+            <div class="flex-grow-1">
+                <label class="form-label fw-semibold mb-1">Date</label>
+                <InputDate @bind-Value="selectedAbsenceHistoryDate" class="form-control" />
+            </div>
+            <button class="btn btn-outline-secondary" @onclick="LoadAbsenceHistoryTabAsync" disabled="absenceHistoryLoading">
+                <span class="bi bi-arrow-repeat"></span>
+            </button>
+        </div>
+
+        @if (absenceHistoryLoading)
+        {
+            <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
+        }
+        else if (absenceHistoryRecords.Count == 0)
+        {
+            <p class="text-muted">No absence records found for this date.</p>
+        }
+        else
+        {
+            <DataTable TItem="MarkOffAbsenceRequestListItem"
+                       Items="absenceHistoryRecords"
+                       Columns="EmployeeAbsenceColumns"
+                       SearchFilter="MatchesEmployeeAbsenceSearch"
+                       SearchPlaceholder="Filter absence history..."
+                       ToolbarContainerClass="d-flex justify-content-between align-items-center"
+                       DefaultSortColumn="Start"
+                       DefaultSortAscending="false">
+                <RowContent Context="req">
+                    <td><span class="badge @GetAbsenceStatusBadge(req.Status)">@req.Status</span></td>
+                    <td>@GetAbsenceReasonDisplay(req)</td>
+                    <td>@GetAbsenceStartDisplay(req)</td>
+                    <td>@GetAbsenceEndDisplay(req)</td>
+                    <td>
+                        @if (string.IsNullOrWhiteSpace(req.Notes))
+                        {
+                            <span>—</span>
+                        }
+                        else
+                        {
+                            <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
+                        }
+                    </td>
+                </RowContent>
+            </DataTable>
         }
     }
 
@@ -1191,6 +1334,17 @@ else
     private bool workTabLoaded;
     private bool workTabLoading;
     private readonly Dictionary<long, int> openBulletinCountsByCraft = [];
+    private List<MarkOffAbsenceRequestListItem> openEmployeeAbsences = [];
+    private List<MarkOffAbsenceRequestListItem> scheduledEmployeeAbsences = [];
+    private List<MarkOffAbsenceRequestListItem> absenceHistoryRecords = [];
+    private bool absenceHistoryLoaded;
+    private bool absenceHistoryLoading;
+    private DateTime selectedAbsenceHistoryDate = DateTime.Today;
+    private List<GroupResponse> employeeAbsenceWorkAreas = [];
+    private long selectedEmployeeAbsenceWorkAreaCtrlNbr;
+    private List<MarkOffCodeResponse> absenceCodes = [];
+    private readonly Dictionary<long, string> employeeDisplayLookup = [];
+    private bool showEmployeeAbsenceRequestModal;
 
     // ── On-Duty records (open on Work tab; completed on On-Duty History tab) ──
     private List<EmployeeOnDutyRecord> openOnDutyRecords = [];
@@ -1294,6 +1448,7 @@ else
         new("profile",       "Profile",           "bi-person"),
         new("usersettings",  "User Settings",     "bi-gear"),
         new("qualifications","Qualifications",    "bi-award"),
+        new("absencehistory", "Absence History",  "bi-calendar3"),
         new("ondutyhistory", "On-Duty History",   "bi-clock-history"),
         new("notifications", "Notifications",     "bi-bell")
     ];
@@ -1419,6 +1574,8 @@ else
 
         if (tab == "work" && !workTabLoaded)
             await LoadWorkTabAsync();
+        else if (tab == "absencehistory" && !absenceHistoryLoaded)
+            await LoadAbsenceHistoryTabAsync();
         else if (tab == "ondutyhistory" && !onDutyHistoryLoaded)
             await LoadOnDutyHistoryAsync();
         else if (tab == "notifications" && !notificationsLoaded)
@@ -1484,6 +1641,36 @@ else
             {
                 activeUserSettingsSection = requestedSettingsSection;
             }
+        }
+    }
+
+    private async Task LoadAbsenceHistoryTabAsync()
+    {
+        if (absenceHistoryLoading) return;
+        absenceHistoryLoading = true;
+        try
+        {
+            errorMessage = null;
+            var workAreaGroupCtrlNbr = selectedEmployeeAbsenceWorkAreaCtrlNbr > 0
+                ? selectedEmployeeAbsenceWorkAreaCtrlNbr
+                : (long?)null;
+            var response = await AbsenceClient.GetAbsenceRequestsAsync(
+                selectedAbsenceHistoryDate.Date,
+                includeAllStatuses: true,
+                workAreaGroupCtrlNbr: workAreaGroupCtrlNbr,
+                employeeCtrlNbr: CtrlNbr);
+            absenceHistoryRecords = response.Requests
+                .OrderByDescending(ResolveAbsenceSortUtc)
+                .ToList();
+            absenceHistoryLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load absence history: {ex.Message}";
+        }
+        finally
+        {
+            absenceHistoryLoading = false;
         }
     }
 
@@ -1976,6 +2163,9 @@ else
 
             workProfile = profileTask.Result;
             openOnDutyRecords = [.. openOnDutyTask.Result.Records];
+
+            await RefreshEmployeeAbsenceDataAsync();
+
             openBulletinCountsByCraft.Clear();
             foreach (var craftGroup in activeBulletinsTask.Result.Bulletins.GroupBy(b => b.CraftCtrlNbr))
                 openBulletinCountsByCraft[craftGroup.Key] = craftGroup.Count();
@@ -2075,6 +2265,163 @@ else
 
     private static bool IsOpenMoveStatus(string? status)
         => status is "Pending" or "Approved";
+
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> EmployeeAbsenceColumns =>
+    [
+        new("Status", req => req.Status),
+        new("Reason", req => GetAbsenceReasonDisplay(req)),
+        new("Start (Work Area Local)", req => ResolveAbsenceSortUtc(req), sortKey: "Start"),
+        new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+        new("Notes", req => req.Notes ?? string.Empty)
+    ];
+
+    private bool MatchesEmployeeAbsenceSearch(MarkOffAbsenceRequestListItem req, string term)
+    {
+        return req.Status.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || GetAbsenceReasonDisplay(req).Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(req.Notes) && req.Notes.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static DateTime ResolveAbsenceSortUtc(MarkOffAbsenceRequestListItem request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.StartLocal)
+            && DateTimeOffset.TryParse(request.StartLocal, out var parsedLocal))
+        {
+            return parsedLocal.UtcDateTime;
+        }
+
+        return request.StartUtc.ToDateTime();
+    }
+
+    private static string GetAbsenceStartDisplay(MarkOffAbsenceRequestListItem request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.StartLocal))
+            return FormatIsoForDisplay(request.StartLocal);
+
+        return request.StartUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm");
+    }
+
+    private static string GetAbsenceEndDisplay(MarkOffAbsenceRequestListItem request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.EndLocal))
+            return FormatIsoForDisplay(request.EndLocal);
+
+        return request.EndUtc is null ? "—" : request.EndUtc.ToDateTime().ToString("yyyy-MM-dd HH:mm");
+    }
+
+    private string GetAbsenceReasonDisplay(MarkOffAbsenceRequestListItem request)
+    {
+        if (request.AbsenceCodeCtrlNbr > 0 && absenceCodes.Any(c => c.CtrlNbr == request.AbsenceCodeCtrlNbr))
+        {
+            var code = absenceCodes.First(c => c.CtrlNbr == request.AbsenceCodeCtrlNbr);
+            return $"{code.Code} — {code.Description}";
+        }
+
+        return request.AbsenceCodeCtrlNbr > 0
+            ? $"Unknown absence code ({request.AbsenceCodeCtrlNbr})"
+            : "Unknown absence code";
+    }
+
+    private static string GetAbsenceStatusBadge(string? status) => status?.ToUpperInvariant() switch
+    {
+        "OPEN" => "text-bg-secondary",
+        "APPROVED" => "text-bg-success",
+        "EXERCISED" => "text-bg-info",
+        "DENIED" => "text-bg-danger",
+        "CANCELLED" => "text-bg-dark",
+        _ => "text-bg-secondary"
+    };
+
+    private static string FormatIsoForDisplay(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+            return parsed.ToString("yyyy-MM-dd HH:mm");
+
+        return iso;
+    }
+
+    private void OpenEmployeeAbsenceRequestModal()
+    {
+        errorMessage = null;
+        showEmployeeAbsenceRequestModal = true;
+    }
+
+    private Task CloseEmployeeAbsenceRequestModal()
+    {
+        showEmployeeAbsenceRequestModal = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnEmployeeAbsenceRequestCreatedAsync()
+    {
+        successMessage = "Absence request created.";
+        showEmployeeAbsenceRequestModal = false;
+        workTabLoaded = false;
+        await LoadWorkTabAsync();
+    }
+
+    private Task OnEmployeeAbsenceRequestError(string message)
+    {
+        errorMessage = message;
+        return Task.CompletedTask;
+    }
+
+    private async Task RefreshEmployeeAbsenceDataAsync()
+    {
+        var absenceCodesTask = AbsenceClient.GetAbsenceCodesAsync(activeOnly: true);
+        var workAreasTask = ReferenceData.GetWorkAreasAsync();
+        var employeeLookupTask = SelectedParentCtrlNbr.HasValue
+            ? EmployeeClient.GetAllAsync(SelectedParentCtrlNbr.Value)
+            : Task.FromResult(new GetAllEmployeesResponse());
+
+        await Task.WhenAll(absenceCodesTask, workAreasTask, employeeLookupTask);
+
+        absenceCodes = absenceCodesTask.Result.Codes.ToList();
+        employeeAbsenceWorkAreas = workAreasTask.Result.ToList();
+        selectedEmployeeAbsenceWorkAreaCtrlNbr = ResolveEmployeeAbsenceRequestWorkAreaCtrlNbr();
+
+        var workAreaGroupCtrlNbr = selectedEmployeeAbsenceWorkAreaCtrlNbr > 0
+            ? selectedEmployeeAbsenceWorkAreaCtrlNbr
+            : (long?)null;
+        var openAbsencesTask = AbsenceClient.GetOpenAbsencesAsync(
+            DateTime.UtcNow.AddDays(-31),
+            DateTime.UtcNow.AddDays(1),
+            workAreaGroupCtrlNbr: workAreaGroupCtrlNbr,
+            employeeCtrlNbr: CtrlNbr);
+        var scheduledAbsencesTask = AbsenceClient.GetScheduledAbsencesAsync(
+            workAreaGroupCtrlNbr: workAreaGroupCtrlNbr,
+            employeeCtrlNbr: CtrlNbr,
+            currentMonthOnly: true);
+
+        await Task.WhenAll(openAbsencesTask, scheduledAbsencesTask);
+
+        employeeDisplayLookup.Clear();
+        foreach (var emp in employeeLookupTask.Result.Employees.GroupBy(e => e.CtrlNbr).Select(g => g.First()))
+        {
+            var number = string.IsNullOrWhiteSpace(emp.EmployeeNumber) ? emp.CtrlNbr.ToString() : emp.EmployeeNumber;
+            var name = string.IsNullOrWhiteSpace(emp.FullNameLnf) ? "(No name)" : emp.FullNameLnf;
+            employeeDisplayLookup[emp.CtrlNbr] = $"{number} — {name}";
+        }
+
+        openEmployeeAbsences = openAbsencesTask.Result.Requests
+            .OrderByDescending(ResolveAbsenceSortUtc)
+            .ToList();
+
+        scheduledEmployeeAbsences = scheduledAbsencesTask.Result.Requests
+            .OrderBy(ResolveAbsenceSortUtc)
+            .ToList();
+    }
+
+    private long ResolveEmployeeAbsenceRequestWorkAreaCtrlNbr()
+    {
+        var openOnDutyWorkAreaCtrlNbr = openOnDutyRecords.FirstOrDefault(r => r.WorkAreaCtrlNbr > 0)?.WorkAreaCtrlNbr ?? 0;
+        if (openOnDutyWorkAreaCtrlNbr > 0 && employeeAbsenceWorkAreas.Any(w => w.CtrlNbr == openOnDutyWorkAreaCtrlNbr))
+            return openOnDutyWorkAreaCtrlNbr;
+
+        return employeeAbsenceWorkAreas.Count == 1
+            ? employeeAbsenceWorkAreas[0].CtrlNbr
+            : 0;
+    }
 
     private bool CanEditEmployeeDetail => employee?.Actions?.CanEditDetail ?? false;
     private bool IsUserSettingsReadOnly => !IsOwnRecord || !CanEditEmployeeDetail;

@@ -1,0 +1,449 @@
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inject AbsenceClient AbsenceClient
+@inject EmployeeClient EmployeeClient
+
+<Modal Visible="Visible"
+       Title="Create Absence Request"
+       Icon="bi bi-plus-circle"
+       OnClose="HandleCancel"
+       Size="xl">
+    <BodyContent>
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">@_errorMessage</div>
+        }
+
+        <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync" id="create-absence-request-form">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Employee</label>
+                @if (_isLoadingEmployees)
+                {
+                    <LoadingMessage />
+                }
+                else
+                {
+                    <FilterSelect TItem="EmployeePickerOption" TValue="long"
+                                  @bind-Value="_model.EmployeeCtrlNbr"
+                                  @bind-Value:after="OnEmployeeChangedAsync"
+                                  Items="_employees"
+                                  ValueSelector="@(e => e.CtrlNbr)"
+                                  TextSelector="@(e => e.DisplayText)"
+                                  Placeholder="-- Select employee (name or number) --"
+                                  Searchable="true"
+                                  class="form-control"
+                                  disabled="@(_employees.Count == 0)" />
+
+                    @if (_employees.Count == 0)
+                    {
+                        <div class="form-text text-warning">No employees are available.</div>
+                    }
+                }
+                <ValidationMessage For="() => _model.EmployeeCtrlNbr" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Absence Code</label>
+                <InputSelect @bind-Value="_model.AbsenceCodeCtrlNbr" @bind-Value:after="OnAbsenceCodeChangedAsync" class="form-select">
+                    <option value="0">-- Select Absence Code --</option>
+                    @foreach (var absenceCode in AbsenceCodes)
+                    {
+                        <option value="@absenceCode.CtrlNbr">@($"{absenceCode.Code} - {absenceCode.Description}")</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => _model.AbsenceCodeCtrlNbr" class="text-danger" />
+            </div>
+
+            @if (ShowApprovedBy)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Approved By (Optional)</label>
+                    <InputSelect @bind-Value="_model.ApprovedByCtrlNbr" @bind-Value:after="OnApprovedByChangedAsync" class="form-select" disabled="@(!_canSelectApprovedBy || _approvers.Count == 0)">
+                        <option value="0">-- None --</option>
+                        @foreach (var approver in _approvers)
+                        {
+                            <option value="@approver.OfficerCtrlNbr">@BuildApproverDisplay(approver)</option>
+                        }
+                    </InputSelect>
+                    @if (!_canSelectApprovedBy)
+                    {
+                        <div class="form-text">Approved By is not available in this request context.</div>
+                    }
+                </div>
+            }
+
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Start (Work Area Local)</label>
+                    <div class="input-group">
+                        <input type="datetime-local" class="form-control" value="@_model.StartUtcLocal" @onchange="OnStartUtcChanged" />
+                        <button type="button" class="btn btn-outline-secondary" @onclick="SetStartToNow">Now</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">End (Work Area Local)</label>
+                    <input type="datetime-local" class="form-control" value="@_model.EndUtcLocal" @onchange="OnEndUtcChanged" />
+                </div>
+            </div>
+
+            <div class="mb-0">
+                <label class="form-label fw-semibold">Notes (Optional)</label>
+                <InputTextArea @bind-Value="_model.Notes" class="form-control" rows="3" />
+            </div>
+
+            <div class="form-check form-switch mt-3">
+                <InputCheckbox @bind-Value="_model.AutoMarkOffOnApproval" class="form-check-input" id="autoMarkOffOnApproval" />
+                <label class="form-check-label" for="autoMarkOffOnApproval">Auto mark-off on approval</label>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_approvalLevelDescription))
+            {
+                <div class="mt-3">
+                    <label class="form-label fw-semibold">Approval Level</label>
+                    <div class="form-control-plaintext border rounded px-2 py-1 bg-body-tertiary">@_approvalLevelDescription</div>
+                </div>
+            }
+        </EditForm>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="HandleCancel">Cancel</button>
+        <button type="submit" form="create-absence-request-form" class="btn btn-primary" disabled="@(_isSaving || !CanSubmit)">Create</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnCreated { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+    [Parameter] public bool ShowApprovedBy { get; set; } = true;
+    [Parameter] public long? ParentCtrlNbr { get; set; }
+    [Parameter] public long? RailroadCtrlNbr { get; set; }
+    [Parameter] public long SelectedCraftCtrlNbr { get; set; }
+    [Parameter] public long SelectedDepartmentCtrlNbr { get; set; }
+    [Parameter] public long SelectedWorkAreaCtrlNbr { get; set; }
+    [Parameter] public DateTime SelectedDate { get; set; }
+    [Parameter] public long? DefaultEmployeeCtrlNbr { get; set; }
+    [Parameter] public IReadOnlyList<MarkOffCodeResponse> AbsenceCodes { get; set; } = [];
+    [Parameter] public IReadOnlyList<GroupResponse> WorkAreas { get; set; } = [];
+    [Parameter] public IReadOnlyDictionary<long, string> EmployeeDisplayLookup { get; set; } = new Dictionary<long, string>();
+
+    private bool _wasVisible;
+    private bool _isSaving;
+    private bool _isLoadingEmployees;
+    private bool _isStartSetByNowButton;
+    private string? _errorMessage;
+    private string _approvalLevelDescription = string.Empty;
+    private bool _canSelectApprovedBy;
+    private List<AbsenceApprovalOfficerItem> _approvers = [];
+    private List<EmployeePickerOption> _employees = [];
+    private CreateAbsenceRequestInputModel _model = new();
+
+    private bool CanSubmit
+        => _model.EmployeeCtrlNbr > 0
+            && _model.AbsenceCodeCtrlNbr > 0
+            && DateTime.TryParse(_model.StartUtcLocal, out var startLocal)
+            && (string.IsNullOrWhiteSpace(_model.EndUtcLocal)
+                || (DateTime.TryParse(_model.EndUtcLocal, out var endLocal) && endLocal >= startLocal));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && !_wasVisible)
+            await InitializeAsync();
+
+        _wasVisible = Visible;
+    }
+
+    private async Task InitializeAsync()
+    {
+        _errorMessage = null;
+        _model = CreateAbsenceRequestInputModel.CreateDefault(GetDefaultStartLocal());
+        _model.ApprovedByCtrlNbr = 0;
+        _isStartSetByNowButton = false;
+        _approvalLevelDescription = string.Empty;
+        _canSelectApprovedBy = true;
+        _approvers = [];
+        await LoadEmployeesAsync();
+        await RefreshApprovalContextAsync();
+    }
+
+    private DateTime GetDefaultStartLocal()
+        => new(SelectedDate.Year, SelectedDate.Month, SelectedDate.Day, 0, 1, 0, DateTimeKind.Unspecified);
+
+    private async Task LoadEmployeesAsync()
+    {
+        _employees = [];
+        _isLoadingEmployees = true;
+
+        try
+        {
+            if (!ParentCtrlNbr.HasValue || ParentCtrlNbr.Value <= 0 || !RailroadCtrlNbr.HasValue || RailroadCtrlNbr.Value <= 0)
+            {
+                _model.EmployeeCtrlNbr = 0;
+                return;
+            }
+
+            var response = await EmployeeClient.GetEligibleAbsenceEmployeesAsync(
+                ParentCtrlNbr.Value,
+                RailroadCtrlNbr.Value,
+                SelectedCraftCtrlNbr > 0 ? SelectedCraftCtrlNbr : 0,
+                SelectedDepartmentCtrlNbr > 0 ? SelectedDepartmentCtrlNbr : 0);
+
+            _employees = response.Employees
+                .Select(e => new EmployeePickerOption(
+                    e.CtrlNbr,
+                    string.IsNullOrWhiteSpace(e.EmployeeNumber) ? e.CtrlNbr.ToString() : e.EmployeeNumber,
+                    string.IsNullOrWhiteSpace(e.FullNameLnf) ? "(No name)" : e.FullNameLnf))
+                .OrderBy(e => e.EmployeeNumber)
+                .ThenBy(e => e.FullNameLnf)
+                .ToList();
+
+            if (DefaultEmployeeCtrlNbr.HasValue && _employees.Any(e => e.CtrlNbr == DefaultEmployeeCtrlNbr.Value))
+                _model.EmployeeCtrlNbr = DefaultEmployeeCtrlNbr.Value;
+            else if (_employees.Count == 1)
+                _model.EmployeeCtrlNbr = _employees[0].CtrlNbr;
+            else
+                _model.EmployeeCtrlNbr = 0;
+        }
+        catch (Exception ex)
+        {
+            _employees = [];
+            _model.EmployeeCtrlNbr = 0;
+            await SetErrorAsync($"Failed to load employees: {ex.Message}");
+        }
+        finally
+        {
+            _isLoadingEmployees = false;
+        }
+    }
+
+    private void SetStartToNow()
+    {
+        var workAreaTz = ResolveWorkAreaTimeZone();
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, workAreaTz);
+        _model.StartUtcLocal = nowLocal.ToString("yyyy-MM-ddTHH:mm");
+        _isStartSetByNowButton = true;
+
+        if (_model.ApprovedByCtrlNbr > 0)
+            _model.AutoMarkOffOnApproval = true;
+
+        ApplyDefaultEndFromAbsenceCode();
+    }
+
+    private TimeZoneInfo ResolveWorkAreaTimeZone()
+    {
+        var tzId = WorkAreas.FirstOrDefault(w => w.CtrlNbr == SelectedWorkAreaCtrlNbr)?.TimeZoneId;
+        if (string.IsNullOrWhiteSpace(tzId))
+            return TimeZoneInfo.Utc;
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
+
+    private async Task OnStartUtcChanged(ChangeEventArgs e)
+    {
+        _model.StartUtcLocal = e?.Value?.ToString() ?? string.Empty;
+        _isStartSetByNowButton = false;
+        await RefreshApprovalContextAsync();
+    }
+
+    private Task OnApprovedByChangedAsync()
+    {
+        if (_isStartSetByNowButton && _model.ApprovedByCtrlNbr > 0)
+            _model.AutoMarkOffOnApproval = true;
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnEndUtcChanged(ChangeEventArgs e)
+    {
+        _model.EndUtcLocal = e?.Value?.ToString() ?? string.Empty;
+        await RefreshApprovalContextAsync();
+    }
+
+    private async Task OnAbsenceCodeChangedAsync()
+    {
+        ApplyDefaultEndFromAbsenceCode();
+        await RefreshApprovalContextAsync();
+    }
+
+    private async Task OnEmployeeChangedAsync()
+    {
+        await RefreshApprovalContextAsync();
+    }
+
+    private void ApplyDefaultEndFromAbsenceCode()
+    {
+        if (_model.AbsenceCodeCtrlNbr <= 0)
+        {
+            _model.EndUtcLocal = string.Empty;
+            return;
+        }
+
+        var selectedCode = AbsenceCodes.FirstOrDefault(c => c.CtrlNbr == _model.AbsenceCodeCtrlNbr);
+        if (selectedCode is null || !selectedCode.HasDefaultAutoMarkUpHours || selectedCode.DefaultAutoMarkUpHours <= 0)
+        {
+            _model.EndUtcLocal = string.Empty;
+            return;
+        }
+
+        if (!DateTime.TryParse(_model.StartUtcLocal, out var startLocal))
+            return;
+
+        var endLocal = startLocal.AddHours(selectedCode.DefaultAutoMarkUpHours);
+        _model.EndUtcLocal = endLocal.ToString("yyyy-MM-ddTHH:mm");
+    }
+
+    private async Task RefreshApprovalContextAsync()
+    {
+        _approvalLevelDescription = string.Empty;
+        _canSelectApprovedBy = true;
+        _approvers = [];
+
+        if (!Visible)
+            return;
+
+        try
+        {
+            var context = await AbsenceClient.GetCreateAbsenceApprovalContextAsync(
+                _model.EmployeeCtrlNbr,
+                _model.AbsenceCodeCtrlNbr);
+
+            _approvalLevelDescription = context.ApprovalLevelDescription;
+            _canSelectApprovedBy = context.CanSelectApprovedBy;
+            _approvers = context.Approvers.ToList();
+        }
+        catch (Exception ex)
+        {
+            await SetErrorAsync($"Failed to load create approval context: {ex.Message}");
+        }
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (_model.AbsenceCodeCtrlNbr <= 0)
+        {
+            await SetErrorAsync("Absence code is required.");
+            return;
+        }
+
+        if (!DateTime.TryParse(_model.StartUtcLocal, out var startLocal))
+        {
+            await SetErrorAsync("Start date/time is required.");
+            return;
+        }
+
+        var workAreaTz = ResolveWorkAreaTimeZone();
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(startLocal, DateTimeKind.Unspecified), workAreaTz);
+
+        DateTime? endUtc = null;
+        if (!string.IsNullOrWhiteSpace(_model.EndUtcLocal))
+        {
+            if (!DateTime.TryParse(_model.EndUtcLocal, out var endLocal))
+            {
+                await SetErrorAsync("End date/time is invalid.");
+                return;
+            }
+
+            if (endLocal < startLocal)
+            {
+                await SetErrorAsync("End date/time must be on or after the start date/time.");
+                return;
+            }
+
+            endUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(endLocal, DateTimeKind.Unspecified), workAreaTz);
+        }
+
+        try
+        {
+            _isSaving = true;
+            _errorMessage = null;
+
+            await AbsenceClient.CreateAbsenceRequestAsync(
+                _model.EmployeeCtrlNbr,
+                _model.AbsenceCodeCtrlNbr,
+                startUtc,
+                endUtc,
+                _model.Notes,
+                false,
+                ShowApprovedBy && _canSelectApprovedBy && _model.ApprovedByCtrlNbr > 0 ? _model.ApprovedByCtrlNbr : null,
+                _model.AutoMarkOffOnApproval);
+
+            await OnCreated.InvokeAsync();
+            await HandleCancel();
+        }
+        catch (Exception ex)
+        {
+            await SetErrorAsync($"Failed to create absence request: {ex.Message}");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        _errorMessage = null;
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task SetErrorAsync(string message)
+    {
+        _errorMessage = message;
+        await OnError.InvokeAsync(message);
+    }
+
+    private string BuildApproverDisplay(AbsenceApprovalOfficerItem approver)
+    {
+        var baseDisplay = approver.DisplayName;
+
+        if (EmployeeDisplayLookup.TryGetValue(approver.OfficerCtrlNbr, out var employeeDisplay)
+            && !string.IsNullOrWhiteSpace(employeeDisplay))
+        {
+            baseDisplay = employeeDisplay;
+        }
+
+        if (string.IsNullOrWhiteSpace(approver.Role))
+            return baseDisplay;
+
+        return $"{baseDisplay} ({approver.Role})";
+    }
+
+    private sealed record EmployeePickerOption(long CtrlNbr, string EmployeeNumber, string FullNameLnf)
+    {
+        public string DisplayText => $"{EmployeeNumber} — {FullNameLnf}";
+    }
+
+    private sealed class CreateAbsenceRequestInputModel
+    {
+        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
+        public long EmployeeCtrlNbr { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue, ErrorMessage = "Absence code is required.")]
+        public long AbsenceCodeCtrlNbr { get; set; }
+
+        public long ApprovedByCtrlNbr { get; set; }
+        public bool AutoMarkOffOnApproval { get; set; }
+        public string StartUtcLocal { get; set; } = string.Empty;
+        public string EndUtcLocal { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+
+        public static CreateAbsenceRequestInputModel CreateDefault(DateTime startLocal)
+        {
+            return new CreateAbsenceRequestInputModel
+            {
+                StartUtcLocal = startLocal.ToString("yyyy-MM-ddTHH:mm")
+            };
+        }
+    }
+}

@@ -227,62 +227,30 @@ else if (HasRailroad)
                 }
                 else
                 {
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped align-middle mb-0" style="table-layout: fixed; width: 100%;">
-                            <colgroup>
-                                <col style="width: 10%;" />
-                                <col style="width: 26%;" />
-                                <col style="width: 17%;" />
-                                <col style="width: 15%;" />
-                                <col style="width: 15%;" />
-                                <col style="width:@(ShowScheduledActionsColumn ? "9%" : "17%")" />
-                                @if (ShowScheduledActionsColumn)
+                    <DataTable TItem="MarkOffAbsenceRequestListItem"
+                               Items="openAbsenceRecords"
+                               Columns="OpenAbsenceColumns"
+                               SearchFilter="MatchesAbsenceTableSearch"
+                               SearchPlaceholder="Filter open absences..."
+                               DefaultSortColumn="Start">
+                        <RowContent Context="req">
+                            <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
+                            <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
+                            <td>@GetReasonDisplay(req)</td>
+                            <td>@GetStartDisplay(req)</td>
+                            <td>@GetEndDisplay(req)</td>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(req.Notes))
                                 {
-                                    <col style="width: 8%;" />
+                                    <span>—</span>
                                 }
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Employee</th>
-                                    <th>Reason</th>
-                                    <th>Start (Work Area Local)</th>
-                                    <th>End (Work Area Local)</th>
-                                    <th>Notes</th>
-                                    @if (ShowScheduledActionsColumn)
-                                    {
-                                        <th></th>
-                                    }
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var req in openAbsenceRecords)
+                                else
                                 {
-                                    <tr>
-                                        <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
-                                        <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
-                                        <td>@GetReasonDisplay(req)</td>
-                                        <td>@GetStartDisplay(req)</td>
-                                        <td>@GetEndDisplay(req)</td>
-                                        <td>
-                                            @if (string.IsNullOrWhiteSpace(req.Notes))
-                                            {
-                                                <span>—</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                                            }
-                                        </td>
-                                        @if (ShowScheduledActionsColumn)
-                                        {
-                                            <td></td>
-                                        }
-                                    </tr>
+                                    <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
                                 }
-                            </tbody>
-                        </table>
-                    </div>
+                            </td>
+                        </RowContent>
+                    </DataTable>
                 }
 
                 <hr />
@@ -296,77 +264,49 @@ else if (HasRailroad)
                 {
                     <LoadingMessage ContainerClass="d-flex align-items-center gap-2 text-muted mb-2" />
                 }
-                else if (tomorrowRequests.Count == 0)
+                else if (next24HourScheduledAbsences.Count == 0)
                 {
                     <div class="alert alert-info mb-0">No absence requests found for the next 24 hours.</div>
                 }
                 else
                 {
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped align-middle mb-0" style="table-layout: fixed; width: 100%;">
-                            <colgroup>
-                                <col style="width: 10%;" />
-                                <col style="width: 26%;" />
-                                <col style="width: 17%;" />
-                                <col style="width: 15%;" />
-                                <col style="width: 15%;" />
-                                <col style="width:@(ShowScheduledActionsColumn ? "9%" : "17%")" />
-                                @if (ShowScheduledActionsColumn)
+                    <DataTable TItem="MarkOffAbsenceRequestListItem"
+                               Items="next24HourScheduledAbsences"
+                               Columns="ScheduledAbsenceColumns"
+                               SearchFilter="MatchesAbsenceTableSearch"
+                               SearchPlaceholder="Filter scheduled absences..."
+                               DefaultSortColumn="Start">
+                        <RowContent Context="req">
+                            <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
+                            <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
+                            <td>@GetReasonDisplay(req)</td>
+                            <td>@GetStartDisplay(req)</td>
+                            <td>@GetEndDisplay(req)</td>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(req.Notes))
                                 {
-                                    <col style="width: 8%;" />
+                                    <span>—</span>
                                 }
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Employee</th>
-                                    <th>Reason</th>
-                                    <th>Start (Work Area Local)</th>
-                                    <th>End (Work Area Local)</th>
-                                    <th>Notes</th>
-                                    @if (ShowScheduledActionsColumn)
+                                else
+                                {
+                                    <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
+                                }
+                            </td>
+                            @if (ShowScheduledActionsColumn)
+                            {
+                                <td class="text-end">
+                                    @if (IsStatus(req.Status, "APPROVED"))
                                     {
-                                        <th class="text-end">Actions</th>
+                                        <button class="btn btn-outline-primary btn-sm"
+                                                @onclick="() => OpenMarkOffModal(req.CtrlNbr)"
+                                                disabled="@isSaving">
+                                            Mark-off
+                                        </button>
                                     }
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var req in tomorrowRequests)
-                                {
-                                    <tr>
-                                        <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
-                                        <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
-                                        <td>@GetReasonDisplay(req)</td>
-                                        <td>@GetStartDisplay(req)</td>
-                                        <td>@GetEndDisplay(req)</td>
-                                        <td>
-                                            @if (string.IsNullOrWhiteSpace(req.Notes))
-                                            {
-                                                <span>—</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                                            }
-                                        </td>
-                                        @if (ShowScheduledActionsColumn)
-                                        {
-                                            <td class="text-end">
-                                                @if (IsStatus(req.Status, "APPROVED"))
-                                                {
-                                                    <button class="btn btn-outline-primary btn-sm"
-                                                            @onclick="() => OpenMarkOffModal(req.CtrlNbr)"
-                                                            disabled="@isSaving">
-                                                        Mark-off
-                                                    </button>
-                                                }
-                                            </td>
-                                        }
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </td>
+                            }
+                        </RowContent>
+                    </DataTable>
                 }
             </div>
         </div>
@@ -502,84 +442,40 @@ else if (HasRailroad)
         </Footer>
     </Modal>
 
-    <Modal Visible="showCreateRequestModal"
-           Title="Create Absence Request"
-           Icon="bi bi-plus-circle"
-           OnClose="CloseCreateRequestModal"
-           Size="xl">
-        <BodyContent>
-            <EditForm Model="createModel" OnValidSubmit="CreateRequestAsync" id="create-absence-request-form">
-                <DataAnnotationsValidator />
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Employee</label>
-                    @if (isLoadingCreateEmployees)
-                    {
-                        <LoadingMessage />
-                    }
-                    else
-                    {
-                        <FilterSelect TItem="EmployeePickerOption" TValue="long"
-                                      @bind-Value="createModel.EmployeeCtrlNbr"
-                                      Items="createRequestEmployees"
-                                      ValueSelector="@(e => e.CtrlNbr)"
-                                      TextSelector="@(e => e.DisplayText)"
-                                      Placeholder="-- Select employee (name or number) --"
-                                      Searchable="true"
-                                      class="form-control"
-                                      disabled="@(createRequestEmployees.Count == 0)" />
-
-                        @if (createRequestEmployees.Count == 0)
-                        {
-                            <div class="form-text text-warning">No employees are available.</div>
-                        }
-                    }
-                    <ValidationMessage For="() => createModel.EmployeeCtrlNbr" class="text-danger" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Absence Code</label>
-                    <InputSelect @bind-Value="createModel.AbsenceCodeCtrlNbr" @bind-Value:after="OnCreateAbsenceCodeChanged" class="form-select">
-                        <option value="0">-- Select Absence Code --</option>
-                        @foreach (var absenceCode in absenceCodes)
-                        {
-                            <option value="@absenceCode.CtrlNbr">@($"{absenceCode.Code} - {absenceCode.Description}")</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="() => createModel.AbsenceCodeCtrlNbr" class="text-danger" />
-                </div>
-
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Start (Work Area Local)</label>
-                        <div class="input-group">
-                            <input type="datetime-local" class="form-control" value="@createModel.StartUtcLocal" @onchange="OnStartUtcChanged" />
-                            <button type="button" class="btn btn-outline-secondary" @onclick="SetCreateStartToNow">Now</button>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">End (Work Area Local)</label>
-                        <input type="datetime-local" class="form-control" value="@createModel.EndUtcLocal" @onchange="OnEndUtcChanged" />
-                    </div>
-                </div>
-
-                <div class="mb-0">
-                    <label class="form-label fw-semibold">Notes (Optional)</label>
-                    <InputTextArea @bind-Value="createModel.Notes" class="form-control" rows="3" />
-                </div>
-            </EditForm>
-        </BodyContent>
-        <Footer>
-            <button type="button" class="btn btn-outline-secondary" @onclick="CloseCreateRequestModal">Cancel</button>
-            <button type="submit" form="create-absence-request-form" class="btn btn-primary" disabled="@(isSaving || !CanSubmitCreateRequest)">Create</button>
-        </Footer>
-    </Modal>
+    <CreateAbsenceRequestModal Visible="showCreateRequestModal"
+                              OnClose="CloseCreateRequestModal"
+                              OnCreated="OnCreateRequestCreatedAsync"
+                              OnError="OnCreateRequestError"
+                              ParentCtrlNbr="SelectedParentCtrlNbr"
+                              RailroadCtrlNbr="SelectedRailroadCtrlNbr"
+                              SelectedCraftCtrlNbr="selectedCraftCtrlNbr"
+                              SelectedDepartmentCtrlNbr="selectedDepartmentCtrlNbr"
+                              SelectedWorkAreaCtrlNbr="selectedWorkAreaCtrlNbr"
+                              SelectedDate="selectedDate"
+                              DefaultEmployeeCtrlNbr="DefaultCreateEmployeeCtrlNbr"
+                              AbsenceCodes="absenceCodes"
+                              WorkAreas="workAreas"
+                              EmployeeDisplayLookup="employeeDisplayLookup" />
 
     <Modal Visible="showDecisionModal"
            Title="@(decisionIsApprove ? "Approve Absence Request" : "Decline Absence Request")"
            Icon="@(decisionIsApprove ? "bi bi-check-circle" : "bi bi-x-circle")"
            OnClose="CloseDecisionModal">
         <BodyContent>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Approval Level</label>
+                <div class="form-control-plaintext border rounded px-2 py-1 bg-body-tertiary">@decisionApprovalLevelDescription</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Approved By</label>
+                <InputSelect @bind-Value="decisionOfficerCtrlNbr" class="form-select" disabled="@(decisionApprovers.Count == 0)">
+                    <option value="0">-- Select approver --</option>
+                    @foreach (var approver in decisionApprovers)
+                    {
+                        <option value="@approver.OfficerCtrlNbr">@BuildDecisionApproverDisplay(approver)</option>
+                    }
+                </InputSelect>
+            </div>
             <div class="mb-0">
                 <label class="form-label fw-semibold">Notes (optional)</label>
                 <InputTextArea @bind-Value="decisionNotes" class="form-control" rows="3" />
@@ -619,8 +515,12 @@ else if (HasRailroad)
     private bool showMarkOffModal;
     private bool decisionIsApprove;
     private long decisionRequestCtrlNbr;
+    private long decisionOfficerCtrlNbr;
     private long markOffRequestCtrlNbr;
     private string? decisionNotes;
+    private string decisionApprovalLevel = string.Empty;
+    private string decisionApprovalLevelDescription = string.Empty;
+    private List<AbsenceApprovalOfficerItem> decisionApprovers = [];
     private string selectedStatusFilter = "ALL";
     private List<MarkOffCodeResponse> absenceCodes = [];
     private Dictionary<long, bool> absenceCodeCompensationLookup = [];
@@ -629,13 +529,12 @@ else if (HasRailroad)
     private List<GroupResponse> workAreas = [];
     private List<DepartmentResponse> departments = [];
     private List<CraftResponse> crafts = [];
-    private CreateAbsenceRequestInputModel createModel = new();
+    private long? DefaultCreateEmployeeCtrlNbr;
     private List<MarkOffAbsenceRequestListItem> requests = [];
     private List<MarkOffAbsenceRequestListItem> openAbsenceRecords = [];
     private List<MarkOffAbsenceRequestListItem> tomorrowRequests = [];
     private bool isLoadingOpenAbsences;
     private bool isLoadingTomorrowRequests;
-    private bool isLoadingCreateEmployees;
     private bool isPageLoading = true;
     private string activeAbsenceTab = "open";
     private long selectedCraftCtrlNbr;
@@ -674,14 +573,44 @@ else if (HasRailroad)
         => !IsFeatureReadOnly
             && tomorrowRequests.Any(r => IsStatus(r.Status, "APPROVED"));
 
-    private List<EmployeePickerOption> createRequestEmployees = [];
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> OpenAbsenceColumns =>
+    [
+        new("Status", req => req.Status),
+        new("Employee", req => GetEmployeeDisplay(req.EmployeeCtrlNbr)),
+        new("Reason", req => GetReasonDisplay(req)),
+        new("Start (Work Area Local)", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
+        new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+        new("Notes", req => req.Notes ?? string.Empty)
+    ];
 
-    private bool CanSubmitCreateRequest
-        => createModel.EmployeeCtrlNbr > 0
-            && createModel.AbsenceCodeCtrlNbr > 0
-            && DateTime.TryParse(createModel.StartUtcLocal, out var startLocal)
-            && (string.IsNullOrWhiteSpace(createModel.EndUtcLocal)
-                || (DateTime.TryParse(createModel.EndUtcLocal, out var endLocal) && endLocal >= startLocal));
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> ScheduledAbsenceColumns
+    {
+        get
+        {
+            var columns = new List<DataTableColumn<MarkOffAbsenceRequestListItem>>
+            {
+                new("Status", req => req.Status),
+                new("Employee", req => GetEmployeeDisplay(req.EmployeeCtrlNbr)),
+                new("Reason", req => GetReasonDisplay(req)),
+                new("Start (Work Area Local)", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
+                new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+                new("Notes", req => req.Notes ?? string.Empty)
+            };
+
+            if (ShowScheduledActionsColumn)
+                columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("120px"));
+
+            return columns;
+        }
+    }
+
+    private bool MatchesAbsenceTableSearch(MarkOffAbsenceRequestListItem req, string term)
+    {
+        return req.Status.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || GetEmployeeDisplay(req.EmployeeCtrlNbr).Contains(term, StringComparison.OrdinalIgnoreCase)
+            || GetReasonDisplay(req).Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(req.Notes) && req.Notes.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
 
     protected override async Task LoadDataAsync()
     {
@@ -1097,198 +1026,33 @@ else if (HasRailroad)
 
     private async Task OpenCreateRequestModalAsync()
     {
-        createModel = CreateAbsenceRequestInputModel.CreateDefault(GetDefaultCreateStartLocal());
-        long? defaultEmployeeCtrlNbr = null;
+        DefaultCreateEmployeeCtrlNbr = null;
         if (CurrentUser.Employee?.CtrlNbr is long employeeCtrlNbr && employeeCtrlNbr > 0)
-            defaultEmployeeCtrlNbr = employeeCtrlNbr;
+            DefaultCreateEmployeeCtrlNbr = employeeCtrlNbr;
 
         showCreateRequestModal = true;
-        await LoadCreateRequestEmployeesAsync(defaultEmployeeCtrlNbr);
     }
 
-    private void CloseCreateRequestModal() => showCreateRequestModal = false;
-
-    private DateTime GetDefaultCreateStartLocal()
+    private Task CloseCreateRequestModal()
     {
-        return new DateTime(selectedDate.Year, selectedDate.Month, selectedDate.Day, 0, 1, 0, DateTimeKind.Unspecified);
-    }
-
-    private TimeZoneInfo ResolveSelectedWorkAreaTimeZone()
-    {
-        var tzId = workAreas.FirstOrDefault(w => w.CtrlNbr == selectedWorkAreaCtrlNbr)?.TimeZoneId;
-        if (string.IsNullOrWhiteSpace(tzId))
-            return TimeZoneInfo.Utc;
-
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById(tzId);
-        }
-        catch
-        {
-            return TimeZoneInfo.Utc;
-        }
-    }
-
-    private void SetCreateStartToNow()
-    {
-        var workAreaTz = ResolveSelectedWorkAreaTimeZone();
-        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, workAreaTz);
-        createModel.StartUtcLocal = nowLocal.ToString("yyyy-MM-ddTHH:mm");
-        ApplyDefaultEndFromAbsenceCode();
-    }
-
-    private void OnStartUtcChanged(ChangeEventArgs e) => createModel.StartUtcLocal = e?.Value?.ToString() ?? string.Empty;
-
-    private void OnEndUtcChanged(ChangeEventArgs e) => createModel.EndUtcLocal = e?.Value?.ToString() ?? string.Empty;
-
-    private Task OnCreateAbsenceCodeChanged()
-    {
-        ApplyDefaultEndFromAbsenceCode();
+        showCreateRequestModal = false;
+        DefaultCreateEmployeeCtrlNbr = null;
         return Task.CompletedTask;
     }
 
-    private void ApplyDefaultEndFromAbsenceCode()
+    private async Task OnCreateRequestCreatedAsync()
     {
-        if (createModel.AbsenceCodeCtrlNbr <= 0)
-        {
-            createModel.EndUtcLocal = string.Empty;
-            return;
-        }
-
-        var selectedCode = absenceCodes.FirstOrDefault(c => c.CtrlNbr == createModel.AbsenceCodeCtrlNbr);
-        if (selectedCode is null || !selectedCode.HasDefaultAutoMarkUpHours || selectedCode.DefaultAutoMarkUpHours <= 0)
-        {
-            createModel.EndUtcLocal = string.Empty;
-            return;
-        }
-
-        if (!DateTime.TryParse(createModel.StartUtcLocal, out var startLocal))
-            return;
-
-        var endLocal = startLocal.AddHours(selectedCode.DefaultAutoMarkUpHours);
-        createModel.EndUtcLocal = endLocal.ToString("yyyy-MM-ddTHH:mm");
+        successMessage = "Absence request created.";
+        monthCountsCache.Clear();
+        await LoadRequests();
+        _ = LoadMonthCountsAsync();
+        await RefreshOpenAbsencesSectionAsync();
     }
 
-    private async Task LoadCreateRequestEmployeesAsync(long? preferredEmployeeCtrlNbr = null)
+    private Task OnCreateRequestError(string message)
     {
-        createRequestEmployees = [];
-        isLoadingCreateEmployees = true;
-
-        try
-        {
-            if (!SelectedParentCtrlNbr.HasValue || !SelectedRailroadCtrlNbr.HasValue)
-            {
-                createModel.EmployeeCtrlNbr = 0;
-                return;
-            }
-
-            var response = await EmployeeClient.GetEligibleAbsenceEmployeesAsync(
-                SelectedParentCtrlNbr.Value,
-                SelectedRailroadCtrlNbr.Value,
-                selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : 0,
-                selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : 0);
-
-            var employees = response.Employees;
-
-            createRequestEmployees = employees
-                .Select(e => new EmployeePickerOption(
-                    e.CtrlNbr,
-                    string.IsNullOrWhiteSpace(e.EmployeeNumber) ? e.CtrlNbr.ToString() : e.EmployeeNumber,
-                    string.IsNullOrWhiteSpace(e.FullNameLnf) ? "(No name)" : e.FullNameLnf))
-                .OrderBy(e => e.EmployeeNumber)
-                .ThenBy(e => e.FullNameLnf)
-                .ToList();
-
-            if (preferredEmployeeCtrlNbr.HasValue
-                && createRequestEmployees.Any(e => e.CtrlNbr == preferredEmployeeCtrlNbr.Value))
-            {
-                createModel.EmployeeCtrlNbr = preferredEmployeeCtrlNbr.Value;
-            }
-            else if (createRequestEmployees.Count == 1)
-            {
-                createModel.EmployeeCtrlNbr = createRequestEmployees[0].CtrlNbr;
-            }
-            else if (!createRequestEmployees.Any(e => e.CtrlNbr == createModel.EmployeeCtrlNbr))
-            {
-                createModel.EmployeeCtrlNbr = 0;
-            }
-        }
-        catch (Exception ex)
-        {
-            createRequestEmployees = [];
-            createModel.EmployeeCtrlNbr = 0;
-            errorMessage = $"Failed to load employees: {ex.Message}";
-        }
-        finally
-        {
-            isLoadingCreateEmployees = false;
-        }
-    }
-
-    private async Task CreateRequestAsync()
-    {
-        if (createModel.AbsenceCodeCtrlNbr <= 0)
-        {
-            errorMessage = "Absence code is required.";
-            return;
-        }
-
-        if (!DateTime.TryParse(createModel.StartUtcLocal, out var startLocal))
-        {
-            errorMessage = "Start date/time is required.";
-            return;
-        }
-
-        var workAreaTz = ResolveSelectedWorkAreaTimeZone();
-        var startUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(startLocal, DateTimeKind.Unspecified), workAreaTz);
-
-        DateTime? endUtc = null;
-        if (!string.IsNullOrWhiteSpace(createModel.EndUtcLocal))
-        {
-            if (!DateTime.TryParse(createModel.EndUtcLocal, out var endLocal))
-            {
-                errorMessage = "End date/time is invalid.";
-                return;
-            }
-
-            if (endLocal < startLocal)
-            {
-                errorMessage = "End date/time must be on or after the start date/time.";
-                return;
-            }
-
-            endUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(endLocal, DateTimeKind.Unspecified), workAreaTz);
-        }
-
-        try
-        {
-            isSaving = true;
-            errorMessage = null;
-            successMessage = null;
-
-            await AbsenceClient.CreateAbsenceRequestAsync(
-                createModel.EmployeeCtrlNbr,
-                createModel.AbsenceCodeCtrlNbr,
-                startUtc,
-                endUtc,
-                createModel.Notes,
-                false);
-
-            successMessage = "Absence request created.";
-            showCreateRequestModal = false;
-            monthCountsCache.Clear();
-            await LoadRequests();
-            _ = LoadMonthCountsAsync();
-            await RefreshOpenAbsencesSectionAsync();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to create absence request: {ex.Message}";
-        }
-        finally
-        {
-            isSaving = false;
-        }
+        errorMessage = message;
+        return Task.CompletedTask;
     }
 
     private async Task LoadRequests()
@@ -1404,21 +1168,40 @@ else if (HasRailroad)
 
     private async Task ApproveRequest(long absenceRequestCtrlNbr)
     {
-        OpenDecisionModal(absenceRequestCtrlNbr, isApprove: true);
-        await Task.CompletedTask;
+        await OpenDecisionModalAsync(absenceRequestCtrlNbr, isApprove: true);
     }
 
     private async Task DeclineRequest(long absenceRequestCtrlNbr)
     {
-        OpenDecisionModal(absenceRequestCtrlNbr, isApprove: false);
-        await Task.CompletedTask;
+        await OpenDecisionModalAsync(absenceRequestCtrlNbr, isApprove: false);
     }
 
-    private void OpenDecisionModal(long absenceRequestCtrlNbr, bool isApprove)
+    private async Task OpenDecisionModalAsync(long absenceRequestCtrlNbr, bool isApprove)
     {
         decisionRequestCtrlNbr = absenceRequestCtrlNbr;
         decisionIsApprove = isApprove;
         decisionNotes = null;
+        decisionOfficerCtrlNbr = 0;
+        decisionApprovalLevel = string.Empty;
+        decisionApprovalLevelDescription = string.Empty;
+        decisionApprovers = [];
+        try
+        {
+            var context = await AbsenceClient.GetAbsenceApprovalContextAsync(absenceRequestCtrlNbr);
+            decisionApprovalLevel = context.ApprovalLevel;
+            decisionApprovalLevelDescription = context.ApprovalLevelDescription;
+            decisionApprovers = context.Approvers.ToList();
+            if (context.DefaultOfficerCtrlNbr > 0)
+                decisionOfficerCtrlNbr = context.DefaultOfficerCtrlNbr;
+            else if (decisionApprovers.Count == 1)
+                decisionOfficerCtrlNbr = decisionApprovers[0].OfficerCtrlNbr;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load approval context: {ex.Message}";
+            return;
+        }
+
         showDecisionModal = true;
     }
 
@@ -1426,7 +1209,11 @@ else if (HasRailroad)
     {
         showDecisionModal = false;
         decisionRequestCtrlNbr = 0;
+        decisionOfficerCtrlNbr = 0;
         decisionNotes = null;
+        decisionApprovalLevel = string.Empty;
+        decisionApprovalLevelDescription = string.Empty;
+        decisionApprovers = [];
     }
 
     private void OpenMarkOffModal(long absenceRequestCtrlNbr)
@@ -1474,12 +1261,11 @@ else if (HasRailroad)
 
     private async Task SubmitDecisionAsync()
     {
-        var officerCtrlNbr = CurrentUser.Employee?.CtrlNbr;
-        if (officerCtrlNbr is null || officerCtrlNbr <= 0)
+        if (decisionOfficerCtrlNbr <= 0)
         {
             errorMessage = decisionIsApprove
-                ? "Unable to approve request: current user is not linked to an employee record."
-                : "Unable to decline request: current user is not linked to an employee record.";
+                ? "Please select an approver before approving this request."
+                : "Please select an approver before declining this request.";
             return;
         }
 
@@ -1491,12 +1277,12 @@ else if (HasRailroad)
 
             if (decisionIsApprove)
             {
-                await AbsenceClient.ApproveAbsenceRequestAsync(decisionRequestCtrlNbr, officerCtrlNbr.Value, decisionNotes);
+                await AbsenceClient.ApproveAbsenceRequestAsync(decisionRequestCtrlNbr, decisionOfficerCtrlNbr, decisionNotes);
                 successMessage = "Absence request approved.";
             }
             else
             {
-                await AbsenceClient.DeclineAbsenceRequestAsync(decisionRequestCtrlNbr, officerCtrlNbr.Value, decisionNotes);
+                await AbsenceClient.DeclineAbsenceRequestAsync(decisionRequestCtrlNbr, decisionOfficerCtrlNbr, decisionNotes);
                 successMessage = "Absence request declined.";
             }
 
@@ -1620,32 +1406,21 @@ else if (HasRailroad)
         return iso;
     }
 
-    private sealed record EmployeePickerOption(long CtrlNbr, string EmployeeNumber, string FullNameLnf)
+    private string BuildDecisionApproverDisplay(AbsenceApprovalOfficerItem approver)
     {
-        public string DisplayText => $"{EmployeeNumber} — {FullNameLnf}";
-    }
+        var baseDisplay = approver.DisplayName;
 
-    private sealed class CreateAbsenceRequestInputModel
-    {
-        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue, ErrorMessage = "Employee is required.")]
-        public long EmployeeCtrlNbr { get; set; }
-
-        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue, ErrorMessage = "Absence code is required.")]
-        public long AbsenceCodeCtrlNbr { get; set; }
-
-        public string StartUtcLocal { get; set; } = string.Empty;
-        public string EndUtcLocal { get; set; } = string.Empty;
-        public string? Notes { get; set; }
-
-        public static CreateAbsenceRequestInputModel CreateDefault()
-            => CreateDefault(DateTime.UtcNow);
-
-        public static CreateAbsenceRequestInputModel CreateDefault(DateTime startLocal)
+        if (employeeDisplayLookup.TryGetValue(approver.OfficerCtrlNbr, out var employeeDisplay)
+            && !string.IsNullOrWhiteSpace(employeeDisplay))
         {
-            return new CreateAbsenceRequestInputModel
-            {
-                StartUtcLocal = startLocal.ToString("yyyy-MM-ddTHH:mm")
-            };
+            baseDisplay = employeeDisplay;
         }
+
+        if (string.IsNullOrWhiteSpace(approver.Role))
+            return baseDisplay;
+
+        return $"{baseDisplay} ({approver.Role})";
     }
+
+
 }
