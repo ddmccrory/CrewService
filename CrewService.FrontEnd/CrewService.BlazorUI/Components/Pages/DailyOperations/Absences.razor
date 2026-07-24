@@ -239,6 +239,16 @@ else if (HasRailroad)
                             <td>@GetReasonDisplay(req)</td>
                             <td>@GetStartDisplay(req)</td>
                             <td>@GetEndDisplay(req)</td>
+                            <td class="text-center" title="Auto mark-off on approval">
+                                @if (req.AutoMarkOffOnApproval)
+                                {
+                                    <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(req.Notes))
                                 {
@@ -282,6 +292,16 @@ else if (HasRailroad)
                             <td>@GetReasonDisplay(req)</td>
                             <td>@GetStartDisplay(req)</td>
                             <td>@GetEndDisplay(req)</td>
+                            <td class="text-center" title="Auto mark-off on approval">
+                                @if (req.AutoMarkOffOnApproval)
+                                {
+                                    <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(req.Notes))
                                 {
@@ -390,8 +410,9 @@ else if (HasRailroad)
                                 <th>Status</th>
                                 <th>Employee</th>
                                 <th>Reason</th>
-                                    <th>Start (Work Area Local)</th>
-                                    <th>End (Work Area Local)</th>
+                                <th>Start (Work Area Local)</th>
+                                <th>End (Work Area Local)</th>
+                                <th title="Auto mark-off on approval">AM</th>
                                 <th>Notes</th>
                                 @if (ShowRequestActionsColumn)
                                 {
@@ -408,6 +429,16 @@ else if (HasRailroad)
                                     <td>@GetReasonDisplay(req)</td>
                                     <td>@GetStartDisplay(req)</td>
                                     <td>@GetEndDisplay(req)</td>
+                                    <td class="text-center">
+                                        @if (req.AutoMarkOffOnApproval)
+                                        {
+                                            <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
                                     <td>
                                         @if (string.IsNullOrWhiteSpace(req.Notes))
                                         {
@@ -580,6 +611,7 @@ else if (HasRailroad)
         new("Reason", req => GetReasonDisplay(req)),
         new("Start (Work Area Local)", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
         new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+        new("AM", req => req.AutoMarkOffOnApproval),
         new("Notes", req => req.Notes ?? string.Empty)
     ];
 
@@ -594,6 +626,7 @@ else if (HasRailroad)
                 new("Reason", req => GetReasonDisplay(req)),
                 new("Start (Work Area Local)", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
                 new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+                new("AM", req => req.AutoMarkOffOnApproval),
                 new("Notes", req => req.Notes ?? string.Empty)
             };
 
