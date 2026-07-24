@@ -257,4 +257,5 @@ message MarkOffAbsenceRequestListItem {
   string end_local = 12;
   string approval_level = 13;
   string approval_level_description = 14;
+  bool auto_mark_off_on_approval = 15;
 }

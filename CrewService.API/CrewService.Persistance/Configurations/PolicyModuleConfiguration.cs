@@ -216,6 +216,8 @@ internal class AbsenceApprovalPolicyConfiguration : IEntityTypeConfiguration<Abs
 
         builder.Property(p => p.ApprovalLevel).HasMaxLength(30).IsRequired();
         builder.Property(p => p.IsEnabled).IsRequired();
+        builder.Property(p => p.AutoMarkOffIfWithinHoursEnabled).IsRequired();
+        builder.Property(p => p.AutoMarkOffIfWithinHours).IsRequired();
 
         builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(p => p.RailroadCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

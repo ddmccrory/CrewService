@@ -11,6 +11,7 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
@@ -102,6 +103,39 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
         Assert.Equal(DateTime.SpecifyKind(seeded.StateChangeEventUtc, DateTimeKind.Utc), nextForMatchingWorkArea!.NextUtc);
     }
 
+    [Fact]
+    public async Task ResolveAsync_MarkOff_ReturnsEarliestApprovedAutoMarkOffUtc()
+    {
+        var seeded = await SeedScenarioAsync();
+        var sut = CreateResolver();
+        var ct = TestContext.Current.CancellationToken;
+
+        var nowUtc = DateTime.UtcNow;
+        await using (var ctx = _host.CreateReadContext())
+        {
+            var req = AbsenceRequest.CreateWithCode(
+                seeded.EmployeeCtrlNbr,
+                nowUtc.AddMinutes(30),
+                null,
+                seeded.AbsenceCodeCtrlNbr,
+                "MARKOFF",
+                autoMarkOffOnApproval: true);
+            req.Approve(seeded.EmployeeCtrlNbr);
+
+            ctx.Set<AbsenceRequest>().Add(req);
+            await ctx.SaveChangesAsync(ct);
+        }
+
+        var next = await sut.ResolveAsync(
+            workerType: "MarkOff",
+            workAreaGroupCtrlNbr: seeded.WorkAreaOneCtrlNbr,
+            owningRailroadCtrlNbr: seeded.RailroadCtrlNbr,
+            ct);
+
+        Assert.NotNull(next);
+        Assert.Equal(DateTimeKind.Utc, next!.NextUtc.Kind);
+    }
+
     private BackgroundJobNextRunResolver CreateResolver()
     {
         var policiesService = CreatePoliciesService();
@@ -129,6 +163,7 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
         return new PoliciesService(
             _host.UowFactory,
             new SeniorityMoveSignal(),
+            new AbsenceMarkOffSignal(),
             new WorkAreaClock(TimeProvider.System, _host.UowFactory),
             notifications,
             new TestCurrentUserService(),
@@ -218,6 +253,20 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
         ctx.Employees.Add(employee);
         await ctx.SaveChangesAsync(ct);
 
+        var absenceCode = AbsenceCode.Create(
+            railroad.CtrlNbr.Value,
+            "MK",
+            "Mark Off",
+            isExcused: true,
+            isCompensated: false,
+            requiresApproval: true,
+            isSystemOnly: false,
+            isHolidayExempt: false,
+            defaultAutoMarkUpHours: null,
+            isActive: true);
+        ctx.Set<AbsenceCode>().Add(absenceCode);
+        await ctx.SaveChangesAsync(ct);
+
         var seniority = Seniority.Create(
             roster.CtrlNbr,
             employee.CtrlNbr,
@@ -277,6 +326,8 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
             railroad.CtrlNbr,
             workAreaOne.CtrlNbr,
             workAreaTwo.CtrlNbr,
+            employee.CtrlNbr,
+            absenceCode.CtrlNbr,
             DateTime.SpecifyKind(bulletinEffectiveUtc, DateTimeKind.Utc),
             DateTime.SpecifyKind(moveEventUtc, DateTimeKind.Utc),
             DateTime.SpecifyKind(stateChangeEventUtc, DateTimeKind.Utc));
@@ -286,6 +337,8 @@ public sealed class BackgroundJobNextRunResolverTests : IDisposable
         ControlNumber RailroadCtrlNbr,
         ControlNumber WorkAreaOneCtrlNbr,
         ControlNumber WorkAreaTwoCtrlNbr,
+        ControlNumber EmployeeCtrlNbr,
+        ControlNumber AbsenceCodeCtrlNbr,
         DateTime BulletinAssignmentReadyUtc,
         DateTime SeniorityMoveEventUtc,
         DateTime StateChangeEventUtc);

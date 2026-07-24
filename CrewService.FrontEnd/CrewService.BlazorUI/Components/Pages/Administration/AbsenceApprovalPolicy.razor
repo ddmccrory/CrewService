@@ -86,6 +86,27 @@ else
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoMarkOffIfWithinHoursEnabled" @bind="editModel.AutoMarkOffIfWithinHoursEnabled" />
+                            <label class="form-check-label" for="autoMarkOffIfWithinHoursEnabled">Auto mark-off if scheduled start is within threshold</label>
+                        </div>
+                        <div class="form-text">When enabled, approved mark-off requests can be processed before scheduled start if they fall within the configured hours.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="autoMarkOffIfWithinHours">Auto mark-off threshold (hours)</label>
+                        <input class="form-control"
+                               type="number"
+                               id="autoMarkOffIfWithinHours"
+                               min="0"
+                               max="720"
+                               @bind="editModel.AutoMarkOffIfWithinHours"
+                               disabled="@(!editModel.AutoMarkOffIfWithinHoursEnabled)" />
+                        <ValidationMessage For="() => editModel.AutoMarkOffIfWithinHours" class="text-danger" />
+                        <div class="form-text">Set to 0 to process only at scheduled time (never early).</div>
+                    </div>
+
                     @if (!IsFeatureReadOnly)
                     {
                         <button type="submit" class="btn btn-primary" disabled="@isSaving">
@@ -114,6 +135,11 @@ else
         public string ApprovalLevel { get; set; } = CallerManagerLevel;
 
         public bool IsEnabled { get; set; } = true;
+
+        public bool AutoMarkOffIfWithinHoursEnabled { get; set; }
+
+        [Range(0, 720, ErrorMessage = "Hours must be between 0 and 720.")]
+        public int AutoMarkOffIfWithinHours { get; set; }
     }
 
     private const string AutomaticLevel = "Automatic";
@@ -159,7 +185,9 @@ else
             editModel = new EditModel
             {
                 ApprovalLevel = NormalizeLevel(policy?.ApprovalLevel),
-                IsEnabled = policy?.IsEnabled ?? true
+                IsEnabled = policy?.IsEnabled ?? true,
+                AutoMarkOffIfWithinHoursEnabled = policy?.AutoMarkOffIfWithinHoursEnabled ?? false,
+                AutoMarkOffIfWithinHours = policy?.AutoMarkOffIfWithinHours ?? 0
             };
         }
         catch (Exception ex)
@@ -187,10 +215,14 @@ else
             var saved = await PoliciesClient.UpsertAbsenceApprovalPolicyAsync(
                 railroadCtrlNbr,
                 NormalizeLevel(editModel.ApprovalLevel),
-                editModel.IsEnabled);
+                editModel.IsEnabled,
+                editModel.AutoMarkOffIfWithinHoursEnabled,
+                editModel.AutoMarkOffIfWithinHours);
 
             editModel.ApprovalLevel = NormalizeLevel(saved.ApprovalLevel);
             editModel.IsEnabled = saved.IsEnabled;
+            editModel.AutoMarkOffIfWithinHoursEnabled = saved.AutoMarkOffIfWithinHoursEnabled;
+            editModel.AutoMarkOffIfWithinHours = saved.AutoMarkOffIfWithinHours;
             hasConfiguredPolicy = true;
             successMessage = "Absence approval policy saved.";
         }

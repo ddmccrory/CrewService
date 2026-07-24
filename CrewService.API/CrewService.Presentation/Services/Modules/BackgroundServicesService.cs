@@ -34,6 +34,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
     {
         "CallSheet",
         "Bulletin",
+        "MarkOff",
         "SeniorityMove",
         "SeniorityStateChange"
     };

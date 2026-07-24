@@ -71,6 +71,15 @@ public sealed class BackgroundJobNextRunResolver(
             return new BackgroundJobNextRunResult(DateTime.SpecifyKind(nextUtc.Value, DateTimeKind.Utc));
         }
 
+        if (workerType.Equals("MarkOff", StringComparison.OrdinalIgnoreCase))
+        {
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+            var nextUtc = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+            return nextUtc.HasValue
+                ? new BackgroundJobNextRunResult(DateTime.SpecifyKind(nextUtc.Value, DateTimeKind.Utc))
+                : null;
+        }
+
         return null;
     }
 

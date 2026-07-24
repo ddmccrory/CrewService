@@ -290,6 +290,7 @@ public sealed class PoliciesServiceNoAccessTests : IDisposable
         return new PoliciesService(
             _host.UowFactory,
             new SeniorityMoveSignal(),
+            new AbsenceMarkOffSignal(),
             new WorkAreaClock(TimeProvider.System, _host.UowFactory),
             notifications,
             new TestCurrentUserService(),

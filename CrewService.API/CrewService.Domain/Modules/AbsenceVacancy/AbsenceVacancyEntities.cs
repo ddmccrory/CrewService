@@ -16,6 +16,7 @@ public sealed class AbsenceRequest : Entity
     public ControlNumber? AbsenceCodeCtrlNbr { get; private set; }
     public DateTime? MarkOffStartUtc { get; private set; }
     public bool IsSystemGenerated { get; private set; }
+    public bool AutoMarkOffOnApproval { get; private set; }
 
     private readonly List<AbsenceApproval> _approvals = [];
     private readonly List<AbsenceMarkUp> _markUps = [];
@@ -42,7 +43,8 @@ public sealed class AbsenceRequest : Entity
     public static AbsenceRequest CreateWithCode(
         ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
         ControlNumber absenceCodeCtrlNbr, string reasonCode,
-        bool isSystemGenerated = false, string? notes = null)
+        bool isSystemGenerated = false, string? notes = null,
+        bool autoMarkOffOnApproval = false)
     {
         var request = new AbsenceRequest
         {
@@ -51,6 +53,7 @@ public sealed class AbsenceRequest : Entity
             ReasonCode = reasonCode,
             AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
             IsSystemGenerated = isSystemGenerated,
+            AutoMarkOffOnApproval = autoMarkOffOnApproval,
             Notes = notes
         };
         if (endUtc.HasValue)

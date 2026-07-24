@@ -20,7 +20,12 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<AbsenceApprovalPolicyResponse> UpsertAbsenceApprovalPolicyAsync(long railroadCtrlNbr, string approvalLevel, bool isEnabled)
+    public async Task<AbsenceApprovalPolicyResponse> UpsertAbsenceApprovalPolicyAsync(
+        long railroadCtrlNbr,
+        string approvalLevel,
+        bool isEnabled,
+        bool autoMarkOffIfWithinHoursEnabled,
+        int autoMarkOffIfWithinHours)
     {
         try
         {
@@ -28,7 +33,9 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
             {
                 RailroadCtrlNbr = railroadCtrlNbr,
                 ApprovalLevel = approvalLevel,
-                IsEnabled = isEnabled
+                IsEnabled = isEnabled,
+                AutoMarkOffIfWithinHoursEnabled = autoMarkOffIfWithinHoursEnabled,
+                AutoMarkOffIfWithinHours = autoMarkOffIfWithinHours
             });
         }
         catch (Exception ex) { LogException(ex); throw; }

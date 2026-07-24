@@ -168,6 +168,28 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
                 && r.Status == "APPROVED"
                 && !DbContext.Set<AbsenceMarkUp>().Any(m => m.AbsenceRequestCtrlNbr == r.CtrlNbr && m.ActualMarkUpUtc.HasValue))
             .ToListAsync();
+
+    public async Task<List<AbsenceRequest>> GetApprovedAutoMarkOffDueAsync(DateTime asOfUtc, CancellationToken ct = default)
+    {
+        var asOf = DateTime.SpecifyKind(asOfUtc, DateTimeKind.Utc);
+        return await DbContext.Set<AbsenceRequest>()
+            .Where(r => r.Status == "APPROVED"
+                && r.AutoMarkOffOnApproval
+                && r.MarkOffStartUtc == null
+                && r.ScheduledStartUtc <= asOf)
+            .OrderBy(r => r.ScheduledStartUtc)
+            .ThenBy(r => r.CtrlNbr)
+            .ToListAsync(ct);
+    }
+
+    public async Task<DateTime?> GetNextApprovedAutoMarkOffStartUtcAsync(CancellationToken ct = default)
+    {
+        return await DbContext.Set<AbsenceRequest>()
+            .Where(r => r.Status == "APPROVED"
+                && r.AutoMarkOffOnApproval
+                && r.MarkOffStartUtc == null)
+            .MinAsync(r => (DateTime?)r.ScheduledStartUtc, ct);
+    }
 }
 
 internal sealed class VacancyImpactRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
