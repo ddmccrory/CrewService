@@ -64,14 +64,32 @@ public class AbsenceCodeTests
             policy: Domain.Modules.Policies.AbsenceApprovalPolicy.Create(
                 railroadCtrlNbr: ControlNumber.Create(1),
                 approvalLevel: AbsenceApprovalPolicyLevel.ManagerOnly,
-                isEnabled: true));
+                isEnabled: true,
+                autoMarkOffIfWithinHoursEnabled: true,
+                autoMarkOffIfWithinHours: 6));
         var resolver = new DbAbsenceApprovalPolicyResolver(repository);
 
         var policy = await resolver.ResolveAsync(code, TestContext.Current.CancellationToken);
 
         Assert.Equal(AbsenceApprovalLevel.ManagerOnly, policy.Level);
         Assert.Equal("Manager approval required", policy.Description);
+        Assert.True(policy.AutoMarkOffIfWithinHoursEnabled);
+        Assert.Equal(6, policy.AutoMarkOffIfWithinHours);
         Assert.Equal(1, repository.GetByRailroadCallCount);
+    }
+
+    [Fact]
+    public void AbsenceApprovalPolicy_Create_WithAutoMarkOffThreshold_SetsProperties()
+    {
+        var policy = Domain.Modules.Policies.AbsenceApprovalPolicy.Create(
+            railroadCtrlNbr: ControlNumber.Create(7),
+            approvalLevel: AbsenceApprovalPolicyLevel.CallerManager,
+            isEnabled: true,
+            autoMarkOffIfWithinHoursEnabled: true,
+            autoMarkOffIfWithinHours: 4);
+
+        Assert.True(policy.AutoMarkOffIfWithinHoursEnabled);
+        Assert.Equal(4, policy.AutoMarkOffIfWithinHours);
     }
 
     private sealed class FakeAbsenceApprovalPolicyRepository(Domain.Modules.Policies.AbsenceApprovalPolicy? policy)
@@ -255,6 +273,22 @@ public class AbsenceRequestTests
         var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
 
         Assert.Throws<InvalidOperationException>(() => request.Exercise(DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void CreateWithCode_SetsAutoMarkOffOnApprovalFlag()
+    {
+        var request = AbsenceRequest.CreateWithCode(
+            employeeCtrlNbr: ControlNumber.Create(100),
+            startUtc: DateTime.UtcNow,
+            endUtc: null,
+            absenceCodeCtrlNbr: ControlNumber.Create(10),
+            reasonCode: "MARKOFF",
+            isSystemGenerated: false,
+            notes: null,
+            autoMarkOffOnApproval: true);
+
+        Assert.True(request.AutoMarkOffOnApproval);
     }
 }
 

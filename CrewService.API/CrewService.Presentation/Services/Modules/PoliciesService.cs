@@ -43,6 +43,8 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
                 request.RailroadCtrlNbr,
                 request.ApprovalLevel,
                 request.IsEnabled,
+                request.AutoMarkOffIfWithinHoursEnabled,
+                request.AutoMarkOffIfWithinHours,
                 context.CancellationToken);
 
             return MapAbsenceApprovalPolicy(policy);
@@ -102,7 +104,9 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         CtrlNbr = p.CtrlNbr.Value,
         RailroadCtrlNbr = p.RailroadCtrlNbr.Value,
         ApprovalLevel = p.ApprovalLevel,
-        IsEnabled = p.IsEnabled
+        IsEnabled = p.IsEnabled,
+        AutoMarkOffIfWithinHoursEnabled = p.AutoMarkOffIfWithinHoursEnabled,
+        AutoMarkOffIfWithinHours = p.AutoMarkOffIfWithinHours
     };
 
     public override async Task<DisplacementPolicyResponse> GetDisplacementPolicy(GetDisplacementPolicyRequest request, ServerCallContext context)

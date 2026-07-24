@@ -160,13 +160,58 @@ public sealed class VacancyAssignmentWorker(
 
 public sealed class MarkOffRequestWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<MarkOffRequestWorker> logger)
+    ILogger<MarkOffRequestWorker> logger,
+    IAbsenceMarkOffSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "MarkOff", TimeSpan.FromMinutes(1))
 {
-    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override bool UseDueScheduleGate => false;
+
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        return Task.FromResult(false);
+        using var scope = ScopeFactory.CreateScope();
+        var absenceRequestService = scope.ServiceProvider.GetRequiredService<AbsenceVacancy.AbsenceRequestService>();
+        var nextEvent = await absenceRequestService.GetNextApprovedAutoMarkOffStartUtcAsync(cancellationToken);
+
+        if (nextEvent.HasValue)
+        {
+            scheduleSignal.Notify(nextEvent.Value);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "MarkOffRequestWorker: Startup — next auto mark-off event at {NextEvent:u}.", nextEvent.Value);
+            }
+        }
+        else
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("MarkOffRequestWorker: Startup — no pending auto mark-off events.");
+        }
+
+        await base.StartAsync(cancellationToken);
     }
+
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var absenceRequestService = services.GetRequiredService<AbsenceVacancy.AbsenceRequestService>();
+        var processed = await absenceRequestService.ExecuteDueAutoMarkOffAsync(DateTime.UtcNow, ct);
+
+        if (processed > 0)
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("MarkOffRequestWorker: Auto marked off {Count} approved request(s).", processed);
+        }
+
+        var nextEvent = await absenceRequestService.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+        if (nextEvent.HasValue)
+            scheduleSignal.Notify(nextEvent.Value);
+
+        return processed > 0;
+    }
+
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
+
+    protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 }
 
 public sealed class AutoMarkUpWorker(

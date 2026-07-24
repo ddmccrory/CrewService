@@ -16,7 +16,7 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, IncumbentAssignmentPath? incumbentAssignmentPath = null)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IAbsenceMarkOffSignal absenceMarkOffSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
     private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
 
@@ -375,6 +375,8 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         long railroadCtrlNbr,
         string approvalLevel,
         bool isEnabled,
+        bool autoMarkOffIfWithinHoursEnabled,
+        int autoMarkOffIfWithinHours,
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -383,15 +385,40 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         var existing = await uow.AbsenceApprovalPolicies.GetByRailroadAsync(railroadCn);
         if (existing is not null)
         {
-            existing.Update(approvalLevel, isEnabled);
+            existing.Update(
+                approvalLevel,
+                isEnabled,
+                autoMarkOffIfWithinHoursEnabled,
+                autoMarkOffIfWithinHours);
             await uow.AbsenceApprovalPolicies.UpdateAsync(existing, ct);
             await uow.CommitAsync(ct);
+
+            if (isEnabled)
+            {
+                var nextAutoMarkOff = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+                if (nextAutoMarkOff.HasValue)
+                    absenceMarkOffSignal.Notify(nextAutoMarkOff.Value);
+            }
+
             return existing;
         }
 
-        var policy = AbsenceApprovalPolicy.Create(railroadCn, approvalLevel, isEnabled);
+        var policy = AbsenceApprovalPolicy.Create(
+            railroadCn,
+            approvalLevel,
+            isEnabled,
+            autoMarkOffIfWithinHoursEnabled,
+            autoMarkOffIfWithinHours);
         await uow.AbsenceApprovalPolicies.AddAsync(policy, ct);
         await uow.CommitAsync(ct);
+
+        if (isEnabled)
+        {
+            var nextAutoMarkOff = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+            if (nextAutoMarkOff.HasValue)
+                absenceMarkOffSignal.Notify(nextAutoMarkOff.Value);
+        }
+
         return policy;
     }
 

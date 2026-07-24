@@ -469,6 +469,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
             StartLocal = _workAreaClock.FormatLocalIso(scheduledStartUtc, displayTimeZone),
             IsSystemGenerated = request.IsSystemGenerated,
             IsWaitlisted = string.Equals(request.Status, "WAITLISTED", StringComparison.OrdinalIgnoreCase),
+            AutoMarkOffOnApproval = request.AutoMarkOffOnApproval,
             ApprovalLevel = approvalMetadata.Level,
             ApprovalLevelDescription = approvalMetadata.Description
         };

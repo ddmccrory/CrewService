@@ -227,6 +227,8 @@ public sealed class AbsenceApprovalPolicy : Entity
     public ControlNumber RailroadCtrlNbr { get; private set; }
     public string ApprovalLevel { get; private set; } = AbsenceApprovalPolicyLevel.CallerManager;
     public bool IsEnabled { get; private set; }
+    public bool AutoMarkOffIfWithinHoursEnabled { get; private set; }
+    public int AutoMarkOffIfWithinHours { get; private set; }
 
     private AbsenceApprovalPolicy()
     {
@@ -236,24 +238,36 @@ public sealed class AbsenceApprovalPolicy : Entity
     public static AbsenceApprovalPolicy Create(
         ControlNumber railroadCtrlNbr,
         string approvalLevel,
-        bool isEnabled = true)
+        bool isEnabled = true,
+        bool autoMarkOffIfWithinHoursEnabled = false,
+        int autoMarkOffIfWithinHours = 0)
     {
         ValidateApprovalLevel(approvalLevel);
+        ValidateAutoMarkOffThreshold(autoMarkOffIfWithinHours);
 
         return new AbsenceApprovalPolicy
         {
             RailroadCtrlNbr = railroadCtrlNbr,
             ApprovalLevel = approvalLevel,
-            IsEnabled = isEnabled
+            IsEnabled = isEnabled,
+            AutoMarkOffIfWithinHoursEnabled = autoMarkOffIfWithinHoursEnabled,
+            AutoMarkOffIfWithinHours = autoMarkOffIfWithinHours
         };
     }
 
-    public void Update(string approvalLevel, bool isEnabled)
+    public void Update(
+        string approvalLevel,
+        bool isEnabled,
+        bool autoMarkOffIfWithinHoursEnabled,
+        int autoMarkOffIfWithinHours)
     {
         ValidateApprovalLevel(approvalLevel);
+        ValidateAutoMarkOffThreshold(autoMarkOffIfWithinHours);
 
         ApprovalLevel = approvalLevel;
         IsEnabled = isEnabled;
+        AutoMarkOffIfWithinHoursEnabled = autoMarkOffIfWithinHoursEnabled;
+        AutoMarkOffIfWithinHours = autoMarkOffIfWithinHours;
     }
 
     private static void ValidateApprovalLevel(string approvalLevel)
@@ -267,6 +281,12 @@ public sealed class AbsenceApprovalPolicy : Entity
         {
             throw new InvalidOperationException($"Invalid absence approval level '{approvalLevel}'.");
         }
+    }
+
+    private static void ValidateAutoMarkOffThreshold(int autoMarkOffIfWithinHours)
+    {
+        if (autoMarkOffIfWithinHours < 0)
+            throw new InvalidOperationException("Auto mark-off threshold hours must be greater than or equal to 0.");
     }
 }
 

@@ -22,16 +22,23 @@ public sealed class StaticAbsenceApprovalPolicyResolver : IAbsenceApprovalPolicy
     }
 }
 
-public sealed record AbsenceApprovalPolicy(AbsenceApprovalLevel Level, string Description)
+public sealed record AbsenceApprovalPolicy(
+    AbsenceApprovalLevel Level,
+    string Description,
+    bool AutoMarkOffIfWithinHoursEnabled,
+    int AutoMarkOffIfWithinHours)
 {
-    public static AbsenceApprovalPolicy ForLevel(AbsenceApprovalLevel level)
+    public static AbsenceApprovalPolicy ForLevel(
+        AbsenceApprovalLevel level,
+        bool autoMarkOffIfWithinHoursEnabled = false,
+        int autoMarkOffIfWithinHours = 0)
     {
         return level switch
         {
-            AbsenceApprovalLevel.Automatic => new AbsenceApprovalPolicy(level, "Automatic approval (System)"),
-            AbsenceApprovalLevel.CallerManager => new AbsenceApprovalPolicy(level, "Caller or Manager approval required"),
-            AbsenceApprovalLevel.ManagerOnly => new AbsenceApprovalPolicy(level, "Manager approval required"),
-            _ => new AbsenceApprovalPolicy(AbsenceApprovalLevel.CallerManager, "Caller or Manager approval required")
+            AbsenceApprovalLevel.Automatic => new AbsenceApprovalPolicy(level, "Automatic approval (System)", autoMarkOffIfWithinHoursEnabled, autoMarkOffIfWithinHours),
+            AbsenceApprovalLevel.CallerManager => new AbsenceApprovalPolicy(level, "Caller or Manager approval required", autoMarkOffIfWithinHoursEnabled, autoMarkOffIfWithinHours),
+            AbsenceApprovalLevel.ManagerOnly => new AbsenceApprovalPolicy(level, "Manager approval required", autoMarkOffIfWithinHoursEnabled, autoMarkOffIfWithinHours),
+            _ => new AbsenceApprovalPolicy(AbsenceApprovalLevel.CallerManager, "Caller or Manager approval required", autoMarkOffIfWithinHoursEnabled, autoMarkOffIfWithinHours)
         };
     }
 }
@@ -51,7 +58,10 @@ public sealed class DbAbsenceApprovalPolicyResolver(IAbsenceApprovalPolicyReposi
             return GetFallbackPolicy(absenceCode);
 
         var level = ParseLevel(policy.ApprovalLevel);
-        return AbsenceApprovalPolicy.ForLevel(level);
+        return AbsenceApprovalPolicy.ForLevel(
+            level,
+            policy.AutoMarkOffIfWithinHoursEnabled,
+            policy.AutoMarkOffIfWithinHours);
     }
 
     private static AbsenceApprovalPolicy GetFallbackPolicy(AbsenceCode absenceCode)

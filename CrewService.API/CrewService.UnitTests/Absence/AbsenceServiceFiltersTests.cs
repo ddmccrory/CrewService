@@ -1,6 +1,7 @@
 using CrewService.Application.Absence;
 using CrewService.Application.AbsenceVacancy;
 using CrewService.Application.Authorization;
+using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
@@ -288,6 +289,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         services.AddSingleton<IRailroadResolver, NullRailroadResolver>();
         services.AddSingleton<IAbsenceCodeRepository, NullAbsenceCodeRepository>();
         services.AddSingleton<IAbsenceApprovalPolicyResolver, StaticAbsenceApprovalPolicyResolver>();
+        services.AddSingleton<IAbsenceMarkOffSignal, AbsenceMarkOffSignal>();
         services.AddTransient<AbsenceRequestService>();
 
         return new AbsenceService(services.BuildServiceProvider());
@@ -515,6 +517,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         protected override AuthContext AuthContextCore => new(string.Empty, new Dictionary<string, List<AuthProperty>>());
         protected override ContextPropagationToken CreatePropagationTokenCore(ContextPropagationOptions? options) => throw new NotSupportedException();
         protected override Task WriteResponseHeadersAsyncCore(Metadata responseHeaders) => Task.CompletedTask;
-        protected override IDictionary<object, object> UserStateCore => _httpContext.Items;
+        protected override IDictionary<object, object> UserStateCore =>
+            _httpContext.Items.ToDictionary(kvp => kvp.Key!, kvp => kvp.Value!);
     }
 }

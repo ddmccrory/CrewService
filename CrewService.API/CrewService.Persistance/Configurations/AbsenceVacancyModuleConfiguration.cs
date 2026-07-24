@@ -23,6 +23,7 @@ internal class AbsenceRequestConfiguration : IEntityTypeConfiguration<AbsenceReq
         builder.Property(r => r.ScheduledStartUtc).IsRequired();
         builder.Property(r => r.ReasonCode).HasMaxLength(50).IsRequired();
         builder.Property(r => r.Status).HasMaxLength(20).IsRequired();
+        builder.Property(r => r.AutoMarkOffOnApproval).IsRequired();
         builder.Property(r => r.Notes).HasMaxLength(1000);
 
         builder.HasMany(r => r.Approvals).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);

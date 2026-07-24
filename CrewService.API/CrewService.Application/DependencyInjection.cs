@@ -153,6 +153,10 @@ public static class DependencyInjection
         services.AddScoped<SeniorityMoveExecutionService>();
         services.AddHostedService<BackgroundWorkers.Workers.SeniorityMoveWorker>();
 
+        // Absence auto mark-off scheduling and execution
+        services.AddSingleton<IAbsenceMarkOffSignal, AbsenceMarkOffSignal>();
+        services.AddHostedService<BackgroundWorkers.Workers.MarkOffRequestWorker>();
+
         // B03 – Mark-Off
         services.AddScoped<AutoMarkUpService>();
         services.AddScoped<CompensationBalanceService>();

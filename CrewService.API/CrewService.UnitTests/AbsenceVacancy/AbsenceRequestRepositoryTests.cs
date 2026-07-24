@@ -5,6 +5,7 @@ using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Repositories;
 using CrewService.UnitTests.Fixtures;
 
@@ -571,6 +572,185 @@ public sealed class AbsenceRequestRepositoryTests : IDisposable
         Assert.Single(clericalResults);
         Assert.Equal(employee.CtrlNbr, clericalResults[0].EmployeeCtrlNbr);
         Assert.Empty(transportationResults);
+    }
+
+    [Fact]
+    public async Task GetApprovedAutoMarkOffDueAsync_ReturnsOnlyApprovedDueAutoMarkOffRequests()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var context = _factory.CreateContext();
+
+        var nowUtc = DateTime.UtcNow;
+        var parent = Parent.Create("Parent AutoMarkOff Due");
+        context.Parents.Add(parent);
+
+        var groupType = GroupType.Create("Railroad", "Railroad", isWorkArea: true);
+        context.Set<GroupType>().Add(groupType);
+        await context.SaveChangesAsync(ct);
+
+        var railroad = DynamicGroup.Create(
+            groupType.CtrlNbr,
+            "Test Railroad",
+            parentGroupCtrlNbr: null,
+            path: null,
+            isWorkArea: false,
+            code: "TRR",
+            parentCtrlNbr: parent.CtrlNbr);
+        context.DynamicGroups.Add(railroad);
+        await context.SaveChangesAsync(ct);
+
+        var status = EmploymentStatus.Create(railroad.CtrlNbr, "ACT", "Active", 1, "A");
+        context.EmploymentStatuses.Add(status);
+        await context.SaveChangesAsync(ct);
+
+        var employee = CreateEmployee(
+            clientCtrlNbr: railroad.CtrlNbr,
+            employmentStatusCtrlNbr: status.CtrlNbr,
+            employeeNumber: "RR090",
+            userId: "rr090",
+            ssn: "000-00-0090");
+        context.Employees.Add(employee);
+        await context.SaveChangesAsync(ct);
+
+        var absenceCode = AbsenceCode.Create(
+            railroad.CtrlNbr.Value,
+            "MK",
+            "Mark Off",
+            isExcused: true,
+            isCompensated: false,
+            requiresApproval: true,
+            isSystemOnly: false,
+            isHolidayExempt: false,
+            defaultAutoMarkUpHours: null,
+            isActive: true);
+        context.Set<AbsenceCode>().Add(absenceCode);
+        await context.SaveChangesAsync(ct);
+
+        var due = AbsenceRequest.CreateWithCode(
+            employee.CtrlNbr,
+            nowUtc.AddMinutes(-5),
+            null,
+            absenceCode.CtrlNbr,
+            "MARKOFF",
+            autoMarkOffOnApproval: true);
+        due.Approve(employee.CtrlNbr);
+
+        var notDue = AbsenceRequest.CreateWithCode(
+            employee.CtrlNbr,
+            nowUtc.AddHours(2),
+            null,
+            absenceCode.CtrlNbr,
+            "MARKOFF",
+            autoMarkOffOnApproval: true);
+        notDue.Approve(employee.CtrlNbr);
+
+        var flagOff = AbsenceRequest.CreateWithCode(
+            employee.CtrlNbr,
+            nowUtc.AddMinutes(-2),
+            null,
+            absenceCode.CtrlNbr,
+            "MARKOFF",
+            autoMarkOffOnApproval: false);
+        flagOff.Approve(employee.CtrlNbr);
+
+        context.Set<AbsenceRequest>().AddRange(due, notDue, flagOff);
+        await context.SaveChangesAsync(ct);
+
+        var repository = new AbsenceRequestRepository(context, _factory.CurrentUserService);
+        var results = await repository.GetApprovedAutoMarkOffDueAsync(nowUtc, ct);
+
+        var request = Assert.Single(results);
+        Assert.Equal(due.CtrlNbr, request.CtrlNbr);
+    }
+
+    [Fact]
+    public async Task GetNextApprovedAutoMarkOffStartUtcAsync_ReturnsEarliestApprovedAutoMarkOffStart()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var context = _factory.CreateContext();
+
+        var nowUtc = DateTime.UtcNow;
+        var parent = Parent.Create("Parent AutoMarkOff Next");
+        context.Parents.Add(parent);
+
+        var groupType = GroupType.Create("Railroad", "Railroad", isWorkArea: true);
+        context.Set<GroupType>().Add(groupType);
+        await context.SaveChangesAsync(ct);
+
+        var railroad = DynamicGroup.Create(
+            groupType.CtrlNbr,
+            "Test Railroad",
+            parentGroupCtrlNbr: null,
+            path: null,
+            isWorkArea: false,
+            code: "TRR",
+            parentCtrlNbr: parent.CtrlNbr);
+        context.DynamicGroups.Add(railroad);
+        await context.SaveChangesAsync(ct);
+
+        var status = EmploymentStatus.Create(railroad.CtrlNbr, "ACT", "Active", 1, "A");
+        context.EmploymentStatuses.Add(status);
+        await context.SaveChangesAsync(ct);
+
+        var employee = CreateEmployee(
+            clientCtrlNbr: railroad.CtrlNbr,
+            employmentStatusCtrlNbr: status.CtrlNbr,
+            employeeNumber: "RR091",
+            userId: "rr091",
+            ssn: "000-00-0091");
+        context.Employees.Add(employee);
+        await context.SaveChangesAsync(ct);
+
+        var absenceCode = AbsenceCode.Create(
+            railroad.CtrlNbr.Value,
+            "MK",
+            "Mark Off",
+            isExcused: true,
+            isCompensated: false,
+            requiresApproval: true,
+            isSystemOnly: false,
+            isHolidayExempt: false,
+            defaultAutoMarkUpHours: null,
+            isActive: true);
+        context.Set<AbsenceCode>().Add(absenceCode);
+        await context.SaveChangesAsync(ct);
+
+        var later = AbsenceRequest.CreateWithCode(
+            employee.CtrlNbr,
+            nowUtc.AddHours(4),
+            null,
+            absenceCode.CtrlNbr,
+            "MARKOFF",
+            autoMarkOffOnApproval: true);
+        later.Approve(employee.CtrlNbr);
+
+        var earliest = AbsenceRequest.CreateWithCode(
+            employee.CtrlNbr,
+            nowUtc.AddMinutes(20),
+            null,
+            absenceCode.CtrlNbr,
+            "MARKOFF",
+            autoMarkOffOnApproval: true);
+        earliest.Approve(employee.CtrlNbr);
+
+        var alreadyExercised = AbsenceRequest.CreateWithCode(
+            employee.CtrlNbr,
+            nowUtc.AddMinutes(10),
+            null,
+            absenceCode.CtrlNbr,
+            "MARKOFF",
+            autoMarkOffOnApproval: true);
+        alreadyExercised.Approve(employee.CtrlNbr);
+        alreadyExercised.Exercise(nowUtc.AddMinutes(10));
+
+        context.Set<AbsenceRequest>().AddRange(later, earliest, alreadyExercised);
+        await context.SaveChangesAsync(ct);
+
+        var repository = new AbsenceRequestRepository(context, _factory.CurrentUserService);
+        var next = await repository.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+
+        Assert.NotNull(next);
+        Assert.Equal(DateTime.SpecifyKind(earliest.ScheduledStartUtc, DateTimeKind.Utc), DateTime.SpecifyKind(next.Value, DateTimeKind.Utc));
     }
 
     private static Employee CreateEmployee(
