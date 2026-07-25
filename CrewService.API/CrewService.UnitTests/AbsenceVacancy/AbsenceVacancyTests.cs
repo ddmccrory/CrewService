@@ -124,7 +124,7 @@ public class AbsenceRequestTests
     {
         var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
 
-        Assert.Equal("PENDING", request.Status);
+        Assert.Equal("PENDING", request.DerivedStatus);
         Assert.Equal("VAC", request.ReasonCode);
         Assert.Null(request.ApprovedByCtrlNbr);
         Assert.True(request.DomainEvents.Count > 0);
@@ -137,7 +137,7 @@ public class AbsenceRequestTests
 
         request.Approve(200);
 
-        Assert.Equal("APPROVED", request.Status);
+        Assert.Equal("APPROVED", request.DerivedStatus);
         Assert.Equal(200, request.ApprovedByCtrlNbr!.Value);
     }
 
@@ -148,7 +148,7 @@ public class AbsenceRequestTests
 
         request.Deny(200);
 
-        Assert.Equal("DENIED", request.Status);
+        Assert.Equal("DENIED", request.DerivedStatus);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class AbsenceRequestTests
 
         request.Cancel();
 
-        Assert.Equal("CANCELLED", request.Status);
+        Assert.Equal("CANCELLED", request.DerivedStatus);
     }
 
     [Fact]
@@ -171,7 +171,8 @@ public class AbsenceRequestTests
 
         request.CompleteByMarkUp(markUpTime);
 
-        Assert.Equal("EXERCISED", request.Status);
+        Assert.Equal("COMPLETE", request.DerivedStatus);
+        Assert.Single(request.EndRecords);
     }
 
     [Fact]
@@ -181,8 +182,8 @@ public class AbsenceRequestTests
 
         request.Approve(200);
 
-        Assert.Equal("APPROVED", request.Status);
-        Assert.Empty(request.MarkUps);
+        Assert.Equal("APPROVED", request.DerivedStatus);
+        Assert.Empty(request.EndRecords);
     }
 
     [Fact]
@@ -190,34 +191,39 @@ public class AbsenceRequestTests
     {
         var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
         request.Approve(200);
+        request.Exercise(DateTime.UtcNow);
         var completionUtc = DateTime.UtcNow.AddHours(4);
 
         request.CompleteByMarkUp(completionUtc);
 
-        Assert.Equal("EXERCISED", request.Status);
+        Assert.Equal("COMPLETE", request.DerivedStatus);
+        Assert.Single(request.EndRecords);
     }
 
     [Fact]
-    public void AddApproval_AddsToCollection()
+    public void Approve_SetsApprovedMetadata()
     {
         var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
 
-        var approval = request.AddApproval(ControlNumber.Create(200));
+        request.Approve(ControlNumber.Create(200));
 
-        Assert.Single(request.Approvals);
-        Assert.Equal(200, approval.ApprovalOfficerCtrlNbr.Value);
+        Assert.Equal(200, request.ApprovedByCtrlNbr!.Value);
+        Assert.NotNull(request.ApprovedAtUtc);
     }
 
     [Fact]
-    public void AddMarkUp_AddsToCollection()
+    public void AddEndRecord_AddsToCollection()
     {
         var request = AbsenceRequest.Create(100, DateTime.UtcNow, null, "VAC");
-        var scheduledTime = DateTime.UtcNow.AddHours(8);
+        request.Approve(ControlNumber.Create(200));
+        var startTime = DateTime.UtcNow;
+        request.AddStartRecord(startTime);
+        var endTime = startTime.AddHours(8);
 
-        var markUp = request.AddMarkUp(scheduledTime, true);
+        var endRecord = request.AddEndRecord(endTime, true);
 
-        Assert.Single(request.MarkUps);
-        Assert.True(markUp.IsAutoMarkUp);
+        Assert.Single(request.EndRecords);
+        Assert.True(endRecord.IsAutoEndRecord);
     }
 
     [Fact]
@@ -229,10 +235,11 @@ public class AbsenceRequestTests
 
         request.Exercise(exercisedUtc);
 
-        Assert.Equal("EXERCISED", request.Status);
+        Assert.Equal("OPEN", request.DerivedStatus);
         Assert.Equal(DateTime.SpecifyKind(exercisedUtc.AddHours(-1), DateTimeKind.Utc), request.ScheduledStartUtc);
-        Assert.Equal(DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc), request.MarkOffStartUtc);
-        Assert.Empty(request.MarkUps);
+        Assert.Single(request.StartRecords);
+        Assert.Equal(DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc), request.StartRecords[0].ActualStartUtc);
+        Assert.Empty(request.EndRecords);
     }
 
     [Fact]
@@ -246,11 +253,12 @@ public class AbsenceRequestTests
         request.Exercise(exercisedUtc);
 
         Assert.Equal(DateTime.SpecifyKind(scheduledStartUtc, DateTimeKind.Utc), request.ScheduledStartUtc);
-        Assert.Equal(DateTime.SpecifyKind(scheduledStartUtc, DateTimeKind.Utc), request.MarkOffStartUtc);
+        Assert.Single(request.StartRecords);
+        Assert.Equal(DateTime.SpecifyKind(scheduledStartUtc, DateTimeKind.Utc), request.StartRecords[0].ActualStartUtc);
     }
 
     [Fact]
-    public void Exercise_ApprovedRequestWithScheduledEnd_CreatesAutoMarkUp()
+    public void Exercise_ApprovedRequestWithScheduledEnd_DoesNotAutoCreateEndRecord()
     {
         var exercisedUtc = DateTime.UtcNow;
         var scheduledEndUtc = exercisedUtc.AddHours(8);
@@ -259,12 +267,9 @@ public class AbsenceRequestTests
 
         request.Exercise(exercisedUtc);
 
-        Assert.Equal("EXERCISED", request.Status);
-        Assert.Single(request.MarkUps);
-        var markUp = request.MarkUps[0];
-        Assert.Equal(DateTime.SpecifyKind(scheduledEndUtc, DateTimeKind.Utc), markUp.ScheduledMarkUpUtc);
-        Assert.True(markUp.IsAutoMarkUp);
-        Assert.Null(markUp.ActualMarkUpUtc);
+        Assert.Equal("OPEN", request.DerivedStatus);
+        Assert.Equal(DateTime.SpecifyKind(scheduledEndUtc, DateTimeKind.Utc), request.ScheduledEndUtc);
+        Assert.Empty(request.EndRecords);
     }
 
     [Fact]

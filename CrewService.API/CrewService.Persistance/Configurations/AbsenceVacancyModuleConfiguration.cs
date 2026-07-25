@@ -20,18 +20,29 @@ internal class AbsenceRequestConfiguration : IEntityTypeConfiguration<AbsenceReq
         builder.Property(r => r.ApprovedByCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(r => r.DeniedByCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+        builder.Property(r => r.CancelledByCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
         builder.Property(r => r.ScheduledStartUtc).IsRequired();
+        builder.Property(r => r.ScheduledEndUtc);
+        builder.Property(r => r.ApprovedAtUtc);
+        builder.Property(r => r.DeniedAtUtc);
+        builder.Property(r => r.CancelledAtUtc);
         builder.Property(r => r.ReasonCode).HasMaxLength(50).IsRequired();
-        builder.Property(r => r.Status).HasMaxLength(20).IsRequired();
         builder.Property(r => r.AutoMarkOffOnApproval).IsRequired();
         builder.Property(r => r.Notes).HasMaxLength(1000);
 
-        builder.HasMany(r => r.Approvals).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);
-        builder.HasMany(r => r.MarkUps).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(r => r.StartRecords).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(r => r.EndRecords).WithOne().HasForeignKey("AbsenceRequestCtrlNbr").OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<AbsenceCode>().WithMany().HasForeignKey(r => r.AbsenceCodeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.ApprovedByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.DeniedByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.CancelledByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -56,35 +67,36 @@ internal class VacancyImpactConfiguration : IEntityTypeConfiguration<VacancyImpa
     }
 }
 
-internal class AbsenceApprovalConfiguration : IEntityTypeConfiguration<AbsenceApproval>
+internal class AbsenceStartRecordConfiguration : IEntityTypeConfiguration<AbsenceStartRecord>
 {
-    public void Configure(EntityTypeBuilder<AbsenceApproval> builder)
+    public void Configure(EntityTypeBuilder<AbsenceStartRecord> builder)
     {
-        builder.HasKey(a => a.CtrlNbr);
-        builder.Property(a => a.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(a => a.AbsenceRequestCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(a => a.ApprovalOfficerCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(a => a.Status).HasMaxLength(20).IsRequired();
-        builder.Property(a => a.Notes).HasMaxLength(500);
+        builder.HasKey(s => s.CtrlNbr);
+        builder.Property(s => s.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(s => s.AbsenceRequestCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.HasIndex(s => s.AbsenceRequestCtrlNbr).IsUnique();
 
-        builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.ApprovalOfficerCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.ToTable("AbsenceStartRecords");
 
-        builder.OwnsOne(a => a.CreatedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(a => a.ModifiedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(a => a.DeletedBy, ab => { ab.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(s => s.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
 
-internal class AbsenceMarkUpConfiguration : IEntityTypeConfiguration<AbsenceMarkUp>
+internal class AbsenceEndRecordConfiguration : IEntityTypeConfiguration<AbsenceEndRecord>
 {
-    public void Configure(EntityTypeBuilder<AbsenceMarkUp> builder)
+    public void Configure(EntityTypeBuilder<AbsenceEndRecord> builder)
     {
-        builder.HasKey(m => m.CtrlNbr);
-        builder.Property(m => m.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(m => m.AbsenceRequestCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.HasKey(e => e.CtrlNbr);
+        builder.Property(e => e.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(e => e.AbsenceRequestCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.HasIndex(e => e.AbsenceRequestCtrlNbr).IsUnique();
 
-        builder.OwnsOne(m => m.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(m => m.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
-        builder.OwnsOne(m => m.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.ToTable("AbsenceEndRecords");
+
+        builder.OwnsOne(e => e.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(e => e.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(e => e.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }

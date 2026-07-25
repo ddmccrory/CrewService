@@ -1,0 +1,55 @@
+<Modal Visible="Visible"
+       Title="End Open Absence"
+       Icon="bi bi-calendar-check"
+       OnClose="OnCancel">
+    <BodyContent>
+        <p class="mb-3">Set the absence end date/time for this open record.</p>
+        <div class="mb-3">
+            <label class="form-label fw-semibold">End Date/Time*</label>
+            <div class="input-group">
+                <input type="datetime-local"
+                       class="form-control"
+                       value="@EndAbsenceDateTimeLocal.ToString("yyyy-MM-ddTHH:mm")"
+                       @onchange="OnEndAbsenceLocalChanged" />
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        @onclick="OnNextDay"
+                        title="Set end date/time to next day at 12:01 AM"
+                        disabled="@IsSaving">
+                    Next Day
+                </button>
+            </div>
+        </div>
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn btn-danger" @onclick="OnConfirm" disabled="@(IsSaving || IsSubmitDisabled)">
+            End Absence
+        </button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public bool IsSubmitDisabled { get; set; }
+    [Parameter] public DateTime EndAbsenceDateTimeLocal { get; set; }
+    [Parameter] public EventCallback<DateTime> EndAbsenceDateTimeLocalChanged { get; set; }
+    [Parameter] public EventCallback OnNextDaySelected { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task OnEndAbsenceLocalChanged(ChangeEventArgs args)
+    {
+        if (!DateTime.TryParse(args.Value?.ToString(), out var parsed))
+            return;
+
+        await EndAbsenceDateTimeLocalChanged.InvokeAsync(DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified));
+    }
+
+    private async Task OnNextDay()
+    {
+        if (OnNextDaySelected.HasDelegate)
+            await OnNextDaySelected.InvokeAsync();
+    }
+}

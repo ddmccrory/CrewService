@@ -9,33 +9,43 @@ public sealed class AbsenceRequest : Entity
 {
     public ControlNumber EmployeeCtrlNbr { get; private set; }
     public DateTime ScheduledStartUtc { get; private set; }
+    public DateTime? ScheduledEndUtc { get; private set; }
     public string ReasonCode { get; private set; } = string.Empty;
-    public string Status { get; private set; } = "PENDING";
     public ControlNumber? ApprovedByCtrlNbr { get; private set; }
+    public DateTime? ApprovedAtUtc { get; private set; }
+    public ControlNumber? DeniedByCtrlNbr { get; private set; }
+    public DateTime? DeniedAtUtc { get; private set; }
+    public ControlNumber? CancelledByCtrlNbr { get; private set; }
+    public DateTime? CancelledAtUtc { get; private set; }
     public string? Notes { get; private set; }
     public ControlNumber? AbsenceCodeCtrlNbr { get; private set; }
-    public DateTime? MarkOffStartUtc { get; private set; }
     public bool IsSystemGenerated { get; private set; }
     public bool AutoMarkOffOnApproval { get; private set; }
 
-    private readonly List<AbsenceApproval> _approvals = [];
-    private readonly List<AbsenceMarkUp> _markUps = [];
-    public IReadOnlyList<AbsenceApproval> Approvals => _approvals.AsReadOnly();
-    public IReadOnlyList<AbsenceMarkUp> MarkUps => _markUps.AsReadOnly();
+    private readonly List<AbsenceStartRecord> _startRecords = [];
+    private readonly List<AbsenceEndRecord> _endRecords = [];
+    public IReadOnlyList<AbsenceStartRecord> StartRecords => _startRecords.AsReadOnly();
+    public IReadOnlyList<AbsenceEndRecord> EndRecords => _endRecords.AsReadOnly();
+
+    public string DerivedStatus => ComputeDerivedStatus();
 
     private AbsenceRequest() { EmployeeCtrlNbr = null!; }
 
     public static AbsenceRequest Create(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc, string reasonCode, string? notes = null)
     {
+        var scheduledStartUtc = AsUtc(startUtc);
+        DateTime? scheduledEndUtc = endUtc.HasValue ? AsUtc(endUtc.Value) : null;
+        ValidateScheduledWindow(scheduledStartUtc, scheduledEndUtc);
+
         var request = new AbsenceRequest
         {
             EmployeeCtrlNbr = employeeCtrlNbr,
-            ScheduledStartUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc),
+            ScheduledStartUtc = scheduledStartUtc,
+            ScheduledEndUtc = scheduledEndUtc,
             ReasonCode = reasonCode,
             Notes = notes
         };
-        if (endUtc.HasValue)
-            request.AddMarkUp(DateTime.SpecifyKind(endUtc.Value, DateTimeKind.Utc), isAutoMarkUp: true);
+
         request.Raise(new AbsenceRequestedDomainEvent(request));
         return request;
     }
@@ -46,137 +56,203 @@ public sealed class AbsenceRequest : Entity
         bool isSystemGenerated = false, string? notes = null,
         bool autoMarkOffOnApproval = false)
     {
+        var scheduledStartUtc = AsUtc(startUtc);
+        DateTime? scheduledEndUtc = endUtc.HasValue ? AsUtc(endUtc.Value) : null;
+        ValidateScheduledWindow(scheduledStartUtc, scheduledEndUtc);
+
         var request = new AbsenceRequest
         {
             EmployeeCtrlNbr = employeeCtrlNbr,
-            ScheduledStartUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc),
+            ScheduledStartUtc = scheduledStartUtc,
+            ScheduledEndUtc = scheduledEndUtc,
             ReasonCode = reasonCode,
             AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
             IsSystemGenerated = isSystemGenerated,
             AutoMarkOffOnApproval = autoMarkOffOnApproval,
             Notes = notes
         };
-        if (endUtc.HasValue)
-            request.AddMarkUp(DateTime.SpecifyKind(endUtc.Value, DateTimeKind.Utc), isAutoMarkUp: true);
+
         request.Raise(new AbsenceRequestedDomainEvent(request));
         return request;
     }
 
     public void Approve(ControlNumber approvedByCtrlNbr)
     {
-        Status = "APPROVED";
+        EnsureNotClosedForLifecycleChange();
+        if (ApprovedAtUtc.HasValue)
+            throw new InvalidOperationException("An absence request can only be approved once.");
+
         ApprovedByCtrlNbr = approvedByCtrlNbr;
+        ApprovedAtUtc = DateTime.UtcNow;
         Raise(new AbsenceApprovedDomainEvent(this));
     }
 
     public void Deny(ControlNumber deniedByCtrlNbr)
     {
-        Status = "DENIED";
-        ApprovedByCtrlNbr = deniedByCtrlNbr;
+        EnsureNotClosedForLifecycleChange();
+        if (_startRecords.Count > 0 || _endRecords.Count > 0)
+            throw new InvalidOperationException("Cannot deny an absence request after it has started or ended.");
+
+        DeniedByCtrlNbr = deniedByCtrlNbr;
+        DeniedAtUtc = DateTime.UtcNow;
     }
 
-    public void Cancel()
+    public void Cancel(ControlNumber? cancelledByCtrlNbr = null)
     {
-        Status = "CANCELLED";
+        if (_startRecords.Count > 0 || _endRecords.Count > 0)
+            throw new InvalidOperationException("Cannot cancel an absence request after it has started or ended.");
+
+        CancelledByCtrlNbr = cancelledByCtrlNbr;
+        CancelledAtUtc = DateTime.UtcNow;
     }
 
-    public void CompleteByMarkUp(DateTime markUpUtc)
+    public void Complete(DateTime actualEndUtc, bool isAutoEndRecord = false)
     {
-        if (!string.Equals(Status, "EXERCISED", StringComparison.OrdinalIgnoreCase))
-            Status = "EXERCISED";
+        AddEndRecord(actualEndUtc, isAutoEndRecord);
         Raise(new AbsenceCompletedByMarkUpDomainEvent(this));
+    }
+
+    public void ScheduleEnd(DateTime scheduledEndUtc)
+    {
+        EnsureNotClosedForLifecycleChange();
+        if (_startRecords.Count == 0)
+            throw new InvalidOperationException("Cannot schedule an absence end before it has started.");
+        if (_endRecords.Count > 0)
+            throw new InvalidOperationException("Cannot schedule an absence end after it has ended.");
+
+        var endUtc = AsUtc(scheduledEndUtc);
+        var startUtc = _startRecords[0].ActualStartUtc;
+        if (endUtc < startUtc)
+            throw new InvalidOperationException("Scheduled end time cannot be before actual start time.");
+
+        ScheduledEndUtc = endUtc;
+    }
+
+    public void Start(DateTime actualStartUtc)
+    {
+        EnsureNotClosedForLifecycleChange();
+        if (!ApprovedAtUtc.HasValue)
+            throw new InvalidOperationException("Cannot start an absence request without approval.");
+        if (_startRecords.Count > 0)
+            throw new InvalidOperationException("An absence request can only have one start record.");
+
+        var startUtc = AsUtc(actualStartUtc);
+        var actualStart = startUtc < ScheduledStartUtc ? ScheduledStartUtc : startUtc;
+
+        _startRecords.Add(AbsenceStartRecord.Create(CtrlNbr, actualStart));
+    }
+
+    public AbsenceStartRecord AddStartRecord(DateTime actualStartUtc)
+    {
+        Start(actualStartUtc);
+        return _startRecords[0];
+    }
+
+    public AbsenceEndRecord AddEndRecord(DateTime actualEndUtc, bool isAutoEndRecord)
+    {
+        EnsureNotClosedForLifecycleChange();
+        if (_startRecords.Count == 0)
+            throw new InvalidOperationException("Cannot end an absence request before it has started.");
+        if (_endRecords.Count > 0)
+            throw new InvalidOperationException("An absence request can only have one end record.");
+
+        var endUtc = AsUtc(actualEndUtc);
+        var startUtc = _startRecords[0].ActualStartUtc;
+        if (endUtc < startUtc)
+            throw new InvalidOperationException("Actual end time cannot be before actual start time.");
+
+        var endRecord = AbsenceEndRecord.Create(CtrlNbr, endUtc, isAutoEndRecord);
+        _endRecords.Add(endRecord);
+        return endRecord;
     }
 
     public void Exercise(DateTime exercisedUtc)
     {
-        if (!string.Equals(Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Only approved absence requests can be marked off.");
-
-        var exercised = DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc);
-        MarkOffStartUtc = exercised < ScheduledStartUtc ? ScheduledStartUtc : exercised;
-        Status = "EXERCISED";
+        Start(exercisedUtc);
     }
 
-    public AbsenceApproval AddApproval(ControlNumber approvalOfficerCtrlNbr)
+    public void CompleteByMarkUp(DateTime markUpUtc)
     {
-        var approval = AbsenceApproval.Create(CtrlNbr, approvalOfficerCtrlNbr);
-        _approvals.Add(approval);
-        return approval;
+        Complete(markUpUtc, isAutoEndRecord: true);
     }
 
-    public AbsenceMarkUp AddMarkUp(DateTime scheduledMarkUpUtc, bool isAutoMarkUp)
+    private static DateTime AsUtc(DateTime value)
     {
-        var markUp = AbsenceMarkUp.Create(CtrlNbr, scheduledMarkUpUtc, isAutoMarkUp);
-        _markUps.Add(markUp);
-        return markUp;
-    }
-}
-
-public sealed class AbsenceApproval : Entity
-{
-    public ControlNumber AbsenceRequestCtrlNbr { get; private set; }
-    public ControlNumber ApprovalOfficerCtrlNbr { get; private set; }
-    public string Status { get; private set; } = "PENDING";
-    public DateTime? DecidedAtUtc { get; private set; }
-    public string? Notes { get; private set; }
-
-    private AbsenceApproval()
-    {
-        AbsenceRequestCtrlNbr = null!;
-        ApprovalOfficerCtrlNbr = null!;
+        return value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Utc);
     }
 
-    internal static AbsenceApproval Create(ControlNumber absenceRequestCtrlNbr, ControlNumber approvalOfficerCtrlNbr)
+    private static void ValidateScheduledWindow(DateTime scheduledStartUtc, DateTime? scheduledEndUtc)
     {
-        return new AbsenceApproval
-        {
-            AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
-            ApprovalOfficerCtrlNbr = approvalOfficerCtrlNbr
-        };
+        if (scheduledEndUtc.HasValue && scheduledEndUtc.Value < scheduledStartUtc)
+            throw new InvalidOperationException("Scheduled end time cannot be before scheduled start time.");
     }
 
-    public void Approve(string? notes = null)
+    private void EnsureNotClosedForLifecycleChange()
     {
-        Status = "APPROVED";
-        DecidedAtUtc = DateTime.UtcNow;
-        Notes = notes;
-        Raise(new AbsenceApprovalDecidedDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr, "APPROVED"));
+        if (DeniedAtUtc.HasValue)
+            throw new InvalidOperationException("Cannot modify a denied absence request.");
+        if (CancelledAtUtc.HasValue)
+            throw new InvalidOperationException("Cannot modify a cancelled absence request.");
     }
 
-    public void Decline(string? notes = null)
+    private string ComputeDerivedStatus()
     {
-        Status = "DECLINED";
-        DecidedAtUtc = DateTime.UtcNow;
-        Notes = notes;
-        Raise(new AbsenceApprovalDecidedDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr, "DECLINED"));
+        if (DeniedAtUtc.HasValue)
+            return "DENIED";
+
+        if (CancelledAtUtc.HasValue)
+            return "CANCELLED";
+
+        if (!ApprovedAtUtc.HasValue)
+            return "PENDING";
+
+        if (_startRecords.Count == 0)
+            return "APPROVED";
+
+        return _endRecords.Count == 0
+            ? "OPEN"
+            : "COMPLETE";
     }
 }
 
-public sealed class AbsenceMarkUp : Entity
+public sealed class AbsenceStartRecord : Entity
 {
     public ControlNumber AbsenceRequestCtrlNbr { get; private set; }
-    public DateTime ScheduledMarkUpUtc { get; private set; }
-    public DateTime? ActualMarkUpUtc { get; private set; }
-    public bool IsAutoMarkUp { get; private set; }
+    public DateTime ActualStartUtc { get; private set; }
 
-    private AbsenceMarkUp() { AbsenceRequestCtrlNbr = null!; }
+    private AbsenceStartRecord() { AbsenceRequestCtrlNbr = null!; }
 
-    internal static AbsenceMarkUp Create(ControlNumber absenceRequestCtrlNbr, DateTime scheduledMarkUpUtc, bool isAutoMarkUp)
+    internal static AbsenceStartRecord Create(ControlNumber absenceRequestCtrlNbr, DateTime actualStartUtc)
     {
-        var markUp = new AbsenceMarkUp
+        return new AbsenceStartRecord
         {
             AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
-            ScheduledMarkUpUtc = scheduledMarkUpUtc,
-            IsAutoMarkUp = isAutoMarkUp
+            ActualStartUtc = actualStartUtc
         };
-        markUp.Raise(new AbsenceMarkUpScheduledDomainEvent(markUp.CtrlNbr, absenceRequestCtrlNbr, scheduledMarkUpUtc));
-        return markUp;
     }
+}
 
-    public void Execute(DateTime actualMarkUpUtc)
+public sealed class AbsenceEndRecord : Entity
+{
+    public ControlNumber AbsenceRequestCtrlNbr { get; private set; }
+    public DateTime ActualEndUtc { get; private set; }
+    public bool IsAutoEndRecord { get; private set; }
+
+    private AbsenceEndRecord() { AbsenceRequestCtrlNbr = null!; }
+
+    internal static AbsenceEndRecord Create(ControlNumber absenceRequestCtrlNbr, DateTime actualEndUtc, bool isAutoEndRecord)
     {
-        ActualMarkUpUtc = actualMarkUpUtc;
-        Raise(new AbsenceMarkedUpDomainEvent(CtrlNbr, AbsenceRequestCtrlNbr));
+        var endRecord = new AbsenceEndRecord
+        {
+            AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+            ActualEndUtc = actualEndUtc,
+            IsAutoEndRecord = isAutoEndRecord
+        };
+
+        endRecord.Raise(new AbsenceEndedDomainEvent(endRecord.CtrlNbr, absenceRequestCtrlNbr));
+        return endRecord;
     }
 }
 

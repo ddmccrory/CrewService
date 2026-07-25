@@ -9,18 +9,11 @@ public sealed record AbsenceApprovalDecidedDomainEvent : DomainEvent
             payload: new { ApprovalCtrlNbr = approvalCtrlNbr.Value, RequestCtrlNbr = requestCtrlNbr.Value, Decision = decision }) { }
 }
 
-public sealed record AbsenceMarkUpScheduledDomainEvent : DomainEvent
+public sealed record AbsenceEndedDomainEvent : DomainEvent
 {
-    public AbsenceMarkUpScheduledDomainEvent(ControlNumber markUpCtrlNbr, ControlNumber requestCtrlNbr, DateTime scheduledUtc)
-        : base("AbsenceMarkUp", markUpCtrlNbr.Value,
-            payload: new { MarkUpCtrlNbr = markUpCtrlNbr.Value, RequestCtrlNbr = requestCtrlNbr.Value, ScheduledUtc = scheduledUtc }) { }
-}
-
-public sealed record AbsenceMarkedUpDomainEvent : DomainEvent
-{
-    public AbsenceMarkedUpDomainEvent(ControlNumber markUpCtrlNbr, ControlNumber employeeCtrlNbr)
-        : base("AbsenceMarkUp", markUpCtrlNbr.Value,
-            payload: new { MarkUpCtrlNbr = markUpCtrlNbr.Value, EmployeeCtrlNbr = employeeCtrlNbr.Value }) { }
+    public AbsenceEndedDomainEvent(ControlNumber endRecordCtrlNbr, ControlNumber requestCtrlNbr)
+        : base("AbsenceEndRecord", endRecordCtrlNbr.Value,
+            payload: new { EndRecordCtrlNbr = endRecordCtrlNbr.Value, RequestCtrlNbr = requestCtrlNbr.Value }) { }
 }
 
 public sealed record CompensationBalanceDebitedDomainEvent : DomainEvent

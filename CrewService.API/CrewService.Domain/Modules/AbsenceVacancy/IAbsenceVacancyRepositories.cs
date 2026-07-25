@@ -30,6 +30,8 @@ public interface IAbsenceRequestRepository : IRepository<AbsenceRequest>
     Task<List<AbsenceRequest>> GetActiveMarkupBoundAsync(ControlNumber employeeCtrlNbr);
     Task<List<AbsenceRequest>> GetApprovedAutoMarkOffDueAsync(DateTime asOfUtc, CancellationToken ct = default);
     Task<DateTime?> GetNextApprovedAutoMarkOffStartUtcAsync(CancellationToken ct = default);
+    Task<List<AbsenceRequest>> GetScheduledEndDueAsync(DateTime asOfUtc, CancellationToken ct = default);
+    Task<DateTime?> GetNextScheduledEndUtcAsync(CancellationToken ct = default);
 }
 
 public interface IVacancyImpactRepository : IRepository<VacancyImpact>

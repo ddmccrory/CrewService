@@ -347,7 +347,7 @@ else
                                             {
                                                 <button class="btn btn-sm btn-outline-primary"
                                                         @onclick="OpenEmployeeAbsenceRequestModal"
-                                                        disabled="@(absenceCodes.Count == 0)">
+                                                        disabled="@(absenceCodes.Count == 0 || IsSeniorityEntryInactive(entry))">
                                                     <span class="bi bi-plus-circle me-1"></span>Absence Request
                                                 </button>
                                             }
@@ -387,14 +387,14 @@ else
             {
                 <DataTable TItem="MarkOffAbsenceRequestListItem"
                            Items="openEmployeeAbsences"
-                           Columns="EmployeeAbsenceColumns"
+                           Columns="OpenEmployeeAbsenceColumns"
                            SearchFilter="MatchesEmployeeAbsenceSearch"
                            SearchPlaceholder="Filter open absences..."
                            ToolbarContainerClass="d-flex justify-content-between align-items-center"
                            DefaultSortColumn="Start"
                            DefaultSortAscending="false">
                     <RowContent Context="req">
-                        <td><span class="badge @GetAbsenceStatusBadge(req.Status)">OPEN</span></td>
+                        <td><span class="badge @GetAbsenceStatusBadge(req.Status)">@req.Status</span></td>
                         <td>@GetAbsenceReasonDisplay(req)</td>
                         <td>@GetAbsenceStartDisplay(req)</td>
                         <td>@GetAbsenceEndDisplay(req)</td>
@@ -408,13 +408,22 @@ else
                                 <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
                             }
                         </td>
+                        @if (canManageWorkActions && req.CanEndAbsence)
+                        {
+                            <td class="text-end">
+                                <button class="btn btn-outline-primary btn-sm w-100"
+                                        @onclick="() => OpenEmployeeEndAbsenceModal(req)"
+                                        disabled="@isSaving">
+                                    End Absence
+                                </button>
+                            </td>
+                        }
                     </RowContent>
                 </DataTable>
             }
 
             <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
                 <h6 class="mb-0">Scheduled Absences (Current Month)</h6>
-                <span class="badge text-bg-secondary">@scheduledEmployeeAbsences.Count Scheduled</span>
             </div>
 
             @if (scheduledEmployeeAbsences.Count == 0)
@@ -618,6 +627,15 @@ else
                               AbsenceCodes="absenceCodes"
                               WorkAreas="employeeAbsenceWorkAreas"
                               EmployeeDisplayLookup="employeeDisplayLookup" />
+
+    <EndAbsenceModal Visible="showEmployeeEndAbsenceModal"
+                     IsSaving="isSaving"
+                     IsSubmitDisabled="employeeEndAbsenceRequestCtrlNbr <= 0"
+                     EndAbsenceDateTimeLocal="employeeEndAbsenceDateTimeLocal"
+                     EndAbsenceDateTimeLocalChanged="SetEmployeeEndAbsenceDateTimeLocal"
+                     OnNextDaySelected="SetEmployeeEndAbsenceToNextDayAsync"
+                     OnConfirm="ConfirmEmployeeEndAbsenceAsync"
+                     OnCancel="CloseEmployeeEndAbsenceModal" />
 
     @* ── Withdraw Bid Modal (Work tab) ── *@
     <Modal Visible="showWithdrawBidModal"
@@ -1306,6 +1324,11 @@ else
         }
     }
 
+    <div class="small text-muted mt-3 py-2 border-top"
+         style="position: sticky; bottom: 0; z-index: 10; background-color: var(--bs-body-bg);">
+        * All times are displayed in the work area time zone.
+    </div>
+
         @code {
     [Parameter] public long CtrlNbr { get; set; }
 
@@ -1345,6 +1368,9 @@ else
     private List<MarkOffCodeResponse> absenceCodes = [];
     private readonly Dictionary<long, string> employeeDisplayLookup = [];
     private bool showEmployeeAbsenceRequestModal;
+    private bool showEmployeeEndAbsenceModal;
+    private long employeeEndAbsenceRequestCtrlNbr;
+    private DateTime employeeEndAbsenceDateTimeLocal;
 
     // ── On-Duty records (open on Work tab; completed on On-Duty History tab) ──
     private List<EmployeeOnDutyRecord> openOnDutyRecords = [];
@@ -1928,7 +1954,7 @@ else
             <BodyContent>
                 <p>Are you sure you want to complete on-duty record <strong>@completeOnDutyItemName</strong>?</p>
                 <div class="mb-2">
-                    <label class="form-label fw-semibold">Actual Tie Up Date/Time (Work Area Local)</label>
+                    <label class="form-label fw-semibold">Actual Tie Up Date/Time*</label>
                     <input type="datetime-local" class="form-control"
                            value="@completeOnDutyTieUpLocal.ToString("yyyy-MM-ddTHH:mm")"
                            @onchange="OnCompleteOnDutyTieUpLocalChanged" />
@@ -2263,6 +2289,9 @@ else
         _           => "text-bg-secondary"
     };
 
+    private static bool IsSeniorityEntryInactive(WorkProfileSeniorityEntry entry)
+        => string.Equals(entry.SeniorityStateName, "Inactive", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsOpenMoveStatus(string? status)
         => status is "Pending" or "Approved";
 
@@ -2270,10 +2299,30 @@ else
     [
         new("Status", req => req.Status),
         new("Reason", req => GetAbsenceReasonDisplay(req)),
-        new("Start (Work Area Local)", req => ResolveAbsenceSortUtc(req), sortKey: "Start"),
-        new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+        new("Start*", req => ResolveAbsenceSortUtc(req), sortKey: "Start"),
+        new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
         new("Notes", req => req.Notes ?? string.Empty)
     ];
+
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> OpenEmployeeAbsenceColumns
+    {
+        get
+        {
+            var columns = new List<DataTableColumn<MarkOffAbsenceRequestListItem>>
+            {
+                new("Status", req => req.Status),
+                new("Reason", req => GetAbsenceReasonDisplay(req)),
+                new("Start*", req => ResolveAbsenceSortUtc(req), sortKey: "Start"),
+                new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+                new("Notes", req => req.Notes ?? string.Empty)
+            };
+
+            if (!IsFeatureReadOnly || IsOwnRecord)
+                columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("140px"));
+
+            return columns;
+        }
+    }
 
     private bool MatchesEmployeeAbsenceSearch(MarkOffAbsenceRequestListItem req, string term)
     {
@@ -2360,6 +2409,75 @@ else
         await LoadWorkTabAsync();
     }
 
+    private async Task OpenEmployeeEndAbsenceModal(MarkOffAbsenceRequestListItem request)
+    {
+        employeeEndAbsenceRequestCtrlNbr = request.CtrlNbr;
+
+        var preset = await AbsenceClient.GetEndAbsenceLocalPresetAsync(
+            selectedEmployeeAbsenceWorkAreaCtrlNbr > 0 ? selectedEmployeeAbsenceWorkAreaCtrlNbr : null,
+            baseLocal: null,
+            nextDay: false);
+
+        if (DateTime.TryParse(preset, out var parsedLocal))
+            employeeEndAbsenceDateTimeLocal = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
+        else
+            employeeEndAbsenceDateTimeLocal = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+
+        showEmployeeEndAbsenceModal = true;
+    }
+
+    private void CloseEmployeeEndAbsenceModal()
+    {
+        showEmployeeEndAbsenceModal = false;
+        employeeEndAbsenceRequestCtrlNbr = 0;
+        employeeEndAbsenceDateTimeLocal = default;
+    }
+
+    private void SetEmployeeEndAbsenceDateTimeLocal(DateTime value)
+        => employeeEndAbsenceDateTimeLocal = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+
+    private async Task SetEmployeeEndAbsenceToNextDayAsync()
+    {
+        var preset = await AbsenceClient.GetEndAbsenceLocalPresetAsync(
+            selectedEmployeeAbsenceWorkAreaCtrlNbr > 0 ? selectedEmployeeAbsenceWorkAreaCtrlNbr : null,
+            employeeEndAbsenceDateTimeLocal.ToString("yyyy-MM-ddTHH:mm"),
+            nextDay: true);
+
+        if (DateTime.TryParse(preset, out var parsedLocal))
+            employeeEndAbsenceDateTimeLocal = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
+    }
+
+    private async Task ConfirmEmployeeEndAbsenceAsync()
+    {
+        if (employeeEndAbsenceRequestCtrlNbr <= 0)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await AbsenceClient.EndAbsenceRequestAsync(
+                employeeEndAbsenceRequestCtrlNbr,
+                employeeEndAbsenceDateTimeLocal.ToString("yyyy-MM-ddTHH:mm"),
+                selectedEmployeeAbsenceWorkAreaCtrlNbr > 0 ? selectedEmployeeAbsenceWorkAreaCtrlNbr : null);
+
+            successMessage = "Absence ended.";
+            CloseEmployeeEndAbsenceModal();
+
+            await LoadWorkTabAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to end absence: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
     private Task OnEmployeeAbsenceRequestError(string message)
     {
         errorMessage = message;
@@ -2391,7 +2509,8 @@ else
         var scheduledAbsencesTask = AbsenceClient.GetScheduledAbsencesAsync(
             workAreaGroupCtrlNbr: workAreaGroupCtrlNbr,
             employeeCtrlNbr: CtrlNbr,
-            currentMonthOnly: true);
+            currentMonthOnly: true,
+            approvedOnly: false);
 
         await Task.WhenAll(openAbsencesTask, scheduledAbsencesTask);
 

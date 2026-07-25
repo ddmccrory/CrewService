@@ -212,6 +212,7 @@ public sealed class MarkOffRequestWorker(
         scheduleSignal.WaitAsync(ct);
 
     protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
+
 }
 
 public sealed class AutoMarkUpWorker(
@@ -219,10 +220,17 @@ public sealed class AutoMarkUpWorker(
     ILogger<AutoMarkUpWorker> logger)
     : WorkerBase(scopeFactory, logger, "AutoMarkUp", TimeSpan.FromMinutes(1))
 {
-    protected override Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
-        // Evaluates due AbsenceMarkUp records past scheduledMarkUpUtc
-        return Task.FromResult(false);
+        var absenceRequestService = services.GetRequiredService<AbsenceVacancy.AbsenceRequestService>();
+        var ended = await absenceRequestService.ExecuteDueScheduledEndAsync(DateTime.UtcNow, ct);
+
+        if (ended > 0 && logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("AutoMarkUpWorker: Auto ended {Count} open request(s) at scheduled end time.", ended);
+        }
+
+        return ended > 0;
     }
 }
 

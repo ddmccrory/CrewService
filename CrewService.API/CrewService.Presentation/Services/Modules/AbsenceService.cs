@@ -66,9 +66,43 @@ public class AbsenceService(IServiceProvider serviceProvider)
             CtrlNbr = absence.CtrlNbr.Value,
             EmployeeCtrlNbr = absence.EmployeeCtrlNbr.Value,
             ReasonCode = absence.ReasonCode,
-            Status = absence.Status,
+            Status = absence.DerivedStatus,
             StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(absence.ScheduledStartUtc, DateTimeKind.Utc)),
             IsSystemGenerated = absence.IsSystemGenerated
+        };
+    }
+
+    public override async Task<GetEndAbsenceLocalPresetResponse> GetEndAbsenceLocalPreset(
+        GetEndAbsenceLocalPresetMsg request,
+        ServerCallContext context)
+    {
+        var timeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        if (timeZone is null)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Work area time zone context is required."));
+
+        DateTime baseLocal;
+        if (request.HasBaseLocal)
+        {
+            if (!DateTime.TryParse(request.BaseLocal, out var parsedBaseLocal))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Valid base_local is required. Use yyyy-MM-ddTHH:mm."));
+
+            baseLocal = DateTime.SpecifyKind(parsedBaseLocal, DateTimeKind.Unspecified);
+        }
+        else
+        {
+            baseLocal = TimeZoneInfo.ConvertTimeFromUtc(_workAreaClock.UtcNow.UtcDateTime, timeZone);
+        }
+
+        var resolvedLocal = request.NextDay
+            ? baseLocal.Date.AddDays(1).AddMinutes(1)
+            : baseLocal;
+
+        return new GetEndAbsenceLocalPresetResponse
+        {
+            EndLocal = resolvedLocal.ToString("yyyy-MM-ddTHH:mm")
         };
     }
 
@@ -136,6 +170,40 @@ public class AbsenceService(IServiceProvider serviceProvider)
             context.CancellationToken);
     }
 
+    public override async Task<GetCreateAbsenceEndLocalPresetResponse> GetCreateAbsenceEndLocalPreset(
+        GetCreateAbsenceEndLocalPresetMsg request,
+        ServerCallContext context)
+    {
+        if (request.AbsenceCodeCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Absence code control number is required."));
+
+        if (string.IsNullOrWhiteSpace(request.StartLocal)
+            || !DateTime.TryParse(request.StartLocal, out var startLocalParsed))
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Valid start_local is required. Use yyyy-MM-ddTHH:mm."));
+        }
+
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
+        var svc = serviceProvider.GetRequiredService<AbsenceCodeService>();
+        var markOffCode = (await svc.GetCodesAsync(
+                ControlNumber.Create(selectedRailroadCtrlNbr),
+                activeOnly: false,
+                context.CancellationToken))
+            .FirstOrDefault(c => c.CtrlNbr == ControlNumber.Create(request.AbsenceCodeCtrlNbr))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Absence code {request.AbsenceCodeCtrlNbr} not found."));
+
+        if (!markOffCode.DefaultAutoMarkUpHours.HasValue || markOffCode.DefaultAutoMarkUpHours.Value <= 0)
+            return new GetCreateAbsenceEndLocalPresetResponse { EndLocal = string.Empty };
+
+        var startLocal = DateTime.SpecifyKind(startLocalParsed, DateTimeKind.Unspecified);
+        var endLocal = startLocal.AddHours(Convert.ToDouble(markOffCode.DefaultAutoMarkUpHours.Value));
+
+        return new GetCreateAbsenceEndLocalPresetResponse
+        {
+            EndLocal = endLocal.ToString("yyyy-MM-ddTHH:mm")
+        };
+    }
+
     private async Task<GetAbsenceApprovalContextResponse> ResolveCreateApprovalContextAsync(
         AbsenceRequestService svc,
         long absenceCodeCtrlNbr,
@@ -184,11 +252,51 @@ public class AbsenceService(IServiceProvider serviceProvider)
             var absence = await svc.ApproveAsync(
                 ControlNumber.Create(request.AbsenceRequestCtrlNbr),
                 ControlNumber.Create(request.OfficerCtrlNbr));
-            return new AbsenceApprovalResponse { Status = absence.Status };
+            return new AbsenceApprovalResponse { Status = absence.DerivedStatus };
         }
         catch (KeyNotFoundException ex)
         {
             throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<AbsenceApprovalResponse> EndAbsence(
+        EndAbsenceMsg request, ServerCallContext context)
+    {
+        if (request.AbsenceRequestCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Absence request control number is required."));
+
+        if (string.IsNullOrWhiteSpace(request.EndLocal)
+            || !DateTime.TryParse(request.EndLocal, out var parsedLocal))
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Valid end_local is required. Use yyyy-MM-ddTHH:mm."));
+        }
+
+        var timeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        if (timeZone is null)
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Work area time zone context is required."));
+
+        var localUnspecified = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(localUnspecified, timeZone);
+
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        try
+        {
+            var absence = await svc.EndAbsenceAsync(
+                ControlNumber.Create(request.AbsenceRequestCtrlNbr),
+                endUtc);
+            return new AbsenceApprovalResponse { Status = absence.DerivedStatus };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
         }
     }
 
@@ -201,7 +309,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
             var absence = await svc.MarkOffAsync(
                 ControlNumber.Create(request.AbsenceRequestCtrlNbr),
                 _workAreaClock.UtcNow.UtcDateTime);
-            return new AbsenceApprovalResponse { Status = absence.Status };
+            return new AbsenceApprovalResponse { Status = absence.DerivedStatus };
         }
         catch (KeyNotFoundException ex)
         {
@@ -353,7 +461,18 @@ public class AbsenceService(IServiceProvider serviceProvider)
         }
 
         scheduled = scheduled
-            .Where(r => string.Equals(r.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            .Where(r => !string.Equals(GetDerivedStatus(r), "OPEN", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var approvedOnly = !request.HasApprovedOnly || request.ApprovedOnly;
+        if (approvedOnly)
+        {
+            scheduled = scheduled
+                .Where(r => string.Equals(GetDerivedStatus(r), "APPROVED", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        scheduled = scheduled
             .Where(r => employeeCtrlNbr is null || r.EmployeeCtrlNbr == employeeCtrlNbr)
             .OrderBy(r => r.ScheduledStartUtc)
             .ToList();
@@ -416,7 +535,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
             var absence = await svc.DenyAsync(
                 ControlNumber.Create(request.AbsenceRequestCtrlNbr),
                 ControlNumber.Create(request.OfficerCtrlNbr));
-            return new AbsenceApprovalResponse { Status = absence.Status };
+            return new AbsenceApprovalResponse { Status = absence.DerivedStatus };
         }
         catch (KeyNotFoundException ex)
         {
@@ -468,20 +587,17 @@ public class AbsenceService(IServiceProvider serviceProvider)
             StartUtc = Timestamp.FromDateTime(scheduledStartUtc),
             StartLocal = _workAreaClock.FormatLocalIso(scheduledStartUtc, displayTimeZone),
             IsSystemGenerated = request.IsSystemGenerated,
-            IsWaitlisted = string.Equals(request.Status, "WAITLISTED", StringComparison.OrdinalIgnoreCase),
+            IsWaitlisted = false,
             AutoMarkOffOnApproval = request.AutoMarkOffOnApproval,
+            CanStartAbsence = string.Equals(GetDerivedStatus(request), "APPROVED", StringComparison.OrdinalIgnoreCase),
+            CanEndAbsence = false,
             ApprovalLevel = approvalMetadata.Level,
             ApprovalLevelDescription = approvalMetadata.Description
         };
 
-        var latestScheduledMarkUpUtc = request.MarkUps
-            .OrderByDescending(m => m.ScheduledMarkUpUtc)
-            .Select(m => (DateTime?)DateTime.SpecifyKind(m.ScheduledMarkUpUtc, DateTimeKind.Utc))
-            .FirstOrDefault();
-
-        if (latestScheduledMarkUpUtc.HasValue)
+        if (request.ScheduledEndUtc.HasValue)
         {
-            var endUtc = latestScheduledMarkUpUtc.Value;
+            var endUtc = DateTime.SpecifyKind(request.ScheduledEndUtc.Value, DateTimeKind.Utc);
             item.EndUtc = Timestamp.FromDateTime(endUtc);
             item.EndLocal = _workAreaClock.FormatLocalIso(endUtc, displayTimeZone);
         }
@@ -495,32 +611,21 @@ public class AbsenceService(IServiceProvider serviceProvider)
     private MarkOffAbsenceRequestListItem MapOpenAbsence(AbsenceRequest request, TimeZoneInfo? displayTimeZone)
     {
         var item = MapAbsenceRequest(request, displayTimeZone);
-        var openStartUtc = request.MarkOffStartUtc.HasValue
-            ? DateTime.SpecifyKind(request.MarkOffStartUtc.Value, DateTimeKind.Utc)
+        var openStartUtc = request.StartRecords.Count > 0
+            ? DateTime.SpecifyKind(request.StartRecords[0].ActualStartUtc, DateTimeKind.Utc)
             : DateTime.SpecifyKind(request.ScheduledStartUtc, DateTimeKind.Utc);
         item.StartUtc = Timestamp.FromDateTime(openStartUtc);
         item.StartLocal = _workAreaClock.FormatLocalIso(openStartUtc, displayTimeZone);
         item.Status = "OPEN";
         item.IsWaitlisted = false;
+        item.CanStartAbsence = false;
+        item.CanEndAbsence = request.ScheduledEndUtc is null;
         return item;
     }
 
     private string GetDerivedStatus(AbsenceRequest request)
     {
-        if (!string.Equals(request.Status, "EXERCISED", StringComparison.OrdinalIgnoreCase))
-            return request.Status;
-
-        var latestActualMarkUpUtc = request.MarkUps
-            .Where(m => m.ActualMarkUpUtc.HasValue)
-            .OrderByDescending(m => m.ActualMarkUpUtc)
-            .Select(m => m.ActualMarkUpUtc)
-            .FirstOrDefault();
-
-        if (latestActualMarkUpUtc.HasValue
-            && DateTime.SpecifyKind(latestActualMarkUpUtc.Value, DateTimeKind.Utc) <= _workAreaClock.UtcNow.UtcDateTime)
-            return "COMPLETED";
-
-        return "EXERCISED";
+        return request.DerivedStatus;
     }
 
     private static (string Level, string Description) ResolveApprovalMetadata(AbsenceRequest request)
@@ -528,7 +633,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
         if (request.IsSystemGenerated || request.AbsenceCodeCtrlNbr is null)
             return (AbsenceApprovalLevel.Automatic.ToString(), "Automatic approval (System)");
 
-        var hasSystemApproval = request.Approvals.Any(a => a.ApprovalOfficerCtrlNbr.Value == AbsenceRequestService.SystemApprovalOfficerCtrlNbr);
+        var hasSystemApproval = request.ApprovedByCtrlNbr?.Value == AbsenceRequestService.SystemApprovalOfficerCtrlNbr;
         if (hasSystemApproval)
             return (AbsenceApprovalLevel.Automatic.ToString(), "Automatic approval (System)");
 

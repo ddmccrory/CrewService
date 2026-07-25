@@ -305,16 +305,35 @@ public sealed class EmployeeAppService(
         if (rosters.Count == 0)
             return [];
 
-        var eligibleEmployeeCtrlNbrs = new HashSet<ControlNumber>();
+        var seniorityStateNameByCtrlNbr = new Dictionary<ControlNumber, string>(ControlNumberComparer.Instance);
+        var hasInactiveSeniorityByEmployee = new Dictionary<ControlNumber, bool>(ControlNumberComparer.Instance);
         foreach (var roster in rosters)
         {
             var seniorityRows = await uow.Seniority.GetByRosterCtrlNbrAsync(roster.CtrlNbr);
             foreach (var seniority in seniorityRows)
             {
-                if (seniority.LastActiveRoster)
-                    eligibleEmployeeCtrlNbrs.Add(seniority.EmployeeCtrlNbr);
+                if (!seniorityStateNameByCtrlNbr.TryGetValue(seniority.SeniorityStateCtrlNbr, out var stateName))
+                {
+                    var state = await uow.SeniorityStates.GetByCtrlNbrAsync(seniority.SeniorityStateCtrlNbr, ct);
+                    if (state is null)
+                        continue;
+
+                    stateName = state.StateDescription;
+                    seniorityStateNameByCtrlNbr[seniority.SeniorityStateCtrlNbr] = stateName;
+                }
+
+                var isInactive = string.Equals(stateName, "Inactive", StringComparison.OrdinalIgnoreCase);
+                if (!hasInactiveSeniorityByEmployee.TryGetValue(seniority.EmployeeCtrlNbr, out var existingInactive))
+                    hasInactiveSeniorityByEmployee[seniority.EmployeeCtrlNbr] = isInactive;
+                else if (!existingInactive && isInactive)
+                    hasInactiveSeniorityByEmployee[seniority.EmployeeCtrlNbr] = true;
             }
         }
+
+        var eligibleEmployeeCtrlNbrs = hasInactiveSeniorityByEmployee
+            .Where(kvp => !kvp.Value)
+            .Select(kvp => kvp.Key)
+            .ToHashSet(ControlNumberComparer.Instance);
 
         if (eligibleEmployeeCtrlNbrs.Count == 0)
             return [];
@@ -323,31 +342,21 @@ public sealed class EmployeeAppService(
         if (employees.Count == 0)
             return [];
 
-        var statusIds = employees.Select(e => e.EmploymentStatusCtrlNbr).Distinct().ToList();
-        var statuses = new Dictionary<ControlNumber, bool>();
-        foreach (var statusId in statusIds)
-        {
-            var status = await uow.EmploymentStatuses.GetByCtrlNbrAsync(statusId, ct);
-            statuses[statusId] = IsActiveEmploymentStatus(status);
-        }
-
         return employees
-            .Where(e => statuses.TryGetValue(e.EmploymentStatusCtrlNbr, out var isActive) && isActive)
             .OrderBy(e => e.EmployeeNumber)
             .ThenBy(e => e.CtrlNbr.Value)
             .ToList();
     }
 
-    private static bool IsActiveEmploymentStatus(Domain.Models.Employment.EmploymentStatus? status)
+    private sealed class ControlNumberComparer : IEqualityComparer<ControlNumber>
     {
-        if (status is null)
-            return false;
+        public static readonly ControlNumberComparer Instance = new();
 
-        return string.Equals(status.StatusName, "Active", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status.StatusCode, "A", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status.StatusCode, "ACT", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status.EmploymentCode, "A", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status.EmploymentCode, "ACT", StringComparison.OrdinalIgnoreCase);
+        public bool Equals(ControlNumber? x, ControlNumber? y)
+            => x?.Value == y?.Value;
+
+        public int GetHashCode(ControlNumber obj)
+            => obj.Value.GetHashCode();
     }
     // ── Work Profile ─────────────────────────────────────────────────────────
 

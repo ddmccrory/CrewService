@@ -82,12 +82,9 @@ public class AbsenceVacancyService(IServiceProvider serviceProvider) : AbsenceVa
         CtrlNbr = r.CtrlNbr.Value,
         EmployeeCtrlNbr = r.EmployeeCtrlNbr.Value,
         StartUtc = r.ScheduledStartUtc.ToString("O"),
-        EndUtc = r.MarkUps
-            .OrderByDescending(m => m.ScheduledMarkUpUtc)
-            .Select(m => m.ScheduledMarkUpUtc.ToString("O"))
-            .FirstOrDefault() ?? string.Empty,
+        EndUtc = r.ScheduledEndUtc?.ToString("O") ?? string.Empty,
         ReasonCode = r.ReasonCode,
-        Status = r.Status,
+        Status = r.DerivedStatus,
         Notes = r.Notes ?? string.Empty
     };
 }

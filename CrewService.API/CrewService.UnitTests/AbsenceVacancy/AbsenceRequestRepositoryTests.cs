@@ -170,7 +170,7 @@ public sealed class AbsenceRequestRepositoryTests : IDisposable
         var results = await repository.GetByDateRangeAsync(railroad.CtrlNbr, rangeStart, rangeEnd, includeAllStatuses: false, ct: ct);
 
         var result = Assert.Single(results);
-        Assert.Equal("PENDING", result.Status);
+        Assert.Equal("PENDING", result.DerivedStatus);
     }
 
     [Fact]
@@ -273,7 +273,7 @@ public sealed class AbsenceRequestRepositoryTests : IDisposable
 
         var result = Assert.Single(results);
         Assert.Equal(exercised.CtrlNbr, result.CtrlNbr);
-        Assert.Equal("EXERCISED", result.Status);
+        Assert.Equal("OPEN", result.DerivedStatus);
     }
 
     [Fact]
@@ -311,8 +311,6 @@ public sealed class AbsenceRequestRepositoryTests : IDisposable
         var exercised = AbsenceRequest.Create(employee.CtrlNbr, DateTime.UtcNow.AddDays(-5), null, "MARKOFF");
         exercised.Approve(employee.CtrlNbr);
         exercised.Exercise(DateTime.UtcNow.AddDays(-5));
-        var markUp = exercised.AddMarkUp(DateTime.UtcNow.AddHours(-2), isAutoMarkUp: true);
-        markUp.Execute(DateTime.UtcNow.AddHours(-2));
         exercised.CompleteByMarkUp(DateTime.UtcNow.AddHours(-2));
 
         context.Set<AbsenceRequest>().Add(exercised);

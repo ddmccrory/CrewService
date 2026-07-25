@@ -55,6 +55,85 @@ public sealed class AbsenceClient(
         }
     }
 
+    public async Task<string> GetCreateAbsenceEndLocalPresetAsync(
+        long absenceCodeCtrlNbr,
+        string startLocal,
+        long? workAreaGroupCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetCreateAbsenceEndLocalPresetMsg
+            {
+                AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
+                StartLocal = startLocal
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            var response = await _client.GetCreateAbsenceEndLocalPresetAsync(request);
+            return response.EndLocal;
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<string> GetEndAbsenceLocalPresetAsync(
+        long? workAreaGroupCtrlNbr = null,
+        string? baseLocal = null,
+        bool nextDay = false)
+    {
+        try
+        {
+            var request = new GetEndAbsenceLocalPresetMsg
+            {
+                NextDay = nextDay
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (!string.IsNullOrWhiteSpace(baseLocal))
+                request.BaseLocal = baseLocal;
+
+            var response = await _client.GetEndAbsenceLocalPresetAsync(request);
+            return response.EndLocal;
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<AbsenceApprovalResponse> EndAbsenceRequestAsync(
+        long absenceRequestCtrlNbr,
+        string endLocal,
+        long? workAreaGroupCtrlNbr = null)
+    {
+        try
+        {
+            var request = new EndAbsenceMsg
+            {
+                AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+                EndLocal = endLocal
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            return await _client.EndAbsenceAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<GetAbsenceApprovalContextResponse> GetCreateAbsenceApprovalContextAsync(long employeeCtrlNbr, long absenceCodeCtrlNbr)
     {
         try
@@ -111,7 +190,8 @@ public sealed class AbsenceClient(
         long? craftCtrlNbr = null,
         long? departmentCtrlNbr = null,
         long? employeeCtrlNbr = null,
-        bool currentMonthOnly = false)
+        bool currentMonthOnly = false,
+        bool? approvedOnly = null)
     {
         try
         {
@@ -131,6 +211,9 @@ public sealed class AbsenceClient(
 
             if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
                 request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
+
+            if (approvedOnly.HasValue)
+                request.ApprovedOnly = approvedOnly.Value;
 
             return await _client.GetScheduledAbsencesAsync(request);
         }

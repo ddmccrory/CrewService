@@ -390,15 +390,16 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
                 isEnabled,
                 autoMarkOffIfWithinHoursEnabled,
                 autoMarkOffIfWithinHours);
+
+            DateTime? nextAutoMarkOff = null;
+            if (isEnabled)
+                nextAutoMarkOff = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+
             await uow.AbsenceApprovalPolicies.UpdateAsync(existing, ct);
             await uow.CommitAsync(ct);
 
-            if (isEnabled)
-            {
-                var nextAutoMarkOff = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
-                if (nextAutoMarkOff.HasValue)
-                    absenceMarkOffSignal.Notify(nextAutoMarkOff.Value);
-            }
+            if (nextAutoMarkOff.HasValue)
+                absenceMarkOffSignal.Notify(nextAutoMarkOff.Value);
 
             return existing;
         }
@@ -409,15 +410,16 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
             isEnabled,
             autoMarkOffIfWithinHoursEnabled,
             autoMarkOffIfWithinHours);
+
+        DateTime? nextForNewPolicy = null;
+        if (isEnabled)
+            nextForNewPolicy = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+
         await uow.AbsenceApprovalPolicies.AddAsync(policy, ct);
         await uow.CommitAsync(ct);
 
-        if (isEnabled)
-        {
-            var nextAutoMarkOff = await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
-            if (nextAutoMarkOff.HasValue)
-                absenceMarkOffSignal.Notify(nextAutoMarkOff.Value);
-        }
+        if (nextForNewPolicy.HasValue)
+            absenceMarkOffSignal.Notify(nextForNewPolicy.Value);
 
         return policy;
     }
@@ -584,8 +586,11 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
 
             var employeeAbsences = await uow.AbsenceRequests.GetByEmployeeAsync(employeeCn);
             var hasActiveMarkOff = employeeAbsences.Any(a =>
-                a.Status == "APPROVED"
-                && !a.MarkUps.Any(m => m.ActualMarkUpUtc.HasValue)
+                a.ApprovedAtUtc.HasValue
+                && a.DeniedAtUtc is null
+                && a.CancelledAtUtc is null
+                && a.StartRecords.Count > 0
+                && a.EndRecords.Count == 0
                 && string.Equals(a.ReasonCode, "MARKOFF", StringComparison.OrdinalIgnoreCase));
             if (policy.BlockIfEmployeeMarkedOff && hasActiveMarkOff)
                 throw new InvalidOperationException("Employee is currently marked off and is not eligible for No Access requests.");

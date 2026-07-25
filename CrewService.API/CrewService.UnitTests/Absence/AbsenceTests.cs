@@ -24,41 +24,18 @@ public class AbsenceCodeTests
     }
 }
 
-public class AbsenceApprovalTests
+public class AbsenceRequestLifecycleTests
 {
     [Fact]
-    public void AddApproval_CreatesWithPendingStatus()
+    public void Approve_SetsApprovedMetadata()
     {
         var request = AbsenceRequest.CreateWithCode(
             1, DateTime.UtcNow, null, ControlNumber.Create(10), "V1");
-        var approval = request.AddApproval(ControlNumber.Create(99));
+        request.Approve(ControlNumber.Create(99));
 
-        Assert.Equal("PENDING", approval.Status);
-        Assert.Single(request.Approvals);
-    }
-
-    [Fact]
-    public void Approve_SetsStatusAndTimestamp()
-    {
-        var request = AbsenceRequest.CreateWithCode(
-            1, DateTime.UtcNow, null, ControlNumber.Create(10), "V1");
-        var approval = request.AddApproval(ControlNumber.Create(99));
-        approval.Approve("Looks good");
-
-        Assert.Equal("APPROVED", approval.Status);
-        Assert.NotNull(approval.DecidedAtUtc);
-    }
-
-    [Fact]
-    public void Decline_SetsStatusAndTimestamp()
-    {
-        var request = AbsenceRequest.CreateWithCode(
-            1, DateTime.UtcNow, null, ControlNumber.Create(10), "V1");
-        var approval = request.AddApproval(ControlNumber.Create(99));
-        approval.Decline("Not enough notice");
-
-        Assert.Equal("DECLINED", approval.Status);
-        Assert.NotNull(approval.DecidedAtUtc);
+        Assert.Equal("APPROVED", request.DerivedStatus);
+        Assert.Equal(99, request.ApprovedByCtrlNbr!.Value);
+        Assert.NotNull(request.ApprovedAtUtc);
     }
 
     [Fact]
@@ -69,36 +46,22 @@ public class AbsenceApprovalTests
 
         request.Approve(ControlNumber.Create(99));
 
-        Assert.Equal("APPROVED", request.Status);
-        Assert.Empty(request.MarkUps);
+        Assert.Equal("APPROVED", request.DerivedStatus);
+        Assert.Empty(request.EndRecords);
     }
-}
 
-public class AbsenceMarkUpTests
-{
     [Fact]
-    public void AddMarkUp_SetsScheduledTime()
+    public void StartAndEnd_CreateOperationalRecords()
     {
         var start = DateTime.UtcNow;
         var request = AbsenceRequest.CreateWithCode(
             1, start, null, ControlNumber.Create(10), "V1");
-        var markUp = request.AddMarkUp(start.AddHours(168), true);
+        request.Approve(ControlNumber.Create(99));
+        request.Start(start);
+        request.AddEndRecord(start.AddHours(8), true);
 
-        Assert.Equal(start.AddHours(168), markUp.ScheduledMarkUpUtc);
-        Assert.True(markUp.IsAutoMarkUp);
-        Assert.Null(markUp.ActualMarkUpUtc);
-    }
-
-    [Fact]
-    public void Execute_SetsActualTime()
-    {
-        var start = DateTime.UtcNow;
-        var request = AbsenceRequest.CreateWithCode(
-            1, start, null, ControlNumber.Create(10), "V1");
-        var markUp = request.AddMarkUp(start.AddHours(168), true);
-        markUp.Execute(start.AddHours(168));
-
-        Assert.NotNull(markUp.ActualMarkUpUtc);
+        Assert.Single(request.StartRecords);
+        Assert.Single(request.EndRecords);
     }
 }
 

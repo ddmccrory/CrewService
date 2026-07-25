@@ -68,9 +68,12 @@ internal sealed class SkipContextProvider(
 
         var isMarkedOff = await dbContext.Set<AbsenceRequest>()
             .AnyAsync(a => a.EmployeeCtrlNbr == empCtrl
-                           && a.Status == "APPROVED"
+                            && a.ApprovedAtUtc != null
+                            && a.DeniedAtUtc == null
+                            && a.CancelledAtUtc == null
                            && a.ScheduledStartUtc <= now
-                           && !dbContext.Set<AbsenceMarkUp>().Any(m => m.AbsenceRequestCtrlNbr == a.CtrlNbr && m.ActualMarkUpUtc.HasValue), ct);
+                            && dbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == a.CtrlNbr)
+                            && !dbContext.Set<AbsenceEndRecord>().Any(e => e.AbsenceRequestCtrlNbr == a.CtrlNbr), ct);
 
         var lastOff = await dbContext.Set<OffDutyRecord>()
             .Where(r => r.EmployeeCtrlNbr == empCtrl)

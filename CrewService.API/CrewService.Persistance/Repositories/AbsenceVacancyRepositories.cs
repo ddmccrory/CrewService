@@ -13,15 +13,26 @@ namespace CrewService.Persistance.Repositories;
 internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<AbsenceRequest>(dbContext, currentUserService), IAbsenceRequestRepository
 {
+    public override async Task<AbsenceRequest?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) =>
+        await DbContext.Set<AbsenceRequest>()
+            .Include(r => r.StartRecords)
+            .Include(r => r.EndRecords)
+            .FirstOrDefaultAsync(r => r.CtrlNbr == ctrlNbr, ct);
+
     public async Task<List<AbsenceRequest>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr) =>
         await DbContext.Set<AbsenceRequest>()
-            .Include(r => r.MarkUps)
+            .Include(r => r.StartRecords)
+            .Include(r => r.EndRecords)
             .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
             .OrderByDescending(r => r.ScheduledStartUtc)
             .ToListAsync();
 
     public async Task<List<AbsenceRequest>> GetPendingAsync() =>
-        await DbContext.Set<AbsenceRequest>().Where(r => r.Status == "PENDING").ToListAsync();
+        await DbContext.Set<AbsenceRequest>()
+            .Where(r => r.ApprovedAtUtc == null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null)
+            .ToListAsync();
 
     public async Task<List<AbsenceRequest>> GetByDateAsync(
         ControlNumber railroadCtrlNbr,
@@ -46,6 +57,7 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
     {
         var rangeStart = DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc);
         var rangeEnd = DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc);
+        var nowUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         if (rangeEnd <= rangeStart)
             return [];
 
@@ -55,7 +67,8 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
         var parentCtrlNbr = railroadGroup?.ParentCtrlNbr;
 
         var query = DbContext.Set<AbsenceRequest>()
-            .Include(r => r.MarkUps)
+            .Include(r => r.StartRecords)
+            .Include(r => r.EndRecords)
             .Join(
                 DbContext.Set<Employee>(),
                 r => r.EmployeeCtrlNbr,
@@ -67,7 +80,7 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
             .Where(r => r.ScheduledStartUtc >= rangeStart && r.ScheduledStartUtc < rangeEnd);
 
         if (!includeAllStatuses)
-            query = query.Where(r => r.Status != "CANCELLED" && r.Status != "DENIED");
+            query = query.Where(r => r.CancelledAtUtc == null && r.DeniedAtUtc == null);
 
         query = ApplyCraftAndDepartmentFilters(query, railroadCtrlNbr, craftCtrlNbr, departmentCtrlNbr);
 
@@ -91,15 +104,14 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
         if (rangeEnd <= rangeStart)
             return [];
 
-        var nowUtc = DateTime.UtcNow;
-
         var railroadGroup = await DbContext.Set<DynamicGroup>()
             .AsNoTracking()
             .FirstOrDefaultAsync(g => g.CtrlNbr == railroadCtrlNbr, ct);
         var parentCtrlNbr = railroadGroup?.ParentCtrlNbr;
 
         var query = DbContext.Set<AbsenceRequest>()
-            .Include(r => r.MarkUps)
+            .Include(r => r.StartRecords)
+            .Include(r => r.EndRecords)
             .Join(
                 DbContext.Set<Employee>(),
                 r => r.EmployeeCtrlNbr,
@@ -108,16 +120,11 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
             .Where(x => x.Employee.ClientCtrlNbr == railroadCtrlNbr
                 || (parentCtrlNbr != null && x.Employee.ClientCtrlNbr == parentCtrlNbr))
             .Select(x => x.Request)
-            .Where(r => r.Status == "EXERCISED" || r.Status == "COMPLETED")
-            .Where(r =>
-                !DbContext.Set<AbsenceMarkUp>().Any(m => m.AbsenceRequestCtrlNbr == r.CtrlNbr)
-                || DbContext.Set<AbsenceMarkUp>().Any(m =>
-                    m.AbsenceRequestCtrlNbr == r.CtrlNbr
-                    && m.ActualMarkUpUtc == null)
-                || DbContext.Set<AbsenceMarkUp>().Any(m =>
-                    m.AbsenceRequestCtrlNbr == r.CtrlNbr
-                    && m.ActualMarkUpUtc != null
-                    && m.ActualMarkUpUtc > nowUtc));
+            .Where(r => r.ApprovedAtUtc != null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null)
+            .Where(r => DbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == r.CtrlNbr))
+            .Where(r => !DbContext.Set<AbsenceEndRecord>().Any(e => e.AbsenceRequestCtrlNbr == r.CtrlNbr));
 
         query = ApplyCraftAndDepartmentFilters(query, railroadCtrlNbr, craftCtrlNbr, departmentCtrlNbr);
 
@@ -165,17 +172,22 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
     public async Task<List<AbsenceRequest>> GetActiveMarkupBoundAsync(ControlNumber employeeCtrlNbr) =>
         await DbContext.Set<AbsenceRequest>()
             .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr
-                && r.Status == "APPROVED"
-                && !DbContext.Set<AbsenceMarkUp>().Any(m => m.AbsenceRequestCtrlNbr == r.CtrlNbr && m.ActualMarkUpUtc.HasValue))
+                && r.ApprovedAtUtc != null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null
+                && DbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == r.CtrlNbr)
+                && !DbContext.Set<AbsenceEndRecord>().Any(e => e.AbsenceRequestCtrlNbr == r.CtrlNbr))
             .ToListAsync();
 
     public async Task<List<AbsenceRequest>> GetApprovedAutoMarkOffDueAsync(DateTime asOfUtc, CancellationToken ct = default)
     {
         var asOf = DateTime.SpecifyKind(asOfUtc, DateTimeKind.Utc);
         return await DbContext.Set<AbsenceRequest>()
-            .Where(r => r.Status == "APPROVED"
+            .Where(r => r.ApprovedAtUtc != null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null
                 && r.AutoMarkOffOnApproval
-                && r.MarkOffStartUtc == null
+                && !DbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == r.CtrlNbr)
                 && r.ScheduledStartUtc <= asOf)
             .OrderBy(r => r.ScheduledStartUtc)
             .ThenBy(r => r.CtrlNbr)
@@ -185,10 +197,42 @@ internal sealed class AbsenceRequestRepository(CrewServiceDbContext dbContext, I
     public async Task<DateTime?> GetNextApprovedAutoMarkOffStartUtcAsync(CancellationToken ct = default)
     {
         return await DbContext.Set<AbsenceRequest>()
-            .Where(r => r.Status == "APPROVED"
+            .Where(r => r.ApprovedAtUtc != null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null
                 && r.AutoMarkOffOnApproval
-                && r.MarkOffStartUtc == null)
+                && !DbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == r.CtrlNbr))
             .MinAsync(r => (DateTime?)r.ScheduledStartUtc, ct);
+    }
+
+    public async Task<List<AbsenceRequest>> GetScheduledEndDueAsync(DateTime asOfUtc, CancellationToken ct = default)
+    {
+        var asOf = DateTime.SpecifyKind(asOfUtc, DateTimeKind.Utc);
+        return await DbContext.Set<AbsenceRequest>()
+            .Include(r => r.StartRecords)
+            .Include(r => r.EndRecords)
+            .Where(r => r.ApprovedAtUtc != null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null
+                && r.ScheduledEndUtc != null
+                && r.ScheduledEndUtc <= asOf
+                && DbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == r.CtrlNbr)
+                && !DbContext.Set<AbsenceEndRecord>().Any(e => e.AbsenceRequestCtrlNbr == r.CtrlNbr))
+            .OrderBy(r => r.ScheduledEndUtc)
+            .ThenBy(r => r.CtrlNbr)
+            .ToListAsync(ct);
+    }
+
+    public async Task<DateTime?> GetNextScheduledEndUtcAsync(CancellationToken ct = default)
+    {
+        return await DbContext.Set<AbsenceRequest>()
+            .Where(r => r.ApprovedAtUtc != null
+                && r.DeniedAtUtc == null
+                && r.CancelledAtUtc == null
+                && r.ScheduledEndUtc != null
+                && DbContext.Set<AbsenceStartRecord>().Any(s => s.AbsenceRequestCtrlNbr == r.CtrlNbr)
+                && !DbContext.Set<AbsenceEndRecord>().Any(e => e.AbsenceRequestCtrlNbr == r.CtrlNbr))
+            .MinAsync(r => r.ScheduledEndUtc, ct);
     }
 }
 

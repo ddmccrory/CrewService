@@ -79,7 +79,7 @@
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Start (Work Area Local)</label>
                     <div class="input-group">
-                        <input type="datetime-local" class="form-control" value="@_model.StartUtcLocal" @onchange="OnStartUtcChanged" />
+                        <input type="datetime-local" class="form-control" value="@_model.StartUtcLocal" @oninput="OnStartUtcChanged" />
                         <button type="button" class="btn btn-outline-secondary" @onclick="SetStartToNow">Now</button>
                     </div>
                 </div>
@@ -220,7 +220,7 @@
         }
     }
 
-    private void SetStartToNow()
+    private async Task SetStartToNow()
     {
         var workAreaTz = ResolveWorkAreaTimeZone();
         var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, workAreaTz);
@@ -230,7 +230,8 @@
         if (_model.ApprovedByCtrlNbr > 0)
             _model.AutoMarkOffOnApproval = true;
 
-        ApplyDefaultEndFromAbsenceCode();
+        await ApplyDefaultEndFromAbsenceCodeAsync();
+        await RefreshApprovalContextAsync();
     }
 
     private TimeZoneInfo ResolveWorkAreaTimeZone()
@@ -253,6 +254,7 @@
     {
         _model.StartUtcLocal = e?.Value?.ToString() ?? string.Empty;
         _isStartSetByNowButton = false;
+        await ApplyDefaultEndFromAbsenceCodeAsync();
         await RefreshApprovalContextAsync();
     }
 
@@ -272,7 +274,7 @@
 
     private async Task OnAbsenceCodeChangedAsync()
     {
-        ApplyDefaultEndFromAbsenceCode();
+        await ApplyDefaultEndFromAbsenceCodeAsync();
         await RefreshApprovalContextAsync();
     }
 
@@ -281,16 +283,9 @@
         await RefreshApprovalContextAsync();
     }
 
-    private void ApplyDefaultEndFromAbsenceCode()
+    private async Task ApplyDefaultEndFromAbsenceCodeAsync()
     {
         if (_model.AbsenceCodeCtrlNbr <= 0)
-        {
-            _model.EndUtcLocal = string.Empty;
-            return;
-        }
-
-        var selectedCode = AbsenceCodes.FirstOrDefault(c => c.CtrlNbr == _model.AbsenceCodeCtrlNbr);
-        if (selectedCode is null || !selectedCode.HasDefaultAutoMarkUpHours || selectedCode.DefaultAutoMarkUpHours <= 0)
         {
             _model.EndUtcLocal = string.Empty;
             return;
@@ -299,8 +294,20 @@
         if (!DateTime.TryParse(_model.StartUtcLocal, out var startLocal))
             return;
 
-        var endLocal = startLocal.AddHours(selectedCode.DefaultAutoMarkUpHours);
-        _model.EndUtcLocal = endLocal.ToString("yyyy-MM-ddTHH:mm");
+        try
+        {
+            var preset = await AbsenceClient.GetCreateAbsenceEndLocalPresetAsync(
+                _model.AbsenceCodeCtrlNbr,
+                startLocal.ToString("yyyy-MM-ddTHH:mm"),
+                SelectedWorkAreaCtrlNbr > 0 ? SelectedWorkAreaCtrlNbr : null);
+
+            _model.EndUtcLocal = preset;
+        }
+        catch (Exception ex)
+        {
+            _model.EndUtcLocal = string.Empty;
+            await SetErrorAsync($"Failed to compute end date/time: {ex.Message}");
+        }
     }
 
     private async Task RefreshApprovalContextAsync()
