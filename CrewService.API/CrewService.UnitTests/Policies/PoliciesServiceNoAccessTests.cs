@@ -595,6 +595,7 @@ public sealed class PoliciesServiceNoAccessTests : IDisposable
             reasonCode: "MARKOFF",
             notes: "Test markoff");
         markOff.Approve(employeeCtrlNbr);
+        markOff.Exercise(DateTime.UtcNow.AddHours(-2));
 
         ctx.Set<AbsenceRequest>().Add(markOff);
         await ctx.SaveChangesAsync(ct);

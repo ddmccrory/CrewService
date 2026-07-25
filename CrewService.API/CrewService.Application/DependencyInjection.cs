@@ -155,7 +155,9 @@ public static class DependencyInjection
 
         // Absence auto mark-off scheduling and execution
         services.AddSingleton<IAbsenceMarkOffSignal, AbsenceMarkOffSignal>();
+        services.AddSingleton<IAutoMarkUpSignal, AutoMarkUpSignal>();
         services.AddHostedService<BackgroundWorkers.Workers.MarkOffRequestWorker>();
+        services.AddHostedService<BackgroundWorkers.Workers.AutoMarkUpWorker>();
 
         // B03 – Mark-Off
         services.AddScoped<AutoMarkUpService>();

@@ -10,7 +10,8 @@ public sealed class AbsenceRequestService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IAbsenceCodeRepository absenceCodeRepository,
     IAbsenceApprovalPolicyResolver approvalPolicyResolver,
-    BackgroundWorkers.IAbsenceMarkOffSignal absenceMarkOffSignal)
+    BackgroundWorkers.IAbsenceMarkOffSignal absenceMarkOffSignal,
+    BackgroundWorkers.IAutoMarkUpSignal autoMarkUpSignal)
 {
     public const long SystemApprovalOfficerCtrlNbr = 1;
 
@@ -20,6 +21,28 @@ public sealed class AbsenceRequestService(
         await using var uow = await uowFactory.CreateAsync();
         uow.AbsenceRequests.Add(absence);
         await uow.CommitAsync();
+        return absence;
+    }
+
+    public async Task<AbsenceRequest> SetAutoMarkOffOnApprovalAsync(ControlNumber ctrlNbr, bool enabled)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        var absence = await uow.AbsenceRequests.GetByCtrlNbrAsync(ctrlNbr)
+            ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
+
+        absence.SetAutoMarkOffOnApproval(enabled);
+        uow.AbsenceRequests.Update(absence);
+        await uow.CommitAsync();
+
+        if (enabled
+            && absence.ApprovedAtUtc.HasValue
+            && absence.DeniedAtUtc is null
+            && absence.CancelledAtUtc is null)
+        {
+            absenceMarkOffSignal.Notify(absence.ScheduledStartUtc);
+        }
+
+        NotifyAutoMarkUpIfScheduledEnd(absence);
         return absence;
     }
 
@@ -43,6 +66,8 @@ public sealed class AbsenceRequestService(
 
         uow.AbsenceRequests.Update(absence);
         await uow.CommitAsync();
+
+        NotifyAutoMarkUpIfScheduledEnd(absence);
         return absence;
     }
 
@@ -119,6 +144,8 @@ public sealed class AbsenceRequestService(
         {
             absenceMarkOffSignal.Notify(absence.ScheduledStartUtc);
         }
+
+        NotifyAutoMarkUpIfScheduledEnd(absence);
 
         return absence;
     }
@@ -286,6 +313,10 @@ public sealed class AbsenceRequestService(
         uow.AbsenceRequests.Update(absence);
         await uow.CommitAsync();
 
+        // Always wake mark-off processing after an approval decision so the worker
+        // can immediately recompute due auto mark-off work.
+        absenceMarkOffSignal.Notify(DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc));
+
         if (absence.AutoMarkOffOnApproval
             && absence.ApprovedAtUtc.HasValue
             && absence.DeniedAtUtc is null
@@ -293,6 +324,8 @@ public sealed class AbsenceRequestService(
         {
             absenceMarkOffSignal.Notify(absence.ScheduledStartUtc);
         }
+
+        NotifyAutoMarkUpIfScheduledEnd(absence);
 
         return absence;
     }
@@ -323,6 +356,10 @@ public sealed class AbsenceRequestService(
         }
 
         await uow.CommitAsync(ct);
+
+        foreach (var request in due)
+            NotifyAutoMarkUpIfScheduledEnd(request);
+
         return due.Count;
     }
 
@@ -373,7 +410,21 @@ public sealed class AbsenceRequestService(
         absence.Exercise(DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc));
         uow.AbsenceRequests.Update(absence);
         await uow.CommitAsync();
+
+        NotifyAutoMarkUpIfScheduledEnd(absence);
+
         return absence;
+    }
+
+    private void NotifyAutoMarkUpIfScheduledEnd(AbsenceRequest absence)
+    {
+        if (!AbsenceStatusHelper.IsOpen(absence))
+            return;
+
+        if (!absence.ScheduledEndUtc.HasValue)
+            return;
+
+        autoMarkUpSignal.Notify(DateTime.SpecifyKind(absence.ScheduledEndUtc.Value, DateTimeKind.Utc));
     }
 
     private static bool IsEligibleApproverRole(
