@@ -19,6 +19,12 @@ service MarkOffSrvc {
   rpc MarkOffAbsence (MarkOffAbsenceMsg) returns (AbsenceApprovalResponse) {
     option (google.api.http) = { post: "/v1/mark-off/exercise" body: "*" };
   }
+  rpc EndAbsence (EndAbsenceMsg) returns (AbsenceApprovalResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/end" body: "*" };
+  }
+  rpc GetEndAbsenceLocalPreset (GetEndAbsenceLocalPresetMsg) returns (GetEndAbsenceLocalPresetResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/end/preset" body: "*" };
+  }
   rpc GetCompensationBalance (GetCompensationBalanceMsg) returns (CompensationBalanceResponse) {
     option (google.api.http) = { get: "/v1/mark-off/compensation-balance/{employee_ctrl_nbr}" };
   }
@@ -51,6 +57,9 @@ service MarkOffSrvc {
   }
   rpc GetCreateAbsenceApprovalContext (GetCreateAbsenceApprovalContextMsg) returns (GetAbsenceApprovalContextResponse) {
     option (google.api.http) = { post: "/v1/mark-off/create-approval-context" body: "*" };
+  }
+  rpc GetCreateAbsenceEndLocalPreset (GetCreateAbsenceEndLocalPresetMsg) returns (GetCreateAbsenceEndLocalPresetResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/create-end-preset" body: "*" };
   }
 }
 
@@ -89,6 +98,22 @@ message DeclineAbsenceMsg {
 
 message MarkOffAbsenceMsg {
   int64 absence_request_ctrl_nbr = 1;
+}
+
+message EndAbsenceMsg {
+  int64 absence_request_ctrl_nbr = 1;
+  optional int64 work_area_group_ctrl_nbr = 2;
+  string end_local = 3;
+}
+
+message GetEndAbsenceLocalPresetMsg {
+  optional int64 work_area_group_ctrl_nbr = 1;
+  optional string base_local = 2;
+  bool next_day = 3;
+}
+
+message GetEndAbsenceLocalPresetResponse {
+  string end_local = 1;
 }
 
 message AbsenceApprovalResponse {
@@ -206,6 +231,7 @@ message GetScheduledAbsencesMsg {
   optional int64 department_ctrl_nbr = 3;
   optional int64 employee_ctrl_nbr = 4;
   bool current_month_only = 5;
+  optional bool approved_only = 6;
 }
 
 message GetAbsenceApprovalContextMsg {
@@ -215,6 +241,16 @@ message GetAbsenceApprovalContextMsg {
 message GetCreateAbsenceApprovalContextMsg {
   int64 employee_ctrl_nbr = 1;
   int64 absence_code_ctrl_nbr = 2;
+}
+
+message GetCreateAbsenceEndLocalPresetMsg {
+  int64 absence_code_ctrl_nbr = 1;
+  string start_local = 2;
+  optional int64 work_area_group_ctrl_nbr = 3;
+}
+
+message GetCreateAbsenceEndLocalPresetResponse {
+  string end_local = 1;
 }
 
 message GetAbsenceApprovalContextResponse {
@@ -258,4 +294,6 @@ message MarkOffAbsenceRequestListItem {
   string approval_level = 13;
   string approval_level_description = 14;
   bool auto_mark_off_on_approval = 15;
+  bool can_start_absence = 16;
+  bool can_end_absence = 17;
 }

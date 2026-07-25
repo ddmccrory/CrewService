@@ -32,6 +32,7 @@ public class BackgroundServicesService(IServiceProvider serviceProvider)
 
     private static readonly HashSet<string> EventDrivenWorkers = new(StringComparer.OrdinalIgnoreCase)
     {
+        "AutoMarkUp",
         "CallSheet",
         "Bulletin",
         "MarkOff",
