@@ -1,0 +1,89 @@
+<div class="d-flex align-items-center gap-3 mt-3 mb-2">
+    @if (UseToggle)
+    {
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="@ToggleId" checked="@showHistory" @onchange="OnShowHistoryChangedAsync" />
+            <label class="form-check-label fw-semibold" for="@ToggleId">@ToggleLabel</label>
+        </div>
+    }
+
+    @if (!UseToggle || showHistory)
+    {
+        <div class="d-flex align-items-center gap-2">
+            <span class="fw-semibold text-nowrap">@RangeLabel</span>
+            <span class="fw-semibold text-nowrap">From</span>
+            <InputDate @bind-Value="fromDate" @bind-Value:after="OnFromDateChangedAsync" class="form-control" style="max-width: 210px;" />
+            <span class="fw-semibold text-nowrap">To</span>
+            <InputDate @bind-Value="toDate" @bind-Value:after="OnToDateChangedAsync" class="form-control" style="max-width: 210px;" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public DateTime FromDate { get; set; }
+    [Parameter] public EventCallback<DateTime> FromDateChanged { get; set; }
+
+    [Parameter] public DateTime ToDate { get; set; }
+    [Parameter] public EventCallback<DateTime> ToDateChanged { get; set; }
+
+    [Parameter] public EventCallback RangeChanged { get; set; }
+
+    [Parameter] public bool UseToggle { get; set; }
+    [Parameter] public bool ShowHistory { get; set; } = true;
+    [Parameter] public EventCallback<bool> ShowHistoryChanged { get; set; }
+
+    [Parameter] public string RangeLabel { get; set; } = "Show History";
+    [Parameter] public string ToggleLabel { get; set; } = "Show History";
+    [Parameter] public string ToggleId { get; set; } = "showHistoryToggle";
+
+    private DateTime fromDate;
+    private DateTime toDate;
+    private bool showHistory = true;
+
+    protected override void OnParametersSet()
+    {
+        fromDate = FromDate.Date;
+        toDate = ToDate.Date;
+        showHistory = ShowHistory;
+
+        if (fromDate >= toDate)
+            toDate = fromDate.AddDays(1);
+    }
+
+    private async Task OnFromDateChangedAsync()
+    {
+        if (fromDate >= toDate)
+            toDate = fromDate.AddDays(1);
+
+        await PublishRangeAsync();
+    }
+
+    private async Task OnToDateChangedAsync()
+    {
+        if (toDate <= fromDate)
+            fromDate = toDate.AddDays(-1);
+
+        await PublishRangeAsync();
+    }
+
+    private async Task OnShowHistoryChangedAsync(ChangeEventArgs e)
+    {
+        showHistory = e.Value is bool b && b;
+        if (ShowHistory != showHistory)
+            await ShowHistoryChanged.InvokeAsync(showHistory);
+
+        if (!UseToggle || showHistory)
+            await PublishRangeAsync();
+    }
+
+    private async Task PublishRangeAsync()
+    {
+        if (FromDate != fromDate)
+            await FromDateChanged.InvokeAsync(fromDate);
+
+        if (ToDate != toDate)
+            await ToDateChanged.InvokeAsync(toDate);
+
+        await RangeChanged.InvokeAsync();
+    }
+}

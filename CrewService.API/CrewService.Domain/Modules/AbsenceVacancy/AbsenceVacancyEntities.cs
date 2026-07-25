@@ -176,6 +176,12 @@ public sealed class AbsenceRequest : Entity
         Complete(markUpUtc, isAutoEndRecord: true);
     }
 
+    public void SetAutoMarkOffOnApproval(bool enabled)
+    {
+        EnsureNotClosedForLifecycleChange();
+        AutoMarkOffOnApproval = enabled;
+    }
+
     private static DateTime AsUtc(DateTime value)
     {
         return value.Kind == DateTimeKind.Utc

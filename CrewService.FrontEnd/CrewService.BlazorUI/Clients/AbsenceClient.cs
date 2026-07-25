@@ -55,6 +55,25 @@ public sealed class AbsenceClient(
         }
     }
 
+    public async Task<AbsenceApprovalResponse> SetAbsenceAutoProcessAsync(long absenceRequestCtrlNbr, bool autoMarkOffOnApproval)
+    {
+        try
+        {
+            var request = new SetAbsenceAutoProcessMsg
+            {
+                AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+                AutoMarkOffOnApproval = autoMarkOffOnApproval
+            };
+
+            return await _client.SetAbsenceAutoProcessAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<string> GetCreateAbsenceEndLocalPresetAsync(
         long absenceCodeCtrlNbr,
         string startLocal,
@@ -216,6 +235,76 @@ public sealed class AbsenceClient(
                 request.ApprovedOnly = approvedOnly.Value;
 
             return await _client.GetScheduledAbsencesAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetMarkOffAbsenceRequestsResponse> GetAbsenceApprovalsAsync(
+        long? workAreaGroupCtrlNbr = null,
+        long? craftCtrlNbr = null,
+        long? departmentCtrlNbr = null,
+        long? employeeCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetAbsenceApprovalsMsg();
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (craftCtrlNbr.HasValue && craftCtrlNbr.Value > 0)
+                request.CraftCtrlNbr = craftCtrlNbr.Value;
+
+            if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
+                request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
+
+            return await _client.GetAbsenceApprovalsAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<GetMarkOffAbsenceRequestsResponse> GetAbsenceHistoryAsync(
+        DateTime fromDateUtc,
+        DateTime? toDateUtc = null,
+        long? workAreaGroupCtrlNbr = null,
+        long? craftCtrlNbr = null,
+        long? departmentCtrlNbr = null,
+        long? employeeCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetAbsenceHistoryMsg
+            {
+                FromDateUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(fromDateUtc.Date, DateTimeKind.Utc))
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (craftCtrlNbr.HasValue && craftCtrlNbr.Value > 0)
+                request.CraftCtrlNbr = craftCtrlNbr.Value;
+
+            if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
+                request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
+
+            if (toDateUtc.HasValue)
+                request.ToDateUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(toDateUtc.Value.Date, DateTimeKind.Utc));
+
+            return await _client.GetAbsenceHistoryAsync(request);
         }
         catch (Exception ex)
         {

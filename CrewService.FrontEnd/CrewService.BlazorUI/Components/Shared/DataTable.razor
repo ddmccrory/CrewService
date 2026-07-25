@@ -54,11 +54,12 @@ else
                     {
                         @if (col.IsSortable)
                         {
-                            <SortableHeader Column="@col.SortKey" CurrentSort="@sortColumn" Ascending="@sortAscending" OnSort="SetSort">@col.Title</SortableHeader>
+                            <SortableHeader Column="@col.SortKey" CurrentSort="@sortColumn" Ascending="@sortAscending" HeaderTooltip="@col.HeaderTooltip" OnSort="SetSort">@col.Title</SortableHeader>
                         }
                         else
                         {
                             <th class="@GetHeaderClass(col)"
+                                title="@col.HeaderTooltip"
                                 style="@(col.Width is not null ? $"width: {col.Width}; min-width: {col.Width};" : "")">@col.Title</th>
                         }
                     }

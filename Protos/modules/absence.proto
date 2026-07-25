@@ -19,6 +19,9 @@ service MarkOffSrvc {
   rpc MarkOffAbsence (MarkOffAbsenceMsg) returns (AbsenceApprovalResponse) {
     option (google.api.http) = { post: "/v1/mark-off/exercise" body: "*" };
   }
+  rpc SetAbsenceAutoProcess (SetAbsenceAutoProcessMsg) returns (AbsenceApprovalResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/auto-process" body: "*" };
+  }
   rpc EndAbsence (EndAbsenceMsg) returns (AbsenceApprovalResponse) {
     option (google.api.http) = { post: "/v1/mark-off/end" body: "*" };
   }
@@ -51,6 +54,12 @@ service MarkOffSrvc {
   }
   rpc GetScheduledAbsences (GetScheduledAbsencesMsg) returns (GetMarkOffAbsenceRequestsResponse) {
     option (google.api.http) = { get: "/v1/mark-off/scheduled-absences" };
+  }
+  rpc GetAbsenceApprovals (GetAbsenceApprovalsMsg) returns (GetMarkOffAbsenceRequestsResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/absence-approvals" };
+  }
+  rpc GetAbsenceHistory (GetAbsenceHistoryMsg) returns (GetMarkOffAbsenceRequestsResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/absence-history" };
   }
   rpc GetAbsenceApprovalContext (GetAbsenceApprovalContextMsg) returns (GetAbsenceApprovalContextResponse) {
     option (google.api.http) = { get: "/v1/mark-off/approval-context/{absence_request_ctrl_nbr}" };
@@ -98,6 +107,11 @@ message DeclineAbsenceMsg {
 
 message MarkOffAbsenceMsg {
   int64 absence_request_ctrl_nbr = 1;
+}
+
+message SetAbsenceAutoProcessMsg {
+  int64 absence_request_ctrl_nbr = 1;
+  bool auto_mark_off_on_approval = 2;
 }
 
 message EndAbsenceMsg {
@@ -232,6 +246,22 @@ message GetScheduledAbsencesMsg {
   optional int64 employee_ctrl_nbr = 4;
   bool current_month_only = 5;
   optional bool approved_only = 6;
+}
+
+message GetAbsenceApprovalsMsg {
+  optional int64 work_area_group_ctrl_nbr = 1;
+  optional int64 craft_ctrl_nbr = 2;
+  optional int64 department_ctrl_nbr = 3;
+  optional int64 employee_ctrl_nbr = 4;
+}
+
+message GetAbsenceHistoryMsg {
+  google.protobuf.Timestamp from_date_utc = 1;
+  optional int64 work_area_group_ctrl_nbr = 2;
+  optional int64 craft_ctrl_nbr = 3;
+  optional int64 department_ctrl_nbr = 4;
+  optional int64 employee_ctrl_nbr = 5;
+  optional google.protobuf.Timestamp to_date_utc = 6;
 }
 
 message GetAbsenceApprovalContextMsg {

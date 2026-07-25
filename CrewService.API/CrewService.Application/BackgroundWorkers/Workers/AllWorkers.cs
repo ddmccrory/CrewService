@@ -217,9 +217,36 @@ public sealed class MarkOffRequestWorker(
 
 public sealed class AutoMarkUpWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<AutoMarkUpWorker> logger)
+    ILogger<AutoMarkUpWorker> logger,
+    IAutoMarkUpSignal scheduleSignal)
     : WorkerBase(scopeFactory, logger, "AutoMarkUp", TimeSpan.FromMinutes(1))
 {
+    protected override bool UseDueScheduleGate => false;
+
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        using var scope = ScopeFactory.CreateScope();
+        var absenceRequestService = scope.ServiceProvider.GetRequiredService<AbsenceVacancy.AbsenceRequestService>();
+        var nextEvent = await absenceRequestService.GetNextScheduledEndUtcAsync(cancellationToken);
+
+        if (nextEvent.HasValue)
+        {
+            scheduleSignal.Notify(nextEvent.Value);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "AutoMarkUpWorker: Startup — next scheduled end event at {NextEvent:u}.", nextEvent.Value);
+            }
+        }
+        else
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("AutoMarkUpWorker: Startup — no pending scheduled end events.");
+        }
+
+        await base.StartAsync(cancellationToken);
+    }
+
     protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var absenceRequestService = services.GetRequiredService<AbsenceVacancy.AbsenceRequestService>();
@@ -230,8 +257,17 @@ public sealed class AutoMarkUpWorker(
             logger.LogInformation("AutoMarkUpWorker: Auto ended {Count} open request(s) at scheduled end time.", ended);
         }
 
+        var nextEvent = await absenceRequestService.GetNextScheduledEndUtcAsync(ct);
+        if (nextEvent.HasValue)
+            scheduleSignal.Notify(nextEvent.Value);
+
         return ended > 0;
     }
+
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
+
+    protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 }
 
 public sealed class BulletinProcessingWorker(

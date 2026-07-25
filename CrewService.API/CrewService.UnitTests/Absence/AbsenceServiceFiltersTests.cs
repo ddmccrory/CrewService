@@ -290,6 +290,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         services.AddSingleton<IAbsenceCodeRepository, NullAbsenceCodeRepository>();
         services.AddSingleton<IAbsenceApprovalPolicyResolver, StaticAbsenceApprovalPolicyResolver>();
         services.AddSingleton<IAbsenceMarkOffSignal, AbsenceMarkOffSignal>();
+        services.AddSingleton<IAutoMarkUpSignal, AutoMarkUpSignal>();
         services.AddTransient<AbsenceRequestService>();
 
         return new AbsenceService(services.BuildServiceProvider());
