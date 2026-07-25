@@ -23,6 +23,54 @@ public sealed class AbsenceRequestService(
         return absence;
     }
 
+    public async Task<AbsenceRequest> EndAbsenceAsync(ControlNumber ctrlNbr, DateTime endedUtc)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        var absence = await uow.AbsenceRequests.GetByCtrlNbrAsync(ctrlNbr)
+            ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
+
+        var effectiveEndUtc = DateTime.SpecifyKind(endedUtc, DateTimeKind.Utc);
+        var nowUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+
+        if (effectiveEndUtc > nowUtc)
+        {
+            absence.ScheduleEnd(effectiveEndUtc);
+        }
+        else
+        {
+            absence.Complete(effectiveEndUtc);
+        }
+
+        uow.AbsenceRequests.Update(absence);
+        await uow.CommitAsync();
+        return absence;
+    }
+
+    public async Task<int> ExecuteDueScheduledEndAsync(DateTime asOfUtc, CancellationToken ct = default)
+    {
+        var asOf = DateTime.SpecifyKind(asOfUtc, DateTimeKind.Utc);
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var due = await uow.AbsenceRequests.GetScheduledEndDueAsync(asOf, ct);
+
+        if (due.Count == 0)
+            return 0;
+
+        foreach (var request in due)
+        {
+            request.Complete(DateTime.SpecifyKind(request.ScheduledEndUtc!.Value, DateTimeKind.Utc));
+            uow.AbsenceRequests.Update(request);
+        }
+
+        await uow.CommitAsync(ct);
+        return due.Count;
+    }
+
+    public async Task<DateTime?> GetNextScheduledEndUtcAsync(CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.AbsenceRequests.GetNextScheduledEndUtcAsync(ct);
+    }
+
     public async Task<AbsenceRequest> SubmitWithCodeAsync(
         ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime? endUtc,
         ControlNumber absenceCodeCtrlNbr, string reasonCode,
@@ -44,17 +92,17 @@ public sealed class AbsenceRequestService(
         if (approvalPolicy.Level == AbsenceApprovalLevel.Automatic)
         {
             var systemOfficerCtrlNbr = ControlNumber.Create(SystemApprovalOfficerCtrlNbr);
-            absence.AddApproval(systemOfficerCtrlNbr).Approve("Automatically approved by system policy.");
             absence.Approve(systemOfficerCtrlNbr);
         }
         else if (approvedByCtrlNbr is not null)
         {
-            absence.AddApproval(approvedByCtrlNbr).Approve("Approved during request creation.");
             absence.Approve(approvedByCtrlNbr);
         }
 
         if (autoMarkOffOnApproval
-            && string.Equals(absence.Status, "APPROVED", StringComparison.OrdinalIgnoreCase)
+            && absence.ApprovedAtUtc.HasValue
+            && absence.DeniedAtUtc is null
+            && absence.CancelledAtUtc is null
             && ShouldAutoMarkOffImmediately(absence.ScheduledStartUtc, markOffReferenceUtc, approvalPolicy))
         {
             absence.Exercise(markOffReferenceUtc);
@@ -65,7 +113,9 @@ public sealed class AbsenceRequestService(
         await uow.CommitAsync();
 
         if (autoMarkOffOnApproval
-            && string.Equals(absence.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            && absence.ApprovedAtUtc.HasValue
+            && absence.DeniedAtUtc is null
+            && absence.CancelledAtUtc is null)
         {
             absenceMarkOffSignal.Notify(absence.ScheduledStartUtc);
         }
@@ -237,7 +287,9 @@ public sealed class AbsenceRequestService(
         await uow.CommitAsync();
 
         if (absence.AutoMarkOffOnApproval
-            && string.Equals(absence.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            && absence.ApprovedAtUtc.HasValue
+            && absence.DeniedAtUtc is null
+            && absence.CancelledAtUtc is null)
         {
             absenceMarkOffSignal.Notify(absence.ScheduledStartUtc);
         }

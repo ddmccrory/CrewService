@@ -80,6 +80,15 @@ public sealed class BackgroundJobNextRunResolver(
                 : null;
         }
 
+        if (workerType.Equals("AutoMarkUp", StringComparison.OrdinalIgnoreCase))
+        {
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+            var nextUtc = await uow.AbsenceRequests.GetNextScheduledEndUtcAsync(ct);
+            return nextUtc.HasValue
+                ? new BackgroundJobNextRunResult(DateTime.SpecifyKind(nextUtc.Value, DateTimeKind.Utc))
+                : null;
+        }
+
         return null;
     }
 
@@ -132,4 +141,5 @@ public sealed class BackgroundJobNextRunResolver(
             next.Item.TargetDate,
             next.DepartmentName);
     }
+
 }
