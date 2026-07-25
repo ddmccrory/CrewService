@@ -14,7 +14,7 @@
 @inject AbsenceClient AbsenceClient
 @inject CraftClient CraftClient
 @inject RailroadReferenceDataService ReferenceData
-@inject DailyOperationsClient DailyOperationsClient
+@inject BackgroundServicesClient BackgroundServicesClient
 @inject EmployeeClient EmployeeClient
 
 <PageTitle>Absences</PageTitle>
@@ -38,11 +38,22 @@ else if (HasRailroad)
     {
     <p class="text-muted mb-1">Daily operations for <strong>@SelectedRailroadName</strong></p>
 
-    @if (!string.IsNullOrWhiteSpace(nextCallSheetEventSummary))
+    @if (!string.IsNullOrWhiteSpace(nextAbsenceStartEventSummary)
+        || !string.IsNullOrWhiteSpace(nextAbsenceEndEventSummary))
     {
-        <p class="text-muted mb-1 small">
-            <span class="bi bi-clock me-1"></span>Next processing event: <strong>@nextCallSheetEventSummary</strong>
-        </p>
+        @if (!string.IsNullOrWhiteSpace(nextAbsenceStartEventSummary))
+        {
+            <p class="text-muted mb-1 small">
+                <span class="bi bi-clock me-1"></span>Next start absence event: <strong>@nextAbsenceStartEventSummary</strong>
+            </p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(nextAbsenceEndEventSummary))
+        {
+            <p class="text-muted mb-1 small">
+                <span class="bi bi-clock me-1"></span>Next end absence event: <strong>@nextAbsenceEndEventSummary</strong>
+            </p>
+        }
     }
 
     <SuccessAlert @bind-Message="successMessage" />
@@ -195,6 +206,8 @@ else if (HasRailroad)
                                         <td class="bg-body-tertiary"></td>
                                     }
                                 }
+
+
                             </tr>
                         }
                     </tbody>
@@ -239,16 +252,6 @@ else if (HasRailroad)
                             <td>@GetReasonDisplay(req)</td>
                             <td>@GetStartDisplay(req)</td>
                             <td>@GetEndDisplay(req)</td>
-                            <td class="text-center" title="Auto mark-off on approval">
-                                @if (req.AutoMarkOffOnApproval)
-                                {
-                                    <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
-                                }
-                                else
-                                {
-                                    <span>—</span>
-                                }
-                            </td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(req.Notes))
                                 {
@@ -259,6 +262,13 @@ else if (HasRailroad)
                                     <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
                                 }
                             </td>
+                            <td class="text-end">
+                                <button class="btn btn-outline-primary btn-sm w-100"
+                                        @onclick="() => OpenEndAbsenceModal(req)"
+                                        disabled="@(isSaving || !req.CanEndAbsence)">
+                                    End Absence
+                                </button>
+                            </td>
                         </RowContent>
                     </DataTable>
                 }
@@ -267,7 +277,6 @@ else if (HasRailroad)
 
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="mb-0">Scheduled Absences (Next 24 Hours)</h6>
-                    <span class="badge text-bg-secondary">@next24HourScheduledAbsences.Count Scheduled</span>
                 </div>
 
                 @if (isLoadingTomorrowRequests)
@@ -292,16 +301,6 @@ else if (HasRailroad)
                             <td>@GetReasonDisplay(req)</td>
                             <td>@GetStartDisplay(req)</td>
                             <td>@GetEndDisplay(req)</td>
-                            <td class="text-center" title="Auto mark-off on approval">
-                                @if (req.AutoMarkOffOnApproval)
-                                {
-                                    <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
-                                }
-                                else
-                                {
-                                    <span>—</span>
-                                }
-                            </td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(req.Notes))
                                 {
@@ -315,12 +314,12 @@ else if (HasRailroad)
                             @if (ShowScheduledActionsColumn)
                             {
                                 <td class="text-end">
-                                    @if (IsStatus(req.Status, "APPROVED"))
+                                    @if (req.CanStartAbsence)
                                     {
-                                        <button class="btn btn-outline-primary btn-sm"
+                                        <button class="btn btn-outline-primary btn-sm w-100"
                                                 @onclick="() => OpenMarkOffModal(req.CtrlNbr)"
                                                 disabled="@isSaving">
-                                            Mark-off
+                                            Start Absence
                                         </button>
                                     }
                                 </td>
@@ -328,6 +327,8 @@ else if (HasRailroad)
                         </RowContent>
                     </DataTable>
                 }
+
+                <div class="small text-muted mt-2">* All times are displayed in the work area time zone.</div>
             </div>
         </div>
     }
@@ -410,8 +411,8 @@ else if (HasRailroad)
                                 <th>Status</th>
                                 <th>Employee</th>
                                 <th>Reason</th>
-                                <th>Start (Work Area Local)</th>
-                                <th>End (Work Area Local)</th>
+                                <th>Start*</th>
+                                <th>End*</th>
                                 <th title="Auto mark-off on approval">AM</th>
                                 <th>Notes</th>
                                 @if (ShowRequestActionsColumn)
@@ -532,6 +533,15 @@ else if (HasRailroad)
             <button type="button" class="btn btn-primary" @onclick="ConfirmMarkOffAsync" disabled="@isSaving">Mark-off</button>
         </Footer>
     </Modal>
+
+    <EndAbsenceModal Visible="showEndAbsenceModal"
+                     IsSaving="isSaving"
+                     IsSubmitDisabled="endAbsenceRequestCtrlNbr <= 0"
+                     EndAbsenceDateTimeLocal="endAbsenceDateTimeLocal"
+                     EndAbsenceDateTimeLocalChanged="SetEndAbsenceDateTimeLocal"
+                     OnNextDaySelected="SetEndAbsenceToNextDayAsync"
+                     OnConfirm="ConfirmEndAbsenceAsync"
+                     OnCancel="CloseEndAbsenceModal" />
 }
 
 @code {
@@ -544,10 +554,13 @@ else if (HasRailroad)
     private bool showCreateRequestModal;
     private bool showDecisionModal;
     private bool showMarkOffModal;
+    private bool showEndAbsenceModal;
     private bool decisionIsApprove;
     private long decisionRequestCtrlNbr;
     private long decisionOfficerCtrlNbr;
     private long markOffRequestCtrlNbr;
+    private long endAbsenceRequestCtrlNbr;
+    private DateTime endAbsenceDateTimeLocal;
     private string? decisionNotes;
     private string decisionApprovalLevel = string.Empty;
     private string decisionApprovalLevelDescription = string.Empty;
@@ -574,7 +587,8 @@ else if (HasRailroad)
     private DateTime displayedMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private int selectedCalendarMonth = DateTime.Today.Month;
     private int selectedCalendarYear = DateTime.Today.Year;
-    private string? nextCallSheetEventSummary;
+    private string? nextAbsenceStartEventSummary;
+    private string? nextAbsenceEndEventSummary;
 
     private static readonly string[] dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     private static readonly (int Value, string Label)[] monthOptions =
@@ -589,7 +603,6 @@ else if (HasRailroad)
     private IEnumerable<int> calendarYearOptions => Enumerable.Range(DateTime.Today.Year - 5, 11);
     private bool IsRequestsTab => string.Equals(activeAbsenceTab, "requests", StringComparison.OrdinalIgnoreCase);
     private List<MarkOffAbsenceRequestListItem> next24HourScheduledAbsences => tomorrowRequests
-        .Where(r => IsStatus(r.Status, "APPROVED"))
         .ToList();
 
     private List<MarkOffAbsenceRequestListItem> filteredRequests => requests
@@ -602,17 +615,17 @@ else if (HasRailroad)
 
     private bool ShowScheduledActionsColumn
         => !IsFeatureReadOnly
-            && tomorrowRequests.Any(r => IsStatus(r.Status, "APPROVED"));
+            && tomorrowRequests.Any(r => r.CanStartAbsence);
 
     private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> OpenAbsenceColumns =>
     [
         new("Status", req => req.Status),
         new("Employee", req => GetEmployeeDisplay(req.EmployeeCtrlNbr)),
         new("Reason", req => GetReasonDisplay(req)),
-        new("Start (Work Area Local)", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
-        new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
-        new("AM", req => req.AutoMarkOffOnApproval),
-        new("Notes", req => req.Notes ?? string.Empty)
+        new("Start*", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
+        new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+        new("Notes", req => req.Notes ?? string.Empty),
+        DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("140px")
     ];
 
     private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> ScheduledAbsenceColumns
@@ -624,14 +637,13 @@ else if (HasRailroad)
                 new("Status", req => req.Status),
                 new("Employee", req => GetEmployeeDisplay(req.EmployeeCtrlNbr)),
                 new("Reason", req => GetReasonDisplay(req)),
-                new("Start (Work Area Local)", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
-                new("End (Work Area Local)", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
-                new("AM", req => req.AutoMarkOffOnApproval),
+                new("Start*", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
+                new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
                 new("Notes", req => req.Notes ?? string.Empty)
             };
 
             if (ShowScheduledActionsColumn)
-                columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("120px"));
+                columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("140px"));
 
             return columns;
         }
@@ -709,7 +721,8 @@ else if (HasRailroad)
         selectedCraftCtrlNbr = 0;
         selectedDepartmentCtrlNbr = 0;
         selectedWorkAreaCtrlNbr = 0;
-        nextCallSheetEventSummary = null;
+        nextAbsenceStartEventSummary = null;
+        nextAbsenceEndEventSummary = null;
         monthCountsCache.Clear();
 
         if (!HasRailroad)
@@ -793,7 +806,8 @@ else if (HasRailroad)
                 var response = await AbsenceClient.GetScheduledAbsencesAsync(
                     selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
                     selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
-                    selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
+                    selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null,
+                    approvedOnly: true);
 
                 tomorrowRequests = response.Requests
                     .OrderBy(r => r.StartUtc.ToDateTime())
@@ -967,32 +981,46 @@ else if (HasRailroad)
     {
         if (selectedWorkAreaCtrlNbr <= 0)
         {
-            nextCallSheetEventSummary = null;
+            nextAbsenceStartEventSummary = null;
+            nextAbsenceEndEventSummary = null;
             return;
         }
 
         try
         {
-            var response = await DailyOperationsClient.GetNextCallSheetEventAsync(selectedWorkAreaCtrlNbr);
-            if (response is null || string.IsNullOrWhiteSpace(response.NextEventLocal))
+            if (!SelectedRailroadCtrlNbr.HasValue)
             {
-                nextCallSheetEventSummary = null;
+                nextAbsenceStartEventSummary = null;
+                nextAbsenceEndEventSummary = null;
                 return;
             }
 
-            var shiftLabel = string.IsNullOrWhiteSpace(response.ShiftDisplayName)
-                ? response.ShiftCode
-                : response.ShiftDisplayName;
+            var markOffSchedules = await BackgroundServicesClient.GetWorkerSchedulesAsync(
+                SelectedRailroadCtrlNbr.Value,
+                "MarkOff");
 
-            var formattedNextEvent = FormatDisplayLocal(response.NextEventLocal);
+            var autoMarkUpSchedules = await BackgroundServicesClient.GetWorkerSchedulesAsync(
+                SelectedRailroadCtrlNbr.Value,
+                "AutoMarkUp");
 
-            nextCallSheetEventSummary = string.IsNullOrWhiteSpace(shiftLabel)
-                ? formattedNextEvent
-                : $"{shiftLabel} at {formattedNextEvent}";
+            var markOffSchedule = markOffSchedules.Schedules
+                .FirstOrDefault(s => s.WorkAreaCtrlNbr == selectedWorkAreaCtrlNbr);
+
+            var autoMarkUpSchedule = autoMarkUpSchedules.Schedules
+                .FirstOrDefault(s => s.WorkAreaCtrlNbr == selectedWorkAreaCtrlNbr);
+
+            nextAbsenceStartEventSummary = string.IsNullOrWhiteSpace(markOffSchedule?.NextFireLocalDisplay)
+                ? null
+                : FormatDisplayLocal(markOffSchedule.NextFireLocalDisplay);
+
+            nextAbsenceEndEventSummary = string.IsNullOrWhiteSpace(autoMarkUpSchedule?.NextFireLocalDisplay)
+                ? null
+                : FormatDisplayLocal(autoMarkUpSchedule.NextFireLocalDisplay);
         }
         catch
         {
-            nextCallSheetEventSummary = null;
+            nextAbsenceStartEventSummary = null;
+            nextAbsenceEndEventSummary = null;
         }
     }
 
@@ -1259,6 +1287,76 @@ else if (HasRailroad)
     {
         showMarkOffModal = false;
         markOffRequestCtrlNbr = 0;
+    }
+
+    private async Task OpenEndAbsenceModal(MarkOffAbsenceRequestListItem request)
+    {
+        endAbsenceRequestCtrlNbr = request.CtrlNbr;
+        var preset = await AbsenceClient.GetEndAbsenceLocalPresetAsync(
+            selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+            baseLocal: null,
+            nextDay: false);
+
+        if (DateTime.TryParse(preset, out var parsedLocal))
+            endAbsenceDateTimeLocal = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
+        else
+            endAbsenceDateTimeLocal = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+
+        showEndAbsenceModal = true;
+    }
+
+    private void CloseEndAbsenceModal()
+    {
+        showEndAbsenceModal = false;
+        endAbsenceRequestCtrlNbr = 0;
+        endAbsenceDateTimeLocal = default;
+    }
+
+    private void SetEndAbsenceDateTimeLocal(DateTime value)
+        => endAbsenceDateTimeLocal = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+
+    private async Task SetEndAbsenceToNextDayAsync()
+    {
+        var preset = await AbsenceClient.GetEndAbsenceLocalPresetAsync(
+            selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+            endAbsenceDateTimeLocal.ToString("yyyy-MM-ddTHH:mm"),
+            nextDay: true);
+
+        if (DateTime.TryParse(preset, out var parsedLocal))
+            endAbsenceDateTimeLocal = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
+    }
+
+    private async Task ConfirmEndAbsenceAsync()
+    {
+        if (endAbsenceRequestCtrlNbr <= 0)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await AbsenceClient.EndAbsenceRequestAsync(
+                endAbsenceRequestCtrlNbr,
+                endAbsenceDateTimeLocal.ToString("yyyy-MM-ddTHH:mm"),
+                selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null);
+
+            successMessage = "Absence ended.";
+            showEndAbsenceModal = false;
+            endAbsenceRequestCtrlNbr = 0;
+            endAbsenceDateTimeLocal = default;
+
+            await RefreshOpenAbsencesSectionAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to end absence: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     private async Task ConfirmMarkOffAsync()
