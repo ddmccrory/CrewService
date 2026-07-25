@@ -394,28 +394,31 @@ else
                            DefaultSortColumn="Start"
                            DefaultSortAscending="false">
                     <RowContent Context="req">
-                        <td><span class="badge @GetAbsenceStatusBadge(req.Status)">@req.Status</span></td>
+                        <td><span class="badge @GetAbsenceStatusBadge(req.Status) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
                         <td>@GetAbsenceReasonDisplay(req)</td>
                         <td>@GetAbsenceStartDisplay(req)</td>
                         <td>@GetAbsenceEndDisplay(req)</td>
                         <td>
-                            @if (string.IsNullOrWhiteSpace(req.Notes))
-                            {
-                                <span>—</span>
-                            }
-                            else
-                            {
-                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                            }
+                            <button type="button"
+                                    class="btn btn-link p-0 text-decoration-none"
+                                    @onclick="() => OpenAbsenceNotesModal(req)"
+                                    disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                      title="@GetAbsenceNotesTooltip(req)"
+                                      aria-label="Notes"></span>
+                            </button>
                         </td>
-                        @if (canManageWorkActions && req.CanEndAbsence)
+                        @if (ShowOpenEmployeeAbsenceActionsColumn)
                         {
                             <td class="text-end">
-                                <button class="btn btn-outline-primary btn-sm w-100"
-                                        @onclick="() => OpenEmployeeEndAbsenceModal(req)"
-                                        disabled="@isSaving">
-                                    End Absence
-                                </button>
+                                @if (req.CanEndAbsence)
+                                {
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                            @onclick="() => OpenEmployeeEndAbsenceModal(req)"
+                                            disabled="@isSaving">
+                                        End Absence
+                                    </button>
+                                }
                             </td>
                         }
                     </RowContent>
@@ -434,26 +437,44 @@ else
             {
                 <DataTable TItem="MarkOffAbsenceRequestListItem"
                            Items="scheduledEmployeeAbsences"
-                           Columns="EmployeeAbsenceColumns"
+                           Columns="ScheduledEmployeeAbsenceColumns"
                            SearchFilter="MatchesEmployeeAbsenceSearch"
                            SearchPlaceholder="Filter scheduled absences..."
                            ToolbarContainerClass="d-flex justify-content-between align-items-center"
                            DefaultSortColumn="Start">
                     <RowContent Context="req">
-                        <td><span class="badge @GetAbsenceStatusBadge(req.Status)">@req.Status</span></td>
+                        <td><span class="badge @GetAbsenceStatusBadge(req.Status) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
                         <td>@GetAbsenceReasonDisplay(req)</td>
                         <td>@GetAbsenceStartDisplay(req)</td>
                         <td>@GetAbsenceEndDisplay(req)</td>
                         <td>
-                            @if (string.IsNullOrWhiteSpace(req.Notes))
-                            {
-                                <span>—</span>
-                            }
-                            else
-                            {
-                                <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                            }
+                            <span class="badge @(req.AutoMarkOffOnApproval ? "text-bg-success" : "text-bg-danger") d-inline-block text-center" style="min-width: 2.5rem;">
+                                @(req.AutoMarkOffOnApproval ? "Yes" : "No")
+                            </span>
                         </td>
+                        <td>
+                            <button type="button"
+                                    class="btn btn-link p-0 text-decoration-none"
+                                    @onclick="() => OpenAbsenceNotesModal(req)"
+                                    disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                      title="@GetAbsenceNotesTooltip(req)"
+                                      aria-label="Notes"></span>
+                            </button>
+                        </td>
+                        @if (ShowScheduledAutoProcessActionsColumn)
+                        {
+                            <td class="text-end">
+                                @if (!req.AutoMarkOffOnApproval)
+                                {
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                            @onclick="() => OpenScheduledAutoProcessModal(req)"
+                                            disabled="@isSaving">
+                                        Auto Process
+                                    </button>
+                                }
+                            </td>
+                        }
                     </RowContent>
                 </DataTable>
             }
@@ -636,6 +657,33 @@ else
                      OnNextDaySelected="SetEmployeeEndAbsenceToNextDayAsync"
                      OnConfirm="ConfirmEmployeeEndAbsenceAsync"
                      OnCancel="CloseEmployeeEndAbsenceModal" />
+
+    <Modal Visible="showScheduledAutoProcessModal"
+           Title="Auto Process"
+           Icon="bi bi-exclamation-triangle"
+           OnClose="CloseScheduledAutoProcessModal"
+           Size="sm">
+        <BodyContent>
+            <p>Automatically process at start time with approval</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseScheduledAutoProcessModal">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="ConfirmScheduledAutoProcessAsync" disabled="@(isSaving || scheduledAutoProcessAbsenceRequestCtrlNbr <= 0)">Save</button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showAbsenceNotesModal"
+           Title="Absence Notes"
+           Icon="bi bi-chat-left-text"
+           OnClose="CloseAbsenceNotesModal"
+           Size="sm">
+        <BodyContent>
+            <p class="mb-0">@selectedAbsenceNotesText</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAbsenceNotesModal">Close</button>
+        </Footer>
+    </Modal>
 
     @* ── Withdraw Bid Modal (Work tab) ── *@
     <Modal Visible="showWithdrawBidModal"
@@ -1276,15 +1324,13 @@ else
 
     @if (activeTab == "absencehistory")
     {
-        <div class="d-flex align-items-end gap-2 mt-3 mb-2" style="max-width: 320px;">
-            <div class="flex-grow-1">
-                <label class="form-label fw-semibold mb-1">Date</label>
-                <InputDate @bind-Value="selectedAbsenceHistoryDate" class="form-control" />
-            </div>
-            <button class="btn btn-outline-secondary" @onclick="LoadAbsenceHistoryTabAsync" disabled="absenceHistoryLoading">
-                <span class="bi bi-arrow-repeat"></span>
-            </button>
-        </div>
+        <HistoryDateRangeControl
+            FromDate="absenceHistoryFromDate"
+            FromDateChanged="OnAbsenceHistoryFromDateValueChanged"
+            ToDate="absenceHistoryToDate"
+            ToDateChanged="OnAbsenceHistoryToDateValueChanged"
+            RangeChanged="LoadAbsenceHistoryTabAsync"
+            RangeLabel="Show History" />
 
         @if (absenceHistoryLoading)
         {
@@ -1292,7 +1338,7 @@ else
         }
         else if (absenceHistoryRecords.Count == 0)
         {
-            <p class="text-muted">No absence records found for this date.</p>
+            <p class="text-muted">No completed absence records found.</p>
         }
         else
         {
@@ -1305,19 +1351,19 @@ else
                        DefaultSortColumn="Start"
                        DefaultSortAscending="false">
                 <RowContent Context="req">
-                    <td><span class="badge @GetAbsenceStatusBadge(req.Status)">@req.Status</span></td>
+                    <td><span class="badge @GetAbsenceStatusBadge(req.Status) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
                     <td>@GetAbsenceReasonDisplay(req)</td>
                     <td>@GetAbsenceStartDisplay(req)</td>
                     <td>@GetAbsenceEndDisplay(req)</td>
                     <td>
-                        @if (string.IsNullOrWhiteSpace(req.Notes))
-                        {
-                            <span>—</span>
-                        }
-                        else
-                        {
-                            <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                        }
+                        <button type="button"
+                                class="btn btn-link p-0 text-decoration-none"
+                                @onclick="() => OpenAbsenceNotesModal(req)"
+                                disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                            <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                  title="@GetAbsenceNotesTooltip(req)"
+                                  aria-label="Notes"></span>
+                        </button>
                     </td>
                 </RowContent>
             </DataTable>
@@ -1362,7 +1408,8 @@ else
     private List<MarkOffAbsenceRequestListItem> absenceHistoryRecords = [];
     private bool absenceHistoryLoaded;
     private bool absenceHistoryLoading;
-    private DateTime selectedAbsenceHistoryDate = DateTime.Today;
+    private DateTime absenceHistoryFromDate = DateTime.Today.AddDays(-7);
+    private DateTime absenceHistoryToDate = DateTime.Today;
     private List<GroupResponse> employeeAbsenceWorkAreas = [];
     private long selectedEmployeeAbsenceWorkAreaCtrlNbr;
     private List<MarkOffCodeResponse> absenceCodes = [];
@@ -1371,6 +1418,10 @@ else
     private bool showEmployeeEndAbsenceModal;
     private long employeeEndAbsenceRequestCtrlNbr;
     private DateTime employeeEndAbsenceDateTimeLocal;
+    private bool showScheduledAutoProcessModal;
+    private long scheduledAutoProcessAbsenceRequestCtrlNbr;
+    private bool showAbsenceNotesModal;
+    private string selectedAbsenceNotesText = string.Empty;
 
     // ── On-Duty records (open on Work tab; completed on On-Duty History tab) ──
     private List<EmployeeOnDutyRecord> openOnDutyRecords = [];
@@ -1680,9 +1731,9 @@ else
             var workAreaGroupCtrlNbr = selectedEmployeeAbsenceWorkAreaCtrlNbr > 0
                 ? selectedEmployeeAbsenceWorkAreaCtrlNbr
                 : (long?)null;
-            var response = await AbsenceClient.GetAbsenceRequestsAsync(
-                selectedAbsenceHistoryDate.Date,
-                includeAllStatuses: true,
+            var response = await AbsenceClient.GetAbsenceHistoryAsync(
+                absenceHistoryFromDate,
+                toDateUtc: absenceHistoryToDate,
                 workAreaGroupCtrlNbr: workAreaGroupCtrlNbr,
                 employeeCtrlNbr: CtrlNbr);
             absenceHistoryRecords = response.Requests
@@ -1698,6 +1749,18 @@ else
         {
             absenceHistoryLoading = false;
         }
+    }
+
+    private Task OnAbsenceHistoryFromDateValueChanged(DateTime value)
+    {
+        absenceHistoryFromDate = value.Date;
+        return Task.CompletedTask;
+    }
+
+    private Task OnAbsenceHistoryToDateValueChanged(DateTime value)
+    {
+        absenceHistoryToDate = value.Date;
+        return Task.CompletedTask;
     }
 
     private Task OnProfileSectionChangedAsync(string sectionId)
@@ -2304,6 +2367,35 @@ else
         new("Notes", req => req.Notes ?? string.Empty)
     ];
 
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> ScheduledEmployeeAbsenceColumns
+    {
+        get
+        {
+            var columns = new List<DataTableColumn<MarkOffAbsenceRequestListItem>>
+            {
+                new("Status", req => req.Status),
+                new("Reason", req => GetAbsenceReasonDisplay(req)),
+                new("Start*", req => ResolveAbsenceSortUtc(req), sortKey: "Start"),
+                new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+                new("AP", width: "72px", headerTooltip: "Auto Process"),
+                new("Notes", req => req.Notes ?? string.Empty)
+            };
+
+            if (ShowScheduledAutoProcessActionsColumn)
+                columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("140px"));
+
+            return columns;
+        }
+    }
+
+    private bool ShowScheduledAutoProcessActionsColumn
+        => (!IsFeatureReadOnly || IsOwnRecord)
+            && scheduledEmployeeAbsences.Any(r => !r.AutoMarkOffOnApproval);
+
+    private bool ShowOpenEmployeeAbsenceActionsColumn
+        => (!IsFeatureReadOnly || IsOwnRecord)
+            && openEmployeeAbsences.Any(r => r.CanEndAbsence);
+
     private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> OpenEmployeeAbsenceColumns
     {
         get
@@ -2317,7 +2409,7 @@ else
                 new("Notes", req => req.Notes ?? string.Empty)
             };
 
-            if (!IsFeatureReadOnly || IsOwnRecord)
+            if (ShowOpenEmployeeAbsenceActionsColumn)
                 columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("140px"));
 
             return columns;
@@ -2329,6 +2421,26 @@ else
         return req.Status.Contains(term, StringComparison.OrdinalIgnoreCase)
             || GetAbsenceReasonDisplay(req).Contains(term, StringComparison.OrdinalIgnoreCase)
             || (!string.IsNullOrWhiteSpace(req.Notes) && req.Notes.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetAbsenceNotesTooltip(MarkOffAbsenceRequestListItem request)
+        => string.IsNullOrWhiteSpace(request.Notes)
+            ? "No notes"
+            : request.Notes;
+
+    private void OpenAbsenceNotesModal(MarkOffAbsenceRequestListItem request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Notes))
+            return;
+
+        selectedAbsenceNotesText = request.Notes;
+        showAbsenceNotesModal = true;
+    }
+
+    private void CloseAbsenceNotesModal()
+    {
+        showAbsenceNotesModal = false;
+        selectedAbsenceNotesText = string.Empty;
     }
 
     private static DateTime ResolveAbsenceSortUtc(MarkOffAbsenceRequestListItem request)
@@ -2433,6 +2545,18 @@ else
         employeeEndAbsenceDateTimeLocal = default;
     }
 
+    private void OpenScheduledAutoProcessModal(MarkOffAbsenceRequestListItem request)
+    {
+        scheduledAutoProcessAbsenceRequestCtrlNbr = request.CtrlNbr;
+        showScheduledAutoProcessModal = true;
+    }
+
+    private void CloseScheduledAutoProcessModal()
+    {
+        showScheduledAutoProcessModal = false;
+        scheduledAutoProcessAbsenceRequestCtrlNbr = 0;
+    }
+
     private void SetEmployeeEndAbsenceDateTimeLocal(DateTime value)
         => employeeEndAbsenceDateTimeLocal = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
 
@@ -2471,6 +2595,30 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Failed to end absence: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ConfirmScheduledAutoProcessAsync()
+    {
+        if (scheduledAutoProcessAbsenceRequestCtrlNbr <= 0)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await AbsenceClient.SetAbsenceAutoProcessAsync(scheduledAutoProcessAbsenceRequestCtrlNbr, autoMarkOffOnApproval: true);
+            successMessage = "Auto process enabled.";
+            CloseScheduledAutoProcessModal();
+            await LoadWorkTabAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to enable auto process: {ex.Message}";
         }
         finally
         {

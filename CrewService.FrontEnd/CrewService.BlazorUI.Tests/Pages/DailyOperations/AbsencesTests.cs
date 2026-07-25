@@ -55,7 +55,7 @@ public class AbsencesTests
         var source = File.ReadAllText(GetAbsencesRazorPath());
 
         Assert.Contains("bi bi-chat-left-text", source, StringComparison.Ordinal);
-        Assert.Contains("aria-label=\"Has notes\"", source, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Notes\"", source, StringComparison.Ordinal);
     }
 
     [Fact]

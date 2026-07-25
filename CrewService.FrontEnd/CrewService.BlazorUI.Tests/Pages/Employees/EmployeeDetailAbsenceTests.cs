@@ -31,7 +31,7 @@ public class EmployeeDetailAbsenceTests
     {
         var source = File.ReadAllText(GetEmployeeDetailRazorPath());
 
-        Assert.Contains("AbsenceClient.GetAbsenceRequestsAsync(", source, StringComparison.Ordinal);
+        Assert.Contains("AbsenceClient.GetAbsenceHistoryAsync(", source, StringComparison.Ordinal);
         Assert.Contains("employeeCtrlNbr: CtrlNbr", source, StringComparison.Ordinal);
     }
 

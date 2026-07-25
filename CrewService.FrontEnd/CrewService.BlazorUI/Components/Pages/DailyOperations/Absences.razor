@@ -98,7 +98,7 @@ else if (HasRailroad)
 
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
-            <button type="button" class="nav-link @(!IsRequestsTab ? "active" : null)" @onclick="ShowOpenAbsencesTabAsync">
+            <button type="button" class="nav-link @(IsOpenTab ? "active" : null)" @onclick="ShowOpenAbsencesTabAsync">
                 Open Absences
             </button>
         </li>
@@ -107,121 +107,23 @@ else if (HasRailroad)
                 Absence Requests
             </button>
         </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link @(IsApprovalsTab ? "active" : null)" @onclick="ShowApprovalsTabAsync">
+                Absence Approvals
+            </button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link @(IsHistoryTab ? "active" : null)" @onclick="ShowHistoryTabAsync">
+                Absence History
+            </button>
+        </li>
     </ul>
 
-    @if (IsRequestsTab)
-    {
-    <div class="card mb-3">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center mb-0">
-                <div class="d-flex align-items-center">
-                    <span class="bi bi-calendar3 me-1"></span>
-                    <strong>Absence Calendar</strong>
-                </div>
-                <div class="d-flex align-items-center gap-2 justify-content-end flex-nowrap" style="overflow-x: auto; min-height: 36px;">
-                    <label class="form-label mb-0 small">Calendar</label>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Month navigation">
-                        <button type="button" class="btn btn-outline-secondary" @onclick="PreviousCalendarMonth" title="Previous month">
-                            <span class="bi bi-chevron-left"></span>
-                        </button>
-                        <select class="form-select form-select-sm" style="width: 130px;" @bind="selectedCalendarMonth" @bind:after="OnCalendarPeriodChangedAsync">
-                            @foreach (var month in monthOptions)
-                            {
-                                <option value="@month.Value">@month.Label</option>
-                            }
-                        </select>
-                        <button type="button" class="btn btn-outline-secondary" @onclick="NextCalendarMonth" title="Next month">
-                            <span class="bi bi-chevron-right"></span>
-                        </button>
-                    </div>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Year navigation">
-                        <button type="button" class="btn btn-outline-secondary" @onclick="PreviousCalendarYear" title="Previous year">
-                            <span class="bi bi-chevron-left"></span>
-                        </button>
-                        <select class="form-select form-select-sm" style="width: 100px;" @bind="selectedCalendarYear" @bind:after="OnCalendarPeriodChangedAsync">
-                            @foreach (var year in calendarYearOptions)
-                            {
-                                <option value="@year">@year</option>
-                            }
-                        </select>
-                        <button type="button" class="btn btn-outline-secondary" @onclick="NextCalendarYear" title="Next year">
-                            <span class="bi bi-chevron-right"></span>
-                        </button>
-                    </div>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Day navigation">
-                        <button class="btn btn-outline-secondary" @onclick="PreviousDay" title="Previous day">
-                            <span class="bi bi-chevron-left"></span>
-                        </button>
-                        <button class="btn btn-outline-secondary" @onclick="GoToCurrentMonth">Today</button>
-                        <button class="btn btn-outline-secondary" @onclick="NextDay" title="Next day">
-                            <span class="bi bi-chevron-right"></span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-        <div class="card-body">
-            <div class="mb-3">
-                <strong>@displayedMonth.ToString("MMMM yyyy")</strong>
-            </div>
-
-            <div class="table-responsive mb-3">
-                <table class="table table-bordered align-middle text-center mb-0" style="table-layout: fixed;">
-                    <thead>
-                        <tr class="small">
-                            @foreach (var dayName in dayNames)
-                            {
-                                <th class="fw-semibold">@dayName</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (var weekStart = 0; weekStart < calendarDays.Count; weekStart += 7)
-                        {
-                            <tr>
-                                @for (var i = 0; i < 7; i++)
-                                {
-                                    var day = calendarDays[weekStart + i];
-                                    if (day.HasValue)
-                                    {
-                                        var isSelected = day.Value.Date == selectedDate.Date;
-                                        var counts = GetCountsForDay(day.Value.Date);
-                                        <td class="p-1">
-                                            <button class="btn btn-sm w-100 text-start @(isSelected ? "btn-primary" : "btn-outline-secondary")"
-                                                    style="aspect-ratio: 2 / 1;"
-                                                    @onclick="() => SelectCalendarDayAsync(day.Value)">
-                                                <div class="d-flex justify-content-between">
-                                                    <strong>@day.Value.Day</strong>
-                                                </div>
-                                                <div class="mt-1 d-flex gap-1 flex-wrap">
-                                                    <span class="badge @(isSelected ? "text-bg-light" : "text-bg-success")">C @counts.Compensated</span>
-                                                    <span class="badge @(isSelected ? "text-bg-light" : "text-bg-danger")">N @counts.NotCompensated</span>
-                                                </div>
-                                            </button>
-                                        </td>
-                                    }
-                                    else
-                                    {
-                                        <td class="bg-body-tertiary"></td>
-                                    }
-                                }
-
-
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-        </div>
-    </div>
-    }
-    else
+    @if (IsOpenTab)
     {
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
+                <div class="d-flex align-items-center">
                     <span class="bi bi-list-check me-1"></span>
                     <strong>Open Absences</strong>
                 </div>
@@ -230,6 +132,15 @@ else if (HasRailroad)
                 </button>
             </div>
             <div class="card-body">
+                @if (!IsFeatureReadOnly)
+                {
+                    <div class="mb-3">
+                        <button class="btn btn-sm btn-primary" @onclick="OpenCreateRequestModalAsync" disabled="@(absenceCodes.Count == 0)">
+                            <span class="bi bi-plus-circle"></span> Create Absence Request
+                        </button>
+                    </div>
+                }
+
                 @if (isLoadingOpenAbsences)
                 {
                     <LoadingMessage />
@@ -247,20 +158,20 @@ else if (HasRailroad)
                                SearchPlaceholder="Filter open absences..."
                                DefaultSortColumn="Start">
                         <RowContent Context="req">
-                            <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
+                            <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
                             <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
                             <td>@GetReasonDisplay(req)</td>
                             <td>@GetStartDisplay(req)</td>
                             <td>@GetEndDisplay(req)</td>
                             <td>
-                                @if (string.IsNullOrWhiteSpace(req.Notes))
-                                {
-                                    <span>—</span>
-                                }
-                                else
-                                {
-                                    <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                                }
+                                <button type="button"
+                                        class="btn btn-link p-0 text-decoration-none"
+                                        @onclick="() => OpenAbsenceNotesModal(req)"
+                                        disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                    <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                          title="@GetNotesTooltip(req)"
+                                          aria-label="Notes"></span>
+                                </button>
                             </td>
                             <td class="text-end">
                                 <button class="btn btn-outline-primary btn-sm w-100"
@@ -296,20 +207,25 @@ else if (HasRailroad)
                                SearchPlaceholder="Filter scheduled absences..."
                                DefaultSortColumn="Start">
                         <RowContent Context="req">
-                            <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
+                            <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
                             <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
                             <td>@GetReasonDisplay(req)</td>
                             <td>@GetStartDisplay(req)</td>
                             <td>@GetEndDisplay(req)</td>
                             <td>
-                                @if (string.IsNullOrWhiteSpace(req.Notes))
-                                {
-                                    <span>—</span>
-                                }
-                                else
-                                {
-                                    <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                                }
+                                <span class="badge @(req.AutoMarkOffOnApproval ? "text-bg-success" : "text-bg-danger") d-inline-block text-center" style="min-width: 2.5rem;">
+                                    @(req.AutoMarkOffOnApproval ? "Yes" : "No")
+                                </span>
+                            </td>
+                            <td>
+                                <button type="button"
+                                        class="btn btn-link p-0 text-decoration-none"
+                                        @onclick="() => OpenAbsenceNotesModal(req)"
+                                        disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                    <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                          title="@GetNotesTooltip(req)"
+                                          aria-label="Notes"></span>
+                                </button>
                             </td>
                             @if (ShowScheduledActionsColumn)
                             {
@@ -318,12 +234,248 @@ else if (HasRailroad)
                                     {
                                         <button class="btn btn-outline-primary btn-sm w-100"
                                                 @onclick="() => OpenMarkOffModal(req.CtrlNbr)"
-                                                disabled="@isSaving">
+                                                disabled="@(isSaving || req.AutoMarkOffOnApproval)">
                                             Start Absence
                                         </button>
                                     }
                                 </td>
                             }
+                        </RowContent>
+                    </DataTable>
+                }
+
+                <div class="small text-muted mt-2">* All times are displayed in the work area time zone.</div>
+            </div>
+        </div>
+    }
+    else if (IsRequestsTab)
+    {
+        <div class="card mb-3">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center mb-0">
+                    <div class="d-flex align-items-center">
+                        <span class="bi bi-calendar3 me-1"></span>
+                        <strong>Absence Calendar</strong>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 justify-content-end flex-nowrap" style="overflow-x: auto; min-height: 36px;">
+                        <label class="form-label mb-0 small">Calendar</label>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Month navigation">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="PreviousCalendarMonth" title="Previous month">
+                                <span class="bi bi-chevron-left"></span>
+                            </button>
+                            <select class="form-select form-select-sm" style="width: 130px;" @bind="selectedCalendarMonth" @bind:after="OnCalendarPeriodChangedAsync">
+                                @foreach (var month in monthOptions)
+                                {
+                                    <option value="@month.Value">@month.Label</option>
+                                }
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="NextCalendarMonth" title="Next month">
+                                <span class="bi bi-chevron-right"></span>
+                            </button>
+                        </div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Year navigation">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="PreviousCalendarYear" title="Previous year">
+                                <span class="bi bi-chevron-left"></span>
+                            </button>
+                            <select class="form-select form-select-sm" style="width: 100px;" @bind="selectedCalendarYear" @bind:after="OnCalendarPeriodChangedAsync">
+                                @foreach (var year in calendarYearOptions)
+                                {
+                                    <option value="@year">@year</option>
+                                }
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="NextCalendarYear" title="Next year">
+                                <span class="bi bi-chevron-right"></span>
+                            </button>
+                        </div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Day navigation">
+                            <button class="btn btn-outline-secondary" @onclick="PreviousDay" title="Previous day">
+                                <span class="bi bi-chevron-left"></span>
+                            </button>
+                            <button class="btn btn-outline-secondary" @onclick="GoToCurrentMonth">Today</button>
+                            <button class="btn btn-outline-secondary" @onclick="NextDay" title="Next day">
+                                <span class="bi bi-chevron-right"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>@displayedMonth.ToString("MMMM yyyy")</strong>
+                </div>
+
+                @if (isLoadingMonthCounts)
+                {
+                    <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mb-3" />
+                }
+                else
+                {
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered align-middle text-center mb-0" style="table-layout: fixed;">
+                            <thead>
+                                <tr class="small">
+                                    @foreach (var dayName in dayNames)
+                                    {
+                                        <th class="fw-semibold">@dayName</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var weekStart = 0; weekStart < calendarDays.Count; weekStart += 7)
+                                {
+                                    <tr>
+                                        @for (var i = 0; i < 7; i++)
+                                        {
+                                            var day = calendarDays[weekStart + i];
+                                            if (day.HasValue)
+                                            {
+                                                var isSelected = day.Value.Date == selectedDate.Date;
+                                                var counts = GetCountsForDay(day.Value.Date);
+                                                <td class="p-1">
+                                                    <button class="btn btn-sm w-100 text-start @(isSelected ? "btn-primary" : "btn-outline-secondary")"
+                                                            style="aspect-ratio: 2 / 1;"
+                                                            @onclick="() => SelectCalendarDayAsync(day.Value)">
+                                                        <div class="d-flex justify-content-between">
+                                                            <strong>@day.Value.Day</strong>
+                                                        </div>
+                                                        <div class="mt-1 d-flex gap-1 flex-wrap">
+                                                            <span class="badge @(isSelected ? "text-bg-light" : "text-bg-success")">C @counts.Compensated</span>
+                                                            <span class="badge @(isSelected ? "text-bg-light" : "text-bg-danger")">N @counts.NotCompensated</span>
+                                                        </div>
+                                                    </button>
+                                                </td>
+                                            }
+                                            else
+                                            {
+                                                <td class="bg-body-tertiary"></td>
+                                            }
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+    else if (IsApprovalsTab)
+    {
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="bi bi-person-check me-1"></span>
+                    <strong>Absence Approvals</strong>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="LoadPendingApprovalsAsync" disabled="@isLoadingPendingApprovals">
+                    <span class="bi bi-arrow-repeat"></span> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                @if (isLoadingPendingApprovals)
+                {
+                    <LoadingMessage />
+                }
+                else if (pendingApprovalRequests.Count == 0)
+                {
+                    <div class="alert alert-info mb-0">No pending absence requests requiring approval.</div>
+                }
+                else
+                {
+                    <DataTable TItem="MarkOffAbsenceRequestListItem"
+                               Items="pendingApprovalRequests"
+                               Columns="PendingApprovalsColumns"
+                               SearchFilter="MatchesAbsenceTableSearch"
+                               SearchPlaceholder="Filter pending approvals..."
+                               DefaultSortColumn="Start">
+                        <RowContent Context="req">
+                            <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
+                            <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
+                            <td>@GetReasonDisplay(req)</td>
+                            <td>@GetStartDisplay(req)</td>
+                            <td>@GetEndDisplay(req)</td>
+                            <td>
+                                <button type="button"
+                                        class="btn btn-link p-0 text-decoration-none"
+                                        @onclick="() => OpenAbsenceNotesModal(req)"
+                                        disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                    <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                          title="@GetNotesTooltip(req)"
+                                          aria-label="Notes"></span>
+                                </button>
+                            </td>
+                            @if (!IsFeatureReadOnly)
+                            {
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <button class="btn btn-outline-success" @onclick="() => ApproveRequest(req.CtrlNbr)" disabled="@isSaving">Approve</button>
+                                        <button class="btn btn-outline-danger" @onclick="() => DeclineRequest(req.CtrlNbr)" disabled="@isSaving">Decline</button>
+                                    </div>
+                                </td>
+                            }
+                        </RowContent>
+                    </DataTable>
+                }
+
+                <div class="small text-muted mt-2">* All times are displayed in the work area time zone.</div>
+            </div>
+        </div>
+    }
+    else if (IsHistoryTab)
+    {
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="bi bi-clock-history me-1"></span>
+                    <strong>Absence History</strong>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="LoadAbsenceHistoryAsync" disabled="@isLoadingAbsenceHistory">
+                    <span class="bi bi-arrow-repeat"></span> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <HistoryDateRangeControl
+                    FromDate="historyFromDate"
+                    FromDateChanged="OnHistoryFromDateValueChanged"
+                    ToDate="historyToDate"
+                    ToDateChanged="OnHistoryToDateValueChanged"
+                    RangeChanged="LoadAbsenceHistoryAsync"
+                    RangeLabel="Show History" />
+
+                @if (isLoadingAbsenceHistory)
+                {
+                    <LoadingMessage />
+                }
+                else if (absenceHistoryRecords.Count == 0)
+                {
+                    <div class="alert alert-info mb-0">No completed absences found for the selected date range.</div>
+                }
+                else
+                {
+                    <DataTable TItem="MarkOffAbsenceRequestListItem"
+                               Items="absenceHistoryRecords"
+                               Columns="AbsenceHistoryColumns"
+                               SearchFilter="MatchesAbsenceTableSearch"
+                               SearchPlaceholder="Filter absence history..."
+                               DefaultSortColumn="Start">
+                        <RowContent Context="req">
+                            <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
+                            <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
+                            <td>@GetReasonDisplay(req)</td>
+                            <td>@GetStartDisplay(req)</td>
+                            <td>@GetEndDisplay(req)</td>
+                            <td>
+                                <button type="button"
+                                        class="btn btn-link p-0 text-decoration-none"
+                                        @onclick="() => OpenAbsenceNotesModal(req)"
+                                        disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                    <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                          title="@GetNotesTooltip(req)"
+                                          aria-label="Notes"></span>
+                                </button>
+                            </td>
                         </RowContent>
                     </DataTable>
                 }
@@ -425,7 +577,7 @@ else if (HasRailroad)
                             @foreach (var req in filteredRequests)
                             {
                                 <tr>
-                                    <td><span class="badge @GetStatusBadge(req)">@req.Status</span></td>
+                                    <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
                                     <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
                                     <td>@GetReasonDisplay(req)</td>
                                     <td>@GetStartDisplay(req)</td>
@@ -441,14 +593,14 @@ else if (HasRailroad)
                                         }
                                     </td>
                                     <td>
-                                        @if (string.IsNullOrWhiteSpace(req.Notes))
-                                        {
-                                            <span>—</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="bi bi-chat-left-text" title="@req.Notes" aria-label="Has notes"></span>
-                                        }
+                                        <button type="button"
+                                                class="btn btn-link p-0 text-decoration-none"
+                                                @onclick="() => OpenAbsenceNotesModal(req)"
+                                                disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                            <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                                  title="@GetNotesTooltip(req)"
+                                                  aria-label="Notes"></span>
+                                        </button>
                                     </td>
                                     @if (ShowRequestActionsColumn)
                                     {
@@ -522,15 +674,15 @@ else if (HasRailroad)
     </Modal>
 
     <Modal Visible="showMarkOffModal"
-           Title="Mark-off Approved Absence"
+           Title="Start Approved Absence"
            Icon="bi bi-check2-square"
            OnClose="CloseMarkOffModal">
         <BodyContent>
-            <p class="mb-0">Confirm mark-off for this approved absence request?</p>
+            <p class="mb-0">Confirm start for this approved absence request?</p>
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseMarkOffModal">Cancel</button>
-            <button type="button" class="btn btn-primary" @onclick="ConfirmMarkOffAsync" disabled="@isSaving">Mark-off</button>
+            <button type="button" class="btn btn-primary" @onclick="ConfirmMarkOffAsync" disabled="@isSaving">Start</button>
         </Footer>
     </Modal>
 
@@ -542,6 +694,19 @@ else if (HasRailroad)
                      OnNextDaySelected="SetEndAbsenceToNextDayAsync"
                      OnConfirm="ConfirmEndAbsenceAsync"
                      OnCancel="CloseEndAbsenceModal" />
+
+    <Modal Visible="showAbsenceNotesModal"
+           Title="Absence Notes"
+           Icon="bi bi-chat-left-text"
+           OnClose="CloseAbsenceNotesModal"
+           Size="sm">
+        <BodyContent>
+            <p class="mb-0">@selectedAbsenceNotesText</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseAbsenceNotesModal">Close</button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -555,6 +720,7 @@ else if (HasRailroad)
     private bool showDecisionModal;
     private bool showMarkOffModal;
     private bool showEndAbsenceModal;
+    private bool showAbsenceNotesModal;
     private bool decisionIsApprove;
     private long decisionRequestCtrlNbr;
     private long decisionOfficerCtrlNbr;
@@ -562,6 +728,7 @@ else if (HasRailroad)
     private long endAbsenceRequestCtrlNbr;
     private DateTime endAbsenceDateTimeLocal;
     private string? decisionNotes;
+    private string selectedAbsenceNotesText = string.Empty;
     private string decisionApprovalLevel = string.Empty;
     private string decisionApprovalLevelDescription = string.Empty;
     private List<AbsenceApprovalOfficerItem> decisionApprovers = [];
@@ -577,8 +744,13 @@ else if (HasRailroad)
     private List<MarkOffAbsenceRequestListItem> requests = [];
     private List<MarkOffAbsenceRequestListItem> openAbsenceRecords = [];
     private List<MarkOffAbsenceRequestListItem> tomorrowRequests = [];
+    private List<MarkOffAbsenceRequestListItem> pendingApprovalRequests = [];
+    private List<MarkOffAbsenceRequestListItem> absenceHistoryRecords = [];
     private bool isLoadingOpenAbsences;
     private bool isLoadingTomorrowRequests;
+    private bool isLoadingPendingApprovals;
+    private bool isLoadingAbsenceHistory;
+    private bool isLoadingMonthCounts;
     private bool isPageLoading = true;
     private string activeAbsenceTab = "open";
     private long selectedCraftCtrlNbr;
@@ -589,6 +761,8 @@ else if (HasRailroad)
     private int selectedCalendarYear = DateTime.Today.Year;
     private string? nextAbsenceStartEventSummary;
     private string? nextAbsenceEndEventSummary;
+    private DateTime historyFromDate = DateTime.Today.AddDays(-7);
+    private DateTime historyToDate = DateTime.Today;
 
     private static readonly string[] dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     private static readonly (int Value, string Label)[] monthOptions =
@@ -600,8 +774,12 @@ else if (HasRailroad)
     private readonly Dictionary<DateTime, (int Compensated, int NotCompensated)> monthCounts = [];
     private readonly Dictionary<(int Year, int Month, bool IncludeAllStatuses), Dictionary<DateTime, (int Compensated, int NotCompensated)>> monthCountsCache = [];
     private CancellationTokenSource? monthCountsCts;
+    private int monthCountsLoadVersion;
     private IEnumerable<int> calendarYearOptions => Enumerable.Range(DateTime.Today.Year - 5, 11);
+    private bool IsOpenTab => string.Equals(activeAbsenceTab, "open", StringComparison.OrdinalIgnoreCase);
     private bool IsRequestsTab => string.Equals(activeAbsenceTab, "requests", StringComparison.OrdinalIgnoreCase);
+    private bool IsApprovalsTab => string.Equals(activeAbsenceTab, "approvals", StringComparison.OrdinalIgnoreCase);
+    private bool IsHistoryTab => string.Equals(activeAbsenceTab, "history", StringComparison.OrdinalIgnoreCase);
     private List<MarkOffAbsenceRequestListItem> next24HourScheduledAbsences => tomorrowRequests
         .ToList();
 
@@ -639,6 +817,7 @@ else if (HasRailroad)
                 new("Reason", req => GetReasonDisplay(req)),
                 new("Start*", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
                 new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+                new("AP", width: "72px", headerTooltip: "Auto Process"),
                 new("Notes", req => req.Notes ?? string.Empty)
             };
 
@@ -648,6 +827,37 @@ else if (HasRailroad)
             return columns;
         }
     }
+
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> PendingApprovalsColumns
+    {
+        get
+        {
+            var columns = new List<DataTableColumn<MarkOffAbsenceRequestListItem>>
+            {
+                new("Status", req => req.Status),
+                new("Employee", req => GetEmployeeDisplay(req.EmployeeCtrlNbr)),
+                new("Reason", req => GetReasonDisplay(req)),
+                new("Start*", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
+                new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+                new("Notes", req => req.Notes ?? string.Empty)
+            };
+
+            if (!IsFeatureReadOnly)
+                columns.Add(DataTableColumn<MarkOffAbsenceRequestListItem>.Actions("180px"));
+
+            return columns;
+        }
+    }
+
+    private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> AbsenceHistoryColumns =>
+    [
+        new("Status", req => req.Status),
+        new("Employee", req => GetEmployeeDisplay(req.EmployeeCtrlNbr)),
+        new("Reason", req => GetReasonDisplay(req)),
+        new("Start*", req => req.StartUtc?.ToDateTime() ?? DateTime.MinValue, sortKey: "Start"),
+        new("End*", req => req.EndUtc?.ToDateTime() ?? DateTime.MaxValue),
+        new("Notes", req => req.Notes ?? string.Empty)
+    ];
 
     private bool MatchesAbsenceTableSearch(MarkOffAbsenceRequestListItem req, string term)
     {
@@ -675,15 +885,8 @@ else if (HasRailroad)
             selectedCalendarMonth = displayedMonth.Month;
             selectedCalendarYear = displayedMonth.Year;
             RebuildCalendarGrid();
-            _ = LoadMonthCountsAsync();
             await LoadSchedulerMetadataAsync();
-
-            if (!IsRequestsTab)
-            {
-                await Task.WhenAll(
-                    LoadOpenAbsencesAsync(),
-                    LoadNext24HourRequestsAsync());
-            }
+            await LoadActiveTabDataAsync();
         }
         finally
         {
@@ -695,17 +898,17 @@ else if (HasRailroad)
 
     private Task ShowOpenAbsencesTabAsync() => SetActiveAbsenceTabAsync("open");
 
+    private Task ShowApprovalsTabAsync() => SetActiveAbsenceTabAsync("approvals");
+
+    private Task ShowHistoryTabAsync() => SetActiveAbsenceTabAsync("history");
+
     private async Task SetActiveAbsenceTabAsync(string tab)
     {
         if (string.Equals(activeAbsenceTab, tab, StringComparison.OrdinalIgnoreCase))
             return;
 
         activeAbsenceTab = tab;
-        if (!IsRequestsTab)
-        {
-            await LoadOpenAbsencesAsync();
-            await LoadNext24HourRequestsAsync();
-        }
+        await LoadActiveTabDataAsync();
     }
 
     protected override async Task OnAppContextChangedAsync()
@@ -718,6 +921,8 @@ else if (HasRailroad)
         departments = [];
         openAbsenceRecords = [];
         tomorrowRequests = [];
+        pendingApprovalRequests = [];
+        absenceHistoryRecords = [];
         selectedCraftCtrlNbr = 0;
         selectedDepartmentCtrlNbr = 0;
         selectedWorkAreaCtrlNbr = 0;
@@ -742,15 +947,8 @@ else if (HasRailroad)
             selectedCalendarMonth = displayedMonth.Month;
             selectedCalendarYear = displayedMonth.Year;
             RebuildCalendarGrid();
-            _ = LoadMonthCountsAsync();
             await LoadSchedulerMetadataAsync();
-
-            if (!IsRequestsTab)
-            {
-                await Task.WhenAll(
-                    LoadOpenAbsencesAsync(),
-                    LoadNext24HourRequestsAsync());
-            }
+            await LoadActiveTabDataAsync();
         }
         finally
         {
@@ -829,48 +1027,117 @@ else if (HasRailroad)
         }
     }
 
-    private async Task OnWorkAreaChangedAsync()
+    private async Task LoadActiveTabDataAsync()
     {
-        monthCountsCache.Clear();
-        await LoadSchedulerMetadataAsync();
+        if (IsOpenTab)
+        {
+            await RefreshOpenAbsencesSectionAsync();
+            return;
+        }
 
         if (IsRequestsTab)
         {
             await LoadRequests();
             _ = LoadMonthCountsAsync();
+            return;
         }
-        else
+
+        if (IsApprovalsTab)
         {
-            await RefreshOpenAbsencesSectionAsync();
+            await LoadPendingApprovalsAsync();
+            return;
         }
+
+        if (IsHistoryTab)
+            await LoadAbsenceHistoryAsync();
+    }
+
+    private async Task LoadPendingApprovalsAsync()
+    {
+        try
+        {
+            isLoadingPendingApprovals = true;
+            errorMessage = null;
+
+            var response = await AbsenceClient.GetAbsenceApprovalsAsync(
+                selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
+
+            pendingApprovalRequests = response.Requests
+                .OrderBy(r => r.StartUtc.ToDateTime())
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load pending approvals: {ex.Message}";
+            pendingApprovalRequests = [];
+        }
+        finally
+        {
+            isLoadingPendingApprovals = false;
+        }
+    }
+
+    private async Task LoadAbsenceHistoryAsync()
+    {
+        try
+        {
+            isLoadingAbsenceHistory = true;
+            errorMessage = null;
+
+            var response = await AbsenceClient.GetAbsenceHistoryAsync(
+                historyFromDate,
+                toDateUtc: historyToDate,
+                workAreaGroupCtrlNbr: selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                craftCtrlNbr: selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                departmentCtrlNbr: selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
+
+            absenceHistoryRecords = response.Requests
+                .OrderByDescending(r => r.EndUtc?.ToDateTime() ?? r.StartUtc.ToDateTime())
+                .ThenByDescending(r => r.CtrlNbr)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load absence history: {ex.Message}";
+            absenceHistoryRecords = [];
+        }
+        finally
+        {
+            isLoadingAbsenceHistory = false;
+        }
+    }
+
+    private Task OnHistoryFromDateValueChanged(DateTime value)
+    {
+        historyFromDate = value.Date;
+        return Task.CompletedTask;
+    }
+
+    private Task OnHistoryToDateValueChanged(DateTime value)
+    {
+        historyToDate = value.Date;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnWorkAreaChangedAsync()
+    {
+        monthCountsCache.Clear();
+        await LoadSchedulerMetadataAsync();
+        await LoadActiveTabDataAsync();
     }
 
     private async Task OnDepartmentChangedAsync()
     {
         monthCountsCache.Clear();
-        if (IsRequestsTab)
-        {
-            await LoadRequests();
-            _ = LoadMonthCountsAsync();
-        }
-        else
-        {
-            await RefreshOpenAbsencesSectionAsync();
-        }
+        await LoadActiveTabDataAsync();
     }
 
     private async Task OnCraftChangedAsync()
     {
         monthCountsCache.Clear();
-        if (IsRequestsTab)
-        {
-            await LoadRequests();
-            _ = LoadMonthCountsAsync();
-        }
-        else
-        {
-            await RefreshOpenAbsencesSectionAsync();
-        }
+        await LoadActiveTabDataAsync();
     }
 
     private async Task OnIncludeAllStatusesChangedAsync()
@@ -1144,6 +1411,10 @@ else if (HasRailroad)
 
     private async Task LoadMonthCountsAsync()
     {
+        var loadVersion = Interlocked.Increment(ref monthCountsLoadVersion);
+        isLoadingMonthCounts = true;
+        await InvokeAsync(StateHasChanged);
+
         monthCountsCts?.Cancel();
         monthCountsCts?.Dispose();
         monthCountsCts = new CancellationTokenSource();
@@ -1155,6 +1426,10 @@ else if (HasRailroad)
             monthCounts.Clear();
             foreach (var kvp in cached)
                 monthCounts[kvp.Key] = kvp.Value;
+
+            if (loadVersion == monthCountsLoadVersion)
+                isLoadingMonthCounts = false;
+
             await InvokeAsync(StateHasChanged);
             return;
         }
@@ -1216,6 +1491,13 @@ else if (HasRailroad)
         {
             monthCounts.Clear();
         }
+        finally
+        {
+            if (loadVersion == monthCountsLoadVersion)
+                isLoadingMonthCounts = false;
+
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private (int Compensated, int NotCompensated) GetCountsForDay(DateTime date)
@@ -1223,6 +1505,7 @@ else if (HasRailroad)
 
     private async Task RefreshOpenAbsencesSectionAsync()
     {
+        await LoadSchedulerMetadataAsync();
         await LoadOpenAbsencesAsync();
         await LoadNext24HourRequestsAsync();
     }
@@ -1419,8 +1702,7 @@ else if (HasRailroad)
 
             showDecisionModal = false;
             monthCountsCache.Clear();
-            await LoadRequests();
-            _ = LoadMonthCountsAsync();
+            await LoadActiveTabDataAsync();
         }
         catch (Exception ex)
         {
@@ -1511,6 +1793,26 @@ else if (HasRailroad)
             "CANCELLED" => "text-bg-dark",
             _ => "text-bg-secondary"
         };
+    }
+
+    private static string GetNotesTooltip(MarkOffAbsenceRequestListItem request)
+        => string.IsNullOrWhiteSpace(request.Notes)
+            ? "No notes"
+            : request.Notes;
+
+    private void OpenAbsenceNotesModal(MarkOffAbsenceRequestListItem request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Notes))
+            return;
+
+        selectedAbsenceNotesText = request.Notes;
+        showAbsenceNotesModal = true;
+    }
+
+    private void CloseAbsenceNotesModal()
+    {
+        showAbsenceNotesModal = false;
+        selectedAbsenceNotesText = string.Empty;
     }
 
     private static string GetStartDisplay(MarkOffAbsenceRequestListItem request)
