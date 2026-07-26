@@ -173,7 +173,10 @@ public static class DependencyInjection
         services.AddScoped<ICallSheetRuleRepository, CallSheetRuleRepository>();
         services.AddScoped<ICraftCallSheetRuleRepository, CraftCallSheetRuleRepository>();
         services.AddScoped<IAbsenceApprovalPolicyRepository, AbsenceApprovalPolicyRepository>();
+        services.AddScoped<IDepartmentAbsenceRequestWindowPolicyRepository, DepartmentAbsenceRequestWindowPolicyRepository>();
+        services.AddScoped<IDepartmentAbsenceWaitListPolicyRepository, DepartmentAbsenceWaitListPolicyRepository>();
         services.AddScoped<IDepartmentReassignmentRuleRepository, DepartmentReassignmentRuleRepository>();
+        services.AddScoped<IAbsenceWaitListAllowancePolicyRepository, AbsenceWaitListAllowancePolicyRepository>();
         services.AddScoped<ISeniorityMovePolicyRepository, SeniorityMovePolicyRepository>();
         services.AddScoped<INoAccessPolicyRepository, NoAccessPolicyRepository>();
         services.AddScoped<ISeniorityMoveRepository, SeniorityMoveRepository>();
@@ -198,6 +201,8 @@ public static class DependencyInjection
         // AbsenceVacancy Module Repositories
         services.AddScoped<IAbsenceRequestRepository, AbsenceRequestRepository>();
         services.AddScoped<IVacancyImpactRepository, VacancyImpactRepository>();
+        services.AddScoped<IAbsenceRequestWaitListRecordRepository, AbsenceRequestWaitListRecordRepository>();
+        services.AddScoped<IAbsenceRequestWaitListLinkRepository, AbsenceRequestWaitListLinkRepository>();
 
         // Payroll Module Repositories
         services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();

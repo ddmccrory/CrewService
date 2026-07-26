@@ -463,7 +463,8 @@ public class BulletinCreationServiceTests
                     NotificationCategories.BoardPlacement,
                     "Board Placement",
                     isEnabled: true,
-                    requiresAcknowledgementDefault: true)
+                    requiresAcknowledgementDefault: true,
+                    messageTemplate: "You have been placed on {board}.")
             });
 
         public Task<NotificationTypeConfig?> GetByRailroadAndKeyAsync(ControlNumber railroadCtrlNbr, string key, CancellationToken ct = default)
@@ -474,7 +475,8 @@ public class BulletinCreationServiceTests
                         NotificationCategories.BoardPlacement,
                         "Board Placement",
                         isEnabled: true,
-                        requiresAcknowledgementDefault: true)
+                        requiresAcknowledgementDefault: true,
+                        messageTemplate: "You have been placed on {board}.")
                     : null);
     }
 

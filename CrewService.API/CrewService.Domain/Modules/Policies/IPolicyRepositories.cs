@@ -41,9 +41,33 @@ public interface IAbsenceApprovalPolicyRepository : IRepository<AbsenceApprovalP
     Task<AbsenceApprovalPolicy?> GetByRailroadAsync(ControlNumber railroadCtrlNbr);
 }
 
+public interface IDepartmentAbsenceRequestWindowPolicyRepository : IRepository<DepartmentAbsenceRequestWindowPolicy>
+{
+    Task<DepartmentAbsenceRequestWindowPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
+}
+
 public interface IDepartmentReassignmentRuleRepository : IRepository<DepartmentReassignmentRule>
 {
     Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
+}
+
+public interface IDepartmentAbsenceWaitListPolicyRepository : IRepository<DepartmentAbsenceWaitListPolicy>
+{
+    Task<DepartmentAbsenceWaitListPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
+}
+
+public interface IAbsenceWaitListAllowancePolicyRepository : IRepository<AbsenceWaitListAllowancePolicy>
+{
+    Task<AbsenceWaitListAllowancePolicy?> GetByCraftTypeCodeYearAsync(
+        ControlNumber craftCtrlNbr,
+        string waitListType,
+        string allowanceCode,
+        int calendarYear);
+
+    Task<List<AbsenceWaitListAllowancePolicy>> GetByCraftAndTypeAsync(
+        ControlNumber craftCtrlNbr,
+        string waitListType,
+        int calendarYear);
 }
 
 public interface ISeniorityMovePolicyRepository : IRepository<SeniorityMovePolicy>

@@ -270,6 +270,34 @@ public sealed class AutoMarkUpWorker(
     protected override DateTime? CalculateNextFire(WorkerSchedule schedule) => null;
 }
 
+public sealed class WaitListReassignmentWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<WaitListReassignmentWorker> logger,
+    IWaitListReassignmentSignal scheduleSignal)
+    : WorkerBase(scopeFactory, logger, "WaitListReassignment", TimeSpan.FromMinutes(5))
+{
+    protected override bool UseDueScheduleGate => false;
+
+    protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
+    {
+        var processor = services.GetRequiredService<AbsenceVacancy.AbsenceWaitListReassignmentProcessor>();
+        var processed = await processor.ProcessAsync(DateTime.UtcNow, ct);
+
+        if (processed > 0 && logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "WaitListReassignmentWorker: Assigned {Count} waitlist request(s) for schedule {ScheduleCtrlNbr}.",
+                processed,
+                schedule.CtrlNbr.Value);
+        }
+
+        return processed > 0;
+    }
+
+    protected override Task WaitForNextRunAsync(CancellationToken ct) =>
+        scheduleSignal.WaitAsync(ct);
+}
+
 public sealed class BulletinProcessingWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<BulletinProcessingWorker> logger,

@@ -41,6 +41,66 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<DepartmentAbsenceRequestWindowPolicyResponse?> GetDepartmentAbsenceRequestWindowPolicyAsync(long departmentCtrlNbr)
+    {
+        try
+        {
+            var response = await _client.GetDepartmentAbsenceRequestWindowPolicyAsync(
+                new GetDepartmentAbsenceRequestWindowPolicyRequest { DepartmentCtrlNbr = departmentCtrlNbr });
+            return response.CtrlNbr > 0 ? response : null;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<DepartmentAbsenceRequestWindowPolicyResponse> UpsertDepartmentAbsenceRequestWindowPolicyAsync(
+        long departmentCtrlNbr,
+        int requestWindowCapDays)
+    {
+        try
+        {
+            return await _client.UpsertDepartmentAbsenceRequestWindowPolicyAsync(
+                new UpsertDepartmentAbsenceRequestWindowPolicyRequest
+                {
+                    DepartmentCtrlNbr = departmentCtrlNbr,
+                    RequestWindowCapDays = requestWindowCapDays
+                });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<DepartmentAbsenceWaitListPolicyResponse?> GetDepartmentAbsenceWaitListPolicyAsync(long departmentCtrlNbr)
+    {
+        try
+        {
+            var response = await _client.GetDepartmentAbsenceWaitListPolicyAsync(
+                new GetDepartmentAbsenceWaitListPolicyRequest { DepartmentCtrlNbr = departmentCtrlNbr });
+            return response.CtrlNbr > 0 ? response : null;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<DepartmentAbsenceWaitListPolicyResponse> UpsertDepartmentAbsenceWaitListPolicyAsync(
+        long departmentCtrlNbr,
+        int compensableDayMaxAssignments,
+        int vacationWeekMaxAssignments,
+        bool isEnabled)
+    {
+        try
+        {
+            return await _client.UpsertDepartmentAbsenceWaitListPolicyAsync(
+                new UpsertDepartmentAbsenceWaitListPolicyRequest
+                {
+                    DepartmentCtrlNbr = departmentCtrlNbr,
+                    CompensableDayMaxAssignments = compensableDayMaxAssignments,
+                    VacationWeekMaxAssignments = vacationWeekMaxAssignments,
+                    IsEnabled = isEnabled
+                });
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     // ── Craft Operations Policy ───────────────────────────────────────
 
     public async Task<CraftOperationsPolicyResponse?> GetCraftOperationsPolicyAsync(long craftCtrlNbr)

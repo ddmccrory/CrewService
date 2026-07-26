@@ -16,9 +16,19 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IAbsenceMarkOffSignal absenceMarkOffSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, IncumbentAssignmentPath? incumbentAssignmentPath = null)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IAbsenceMarkOffSignal absenceMarkOffSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, IncumbentAssignmentPath? incumbentAssignmentPath = null, IDepartmentAbsenceRequestWindowPolicyRepository? departmentAbsenceRequestWindowPolicyRepository = null, IDepartmentAbsenceWaitListPolicyRepository? departmentAbsenceWaitListPolicyRepository = null)
 {
     private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+    private readonly IDepartmentAbsenceRequestWindowPolicyRepository? _departmentAbsenceRequestWindowPolicyRepository = departmentAbsenceRequestWindowPolicyRepository;
+    private readonly IDepartmentAbsenceWaitListPolicyRepository? _departmentAbsenceWaitListPolicyRepository = departmentAbsenceWaitListPolicyRepository;
+
+    private IDepartmentAbsenceRequestWindowPolicyRepository DepartmentAbsenceRequestWindowPolicyRepository =>
+        _departmentAbsenceRequestWindowPolicyRepository
+        ?? throw new InvalidOperationException("Department absence request window policy repository is not configured.");
+
+    private IDepartmentAbsenceWaitListPolicyRepository DepartmentAbsenceWaitListPolicyRepository =>
+        _departmentAbsenceWaitListPolicyRepository
+        ?? throw new InvalidOperationException("Department absence waitlist policy repository is not configured.");
 
     internal static async Task<SeniorityMove> StageSeniorityMoveAsync(
         IOrchestrationUnitOfWork uow,
@@ -290,6 +300,82 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         await uow.DepartmentReassignmentRules.AddAsync(rule, ct);
         await uow.CommitAsync(ct);
         return rule;
+    }
+
+    public async Task<DepartmentAbsenceRequestWindowPolicy> GetOrUpsertDepartmentAbsenceRequestWindowPolicyAsync(
+        long departmentCtrlNbr,
+        int requestWindowCapDays,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var department = await uow.Departments.GetByCtrlNbrAsync(ControlNumber.Create(departmentCtrlNbr), ct)
+            ?? throw new KeyNotFoundException($"Department {departmentCtrlNbr} not found.");
+
+        if (department.DynamicGroupCtrlNbr is null)
+            throw new InvalidOperationException($"Department {departmentCtrlNbr} is not scoped to a railroad/work area.");
+
+        var departmentCtrl = ControlNumber.Create(departmentCtrlNbr);
+        var existing = await DepartmentAbsenceRequestWindowPolicyRepository.GetByDepartmentAsync(departmentCtrl);
+        if (existing is not null)
+        {
+            existing.Update(requestWindowCapDays);
+            await DepartmentAbsenceRequestWindowPolicyRepository.UpdateAsync(existing, ct);
+            return existing;
+        }
+
+        var policy = DepartmentAbsenceRequestWindowPolicy.Create(departmentCtrl, requestWindowCapDays);
+        await DepartmentAbsenceRequestWindowPolicyRepository.AddAsync(policy, ct);
+        return policy;
+    }
+
+    public async Task<DepartmentAbsenceRequestWindowPolicy> GetDepartmentAbsenceRequestWindowPolicyAsync(
+        ControlNumber departmentCtrlNbr,
+        CancellationToken ct = default)
+    {
+        _ = ct;
+        return await DepartmentAbsenceRequestWindowPolicyRepository.GetByDepartmentAsync(departmentCtrlNbr)
+            ?? throw new KeyNotFoundException($"Department absence request window policy for department {departmentCtrlNbr} not found.");
+    }
+
+    public async Task<DepartmentAbsenceWaitListPolicy> GetOrUpsertDepartmentAbsenceWaitListPolicyAsync(
+        long departmentCtrlNbr,
+        int compensableDayMaxAssignments,
+        int vacationWeekMaxAssignments,
+        bool isEnabled,
+        CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var department = await uow.Departments.GetByCtrlNbrAsync(ControlNumber.Create(departmentCtrlNbr), ct)
+            ?? throw new KeyNotFoundException($"Department {departmentCtrlNbr} not found.");
+
+        if (department.DynamicGroupCtrlNbr is null)
+            throw new InvalidOperationException($"Department {departmentCtrlNbr} is not scoped to a railroad/work area.");
+
+        var departmentCtrl = ControlNumber.Create(departmentCtrlNbr);
+        var existing = await DepartmentAbsenceWaitListPolicyRepository.GetByDepartmentAsync(departmentCtrl);
+        if (existing is not null)
+        {
+            existing.Update(compensableDayMaxAssignments, vacationWeekMaxAssignments, isEnabled);
+            await DepartmentAbsenceWaitListPolicyRepository.UpdateAsync(existing, ct);
+            return existing;
+        }
+
+        var policy = DepartmentAbsenceWaitListPolicy.Create(
+            departmentCtrl,
+            compensableDayMaxAssignments,
+            vacationWeekMaxAssignments,
+            isEnabled);
+        await DepartmentAbsenceWaitListPolicyRepository.AddAsync(policy, ct);
+        return policy;
+    }
+
+    public async Task<DepartmentAbsenceWaitListPolicy> GetDepartmentAbsenceWaitListPolicyAsync(
+        ControlNumber departmentCtrlNbr,
+        CancellationToken ct = default)
+    {
+        _ = ct;
+        return await DepartmentAbsenceWaitListPolicyRepository.GetByDepartmentAsync(departmentCtrlNbr)
+            ?? throw new KeyNotFoundException($"Department absence waitlist policy for department {departmentCtrlNbr} not found.");
     }
 
     public async Task<DepartmentReassignmentRule> GetDepartmentReassignmentRuleAsync(

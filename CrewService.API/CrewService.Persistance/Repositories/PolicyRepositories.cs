@@ -87,11 +87,61 @@ internal sealed class AbsenceApprovalPolicyRepository(CrewServiceDbContext dbCon
         await DbContext.Set<AbsenceApprovalPolicy>().SingleOrDefaultAsync(p => p.RailroadCtrlNbr == railroadCtrlNbr);
 }
 
+internal sealed class DepartmentAbsenceRequestWindowPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<DepartmentAbsenceRequestWindowPolicy>(dbContext, currentUserService), IDepartmentAbsenceRequestWindowPolicyRepository
+{
+    public async Task<DepartmentAbsenceRequestWindowPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr) =>
+        await DbContext.Set<DepartmentAbsenceRequestWindowPolicy>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
+}
+
 internal sealed class DepartmentReassignmentRuleRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
     : Repository<DepartmentReassignmentRule>(dbContext, currentUserService), IDepartmentReassignmentRuleRepository
 {
     public async Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr) =>
         await DbContext.Set<DepartmentReassignmentRule>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
+}
+
+internal sealed class DepartmentAbsenceWaitListPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<DepartmentAbsenceWaitListPolicy>(dbContext, currentUserService), IDepartmentAbsenceWaitListPolicyRepository
+{
+    public async Task<DepartmentAbsenceWaitListPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr) =>
+        await DbContext.Set<DepartmentAbsenceWaitListPolicy>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
+}
+
+internal sealed class AbsenceWaitListAllowancePolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<AbsenceWaitListAllowancePolicy>(dbContext, currentUserService), IAbsenceWaitListAllowancePolicyRepository
+{
+    public async Task<AbsenceWaitListAllowancePolicy?> GetByCraftTypeCodeYearAsync(
+        ControlNumber craftCtrlNbr,
+        string waitListType,
+        string allowanceCode,
+        int calendarYear)
+    {
+        var normalizedType = (waitListType ?? string.Empty).Trim().ToUpperInvariant();
+        var normalizedCode = (allowanceCode ?? string.Empty).Trim().ToUpperInvariant();
+
+        return await DbContext.Set<AbsenceWaitListAllowancePolicy>()
+            .SingleOrDefaultAsync(r => r.CraftCtrlNbr == craftCtrlNbr
+                && r.WaitListType == normalizedType
+                && r.AllowanceCode == normalizedCode
+                && r.CalendarYear == calendarYear);
+    }
+
+    public async Task<List<AbsenceWaitListAllowancePolicy>> GetByCraftAndTypeAsync(
+        ControlNumber craftCtrlNbr,
+        string waitListType,
+        int calendarYear)
+    {
+        var normalizedType = (waitListType ?? string.Empty).Trim().ToUpperInvariant();
+
+        return await DbContext.Set<AbsenceWaitListAllowancePolicy>()
+            .Where(r => r.CraftCtrlNbr == craftCtrlNbr
+                && r.WaitListType == normalizedType
+                && r.CalendarYear == calendarYear
+                && r.IsEnabled)
+            .OrderBy(r => r.AllowanceCode)
+            .ToListAsync();
+    }
 }
 
 internal sealed class SeniorityMovePolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

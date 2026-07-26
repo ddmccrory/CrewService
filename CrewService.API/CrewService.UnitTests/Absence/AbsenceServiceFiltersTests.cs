@@ -4,12 +4,14 @@ using CrewService.Application.Authorization;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
+using CrewService.Application.Notifications;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using CrewService.Infrastructure.Models.UserAccount;
@@ -283,14 +285,28 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             NullLoggerFactory.Instance);
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton<IRequestActorContextResolver>(actorContextResolver);
         services.AddSingleton<IWorkAreaClock>(workAreaClock);
         services.AddSingleton<IOrchestrationUnitOfWorkFactory>(factory);
         services.AddSingleton<IRailroadResolver, NullRailroadResolver>();
         services.AddSingleton<IAbsenceCodeRepository, NullAbsenceCodeRepository>();
+        services.AddSingleton<IDepartmentAbsenceRequestWindowPolicyRepository, NullDepartmentAbsenceRequestWindowPolicyRepository>();
+        services.AddSingleton<IAbsenceRequestWaitListRecordRepository, NullAbsenceRequestWaitListRecordRepository>();
+        services.AddSingleton<IDepartmentAbsenceWaitListPolicyRepository, NullDepartmentAbsenceWaitListPolicyRepository>();
+        services.AddSingleton<IAbsenceWaitListAllowancePolicyRepository, NullAbsenceWaitListAllowancePolicyRepository>();
         services.AddSingleton<IAbsenceApprovalPolicyResolver, StaticAbsenceApprovalPolicyResolver>();
         services.AddSingleton<IAbsenceMarkOffSignal, AbsenceMarkOffSignal>();
         services.AddSingleton<IAutoMarkUpSignal, AutoMarkUpSignal>();
+        services.AddSingleton<IWaitListReassignmentSignal, WaitListReassignmentSignal>();
+        services.AddSingleton(_ => new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
+        services.AddSingleton(sp => new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            sp.GetRequiredService<IRailroadResolver>(),
+            sp.GetRequiredService<NotificationTypeConfigResolver>(),
+            userAccounts: null,
+            clock: sp.GetRequiredService<IWorkAreaClock>()));
+        services.AddTransient<AbsenceStartProposalService>();
         services.AddTransient<AbsenceRequestService>();
 
         return new AbsenceService(services.BuildServiceProvider());
@@ -482,6 +498,84 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         public void Add(AbsenceCode entity) { }
         public void Update(AbsenceCode entity) { }
         public void Remove(AbsenceCode entity) { }
+    }
+
+    private sealed class NullAbsenceRequestWaitListRecordRepository : IAbsenceRequestWaitListRecordRepository
+    {
+        public Task<List<AbsenceRequestWaitListRecord>> GetPendingByDateAsync(DateTime requestDateUtc, string waitListType, CancellationToken ct = default)
+            => Task.FromResult(new List<AbsenceRequestWaitListRecord>());
+
+        public Task<List<AbsenceRequestWaitListRecord>> GetPendingByDateRangeAsync(DateTime rangeStartUtc, DateTime rangeEndUtc, string waitListType, CancellationToken ct = default)
+            => Task.FromResult(new List<AbsenceRequestWaitListRecord>());
+
+        public Task<List<AbsenceRequestWaitListRecord>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<AbsenceRequestWaitListRecord>());
+        public Task<List<AbsenceRequestWaitListRecord>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<AbsenceRequestWaitListRecord>());
+        public Task<AbsenceRequestWaitListRecord?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceRequestWaitListRecord?>(null);
+        public Task<AbsenceRequestWaitListRecord?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceRequestWaitListRecord?>(null);
+        public Task AddAsync(AbsenceRequestWaitListRecord entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(AbsenceRequestWaitListRecord entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public void Add(AbsenceRequestWaitListRecord entity) { }
+        public void Update(AbsenceRequestWaitListRecord entity) { }
+        public void Remove(AbsenceRequestWaitListRecord entity) { }
+    }
+
+    private sealed class NullDepartmentAbsenceRequestWindowPolicyRepository : IDepartmentAbsenceRequestWindowPolicyRepository
+    {
+        public Task<DepartmentAbsenceRequestWindowPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr)
+            => Task.FromResult<DepartmentAbsenceRequestWindowPolicy?>(null);
+
+        public Task<List<DepartmentAbsenceRequestWindowPolicy>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<DepartmentAbsenceRequestWindowPolicy>());
+        public Task<List<DepartmentAbsenceRequestWindowPolicy>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<DepartmentAbsenceRequestWindowPolicy>());
+        public Task<DepartmentAbsenceRequestWindowPolicy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<DepartmentAbsenceRequestWindowPolicy?>(null);
+        public Task<DepartmentAbsenceRequestWindowPolicy?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<DepartmentAbsenceRequestWindowPolicy?>(null);
+        public Task AddAsync(DepartmentAbsenceRequestWindowPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(DepartmentAbsenceRequestWindowPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public void Add(DepartmentAbsenceRequestWindowPolicy entity) { }
+        public void Update(DepartmentAbsenceRequestWindowPolicy entity) { }
+        public void Remove(DepartmentAbsenceRequestWindowPolicy entity) { }
+    }
+
+    private sealed class NullDepartmentAbsenceWaitListPolicyRepository : IDepartmentAbsenceWaitListPolicyRepository
+    {
+        public Task<DepartmentAbsenceWaitListPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr)
+            => Task.FromResult<DepartmentAbsenceWaitListPolicy?>(null);
+
+        public Task<List<DepartmentAbsenceWaitListPolicy>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<DepartmentAbsenceWaitListPolicy>());
+        public Task<List<DepartmentAbsenceWaitListPolicy>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<DepartmentAbsenceWaitListPolicy>());
+        public Task<DepartmentAbsenceWaitListPolicy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<DepartmentAbsenceWaitListPolicy?>(null);
+        public Task<DepartmentAbsenceWaitListPolicy?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<DepartmentAbsenceWaitListPolicy?>(null);
+        public Task AddAsync(DepartmentAbsenceWaitListPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(DepartmentAbsenceWaitListPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public void Add(DepartmentAbsenceWaitListPolicy entity) { }
+        public void Update(DepartmentAbsenceWaitListPolicy entity) { }
+        public void Remove(DepartmentAbsenceWaitListPolicy entity) { }
+    }
+
+    private sealed class NullAbsenceWaitListAllowancePolicyRepository : IAbsenceWaitListAllowancePolicyRepository
+    {
+        public Task<AbsenceWaitListAllowancePolicy?> GetByCraftTypeCodeYearAsync(ControlNumber craftCtrlNbr, string waitListType, string allowanceCode, int calendarYear)
+            => Task.FromResult<AbsenceWaitListAllowancePolicy?>(null);
+
+        public Task<List<AbsenceWaitListAllowancePolicy>> GetByCraftAndTypeAsync(ControlNumber craftCtrlNbr, string waitListType, int calendarYear)
+            => Task.FromResult(new List<AbsenceWaitListAllowancePolicy>());
+
+        public Task<List<AbsenceWaitListAllowancePolicy>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<AbsenceWaitListAllowancePolicy>());
+        public Task<List<AbsenceWaitListAllowancePolicy>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<AbsenceWaitListAllowancePolicy>());
+        public Task<AbsenceWaitListAllowancePolicy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceWaitListAllowancePolicy?>(null);
+        public Task<AbsenceWaitListAllowancePolicy?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceWaitListAllowancePolicy?>(null);
+        public Task AddAsync(AbsenceWaitListAllowancePolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(AbsenceWaitListAllowancePolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public void Add(AbsenceWaitListAllowancePolicy entity) { }
+        public void Update(AbsenceWaitListAllowancePolicy entity) { }
+        public void Remove(AbsenceWaitListAllowancePolicy entity) { }
     }
 
     private static class TestServerCallContextFactory

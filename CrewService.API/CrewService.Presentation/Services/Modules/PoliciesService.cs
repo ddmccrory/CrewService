@@ -52,6 +52,84 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
+    public override async Task<DepartmentAbsenceRequestWindowPolicyResponse> GetDepartmentAbsenceRequestWindowPolicy(
+        GetDepartmentAbsenceRequestWindowPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetDepartmentAbsenceRequestWindowPolicyAsync(
+                ControlNumber.Create(request.DepartmentCtrlNbr),
+                context.CancellationToken);
+            return MapDepartmentAbsenceRequestWindowPolicy(policy);
+        }
+        catch (KeyNotFoundException)
+        {
+            return new DepartmentAbsenceRequestWindowPolicyResponse
+            {
+                DepartmentCtrlNbr = request.DepartmentCtrlNbr
+            };
+        }
+    }
+
+    public override async Task<DepartmentAbsenceRequestWindowPolicyResponse> UpsertDepartmentAbsenceRequestWindowPolicy(
+        UpsertDepartmentAbsenceRequestWindowPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetOrUpsertDepartmentAbsenceRequestWindowPolicyAsync(
+                request.DepartmentCtrlNbr,
+                request.RequestWindowCapDays,
+                context.CancellationToken);
+            return MapDepartmentAbsenceRequestWindowPolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
+    public override async Task<DepartmentAbsenceWaitListPolicyResponse> GetDepartmentAbsenceWaitListPolicy(
+        GetDepartmentAbsenceWaitListPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetDepartmentAbsenceWaitListPolicyAsync(
+                ControlNumber.Create(request.DepartmentCtrlNbr),
+                context.CancellationToken);
+            return MapDepartmentAbsenceWaitListPolicy(policy);
+        }
+        catch (KeyNotFoundException)
+        {
+            return new DepartmentAbsenceWaitListPolicyResponse
+            {
+                DepartmentCtrlNbr = request.DepartmentCtrlNbr
+            };
+        }
+    }
+
+    public override async Task<DepartmentAbsenceWaitListPolicyResponse> UpsertDepartmentAbsenceWaitListPolicy(
+        UpsertDepartmentAbsenceWaitListPolicyRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
+        try
+        {
+            var policy = await svc.GetOrUpsertDepartmentAbsenceWaitListPolicyAsync(
+                request.DepartmentCtrlNbr,
+                request.CompensableDayMaxAssignments,
+                request.VacationWeekMaxAssignments,
+                request.IsEnabled,
+                context.CancellationToken);
+            return MapDepartmentAbsenceWaitListPolicy(policy);
+        }
+        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
+    }
+
     public override async Task<CraftOperationsPolicyResponse> GetCraftOperationsPolicy(
         GetCraftOperationsPolicyRequest request, ServerCallContext context)
     {
@@ -107,6 +185,22 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         IsEnabled = p.IsEnabled,
         AutoMarkOffIfWithinHoursEnabled = p.AutoMarkOffIfWithinHoursEnabled,
         AutoMarkOffIfWithinHours = p.AutoMarkOffIfWithinHours
+    };
+
+    private static DepartmentAbsenceRequestWindowPolicyResponse MapDepartmentAbsenceRequestWindowPolicy(DepartmentAbsenceRequestWindowPolicy p) => new()
+    {
+        CtrlNbr = p.CtrlNbr.Value,
+        DepartmentCtrlNbr = p.DepartmentCtrlNbr.Value,
+        RequestWindowCapDays = p.RequestWindowCapDays
+    };
+
+    private static DepartmentAbsenceWaitListPolicyResponse MapDepartmentAbsenceWaitListPolicy(DepartmentAbsenceWaitListPolicy p) => new()
+    {
+        CtrlNbr = p.CtrlNbr.Value,
+        DepartmentCtrlNbr = p.DepartmentCtrlNbr.Value,
+        CompensableDayMaxAssignments = p.CompensableDayMaxAssignments,
+        VacationWeekMaxAssignments = p.VacationWeekMaxAssignments,
+        IsEnabled = p.IsEnabled
     };
 
     public override async Task<DisplacementPolicyResponse> GetDisplacementPolicy(GetDisplacementPolicyRequest request, ServerCallContext context)

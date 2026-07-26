@@ -55,6 +55,35 @@ public sealed class AbsenceClient(
         }
     }
 
+    public async Task<(DateTime StartUtc, string StartLocal, int? RequestWindowCapDays)> GetCreateAbsenceStartProposalAsync(
+        long employeeCtrlNbr,
+        long? workAreaGroupCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetCreateAbsenceStartProposalMsg
+            {
+                EmployeeCtrlNbr = employeeCtrlNbr
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            var response = await _client.GetCreateAbsenceStartProposalAsync(request);
+            var startUtc = DateTime.SpecifyKind(response.StartUtc.ToDateTime(), DateTimeKind.Utc);
+            int? requestWindowCapDays = response.HasRequestWindowCapDays
+                ? response.RequestWindowCapDays
+                : null;
+
+            return (startUtc, response.StartLocal, requestWindowCapDays);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<AbsenceApprovalResponse> SetAbsenceAutoProcessAsync(long absenceRequestCtrlNbr, bool autoMarkOffOnApproval)
     {
         try
