@@ -161,7 +161,8 @@ public sealed class NotificationsClient(GrpcChannelProvider channelProvider, Cir
         bool sendInApp,
         bool sendEmail,
         bool sendText,
-        bool sendExternalApi)
+        bool sendExternalApi,
+        string? messageTemplate)
     {
         try
         {
@@ -176,7 +177,8 @@ public sealed class NotificationsClient(GrpcChannelProvider channelProvider, Cir
                 SendInApp = sendInApp,
                 SendEmail = sendEmail,
                 SendText = sendText,
-                SendExternalApi = sendExternalApi
+                SendExternalApi = sendExternalApi,
+                MessageTemplate = messageTemplate ?? string.Empty
             });
         }
         catch (Exception ex)
