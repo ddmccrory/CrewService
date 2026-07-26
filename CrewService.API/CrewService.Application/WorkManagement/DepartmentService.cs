@@ -8,7 +8,9 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.WorkManagement;
 
-public sealed class DepartmentService(IOrchestrationUnitOfWorkFactory uowFactory, ICurrentUserService currentUserService)
+public sealed class DepartmentService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    ICurrentUserService currentUserService)
 {
     private const string CallSheetFeatureKey = "daily-operations/call-sheet";
     private const int DefaultCallLeadMinutes = 90;

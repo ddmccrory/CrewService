@@ -47,7 +47,7 @@
 
             <div class="mb-3">
                 <label class="form-label fw-semibold">Absence Code</label>
-                <InputSelect @bind-Value="_model.AbsenceCodeCtrlNbr" @bind-Value:after="OnAbsenceCodeChangedAsync" class="form-select">
+                <InputSelect @bind-Value="_model.AbsenceCodeCtrlNbr" @bind-Value:after="OnAbsenceCodeChangedAsync" class="form-select" disabled="@IsAwaitingStartProposal">
                     <option value="0">-- Select Absence Code --</option>
                     @foreach (var absenceCode in AbsenceCodes)
                     {
@@ -61,7 +61,7 @@
             {
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Approved By (Optional)</label>
-                    <InputSelect @bind-Value="_model.ApprovedByCtrlNbr" @bind-Value:after="OnApprovedByChangedAsync" class="form-select" disabled="@(!_canSelectApprovedBy || _approvers.Count == 0)">
+                    <InputSelect @bind-Value="_model.ApprovedByCtrlNbr" @bind-Value:after="OnApprovedByChangedAsync" class="form-select" disabled="@(!_canSelectApprovedBy || _approvers.Count == 0 || IsAwaitingStartProposal)">
                         <option value="0">-- None --</option>
                         @foreach (var approver in _approvers)
                         {
@@ -79,23 +79,34 @@
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Start (Work Area Local)</label>
                     <div class="input-group">
-                        <input type="datetime-local" class="form-control" value="@_model.StartUtcLocal" @oninput="OnStartUtcChanged" />
-                        <button type="button" class="btn btn-outline-secondary" @onclick="SetStartToNow">Now</button>
+                        <input type="datetime-local" class="form-control" value="@_model.StartUtcLocal" @oninput="OnStartUtcChanged" max="@StartUtcLocalMaxValue" disabled="@IsAwaitingStartProposal" />
+                        <button type="button" class="btn btn-outline-secondary" @onclick="SetStartToNow" disabled="@IsAwaitingStartProposal">Now</button>
                     </div>
+                    @if (IsStartBeyondRequestWindow)
+                    {
+                        <div class="form-text text-danger">Start date exceeds the configured request window cap.</div>
+                    }
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">End (Work Area Local)</label>
-                    <input type="datetime-local" class="form-control" value="@_model.EndUtcLocal" @onchange="OnEndUtcChanged" />
+                    <input type="datetime-local" class="form-control" value="@_model.EndUtcLocal" @onchange="OnEndUtcChanged" disabled="@IsAwaitingStartProposal" />
                 </div>
             </div>
 
+            @if (_isLoadingStartProposal)
+            {
+                <div class="mb-3">
+                    <LoadingMessage />
+                </div>
+            }
+
             <div class="mb-0">
                 <label class="form-label fw-semibold">Notes (Optional)</label>
-                <InputTextArea @bind-Value="_model.Notes" class="form-control" rows="3" />
+                <InputTextArea @bind-Value="_model.Notes" class="form-control" rows="3" disabled="@IsAwaitingStartProposal" />
             </div>
 
             <div class="form-check form-switch mt-3">
-                <InputCheckbox @bind-Value="_model.AutoMarkOffOnApproval" class="form-check-input" id="autoMarkOffOnApproval" />
+                <InputCheckbox @bind-Value="_model.AutoMarkOffOnApproval" class="form-check-input" id="autoMarkOffOnApproval" disabled="@IsAwaitingStartProposal" />
                 <label class="form-check-label" for="autoMarkOffOnApproval">Auto mark-off on approval</label>
             </div>
 
@@ -126,6 +137,7 @@
     [Parameter] public long SelectedDepartmentCtrlNbr { get; set; }
     [Parameter] public long SelectedWorkAreaCtrlNbr { get; set; }
     [Parameter] public DateTime SelectedDate { get; set; }
+    [Parameter] public DateTime? MaxStartDateLocal { get; set; }
     [Parameter] public long? DefaultEmployeeCtrlNbr { get; set; }
     [Parameter] public IReadOnlyList<MarkOffCodeResponse> AbsenceCodes { get; set; } = [];
     [Parameter] public IReadOnlyList<GroupResponse> WorkAreas { get; set; } = [];
@@ -134,7 +146,10 @@
     private bool _wasVisible;
     private bool _isSaving;
     private bool _isLoadingEmployees;
+    private bool _isLoadingStartProposal;
+    private bool _hasStartProposal;
     private bool _isStartSetByNowButton;
+    private int? _employeeRequestWindowCapDays;
     private string? _errorMessage;
     private string _approvalLevelDescription = string.Empty;
     private bool _canSelectApprovedBy;
@@ -144,10 +159,46 @@
 
     private bool CanSubmit
         => _model.EmployeeCtrlNbr > 0
+            && !_isLoadingStartProposal
+            && _hasStartProposal
             && _model.AbsenceCodeCtrlNbr > 0
             && DateTime.TryParse(_model.StartUtcLocal, out var startLocal)
+            && IsWithinRequestWindowCap(startLocal)
             && (string.IsNullOrWhiteSpace(_model.EndUtcLocal)
                 || (DateTime.TryParse(_model.EndUtcLocal, out var endLocal) && endLocal >= startLocal));
+
+    private string? StartUtcLocalMaxValue
+        => EffectiveMaxStartDateLocal.HasValue
+            ? EffectiveMaxStartDateLocal.Value.Date.AddDays(1).AddMinutes(-1).ToString("yyyy-MM-ddTHH:mm")
+            : null;
+
+    private bool IsStartBeyondRequestWindow
+        => DateTime.TryParse(_model.StartUtcLocal, out var startLocal)
+            && !IsWithinRequestWindowCap(startLocal);
+
+    private DateTime? EffectiveMaxStartDateLocal
+    {
+        get
+        {
+            if (_employeeRequestWindowCapDays.HasValue)
+                return DateTime.Today.AddDays(_employeeRequestWindowCapDays.Value).Date;
+
+            return MaxStartDateLocal?.Date;
+        }
+    }
+
+    private bool IsAwaitingStartProposal =>
+        _model.EmployeeCtrlNbr > 0
+        && (_isLoadingStartProposal || !_hasStartProposal);
+
+    private bool IsWithinRequestWindowCap(DateTime startLocal)
+    {
+        var effectiveMaxDate = EffectiveMaxStartDateLocal;
+        if (!effectiveMaxDate.HasValue)
+            return true;
+
+        return startLocal.Date <= effectiveMaxDate.Value.Date;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -161,12 +212,16 @@
     {
         _errorMessage = null;
         _model = CreateAbsenceRequestInputModel.CreateDefault(GetDefaultStartLocal());
+        _hasStartProposal = false;
+        _isLoadingStartProposal = false;
+        _employeeRequestWindowCapDays = null;
         _model.ApprovedByCtrlNbr = 0;
         _isStartSetByNowButton = false;
         _approvalLevelDescription = string.Empty;
         _canSelectApprovedBy = true;
         _approvers = [];
         await LoadEmployeesAsync();
+        await LoadStartProposalAsync();
         await RefreshApprovalContextAsync();
     }
 
@@ -280,7 +335,45 @@
 
     private async Task OnEmployeeChangedAsync()
     {
+        await LoadStartProposalAsync();
+        await ApplyDefaultEndFromAbsenceCodeAsync();
         await RefreshApprovalContextAsync();
+    }
+
+    private async Task LoadStartProposalAsync()
+    {
+        _hasStartProposal = false;
+
+        if (_model.EmployeeCtrlNbr <= 0)
+        {
+            _model.StartUtcLocal = string.Empty;
+            _model.EndUtcLocal = string.Empty;
+            return;
+        }
+
+        try
+        {
+            _isLoadingStartProposal = true;
+            var (_, startLocal, requestWindowCapDays) = await AbsenceClient.GetCreateAbsenceStartProposalAsync(
+                _model.EmployeeCtrlNbr,
+                SelectedWorkAreaCtrlNbr > 0 ? SelectedWorkAreaCtrlNbr : null);
+
+            _model.StartUtcLocal = startLocal;
+            _employeeRequestWindowCapDays = requestWindowCapDays;
+            _hasStartProposal = !string.IsNullOrWhiteSpace(startLocal);
+            _isStartSetByNowButton = false;
+        }
+        catch (Exception ex)
+        {
+            _model.StartUtcLocal = string.Empty;
+            _model.EndUtcLocal = string.Empty;
+            _hasStartProposal = false;
+            await SetErrorAsync($"Failed to compute start date/time: {ex.Message}");
+        }
+        finally
+        {
+            _isLoadingStartProposal = false;
+        }
     }
 
     private async Task ApplyDefaultEndFromAbsenceCodeAsync()
@@ -346,6 +439,12 @@
         if (!DateTime.TryParse(_model.StartUtcLocal, out var startLocal))
         {
             await SetErrorAsync("Start date/time is required.");
+            return;
+        }
+
+        if (!IsWithinRequestWindowCap(startLocal))
+        {
+            await SetErrorAsync("Start date exceeds the configured request window cap.");
             return;
         }
 

@@ -39,3 +39,23 @@ public interface IVacancyImpactRepository : IRepository<VacancyImpact>
     Task<List<VacancyImpact>> GetByAbsenceRequestAsync(ControlNumber absenceRequestCtrlNbr);
     Task<List<VacancyImpact>> GetByPositionSlotAsync(ControlNumber positionSlotCtrlNbr);
 }
+
+public interface IAbsenceRequestWaitListRecordRepository : IRepository<AbsenceRequestWaitListRecord>
+{
+    Task<List<AbsenceRequestWaitListRecord>> GetPendingByDateAsync(
+        DateTime requestDateUtc,
+        string waitListType,
+        CancellationToken ct = default);
+
+    Task<List<AbsenceRequestWaitListRecord>> GetPendingByDateRangeAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        string waitListType,
+        CancellationToken ct = default);
+}
+
+public interface IAbsenceRequestWaitListLinkRepository : IRepository<AbsenceRequestWaitListLink>
+{
+    Task<List<AbsenceRequestWaitListLink>> GetByRequestAsync(ControlNumber absenceRequestCtrlNbr, CancellationToken ct = default);
+    Task<List<AbsenceRequestWaitListLink>> GetByWaitListRecordAsync(ControlNumber waitListRecordCtrlNbr, CancellationToken ct = default);
+}

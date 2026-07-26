@@ -4,6 +4,7 @@ using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Infrastructure.Models.UserAccount;
 using Microsoft.AspNetCore.Http;
@@ -200,8 +201,21 @@ internal static class BaselineSeeder
         await SeedFeaturesAsync(sp);
         await SeedDefaultPermissionsAsync(sp);
         await SeedRegulatoryQualificationsAsync(sp);
+        await SeedNotificationTypeConfigsAsync(sp);
         await SeedSystemAdminAsync(sp);
         await SeedStaticRequiredPositionsStrategyAsync(sp);
+    }
+
+    private static async Task SeedNotificationTypeConfigsAsync(IServiceProvider sp)
+    {
+        var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+        if (railroads.Count == 0)
+            return;
+
+        var notificationTypeConfigRepo = sp.GetRequiredService<INotificationTypeConfigRepository>();
+        await NotificationTypeConfigSeedDefaults.SeedForRailroadsAsync(notificationTypeConfigRepo, railroads);
+        await NotificationTypeConfigSeedDefaults.BackfillMessageTemplatesAsync(notificationTypeConfigRepo, railroads);
     }
 
     private static async Task SeedRegulatoryQualificationsAsync(IServiceProvider sp)

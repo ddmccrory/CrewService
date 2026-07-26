@@ -23,15 +23,19 @@ public sealed class NotificationTypeConfigSeedDefaultsTests
         await NotificationTypeConfigSeedDefaults.SeedForRailroadAsync(repo, railroad, ct: TestContext.Current.CancellationToken);
 
         var configs = await repo.GetByRailroadAsync(railroad.CtrlNbr, TestContext.Current.CancellationToken);
-        Assert.Equal(8, configs.Count);
+        Assert.Equal(11, configs.Count);
         Assert.Contains(configs, c => c.Key == NotificationCategories.BulletinAward && c.RequiresAcknowledgementDefault);
+        Assert.Contains(configs, c => c.Key == NotificationCategories.BulletinLost && !c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.ForceAssign && c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.BulletinCancellation && !c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.SeniorityMove && c.RequiresAcknowledgementDefault);
+        Assert.Contains(configs, c => c.Key == NotificationCategories.SeniorityMoveCancelled && !c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.PositionChange && c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.BoardPlacement && !c.RequiresAcknowledgementDefault);
+        Assert.Contains(configs, c => c.Key == NotificationCategories.WaitListPromotion && !c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.TieUp && c.RequiresAcknowledgementDefault);
         Assert.Contains(configs, c => c.Key == NotificationCategories.GeneralInformation && !c.RequiresAcknowledgementDefault);
+        Assert.All(configs, c => Assert.False(string.IsNullOrWhiteSpace(c.MessageTemplate)));
     }
 
     [Fact]
@@ -51,8 +55,8 @@ public sealed class NotificationTypeConfigSeedDefaultsTests
         await NotificationTypeConfigSeedDefaults.SeedForRailroadAsync(repo, railroad, ct: TestContext.Current.CancellationToken);
 
         var configs = await repo.GetByRailroadAsync(railroad.CtrlNbr, TestContext.Current.CancellationToken);
-        Assert.Equal(8, configs.Count);
-        Assert.Equal(8, configs.Select(c => c.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(11, configs.Count);
+        Assert.Equal(11, configs.Select(c => c.Key).Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -69,8 +73,8 @@ public sealed class NotificationTypeConfigSeedDefaultsTests
 
         var csxConfigs = await repo.GetByRailroadAsync(railroads[0].CtrlNbr, TestContext.Current.CancellationToken);
         var ptraConfigs = await repo.GetByRailroadAsync(railroads[1].CtrlNbr, TestContext.Current.CancellationToken);
-        Assert.Equal(8, csxConfigs.Count);
-        Assert.Equal(8, ptraConfigs.Count);
+        Assert.Equal(11, csxConfigs.Count);
+        Assert.Equal(11, ptraConfigs.Count);
     }
 
     private sealed class InMemoryNotificationTypeConfigRepository : INotificationTypeConfigRepository

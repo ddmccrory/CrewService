@@ -10,6 +10,7 @@
 @attribute [Authorize]
 
 @inject PoliciesClient PoliciesClient
+@inject DepartmentClient DepartmentClient
 
 <PageTitle>Absence Approval Policy — Crew Service</PageTitle>
 
@@ -34,6 +35,107 @@ else if (ShowSelectRailroadBanner)
 }
 else
 {
+    <Modal Visible="showDepartmentCapModal"
+           Title="@(isCreateDepartmentCapMode ? "Create Request Window Cap" : "Configure Request Window Cap")"
+           Icon="bi bi-calendar-range"
+           OnClose="CloseDepartmentCapModal">
+        <BodyContent>
+            <EditForm Model="departmentCapEditModel" OnValidSubmit="OnSaveDepartmentCap" id="department-cap-policy-form">
+                <DataAnnotationsValidator />
+
+                @if (isCreateDepartmentCapMode)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="departmentCapDepartment">Department</label>
+                        <select id="departmentCapDepartment" class="form-select" @bind="departmentCapEditModel.DepartmentCtrlNbr" @bind:after="OnDepartmentCapDepartmentChanged">
+                            <option value="0">-- Select Department --</option>
+                            @foreach (var row in departmentCapRows.Where(r => !r.RequestWindowCapDays.HasValue).OrderBy(r => r.DepartmentName))
+                            {
+                                <option value="@row.DepartmentCtrlNbr">@row.DepartmentName</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Department</label>
+                        <p class="form-control-plaintext fw-bold">@departmentCapEditModel.DepartmentName</p>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="requestWindowCapDays">Request Window Cap (days)</label>
+                    <input class="form-control" type="number" id="requestWindowCapDays" min="1" max="365" @bind="departmentCapEditModel.RequestWindowCapDays" />
+                    <ValidationMessage For="() => departmentCapEditModel.RequestWindowCapDays" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseDepartmentCapModal">Cancel</button>
+            <button type="submit" form="department-cap-policy-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showDepartmentWaitListModal"
+           Title="@(isCreateDepartmentWaitListMode ? "Create Waitlist Configuration" : "Configure Waitlist Configuration")"
+           Icon="bi bi-list-check"
+           OnClose="CloseDepartmentWaitListModal">
+        <BodyContent>
+            <EditForm Model="departmentWaitListEditModel" OnValidSubmit="OnSaveDepartmentWaitList" id="department-waitlist-policy-form">
+                <DataAnnotationsValidator />
+
+                @if (isCreateDepartmentWaitListMode)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="departmentWaitListDepartment">Department</label>
+                        <select id="departmentWaitListDepartment" class="form-select" @bind="departmentWaitListEditModel.DepartmentCtrlNbr" @bind:after="OnDepartmentWaitListDepartmentChanged">
+                            <option value="0">-- Select Department --</option>
+                            @foreach (var row in departmentCapRows.Where(r => !r.WaitListConfigured).OrderBy(r => r.DepartmentName))
+                            {
+                                <option value="@row.DepartmentCtrlNbr">@row.DepartmentName</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Department</label>
+                        <p class="form-control-plaintext fw-bold">@departmentWaitListEditModel.DepartmentName</p>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="departmentWaitListEnabled" @bind="departmentWaitListEditModel.IsEnabled" />
+                        <label class="form-check-label" for="departmentWaitListEnabled">Waitlist reassignment enabled</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="compensableDayMaxAssignments">Compensable Day Max Assignments</label>
+                    <input class="form-control" type="number" id="compensableDayMaxAssignments" min="0" max="365" @bind="departmentWaitListEditModel.CompensableDayMaxAssignments" />
+                    <ValidationMessage For="() => departmentWaitListEditModel.CompensableDayMaxAssignments" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="vacationWeekMaxAssignments">Vacation Week Max Assignments</label>
+                    <input class="form-control" type="number" id="vacationWeekMaxAssignments" min="0" max="365" @bind="departmentWaitListEditModel.VacationWeekMaxAssignments" />
+                    <ValidationMessage For="() => departmentWaitListEditModel.VacationWeekMaxAssignments" class="text-danger" />
+                </div>
+            </EditForm>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseDepartmentWaitListModal">Cancel</button>
+            <button type="submit" form="department-waitlist-policy-form" class="btn btn-primary" disabled="@isSaving">
+                <span class="bi bi-check-circle me-1"></span> Save
+            </button>
+        </Footer>
+    </Modal>
+
     @if (!string.IsNullOrEmpty(errorMessage))
     {
         <div class="alert alert-danger alert-dismissible mt-2" role="alert">
@@ -116,6 +218,135 @@ else
                 </EditForm>
             </div>
         </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="card-title mb-1">Department Request Window Caps</h5>
+                        <div class="text-muted small">Configure max absence request window days per department.</div>
+                    </div>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-primary" @onclick="OpenCreateDepartmentCapModal">
+                            <span class="bi bi-plus-circle"></span> Create
+                        </button>
+                    }
+                </div>
+
+                @if (isLoadingDepartmentCaps)
+                {
+                    <div class="text-center py-4"><div class="spinner-border" /></div>
+                }
+                else if (departmentCapRows.Count == 0)
+                {
+                    <div class="text-muted">No departments found for the selected railroad.</div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th class="text-end">Cap (Days)</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in departmentCapRows)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@row.DepartmentName</td>
+                                        <td class="text-end">@(row.RequestWindowCapDays?.ToString() ?? "—")</td>
+                                        <td class="text-end">
+                                            @if (!IsFeatureReadOnly)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenDepartmentCapModal(row)">
+                                                    @(row.RequestWindowCapDays.HasValue ? "Edit" : "Configure")
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="card-title mb-1">Department Waitlist Configuration</h5>
+                        <div class="text-muted small">Configure waitlist reassignment caps per department.</div>
+                    </div>
+                    @if (!IsFeatureReadOnly)
+                    {
+                        <button class="btn btn-primary" @onclick="OpenCreateDepartmentWaitListModal">
+                            <span class="bi bi-plus-circle"></span> Create
+                        </button>
+                    }
+                </div>
+
+                @if (isLoadingDepartmentCaps)
+                {
+                    <div class="text-center py-4"><div class="spinner-border" /></div>
+                }
+                else if (departmentCapRows.Count == 0)
+                {
+                    <div class="text-muted">No departments found for the selected railroad.</div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th class="text-end">Comp Day Max</th>
+                                    <th class="text-end">Vacation Week Max</th>
+                                    <th class="text-end">Enabled</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in departmentCapRows)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@row.DepartmentName</td>
+                                        <td class="text-end">@(row.WaitListCompensableDayMaxAssignments?.ToString() ?? "—")</td>
+                                        <td class="text-end">@(row.WaitListVacationWeekMaxAssignments?.ToString() ?? "—")</td>
+                                        <td class="text-end">
+                                            @if (!row.WaitListConfigured)
+                                            {
+                                                <span>—</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge @(row.WaitListIsEnabled ? "bg-success" : "bg-secondary")">
+                                                    @(row.WaitListIsEnabled ? "Yes" : "No")
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (!IsFeatureReadOnly)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenDepartmentWaitListModal(row)">
+                                                    @(row.WaitListConfigured ? "Edit" : "Configure")
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
     }
 }
 
@@ -142,6 +373,40 @@ else
         public int AutoMarkOffIfWithinHours { get; set; }
     }
 
+    private sealed class DepartmentCapRow
+    {
+        public long DepartmentCtrlNbr { get; init; }
+        public string DepartmentName { get; init; } = string.Empty;
+        public int? RequestWindowCapDays { get; set; }
+        public int? WaitListCompensableDayMaxAssignments { get; set; }
+        public int? WaitListVacationWeekMaxAssignments { get; set; }
+        public bool WaitListIsEnabled { get; set; }
+        public bool WaitListConfigured { get; set; }
+    }
+
+    private sealed class DepartmentCapEditModel
+    {
+        public long DepartmentCtrlNbr { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+
+        [Range(1, 365, ErrorMessage = "Cap days must be between 1 and 365.")]
+        public int RequestWindowCapDays { get; set; } = 45;
+    }
+
+    private sealed class DepartmentWaitListEditModel
+    {
+        public long DepartmentCtrlNbr { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+
+        [Range(0, 365, ErrorMessage = "Compensable day max assignments must be between 0 and 365.")]
+        public int CompensableDayMaxAssignments { get; set; } = 3;
+
+        [Range(0, 365, ErrorMessage = "Vacation week max assignments must be between 0 and 365.")]
+        public int VacationWeekMaxAssignments { get; set; } = 3;
+
+        public bool IsEnabled { get; set; } = true;
+    }
+
     private const string AutomaticLevel = "Automatic";
     private const string CallerManagerLevel = "CallerManager";
     private const string ManagerOnlyLevel = "ManagerOnly";
@@ -154,8 +419,16 @@ else
     ];
 
     private bool isLoading = true;
+    private bool isLoadingDepartmentCaps;
     private bool hasConfiguredPolicy;
+    private bool showDepartmentCapModal;
+    private bool showDepartmentWaitListModal;
+    private bool isCreateDepartmentCapMode;
+    private bool isCreateDepartmentWaitListMode;
     private EditModel editModel = new();
+    private DepartmentCapEditModel departmentCapEditModel = new();
+    private DepartmentWaitListEditModel departmentWaitListEditModel = new();
+    private List<DepartmentCapRow> departmentCapRows = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,6 +448,7 @@ else
             return;
 
         isLoading = true;
+        isLoadingDepartmentCaps = true;
         errorMessage = null;
 
         try
@@ -189,16 +463,45 @@ else
                 AutoMarkOffIfWithinHoursEnabled = policy?.AutoMarkOffIfWithinHoursEnabled ?? false,
                 AutoMarkOffIfWithinHours = policy?.AutoMarkOffIfWithinHours ?? 0
             };
+
+            if (SelectedParentCtrlNbr is > 0)
+            {
+                var departments = await DepartmentClient.GetAllAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
+                var rows = new List<DepartmentCapRow>();
+                foreach (var department in departments.Departments.OrderBy(d => d.Name))
+                {
+                    var departmentPolicy = await PoliciesClient.GetDepartmentAbsenceRequestWindowPolicyAsync(department.CtrlNbr);
+                    var waitListPolicy = await PoliciesClient.GetDepartmentAbsenceWaitListPolicyAsync(department.CtrlNbr);
+                    rows.Add(new DepartmentCapRow
+                    {
+                        DepartmentCtrlNbr = department.CtrlNbr,
+                        DepartmentName = department.Name,
+                        RequestWindowCapDays = departmentPolicy?.RequestWindowCapDays,
+                        WaitListCompensableDayMaxAssignments = waitListPolicy?.CompensableDayMaxAssignments,
+                        WaitListVacationWeekMaxAssignments = waitListPolicy?.VacationWeekMaxAssignments,
+                        WaitListIsEnabled = waitListPolicy?.IsEnabled ?? false,
+                        WaitListConfigured = waitListPolicy is not null
+                    });
+                }
+
+                departmentCapRows = rows;
+            }
+            else
+            {
+                departmentCapRows = [];
+            }
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to load absence approval policy: {ex.Message}";
             hasConfiguredPolicy = false;
             editModel = new EditModel();
+            departmentCapRows = [];
         }
         finally
         {
             isLoading = false;
+            isLoadingDepartmentCaps = false;
         }
     }
 
@@ -229,6 +532,177 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Failed to save absence approval policy: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OpenDepartmentCapModal(DepartmentCapRow row)
+    {
+        isCreateDepartmentCapMode = false;
+        departmentCapEditModel = new DepartmentCapEditModel
+        {
+            DepartmentCtrlNbr = row.DepartmentCtrlNbr,
+            DepartmentName = row.DepartmentName,
+            RequestWindowCapDays = row.RequestWindowCapDays ?? 45
+        };
+
+        showDepartmentCapModal = true;
+    }
+
+    private void OpenCreateDepartmentCapModal()
+    {
+        var candidate = departmentCapRows.FirstOrDefault(r => !r.RequestWindowCapDays.HasValue);
+        if (candidate is null)
+        {
+            errorMessage = "All departments already have request window caps configured.";
+            return;
+        }
+
+        errorMessage = null;
+        isCreateDepartmentCapMode = true;
+        departmentCapEditModel = new DepartmentCapEditModel
+        {
+            DepartmentCtrlNbr = 0,
+            DepartmentName = string.Empty,
+            RequestWindowCapDays = 45
+        };
+        showDepartmentCapModal = true;
+    }
+
+    private void CloseDepartmentCapModal()
+    {
+        showDepartmentCapModal = false;
+        isCreateDepartmentCapMode = false;
+    }
+
+    private Task OnDepartmentCapDepartmentChanged()
+    {
+        var selected = departmentCapRows.FirstOrDefault(r => r.DepartmentCtrlNbr == departmentCapEditModel.DepartmentCtrlNbr);
+        departmentCapEditModel.DepartmentName = selected?.DepartmentName ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private void OpenDepartmentWaitListModal(DepartmentCapRow row)
+    {
+        isCreateDepartmentWaitListMode = false;
+        departmentWaitListEditModel = new DepartmentWaitListEditModel
+        {
+            DepartmentCtrlNbr = row.DepartmentCtrlNbr,
+            DepartmentName = row.DepartmentName,
+            CompensableDayMaxAssignments = row.WaitListCompensableDayMaxAssignments ?? 3,
+            VacationWeekMaxAssignments = row.WaitListVacationWeekMaxAssignments ?? 3,
+            IsEnabled = row.WaitListConfigured ? row.WaitListIsEnabled : true
+        };
+
+        showDepartmentWaitListModal = true;
+    }
+
+    private void OpenCreateDepartmentWaitListModal()
+    {
+        var candidate = departmentCapRows.FirstOrDefault(r => !r.WaitListConfigured);
+        if (candidate is null)
+        {
+            errorMessage = "All departments already have waitlist configuration.";
+            return;
+        }
+
+        errorMessage = null;
+        isCreateDepartmentWaitListMode = true;
+        departmentWaitListEditModel = new DepartmentWaitListEditModel
+        {
+            DepartmentCtrlNbr = 0,
+            DepartmentName = string.Empty,
+            CompensableDayMaxAssignments = 3,
+            VacationWeekMaxAssignments = 3,
+            IsEnabled = true
+        };
+        showDepartmentWaitListModal = true;
+    }
+
+    private void CloseDepartmentWaitListModal()
+    {
+        showDepartmentWaitListModal = false;
+        isCreateDepartmentWaitListMode = false;
+    }
+
+    private Task OnDepartmentWaitListDepartmentChanged()
+    {
+        var selected = departmentCapRows.FirstOrDefault(r => r.DepartmentCtrlNbr == departmentWaitListEditModel.DepartmentCtrlNbr);
+        departmentWaitListEditModel.DepartmentName = selected?.DepartmentName ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSaveDepartmentCap()
+    {
+        if (departmentCapEditModel.DepartmentCtrlNbr <= 0)
+        {
+            errorMessage = "Department is required.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var saved = await PoliciesClient.UpsertDepartmentAbsenceRequestWindowPolicyAsync(
+                departmentCapEditModel.DepartmentCtrlNbr,
+                departmentCapEditModel.RequestWindowCapDays);
+
+            var row = departmentCapRows.FirstOrDefault(r => r.DepartmentCtrlNbr == saved.DepartmentCtrlNbr);
+            if (row is not null)
+                row.RequestWindowCapDays = saved.RequestWindowCapDays;
+
+            successMessage = $"Request window cap saved for {departmentCapEditModel.DepartmentName}.";
+            showDepartmentCapModal = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save department request window cap: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task OnSaveDepartmentWaitList()
+    {
+        if (departmentWaitListEditModel.DepartmentCtrlNbr <= 0)
+        {
+            errorMessage = "Department is required.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var saved = await PoliciesClient.UpsertDepartmentAbsenceWaitListPolicyAsync(
+                departmentWaitListEditModel.DepartmentCtrlNbr,
+                departmentWaitListEditModel.CompensableDayMaxAssignments,
+                departmentWaitListEditModel.VacationWeekMaxAssignments,
+                departmentWaitListEditModel.IsEnabled);
+
+            var row = departmentCapRows.FirstOrDefault(r => r.DepartmentCtrlNbr == saved.DepartmentCtrlNbr);
+            if (row is not null)
+            {
+                row.WaitListCompensableDayMaxAssignments = saved.CompensableDayMaxAssignments;
+                row.WaitListVacationWeekMaxAssignments = saved.VacationWeekMaxAssignments;
+                row.WaitListIsEnabled = saved.IsEnabled;
+                row.WaitListConfigured = true;
+            }
+
+            successMessage = $"Waitlist configuration saved for {departmentWaitListEditModel.DepartmentName}.";
+            showDepartmentWaitListModal = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save department waitlist configuration: {ex.Message}";
         }
         finally
         {

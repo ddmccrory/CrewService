@@ -10,6 +10,18 @@ service PoliciesSrvc {
   rpc UpsertAbsenceApprovalPolicy(UpsertAbsenceApprovalPolicyRequest) returns (AbsenceApprovalPolicyResponse) {
     option (google.api.http) = { put: "/v1/policies/absence-approval/{railroad_ctrl_nbr}" body: "*" };
   }
+  rpc GetDepartmentAbsenceRequestWindowPolicy(GetDepartmentAbsenceRequestWindowPolicyRequest) returns (DepartmentAbsenceRequestWindowPolicyResponse) {
+    option (google.api.http) = { get: "/v1/policies/absence-request-window/{department_ctrl_nbr}" };
+  }
+  rpc UpsertDepartmentAbsenceRequestWindowPolicy(UpsertDepartmentAbsenceRequestWindowPolicyRequest) returns (DepartmentAbsenceRequestWindowPolicyResponse) {
+    option (google.api.http) = { put: "/v1/policies/absence-request-window/{department_ctrl_nbr}" body: "*" };
+  }
+  rpc GetDepartmentAbsenceWaitListPolicy(GetDepartmentAbsenceWaitListPolicyRequest) returns (DepartmentAbsenceWaitListPolicyResponse) {
+    option (google.api.http) = { get: "/v1/policies/absence-waitlist/{department_ctrl_nbr}" };
+  }
+  rpc UpsertDepartmentAbsenceWaitListPolicy(UpsertDepartmentAbsenceWaitListPolicyRequest) returns (DepartmentAbsenceWaitListPolicyResponse) {
+    option (google.api.http) = { put: "/v1/policies/absence-waitlist/{department_ctrl_nbr}" body: "*" };
+  }
   rpc GetCraftOperationsPolicy(GetCraftOperationsPolicyRequest) returns (CraftOperationsPolicyResponse) {
     option (google.api.http) = { get: "/v1/policies/craft-operations/{craft_ctrl_nbr}" };
   }
@@ -124,6 +136,40 @@ message AbsenceApprovalPolicyResponse {
   bool is_enabled = 4;
   bool auto_mark_off_if_within_hours_enabled = 5;
   int32 auto_mark_off_if_within_hours = 6;
+}
+
+message GetDepartmentAbsenceRequestWindowPolicyRequest {
+  int64 department_ctrl_nbr = 1;
+}
+
+message UpsertDepartmentAbsenceRequestWindowPolicyRequest {
+  int64 department_ctrl_nbr = 1;
+  int32 request_window_cap_days = 2;
+}
+
+message DepartmentAbsenceRequestWindowPolicyResponse {
+  int64 ctrl_nbr = 1;
+  int64 department_ctrl_nbr = 2;
+  int32 request_window_cap_days = 3;
+}
+
+message GetDepartmentAbsenceWaitListPolicyRequest {
+  int64 department_ctrl_nbr = 1;
+}
+
+message UpsertDepartmentAbsenceWaitListPolicyRequest {
+  int64 department_ctrl_nbr = 1;
+  int32 compensable_day_max_assignments = 2;
+  int32 vacation_week_max_assignments = 3;
+  bool is_enabled = 4;
+}
+
+message DepartmentAbsenceWaitListPolicyResponse {
+  int64 ctrl_nbr = 1;
+  int64 department_ctrl_nbr = 2;
+  int32 compensable_day_max_assignments = 3;
+  int32 vacation_week_max_assignments = 4;
+  bool is_enabled = 5;
 }
 
 message GetCraftOperationsPolicyRequest {

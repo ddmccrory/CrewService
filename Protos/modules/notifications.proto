@@ -91,6 +91,7 @@ message UpsertNotificationTypeConfigRequest {
   bool send_email = 8;
   bool send_text = 9;
   bool send_external_api = 10;
+  optional string message_template = 11;
 }
 
 message GetNotificationTypeConfigsResponse {
@@ -109,6 +110,7 @@ message NotificationTypeConfigResponse {
   bool send_email = 9;
   bool send_text = 10;
   bool send_external_api = 11;
+  optional string message_template = 12;
 }
 
 message GetNotificationsResponse {

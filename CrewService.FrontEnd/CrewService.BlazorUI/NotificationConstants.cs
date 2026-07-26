@@ -8,9 +8,12 @@ public static class NotificationCategories
 {
     public const string PositionChange = "PositionChange";
     public const string BulletinAward = "BulletinAward";
+    public const string BulletinLost = "BulletinLost";
     public const string BulletinCancellation = "BulletinCancellation";
     public const string SeniorityMove = "SeniorityMove";
+    public const string SeniorityMoveCancelled = "SeniorityMoveCancelled";
     public const string ForceAssign = "ForceAssign";
+    public const string WaitListPromotion = "WaitListPromotion";
     public const string SafetyBulletin = "SafetyBulletin";
     public const string GeneralInformation = "GeneralInformation";
     public const string WorkAreaChange = "WorkAreaChange";
@@ -20,9 +23,12 @@ public static class NotificationCategories
     {
         [PositionChange] = "Position Change",
         [BulletinAward] = "Bulletin Award",
+        [BulletinLost] = "Bulletin Lost",
         [BulletinCancellation] = "Bulletin Cancellation",
         [SeniorityMove] = "Seniority Move",
+        [SeniorityMoveCancelled] = "Seniority Move Cancelled",
         [ForceAssign] = "Force Assignment",
+        [WaitListPromotion] = "Wait List Promotion",
         [SafetyBulletin] = "Safety Bulletin",
         [GeneralInformation] = "General Information",
         [WorkAreaChange] = "Work Area Change",

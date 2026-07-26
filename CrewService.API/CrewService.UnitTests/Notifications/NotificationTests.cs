@@ -29,6 +29,7 @@ public class NotificationTypeConfigTests
             displayName: "Board Placement",
             isEnabled: false,
             requiresAcknowledgementDefault: true,
+            messageTemplate: "You have been placed on {board}.",
             audience: NotificationAudience.Employee,
             sendInApp: true,
             sendEmail: true,
@@ -52,6 +53,7 @@ public class NotificationTypeConfigTests
             displayName: "Board Placement",
             isEnabled: true,
             requiresAcknowledgementDefault: true,
+            messageTemplate: "You have been placed on {board}.",
             audience: NotificationAudience.Employee,
             sendInApp: true,
             sendEmail: true,
@@ -66,7 +68,8 @@ public class NotificationTypeConfigTests
             sendInApp: true,
             sendEmail: true,
             sendText: true,
-            sendExternalApi: true);
+            sendExternalApi: true,
+            messageTemplate: "You have been placed on {board}.");
 
         Assert.False(config.IsEnabled);
         Assert.False(config.RequiresAcknowledgementDefault);
@@ -86,6 +89,7 @@ public class NotificationTypeConfigTests
                 displayName: "Board Placement",
                 isEnabled: true,
                 requiresAcknowledgementDefault: false,
+                messageTemplate: "You have been placed on {board}.",
                 audience: NotificationAudience.Employee,
                 sendInApp: false,
                 sendEmail: false,
@@ -104,6 +108,7 @@ public class NotificationTypeConfigTests
             displayName: "Board Placement",
             isEnabled: true,
             requiresAcknowledgementDefault: true,
+            messageTemplate: "You have been placed on {board}.",
             audience: NotificationAudience.Employee,
             sendInApp: true,
             sendEmail: false,
@@ -119,7 +124,8 @@ public class NotificationTypeConfigTests
                 sendInApp: false,
                 sendEmail: false,
                 sendText: false,
-                sendExternalApi: false));
+                sendExternalApi: false,
+                messageTemplate: "You have been placed on {board}."));
 
         Assert.Contains("At least one delivery option is required", ex.Message, StringComparison.Ordinal);
     }
@@ -133,6 +139,7 @@ public class NotificationTypeConfigTests
             displayName: "Board Placement",
             isEnabled: true,
             requiresAcknowledgementDefault: true,
+            messageTemplate: "You have been placed on {board}.",
             audience: NotificationAudience.Employee,
             sendInApp: true,
             sendEmail: false,
@@ -151,6 +158,7 @@ public class NotificationTypeConfigTests
             displayName: "Board Placement",
             isEnabled: true,
             requiresAcknowledgementDefault: false,
+            messageTemplate: "You have been placed on {board}.",
             audience: NotificationAudience.Employee,
             sendInApp: true,
             sendEmail: false,
@@ -165,7 +173,8 @@ public class NotificationTypeConfigTests
             sendInApp: true,
             sendEmail: false,
             sendText: false,
-            sendExternalApi: false);
+            sendExternalApi: false,
+            messageTemplate: "You have been placed on {board}.");
 
         Assert.False(config.RequiresAcknowledgementDefault);
     }

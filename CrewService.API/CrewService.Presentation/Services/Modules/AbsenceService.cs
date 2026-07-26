@@ -3,6 +3,7 @@ using CrewService.Application.Authorization;
 using CrewService.Application.Absence;
 using CrewService.Application.Time;
 using CrewService.Application.TenantConfig;
+using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.ValueObjects;
@@ -61,14 +62,33 @@ public class AbsenceService(IServiceProvider serviceProvider)
             request.AutoMarkOffOnApproval,
             _workAreaClock.UtcNow.UtcDateTime);
 
+        if (absence.IsWaitListed)
+        {
+            var waitListRecord = absence.WaitListRecord
+                ?? throw new RpcException(new Status(StatusCode.Internal, "Waitlist result did not return a waitlist record."));
+
+            return new MarkOffAbsenceResponse
+            {
+                CtrlNbr = waitListRecord.CtrlNbr.Value,
+                EmployeeCtrlNbr = waitListRecord.EmployeeCtrlNbr.Value,
+                ReasonCode = "WAITLISTED",
+                Status = "WAITLISTED",
+                StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(waitListRecord.RequestDateUtc, DateTimeKind.Utc).AddMinutes(1)),
+                IsSystemGenerated = false
+            };
+        }
+
+        var createdAbsence = absence.AbsenceRequest
+            ?? throw new RpcException(new Status(StatusCode.Internal, "Absence result did not return an absence request."));
+
         return new MarkOffAbsenceResponse
         {
-            CtrlNbr = absence.CtrlNbr.Value,
-            EmployeeCtrlNbr = absence.EmployeeCtrlNbr.Value,
-            ReasonCode = absence.ReasonCode,
-            Status = absence.DerivedStatus,
-            StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(absence.ScheduledStartUtc, DateTimeKind.Utc)),
-            IsSystemGenerated = absence.IsSystemGenerated
+            CtrlNbr = createdAbsence.CtrlNbr.Value,
+            EmployeeCtrlNbr = createdAbsence.EmployeeCtrlNbr.Value,
+            ReasonCode = createdAbsence.ReasonCode,
+            Status = createdAbsence.DerivedStatus,
+            StartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(createdAbsence.ScheduledStartUtc, DateTimeKind.Utc)),
+            IsSystemGenerated = createdAbsence.IsSystemGenerated
         };
     }
 
@@ -344,6 +364,35 @@ public class AbsenceService(IServiceProvider serviceProvider)
         };
     }
 
+    public override async Task<GetCreateAbsenceStartProposalResponse> GetCreateAbsenceStartProposal(
+        GetCreateAbsenceStartProposalMsg request,
+        ServerCallContext context)
+    {
+        if (request.EmployeeCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Employee control number is required."));
+
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var proposal = await svc.GetStartProposalAsync(
+            ControlNumber.Create(request.EmployeeCtrlNbr),
+            context.CancellationToken);
+
+        var displayTimeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        var startUtcKind = DateTime.SpecifyKind(proposal.StartUtc, DateTimeKind.Utc);
+        var startLocal = displayTimeZone is null
+            ? startUtcKind
+            : TimeZoneInfo.ConvertTimeFromUtc(startUtcKind, displayTimeZone);
+
+        return new GetCreateAbsenceStartProposalResponse
+        {
+            StartUtc = Timestamp.FromDateTime(startUtcKind),
+            StartLocal = startLocal.ToString("yyyy-MM-ddTHH:mm"),
+            RequestWindowCapDays = proposal.RequestWindowCapDays ?? 0
+        };
+    }
+
     private async Task<GetAbsenceApprovalContextResponse> ResolveCreateApprovalContextAsync(
         AbsenceRequestService svc,
         long absenceCodeCtrlNbr,
@@ -521,11 +570,28 @@ public class AbsenceService(IServiceProvider serviceProvider)
             request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
             context.CancellationToken);
 
-        var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = requests.Count };
-        foreach (var item in requests)
-        {
-            response.Requests.Add(MapAbsenceRequest(item, displayTimeZone));
-        }
+        var standardItems = requests
+            .Select(item => MapAbsenceRequest(item, displayTimeZone))
+            .OrderBy(r => r.StartUtc?.ToDateTime() ?? DateTime.MaxValue)
+            .ThenBy(r => r.CtrlNbr)
+            .ToList();
+
+        var waitListItems = await GetWaitListRequestItemsAsync(
+            dayRange.StartUtc,
+            dayRange.EndUtc,
+            ControlNumber.Create(selectedRailroadCtrlNbr),
+            request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            request.HasEmployeeCtrlNbr ? ControlNumber.Create(request.EmployeeCtrlNbr) : null,
+            displayTimeZone,
+            context.CancellationToken);
+
+        var responseItems = new List<MarkOffAbsenceRequestListItem>(standardItems.Count + waitListItems.Count);
+        responseItems.AddRange(standardItems);
+        responseItems.AddRange(waitListItems);
+
+        var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = responseItems.Count };
+        response.Requests.AddRange(responseItems);
 
         return response;
     }
@@ -778,6 +844,100 @@ public class AbsenceService(IServiceProvider serviceProvider)
             item.Notes = request.Notes;
 
         return item;
+    }
+
+    private async Task<List<MarkOffAbsenceRequestListItem>> GetWaitListRequestItemsAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        ControlNumber railroadCtrlNbr,
+        ControlNumber? craftCtrlNbr,
+        ControlNumber? departmentCtrlNbr,
+        ControlNumber? employeeCtrlNbr,
+        TimeZoneInfo? displayTimeZone,
+        CancellationToken ct)
+    {
+        await using var uow = await _uowFactory.CreateAsync(cancellationToken: ct);
+        var waitListRecordRepo = serviceProvider.GetRequiredService<IAbsenceRequestWaitListRecordRepository>();
+
+        var compDay = await waitListRecordRepo.GetPendingByDateRangeAsync(
+            rangeStartUtc,
+            rangeEndUtc,
+            AbsenceRequestWaitListType.CompensableDay,
+            ct);
+
+        var vacationWeek = await waitListRecordRepo.GetPendingByDateRangeAsync(
+            rangeStartUtc,
+            rangeEndUtc,
+            AbsenceRequestWaitListType.VacationWeek,
+            ct);
+
+        var records = compDay
+            .Concat(vacationWeek)
+            .OrderBy(r => r.EntryUtc)
+            .ThenBy(r => r.CtrlNbr)
+            .ToList();
+
+        var absenceCodeRepo = serviceProvider.GetRequiredService<IAbsenceCodeRepository>();
+        var codeCache = new Dictionary<ControlNumber, AbsenceCode?>();
+        var craftCache = new Dictionary<ControlNumber, Craft?>();
+        var items = new List<MarkOffAbsenceRequestListItem>();
+
+        foreach (var record in records)
+        {
+            if (employeeCtrlNbr is not null && record.EmployeeCtrlNbr != employeeCtrlNbr)
+                continue;
+
+            if (craftCtrlNbr is not null)
+            {
+                if (record.CraftCtrlNbr is null || record.CraftCtrlNbr != craftCtrlNbr)
+                    continue;
+            }
+
+            if (departmentCtrlNbr is not null)
+            {
+                if (record.DepartmentCtrlNbr is null || record.DepartmentCtrlNbr != departmentCtrlNbr)
+                    continue;
+            }
+
+            if (record.CraftCtrlNbr is null)
+                continue;
+
+            if (!craftCache.TryGetValue(record.CraftCtrlNbr, out var craft))
+            {
+                craft = await uow.Crafts.GetByCtrlNbrAsync(record.CraftCtrlNbr, ct);
+                craftCache[record.CraftCtrlNbr] = craft;
+            }
+
+            if (craft?.DynamicGroupCtrlNbr != railroadCtrlNbr)
+                continue;
+
+            if (!codeCache.TryGetValue(record.AbsenceCodeCtrlNbr, out var code))
+            {
+                code = await absenceCodeRepo.GetByCtrlNbrAsync(record.AbsenceCodeCtrlNbr, ct);
+                codeCache[record.AbsenceCodeCtrlNbr] = code;
+            }
+
+            var startUtc = DateTime.SpecifyKind(record.EntryUtc, DateTimeKind.Utc);
+            items.Add(new MarkOffAbsenceRequestListItem
+            {
+                CtrlNbr = record.CtrlNbr.Value,
+                EmployeeCtrlNbr = record.EmployeeCtrlNbr.Value,
+                AbsenceCodeCtrlNbr = record.AbsenceCodeCtrlNbr.Value,
+                ReasonCode = code?.Code ?? "WAITLISTED",
+                Status = "WAITLISTED",
+                StartUtc = Timestamp.FromDateTime(startUtc),
+                StartLocal = _workAreaClock.FormatLocalIso(startUtc, displayTimeZone),
+                IsSystemGenerated = false,
+                IsWaitlisted = true,
+                AutoMarkOffOnApproval = false,
+                CanStartAbsence = false,
+                CanEndAbsence = false,
+                ApprovalLevel = AbsenceApprovalLevel.CallerManager.ToString(),
+                ApprovalLevelDescription = "Waitlisted"
+            });
+        }
+
+        return items;
     }
 
     private MarkOffAbsenceRequestListItem MapOpenAbsence(AbsenceRequest request, TimeZoneInfo? displayTimeZone)

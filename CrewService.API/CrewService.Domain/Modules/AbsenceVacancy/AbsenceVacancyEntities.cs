@@ -290,6 +290,138 @@ public sealed class VacancyImpact : Entity
     }
 }
 
+public static class AbsenceRequestWaitListType
+{
+    public const string CompensableDay = "COMPENSABLE_DAY";
+    public const string VacationWeek = "VACATION_WEEK";
+}
+
+public sealed class AbsenceRequestWaitListRecord : Entity
+{
+    public ControlNumber EmployeeCtrlNbr { get; private set; }
+    public ControlNumber AbsenceCodeCtrlNbr { get; private set; }
+    public DateTime RequestDateUtc { get; private set; }
+    public DateTime EntryUtc { get; private set; }
+    public string WaitListType { get; private set; } = string.Empty;
+    public ControlNumber? CraftCtrlNbr { get; private set; }
+    public ControlNumber? DepartmentCtrlNbr { get; private set; }
+    public DateTime? AssignedAtUtc { get; private set; }
+    public string? AssignmentNotes { get; private set; }
+
+    private AbsenceRequestWaitListRecord()
+    {
+        EmployeeCtrlNbr = null!;
+        AbsenceCodeCtrlNbr = null!;
+    }
+
+    public static AbsenceRequestWaitListRecord CreateCompensableDay(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber absenceCodeCtrlNbr,
+        DateTime requestDateUtc,
+        DateTime entryUtc,
+        ControlNumber? craftCtrlNbr,
+        ControlNumber? departmentCtrlNbr)
+    {
+        return CreateInternal(
+            employeeCtrlNbr,
+            absenceCodeCtrlNbr,
+            requestDateUtc,
+            entryUtc,
+            AbsenceRequestWaitListType.CompensableDay,
+            craftCtrlNbr,
+            departmentCtrlNbr);
+    }
+
+    public static AbsenceRequestWaitListRecord CreateVacationWeek(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber absenceCodeCtrlNbr,
+        DateTime requestDateUtc,
+        DateTime entryUtc,
+        ControlNumber? craftCtrlNbr,
+        ControlNumber? departmentCtrlNbr)
+    {
+        return CreateInternal(
+            employeeCtrlNbr,
+            absenceCodeCtrlNbr,
+            requestDateUtc,
+            entryUtc,
+            AbsenceRequestWaitListType.VacationWeek,
+            craftCtrlNbr,
+            departmentCtrlNbr);
+    }
+
+    public void MarkAssigned(DateTime assignedAtUtc, string? assignmentNotes = null)
+    {
+        if (AssignedAtUtc.HasValue)
+            throw new InvalidOperationException("Waitlist record is already assigned.");
+
+        AssignedAtUtc = AsUtc(assignedAtUtc);
+        AssignmentNotes = string.IsNullOrWhiteSpace(assignmentNotes)
+            ? null
+            : assignmentNotes.Trim();
+    }
+
+    private static AbsenceRequestWaitListRecord CreateInternal(
+        ControlNumber employeeCtrlNbr,
+        ControlNumber absenceCodeCtrlNbr,
+        DateTime requestDateUtc,
+        DateTime entryUtc,
+        string waitListType,
+        ControlNumber? craftCtrlNbr,
+        ControlNumber? departmentCtrlNbr)
+    {
+        if (string.IsNullOrWhiteSpace(waitListType))
+            throw new InvalidOperationException("Waitlist type is required.");
+
+        var requestDate = AsUtc(requestDateUtc).Date;
+        var entry = AsUtc(entryUtc);
+
+        if (entry < requestDate)
+            entry = requestDate;
+
+        return new AbsenceRequestWaitListRecord
+        {
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            AbsenceCodeCtrlNbr = absenceCodeCtrlNbr,
+            RequestDateUtc = requestDate,
+            EntryUtc = entry,
+            WaitListType = waitListType,
+            CraftCtrlNbr = craftCtrlNbr,
+            DepartmentCtrlNbr = departmentCtrlNbr
+        };
+    }
+
+    private static DateTime AsUtc(DateTime value)
+    {
+        return value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+    }
+}
+
+public sealed class AbsenceRequestWaitListLink : Entity
+{
+    public ControlNumber AbsenceRequestCtrlNbr { get; private set; }
+    public ControlNumber AbsenceRequestWaitListRecordCtrlNbr { get; private set; }
+
+    private AbsenceRequestWaitListLink()
+    {
+        AbsenceRequestCtrlNbr = null!;
+        AbsenceRequestWaitListRecordCtrlNbr = null!;
+    }
+
+    public static AbsenceRequestWaitListLink Create(
+        ControlNumber absenceRequestCtrlNbr,
+        ControlNumber absenceRequestWaitListRecordCtrlNbr)
+    {
+        return new AbsenceRequestWaitListLink
+        {
+            AbsenceRequestCtrlNbr = absenceRequestCtrlNbr,
+            AbsenceRequestWaitListRecordCtrlNbr = absenceRequestWaitListRecordCtrlNbr
+        };
+    }
+}
+
 // Domain Events
 public sealed record AbsenceRequestedDomainEvent : DomainEvent
 {

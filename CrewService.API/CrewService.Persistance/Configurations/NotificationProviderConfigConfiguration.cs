@@ -39,6 +39,7 @@ internal class NotificationTypeConfigConfiguration : IEntityTypeConfiguration<No
         builder.Property(c => c.SendEmail).IsRequired();
         builder.Property(c => c.SendText).IsRequired();
         builder.Property(c => c.SendExternalApi).IsRequired();
+        builder.Property(c => c.MessageTemplate).HasMaxLength(2000).IsRequired();
 
         builder.HasIndex(c => new { c.RailroadCtrlNbr, c.Key }).IsUnique();
 

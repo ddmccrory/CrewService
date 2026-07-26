@@ -25,6 +25,7 @@ public sealed class NotificationTypeConfigAppService(IOrchestrationUnitOfWorkFac
         bool sendEmail,
         bool sendText,
         bool sendExternalApi,
+        string messageTemplate,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(key))
@@ -41,6 +42,7 @@ public sealed class NotificationTypeConfigAppService(IOrchestrationUnitOfWorkFac
                 displayName,
                 isEnabled,
                 requiresAcknowledgementDefault,
+                messageTemplate,
                 audience,
                 sendInApp,
                 sendEmail,
@@ -59,7 +61,8 @@ public sealed class NotificationTypeConfigAppService(IOrchestrationUnitOfWorkFac
                 sendInApp,
                 sendEmail,
                 sendText,
-                sendExternalApi);
+                sendExternalApi,
+                messageTemplate);
 
             uow.NotificationTypeConfigs.Update(config);
         }

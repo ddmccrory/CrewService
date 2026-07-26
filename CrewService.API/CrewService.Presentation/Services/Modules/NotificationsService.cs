@@ -143,8 +143,15 @@ public class NotificationsService(IServiceProvider serviceProvider)
     {
         EnsureAdmin(context, "Only administrators can view notification type configuration.");
 
+        var selectedRailroadCtrlNbr = GetSelectedRailroadCtrlNbr(context);
+        if (!selectedRailroadCtrlNbr.HasValue)
+            return new GetNotificationTypeConfigsResponse();
+
         if (request.RailroadCtrlNbr <= 0)
             return new GetNotificationTypeConfigsResponse();
+
+        if (request.RailroadCtrlNbr != selectedRailroadCtrlNbr.Value)
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Notification type configuration is scoped to the selected railroad."));
 
         var svc = serviceProvider.GetRequiredService<NotificationTypeConfigAppService>();
         var items = await svc.GetByRailroadAsync(ControlNumber.Create(request.RailroadCtrlNbr), context.CancellationToken);
@@ -160,14 +167,24 @@ public class NotificationsService(IServiceProvider serviceProvider)
     {
         EnsureAdmin(context, "Only administrators can update notification type configuration.");
 
+        var selectedRailroadCtrlNbr = GetSelectedRailroadCtrlNbr(context);
+        if (!selectedRailroadCtrlNbr.HasValue)
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Select a railroad before updating notification type configuration."));
+
         if (request.RailroadCtrlNbr <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "RailroadCtrlNbr must be greater than zero."));
+
+        if (request.RailroadCtrlNbr != selectedRailroadCtrlNbr.Value)
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Notification type configuration is scoped to the selected railroad."));
 
         if (string.IsNullOrWhiteSpace(request.Key))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Key is required."));
 
         if (string.IsNullOrWhiteSpace(request.DisplayName))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "DisplayName is required."));
+
+        if (string.IsNullOrWhiteSpace(request.MessageTemplate))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "MessageTemplate is required."));
 
         if (!System.Enum.TryParse<NotificationAudience>(request.Audience, ignoreCase: true, out var audience))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Audience must be Employee, Dispatcher, or Both."));
@@ -184,6 +201,7 @@ public class NotificationsService(IServiceProvider serviceProvider)
             request.SendEmail,
             request.SendText,
             request.SendExternalApi,
+            request.MessageTemplate,
             context.CancellationToken);
 
         return MapTypeConfig(config);
@@ -332,7 +350,8 @@ public class NotificationsService(IServiceProvider serviceProvider)
         SendInApp = config.SendInApp,
         SendEmail = config.SendEmail,
         SendText = config.SendText,
-        SendExternalApi = config.SendExternalApi
+        SendExternalApi = config.SendExternalApi,
+        MessageTemplate = config.MessageTemplate
     };
 
     private static bool TryParseAcknowledgementMethod(string input, out AcknowledgementMethod method)

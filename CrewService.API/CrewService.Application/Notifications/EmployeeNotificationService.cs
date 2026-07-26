@@ -52,6 +52,7 @@ public sealed class EmployeeNotificationService(
         ControlNumber employeeCtrlNbr,
         string notificationTypeKey,
         string message,
+        IReadOnlyDictionary<string, string?>? templateTokens,
         bool? requiresAcknowledgementOverride,
         NotificationSubject? subject,
         DateTime? effectiveAtUtc,
@@ -61,13 +62,14 @@ public sealed class EmployeeNotificationService(
         if (config is null)
             return null;
 
+        var resolvedMessage = ResolveConfiguredMessage(config.MessageTemplate, message, templateTokens);
         var requiresAcknowledgement = requiresAcknowledgementOverride ?? config.RequiresAcknowledgementDefault;
 
         var notification = EmployeeNotification.Create(
             railroadCtrlNbr,
             employeeCtrlNbr,
             config.Key,
-            message,
+            resolvedMessage,
             requiresAcknowledgement,
             subject,
             effectiveAtUtc,
@@ -91,7 +93,7 @@ public sealed class EmployeeNotificationService(
                 sourceType: subject?.SubjectType ?? PositionChangeSourceTypes.Notification,
                 sourceCtrlNbr: subject?.SubjectCtrlNbr,
                 changeType: MapPositionChangeType(config.Key),
-                message,
+                resolvedMessage,
                 requiresAcknowledgement,
                 effectiveAtUtc,
                 employeeNotificationCtrlNbr: notification.CtrlNbr);
@@ -104,6 +106,33 @@ public sealed class EmployeeNotificationService(
         }
 
         return notification;
+    }
+
+    private static string ResolveConfiguredMessage(
+        string? messageTemplate,
+        string defaultMessage,
+        IReadOnlyDictionary<string, string?>? templateTokens)
+    {
+        if (string.IsNullOrWhiteSpace(messageTemplate))
+            throw new InvalidOperationException("Notification message template is required.");
+
+        var template = messageTemplate.Trim();
+        var resolved = template.Replace("{message}", defaultMessage, StringComparison.OrdinalIgnoreCase);
+
+        if (templateTokens is not null)
+        {
+            foreach (var token in templateTokens)
+            {
+                var key = token.Key?.Trim();
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+
+                var replacement = token.Value ?? string.Empty;
+                resolved = resolved.Replace("{" + key + "}", replacement, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(resolved) ? defaultMessage : resolved;
     }
 
     private static string MapPositionChangeType(string category) => category switch
@@ -131,15 +160,60 @@ public sealed class EmployeeNotificationService(
     {
         var tz = await ResolveWorkAreaTimeZoneAsync(uow, workAreaGroupCtrlNbr, ct);
         var assignmentLabel = string.IsNullOrWhiteSpace(assignmentCode) ? "your assignment" : $"assignment {assignmentCode}";
-        var message = $"You have an outstanding on-duty record from {assignmentLabel} on duty at {FormatEffectiveLocal(onDutyTimeUtc, tz)} that requires completion.";
+        var onDutyLocal = FormatEffectiveLocal(onDutyTimeUtc, tz);
 
         await EmitAsync(
             uow,
             railroadCtrlNbr,
             employeeCtrlNbr,
             NotificationCategories.TieUp,
-            message,
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["assignment"] = assignmentLabel,
+                ["onDuty"] = onDutyLocal,
+                ["datetime"] = onDutyLocal
+            },
             requiresAcknowledgementOverride: true,
+            subject: null,
+            effectiveAtUtc: null,
+            ct);
+    }
+
+    /// <summary>
+    /// Notifies an employee that a previously waitlisted absence request was promoted and
+    /// automatically created by the system.
+    /// </summary>
+    public async Task NotifyWaitListPromotedToRequestAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber railroadCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        string absenceCodeDescription,
+        DateTime requestDateTimeUtc,
+        CancellationToken ct = default)
+    {
+        var description = string.IsNullOrWhiteSpace(absenceCodeDescription)
+            ? "Absence"
+            : absenceCodeDescription.Trim();
+        var utc = DateTime.SpecifyKind(requestDateTimeUtc, DateTimeKind.Utc);
+        var timeZone = clock is null
+            ? null
+            : await clock.GetWorkAreaTimeZoneAsync(uow, railroadCtrlNbr, ct);
+        var requestDateTime = FormatEffectiveLocal(utc, timeZone);
+        var templateTokens = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["absenceCode"] = description,
+            ["datetime"] = requestDateTime
+        };
+
+        await EmitAsync(
+            uow,
+            railroadCtrlNbr,
+            employeeCtrlNbr,
+            NotificationCategories.WaitListPromotion,
+            "{message}",
+            templateTokens,
+            requiresAcknowledgementOverride: null,
             subject: null,
             effectiveAtUtc: null,
             ct);
@@ -172,13 +246,18 @@ public sealed class EmployeeNotificationService(
         var tz = vacancy is null ? null : await ResolveWorkAreaTimeZoneAsync(uow, vacancy.WorkAreaGroupCtrlNbr, ct);
         var positionName = vacancy?.TargetName ?? string.Empty;
         var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
-        var message = forceAssigned
-            ? $"You have been force-assigned to {positionClause} effective {FormatEffectiveLocal(bulletin.EffectiveUtc, tz)}."
-            : $"You have been awarded {positionClause} effective {FormatEffectiveLocal(bulletin.EffectiveUtc, tz)}.";
+        var effectiveLocal = FormatEffectiveLocal(bulletin.EffectiveUtc, tz);
 
         var subject = NotificationSubject.Create(NotificationSubjectTypes.Bulletin, bulletin.CtrlNbr);
+        var templateTokens = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["position"] = positionClause,
+            ["effective"] = effectiveLocal,
+            ["datetime"] = effectiveLocal
+        };
 
-        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, category, message,
+        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, category, "{message}",
+            templateTokens,
             requiresAcknowledgementOverride: null, subject, bulletin.EffectiveUtc, ct);
     }
 
@@ -207,8 +286,12 @@ public sealed class EmployeeNotificationService(
         var positionName = vacancy?.TargetName ?? string.Empty;
         var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
 
-        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.GeneralInformation,
-            $"Your bid for {positionClause} was not awarded.",
+        await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinLost,
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["position"] = positionClause
+            },
             requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
     }
 
@@ -238,7 +321,11 @@ public sealed class EmployeeNotificationService(
         var positionClause = string.IsNullOrEmpty(positionName) ? "a position" : $"position {positionName}";
 
         await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BulletinCancellation,
-            $"The bulletin for {positionClause} has been cancelled and your bid is no longer active.",
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["position"] = positionClause
+            },
             requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
     }
 
@@ -259,9 +346,16 @@ public sealed class EmployeeNotificationService(
         var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
 
         var tz = await ResolvePositionTimeZoneAsync(uow, move.TargetPositionCtrlNbr, ct);
+        var effectiveLocal = FormatEffectiveLocal(move.EffectiveUtc, tz);
 
         await EmitAsync(uow, move.RailroadCtrlNbr, move.EmployeeCtrlNbr, NotificationCategories.SeniorityMove,
-            $"You have been assigned to {positionClause} effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["position"] = positionClause,
+                ["effective"] = effectiveLocal,
+                ["datetime"] = effectiveLocal
+            },
             requiresAcknowledgementOverride: null, subject, move.EffectiveUtc, ct);
     }
 
@@ -282,15 +376,22 @@ public sealed class EmployeeNotificationService(
         var subject = NotificationSubject.Create(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr);
 
         var bumpingName = await ResolveEmployeeNameAsync(uow, move.EmployeeCtrlNbr, ct);
-        var byClause = string.IsNullOrEmpty(bumpingName) ? string.Empty : $" by {bumpingName}";
 
         var positionName = await StaffablePositionNameResolver.ResolveAsync(uow, move.TargetPositionCtrlNbr, ct);
         var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
 
         var tz = await ResolvePositionTimeZoneAsync(uow, move.TargetPositionCtrlNbr, ct);
+        var effectiveLocal = FormatEffectiveLocal(move.EffectiveUtc, tz);
 
         await EmitAsync(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.PositionChange,
-            $"You will be bumped from {positionClause}{byClause}, effective {FormatEffectiveLocal(move.EffectiveUtc, tz)}.",
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["position"] = positionClause,
+                ["byClause"] = bumpingName,
+                ["effective"] = effectiveLocal,
+                ["datetime"] = effectiveLocal
+            },
             requiresAcknowledgementOverride: null, subject, move.EffectiveUtc, ct);
     }
 
@@ -330,8 +431,12 @@ public sealed class EmployeeNotificationService(
         var positionName = await StaffablePositionNameResolver.ResolveAsync(uow, move.TargetPositionCtrlNbr, ct);
         var positionClause = string.IsNullOrEmpty(positionName) ? "your position" : $"position {positionName}";
 
-        await EmitAsync(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.GeneralInformation,
-            $"The seniority move that would have bumped you from {positionClause} has been cancelled.",
+        await EmitAsync(uow, move.RailroadCtrlNbr, move.DisplacedEmployeeCtrlNbr, NotificationCategories.SeniorityMoveCancelled,
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["position"] = positionClause
+            },
             requiresAcknowledgementOverride: null, subject, effectiveAtUtc: null, ct);
 
         var pendingByMove = await uow.PositionChangeRecords.GetOpenBySourceAsync(NotificationSubjectTypes.SeniorityMove, move.CtrlNbr, ct);
@@ -419,7 +524,11 @@ public sealed class EmployeeNotificationService(
         var boardClause = string.IsNullOrWhiteSpace(board.Name) ? "a board" : $"the {board.Name} board";
 
         await EmitAsync(uow, railroadCtrlNbr, employeeCtrlNbr, NotificationCategories.BoardPlacement,
-            $"You have been placed on {boardClause}.",
+            "{message}",
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["board"] = boardClause
+            },
             requiresAcknowledgementOverride: board.PlacementRequiresAcknowledgement, placementSubject, effectiveAtUtc: null, ct);
     }
 

@@ -227,6 +227,25 @@ internal class AbsenceApprovalPolicyConfiguration : IEntityTypeConfiguration<Abs
     }
 }
 
+internal class DepartmentAbsenceRequestWindowPolicyConfiguration : IEntityTypeConfiguration<DepartmentAbsenceRequestWindowPolicy>
+{
+    public void Configure(EntityTypeBuilder<DepartmentAbsenceRequestWindowPolicy> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.DepartmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(r => r.DepartmentCtrlNbr).IsUnique();
+
+        builder.Property(r => r.RequestWindowCapDays).IsRequired();
+
+        builder.HasOne<Department>().WithMany().HasForeignKey(r => r.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
 internal class DepartmentReassignmentRuleConfiguration : IEntityTypeConfiguration<DepartmentReassignmentRule>
 {
     public void Configure(EntityTypeBuilder<DepartmentReassignmentRule> builder)
@@ -241,6 +260,51 @@ internal class DepartmentReassignmentRuleConfiguration : IEntityTypeConfiguratio
             .HasMaxLength(20)
             .IsRequired();
         builder.Property(r => r.IsRequired).IsRequired();
+
+        builder.HasOne<Department>().WithMany().HasForeignKey(r => r.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class AbsenceWaitListAllowancePolicyConfiguration : IEntityTypeConfiguration<AbsenceWaitListAllowancePolicy>
+{
+    public void Configure(EntityTypeBuilder<AbsenceWaitListAllowancePolicy> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+
+        builder.Property(r => r.WaitListType).HasMaxLength(64).IsRequired();
+        builder.Property(r => r.AllowanceCode).HasMaxLength(16).IsRequired();
+        builder.Property(r => r.CalendarYear).IsRequired();
+        builder.Property(r => r.MaxAssignments).IsRequired();
+        builder.Property(r => r.IsEnabled).IsRequired();
+
+        builder.HasIndex(r => new { r.CraftCtrlNbr, r.WaitListType, r.AllowanceCode, r.CalendarYear }).IsUnique();
+
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+
+        builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(r => r.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class DepartmentAbsenceWaitListPolicyConfiguration : IEntityTypeConfiguration<DepartmentAbsenceWaitListPolicy>
+{
+    public void Configure(EntityTypeBuilder<DepartmentAbsenceWaitListPolicy> builder)
+    {
+        builder.HasKey(r => r.CtrlNbr);
+        builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(r => r.DepartmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(r => r.DepartmentCtrlNbr).IsUnique();
+
+        builder.Property(r => r.CompensableDayMaxAssignments).IsRequired();
+        builder.Property(r => r.VacationWeekMaxAssignments).IsRequired();
+        builder.Property(r => r.IsEnabled).IsRequired();
 
         builder.HasOne<Department>().WithMany().HasForeignKey(r => r.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 

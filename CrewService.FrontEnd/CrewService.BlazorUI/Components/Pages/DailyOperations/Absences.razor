@@ -16,6 +16,7 @@
 @inject RailroadReferenceDataService ReferenceData
 @inject BackgroundServicesClient BackgroundServicesClient
 @inject EmployeeClient EmployeeClient
+@inject PoliciesClient PoliciesClient
 
 <PageTitle>Absences</PageTitle>
 
@@ -135,7 +136,7 @@ else if (HasRailroad)
                 @if (!IsFeatureReadOnly)
                 {
                     <div class="mb-3">
-                        <button class="btn btn-sm btn-primary" @onclick="OpenCreateRequestModalAsync" disabled="@(absenceCodes.Count == 0)">
+                        <button class="btn btn-sm btn-primary" @onclick="OpenCreateRequestModalAsync" disabled="@IsCreateRequestButtonDisabled">
                             <span class="bi bi-plus-circle"></span> Create Absence Request
                         </button>
                     </div>
@@ -504,7 +505,7 @@ else if (HasRailroad)
                 </button>
                 @if (!IsFeatureReadOnly)
                 {
-                    <button class="btn btn-sm btn-primary" @onclick="OpenCreateRequestModalAsync" disabled="@(absenceCodes.Count == 0)">
+                    <button class="btn btn-sm btn-primary" @onclick="OpenCreateRequestModalAsync" disabled="@IsCreateRequestButtonDisabled">
                         <span class="bi bi-plus-circle"></span> Create Request
                     </button>
                 }
@@ -538,6 +539,13 @@ else if (HasRailroad)
                 </div>
             }
 
+            @if (!IsFeatureReadOnly && IsSelectedDateBeyondRequestWindow)
+            {
+                <div class="alert alert-warning mb-3">
+                    Create Request is disabled because @selectedDate.ToString("MM/dd/yyyy") is beyond the configured request window cap for the selected department.
+                </div>
+            }
+
             @if (!string.IsNullOrWhiteSpace(errorMessage))
             {
                 <div class="alert alert-danger mb-3">@errorMessage</div>
@@ -550,75 +558,131 @@ else if (HasRailroad)
                     Loading absence requests...
                 </div>
             }
-            else if (filteredRequests.Count == 0)
+            else if (filteredStandardRequests.Count == 0 && filteredWaitListRequests.Count == 0)
             {
                 <div class="alert alert-info mb-0">No absence requests found for the selected date.</div>
             }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Employee</th>
-                                <th>Reason</th>
-                                <th>Start*</th>
-                                <th>End*</th>
-                                <th title="Auto mark-off on approval">AM</th>
-                                <th>Notes</th>
-                                @if (ShowRequestActionsColumn)
-                                {
-                                    <th class="text-end">Actions</th>
-                                }
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var req in filteredRequests)
-                            {
+                @if (filteredStandardRequests.Count > 0)
+                {
+                    <div class="mb-2 fw-semibold">Absence Requests</div>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
                                 <tr>
-                                    <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
-                                    <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
-                                    <td>@GetReasonDisplay(req)</td>
-                                    <td>@GetStartDisplay(req)</td>
-                                    <td>@GetEndDisplay(req)</td>
-                                    <td class="text-center">
-                                        @if (req.AutoMarkOffOnApproval)
-                                        {
-                                            <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
-                                        }
-                                        else
-                                        {
-                                            <span>—</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        <button type="button"
-                                                class="btn btn-link p-0 text-decoration-none"
-                                                @onclick="() => OpenAbsenceNotesModal(req)"
-                                                disabled="@string.IsNullOrWhiteSpace(req.Notes)">
-                                            <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
-                                                  title="@GetNotesTooltip(req)"
-                                                  aria-label="Notes"></span>
-                                        </button>
-                                    </td>
+                                    <th>Status</th>
+                                    <th>Employee</th>
+                                    <th>Reason</th>
+                                    <th>Start*</th>
+                                    <th>End*</th>
+                                    <th title="Auto mark-off on approval">AM</th>
+                                    <th>Notes</th>
                                     @if (ShowRequestActionsColumn)
                                     {
-                                        <td class="text-end">
-                                            @if (IsStatus(req.Status, "PENDING") || req.IsWaitlisted)
+                                        <th class="text-end">Actions</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var req in filteredStandardRequests)
+                                {
+                                    <tr>
+                                        <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
+                                        <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
+                                        <td>@GetReasonDisplay(req)</td>
+                                        <td>@GetStartDisplay(req)</td>
+                                        <td>@GetEndDisplay(req)</td>
+                                        <td class="text-center">
+                                            @if (req.AutoMarkOffOnApproval)
                                             {
+                                                <span class="bi bi-check-lg" aria-label="Auto mark-off enabled" title="Auto mark-off on approval enabled"></span>
+                                            }
+                                            else
+                                            {
+                                                <span>—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button type="button"
+                                                    class="btn btn-link p-0 text-decoration-none"
+                                                    @onclick="() => OpenAbsenceNotesModal(req)"
+                                                    disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                                <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                                      title="@GetNotesTooltip(req)"
+                                                      aria-label="Notes"></span>
+                                            </button>
+                                        </td>
+                                        @if (ShowRequestActionsColumn)
+                                        {
+                                            <td class="text-end">
+                                                @if (IsStatus(req.Status, "PENDING"))
+                                                {
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <button class="btn btn-outline-success" @onclick="() => ApproveRequest(req.CtrlNbr)" disabled="@isSaving">Approve</button>
+                                                        <button class="btn btn-outline-danger" @onclick="() => DeclineRequest(req.CtrlNbr)" disabled="@isSaving">Decline</button>
+                                                    </div>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @if (filteredWaitListRequests.Count > 0)
+                {
+                    <div class="mb-2 fw-semibold">Waitlist Requests (First Come, First Serve)</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Employee</th>
+                                    <th>Reason</th>
+                                    <th>Created*</th>
+                                    <th>Notes</th>
+                                    @if (ShowWaitListActionsColumn)
+                                    {
+                                        <th class="text-end">Actions</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var req in filteredWaitListRequests)
+                                {
+                                    <tr>
+                                        <td><span class="badge @GetStatusBadge(req) d-inline-block text-center" style="min-width: 5.75rem;">@req.Status</span></td>
+                                        <td>@GetEmployeeDisplay(req.EmployeeCtrlNbr)</td>
+                                        <td>@GetReasonDisplay(req)</td>
+                                        <td>@GetStartDisplay(req)</td>
+                                        <td>
+                                            <button type="button"
+                                                    class="btn btn-link p-0 text-decoration-none"
+                                                    @onclick="() => OpenAbsenceNotesModal(req)"
+                                                    disabled="@string.IsNullOrWhiteSpace(req.Notes)">
+                                                <span class="bi bi-chat-left-text @(string.IsNullOrWhiteSpace(req.Notes) ? "text-muted" : string.Empty)"
+                                                      title="@GetNotesTooltip(req)"
+                                                      aria-label="Notes"></span>
+                                            </button>
+                                        </td>
+                                        @if (ShowWaitListActionsColumn)
+                                        {
+                                            <td class="text-end">
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     <button class="btn btn-outline-success" @onclick="() => ApproveRequest(req.CtrlNbr)" disabled="@isSaving">Approve</button>
                                                     <button class="btn btn-outline-danger" @onclick="() => DeclineRequest(req.CtrlNbr)" disabled="@isSaving">Decline</button>
                                                 </div>
-                                            }
-                                        </td>
-                                    }
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
             }
         </BodyContent>
         <Footer>
@@ -636,6 +700,7 @@ else if (HasRailroad)
                               SelectedDepartmentCtrlNbr="selectedDepartmentCtrlNbr"
                               SelectedWorkAreaCtrlNbr="selectedWorkAreaCtrlNbr"
                               SelectedDate="selectedDate"
+                              MaxStartDateLocal="SelectedDepartmentRequestWindowMaxDate"
                               DefaultEmployeeCtrlNbr="DefaultCreateEmployeeCtrlNbr"
                               AbsenceCodes="absenceCodes"
                               WorkAreas="workAreas"
@@ -761,6 +826,7 @@ else if (HasRailroad)
     private int selectedCalendarYear = DateTime.Today.Year;
     private string? nextAbsenceStartEventSummary;
     private string? nextAbsenceEndEventSummary;
+    private int? selectedDepartmentRequestWindowCapDays;
     private DateTime historyFromDate = DateTime.Today.AddDays(-7);
     private DateTime historyToDate = DateTime.Today;
 
@@ -787,13 +853,37 @@ else if (HasRailroad)
         .Where(r => MatchesStatusFilter(r, selectedStatusFilter))
         .ToList();
 
+    private List<MarkOffAbsenceRequestListItem> filteredStandardRequests => filteredRequests
+        .Where(r => !r.IsWaitlisted)
+        .ToList();
+
+    private List<MarkOffAbsenceRequestListItem> filteredWaitListRequests => filteredRequests
+        .Where(r => r.IsWaitlisted)
+        .ToList();
+
     private bool ShowRequestActionsColumn
         => !IsFeatureReadOnly
-            && filteredRequests.Any(r => IsStatus(r.Status, "PENDING") || r.IsWaitlisted);
+            && filteredStandardRequests.Any(r => IsStatus(r.Status, "PENDING"));
+
+    private bool ShowWaitListActionsColumn
+        => !IsFeatureReadOnly
+            && filteredWaitListRequests.Count > 0;
 
     private bool ShowScheduledActionsColumn
         => !IsFeatureReadOnly
             && tomorrowRequests.Any(r => r.CanStartAbsence);
+
+    private DateTime? SelectedDepartmentRequestWindowMaxDate
+        => selectedDepartmentRequestWindowCapDays.HasValue
+            ? DateTime.Today.AddDays(selectedDepartmentRequestWindowCapDays.Value).Date
+            : null;
+
+    private bool IsSelectedDateBeyondRequestWindow
+        => SelectedDepartmentRequestWindowMaxDate.HasValue
+            && selectedDate.Date > SelectedDepartmentRequestWindowMaxDate.Value;
+
+    private bool IsCreateRequestButtonDisabled
+        => absenceCodes.Count == 0 || IsSelectedDateBeyondRequestWindow;
 
     private IReadOnlyList<DataTableColumn<MarkOffAbsenceRequestListItem>> OpenAbsenceColumns =>
     [
@@ -882,6 +972,8 @@ else if (HasRailroad)
                 LoadDepartmentsAsync(),
                 LoadCraftsAsync());
 
+            await LoadSelectedDepartmentRequestWindowCapAsync();
+
             selectedCalendarMonth = displayedMonth.Month;
             selectedCalendarYear = displayedMonth.Year;
             RebuildCalendarGrid();
@@ -929,6 +1021,7 @@ else if (HasRailroad)
         nextAbsenceStartEventSummary = null;
         nextAbsenceEndEventSummary = null;
         monthCountsCache.Clear();
+        selectedDepartmentRequestWindowCapDays = null;
 
         if (!HasRailroad)
             return;
@@ -942,6 +1035,8 @@ else if (HasRailroad)
                 LoadWorkAreasAsync(),
                 LoadDepartmentsAsync(),
                 LoadCraftsAsync());
+
+            await LoadSelectedDepartmentRequestWindowCapAsync();
 
             displayedMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
             selectedCalendarMonth = displayedMonth.Month;
@@ -1131,6 +1226,7 @@ else if (HasRailroad)
     private async Task OnDepartmentChangedAsync()
     {
         monthCountsCache.Clear();
+        await LoadSelectedDepartmentRequestWindowCapAsync();
         await LoadActiveTabDataAsync();
     }
 
@@ -1334,6 +1430,25 @@ else if (HasRailroad)
             selectedDepartmentCtrlNbr = departments[0].CtrlNbr;
     }
 
+    private async Task LoadSelectedDepartmentRequestWindowCapAsync()
+    {
+        selectedDepartmentRequestWindowCapDays = null;
+
+        if (selectedDepartmentCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            var policy = await PoliciesClient.GetDepartmentAbsenceRequestWindowPolicyAsync(selectedDepartmentCtrlNbr);
+            if (policy is not null && policy.RequestWindowCapDays > 0)
+                selectedDepartmentRequestWindowCapDays = policy.RequestWindowCapDays;
+        }
+        catch
+        {
+            selectedDepartmentRequestWindowCapDays = null;
+        }
+    }
+
     private async Task LoadCraftsAsync()
     {
         if (!SelectedParentCtrlNbr.HasValue || !SelectedRailroadCtrlNbr.HasValue)
@@ -1354,6 +1469,9 @@ else if (HasRailroad)
 
     private async Task OpenCreateRequestModalAsync()
     {
+        if (IsCreateRequestButtonDisabled)
+            return;
+
         DefaultCreateEmployeeCtrlNbr = null;
         if (CurrentUser.Employee?.CtrlNbr is long employeeCtrlNbr && employeeCtrlNbr > 0)
             DefaultCreateEmployeeCtrlNbr = employeeCtrlNbr;

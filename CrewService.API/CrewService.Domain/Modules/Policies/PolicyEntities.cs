@@ -290,6 +290,42 @@ public sealed class AbsenceApprovalPolicy : Entity
     }
 }
 
+public sealed class DepartmentAbsenceRequestWindowPolicy : Entity
+{
+    public ControlNumber DepartmentCtrlNbr { get; private set; }
+    public int RequestWindowCapDays { get; private set; }
+
+    private DepartmentAbsenceRequestWindowPolicy()
+    {
+        DepartmentCtrlNbr = null!;
+    }
+
+    public static DepartmentAbsenceRequestWindowPolicy Create(
+        ControlNumber departmentCtrlNbr,
+        int requestWindowCapDays)
+    {
+        ValidateRequestWindowCapDays(requestWindowCapDays);
+
+        return new DepartmentAbsenceRequestWindowPolicy
+        {
+            DepartmentCtrlNbr = departmentCtrlNbr,
+            RequestWindowCapDays = requestWindowCapDays
+        };
+    }
+
+    public void Update(int requestWindowCapDays)
+    {
+        ValidateRequestWindowCapDays(requestWindowCapDays);
+        RequestWindowCapDays = requestWindowCapDays;
+    }
+
+    private static void ValidateRequestWindowCapDays(int requestWindowCapDays)
+    {
+        if (requestWindowCapDays is < 1 or > 365)
+            throw new InvalidOperationException("Request window cap days must be between 1 and 365.");
+    }
+}
+
 public sealed class DepartmentReassignmentRule : Entity
 {
     public ControlNumber DepartmentCtrlNbr { get; private set; }
@@ -315,6 +351,124 @@ public sealed class DepartmentReassignmentRule : Entity
     {
         TargetBoardType = targetBoardType;
         IsRequired = isRequired;
+    }
+}
+
+public sealed class DepartmentAbsenceWaitListPolicy : Entity
+{
+    public ControlNumber DepartmentCtrlNbr { get; private set; }
+    public int CompensableDayMaxAssignments { get; private set; }
+    public int VacationWeekMaxAssignments { get; private set; }
+    public bool IsEnabled { get; private set; }
+
+    private DepartmentAbsenceWaitListPolicy()
+    {
+        DepartmentCtrlNbr = null!;
+    }
+
+    public static DepartmentAbsenceWaitListPolicy Create(
+        ControlNumber departmentCtrlNbr,
+        int compensableDayMaxAssignments,
+        int vacationWeekMaxAssignments,
+        bool isEnabled = true)
+    {
+        Validate(compensableDayMaxAssignments, vacationWeekMaxAssignments);
+
+        return new DepartmentAbsenceWaitListPolicy
+        {
+            DepartmentCtrlNbr = departmentCtrlNbr,
+            CompensableDayMaxAssignments = compensableDayMaxAssignments,
+            VacationWeekMaxAssignments = vacationWeekMaxAssignments,
+            IsEnabled = isEnabled
+        };
+    }
+
+    public void Update(
+        int compensableDayMaxAssignments,
+        int vacationWeekMaxAssignments,
+        bool isEnabled)
+    {
+        Validate(compensableDayMaxAssignments, vacationWeekMaxAssignments);
+
+        CompensableDayMaxAssignments = compensableDayMaxAssignments;
+        VacationWeekMaxAssignments = vacationWeekMaxAssignments;
+        IsEnabled = isEnabled;
+    }
+
+    private static void Validate(int compensableDayMaxAssignments, int vacationWeekMaxAssignments)
+    {
+        if (compensableDayMaxAssignments < 0)
+            throw new InvalidOperationException("Compensable day max assignments must be greater than or equal to 0.");
+
+        if (vacationWeekMaxAssignments < 0)
+            throw new InvalidOperationException("Vacation week max assignments must be greater than or equal to 0.");
+    }
+}
+
+public sealed class AbsenceWaitListAllowancePolicy : Entity
+{
+    public ControlNumber CraftCtrlNbr { get; private set; }
+    public string WaitListType { get; private set; } = string.Empty;
+    public string AllowanceCode { get; private set; } = string.Empty;
+    public int CalendarYear { get; private set; }
+    public int MaxAssignments { get; private set; }
+    public bool IsEnabled { get; private set; }
+
+    private AbsenceWaitListAllowancePolicy()
+    {
+        CraftCtrlNbr = null!;
+    }
+
+    public static AbsenceWaitListAllowancePolicy Create(
+        ControlNumber craftCtrlNbr,
+        string waitListType,
+        string allowanceCode,
+        int calendarYear,
+        int maxAssignments,
+        bool isEnabled = true)
+    {
+        Validate(waitListType, allowanceCode, calendarYear, maxAssignments);
+
+        return new AbsenceWaitListAllowancePolicy
+        {
+            CraftCtrlNbr = craftCtrlNbr,
+            WaitListType = waitListType.Trim().ToUpperInvariant(),
+            AllowanceCode = allowanceCode.Trim().ToUpperInvariant(),
+            CalendarYear = calendarYear,
+            MaxAssignments = maxAssignments,
+            IsEnabled = isEnabled
+        };
+    }
+
+    public void Update(
+        string waitListType,
+        string allowanceCode,
+        int calendarYear,
+        int maxAssignments,
+        bool isEnabled)
+    {
+        Validate(waitListType, allowanceCode, calendarYear, maxAssignments);
+
+        WaitListType = waitListType.Trim().ToUpperInvariant();
+        AllowanceCode = allowanceCode.Trim().ToUpperInvariant();
+        CalendarYear = calendarYear;
+        MaxAssignments = maxAssignments;
+        IsEnabled = isEnabled;
+    }
+
+    private static void Validate(string waitListType, string allowanceCode, int calendarYear, int maxAssignments)
+    {
+        if (string.IsNullOrWhiteSpace(waitListType))
+            throw new InvalidOperationException("Waitlist type is required.");
+
+        if (string.IsNullOrWhiteSpace(allowanceCode))
+            throw new InvalidOperationException("Allowance code is required.");
+
+        if (calendarYear < 2000 || calendarYear > 3000)
+            throw new InvalidOperationException("Calendar year is out of range.");
+
+        if (maxAssignments < 0)
+            throw new InvalidOperationException("Max assignments must be greater than or equal to 0.");
     }
 }
 

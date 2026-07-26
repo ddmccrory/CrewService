@@ -192,6 +192,67 @@ public class EmployeeNotificationServiceTests
         Assert.Contains("cancelled", notification.Message);
     }
 
+    [Fact]
+    public async Task NotifyWaitListPromotedToRequest_UsesTypedTemplateTokens()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        var config = uow.NotificationTypeConfigRepo.Seeded.Single(c => c.Key == NotificationCategories.WaitListPromotion);
+        config.Update(
+            displayName: config.DisplayName,
+            isEnabled: true,
+            requiresAcknowledgementDefault: false,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: false,
+            sendText: false,
+            sendExternalApi: false,
+            messageTemplate: "Waitlist request was assigned. {absenceCode} absence request was created and approved for {datetime}.");
+
+        var requestUtc = new DateTime(2026, 08, 15, 13, 45, 00, DateTimeKind.Utc);
+
+        await BuildService().NotifyWaitListPromotedToRequestAsync(
+            uow,
+            RailroadCtrlNbr,
+            EmployeeCtrlNbr,
+            "Vacation Week 1",
+            requestUtc,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal(NotificationCategories.WaitListPromotion, notification.Category);
+        Assert.Equal("Waitlist request was assigned. Vacation Week 1 absence request was created and approved for 08/15/2026 13:45.", notification.Message);
+    }
+
+    [Fact]
+    public async Task NotifyWaitListPromotedToRequest_UsesConfiguredTemplateText()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null);
+        var config = uow.NotificationTypeConfigRepo.Seeded.Single(c => c.Key == NotificationCategories.WaitListPromotion);
+        config.Update(
+            displayName: config.DisplayName,
+            isEnabled: true,
+            requiresAcknowledgementDefault: false,
+            audience: NotificationAudience.Employee,
+            sendInApp: true,
+            sendEmail: false,
+            sendText: false,
+            sendExternalApi: false,
+            messageTemplate: "[WAITLIST] Waitlist request was assigned. {absenceCode} absence request was created and approved for {datetime}.");
+
+        var requestUtc = new DateTime(2026, 08, 15, 13, 45, 00, DateTimeKind.Utc);
+
+        await BuildService().NotifyWaitListPromotedToRequestAsync(
+            uow,
+            RailroadCtrlNbr,
+            EmployeeCtrlNbr,
+            "Vacation Week 1",
+            requestUtc,
+            TestContext.Current.CancellationToken);
+
+        var notification = Assert.Single(uow.Notifications.AddedEntities);
+        Assert.Equal("[WAITLIST] Waitlist request was assigned. Vacation Week 1 absence request was created and approved for 08/15/2026 13:45.", notification.Message);
+    }
+
     // ── Notifications always persist (ShowNotifications is a login-prompt setting only) ──
 
     [Fact]
@@ -413,7 +474,7 @@ public class EmployeeNotificationServiceTests
             TestContext.Current.CancellationToken);
 
         var notification = Assert.Single(uow.Notifications.AddedEntities);
-        Assert.Equal(NotificationCategories.GeneralInformation, notification.Category);
+        Assert.Equal(NotificationCategories.SeniorityMoveCancelled, notification.Category);
         Assert.Equal(ControlNumber.Create(101), notification.EmployeeCtrlNbr);
         Assert.False(notification.RequiresAcknowledgement);
         Assert.Contains("cancelled", notification.Message);
@@ -544,13 +605,16 @@ internal sealed class FakeNotificationTypeConfigRepo : FakeNotificationRepoBase<
     {
         Seeded =
         [
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinAward, "Bulletin Award", isEnabled: true, requiresAcknowledgementDefault: true),
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.ForceAssign, "Force Assign", isEnabled: true, requiresAcknowledgementDefault: true),
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.GeneralInformation, "General Information", isEnabled: true, requiresAcknowledgementDefault: false),
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinCancellation, "Bulletin Cancellation", isEnabled: true, requiresAcknowledgementDefault: false),
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.SeniorityMove, "Seniority Move", isEnabled: true, requiresAcknowledgementDefault: true),
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.PositionChange, "Position Change", isEnabled: true, requiresAcknowledgementDefault: true),
-            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BoardPlacement, "Board Placement", isEnabled: true, requiresAcknowledgementDefault: false)
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinAward, "Bulletin Award", isEnabled: true, requiresAcknowledgementDefault: true, messageTemplate: "You have been awarded {position} effective {effective}."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinLost, "Bulletin Lost", isEnabled: true, requiresAcknowledgementDefault: false, messageTemplate: "Your bid for {position} was not awarded."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.ForceAssign, "Force Assign", isEnabled: true, requiresAcknowledgementDefault: true, messageTemplate: "You have been force-assigned to {position} effective {effective}."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.GeneralInformation, "General Information", isEnabled: true, requiresAcknowledgementDefault: false, messageTemplate: "{message}"),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BulletinCancellation, "Bulletin Cancellation", isEnabled: true, requiresAcknowledgementDefault: false, messageTemplate: "The bulletin for {position} has been cancelled and your bid is no longer active."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.SeniorityMove, "Seniority Move", isEnabled: true, requiresAcknowledgementDefault: true, messageTemplate: "You have been assigned to {position} effective {effective}."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.SeniorityMoveCancelled, "Seniority Move Cancelled", isEnabled: true, requiresAcknowledgementDefault: false, messageTemplate: "The seniority move that would have bumped you from {position} has been cancelled."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.PositionChange, "Position Change", isEnabled: true, requiresAcknowledgementDefault: true, messageTemplate: "You will be bumped from {position}, by {byClause}, effective {effective}."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.BoardPlacement, "Board Placement", isEnabled: true, requiresAcknowledgementDefault: false, messageTemplate: "You have been placed on {board}."),
+            NotificationTypeConfig.Create(railroadCtrlNbr, NotificationCategories.WaitListPromotion, "Wait List Promotion", isEnabled: true, requiresAcknowledgementDefault: false, messageTemplate: "Waitlist request was assigned. {absenceCode} absence request was created and approved for {datetime}.")
         ];
     }
 

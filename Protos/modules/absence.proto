@@ -70,6 +70,9 @@ service MarkOffSrvc {
   rpc GetCreateAbsenceEndLocalPreset (GetCreateAbsenceEndLocalPresetMsg) returns (GetCreateAbsenceEndLocalPresetResponse) {
     option (google.api.http) = { post: "/v1/mark-off/create-end-preset" body: "*" };
   }
+  rpc GetCreateAbsenceStartProposal (GetCreateAbsenceStartProposalMsg) returns (GetCreateAbsenceStartProposalResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/create-start-proposal" body: "*" };
+  }
 }
 
 message CreateAbsenceRequestMsg {
@@ -281,6 +284,17 @@ message GetCreateAbsenceEndLocalPresetMsg {
 
 message GetCreateAbsenceEndLocalPresetResponse {
   string end_local = 1;
+}
+
+message GetCreateAbsenceStartProposalMsg {
+  int64 employee_ctrl_nbr = 1;
+  optional int64 work_area_group_ctrl_nbr = 2;
+}
+
+message GetCreateAbsenceStartProposalResponse {
+  google.protobuf.Timestamp start_utc = 1;
+  string start_local = 2;
+  optional int32 request_window_cap_days = 3;
 }
 
 message GetAbsenceApprovalContextResponse {

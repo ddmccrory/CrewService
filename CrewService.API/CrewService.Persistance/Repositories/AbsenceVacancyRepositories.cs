@@ -245,3 +245,66 @@ internal sealed class VacancyImpactRepository(CrewServiceDbContext dbContext, IC
     public async Task<List<VacancyImpact>> GetByPositionSlotAsync(ControlNumber positionSlotCtrlNbr) =>
         await DbContext.Set<VacancyImpact>().Where(v => v.PositionSlotCtrlNbr == positionSlotCtrlNbr).ToListAsync();
 }
+
+internal sealed class AbsenceRequestWaitListRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<AbsenceRequestWaitListRecord>(dbContext, currentUserService), IAbsenceRequestWaitListRecordRepository
+{
+    public async Task<List<AbsenceRequestWaitListRecord>> GetPendingByDateAsync(
+        DateTime requestDateUtc,
+        string waitListType,
+        CancellationToken ct = default)
+    {
+        var day = DateTime.SpecifyKind(requestDateUtc, DateTimeKind.Utc).Date;
+
+        return await DbContext.Set<AbsenceRequestWaitListRecord>()
+            .Where(r => r.RequestDateUtc == day
+                && r.WaitListType == waitListType
+                && r.AssignedAtUtc == null)
+            .OrderBy(r => r.EntryUtc)
+            .ThenBy(r => r.CtrlNbr)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<AbsenceRequestWaitListRecord>> GetPendingByDateRangeAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        string waitListType,
+        CancellationToken ct = default)
+    {
+        var rangeStart = DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc).Date;
+        var rangeEnd = DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc).Date;
+
+        if (rangeEnd <= rangeStart)
+            return [];
+
+        return await DbContext.Set<AbsenceRequestWaitListRecord>()
+            .Where(r => r.RequestDateUtc >= rangeStart
+                && r.RequestDateUtc < rangeEnd
+                && r.WaitListType == waitListType
+                && r.AssignedAtUtc == null)
+            .OrderBy(r => r.RequestDateUtc)
+            .ThenBy(r => r.EntryUtc)
+            .ThenBy(r => r.CtrlNbr)
+            .ToListAsync(ct);
+    }
+}
+
+internal sealed class AbsenceRequestWaitListLinkRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<AbsenceRequestWaitListLink>(dbContext, currentUserService), IAbsenceRequestWaitListLinkRepository
+{
+    public async Task<List<AbsenceRequestWaitListLink>> GetByRequestAsync(ControlNumber absenceRequestCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<AbsenceRequestWaitListLink>()
+            .Where(r => r.AbsenceRequestCtrlNbr == absenceRequestCtrlNbr)
+            .OrderBy(r => r.CtrlNbr)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<AbsenceRequestWaitListLink>> GetByWaitListRecordAsync(ControlNumber waitListRecordCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<AbsenceRequestWaitListLink>()
+            .Where(r => r.AbsenceRequestWaitListRecordCtrlNbr == waitListRecordCtrlNbr)
+            .OrderBy(r => r.CtrlNbr)
+            .ToListAsync(ct);
+    }
+}

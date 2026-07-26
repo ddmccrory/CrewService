@@ -46,6 +46,7 @@ public sealed class NotificationTypeConfig : Entity
     public bool SendEmail { get; private set; }
     public bool SendText { get; private set; }
     public bool SendExternalApi { get; private set; }
+    public string MessageTemplate { get; private set; } = string.Empty;
 
     private NotificationTypeConfig() { RailroadCtrlNbr = null!; }
 
@@ -55,6 +56,7 @@ public sealed class NotificationTypeConfig : Entity
         string displayName,
         bool isEnabled,
         bool requiresAcknowledgementDefault,
+        string messageTemplate,
         NotificationAudience audience = NotificationAudience.Employee,
         bool sendInApp = true,
         bool sendEmail = false,
@@ -87,7 +89,8 @@ public sealed class NotificationTypeConfig : Entity
             SendInApp = normalizedSendInApp,
             SendEmail = normalizedSendEmail,
             SendText = normalizedSendText,
-            SendExternalApi = normalizedSendExternalApi
+            SendExternalApi = normalizedSendExternalApi,
+            MessageTemplate = NormalizeMessageTemplate(messageTemplate)
         };
     }
 
@@ -99,7 +102,8 @@ public sealed class NotificationTypeConfig : Entity
         bool sendInApp,
         bool sendEmail,
         bool sendText,
-        bool sendExternalApi)
+        bool sendExternalApi,
+        string messageTemplate)
     {
         if (string.IsNullOrWhiteSpace(displayName))
             throw new ArgumentException("Display name is required.", nameof(displayName));
@@ -122,5 +126,18 @@ public sealed class NotificationTypeConfig : Entity
         SendEmail = normalizedSendEmail;
         SendText = normalizedSendText;
         SendExternalApi = normalizedSendExternalApi;
+        MessageTemplate = NormalizeMessageTemplate(messageTemplate);
+    }
+
+    private static string NormalizeMessageTemplate(string messageTemplate)
+    {
+        if (string.IsNullOrWhiteSpace(messageTemplate))
+            throw new ArgumentException("Message template is required.", nameof(messageTemplate));
+
+        var normalized = messageTemplate.Trim();
+        if (normalized.Length == 0)
+            throw new ArgumentException("Message template is required.", nameof(messageTemplate));
+
+        return normalized;
     }
 }

@@ -750,6 +750,8 @@ internal static class DevDataSeeder
         // ?? Section 3b: Departments ???????????????????????????????????????????
         var departmentRepo = sp.GetRequiredService<IDepartmentRepository>();
         var departmentReassignmentRuleRepo = sp.GetRequiredService<IDepartmentReassignmentRuleRepository>();
+        var departmentAbsenceRequestWindowPolicyRepo = sp.GetRequiredService<IDepartmentAbsenceRequestWindowPolicyRepository>();
+        var departmentAbsenceWaitListPolicyRepo = sp.GetRequiredService<IDepartmentAbsenceWaitListPolicyRepository>();
         var existingDepts = await departmentRepo.GetAllAsync();
         if (existingDepts.Count == 0)
         {
@@ -841,6 +843,64 @@ internal static class DevDataSeeder
                 globalPreCreateOffsetMinutes: globalPreCreateOffsetMinutes,
                 isEnabled: true);
             await callSheetRuleRepo.UpdateAsync(existingRule);
+        }
+
+        // Seed Transportation department request-window caps.
+        var allDepartmentRequestWindowPolicies = await departmentAbsenceRequestWindowPolicyRepo.GetAllAsync();
+        var departmentRequestWindowPolicyByDepartment = allDepartmentRequestWindowPolicies
+            .ToDictionary(p => p.DepartmentCtrlNbr);
+
+        foreach (var transportationDepartment in allDepartments.Where(d => d.Name.Equals("Transportation", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (transportationDepartment.ParentCtrlNbr is null)
+                continue;
+
+            SetParent(transportationDepartment.ParentCtrlNbr.Value);
+
+            if (!departmentRequestWindowPolicyByDepartment.TryGetValue(transportationDepartment.CtrlNbr, out var requestWindowPolicy))
+            {
+                await departmentAbsenceRequestWindowPolicyRepo.AddAsync(
+                    DepartmentAbsenceRequestWindowPolicy.Create(transportationDepartment.CtrlNbr, requestWindowCapDays: 45));
+                continue;
+            }
+
+            if (requestWindowPolicy.RequestWindowCapDays != 45)
+            {
+                requestWindowPolicy.Update(45);
+                await departmentAbsenceRequestWindowPolicyRepo.UpdateAsync(requestWindowPolicy);
+            }
+        }
+
+        // Seed department waitlist defaults.
+        var allDepartmentWaitListPolicies = await departmentAbsenceWaitListPolicyRepo.GetAllAsync();
+        var departmentWaitListPolicyByDepartment = allDepartmentWaitListPolicies
+            .ToDictionary(p => p.DepartmentCtrlNbr);
+
+        foreach (var department in allDepartments)
+        {
+            if (department.ParentCtrlNbr is null)
+                continue;
+
+            SetParent(department.ParentCtrlNbr.Value);
+
+            if (!departmentWaitListPolicyByDepartment.TryGetValue(department.CtrlNbr, out var waitListPolicy))
+            {
+                await departmentAbsenceWaitListPolicyRepo.AddAsync(
+                    DepartmentAbsenceWaitListPolicy.Create(
+                        department.CtrlNbr,
+                        compensableDayMaxAssignments: 3,
+                        vacationWeekMaxAssignments: 3,
+                        isEnabled: true));
+                continue;
+            }
+
+            if (waitListPolicy.CompensableDayMaxAssignments != 3
+                || waitListPolicy.VacationWeekMaxAssignments != 3
+                || !waitListPolicy.IsEnabled)
+            {
+                waitListPolicy.Update(3, 3, isEnabled: true);
+                await departmentAbsenceWaitListPolicyRepo.UpdateAsync(waitListPolicy);
+            }
         }
 
         // ?? Section 4: Seniority � Crafts, Rosters, Rankings ?????????????
