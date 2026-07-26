@@ -751,6 +751,131 @@ public sealed class AbsenceRequestRepositoryTests : IDisposable
         Assert.Equal(DateTime.SpecifyKind(earliest.ScheduledStartUtc, DateTimeKind.Utc), DateTime.SpecifyKind(next.Value, DateTimeKind.Utc));
     }
 
+    [Fact]
+    public async Task GetPendingByDateAsync_OrdersByEntryUtcThenCtrlNbr()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var context = _factory.CreateContext();
+
+        var parent = Parent.Create("Parent WaitList");
+        context.Parents.Add(parent);
+
+        var groupType = GroupType.Create("Railroad", "Railroad", isWorkArea: true);
+        context.Set<GroupType>().Add(groupType);
+        await context.SaveChangesAsync(ct);
+
+        var railroad = DynamicGroup.Create(
+            groupType.CtrlNbr,
+            "WaitList Railroad",
+            parentGroupCtrlNbr: null,
+            path: null,
+            isWorkArea: false,
+            code: "WLR",
+            parentCtrlNbr: parent.CtrlNbr);
+        context.DynamicGroups.Add(railroad);
+
+        var status = EmploymentStatus.Create(railroad.CtrlNbr, "ACT", "Active", 1, "A");
+        context.EmploymentStatuses.Add(status);
+        await context.SaveChangesAsync(ct);
+
+        var employee = CreateEmployee(railroad.CtrlNbr, status.CtrlNbr, "RR120", "rr120", "000-00-0120");
+        context.Employees.Add(employee);
+
+        var department = Department.Create(parent.CtrlNbr, railroad.CtrlNbr, "Transportation");
+        context.Set<Department>().Add(department);
+
+        var craft = Craft.Create(
+            parent.CtrlNbr,
+            railroad.CtrlNbr,
+            "Trainman",
+            "Trainmen",
+            1,
+            autoMarkUp: false,
+            approveAllMarkOffs: false,
+            markOffHours: 0,
+            markUpHours: 0,
+            requiredRestHours: 0,
+            maximumVacationDayTime: 0,
+            unpaidMealPeriodMinutes: 0,
+            hoursofService: false,
+            processPayroll: false,
+            showNotifications: false,
+            vacationAssignmentType: 0,
+            departmentCtrlNbr: department.CtrlNbr);
+        context.Set<Craft>().Add(craft);
+
+        var absenceCode = AbsenceCode.Create(
+            railroad.CtrlNbr.Value,
+            "CD",
+            "Comp Day",
+            isExcused: true,
+            isCompensated: true,
+            requiresApproval: true,
+            isSystemOnly: false,
+            isHolidayExempt: false,
+            defaultAutoMarkUpHours: null,
+            isActive: true);
+        context.Set<AbsenceCode>().Add(absenceCode);
+        await context.SaveChangesAsync(ct);
+
+        var requestDate = new DateTime(2026, 8, 30, 0, 0, 0, DateTimeKind.Utc);
+        var tieEntry = new DateTime(2026, 8, 30, 9, 0, 0, DateTimeKind.Utc);
+
+        var tieA = AbsenceRequestWaitListRecord.CreateCompensableDay(
+            employee.CtrlNbr,
+            absenceCode.CtrlNbr,
+            requestDate,
+            tieEntry,
+            craft.CtrlNbr,
+            department.CtrlNbr);
+        var tieB = AbsenceRequestWaitListRecord.CreateCompensableDay(
+            employee.CtrlNbr,
+            absenceCode.CtrlNbr,
+            requestDate,
+            tieEntry,
+            craft.CtrlNbr,
+            department.CtrlNbr);
+        var later = AbsenceRequestWaitListRecord.CreateCompensableDay(
+            employee.CtrlNbr,
+            absenceCode.CtrlNbr,
+            requestDate,
+            tieEntry.AddMinutes(1),
+            craft.CtrlNbr,
+            department.CtrlNbr);
+
+        var assigned = AbsenceRequestWaitListRecord.CreateCompensableDay(
+            employee.CtrlNbr,
+            absenceCode.CtrlNbr,
+            requestDate,
+            tieEntry.AddMinutes(2),
+            craft.CtrlNbr,
+            department.CtrlNbr);
+        assigned.MarkAssigned(tieEntry.AddMinutes(10), "Assigned");
+
+        var otherType = AbsenceRequestWaitListRecord.CreateVacationWeek(
+            employee.CtrlNbr,
+            absenceCode.CtrlNbr,
+            requestDate,
+            tieEntry.AddMinutes(3),
+            craft.CtrlNbr,
+            department.CtrlNbr);
+
+        context.Set<AbsenceRequestWaitListRecord>().AddRange(tieB, later, assigned, otherType, tieA);
+        await context.SaveChangesAsync(ct);
+
+        var repository = new AbsenceRequestWaitListRecordRepository(context, _factory.CurrentUserService);
+        var results = await repository.GetPendingByDateAsync(requestDate, AbsenceRequestWaitListType.CompensableDay, ct);
+
+        Assert.Equal(3, results.Count);
+        var expectedOrder = results
+            .OrderBy(r => r.EntryUtc)
+            .ThenBy(r => r.CtrlNbr.Value)
+            .Select(r => r.CtrlNbr)
+            .ToList();
+        Assert.Equal(expectedOrder, results.Select(r => r.CtrlNbr).ToList());
+        Assert.All(results, r => Assert.Null(r.AssignedAtUtc));
+    }
+
     private static Employee CreateEmployee(
         CrewService.Domain.ValueObjects.ControlNumber clientCtrlNbr,
         CrewService.Domain.ValueObjects.ControlNumber employmentStatusCtrlNbr,

@@ -54,7 +54,7 @@ public sealed class NotificationsServiceTests
             new FixedCurrentUserService(Guid.NewGuid(), "dispatcher.user"));
 
         var sut = new NotificationsService(BuildServiceProvider(queryService));
-        var context = TestServerCallContextFactory.Create("Dispatcher");
+        var context = TestServerCallContextFactory.Create(userRoles: ["Dispatcher"]);
 
         var response = await sut.RecordManualAcknowledgement(
             new RecordManualAcknowledgementRequest
@@ -81,7 +81,7 @@ public sealed class NotificationsServiceTests
             new FakeNotificationUoWFactory(new FakeNotificationUoW(vacancy: null, workArea: null, employee: null)),
             new FixedCurrentUserService(Guid.NewGuid(), "dispatcher.user"));
         var sut = new NotificationsService(BuildServiceProvider(queryService));
-        var context = TestServerCallContextFactory.Create("Dispatcher");
+        var context = TestServerCallContextFactory.Create(userRoles: ["Dispatcher"]);
 
         var ex = await Assert.ThrowsAsync<RpcException>(() =>
             sut.RecordManualAcknowledgement(
@@ -106,7 +106,7 @@ public sealed class NotificationsServiceTests
             new FakeNotificationUoWFactory(new FakeNotificationUoW(vacancy: null, workArea: null, employee: null)),
             new FixedCurrentUserService(Guid.NewGuid(), "dispatcher.user"));
         var sut = new NotificationsService(BuildServiceProvider(queryService));
-        var context = TestServerCallContextFactory.Create("Dispatcher");
+        var context = TestServerCallContextFactory.Create(userRoles: ["Dispatcher"]);
 
         var ex = await Assert.ThrowsAsync<RpcException>(() =>
             sut.RecordManualAcknowledgement(
@@ -169,11 +169,77 @@ public sealed class NotificationsServiceTests
         Assert.Empty(employee.Notifications);
     }
 
-    private static ServiceProvider BuildServiceProvider(NotificationQueryService? queryService = null)
+    [Fact]
+    public async Task GetNotificationTypeConfigs_WithMismatchedSelectedRailroad_ThrowsPermissionDenied()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: null);
+        var configService = new NotificationTypeConfigAppService(new FakeNotificationUoWFactory(uow));
+        var sut = new NotificationsService(BuildServiceProvider(configService: configService));
+        var context = TestServerCallContextFactory.Create(selectedRailroadCtrlNbr: 2, userRoles: [Roles.RailroadAdmin]);
+
+        var ex = await Assert.ThrowsAsync<RpcException>(() =>
+            sut.GetNotificationTypeConfigs(new NotificationTypeConfigsRequest { RailroadCtrlNbr = 1 }, context));
+
+        Assert.Equal(StatusCode.PermissionDenied, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpsertNotificationTypeConfig_WithoutSelectedRailroad_ThrowsPermissionDenied()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: null);
+        var configService = new NotificationTypeConfigAppService(new FakeNotificationUoWFactory(uow));
+        var sut = new NotificationsService(BuildServiceProvider(configService: configService));
+        var context = TestServerCallContextFactory.Create(userRoles: [Roles.RailroadAdmin]);
+
+        var ex = await Assert.ThrowsAsync<RpcException>(() =>
+            sut.UpsertNotificationTypeConfig(new UpsertNotificationTypeConfigRequest
+            {
+                RailroadCtrlNbr = 1,
+                Key = NotificationCategories.GeneralInformation,
+                DisplayName = "General Information",
+                IsEnabled = true,
+                RequiresAcknowledgementDefault = false,
+                Audience = NotificationAudience.Both.ToString(),
+                SendInApp = true,
+                MessageTemplate = "{message}"
+            }, context));
+
+        Assert.Equal(StatusCode.PermissionDenied, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpsertNotificationTypeConfig_WithMismatchedSelectedRailroad_ThrowsPermissionDenied()
+    {
+        var uow = new FakeNotificationUoW(vacancy: null, workArea: null, employee: null);
+        var configService = new NotificationTypeConfigAppService(new FakeNotificationUoWFactory(uow));
+        var sut = new NotificationsService(BuildServiceProvider(configService: configService));
+        var context = TestServerCallContextFactory.Create(selectedRailroadCtrlNbr: 2, userRoles: [Roles.RailroadAdmin]);
+
+        var ex = await Assert.ThrowsAsync<RpcException>(() =>
+            sut.UpsertNotificationTypeConfig(new UpsertNotificationTypeConfigRequest
+            {
+                RailroadCtrlNbr = 1,
+                Key = NotificationCategories.GeneralInformation,
+                DisplayName = "General Information",
+                IsEnabled = true,
+                RequiresAcknowledgementDefault = false,
+                Audience = NotificationAudience.Both.ToString(),
+                SendInApp = true,
+                MessageTemplate = "{message}"
+            }, context));
+
+        Assert.Equal(StatusCode.PermissionDenied, ex.StatusCode);
+    }
+
+    private static ServiceProvider BuildServiceProvider(
+        NotificationQueryService? queryService = null,
+        NotificationTypeConfigAppService? configService = null)
     {
         var services = new ServiceCollection();
         if (queryService is not null)
             services.AddSingleton(queryService);
+        if (configService is not null)
+            services.AddSingleton(configService);
         services.AddSingleton<IWorkAreaClock, StubWorkAreaClock>();
         services.AddSingleton<IRequestActorContextResolver, StubRequestActorContextResolver>();
         services.AddSingleton<IRequestActorContextPolicy, RequestActorContextPolicy>();
@@ -232,12 +298,15 @@ public sealed class NotificationsServiceTests
 
     private static class TestServerCallContextFactory
     {
-        public static ServerCallContext Create(params string[] userRoles)
+        public static ServerCallContext Create(long? selectedRailroadCtrlNbr = null, params string[] userRoles)
         {
             var httpContext = new DefaultHttpContext();
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
                 userRoles.Select(r => new Claim(ClaimTypes.Role, r)),
                 authenticationType: "TestAuth"));
+
+            if (selectedRailroadCtrlNbr.HasValue)
+                httpContext.Request.Headers["x-railroad-ctrl-nbr"] = selectedRailroadCtrlNbr.Value.ToString();
 
             return TestServerCallContext.Create("/CrewService.Presentation.NotificationsSrvc/Test", httpContext);
         }
