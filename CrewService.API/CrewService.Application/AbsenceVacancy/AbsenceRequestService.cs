@@ -16,9 +16,9 @@ public sealed class AbsenceRequestService(
     IAbsenceCodeRepository absenceCodeRepository,
     IAbsenceApprovalPolicyResolver approvalPolicyResolver,
     IAbsenceRequestWaitListRecordRepository waitListRecordRepository,
-    IDepartmentAbsenceWaitListPolicyRepository departmentWaitListPolicyRepository,
+    IAbsenceRequestWaitListLinkRepository waitListLinkRepository,
+    ICraftAbsenceWaitListPolicyRepository craftWaitListPolicyRepository,
     IAbsenceWaitListAllowancePolicyRepository waitListAllowancePolicyRepository,
-    BackgroundWorkers.IWaitListReassignmentSignal waitListReassignmentSignal,
     AbsenceStartProposalService absenceStartProposalService,
     BackgroundWorkers.IAbsenceMarkOffSignal absenceMarkOffSignal,
     BackgroundWorkers.IAutoMarkUpSignal autoMarkUpSignal,
@@ -52,13 +52,27 @@ public sealed class AbsenceRequestService(
         return absence;
     }
 
+    public async Task CancelWaitListAsync(ControlNumber waitListRecordCtrlNbr)
+    {
+        await using var uow = await uowFactory.CreateAsync();
+        var waitListRecord = await waitListRecordRepository.GetByCtrlNbrAsync(waitListRecordCtrlNbr)
+            ?? throw new KeyNotFoundException($"Waitlist record {waitListRecordCtrlNbr.Value} not found.");
+
+        if (waitListRecord.AssignedAtUtc.HasValue)
+            throw new InvalidOperationException("Assigned waitlist records cannot be cancelled.");
+
+        waitListRecordRepository.Remove(waitListRecord);
+        await uow.CommitAsync();
+    }
+
     public Task<DateTime> GetProposedScheduledStartUtcAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default) =>
         absenceStartProposalService.GetProposedScheduledStartUtcAsync(employeeCtrlNbr, ct);
 
     public Task<AbsenceStartProposalService.StartProposalResult> GetStartProposalAsync(
         ControlNumber employeeCtrlNbr,
+        DateOnly? selectedLocalDay = null,
         CancellationToken ct = default) =>
-        absenceStartProposalService.GetStartProposalAsync(employeeCtrlNbr, ct);
+        absenceStartProposalService.GetStartProposalAsync(employeeCtrlNbr, selectedLocalDay, ct);
 
     public async Task<AbsenceRequest> SetAutoMarkOffOnApprovalAsync(ControlNumber ctrlNbr, bool enabled)
     {
@@ -147,23 +161,32 @@ public sealed class AbsenceRequestService(
 
         var normalizedStartUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
 
+        await using var uow = await uowFactory.CreateAsync();
+
         if (!bypassWaitList)
         {
-            await using var waitListUow = await uowFactory.CreateAsync();
-            var context = await ResolveWaitListContextAsync(waitListUow, employeeCtrlNbr, normalizedStartUtc);
+            var context = await ResolveWaitListContextAsync(uow, employeeCtrlNbr, normalizedStartUtc);
             var waitListDecision = await EvaluateWaitListDecisionAsync(
-                waitListUow,
+                uow,
+                context.RailroadCtrlNbr,
                 context.CraftCtrlNbr,
-                context.DepartmentCtrlNbr,
                 absenceCode,
                 normalizedStartUtc,
                 ct: default);
 
+            logger.LogInformation(
+                "Waitlist evaluation employee={EmployeeCtrlNbr} code={AbsenceCodeCtrlNbr}/{AbsenceCode} startUtc={StartUtc:o} craft={CraftCtrlNbr} dept={DepartmentCtrlNbr} shouldWaitList={ShouldWaitList} waitListType={WaitListType}",
+                employeeCtrlNbr.Value,
+                absenceCodeCtrlNbr.Value,
+                absenceCode.Code,
+                normalizedStartUtc,
+                context.CraftCtrlNbr?.Value,
+                context.DepartmentCtrlNbr?.Value,
+                waitListDecision.ShouldWaitList,
+                waitListDecision.WaitListType ?? "<none>");
+
             if (waitListDecision.ShouldWaitList)
             {
-                if (context.DepartmentCtrlNbr is null)
-                    throw new InvalidOperationException("Department context is required to place request on waitlist.");
-
                 if (context.CraftCtrlNbr is null)
                     throw new InvalidOperationException("Craft context is required to place request on waitlist.");
 
@@ -183,7 +206,20 @@ public sealed class AbsenceRequestService(
                         context.CraftCtrlNbr,
                         context.DepartmentCtrlNbr);
 
-                await waitListRecordRepository.AddAsync(waitListRecord);
+                waitListRecordRepository.Add(waitListRecord);
+
+                await uow.CommitAsync();
+
+                logger.LogInformation(
+                    "Waitlist record created waitListCtrlNbr={WaitListCtrlNbr} employee={EmployeeCtrlNbr} code={AbsenceCodeCtrlNbr} type={WaitListType} requestDateUtc={RequestDateUtc:o} craft={CraftCtrlNbr} dept={DepartmentCtrlNbr}",
+                    waitListRecord.CtrlNbr.Value,
+                    waitListRecord.EmployeeCtrlNbr.Value,
+                    waitListRecord.AbsenceCodeCtrlNbr.Value,
+                    waitListRecord.WaitListType,
+                    waitListRecord.RequestDateUtc,
+                    waitListRecord.CraftCtrlNbr?.Value,
+                    waitListRecord.DepartmentCtrlNbr?.Value);
+
                 return new SubmitWithCodeResult(null, waitListRecord);
             }
         }
@@ -196,8 +232,10 @@ public sealed class AbsenceRequestService(
 
         if (approvalPolicy.Level == AbsenceApprovalLevel.Automatic)
         {
-            var systemOfficerCtrlNbr = ControlNumber.Create(SystemApprovalOfficerCtrlNbr);
-            absence.Approve(systemOfficerCtrlNbr);
+            if (approvedByCtrlNbr is null)
+                throw new InvalidOperationException("Automatic approval requires the creating employee as approver.");
+
+            absence.Approve(approvedByCtrlNbr);
         }
         else if (approvedByCtrlNbr is not null)
         {
@@ -213,7 +251,6 @@ public sealed class AbsenceRequestService(
             absence.Exercise(markOffReferenceUtc);
         }
 
-        await using var uow = await uowFactory.CreateAsync();
         uow.AbsenceRequests.Add(absence);
         await uow.CommitAsync();
 
@@ -280,17 +317,17 @@ public sealed class AbsenceRequestService(
 
     private async Task<WaitListDecision> EvaluateWaitListDecisionAsync(
         IOrchestrationUnitOfWork uow,
+        ControlNumber? railroadCtrlNbr,
         ControlNumber? craftCtrlNbr,
-        ControlNumber? departmentCtrlNbr,
         Domain.Modules.AbsenceVacancy.AbsenceCode absenceCode,
         DateTime requestStartUtc,
         CancellationToken ct)
     {
-        if (craftCtrlNbr is null || departmentCtrlNbr is null)
+        if (railroadCtrlNbr is null || craftCtrlNbr is null)
             return new WaitListDecision(false, null);
 
-        var departmentPolicy = await departmentWaitListPolicyRepository.GetByDepartmentAsync(departmentCtrlNbr);
-        if (departmentPolicy is null || !departmentPolicy.IsEnabled)
+        var craftPolicy = await craftWaitListPolicyRepository.GetByCraftAsync(craftCtrlNbr);
+        if (craftPolicy is null || !craftPolicy.IsEnabled)
             return new WaitListDecision(false, null);
 
         var allowanceCode = (absenceCode.Code ?? string.Empty).Trim().ToUpperInvariant();
@@ -299,35 +336,54 @@ public sealed class AbsenceRequestService(
             ? AbsenceRequestWaitListType.VacationWeek
             : AbsenceRequestWaitListType.CompensableDay;
 
-        var allowance = await waitListAllowancePolicyRepository.GetByCraftTypeCodeYearAsync(
-            craftCtrlNbr,
-            waitListType,
-            isVacationWeek ? "VW" : allowanceCode,
-            requestStartUtc.Year);
+        AbsenceWaitListAllowancePolicy? allowance;
+        int maxAssignments;
+        if (isVacationWeek)
+        {
+            allowance = await waitListAllowancePolicyRepository.GetByCraftTypeCodeYearAsync(
+                craftCtrlNbr,
+                waitListType,
+                "VW",
+                requestStartUtc.Year);
 
-        if (allowance is null || !allowance.IsEnabled)
-            return new WaitListDecision(false, null);
+            if (allowance is null || !allowance.IsEnabled)
+                return new WaitListDecision(false, null);
 
-        var craft = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr, ct);
-        if (craft?.DynamicGroupCtrlNbr is null)
-            return new WaitListDecision(false, null);
+            maxAssignments = Math.Min(allowance.MaxAssignments, craftPolicy.VacationWeekMaxAssignments);
+        }
+        else
+        {
+            if (!absenceCode.IsCompensated)
+                return new WaitListDecision(false, null);
+
+            // Compensated-day waitlist is governed by craft policy cap.
+            maxAssignments = craftPolicy.CompensableDayMaxAssignments;
+        }
 
         var targetDate = requestStartUtc.Date;
         if (!isVacationWeek)
         {
             var existingRequests = await uow.AbsenceRequests.GetByDateRangeAsync(
-                craft.DynamicGroupCtrlNbr,
+                railroadCtrlNbr,
                 targetDate,
                 targetDate.AddDays(1),
                 includeAllStatuses: true,
-                craftCtrlNbr: craftCtrlNbr,
-                departmentCtrlNbr: departmentCtrlNbr,
+                craftCtrlNbr: null,
+                departmentCtrlNbr: null,
                 ct: ct);
 
             var currentAssigned = 0;
             foreach (var existingRequest in existingRequests)
             {
                 if (existingRequest.DeniedAtUtc.HasValue || existingRequest.CancelledAtUtc.HasValue)
+                    continue;
+
+                var existingContext = await ResolveWaitListContextAsync(
+                    uow,
+                    existingRequest.EmployeeCtrlNbr,
+                    existingRequest.ScheduledStartUtc);
+
+                if (existingContext.CraftCtrlNbr is null || existingContext.CraftCtrlNbr != craftCtrlNbr)
                     continue;
 
                 if (existingRequest.AbsenceCodeCtrlNbr is null)
@@ -337,13 +393,12 @@ public sealed class AbsenceRequestService(
                 if (existingCode is null)
                     continue;
 
-                if (!string.Equals(existingCode.Code, allowanceCode, StringComparison.OrdinalIgnoreCase))
+                if (!existingCode.IsCompensated)
                     continue;
 
                 currentAssigned++;
             }
 
-            var maxAssignments = Math.Min(allowance.MaxAssignments, departmentPolicy.CompensableDayMaxAssignments);
             return new WaitListDecision(currentAssigned >= maxAssignments, waitListType);
         }
 
@@ -351,15 +406,14 @@ public sealed class AbsenceRequestService(
         var rangeStartUtc = targetDate.AddDays(-35);
         var rangeEndUtc = targetDate.AddDays((vacationWeeks * 7) + 1);
         var vacationRequests = await uow.AbsenceRequests.GetByDateRangeAsync(
-            craft.DynamicGroupCtrlNbr,
+            railroadCtrlNbr,
             rangeStartUtc,
             rangeEndUtc,
             includeAllStatuses: true,
-            craftCtrlNbr: craftCtrlNbr,
-            departmentCtrlNbr: departmentCtrlNbr,
+            craftCtrlNbr: null,
+            departmentCtrlNbr: null,
             ct: ct);
 
-        var maxVacationAssignments = Math.Min(allowance.MaxAssignments, departmentPolicy.VacationWeekMaxAssignments);
         for (var i = 0; i < vacationWeeks; i++)
         {
             var weekDate = targetDate.AddDays(i * 7);
@@ -368,6 +422,14 @@ public sealed class AbsenceRequestService(
             foreach (var request in vacationRequests)
             {
                 if (request.DeniedAtUtc.HasValue || request.CancelledAtUtc.HasValue)
+                    continue;
+
+                var existingContext = await ResolveWaitListContextAsync(
+                    uow,
+                    request.EmployeeCtrlNbr,
+                    request.ScheduledStartUtc);
+
+                if (existingContext.CraftCtrlNbr is null || existingContext.CraftCtrlNbr != craftCtrlNbr)
                     continue;
 
                 if (request.AbsenceCodeCtrlNbr is null)
@@ -383,7 +445,7 @@ public sealed class AbsenceRequestService(
                 assignedCount++;
             }
 
-            if (assignedCount >= maxVacationAssignments)
+            if (assignedCount >= maxAssignments)
                 return new WaitListDecision(true, waitListType);
         }
 
@@ -447,17 +509,7 @@ public sealed class AbsenceRequestService(
         CancellationToken ct = default)
     {
         if (level == AbsenceApprovalLevel.Automatic)
-        {
-            return
-            [
-                new AbsenceApprovalOfficer(
-                    SystemApprovalOfficerCtrlNbr,
-                    "SYSTEM",
-                    "SYSTEM",
-                    "SYSTEM",
-                    null)
-            ];
-        }
+            return [];
 
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var assignments = await uow.UserParentAssignments.GetByParentCtrlNbrAsync(parentCtrlNbr);
@@ -679,11 +731,81 @@ public sealed class AbsenceRequestService(
             ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
         absence.Cancel();
         uow.AbsenceRequests.Update(absence);
+
+        _ = await TryPromoteWaitListForSlotAsync(uow, absence);
         await uow.CommitAsync();
 
-        waitListReassignmentSignal.Notify();
-
         return absence;
+    }
+
+    private readonly record struct WaitListPromotionResult(
+        AbsenceRequest CreatedRequest,
+        AbsenceRequestWaitListRecord WaitListRecord);
+
+    private async Task<WaitListPromotionResult?> TryPromoteWaitListForSlotAsync(
+        IOrchestrationUnitOfWork uow,
+        AbsenceRequest cancelledRequest)
+    {
+        if (cancelledRequest.AbsenceCodeCtrlNbr is null)
+            return null;
+
+        var cancelledCode = await absenceCodeRepository.GetByCtrlNbrAsync(cancelledRequest.AbsenceCodeCtrlNbr)
+            ?? throw new KeyNotFoundException($"Absence code {cancelledRequest.AbsenceCodeCtrlNbr.Value} not found.");
+
+        var waitListType = IsVacationWeekCode(cancelledCode.Code)
+            ? AbsenceRequestWaitListType.VacationWeek
+            : cancelledCode.IsCompensated
+                ? AbsenceRequestWaitListType.CompensableDay
+                : null;
+
+        if (waitListType is null)
+            return null;
+
+        var requestDateUtc = DateTime.SpecifyKind(cancelledRequest.ScheduledStartUtc, DateTimeKind.Utc);
+        var context = await ResolveWaitListContextAsync(uow, cancelledRequest.EmployeeCtrlNbr, cancelledRequest.ScheduledStartUtc);
+        if (context.CraftCtrlNbr is null)
+        {
+            logger.LogWarning(
+                "Skipping waitlist promotion for cancelled request {AbsenceRequestCtrlNbr}: craft context could not be resolved.",
+                cancelledRequest.CtrlNbr.Value);
+            return null;
+        }
+
+        var pending = await waitListRecordRepository.GetPendingByDateAsync(requestDateUtc, waitListType);
+        var waitListRecord = pending
+            .Where(r => r.CraftCtrlNbr == context.CraftCtrlNbr)
+            .OrderBy(r => r.EntryUtc)
+            .ThenBy(r => r.CtrlNbr)
+            .FirstOrDefault();
+
+        if (waitListRecord is null)
+            return null;
+
+        var promotionNotes = string.Format(
+            "Promoted from waitlist after cancellation for {0}.",
+            requestDateUtc.ToString("MM/dd/yyyy"));
+
+        var promotedRequest = AbsenceRequest.CreateWithCode(
+            waitListRecord.EmployeeCtrlNbr,
+            cancelledRequest.ScheduledStartUtc,
+            cancelledRequest.ScheduledEndUtc,
+            waitListRecord.AbsenceCodeCtrlNbr,
+            cancelledRequest.ReasonCode,
+            isSystemGenerated: true,
+            notes: promotionNotes,
+            autoMarkOffOnApproval: false);
+
+        promotedRequest.Approve(waitListRecord.EmployeeCtrlNbr);
+
+        uow.AbsenceRequests.Add(promotedRequest);
+
+        waitListRecord.MarkAssigned(DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc), promotionNotes);
+        waitListRecordRepository.Update(waitListRecord);
+
+        var link = AbsenceRequestWaitListLink.Create(promotedRequest.CtrlNbr, waitListRecord.CtrlNbr);
+        waitListLinkRepository.Add(link);
+
+        return new WaitListPromotionResult(promotedRequest, waitListRecord);
     }
 
     public async Task<AbsenceRequest> MarkOffAsync(ControlNumber ctrlNbr, DateTime exercisedUtc)

@@ -52,6 +52,9 @@ public sealed class DbAbsenceApprovalPolicyResolver(IAbsenceApprovalPolicyReposi
 {
     public async Task<AbsenceApprovalPolicy> ResolveAsync(AbsenceCode absenceCode, CancellationToken ct = default)
     {
+        if (!absenceCode.RequiresApproval)
+            return AbsenceApprovalPolicy.ForLevel(AbsenceApprovalLevel.Automatic);
+
         var policy = await absenceApprovalPolicyRepository.GetByRailroadAsync(absenceCode.RailroadCtrlNbr);
 
         if (policy is null || !policy.IsEnabled)

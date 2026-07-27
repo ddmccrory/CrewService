@@ -373,7 +373,7 @@ public sealed class AbsenceRequestWaitListRecord : Entity
         if (string.IsNullOrWhiteSpace(waitListType))
             throw new InvalidOperationException("Waitlist type is required.");
 
-        var requestDate = AsUtc(requestDateUtc).Date;
+        var requestDate = AsUtc(requestDateUtc);
         var entry = AsUtc(entryUtc);
 
         if (entry < requestDate)

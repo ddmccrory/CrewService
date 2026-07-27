@@ -1,5 +1,4 @@
 @page "/work-management/absence-codes"
-@page "/work-management/markoff-codes"
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
@@ -47,7 +46,7 @@ else if (HasRailroad)
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Code</label>
-                    <InputText @bind-Value="saveModel.Code" @bind-Value:event="oninput" class="form-control text-uppercase" style="text-transform: uppercase;" placeholder="e.g. SI" />
+                    <InputText @bind-Value="saveModel.Code" class="form-control text-uppercase" style="text-transform: uppercase;" placeholder="e.g. SI" />
                     <ValidationMessage For="() => saveModel.Code" class="text-danger" />
                 </div>
                 <div class="mb-3">

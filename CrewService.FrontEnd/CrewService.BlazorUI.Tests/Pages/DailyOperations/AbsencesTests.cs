@@ -101,6 +101,36 @@ public class AbsencesTests
         Assert.Contains("DeclineAbsenceRequestAsync(decisionRequestCtrlNbr, decisionOfficerCtrlNbr", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AbsencesPage_RequestActions_IncludeCancelForPendingRequests()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+
+        Assert.Contains("OpenCancelModal(req.CtrlNbr)", source, StringComparison.Ordinal);
+        Assert.Contains("ConfirmCancelRequestAsync", source, StringComparison.Ordinal);
+        Assert.Contains(">Cancel</button>", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AbsencesPage_WaitlistActions_IncludeCancelForWaitlistedRequests()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+
+        Assert.Contains("ShowWaitListActionsColumn", source, StringComparison.Ordinal);
+        Assert.Contains("IsStatus(r.Status, \"WAITLISTED\")", source, StringComparison.Ordinal);
+        Assert.Contains("IsStatus(req.Status, \"WAITLISTED\")", source, StringComparison.Ordinal);
+        Assert.Contains("OpenCancelModal(req.CtrlNbr)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AbsencesPage_MonthCounts_UsesRangeEndpointInsteadOfPerDayRequests()
+    {
+        var source = File.ReadAllText(GetAbsencesRazorPath());
+
+        Assert.Contains("GetAbsenceRequestCountsByDayAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAbsenceRequestsAsync(\n                            date", source, StringComparison.Ordinal);
+    }
+
     private static string GetAbsencesRazorPath()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

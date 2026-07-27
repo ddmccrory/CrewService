@@ -90,41 +90,41 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
-    public override async Task<DepartmentAbsenceWaitListPolicyResponse> GetDepartmentAbsenceWaitListPolicy(
-        GetDepartmentAbsenceWaitListPolicyRequest request,
+    public override async Task<CraftAbsenceWaitListPolicyResponse> GetCraftAbsenceWaitListPolicy(
+        GetCraftAbsenceWaitListPolicyRequest request,
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         try
         {
-            var policy = await svc.GetDepartmentAbsenceWaitListPolicyAsync(
-                ControlNumber.Create(request.DepartmentCtrlNbr),
+            var policy = await svc.GetCraftAbsenceWaitListPolicyAsync(
+                ControlNumber.Create(request.CraftCtrlNbr),
                 context.CancellationToken);
-            return MapDepartmentAbsenceWaitListPolicy(policy);
+            return MapCraftAbsenceWaitListPolicy(policy);
         }
         catch (KeyNotFoundException)
         {
-            return new DepartmentAbsenceWaitListPolicyResponse
+            return new CraftAbsenceWaitListPolicyResponse
             {
-                DepartmentCtrlNbr = request.DepartmentCtrlNbr
+                CraftCtrlNbr = request.CraftCtrlNbr
             };
         }
     }
 
-    public override async Task<DepartmentAbsenceWaitListPolicyResponse> UpsertDepartmentAbsenceWaitListPolicy(
-        UpsertDepartmentAbsenceWaitListPolicyRequest request,
+    public override async Task<CraftAbsenceWaitListPolicyResponse> UpsertCraftAbsenceWaitListPolicy(
+        UpsertCraftAbsenceWaitListPolicyRequest request,
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
         try
         {
-            var policy = await svc.GetOrUpsertDepartmentAbsenceWaitListPolicyAsync(
-                request.DepartmentCtrlNbr,
+            var policy = await svc.GetOrUpsertCraftAbsenceWaitListPolicyAsync(
+                request.CraftCtrlNbr,
                 request.CompensableDayMaxAssignments,
                 request.VacationWeekMaxAssignments,
                 request.IsEnabled,
                 context.CancellationToken);
-            return MapDepartmentAbsenceWaitListPolicy(policy);
+            return MapCraftAbsenceWaitListPolicy(policy);
         }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
@@ -194,10 +194,10 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         RequestWindowCapDays = p.RequestWindowCapDays
     };
 
-    private static DepartmentAbsenceWaitListPolicyResponse MapDepartmentAbsenceWaitListPolicy(DepartmentAbsenceWaitListPolicy p) => new()
+    private static CraftAbsenceWaitListPolicyResponse MapCraftAbsenceWaitListPolicy(CraftAbsenceWaitListPolicy p) => new()
     {
         CtrlNbr = p.CtrlNbr.Value,
-        DepartmentCtrlNbr = p.DepartmentCtrlNbr.Value,
+        CraftCtrlNbr = p.CraftCtrlNbr.Value,
         CompensableDayMaxAssignments = p.CompensableDayMaxAssignments,
         VacationWeekMaxAssignments = p.VacationWeekMaxAssignments,
         IsEnabled = p.IsEnabled

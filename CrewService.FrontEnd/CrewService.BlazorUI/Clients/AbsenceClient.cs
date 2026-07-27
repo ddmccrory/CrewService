@@ -55,9 +55,49 @@ public sealed class AbsenceClient(
         }
     }
 
+    public async Task<GetAbsenceRequestCountsByDayResponse> GetAbsenceRequestCountsByDayAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        bool includeAllStatuses,
+        long? workAreaGroupCtrlNbr = null,
+        long? craftCtrlNbr = null,
+        long? departmentCtrlNbr = null,
+        long? employeeCtrlNbr = null)
+    {
+        try
+        {
+            var request = new GetAbsenceRequestCountsByDayMsg
+            {
+                RangeStartUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(rangeStartUtc.Date, DateTimeKind.Utc)),
+                RangeEndUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(rangeEndUtc.Date, DateTimeKind.Utc)),
+                IncludeAllStatuses = includeAllStatuses
+            };
+
+            if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
+                request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (craftCtrlNbr.HasValue && craftCtrlNbr.Value > 0)
+                request.CraftCtrlNbr = craftCtrlNbr.Value;
+
+            if (departmentCtrlNbr.HasValue && departmentCtrlNbr.Value > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr.Value;
+
+            if (employeeCtrlNbr.HasValue && employeeCtrlNbr.Value > 0)
+                request.EmployeeCtrlNbr = employeeCtrlNbr.Value;
+
+            return await _client.GetAbsenceRequestCountsByDayAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<(DateTime StartUtc, string StartLocal, int? RequestWindowCapDays)> GetCreateAbsenceStartProposalAsync(
         long employeeCtrlNbr,
-        long? workAreaGroupCtrlNbr = null)
+        long? workAreaGroupCtrlNbr = null,
+        DateTime? selectedLocalDay = null)
     {
         try
         {
@@ -68,6 +108,9 @@ public sealed class AbsenceClient(
 
             if (workAreaGroupCtrlNbr.HasValue && workAreaGroupCtrlNbr.Value > 0)
                 request.WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr.Value;
+
+            if (selectedLocalDay.HasValue)
+                request.SelectedLocalDay = selectedLocalDay.Value.ToString("yyyy-MM-dd");
 
             var response = await _client.GetCreateAbsenceStartProposalAsync(request);
             var startUtc = DateTime.SpecifyKind(response.StartUtc.ToDateTime(), DateTimeKind.Utc);
@@ -378,6 +421,22 @@ public sealed class AbsenceClient(
                 request.Notes = notes;
 
             return await _client.DeclineAbsenceAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
+    public async Task<AbsenceApprovalResponse> CancelAbsenceRequestAsync(long absenceRequestCtrlNbr)
+    {
+        try
+        {
+            return await _client.CancelAbsenceAsync(new CancelAbsenceMsg
+            {
+                AbsenceRequestCtrlNbr = absenceRequestCtrlNbr
+            });
         }
         catch (Exception ex)
         {

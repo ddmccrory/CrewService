@@ -16,23 +16,43 @@ public sealed class AbsenceWaitListReassignmentProcessor(
     public async Task<int> ProcessAsync(DateTime requestDateUtc, CancellationToken ct = default)
     {
         var targetDate = DateTime.SpecifyKind(requestDateUtc, DateTimeKind.Utc).Date;
-        var schedules = await workerScheduleRepository.GetEnabledByTypeAsync("WaitListReassignment", ct);
-        if (schedules.Count == 0)
-            return 0;
+        var promotedStartUtc = targetDate.AddMinutes(1);
+        return await ProcessInternalAsync(targetDate, promotedStartUtc, requireEnabledSchedule: true, ct);
+    }
+
+    public async Task<int> ProcessImmediateAsync(DateTime promotedStartUtc, CancellationToken ct = default)
+    {
+        var promotedStart = DateTime.SpecifyKind(promotedStartUtc, DateTimeKind.Utc);
+        var targetDate = promotedStart.Date;
+        return await ProcessInternalAsync(targetDate, promotedStart, requireEnabledSchedule: false, ct);
+    }
+
+    private async Task<int> ProcessInternalAsync(
+        DateTime targetDate,
+        DateTime promotedStartUtc,
+        bool requireEnabledSchedule,
+        CancellationToken ct)
+    {
+        if (requireEnabledSchedule)
+        {
+            var schedules = await workerScheduleRepository.GetEnabledByTypeAsync("WaitListReassignment", ct);
+            if (schedules.Count == 0)
+                return 0;
+        }
 
         var assignedCount = 0;
 
         var compCandidates = await evaluator.EvaluateCompensableDayAsync(targetDate, ct);
         foreach (var candidate in compCandidates)
         {
-            if (await AssignFromWaitListAsync(candidate.CtrlNbr, targetDate, ct))
+            if (await AssignFromWaitListAsync(candidate.CtrlNbr, targetDate, promotedStartUtc, ct))
                 assignedCount++;
         }
 
         var vacationCandidates = await evaluator.EvaluateVacationWeekAsync(targetDate, ct);
         foreach (var candidate in vacationCandidates)
         {
-            if (await AssignFromWaitListAsync(candidate.CtrlNbr, targetDate, ct))
+            if (await AssignFromWaitListAsync(candidate.CtrlNbr, targetDate, promotedStartUtc, ct))
                 assignedCount++;
         }
 
@@ -42,6 +62,7 @@ public sealed class AbsenceWaitListReassignmentProcessor(
     private async Task<bool> AssignFromWaitListAsync(
         ControlNumber waitListCtrlNbr,
         DateTime targetDateUtc,
+        DateTime promotedStartUtc,
         CancellationToken ct)
     {
         var waitListRecord = await waitListRecordRepository.GetByCtrlNbrAsync(waitListCtrlNbr, ct);
@@ -57,13 +78,13 @@ public sealed class AbsenceWaitListReassignmentProcessor(
 
         var submitResult = await absenceRequestService.SubmitWithCodeAsync(
             waitListRecord.EmployeeCtrlNbr,
-            targetDateUtc.AddMinutes(1),
+            promotedStartUtc,
             endUtc: null,
             waitListRecord.AbsenceCodeCtrlNbr,
             reasonCode: "MARKOFF",
             isSystemGenerated: true,
             notes: notes,
-            approvedByCtrlNbr: ControlNumber.Create(AbsenceRequestService.SystemApprovalOfficerCtrlNbr),
+            approvedByCtrlNbr: waitListRecord.EmployeeCtrlNbr,
             autoMarkOffOnApproval: false,
             markOffStartUtc: DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc),
             bypassWaitList: true);

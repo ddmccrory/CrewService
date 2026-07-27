@@ -16,11 +16,11 @@ service PoliciesSrvc {
   rpc UpsertDepartmentAbsenceRequestWindowPolicy(UpsertDepartmentAbsenceRequestWindowPolicyRequest) returns (DepartmentAbsenceRequestWindowPolicyResponse) {
     option (google.api.http) = { put: "/v1/policies/absence-request-window/{department_ctrl_nbr}" body: "*" };
   }
-  rpc GetDepartmentAbsenceWaitListPolicy(GetDepartmentAbsenceWaitListPolicyRequest) returns (DepartmentAbsenceWaitListPolicyResponse) {
-    option (google.api.http) = { get: "/v1/policies/absence-waitlist/{department_ctrl_nbr}" };
+  rpc GetCraftAbsenceWaitListPolicy(GetCraftAbsenceWaitListPolicyRequest) returns (CraftAbsenceWaitListPolicyResponse) {
+    option (google.api.http) = { get: "/v1/policies/absence-waitlist/{craft_ctrl_nbr}" };
   }
-  rpc UpsertDepartmentAbsenceWaitListPolicy(UpsertDepartmentAbsenceWaitListPolicyRequest) returns (DepartmentAbsenceWaitListPolicyResponse) {
-    option (google.api.http) = { put: "/v1/policies/absence-waitlist/{department_ctrl_nbr}" body: "*" };
+  rpc UpsertCraftAbsenceWaitListPolicy(UpsertCraftAbsenceWaitListPolicyRequest) returns (CraftAbsenceWaitListPolicyResponse) {
+    option (google.api.http) = { put: "/v1/policies/absence-waitlist/{craft_ctrl_nbr}" body: "*" };
   }
   rpc GetCraftOperationsPolicy(GetCraftOperationsPolicyRequest) returns (CraftOperationsPolicyResponse) {
     option (google.api.http) = { get: "/v1/policies/craft-operations/{craft_ctrl_nbr}" };
@@ -153,20 +153,20 @@ message DepartmentAbsenceRequestWindowPolicyResponse {
   int32 request_window_cap_days = 3;
 }
 
-message GetDepartmentAbsenceWaitListPolicyRequest {
-  int64 department_ctrl_nbr = 1;
+message GetCraftAbsenceWaitListPolicyRequest {
+  int64 craft_ctrl_nbr = 1;
 }
 
-message UpsertDepartmentAbsenceWaitListPolicyRequest {
-  int64 department_ctrl_nbr = 1;
+message UpsertCraftAbsenceWaitListPolicyRequest {
+  int64 craft_ctrl_nbr = 1;
   int32 compensable_day_max_assignments = 2;
   int32 vacation_week_max_assignments = 3;
   bool is_enabled = 4;
 }
 
-message DepartmentAbsenceWaitListPolicyResponse {
+message CraftAbsenceWaitListPolicyResponse {
   int64 ctrl_nbr = 1;
-  int64 department_ctrl_nbr = 2;
+  int64 craft_ctrl_nbr = 2;
   int32 compensable_day_max_assignments = 3;
   int32 vacation_week_max_assignments = 4;
   bool is_enabled = 5;

@@ -346,8 +346,9 @@
 
         if (_model.EmployeeCtrlNbr <= 0)
         {
-            _model.StartUtcLocal = string.Empty;
+            _model.StartUtcLocal = GetDefaultStartLocal().ToString("yyyy-MM-ddTHH:mm");
             _model.EndUtcLocal = string.Empty;
+            _hasStartProposal = true;
             return;
         }
 
@@ -356,7 +357,8 @@
             _isLoadingStartProposal = true;
             var (_, startLocal, requestWindowCapDays) = await AbsenceClient.GetCreateAbsenceStartProposalAsync(
                 _model.EmployeeCtrlNbr,
-                SelectedWorkAreaCtrlNbr > 0 ? SelectedWorkAreaCtrlNbr : null);
+                SelectedWorkAreaCtrlNbr > 0 ? SelectedWorkAreaCtrlNbr : null,
+                SelectedDate.Date);
 
             _model.StartUtcLocal = startLocal;
             _employeeRequestWindowCapDays = requestWindowCapDays;

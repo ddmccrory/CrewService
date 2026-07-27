@@ -101,11 +101,11 @@ internal sealed class DepartmentReassignmentRuleRepository(CrewServiceDbContext 
         await DbContext.Set<DepartmentReassignmentRule>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
 }
 
-internal sealed class DepartmentAbsenceWaitListPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
-    : Repository<DepartmentAbsenceWaitListPolicy>(dbContext, currentUserService), IDepartmentAbsenceWaitListPolicyRepository
+internal sealed class CraftAbsenceWaitListPolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<CraftAbsenceWaitListPolicy>(dbContext, currentUserService), ICraftAbsenceWaitListPolicyRepository
 {
-    public async Task<DepartmentAbsenceWaitListPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr) =>
-        await DbContext.Set<DepartmentAbsenceWaitListPolicy>().SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == departmentCtrlNbr);
+    public async Task<CraftAbsenceWaitListPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr) =>
+        await DbContext.Set<CraftAbsenceWaitListPolicy>().SingleOrDefaultAsync(r => r.CraftCtrlNbr == craftCtrlNbr);
 }
 
 internal sealed class AbsenceWaitListAllowancePolicyRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

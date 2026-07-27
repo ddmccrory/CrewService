@@ -11,6 +11,7 @@
 
 @inject PoliciesClient PoliciesClient
 @inject DepartmentClient DepartmentClient
+@inject CraftClient CraftClient
 
 <PageTitle>Absence Approval Policy — Crew Service</PageTitle>
 
@@ -79,23 +80,23 @@ else
         </Footer>
     </Modal>
 
-    <Modal Visible="showDepartmentWaitListModal"
-           Title="@(isCreateDepartmentWaitListMode ? "Create Waitlist Configuration" : "Configure Waitlist Configuration")"
+    <Modal Visible="showCraftWaitListModal"
+           Title="@(isCreateCraftWaitListMode ? "Create Waitlist Configuration" : "Configure Waitlist Configuration")"
            Icon="bi bi-list-check"
-           OnClose="CloseDepartmentWaitListModal">
+           OnClose="CloseCraftWaitListModal">
         <BodyContent>
-            <EditForm Model="departmentWaitListEditModel" OnValidSubmit="OnSaveDepartmentWaitList" id="department-waitlist-policy-form">
+            <EditForm Model="craftWaitListEditModel" OnValidSubmit="OnSaveCraftWaitList" id="craft-waitlist-policy-form">
                 <DataAnnotationsValidator />
 
-                @if (isCreateDepartmentWaitListMode)
+                @if (isCreateCraftWaitListMode)
                 {
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" for="departmentWaitListDepartment">Department</label>
-                        <select id="departmentWaitListDepartment" class="form-select" @bind="departmentWaitListEditModel.DepartmentCtrlNbr" @bind:after="OnDepartmentWaitListDepartmentChanged">
-                            <option value="0">-- Select Department --</option>
-                            @foreach (var row in departmentCapRows.Where(r => !r.WaitListConfigured).OrderBy(r => r.DepartmentName))
+                        <label class="form-label fw-semibold" for="craftWaitListCraft">Craft</label>
+                        <select id="craftWaitListCraft" class="form-select" @bind="craftWaitListEditModel.CraftCtrlNbr" @bind:after="OnCraftWaitListCraftChanged">
+                            <option value="0">-- Select Craft --</option>
+                            @foreach (var row in craftWaitListRows.Where(r => !r.WaitListConfigured).OrderBy(r => r.CraftName))
                             {
-                                <option value="@row.DepartmentCtrlNbr">@row.DepartmentName</option>
+                                <option value="@row.CraftCtrlNbr">@row.CraftName</option>
                             }
                         </select>
                     </div>
@@ -103,34 +104,34 @@ else
                 else
                 {
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Department</label>
-                        <p class="form-control-plaintext fw-bold">@departmentWaitListEditModel.DepartmentName</p>
+                        <label class="form-label fw-semibold">Craft</label>
+                        <p class="form-control-plaintext fw-bold">@craftWaitListEditModel.CraftName</p>
                     </div>
                 }
 
                 <div class="mb-3">
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="departmentWaitListEnabled" @bind="departmentWaitListEditModel.IsEnabled" />
-                        <label class="form-check-label" for="departmentWaitListEnabled">Waitlist reassignment enabled</label>
+                            <input class="form-check-input" type="checkbox" id="craftWaitListEnabled" @bind="craftWaitListEditModel.IsEnabled" />
+                            <label class="form-check-label" for="craftWaitListEnabled">Waitlist reassignment enabled</label>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="compensableDayMaxAssignments">Compensable Day Max Assignments</label>
-                    <input class="form-control" type="number" id="compensableDayMaxAssignments" min="0" max="365" @bind="departmentWaitListEditModel.CompensableDayMaxAssignments" />
-                    <ValidationMessage For="() => departmentWaitListEditModel.CompensableDayMaxAssignments" class="text-danger" />
+                    <input class="form-control" type="number" id="compensableDayMaxAssignments" min="0" max="365" @bind="craftWaitListEditModel.CompensableDayMaxAssignments" />
+                    <ValidationMessage For="() => craftWaitListEditModel.CompensableDayMaxAssignments" class="text-danger" />
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="vacationWeekMaxAssignments">Vacation Week Max Assignments</label>
-                    <input class="form-control" type="number" id="vacationWeekMaxAssignments" min="0" max="365" @bind="departmentWaitListEditModel.VacationWeekMaxAssignments" />
-                    <ValidationMessage For="() => departmentWaitListEditModel.VacationWeekMaxAssignments" class="text-danger" />
+                    <input class="form-control" type="number" id="vacationWeekMaxAssignments" min="0" max="365" @bind="craftWaitListEditModel.VacationWeekMaxAssignments" />
+                    <ValidationMessage For="() => craftWaitListEditModel.VacationWeekMaxAssignments" class="text-danger" />
                 </div>
             </EditForm>
         </BodyContent>
         <Footer>
-            <button type="button" class="btn btn-outline-secondary" @onclick="CloseDepartmentWaitListModal">Cancel</button>
-            <button type="submit" form="department-waitlist-policy-form" class="btn btn-primary" disabled="@isSaving">
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseCraftWaitListModal">Cancel</button>
+            <button type="submit" form="craft-waitlist-policy-form" class="btn btn-primary" disabled="@isSaving">
                 <span class="bi bi-check-circle me-1"></span> Save
             </button>
         </Footer>
@@ -280,24 +281,24 @@ else
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                        <h5 class="card-title mb-1">Department Waitlist Configuration</h5>
-                        <div class="text-muted small">Configure waitlist reassignment caps per department.</div>
+                        <h5 class="card-title mb-1">Craft Waitlist Configuration</h5>
+                        <div class="text-muted small">Configure waitlist reassignment caps per craft.</div>
                     </div>
                     @if (!IsFeatureReadOnly)
                     {
-                        <button class="btn btn-primary" @onclick="OpenCreateDepartmentWaitListModal">
+                        <button class="btn btn-primary" @onclick="OpenCreateCraftWaitListModal">
                             <span class="bi bi-plus-circle"></span> Create
                         </button>
                     }
                 </div>
 
-                @if (isLoadingDepartmentCaps)
+                @if (isLoadingCraftWaitLists)
                 {
                     <div class="text-center py-4"><div class="spinner-border" /></div>
                 }
-                else if (departmentCapRows.Count == 0)
+                else if (craftWaitListRows.Count == 0)
                 {
-                    <div class="text-muted">No departments found for the selected railroad.</div>
+                    <div class="text-muted">No crafts found for the selected railroad.</div>
                 }
                 else
                 {
@@ -305,7 +306,7 @@ else
                         <table class="table table-sm align-middle">
                             <thead>
                                 <tr>
-                                    <th>Department</th>
+                                    <th>Craft</th>
                                     <th class="text-end">Comp Day Max</th>
                                     <th class="text-end">Vacation Week Max</th>
                                     <th class="text-end">Enabled</th>
@@ -313,10 +314,10 @@ else
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var row in departmentCapRows)
+                                @foreach (var row in craftWaitListRows)
                                 {
                                     <tr>
-                                        <td class="fw-semibold">@row.DepartmentName</td>
+                                        <td class="fw-semibold">@row.CraftName</td>
                                         <td class="text-end">@(row.WaitListCompensableDayMaxAssignments?.ToString() ?? "—")</td>
                                         <td class="text-end">@(row.WaitListVacationWeekMaxAssignments?.ToString() ?? "—")</td>
                                         <td class="text-end">
@@ -334,7 +335,7 @@ else
                                         <td class="text-end">
                                             @if (!IsFeatureReadOnly)
                                             {
-                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenDepartmentWaitListModal(row)">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenCraftWaitListModal(row)">
                                                     @(row.WaitListConfigured ? "Edit" : "Configure")
                                                 </button>
                                             }
@@ -378,6 +379,12 @@ else
         public long DepartmentCtrlNbr { get; init; }
         public string DepartmentName { get; init; } = string.Empty;
         public int? RequestWindowCapDays { get; set; }
+    }
+
+    private sealed class CraftWaitListRow
+    {
+        public long CraftCtrlNbr { get; init; }
+        public string CraftName { get; init; } = string.Empty;
         public int? WaitListCompensableDayMaxAssignments { get; set; }
         public int? WaitListVacationWeekMaxAssignments { get; set; }
         public bool WaitListIsEnabled { get; set; }
@@ -393,10 +400,10 @@ else
         public int RequestWindowCapDays { get; set; } = 45;
     }
 
-    private sealed class DepartmentWaitListEditModel
+    private sealed class CraftWaitListEditModel
     {
-        public long DepartmentCtrlNbr { get; set; }
-        public string DepartmentName { get; set; } = string.Empty;
+        public long CraftCtrlNbr { get; set; }
+        public string CraftName { get; set; } = string.Empty;
 
         [Range(0, 365, ErrorMessage = "Compensable day max assignments must be between 0 and 365.")]
         public int CompensableDayMaxAssignments { get; set; } = 3;
@@ -420,15 +427,17 @@ else
 
     private bool isLoading = true;
     private bool isLoadingDepartmentCaps;
+    private bool isLoadingCraftWaitLists;
     private bool hasConfiguredPolicy;
     private bool showDepartmentCapModal;
-    private bool showDepartmentWaitListModal;
+    private bool showCraftWaitListModal;
     private bool isCreateDepartmentCapMode;
-    private bool isCreateDepartmentWaitListMode;
+    private bool isCreateCraftWaitListMode;
     private EditModel editModel = new();
     private DepartmentCapEditModel departmentCapEditModel = new();
-    private DepartmentWaitListEditModel departmentWaitListEditModel = new();
+    private CraftWaitListEditModel craftWaitListEditModel = new();
     private List<DepartmentCapRow> departmentCapRows = [];
+    private List<CraftWaitListRow> craftWaitListRows = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -449,6 +458,7 @@ else
 
         isLoading = true;
         isLoadingDepartmentCaps = true;
+        isLoadingCraftWaitLists = true;
         errorMessage = null;
 
         try
@@ -471,12 +481,25 @@ else
                 foreach (var department in departments.Departments.OrderBy(d => d.Name))
                 {
                     var departmentPolicy = await PoliciesClient.GetDepartmentAbsenceRequestWindowPolicyAsync(department.CtrlNbr);
-                    var waitListPolicy = await PoliciesClient.GetDepartmentAbsenceWaitListPolicyAsync(department.CtrlNbr);
                     rows.Add(new DepartmentCapRow
                     {
                         DepartmentCtrlNbr = department.CtrlNbr,
                         DepartmentName = department.Name,
-                        RequestWindowCapDays = departmentPolicy?.RequestWindowCapDays,
+                        RequestWindowCapDays = departmentPolicy?.RequestWindowCapDays
+                    });
+                }
+
+                departmentCapRows = rows;
+
+                var crafts = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr.Value, SelectedRailroadCtrlNbr.Value);
+                var craftRows = new List<CraftWaitListRow>();
+                foreach (var craft in crafts.Crafts.OrderBy(c => c.CraftName))
+                {
+                    var waitListPolicy = await PoliciesClient.GetCraftAbsenceWaitListPolicyAsync(craft.CtrlNbr);
+                    craftRows.Add(new CraftWaitListRow
+                    {
+                        CraftCtrlNbr = craft.CtrlNbr,
+                        CraftName = craft.CraftName,
                         WaitListCompensableDayMaxAssignments = waitListPolicy?.CompensableDayMaxAssignments,
                         WaitListVacationWeekMaxAssignments = waitListPolicy?.VacationWeekMaxAssignments,
                         WaitListIsEnabled = waitListPolicy?.IsEnabled ?? false,
@@ -484,11 +507,12 @@ else
                     });
                 }
 
-                departmentCapRows = rows;
+                craftWaitListRows = craftRows;
             }
             else
             {
                 departmentCapRows = [];
+                craftWaitListRows = [];
             }
         }
         catch (Exception ex)
@@ -497,11 +521,13 @@ else
             hasConfiguredPolicy = false;
             editModel = new EditModel();
             departmentCapRows = [];
+            craftWaitListRows = [];
         }
         finally
         {
             isLoading = false;
             isLoadingDepartmentCaps = false;
+            isLoadingCraftWaitLists = false;
         }
     }
 
@@ -585,53 +611,53 @@ else
         return Task.CompletedTask;
     }
 
-    private void OpenDepartmentWaitListModal(DepartmentCapRow row)
+    private void OpenCraftWaitListModal(CraftWaitListRow row)
     {
-        isCreateDepartmentWaitListMode = false;
-        departmentWaitListEditModel = new DepartmentWaitListEditModel
+        isCreateCraftWaitListMode = false;
+        craftWaitListEditModel = new CraftWaitListEditModel
         {
-            DepartmentCtrlNbr = row.DepartmentCtrlNbr,
-            DepartmentName = row.DepartmentName,
+            CraftCtrlNbr = row.CraftCtrlNbr,
+            CraftName = row.CraftName,
             CompensableDayMaxAssignments = row.WaitListCompensableDayMaxAssignments ?? 3,
             VacationWeekMaxAssignments = row.WaitListVacationWeekMaxAssignments ?? 3,
             IsEnabled = row.WaitListConfigured ? row.WaitListIsEnabled : true
         };
 
-        showDepartmentWaitListModal = true;
+        showCraftWaitListModal = true;
     }
 
-    private void OpenCreateDepartmentWaitListModal()
+    private void OpenCreateCraftWaitListModal()
     {
-        var candidate = departmentCapRows.FirstOrDefault(r => !r.WaitListConfigured);
+        var candidate = craftWaitListRows.FirstOrDefault(r => !r.WaitListConfigured);
         if (candidate is null)
         {
-            errorMessage = "All departments already have waitlist configuration.";
+            errorMessage = "All crafts already have waitlist configuration.";
             return;
         }
 
         errorMessage = null;
-        isCreateDepartmentWaitListMode = true;
-        departmentWaitListEditModel = new DepartmentWaitListEditModel
+        isCreateCraftWaitListMode = true;
+        craftWaitListEditModel = new CraftWaitListEditModel
         {
-            DepartmentCtrlNbr = 0,
-            DepartmentName = string.Empty,
+            CraftCtrlNbr = 0,
+            CraftName = string.Empty,
             CompensableDayMaxAssignments = 3,
             VacationWeekMaxAssignments = 3,
             IsEnabled = true
         };
-        showDepartmentWaitListModal = true;
+        showCraftWaitListModal = true;
     }
 
-    private void CloseDepartmentWaitListModal()
+    private void CloseCraftWaitListModal()
     {
-        showDepartmentWaitListModal = false;
-        isCreateDepartmentWaitListMode = false;
+        showCraftWaitListModal = false;
+        isCreateCraftWaitListMode = false;
     }
 
-    private Task OnDepartmentWaitListDepartmentChanged()
+    private Task OnCraftWaitListCraftChanged()
     {
-        var selected = departmentCapRows.FirstOrDefault(r => r.DepartmentCtrlNbr == departmentWaitListEditModel.DepartmentCtrlNbr);
-        departmentWaitListEditModel.DepartmentName = selected?.DepartmentName ?? string.Empty;
+        var selected = craftWaitListRows.FirstOrDefault(r => r.CraftCtrlNbr == craftWaitListEditModel.CraftCtrlNbr);
+        craftWaitListEditModel.CraftName = selected?.CraftName ?? string.Empty;
         return Task.CompletedTask;
     }
 
@@ -669,11 +695,11 @@ else
         }
     }
 
-    private async Task OnSaveDepartmentWaitList()
+    private async Task OnSaveCraftWaitList()
     {
-        if (departmentWaitListEditModel.DepartmentCtrlNbr <= 0)
+        if (craftWaitListEditModel.CraftCtrlNbr <= 0)
         {
-            errorMessage = "Department is required.";
+            errorMessage = "Craft is required.";
             return;
         }
 
@@ -682,13 +708,13 @@ else
 
         try
         {
-            var saved = await PoliciesClient.UpsertDepartmentAbsenceWaitListPolicyAsync(
-                departmentWaitListEditModel.DepartmentCtrlNbr,
-                departmentWaitListEditModel.CompensableDayMaxAssignments,
-                departmentWaitListEditModel.VacationWeekMaxAssignments,
-                departmentWaitListEditModel.IsEnabled);
+            var saved = await PoliciesClient.UpsertCraftAbsenceWaitListPolicyAsync(
+                craftWaitListEditModel.CraftCtrlNbr,
+                craftWaitListEditModel.CompensableDayMaxAssignments,
+                craftWaitListEditModel.VacationWeekMaxAssignments,
+                craftWaitListEditModel.IsEnabled);
 
-            var row = departmentCapRows.FirstOrDefault(r => r.DepartmentCtrlNbr == saved.DepartmentCtrlNbr);
+            var row = craftWaitListRows.FirstOrDefault(r => r.CraftCtrlNbr == saved.CraftCtrlNbr);
             if (row is not null)
             {
                 row.WaitListCompensableDayMaxAssignments = saved.CompensableDayMaxAssignments;
@@ -697,12 +723,12 @@ else
                 row.WaitListConfigured = true;
             }
 
-            successMessage = $"Waitlist configuration saved for {departmentWaitListEditModel.DepartmentName}.";
-            showDepartmentWaitListModal = false;
+            successMessage = $"Waitlist configuration saved for {craftWaitListEditModel.CraftName}.";
+            showCraftWaitListModal = false;
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to save department waitlist configuration: {ex.Message}";
+            errorMessage = $"Failed to save craft waitlist configuration: {ex.Message}";
         }
         finally
         {

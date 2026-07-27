@@ -37,7 +37,20 @@ public class AbsenceService(IServiceProvider serviceProvider)
             ? ControlNumber.Create(request.ApprovedByCtrlNbr)
             : (ControlNumber?)null;
 
-        if (approvedByCtrlNbr is not null)
+        var approvalPolicy = await svc.ResolveApprovalPolicyAsync(
+            ControlNumber.Create(request.AbsenceCodeCtrlNbr),
+            context.CancellationToken);
+
+        if (approvalPolicy.Level == AbsenceApprovalLevel.Automatic)
+        {
+            var approvalEmployeeCtrlNbr = actorContext.CurrentEmployeeCtrlNbr ?? actorContext.RequestedEmployeeCtrlNbr;
+            if (!approvalEmployeeCtrlNbr.HasValue || approvalEmployeeCtrlNbr.Value <= 0)
+                throw new RpcException(new Status(StatusCode.FailedPrecondition, "Automatic approval requires a creating employee context."));
+
+            approvedByCtrlNbr = ControlNumber.Create(approvalEmployeeCtrlNbr.Value);
+        }
+
+        if (approvedByCtrlNbr is not null && approvalPolicy.Level != AbsenceApprovalLevel.Automatic)
         {
             var createContext = await ResolveCreateApprovalContextAsync(
                 svc,
@@ -174,6 +187,109 @@ public class AbsenceService(IServiceProvider serviceProvider)
         return response;
     }
 
+    public override async Task<GetAbsenceRequestCountsByDayResponse> GetAbsenceRequestCountsByDay(
+        GetAbsenceRequestCountsByDayMsg request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
+        var railroadCtrlNbr = ControlNumber.Create(selectedRailroadCtrlNbr);
+
+        var rangeStartUtc = request.RangeStartUtc is not null
+            ? DateTime.SpecifyKind(request.RangeStartUtc.ToDateTime(), DateTimeKind.Utc)
+            : DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+
+        var rangeEndUtc = request.RangeEndUtc is not null
+            ? DateTime.SpecifyKind(request.RangeEndUtc.ToDateTime(), DateTimeKind.Utc)
+            : rangeStartUtc.AddMonths(1);
+
+        var resolvedRange = await ResolveRangeUtcAsync(
+            rangeStartUtc,
+            rangeEndUtc,
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        var displayTimeZone = await ResolveDisplayTimeZoneAsync(
+            request.HasWorkAreaGroupCtrlNbr ? request.WorkAreaGroupCtrlNbr : null,
+            context.CancellationToken);
+
+        var standardRequests = await svc.GetByDateRangeAsync(
+            railroadCtrlNbr,
+            resolvedRange.StartUtc,
+            resolvedRange.EndUtc,
+            request.IncludeAllStatuses,
+            request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            context.CancellationToken);
+
+        if (request.HasEmployeeCtrlNbr)
+        {
+            var employeeCtrlNbr = ControlNumber.Create(request.EmployeeCtrlNbr);
+            standardRequests = standardRequests
+                .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr)
+                .ToList();
+        }
+
+        var waitListRecords = await GetWaitListRecordsForCountsAsync(
+            resolvedRange.StartUtc,
+            resolvedRange.EndUtc,
+            railroadCtrlNbr,
+            request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            request.HasEmployeeCtrlNbr ? ControlNumber.Create(request.EmployeeCtrlNbr) : null,
+            displayTimeZone,
+            context.CancellationToken);
+
+        var absenceCodeRepo = serviceProvider.GetRequiredService<IAbsenceCodeRepository>();
+        var codeCompensationLookup = (await absenceCodeRepo.GetByRailroadAsync(railroadCtrlNbr, context.CancellationToken))
+            .GroupBy(c => c.CtrlNbr)
+            .ToDictionary(g => g.Key, g => g.First().IsCompensated);
+
+        var counts = new Dictionary<DateTime, (int Compensated, int NotCompensated)>();
+
+        foreach (var absence in standardRequests)
+        {
+            var day = ResolveBucketDate(absence.ScheduledStartUtc, displayTimeZone);
+            var isCompensated = absence.AbsenceCodeCtrlNbr is not null
+                && codeCompensationLookup.TryGetValue(absence.AbsenceCodeCtrlNbr, out var compensated)
+                && compensated;
+
+            if (!counts.TryGetValue(day, out var existing))
+                existing = (0, 0);
+
+            counts[day] = isCompensated
+                ? (existing.Compensated + 1, existing.NotCompensated)
+                : (existing.Compensated, existing.NotCompensated + 1);
+        }
+
+        foreach (var waitListRecord in waitListRecords)
+        {
+            var day = ResolveBucketDate(waitListRecord.RequestDateUtc, displayTimeZone);
+            var isCompensated = codeCompensationLookup.TryGetValue(waitListRecord.AbsenceCodeCtrlNbr, out var compensated)
+                && compensated;
+
+            if (!counts.TryGetValue(day, out var existing))
+                existing = (0, 0);
+
+            counts[day] = isCompensated
+                ? (existing.Compensated + 1, existing.NotCompensated)
+                : (existing.Compensated, existing.NotCompensated + 1);
+        }
+
+        var response = new GetAbsenceRequestCountsByDayResponse();
+        foreach (var (date, count) in counts.OrderBy(kvp => kvp.Key).Select(kvp => (kvp.Key, kvp.Value)))
+        {
+            response.Counts.Add(new AbsenceRequestDailyCount
+            {
+                DateUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(date.Date, DateTimeKind.Utc)),
+                CompensatedCount = count.Compensated,
+                NotCompensatedCount = count.NotCompensated
+            });
+        }
+
+        return response;
+    }
+
     public override async Task<GetMarkOffAbsenceRequestsResponse> GetAbsenceApprovals(
         GetAbsenceApprovalsMsg request,
         ServerCallContext context)
@@ -209,7 +325,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
 
         requests = requests
             .OrderBy(r => r.ScheduledStartUtc)
-            .ThenBy(r => r.CtrlNbr)
+            .ThenBy(r => r.CtrlNbr.Value)
             .ToList();
 
         var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = requests.Count };
@@ -284,7 +400,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
 
         requests = requests
             .OrderByDescending(ResolveHistorySortUtc)
-            .ThenByDescending(r => r.CtrlNbr)
+            .ThenByDescending(r => r.CtrlNbr.Value)
             .ToList();
 
         var response = new GetMarkOffAbsenceRequestsResponse { TotalCount = requests.Count };
@@ -372,8 +488,21 @@ public class AbsenceService(IServiceProvider serviceProvider)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Employee control number is required."));
 
         var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        DateOnly? selectedLocalDay = null;
+        if (!string.IsNullOrWhiteSpace(request.SelectedLocalDay)
+            && DateOnly.TryParseExact(
+                request.SelectedLocalDay,
+                "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var parsedSelectedLocalDay))
+        {
+            selectedLocalDay = parsedSelectedLocalDay;
+        }
+
         var proposal = await svc.GetStartProposalAsync(
             ControlNumber.Create(request.EmployeeCtrlNbr),
+            selectedLocalDay,
             context.CancellationToken);
 
         var displayTimeZone = await ResolveDisplayTimeZoneAsync(
@@ -446,6 +575,36 @@ public class AbsenceService(IServiceProvider serviceProvider)
         catch (KeyNotFoundException ex)
         {
             throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
+    public override async Task<AbsenceApprovalResponse> CancelAbsence(
+        CancelAbsenceMsg request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
+        var ctrlNbr = ControlNumber.Create(request.AbsenceRequestCtrlNbr);
+        try
+        {
+            var absence = await svc.CancelAsync(ctrlNbr);
+
+            return new AbsenceApprovalResponse { Status = absence.DerivedStatus };
+        }
+        catch (KeyNotFoundException ex)
+        {
+            try
+            {
+                await svc.CancelWaitListAsync(ctrlNbr);
+                return new AbsenceApprovalResponse { Status = "CANCELLED" };
+            }
+            catch (KeyNotFoundException)
+            {
+                throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
         }
     }
 
@@ -859,15 +1018,18 @@ public class AbsenceService(IServiceProvider serviceProvider)
         await using var uow = await _uowFactory.CreateAsync(cancellationToken: ct);
         var waitListRecordRepo = serviceProvider.GetRequiredService<IAbsenceRequestWaitListRecordRepository>();
 
+        var queryRangeStartUtc = DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc);
+        var queryRangeEndUtc = DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc);
+
         var compDay = await waitListRecordRepo.GetPendingByDateRangeAsync(
-            rangeStartUtc,
-            rangeEndUtc,
+            queryRangeStartUtc,
+            queryRangeEndUtc,
             AbsenceRequestWaitListType.CompensableDay,
             ct);
 
         var vacationWeek = await waitListRecordRepo.GetPendingByDateRangeAsync(
-            rangeStartUtc,
-            rangeEndUtc,
+            queryRangeStartUtc,
+            queryRangeEndUtc,
             AbsenceRequestWaitListType.VacationWeek,
             ct);
 
@@ -893,12 +1055,6 @@ public class AbsenceService(IServiceProvider serviceProvider)
                     continue;
             }
 
-            if (departmentCtrlNbr is not null)
-            {
-                if (record.DepartmentCtrlNbr is null || record.DepartmentCtrlNbr != departmentCtrlNbr)
-                    continue;
-            }
-
             if (record.CraftCtrlNbr is null)
                 continue;
 
@@ -917,7 +1073,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
                 codeCache[record.AbsenceCodeCtrlNbr] = code;
             }
 
-            var startUtc = DateTime.SpecifyKind(record.EntryUtc, DateTimeKind.Utc);
+            var startUtc = DateTime.SpecifyKind(record.RequestDateUtc, DateTimeKind.Utc);
             items.Add(new MarkOffAbsenceRequestListItem
             {
                 CtrlNbr = record.CtrlNbr.Value,
@@ -940,6 +1096,67 @@ public class AbsenceService(IServiceProvider serviceProvider)
         return items;
     }
 
+    private async Task<List<AbsenceRequestWaitListRecord>> GetWaitListRecordsForCountsAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        ControlNumber railroadCtrlNbr,
+        ControlNumber? craftCtrlNbr,
+        ControlNumber? departmentCtrlNbr,
+        ControlNumber? employeeCtrlNbr,
+        TimeZoneInfo? displayTimeZone,
+        CancellationToken ct)
+    {
+        await using var uow = await _uowFactory.CreateAsync(cancellationToken: ct);
+        var waitListRecordRepo = serviceProvider.GetRequiredService<IAbsenceRequestWaitListRecordRepository>();
+
+        var queryRangeStartUtc = DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc);
+        var queryRangeEndUtc = DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc);
+
+        var compDay = await waitListRecordRepo.GetPendingByDateRangeAsync(
+            queryRangeStartUtc,
+            queryRangeEndUtc,
+            AbsenceRequestWaitListType.CompensableDay,
+            ct);
+
+        var vacationWeek = await waitListRecordRepo.GetPendingByDateRangeAsync(
+            queryRangeStartUtc,
+            queryRangeEndUtc,
+            AbsenceRequestWaitListType.VacationWeek,
+            ct);
+
+        var records = compDay.Concat(vacationWeek).ToList();
+        var craftCache = new Dictionary<ControlNumber, Craft?>();
+        var filtered = new List<AbsenceRequestWaitListRecord>(records.Count);
+
+        foreach (var record in records)
+        {
+            if (employeeCtrlNbr is not null && record.EmployeeCtrlNbr != employeeCtrlNbr)
+                continue;
+
+            if (craftCtrlNbr is not null)
+            {
+                if (record.CraftCtrlNbr is null || record.CraftCtrlNbr != craftCtrlNbr)
+                    continue;
+            }
+
+            if (record.CraftCtrlNbr is null)
+                continue;
+
+            if (!craftCache.TryGetValue(record.CraftCtrlNbr, out var craft))
+            {
+                craft = await uow.Crafts.GetByCtrlNbrAsync(record.CraftCtrlNbr, ct);
+                craftCache[record.CraftCtrlNbr] = craft;
+            }
+
+            if (craft?.DynamicGroupCtrlNbr != railroadCtrlNbr)
+                continue;
+
+            filtered.Add(record);
+        }
+
+        return filtered;
+    }
+
     private MarkOffAbsenceRequestListItem MapOpenAbsence(AbsenceRequest request, TimeZoneInfo? displayTimeZone)
     {
         var item = MapAbsenceRequest(request, displayTimeZone);
@@ -960,8 +1177,8 @@ public class AbsenceService(IServiceProvider serviceProvider)
         if (request.IsSystemGenerated || request.AbsenceCodeCtrlNbr is null)
             return (AbsenceApprovalLevel.Automatic.ToString(), "Automatic approval (System)");
 
-        var hasSystemApproval = request.ApprovedByCtrlNbr?.Value == AbsenceRequestService.SystemApprovalOfficerCtrlNbr;
-        if (hasSystemApproval)
+        if (string.Equals(request.DerivedStatus, AbsenceStatusValues.Approved, StringComparison.OrdinalIgnoreCase)
+            && request.ApprovedByCtrlNbr is not null)
             return (AbsenceApprovalLevel.Automatic.ToString(), "Automatic approval (System)");
 
         return (AbsenceApprovalLevel.CallerManager.ToString(), "Caller or Manager approval required");
@@ -1135,5 +1352,44 @@ public class AbsenceService(IServiceProvider serviceProvider)
         var startUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, timeZone);
         var endUtc = TimeZoneInfo.ConvertTimeToUtc(localEnd, timeZone);
         return (startUtc, endUtc);
+    }
+
+    private async Task<(DateTime StartUtc, DateTime EndUtc)> ResolveRangeUtcAsync(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        long? workAreaGroupCtrlNbr,
+        CancellationToken ct)
+    {
+        var utcStart = rangeStartUtc.Date;
+        var utcEnd = rangeEndUtc.Date;
+
+        if (utcEnd <= utcStart)
+            utcEnd = utcStart.AddDays(1);
+
+        if (workAreaGroupCtrlNbr is null || workAreaGroupCtrlNbr.Value <= 0)
+            return (utcStart, utcEnd);
+
+        var timeZone = await _workAreaClock.GetWorkAreaTimeZoneAsync(
+            ControlNumber.Create(workAreaGroupCtrlNbr.Value),
+            ct);
+
+        if (timeZone is null)
+            return (utcStart, utcEnd);
+
+        var localStart = DateTime.SpecifyKind(utcStart, DateTimeKind.Unspecified);
+        var localEnd = DateTime.SpecifyKind(utcEnd, DateTimeKind.Unspecified);
+
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, timeZone);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(localEnd, timeZone);
+        return (startUtc, endUtc);
+    }
+
+    private static DateTime ResolveBucketDate(DateTime utcDateTime, TimeZoneInfo? displayTimeZone)
+    {
+        var utc = DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
+        if (displayTimeZone is null)
+            return utc.Date;
+
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, displayTimeZone).Date;
     }
 }
