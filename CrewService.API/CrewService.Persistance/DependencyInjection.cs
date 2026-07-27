@@ -174,7 +174,7 @@ public static class DependencyInjection
         services.AddScoped<ICraftCallSheetRuleRepository, CraftCallSheetRuleRepository>();
         services.AddScoped<IAbsenceApprovalPolicyRepository, AbsenceApprovalPolicyRepository>();
         services.AddScoped<IDepartmentAbsenceRequestWindowPolicyRepository, DepartmentAbsenceRequestWindowPolicyRepository>();
-        services.AddScoped<IDepartmentAbsenceWaitListPolicyRepository, DepartmentAbsenceWaitListPolicyRepository>();
+        services.AddScoped<ICraftAbsenceWaitListPolicyRepository, CraftAbsenceWaitListPolicyRepository>();
         services.AddScoped<IDepartmentReassignmentRuleRepository, DepartmentReassignmentRuleRepository>();
         services.AddScoped<IAbsenceWaitListAllowancePolicyRepository, AbsenceWaitListAllowancePolicyRepository>();
         services.AddScoped<ISeniorityMovePolicyRepository, SeniorityMovePolicyRepository>();

@@ -18,12 +18,13 @@ public sealed class AbsenceStartProposalService(
         ControlNumber employeeCtrlNbr,
         CancellationToken ct = default)
     {
-        var proposal = await GetStartProposalAsync(employeeCtrlNbr, ct);
+        var proposal = await GetStartProposalAsync(employeeCtrlNbr, selectedLocalDay: null, ct);
         return proposal.StartUtc;
     }
 
     public async Task<StartProposalResult> GetStartProposalAsync(
         ControlNumber employeeCtrlNbr,
+        DateOnly? selectedLocalDay = null,
         CancellationToken ct = default)
     {
         var nowUtc = DateTime.SpecifyKind(workAreaClock.UtcNow.UtcDateTime, DateTimeKind.Utc);
@@ -48,8 +49,8 @@ public sealed class AbsenceStartProposalService(
 
         var candidateLocal = staffablePosition.PositionType switch
         {
-            StaffablePositionType.Board => await ResolveBoardCandidateLocalAsync(uow, assignment, nowLocal, nowUtc, ct),
-            StaffablePositionType.Crew => await ResolveCrewCandidateLocalAsync(uow, assignment, nowLocal, nowUtc, ct),
+            StaffablePositionType.Board => await ResolveBoardCandidateLocalAsync(uow, assignment, nowLocal, nowUtc, selectedLocalDay, ct),
+            StaffablePositionType.Crew => await ResolveCrewCandidateLocalAsync(uow, assignment, nowLocal, nowUtc, selectedLocalDay, ct),
             _ => nowLocal
         };
 
@@ -113,8 +114,13 @@ public sealed class AbsenceStartProposalService(
         PositionAssignment assignment,
         DateTime nowLocal,
         DateTime nowUtc,
+        DateOnly? selectedLocalDay,
         CancellationToken ct)
     {
+        var selectedDate = selectedLocalDay?.ToDateTime(TimeOnly.MinValue).Date;
+        if (selectedDate.HasValue && selectedDate.Value > nowLocal.Date)
+            return selectedDate.Value.AddMinutes(1);
+
         var board = await ResolveBoardAsync(uow, assignment, ct);
         if (board is null)
             return nowLocal;
@@ -122,7 +128,7 @@ public sealed class AbsenceStartProposalService(
         if (board.BoardType is not (BoardType.ExtraBoard or BoardType.Hangout))
             return nowLocal;
 
-        var scheduleContext = await ResolveScheduleContextAsync(uow, assignment.StaffablePositionCtrlNbr, nowLocal, nowUtc, board.CraftCtrlNbr, ct);
+        var scheduleContext = await ResolveScheduleContextAsync(uow, assignment.StaffablePositionCtrlNbr, nowLocal, nowUtc, nowLocal, board.CraftCtrlNbr, ct);
         if (scheduleContext is null || scheduleContext.Value.CutoffMinutes <= 0)
             return nowLocal;
 
@@ -137,27 +143,54 @@ public sealed class AbsenceStartProposalService(
         PositionAssignment assignment,
         DateTime nowLocal,
         DateTime nowUtc,
+        DateOnly? selectedLocalDay,
         CancellationToken ct)
     {
-        var scheduleContext = await ResolveScheduleContextAsync(uow, assignment.StaffablePositionCtrlNbr, nowLocal, nowUtc, craftCtrlNbr: null, ct);
+        var selectedDate = selectedLocalDay?.ToDateTime(TimeOnly.MinValue).Date ?? nowLocal.Date;
+        var todayDate = nowLocal.Date;
+
+        var scheduleContext = await ResolveScheduleContextAsync(uow, assignment.StaffablePositionCtrlNbr, nowLocal, nowUtc, selectedDate, craftCtrlNbr: null, ct);
         if (scheduleContext is null)
-            return nowLocal;
-
-        var localDate = nowLocal.Date;
-        var shifted = false;
-
-        for (var i = 0; i < 14; i++)
         {
-            if (IsOperatingDay(scheduleContext.Value.OperatingDaysMask, localDate.DayOfWeek))
-                break;
+            if (selectedLocalDay.HasValue)
+                return selectedLocalDay.Value.ToDateTime(TimeOnly.MinValue).AddMinutes(1);
 
-            localDate = localDate.AddDays(1);
-            shifted = true;
+            return nowLocal;
         }
 
-        return shifted
-            ? localDate.AddMinutes(1)
-            : nowLocal;
+        if (selectedDate != todayDate)
+        {
+            var localDate = selectedDate;
+
+            for (var i = 0; i < 14; i++)
+            {
+                if (IsOperatingDay(scheduleContext.Value.OperatingDaysMask, localDate.DayOfWeek))
+                    return localDate.AddMinutes(1);
+
+                localDate = localDate.AddDays(1);
+            }
+
+            return selectedDate.AddMinutes(1);
+        }
+
+        if (!IsOperatingDay(scheduleContext.Value.OperatingDaysMask, todayDate.DayOfWeek))
+        {
+            var nextOperatingDate = todayDate;
+            for (var i = 0; i < 14; i++)
+            {
+                if (IsOperatingDay(scheduleContext.Value.OperatingDaysMask, nextOperatingDate.DayOfWeek))
+                    return nextOperatingDate.AddMinutes(1);
+
+                nextOperatingDate = nextOperatingDate.AddDays(1);
+            }
+
+            return todayDate.AddMinutes(1);
+        }
+
+        if (scheduleContext.Value.OnDutyTime.ToTimeSpan() < nowLocal.TimeOfDay)
+            return todayDate.AddDays(1).AddMinutes(1);
+
+        return nowLocal;
     }
 
     private static async Task<(int OperatingDaysMask, TimeOnly OnDutyTime, int CutoffMinutes)?> ResolveScheduleContextAsync(
@@ -165,6 +198,7 @@ public sealed class AbsenceStartProposalService(
         ControlNumber staffablePositionCtrlNbr,
         DateTime nowLocal,
         DateTime nowUtc,
+        DateTime referenceLocalDate,
         ControlNumber? craftCtrlNbr,
         CancellationToken ct)
     {
@@ -173,17 +207,21 @@ public sealed class AbsenceStartProposalService(
             return null;
 
         var crewAssignments = await uow.CrewAssignments.GetByCrewAsync(crewPosition.CrewCtrlNbr);
-        var activeCrewAssignment = crewAssignments
+        var activeCrewAssignments = crewAssignments
             .Where(ca => ca.StartUtc <= nowUtc && (ca.EndUtc is null || ca.EndUtc > nowUtc))
             .OrderByDescending(ca => ca.StartUtc)
-            .FirstOrDefault();
+            .ToList();
+
+        var referenceDayBit = 1 << (int)referenceLocalDate.DayOfWeek;
+        var activeCrewAssignment = activeCrewAssignments
+            .FirstOrDefault(ca => (ca.DaysOfWeekMask & referenceDayBit) != 0);
 
         if (activeCrewAssignment is null)
             return null;
 
         var schedules = await uow.AssignmentSchedules.GetByAssignmentAsync(activeCrewAssignment.AssignmentCtrlNbr);
         var schedule = schedules
-            .FirstOrDefault(s => IsOperatingDay(s.OperatingDaysMask, nowLocal.DayOfWeek))
+            .FirstOrDefault(s => IsOperatingDay(s.OperatingDaysMask, referenceLocalDate.DayOfWeek))
             ?? schedules.OrderBy(s => s.OnDutyTime).FirstOrDefault();
 
         if (schedule is null)
@@ -204,7 +242,11 @@ public sealed class AbsenceStartProposalService(
                 cutoffMinutes = Math.Max(0, craftRule.PreOnDutyChangeCutoffMinutes);
         }
 
-        return (schedule.OperatingDaysMask, schedule.OnDutyTime, cutoffMinutes);
+        var effectiveOperatingDaysMask = schedule.OperatingDaysMask & activeCrewAssignment.DaysOfWeekMask;
+        if (effectiveOperatingDaysMask == 0)
+            return null;
+
+        return (effectiveOperatingDaysMask, schedule.OnDutyTime, cutoffMinutes);
     }
 
     private async Task<TimeZoneInfo?> ResolveTimeZoneAsync(

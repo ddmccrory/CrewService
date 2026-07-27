@@ -16,6 +16,9 @@ service MarkOffSrvc {
   rpc DeclineAbsence (DeclineAbsenceMsg) returns (AbsenceApprovalResponse) {
     option (google.api.http) = { post: "/v1/mark-off/decline" body: "*" };
   }
+  rpc CancelAbsence (CancelAbsenceMsg) returns (AbsenceApprovalResponse) {
+    option (google.api.http) = { post: "/v1/mark-off/cancel" body: "*" };
+  }
   rpc MarkOffAbsence (MarkOffAbsenceMsg) returns (AbsenceApprovalResponse) {
     option (google.api.http) = { post: "/v1/mark-off/exercise" body: "*" };
   }
@@ -48,6 +51,9 @@ service MarkOffSrvc {
   }
   rpc GetAbsenceRequests (GetAbsenceRequestsMsg) returns (GetMarkOffAbsenceRequestsResponse) {
     option (google.api.http) = { get: "/v1/mark-off/requests" };
+  }
+  rpc GetAbsenceRequestCountsByDay (GetAbsenceRequestCountsByDayMsg) returns (GetAbsenceRequestCountsByDayResponse) {
+    option (google.api.http) = { get: "/v1/mark-off/request-counts-by-day" };
   }
   rpc GetOpenAbsences (GetOpenAbsencesMsg) returns (GetOpenAbsencesResponse) {
     option (google.api.http) = { get: "/v1/mark-off/open-absences" };
@@ -106,6 +112,10 @@ message DeclineAbsenceMsg {
   int64 absence_request_ctrl_nbr = 1;
   int64 officer_ctrl_nbr = 2;
   optional string notes = 3;
+}
+
+message CancelAbsenceMsg {
+  int64 absence_request_ctrl_nbr = 1;
 }
 
 message MarkOffAbsenceMsg {
@@ -233,6 +243,16 @@ message GetAbsenceRequestsMsg {
   optional int64 employee_ctrl_nbr = 6;
 }
 
+message GetAbsenceRequestCountsByDayMsg {
+  google.protobuf.Timestamp range_start_utc = 1;
+  google.protobuf.Timestamp range_end_utc = 2;
+  bool include_all_statuses = 3;
+  optional int64 work_area_group_ctrl_nbr = 4;
+  optional int64 craft_ctrl_nbr = 5;
+  optional int64 department_ctrl_nbr = 6;
+  optional int64 employee_ctrl_nbr = 7;
+}
+
 message GetOpenAbsencesMsg {
   google.protobuf.Timestamp range_start_utc = 1;
   google.protobuf.Timestamp range_end_utc = 2;
@@ -289,6 +309,7 @@ message GetCreateAbsenceEndLocalPresetResponse {
 message GetCreateAbsenceStartProposalMsg {
   int64 employee_ctrl_nbr = 1;
   optional int64 work_area_group_ctrl_nbr = 2;
+  optional string selected_local_day = 3;
 }
 
 message GetCreateAbsenceStartProposalResponse {
@@ -320,6 +341,16 @@ message GetOpenAbsencesResponse {
 message GetMarkOffAbsenceRequestsResponse {
   repeated MarkOffAbsenceRequestListItem requests = 1;
   int32 total_count = 2;
+}
+
+message GetAbsenceRequestCountsByDayResponse {
+  repeated AbsenceRequestDailyCount counts = 1;
+}
+
+message AbsenceRequestDailyCount {
+  google.protobuf.Timestamp date_utc = 1;
+  int32 compensated_count = 2;
+  int32 not_compensated_count = 3;
 }
 
 message MarkOffAbsenceRequestListItem {

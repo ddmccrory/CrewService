@@ -51,9 +51,9 @@ public interface IDepartmentReassignmentRuleRepository : IRepository<DepartmentR
     Task<DepartmentReassignmentRule?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
 }
 
-public interface IDepartmentAbsenceWaitListPolicyRepository : IRepository<DepartmentAbsenceWaitListPolicy>
+public interface ICraftAbsenceWaitListPolicyRepository : IRepository<CraftAbsenceWaitListPolicy>
 {
-    Task<DepartmentAbsenceWaitListPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr);
+    Task<CraftAbsenceWaitListPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr);
 }
 
 public interface IAbsenceWaitListAllowancePolicyRepository : IRepository<AbsenceWaitListAllowancePolicy>

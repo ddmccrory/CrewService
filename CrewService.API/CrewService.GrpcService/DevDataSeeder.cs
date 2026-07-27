@@ -195,17 +195,18 @@ internal static class DevDataSeeder
 
         // Seed baseline mark-off codes for each railroad context.
         var absenceCodeRepo = sp.GetRequiredService<IAbsenceCodeRepository>();
-        var baselineMarkOffCodes = new (string Code, string Description)[]
+        var baselineMarkOffCodes = new (string Code, string Description, bool IsExcused, bool IsCompensated, bool RequiresApproval, decimal? DefaultAutoMarkUpHours)[]
         {
-            ("PB", "Personal Business"),
-            ("S", "Sick"),
-            ("CT", "Car Trouble"),
-            ("WR", "Weather Related"),
-            ("D", "Discipline"),
-            ("SR", "Safety Rest"),
-            ("VD", "Vacation Day"),
-            ("V", "Vacation"),
-            ("MD", "Medical/Dental")
+            ("CT", "Car Trouble", false, false, true, null),
+            ("D", "Discipline", false, false, true, null),
+            ("MD", "Medical/Dental", false, false, true, null),
+            ("PB", "Personal Business", false, false, true, null),
+            ("PD", "Personal Day", true, true, false, 24m),
+            ("S", "Sick", false, false, true, null),
+            ("SR", "Safety Rest", false, false, false, null),
+            ("V", "Vacation", true, true, false, null),
+            ("VD", "Vacation Day", true, true, false, 24m),
+            ("WR", "Weather Related", false, false, true, null)
         };
 
         foreach (var parentCore in new[] { simpleCorpCore, ptraParentCore, csxParentCore })
@@ -218,24 +219,37 @@ internal static class DevDataSeeder
             {
                 var existingCodes = await absenceCodeRepo.GetByRailroadAsync(railroad.CtrlNbr);
 
-                foreach (var (code, description) in baselineMarkOffCodes)
+                foreach (var (code, description, isExcused, isCompensated, requiresApproval, defaultAutoMarkUpHours) in baselineMarkOffCodes)
                 {
-                    if (existingCodes.Any(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase)))
-                        continue;
+                    var existingCode = existingCodes.FirstOrDefault(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase));
+                    if (existingCode is null)
+                    {
+                        var markOffCode = AbsenceCode.Create(
+                            railroad.CtrlNbr.Value,
+                            code,
+                            description,
+                            isExcused,
+                            isCompensated,
+                            requiresApproval,
+                            isSystemOnly: false,
+                            isHolidayExempt: false,
+                            defaultAutoMarkUpHours,
+                            isActive: true);
 
-                    var markOffCode = AbsenceCode.Create(
-                        railroad.CtrlNbr.Value,
-                        code,
-                        description,
-                        isExcused: false,
-                        isCompensated: false,
-                        requiresApproval: false,
+                        await absenceCodeRepo.AddAsync(markOffCode);
+                        continue;
+                    }
+
+                    existingCode.Update(
+                        description: description,
+                        isExcused: isExcused,
+                        isCompensated: isCompensated,
+                        requiresApproval: requiresApproval,
                         isSystemOnly: false,
                         isHolidayExempt: false,
-                        defaultAutoMarkUpHours: null,
+                        defaultAutoMarkUpHours: defaultAutoMarkUpHours,
                         isActive: true);
-
-                    await absenceCodeRepo.AddAsync(markOffCode);
+                    absenceCodeRepo.Update(existingCode);
                 }
             }
         }
@@ -749,9 +763,10 @@ internal static class DevDataSeeder
 
         // ?? Section 3b: Departments ???????????????????????????????????????????
         var departmentRepo = sp.GetRequiredService<IDepartmentRepository>();
+        var craftRepo = sp.GetRequiredService<ICraftRepository>();
         var departmentReassignmentRuleRepo = sp.GetRequiredService<IDepartmentReassignmentRuleRepository>();
         var departmentAbsenceRequestWindowPolicyRepo = sp.GetRequiredService<IDepartmentAbsenceRequestWindowPolicyRepository>();
-        var departmentAbsenceWaitListPolicyRepo = sp.GetRequiredService<IDepartmentAbsenceWaitListPolicyRepository>();
+        var craftAbsenceWaitListPolicyRepo = sp.GetRequiredService<ICraftAbsenceWaitListPolicyRepository>();
         var existingDepts = await departmentRepo.GetAllAsync();
         if (existingDepts.Count == 0)
         {
@@ -871,23 +886,24 @@ internal static class DevDataSeeder
             }
         }
 
-        // Seed department waitlist defaults.
-        var allDepartmentWaitListPolicies = await departmentAbsenceWaitListPolicyRepo.GetAllAsync();
-        var departmentWaitListPolicyByDepartment = allDepartmentWaitListPolicies
-            .ToDictionary(p => p.DepartmentCtrlNbr);
+        // Seed craft waitlist defaults.
+        var allCraftWaitListPolicies = await craftAbsenceWaitListPolicyRepo.GetAllAsync();
+        var craftWaitListPolicyByCraft = allCraftWaitListPolicies
+            .ToDictionary(p => p.CraftCtrlNbr);
 
-        foreach (var department in allDepartments)
+        var allCrafts = await craftRepo.GetAllAsync();
+        foreach (var craft in allCrafts)
         {
-            if (department.ParentCtrlNbr is null)
+            if (craft.ParentCtrlNbr is null)
                 continue;
 
-            SetParent(department.ParentCtrlNbr.Value);
+            SetParent(craft.ParentCtrlNbr.Value);
 
-            if (!departmentWaitListPolicyByDepartment.TryGetValue(department.CtrlNbr, out var waitListPolicy))
+            if (!craftWaitListPolicyByCraft.TryGetValue(craft.CtrlNbr, out var waitListPolicy))
             {
-                await departmentAbsenceWaitListPolicyRepo.AddAsync(
-                    DepartmentAbsenceWaitListPolicy.Create(
-                        department.CtrlNbr,
+                await craftAbsenceWaitListPolicyRepo.AddAsync(
+                    CraftAbsenceWaitListPolicy.Create(
+                        craft.CtrlNbr,
                         compensableDayMaxAssignments: 3,
                         vacationWeekMaxAssignments: 3,
                         isEnabled: true));
@@ -899,12 +915,11 @@ internal static class DevDataSeeder
                 || !waitListPolicy.IsEnabled)
             {
                 waitListPolicy.Update(3, 3, isEnabled: true);
-                await departmentAbsenceWaitListPolicyRepo.UpdateAsync(waitListPolicy);
+                await craftAbsenceWaitListPolicyRepo.UpdateAsync(waitListPolicy);
             }
         }
 
         // ?? Section 4: Seniority � Crafts, Rosters, Rankings ?????????????
-        var craftRepo = sp.GetRequiredService<ICraftRepository>();
         var rosterRepo = sp.GetRequiredService<IRosterRepository>();
         var seniorityRepo = sp.GetRequiredService<ISeniorityRepository>();
         var uowFactory = sp.GetRequiredService<IOrchestrationUnitOfWorkFactory>();

@@ -354,29 +354,29 @@ public sealed class DepartmentReassignmentRule : Entity
     }
 }
 
-public sealed class DepartmentAbsenceWaitListPolicy : Entity
+public sealed class CraftAbsenceWaitListPolicy : Entity
 {
-    public ControlNumber DepartmentCtrlNbr { get; private set; }
+    public ControlNumber CraftCtrlNbr { get; private set; }
     public int CompensableDayMaxAssignments { get; private set; }
     public int VacationWeekMaxAssignments { get; private set; }
     public bool IsEnabled { get; private set; }
 
-    private DepartmentAbsenceWaitListPolicy()
+    private CraftAbsenceWaitListPolicy()
     {
-        DepartmentCtrlNbr = null!;
+        CraftCtrlNbr = null!;
     }
 
-    public static DepartmentAbsenceWaitListPolicy Create(
-        ControlNumber departmentCtrlNbr,
+    public static CraftAbsenceWaitListPolicy Create(
+        ControlNumber craftCtrlNbr,
         int compensableDayMaxAssignments,
         int vacationWeekMaxAssignments,
         bool isEnabled = true)
     {
         Validate(compensableDayMaxAssignments, vacationWeekMaxAssignments);
 
-        return new DepartmentAbsenceWaitListPolicy
+        return new CraftAbsenceWaitListPolicy
         {
-            DepartmentCtrlNbr = departmentCtrlNbr,
+            CraftCtrlNbr = craftCtrlNbr,
             CompensableDayMaxAssignments = compensableDayMaxAssignments,
             VacationWeekMaxAssignments = vacationWeekMaxAssignments,
             IsEnabled = isEnabled

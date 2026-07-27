@@ -69,30 +69,30 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<DepartmentAbsenceWaitListPolicyResponse?> GetDepartmentAbsenceWaitListPolicyAsync(long departmentCtrlNbr)
+    public async Task<CraftAbsenceWaitListPolicyResponse?> GetCraftAbsenceWaitListPolicyAsync(long craftCtrlNbr)
     {
         try
         {
-            var response = await _client.GetDepartmentAbsenceWaitListPolicyAsync(
-                new GetDepartmentAbsenceWaitListPolicyRequest { DepartmentCtrlNbr = departmentCtrlNbr });
+            var response = await _client.GetCraftAbsenceWaitListPolicyAsync(
+                new GetCraftAbsenceWaitListPolicyRequest { CraftCtrlNbr = craftCtrlNbr });
             return response.CtrlNbr > 0 ? response : null;
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    public async Task<DepartmentAbsenceWaitListPolicyResponse> UpsertDepartmentAbsenceWaitListPolicyAsync(
-        long departmentCtrlNbr,
+    public async Task<CraftAbsenceWaitListPolicyResponse> UpsertCraftAbsenceWaitListPolicyAsync(
+        long craftCtrlNbr,
         int compensableDayMaxAssignments,
         int vacationWeekMaxAssignments,
         bool isEnabled)
     {
         try
         {
-            return await _client.UpsertDepartmentAbsenceWaitListPolicyAsync(
-                new UpsertDepartmentAbsenceWaitListPolicyRequest
+            return await _client.UpsertCraftAbsenceWaitListPolicyAsync(
+                new UpsertCraftAbsenceWaitListPolicyRequest
                 {
-                    DepartmentCtrlNbr = departmentCtrlNbr,
+                    CraftCtrlNbr = craftCtrlNbr,
                     CompensableDayMaxAssignments = compensableDayMaxAssignments,
                     VacationWeekMaxAssignments = vacationWeekMaxAssignments,
                     IsEnabled = isEnabled

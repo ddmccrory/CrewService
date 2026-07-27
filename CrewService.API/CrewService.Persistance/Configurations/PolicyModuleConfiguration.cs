@@ -293,20 +293,20 @@ internal class AbsenceWaitListAllowancePolicyConfiguration : IEntityTypeConfigur
     }
 }
 
-internal class DepartmentAbsenceWaitListPolicyConfiguration : IEntityTypeConfiguration<DepartmentAbsenceWaitListPolicy>
+internal class CraftAbsenceWaitListPolicyConfiguration : IEntityTypeConfiguration<CraftAbsenceWaitListPolicy>
 {
-    public void Configure(EntityTypeBuilder<DepartmentAbsenceWaitListPolicy> builder)
+    public void Configure(EntityTypeBuilder<CraftAbsenceWaitListPolicy> builder)
     {
         builder.HasKey(r => r.CtrlNbr);
         builder.Property(r => r.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
-        builder.Property(r => r.DepartmentCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
-        builder.HasIndex(r => r.DepartmentCtrlNbr).IsUnique();
+        builder.Property(r => r.CraftCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.HasIndex(r => r.CraftCtrlNbr).IsUnique();
 
         builder.Property(r => r.CompensableDayMaxAssignments).IsRequired();
         builder.Property(r => r.VacationWeekMaxAssignments).IsRequired();
         builder.Property(r => r.IsEnabled).IsRequired();
 
-        builder.HasOne<Department>().WithMany().HasForeignKey(r => r.DepartmentCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(r => r.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

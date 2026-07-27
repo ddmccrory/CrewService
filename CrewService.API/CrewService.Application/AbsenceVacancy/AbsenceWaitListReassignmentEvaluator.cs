@@ -12,7 +12,7 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IAbsenceCodeRepository absenceCodeRepository,
     IAbsenceRequestWaitListRecordRepository waitListRecordRepository,
-    IDepartmentAbsenceWaitListPolicyRepository departmentWaitListPolicyRepository,
+    ICraftAbsenceWaitListPolicyRepository craftWaitListPolicyRepository,
     IAbsenceWaitListAllowancePolicyRepository waitListAllowancePolicyRepository,
     ILogger<AbsenceWaitListReassignmentEvaluator> logger)
 {
@@ -43,21 +43,13 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
                 continue;
             }
 
-            if (waitListRecord.DepartmentCtrlNbr is null)
+            var craftPolicy = await craftWaitListPolicyRepository.GetByCraftAsync(waitListRecord.CraftCtrlNbr);
+            if (craftPolicy is null || !craftPolicy.IsEnabled)
             {
                 logger.LogWarning(
-                    "Comp-day waitlist record {WaitListCtrlNbr} has no department scope; leaving on waitlist.",
-                    waitListRecord.CtrlNbr.Value);
-                continue;
-            }
-
-            var departmentPolicy = await departmentWaitListPolicyRepository.GetByDepartmentAsync(waitListRecord.DepartmentCtrlNbr);
-            if (departmentPolicy is null || !departmentPolicy.IsEnabled)
-            {
-                logger.LogWarning(
-                    "Comp-day waitlist record {WaitListCtrlNbr} has no enabled department waitlist policy for department {DepartmentCtrlNbr}; leaving on waitlist.",
+                    "Comp-day waitlist record {WaitListCtrlNbr} has no enabled craft waitlist policy for craft {CraftCtrlNbr}; leaving on waitlist.",
                     waitListRecord.CtrlNbr.Value,
-                    waitListRecord.DepartmentCtrlNbr.Value);
+                    waitListRecord.CraftCtrlNbr.Value);
                 continue;
             }
 
@@ -81,21 +73,12 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
                 continue;
             }
 
-            var allowanceCode = absenceCode.Code.Trim().ToUpperInvariant();
-            var allowance = await waitListAllowancePolicyRepository.GetByCraftTypeCodeYearAsync(
-                waitListRecord.CraftCtrlNbr,
-                AbsenceRequestWaitListType.CompensableDay,
-                allowanceCode,
-                targetDate.Year);
-
-            if (allowance is null || !allowance.IsEnabled)
+            if (!absenceCode.IsCompensated)
             {
                 logger.LogWarning(
-                    "Comp-day waitlist record {WaitListCtrlNbr} has no enabled allowance policy for craft {CraftCtrlNbr} code {AllowanceCode} year {Year}; leaving on waitlist.",
+                    "Comp-day waitlist record {WaitListCtrlNbr} references non-compensated absence code {AbsenceCode}; leaving on waitlist.",
                     waitListRecord.CtrlNbr.Value,
-                    waitListRecord.CraftCtrlNbr.Value,
-                    allowanceCode,
-                    targetDate.Year);
+                    absenceCode.Code);
                 continue;
             }
 
@@ -105,7 +88,7 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
                 targetDate.AddDays(1),
                 includeAllStatuses: true,
                 craftCtrlNbr: waitListRecord.CraftCtrlNbr,
-                departmentCtrlNbr: waitListRecord.DepartmentCtrlNbr,
+                departmentCtrlNbr: null,
                 ct: ct);
 
             var currentAssigned = 0;
@@ -121,13 +104,13 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
                 if (existingCode is null)
                     continue;
 
-                if (!string.Equals(existingCode.Code, allowanceCode, StringComparison.OrdinalIgnoreCase))
+                if (!existingCode.IsCompensated)
                     continue;
 
                 currentAssigned++;
             }
 
-            var maxAssignments = Math.Min(allowance.MaxAssignments, departmentPolicy.CompensableDayMaxAssignments);
+            var maxAssignments = craftPolicy.CompensableDayMaxAssignments;
             if (currentAssigned < maxAssignments)
                 eligible.Add(waitListRecord);
         }
@@ -165,21 +148,13 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
                 continue;
             }
 
-            if (waitListRecord.DepartmentCtrlNbr is null)
+            var craftPolicy = await craftWaitListPolicyRepository.GetByCraftAsync(waitListRecord.CraftCtrlNbr);
+            if (craftPolicy is null || !craftPolicy.IsEnabled)
             {
                 logger.LogWarning(
-                    "Vacation-week waitlist record {WaitListCtrlNbr} has no department scope; leaving on waitlist.",
-                    waitListRecord.CtrlNbr.Value);
-                continue;
-            }
-
-            var departmentPolicy = await departmentWaitListPolicyRepository.GetByDepartmentAsync(waitListRecord.DepartmentCtrlNbr);
-            if (departmentPolicy is null || !departmentPolicy.IsEnabled)
-            {
-                logger.LogWarning(
-                    "Vacation-week waitlist record {WaitListCtrlNbr} has no enabled department waitlist policy for department {DepartmentCtrlNbr}; leaving on waitlist.",
+                    "Vacation-week waitlist record {WaitListCtrlNbr} has no enabled craft waitlist policy for craft {CraftCtrlNbr}; leaving on waitlist.",
                     waitListRecord.CtrlNbr.Value,
-                    waitListRecord.DepartmentCtrlNbr.Value);
+                    waitListRecord.CraftCtrlNbr.Value);
                 continue;
             }
 
@@ -237,11 +212,11 @@ public sealed class AbsenceWaitListReassignmentEvaluator(
                 rangeEndUtc,
                 includeAllStatuses: true,
                 craftCtrlNbr: waitListRecord.CraftCtrlNbr,
-                departmentCtrlNbr: waitListRecord.DepartmentCtrlNbr,
+                departmentCtrlNbr: null,
                 ct: ct);
 
             var codeCache = new Dictionary<ControlNumber, string>();
-            var maxAssignments = Math.Min(allowance.MaxAssignments, departmentPolicy.VacationWeekMaxAssignments);
+            var maxAssignments = Math.Min(allowance.MaxAssignments, craftPolicy.VacationWeekMaxAssignments);
             var capacityAvailable = await IsVacationWeekCapacityAvailableAsync(
                 existingRequests,
                 targetDate,

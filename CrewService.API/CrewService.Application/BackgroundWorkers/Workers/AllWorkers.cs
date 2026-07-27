@@ -281,14 +281,16 @@ public sealed class WaitListReassignmentWorker(
     protected override async Task<bool> ExecuteWorkAsync(IServiceProvider services, WorkerSchedule schedule, CancellationToken ct)
     {
         var processor = services.GetRequiredService<AbsenceVacancy.AbsenceWaitListReassignmentProcessor>();
-        var processed = await processor.ProcessAsync(DateTime.UtcNow, ct);
+        var targetDateUtc = scheduleSignal.ConsumeRequestedDateUtcOrNow();
+        var processed = await processor.ProcessAsync(targetDateUtc, ct);
 
         if (processed > 0 && logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
-                "WaitListReassignmentWorker: Assigned {Count} waitlist request(s) for schedule {ScheduleCtrlNbr}.",
+                "WaitListReassignmentWorker: Assigned {Count} waitlist request(s) for schedule {ScheduleCtrlNbr} targetDate={TargetDateUtc:yyyy-MM-dd}.",
                 processed,
-                schedule.CtrlNbr.Value);
+                schedule.CtrlNbr.Value,
+                targetDateUtc.Date);
         }
 
         return processed > 0;

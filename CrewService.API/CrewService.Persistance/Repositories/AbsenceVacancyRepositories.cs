@@ -254,10 +254,12 @@ internal sealed class AbsenceRequestWaitListRecordRepository(CrewServiceDbContex
         string waitListType,
         CancellationToken ct = default)
     {
-        var day = DateTime.SpecifyKind(requestDateUtc, DateTimeKind.Utc).Date;
+        var dayStartUtc = DateTime.SpecifyKind(requestDateUtc, DateTimeKind.Utc).Date;
+        var dayEndUtc = dayStartUtc.AddDays(1);
 
         return await DbContext.Set<AbsenceRequestWaitListRecord>()
-            .Where(r => r.RequestDateUtc == day
+            .Where(r => r.RequestDateUtc >= dayStartUtc
+                && r.RequestDateUtc < dayEndUtc
                 && r.WaitListType == waitListType
                 && r.AssignedAtUtc == null)
             .OrderBy(r => r.EntryUtc)
@@ -271,8 +273,8 @@ internal sealed class AbsenceRequestWaitListRecordRepository(CrewServiceDbContex
         string waitListType,
         CancellationToken ct = default)
     {
-        var rangeStart = DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc).Date;
-        var rangeEnd = DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc).Date;
+        var rangeStart = DateTime.SpecifyKind(rangeStartUtc, DateTimeKind.Utc);
+        var rangeEnd = DateTime.SpecifyKind(rangeEndUtc, DateTimeKind.Utc);
 
         if (rangeEnd <= rangeStart)
             return [];

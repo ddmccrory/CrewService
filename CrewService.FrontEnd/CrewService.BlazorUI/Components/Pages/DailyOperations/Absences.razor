@@ -616,11 +616,15 @@ else if (HasRailroad)
                                         @if (ShowRequestActionsColumn)
                                         {
                                             <td class="text-end">
-                                                @if (IsStatus(req.Status, "PENDING"))
+                                                @if (IsStatus(req.Status, "PENDING") || IsStatus(req.Status, "APPROVED"))
                                                 {
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        <button class="btn btn-outline-success" @onclick="() => ApproveRequest(req.CtrlNbr)" disabled="@isSaving">Approve</button>
-                                                        <button class="btn btn-outline-danger" @onclick="() => DeclineRequest(req.CtrlNbr)" disabled="@isSaving">Decline</button>
+                                                        @if (IsStatus(req.Status, "PENDING"))
+                                                        {
+                                                            <button class="btn btn-outline-success" @onclick="() => ApproveRequest(req.CtrlNbr)" disabled="@isSaving">Approve</button>
+                                                            <button class="btn btn-outline-danger" @onclick="() => DeclineRequest(req.CtrlNbr)" disabled="@isSaving">Decline</button>
+                                                        }
+                                                        <button class="btn btn-outline-secondary" @onclick="() => OpenCancelModal(req.CtrlNbr)" disabled="@isCancellingRequest">Cancel</button>
                                                     </div>
                                                 }
                                             </td>
@@ -671,10 +675,14 @@ else if (HasRailroad)
                                         @if (ShowWaitListActionsColumn)
                                         {
                                             <td class="text-end">
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <button class="btn btn-outline-success" @onclick="() => ApproveRequest(req.CtrlNbr)" disabled="@isSaving">Approve</button>
-                                                    <button class="btn btn-outline-danger" @onclick="() => DeclineRequest(req.CtrlNbr)" disabled="@isSaving">Decline</button>
-                                                </div>
+                                                @if (IsStatus(req.Status, "WAITLISTED"))
+                                                {
+                                                    <button class="btn btn-outline-secondary btn-sm"
+                                                            @onclick="() => OpenCancelModal(req.CtrlNbr)"
+                                                            disabled="@(isCancellingRequest || isSaving)">
+                                                        Cancel
+                                                    </button>
+                                                }
                                             </td>
                                         }
                                     </tr>
@@ -687,6 +695,19 @@ else if (HasRailroad)
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseRequestsModal">Close</button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showCancelModal"
+           Title="Cancel Absence Request"
+           Icon="bi bi-x-circle"
+           OnClose="CloseCancelModal">
+        <BodyContent>
+            <p class="mb-0">Are you sure you want to cancel this absence request?</p>
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseCancelModal">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="ConfirmCancelRequestAsync" disabled="@isCancellingRequest">Confirm</button>
         </Footer>
     </Modal>
 
@@ -783,11 +804,14 @@ else if (HasRailroad)
     private bool showRequestsModal;
     private bool showCreateRequestModal;
     private bool showDecisionModal;
+    private bool showCancelModal;
+    private bool isCancellingRequest;
     private bool showMarkOffModal;
     private bool showEndAbsenceModal;
     private bool showAbsenceNotesModal;
     private bool decisionIsApprove;
     private long decisionRequestCtrlNbr;
+    private long cancelRequestCtrlNbr;
     private long decisionOfficerCtrlNbr;
     private long markOffRequestCtrlNbr;
     private long endAbsenceRequestCtrlNbr;
@@ -863,11 +887,11 @@ else if (HasRailroad)
 
     private bool ShowRequestActionsColumn
         => !IsFeatureReadOnly
-            && filteredStandardRequests.Any(r => IsStatus(r.Status, "PENDING"));
+            && filteredStandardRequests.Any(r => IsStatus(r.Status, "PENDING") || IsStatus(r.Status, "APPROVED"));
 
     private bool ShowWaitListActionsColumn
         => !IsFeatureReadOnly
-            && filteredWaitListRequests.Count > 0;
+            && filteredWaitListRequests.Any(r => IsStatus(r.Status, "WAITLISTED"));
 
     private bool ShowScheduledActionsColumn
         => !IsFeatureReadOnly
@@ -1132,8 +1156,9 @@ else if (HasRailroad)
 
         if (IsRequestsTab)
         {
-            await LoadRequests();
-            _ = LoadMonthCountsAsync();
+            await Task.WhenAll(
+                LoadRequests(),
+                LoadMonthCountsAsync());
             return;
         }
 
@@ -1239,8 +1264,9 @@ else if (HasRailroad)
     private async Task OnIncludeAllStatusesChangedAsync()
     {
         monthCountsCache.Clear();
-        await LoadRequests();
-        _ = LoadMonthCountsAsync();
+        await Task.WhenAll(
+            LoadRequests(),
+            LoadMonthCountsAsync());
     }
 
     private async Task SelectCalendarDayAsync(DateTime day)
@@ -1254,34 +1280,56 @@ else if (HasRailroad)
 
     private async Task PreviousDay()
     {
-        selectedDate = selectedDate.AddDays(-1);
+        var previousDate = selectedDate.AddDays(-1).Date;
+        var monthChanged = previousDate.Month != displayedMonth.Month || previousDate.Year != displayedMonth.Year;
+
+        selectedDate = previousDate;
         displayedMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
         selectedCalendarMonth = displayedMonth.Month;
         selectedCalendarYear = displayedMonth.Year;
         RebuildCalendarGrid();
-        await LoadRequests();
+
+        if (monthChanged)
+            await LoadMonthCountsAsync();
+
+        if (showRequestsModal)
+            await LoadRequests();
     }
 
     private async Task NextDay()
     {
-        selectedDate = selectedDate.AddDays(1);
+        var nextDate = selectedDate.AddDays(1).Date;
+        var monthChanged = nextDate.Month != displayedMonth.Month || nextDate.Year != displayedMonth.Year;
+
+        selectedDate = nextDate;
         displayedMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
         selectedCalendarMonth = displayedMonth.Month;
         selectedCalendarYear = displayedMonth.Year;
         RebuildCalendarGrid();
-        await LoadRequests();
+
+        if (monthChanged)
+            await LoadMonthCountsAsync();
+
+        if (showRequestsModal)
+            await LoadRequests();
     }
 
     private async Task GoToCurrentMonth()
     {
-        selectedDate = DateTime.Today;
-        displayedMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var today = DateTime.Today;
+        var monthChanged = today.Month != displayedMonth.Month || today.Year != displayedMonth.Year;
+
+        selectedDate = today;
+        displayedMonth = new DateTime(today.Year, today.Month, 1);
         selectedCalendarMonth = displayedMonth.Month;
         selectedCalendarYear = displayedMonth.Year;
         RebuildCalendarGrid();
-        monthCountsCache.Clear();
-        _ = LoadMonthCountsAsync();
-        await LoadRequests();
+
+        if (monthChanged)
+            await LoadMonthCountsAsync();
+
+        if (showRequestsModal)
+            await LoadRequests();
     }
 
     private async Task PreviousCalendarMonth()
@@ -1317,10 +1365,7 @@ else if (HasRailroad)
         displayedMonth = new DateTime(selectedCalendarYear, selectedCalendarMonth, 1);
         selectedDate = displayedMonth;
         RebuildCalendarGrid();
-        _ = LoadMonthCountsAsync();
-
-        if (!IsRequestsTab)
-            await LoadOpenAbsencesAsync();
+        await LoadMonthCountsAsync();
     }
 
     private void RebuildCalendarGrid()
@@ -1556,48 +1601,24 @@ else if (HasRailroad)
 
         try
         {
-            var daysInMonth = DateTime.DaysInMonth(displayedMonth.Year, displayedMonth.Month);
-            var start = new DateTime(displayedMonth.Year, displayedMonth.Month, 1);
-            using var gate = new SemaphoreSlim(6);
+            var monthStart = new DateTime(displayedMonth.Year, displayedMonth.Month, 1);
+            var monthEndExclusive = monthStart.AddMonths(1);
 
-            var tasks = Enumerable.Range(0, daysInMonth)
-                .Select(async offset =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await gate.WaitAsync(cancellationToken);
-                    try
-                    {
-                        var date = start.AddDays(offset).Date;
-                        var response = await AbsenceClient.GetAbsenceRequestsAsync(
-                            date,
-                            includeAllStatuses,
-                            selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
-                            selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
-                            selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
-                        var compensated = 0;
-                        var notCompensated = 0;
+            var response = await AbsenceClient.GetAbsenceRequestCountsByDayAsync(
+                monthStart,
+                monthEndExclusive,
+                includeAllStatuses,
+                selectedWorkAreaCtrlNbr > 0 ? selectedWorkAreaCtrlNbr : null,
+                selectedCraftCtrlNbr > 0 ? selectedCraftCtrlNbr : null,
+                selectedDepartmentCtrlNbr > 0 ? selectedDepartmentCtrlNbr : null);
 
-                        foreach (var item in response.Requests)
-                        {
-                            if (absenceCodeCompensationLookup.TryGetValue(item.AbsenceCodeCtrlNbr, out var isCompensated) && isCompensated)
-                                compensated++;
-                            else
-                                notCompensated++;
-                        }
-
-                        return (Date: date, Compensated: compensated, NotCompensated: notCompensated);
-                    }
-                    finally
-                    {
-                        gate.Release();
-                    }
-                })
-                .ToList();
-
-            var results = await Task.WhenAll(tasks);
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var result in results)
-                monthCounts[result.Date] = (result.Compensated, result.NotCompensated);
+
+            foreach (var dayCount in response.Counts)
+            {
+                var date = DateTime.SpecifyKind(dayCount.DateUtc.ToDateTime(), DateTimeKind.Utc).Date;
+                monthCounts[date] = (dayCount.CompensatedCount, dayCount.NotCompensatedCount);
+            }
 
             monthCountsCache[cacheKey] = monthCounts.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             await InvokeAsync(StateHasChanged);
@@ -1636,6 +1657,48 @@ else if (HasRailroad)
     private async Task DeclineRequest(long absenceRequestCtrlNbr)
     {
         await OpenDecisionModalAsync(absenceRequestCtrlNbr, isApprove: false);
+    }
+
+    private void OpenCancelModal(long absenceRequestCtrlNbr)
+    {
+        cancelRequestCtrlNbr = absenceRequestCtrlNbr;
+        showCancelModal = true;
+    }
+
+    private void CloseCancelModal()
+    {
+        showCancelModal = false;
+        cancelRequestCtrlNbr = 0;
+    }
+
+    private async Task ConfirmCancelRequestAsync()
+    {
+        if (cancelRequestCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            isCancellingRequest = true;
+            errorMessage = null;
+            successMessage = null;
+
+            await AbsenceClient.CancelAbsenceRequestAsync(cancelRequestCtrlNbr);
+            successMessage = "Absence request cancelled.";
+            showCancelModal = false;
+            cancelRequestCtrlNbr = 0;
+
+            monthCountsCache.Clear();
+            await LoadActiveTabDataAsync();
+            await RefreshOpenAbsencesSectionAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to cancel absence request: {ex.Message}";
+        }
+        finally
+        {
+            isCancellingRequest = false;
+        }
     }
 
     private async Task OpenDecisionModalAsync(long absenceRequestCtrlNbr, bool isApprove)
