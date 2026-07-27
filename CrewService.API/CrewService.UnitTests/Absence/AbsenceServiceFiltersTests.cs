@@ -12,7 +12,10 @@ using CrewService.Domain.Models.Employment;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.AbsenceVacancy;
+using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Infrastructure;
 using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -170,6 +173,253 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
     }
 
     [Fact]
+    public async Task CancelAbsence_PromotesWaitlistedCompensableRequestImmediately()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedRailroadAndEmployeesAsync(ct);
+        var requestDateUtc = new DateTime(2026, 7, 28, 0, 0, 0, DateTimeKind.Utc);
+
+        AbsenceRequest activeRequest;
+        await using (var seed = CreateReadContext())
+        {
+            var department = Department.Create(seeded.Railroad.ParentCtrlNbr!.Value, seeded.Railroad.CtrlNbr, "Transportation");
+            seed.Set<Department>().Add(department);
+
+            var craft = Craft.Create(
+                parentCtrlNbr: seeded.Railroad.ParentCtrlNbr,
+                dynamicGroupCtrlNbr: seeded.Railroad.CtrlNbr,
+                craftName: "Trainman",
+                craftPluralName: "Trainmen",
+                craftNumber: 1,
+                autoMarkUp: false,
+                approveAllMarkOffs: false,
+                markOffHours: 0,
+                markUpHours: 0,
+                requiredRestHours: 0,
+                maximumVacationDayTime: 0,
+                unpaidMealPeriodMinutes: 0,
+                hoursofService: false,
+                processPayroll: false,
+                showNotifications: false,
+                vacationAssignmentType: 0,
+                departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Craft>().Add(craft);
+
+            var waitListPolicy = CraftAbsenceWaitListPolicy.Create(
+                craft.CtrlNbr,
+                compensableDayMaxAssignments: 1,
+                vacationWeekMaxAssignments: 1,
+                isEnabled: true);
+            seed.Set<CraftAbsenceWaitListPolicy>().Add(waitListPolicy);
+
+            var craftRole = CraftRole.Create(craft.CtrlNbr, "TRMN", "Trainman");
+            seed.Set<CraftRole>().Add(craftRole);
+
+            var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
+            seed.Set<StaffablePosition>().Add(staffablePosition);
+
+            var crew = Crew.Create("REGULAR", seeded.Railroad.CtrlNbr, "Crew 1", departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Crew>().Add(crew);
+
+            var crewPosition = CrewPosition.Create(crew.CtrlNbr, craftRole.CtrlNbr, 1, staffablePosition.CtrlNbr);
+            seed.Set<CrewPosition>().Add(crewPosition);
+
+            var assignment = PositionAssignment.Create(
+                staffablePosition.CtrlNbr,
+                seeded.EmployeeA.CtrlNbr,
+                PositionAssignmentType.Direct,
+                assignedDateUtc: requestDateUtc.AddHours(-1));
+            seed.Set<PositionAssignment>().Add(assignment);
+
+            var code = AbsenceCode.Create(
+                seeded.Railroad.CtrlNbr.Value,
+                "CD",
+                "Comp Day",
+                isExcused: true,
+                isCompensated: true,
+                requiresApproval: true,
+                isSystemOnly: false,
+                isHolidayExempt: false,
+                defaultAutoMarkUpHours: null,
+                isActive: true);
+            seed.Set<AbsenceCode>().Add(code);
+
+            activeRequest = AbsenceRequest.CreateWithCode(
+                seeded.EmployeeA.CtrlNbr,
+                requestDateUtc.AddMinutes(1),
+                null,
+                code.CtrlNbr,
+                "MARKOFF",
+                isSystemGenerated: false,
+                notes: null,
+                autoMarkOffOnApproval: false);
+            activeRequest.Approve(seeded.EmployeeA.CtrlNbr);
+            seed.Set<AbsenceRequest>().Add(activeRequest);
+
+            var waitListRecord = AbsenceRequestWaitListRecord.CreateCompensableDay(
+                seeded.EmployeeB.CtrlNbr,
+                code.CtrlNbr,
+                requestDateUtc,
+                new DateTime(2026, 7, 27, 19, 0, 0, DateTimeKind.Utc),
+                craft.CtrlNbr,
+                department.CtrlNbr);
+            seed.Set<AbsenceRequestWaitListRecord>().Add(waitListRecord);
+
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var service = BuildService(
+            utcNow: new DateTimeOffset(2026, 7, 28, 12, 0, 0, TimeSpan.Zero),
+            railroadCtrlNbr: seeded.Railroad.CtrlNbr,
+            absenceCodeRepository: new AbsenceCodeRepository(_crewContext, _currentUser),
+            waitListRecordRepository: new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser),
+            craftWaitListPolicyRepository: new CraftAbsenceWaitListPolicyRepository(_crewContext, _currentUser));
+
+        _ = await service.CancelAbsence(
+            new CancelAbsenceMsg { AbsenceRequestCtrlNbr = activeRequest.CtrlNbr.Value },
+            TestServerCallContextFactory.Create());
+
+        var response = await service.GetAbsenceRequests(
+            new GetAbsenceRequestsMsg
+            {
+                RequestDateUtc = Timestamp.FromDateTime(requestDateUtc),
+                IncludeAllStatuses = true
+            },
+            TestServerCallContextFactory.Create());
+
+        Assert.DoesNotContain(response.Requests, r => r.IsWaitlisted);
+        var promoted = Assert.Single(response.Requests, r => r.EmployeeCtrlNbr == seeded.EmployeeB.CtrlNbr.Value && !r.IsWaitlisted);
+        Assert.Equal(activeRequest.ScheduledStartUtc, promoted.StartUtc.ToDateTime());
+    }
+
+    [Fact]
+    public async Task SubmitWithCodeAsync_CompensatedCraftCapThree_UsesAssignmentCraftWhenSeniorityMissing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedRailroadAndEmployeesAsync(ct);
+        var startUtc = new DateTime(2026, 7, 30, 12, 0, 0, DateTimeKind.Utc);
+
+        ControlNumber absenceCodeCtrlNbr;
+        await using (var seed = CreateReadContext())
+        {
+            var department = Department.Create(seeded.Railroad.ParentCtrlNbr!.Value, seeded.Railroad.CtrlNbr, "Transportation");
+            seed.Set<Department>().Add(department);
+
+            var craft = Craft.Create(
+                parentCtrlNbr: seeded.Railroad.ParentCtrlNbr,
+                dynamicGroupCtrlNbr: seeded.Railroad.CtrlNbr,
+                craftName: "Trainman",
+                craftPluralName: "Trainmen",
+                craftNumber: 1,
+                autoMarkUp: false,
+                approveAllMarkOffs: false,
+                markOffHours: 0,
+                markUpHours: 0,
+                requiredRestHours: 0,
+                maximumVacationDayTime: 0,
+                unpaidMealPeriodMinutes: 0,
+                hoursofService: false,
+                processPayroll: false,
+                showNotifications: false,
+                vacationAssignmentType: 0,
+                departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Craft>().Add(craft);
+
+            var role = CraftRole.Create(craft.CtrlNbr, "TRMN", "Trainman");
+            seed.Set<CraftRole>().Add(role);
+
+            var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
+            seed.Set<StaffablePosition>().Add(staffablePosition);
+
+            var crew = Crew.Create("REGULAR", seeded.Railroad.CtrlNbr, "Crew 1", departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Crew>().Add(crew);
+
+            var crewPosition = CrewPosition.Create(crew.CtrlNbr, role.CtrlNbr, 1, staffablePosition.CtrlNbr);
+            seed.Set<CrewPosition>().Add(crewPosition);
+
+            var assignment = PositionAssignment.Create(
+                staffablePosition.CtrlNbr,
+                seeded.EmployeeA.CtrlNbr,
+                PositionAssignmentType.Direct,
+                assignedDateUtc: startUtc.AddDays(-1));
+            seed.Set<PositionAssignment>().Add(assignment);
+
+            var craftWaitListPolicy = CraftAbsenceWaitListPolicy.Create(
+                craft.CtrlNbr,
+                compensableDayMaxAssignments: 3,
+                vacationWeekMaxAssignments: 3,
+                isEnabled: true);
+            seed.Set<CraftAbsenceWaitListPolicy>().Add(craftWaitListPolicy);
+
+            var compDayCode = AbsenceCode.Create(
+                seeded.Railroad.CtrlNbr.Value,
+                "CD",
+                "Comp Day",
+                isExcused: true,
+                isCompensated: true,
+                requiresApproval: true,
+                isSystemOnly: false,
+                isHolidayExempt: false,
+                defaultAutoMarkUpHours: null,
+                isActive: true);
+            seed.Set<AbsenceCode>().Add(compDayCode);
+
+            await seed.SaveChangesAsync(ct);
+            absenceCodeCtrlNbr = compDayCode.CtrlNbr;
+        }
+
+        var factory = new OrchestrationUnitOfWorkFactory(
+            _connection,
+            _crewContext,
+            _userContext,
+            _currentUser,
+            NullLoggerFactory.Instance);
+
+        var workAreaClock = new FixedWorkAreaClock(new DateTimeOffset(2026, 7, 30, 12, 0, 0, TimeSpan.Zero));
+        var employeeNotificationService = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            new NullRailroadResolver(),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance),
+            userAccounts: null,
+            clock: workAreaClock);
+        var startProposalService = new AbsenceStartProposalService(
+            factory,
+            new NullDepartmentAbsenceRequestWindowPolicyRepository(),
+            workAreaClock);
+
+        var service = new AbsenceRequestService(
+            factory,
+            new AbsenceCodeRepository(_crewContext, _currentUser),
+            new StaticAbsenceApprovalPolicyResolver(),
+            new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser),
+            new AbsenceRequestWaitListLinkRepository(_crewContext, _currentUser),
+            new CraftAbsenceWaitListPolicyRepository(_crewContext, _currentUser),
+            new AbsenceWaitListAllowancePolicyRepository(_crewContext, _currentUser),
+            startProposalService,
+            new AbsenceMarkOffSignal(),
+            new AutoMarkUpSignal(),
+            employeeNotificationService,
+            NullLogger<AbsenceRequestService>.Instance);
+
+        _ = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+        _ = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+        _ = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+        var fourth = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+
+        Assert.Null(fourth.AbsenceRequest);
+        Assert.NotNull(fourth.WaitListRecord);
+
+        await using var verify = CreateReadContext();
+        var approvedCompDayRequests = await verify.Set<AbsenceRequest>()
+            .Where(r => r.EmployeeCtrlNbr == seeded.EmployeeA.CtrlNbr
+                && r.ScheduledStartUtc == startUtc
+                && r.CancelledAtUtc == null
+                && r.DeniedAtUtc == null)
+            .ToListAsync(ct);
+        Assert.Equal(3, approvedCompDayRequests.Count);
+    }
+
+    [Fact]
     public async Task GetAbsenceRequests_WaitListItems_AreScopedToSelectedRailroad()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -305,7 +555,104 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
     }
 
     [Fact]
-    public async Task CancelAsync_NotifiesWaitListReassignmentSignal()
+    public async Task WaitListItems_And_DailyCounts_UseWorkAreaLocalDayBucketing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedRailroadAndEmployeesAsync(ct, includeWorkArea: true);
+        Assert.NotNull(seeded.WorkArea);
+
+        await using (var seed = CreateReadContext())
+        {
+            var department = Department.Create(seeded.Railroad.ParentCtrlNbr!.Value, seeded.Railroad.CtrlNbr, "Transportation");
+            seed.Set<Department>().Add(department);
+
+            var craft = Craft.Create(
+                parentCtrlNbr: seeded.Railroad.ParentCtrlNbr,
+                dynamicGroupCtrlNbr: seeded.Railroad.CtrlNbr,
+                craftName: "Trainman",
+                craftPluralName: "Trainmen",
+                craftNumber: 1,
+                autoMarkUp: false,
+                approveAllMarkOffs: false,
+                markOffHours: 0,
+                markUpHours: 0,
+                requiredRestHours: 0,
+                maximumVacationDayTime: 0,
+                unpaidMealPeriodMinutes: 0,
+                hoursofService: false,
+                processPayroll: false,
+                showNotifications: false,
+                vacationAssignmentType: 0,
+                departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Craft>().Add(craft);
+
+            var code = AbsenceCode.Create(
+                seeded.Railroad.CtrlNbr.Value,
+                "VD",
+                "Vacation Day",
+                isExcused: true,
+                isCompensated: true,
+                requiresApproval: false,
+                isSystemOnly: false,
+                isHolidayExempt: false,
+                defaultAutoMarkUpHours: 24m,
+                isActive: true);
+            seed.Set<AbsenceCode>().Add(code);
+
+            var requestDateUtc = new DateTime(2026, 8, 1, 4, 30, 0, DateTimeKind.Utc); // 07/31 local in CST
+            var waitList = AbsenceRequestWaitListRecord.CreateCompensableDay(
+                seeded.EmployeeA.CtrlNbr,
+                code.CtrlNbr,
+                requestDateUtc,
+                entryUtc: requestDateUtc,
+                craftCtrlNbr: craft.CtrlNbr,
+                departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<AbsenceRequestWaitListRecord>().Add(waitList);
+
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var service = BuildService(
+            utcNow: new DateTimeOffset(2026, 7, 31, 12, 0, 0, TimeSpan.Zero),
+            railroadCtrlNbr: seeded.Railroad.CtrlNbr,
+            workAreaTimeZones: new Dictionary<long, TimeZoneInfo>
+            {
+                [seeded.WorkArea!.CtrlNbr.Value] = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time")
+            },
+            absenceCodeRepository: new AbsenceCodeRepository(_crewContext, _currentUser),
+            waitListRecordRepository: new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser));
+
+        var requestsResponse = await service.GetAbsenceRequests(
+            new GetAbsenceRequestsMsg
+            {
+                RequestDateUtc = Timestamp.FromDateTime(new DateTime(2026, 7, 31, 0, 0, 0, DateTimeKind.Utc)),
+                IncludeAllStatuses = true,
+                WorkAreaGroupCtrlNbr = seeded.WorkArea.CtrlNbr.Value
+            },
+            TestServerCallContextFactory.Create());
+
+        var waitListedRequest = Assert.Single(requestsResponse.Requests, r => r.IsWaitlisted);
+        Assert.Equal(new DateTime(2026, 8, 1, 4, 30, 0, DateTimeKind.Utc), waitListedRequest.StartUtc.ToDateTime());
+
+        var countsResponse = await service.GetAbsenceRequestCountsByDay(
+            new GetAbsenceRequestCountsByDayMsg
+            {
+                RangeStartUtc = Timestamp.FromDateTime(new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc)),
+                RangeEndUtc = Timestamp.FromDateTime(new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc)),
+                IncludeAllStatuses = true,
+                WorkAreaGroupCtrlNbr = seeded.WorkArea.CtrlNbr.Value
+            },
+            TestServerCallContextFactory.Create());
+
+        var july31Count = Assert.Single(
+            countsResponse.Counts,
+            c => c.DateUtc.ToDateTime().Date == new DateTime(2026, 7, 31, 0, 0, 0, DateTimeKind.Utc).Date);
+        Assert.Equal(1, july31Count.CompensatedCount);
+        Assert.Equal(0, july31Count.NotCompensatedCount);
+    }
+
+    [Fact]
+    public async Task CancelAsync_CancelsRequest()
     {
         var ct = TestContext.Current.CancellationToken;
         var seeded = await SeedRailroadAndEmployeesAsync(ct);
@@ -322,16 +669,216 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             await seed.SaveChangesAsync(ct);
         }
 
-        var (service, waitListSignal) = BuildAbsenceRequestService(
+        var (service, _) = BuildAbsenceRequestService(
             utcNow: new DateTimeOffset(2026, 7, 30, 12, 5, 0, TimeSpan.Zero),
             railroadCtrlNbr: seeded.Railroad.CtrlNbr);
 
         var cancelled = await service.CancelAsync(request.CtrlNbr);
 
         Assert.Equal("CANCELLED", cancelled.DerivedStatus);
+    }
 
-        using var waitCts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-        await waitListSignal.WaitAsync(waitCts.Token);
+    [Fact]
+    public async Task CancelWaitListAsync_RemovesWaitlistRecord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedRailroadAndEmployeesAsync(ct);
+        AbsenceRequestWaitListRecord waitListRecord;
+
+        await using (var seed = CreateReadContext())
+        {
+            var code = AbsenceCode.Create(
+                seeded.Railroad.CtrlNbr.Value,
+                "CD",
+                "Comp Day",
+                isExcused: true,
+                isCompensated: true,
+                requiresApproval: true,
+                isSystemOnly: false,
+                isHolidayExempt: false,
+                defaultAutoMarkUpHours: null,
+                isActive: true);
+            seed.Set<AbsenceCode>().Add(code);
+
+            waitListRecord = AbsenceRequestWaitListRecord.CreateCompensableDay(
+                seeded.EmployeeA.CtrlNbr,
+                code.CtrlNbr,
+                new DateTime(2026, 7, 30, 0, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 7, 30, 12, 0, 0, DateTimeKind.Utc),
+                craftCtrlNbr: null,
+                departmentCtrlNbr: null);
+            seed.Set<AbsenceRequestWaitListRecord>().Add(waitListRecord);
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var (service, _) = BuildAbsenceRequestService(
+            utcNow: new DateTimeOffset(2026, 7, 30, 12, 5, 0, TimeSpan.Zero),
+            railroadCtrlNbr: seeded.Railroad.CtrlNbr,
+            waitListRecordRepository: new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser));
+
+        await service.CancelWaitListAsync(waitListRecord.CtrlNbr);
+
+        await using (var verify = CreateReadContext())
+        {
+            var activeRecord = await verify.Set<AbsenceRequestWaitListRecord>()
+                .SingleOrDefaultAsync(r => r.CtrlNbr == waitListRecord.CtrlNbr, ct);
+            Assert.Null(activeRecord);
+
+            var deletedRecord = await verify.Set<AbsenceRequestWaitListRecord>()
+                .IgnoreQueryFilters()
+                .SingleOrDefaultAsync(r => r.CtrlNbr == waitListRecord.CtrlNbr, ct);
+            Assert.NotNull(deletedRecord);
+            Assert.True(deletedRecord!.IsDeleted);
+        }
+
+    }
+
+    [Fact]
+    public async Task SubmitWithCodeAsync_CompensatedCraftCapThreeWithoutAllowance_FourthRequestIsWaitlisted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedRailroadAndEmployeesAsync(ct);
+        var startUtc = new DateTime(2026, 7, 30, 12, 0, 0, DateTimeKind.Utc);
+
+        ControlNumber absenceCodeCtrlNbr;
+        await using (var seed = CreateReadContext())
+        {
+            var department = Department.Create(seeded.Railroad.ParentCtrlNbr!.Value, seeded.Railroad.CtrlNbr, "Transportation");
+            seed.Set<Department>().Add(department);
+
+            var craft = Craft.Create(
+                parentCtrlNbr: seeded.Railroad.ParentCtrlNbr,
+                dynamicGroupCtrlNbr: seeded.Railroad.CtrlNbr,
+                craftName: "Trainman",
+                craftPluralName: "Trainmen",
+                craftNumber: 1,
+                autoMarkUp: false,
+                approveAllMarkOffs: false,
+                markOffHours: 0,
+                markUpHours: 0,
+                requiredRestHours: 0,
+                maximumVacationDayTime: 0,
+                unpaidMealPeriodMinutes: 0,
+                hoursofService: false,
+                processPayroll: false,
+                showNotifications: false,
+                vacationAssignmentType: 0,
+                departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Craft>().Add(craft);
+
+            var role = CraftRole.Create(craft.CtrlNbr, "TRMN", "Trainman");
+            seed.Set<CraftRole>().Add(role);
+
+            var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
+            seed.Set<StaffablePosition>().Add(staffablePosition);
+
+            var crew = Crew.Create("REGULAR", seeded.Railroad.CtrlNbr, "Crew 1", departmentCtrlNbr: department.CtrlNbr);
+            seed.Set<Crew>().Add(crew);
+
+            var crewPosition = CrewPosition.Create(crew.CtrlNbr, role.CtrlNbr, 1, staffablePosition.CtrlNbr);
+            seed.Set<CrewPosition>().Add(crewPosition);
+
+            var assignment = PositionAssignment.Create(
+                staffablePosition.CtrlNbr,
+                seeded.EmployeeA.CtrlNbr,
+                PositionAssignmentType.Direct,
+                assignedDateUtc: startUtc.AddDays(-1));
+            seed.Set<PositionAssignment>().Add(assignment);
+
+            var roster = Roster.Create(craft.CtrlNbr, seeded.Railroad.CtrlNbr, null, "Trainman Roster", "Trainman Rosters", 1);
+            seed.Set<Roster>().Add(roster);
+
+            var seniorityState = SeniorityState.Create("Active", StateType.Active, seeded.Railroad.ParentCtrlNbr!.Value);
+            seed.Set<SeniorityState>().Add(seniorityState);
+
+            var seniority = Seniority.Create(
+                roster.CtrlNbr,
+                seeded.EmployeeA.CtrlNbr,
+                lastActiveRoster: true,
+                rosterDate: startUtc.Date,
+                rank: 1,
+                seniorityStateCtrlNbr: seniorityState.CtrlNbr,
+                canTrain: false);
+            seed.Set<Seniority>().Add(seniority);
+
+            var craftWaitListPolicy = CraftAbsenceWaitListPolicy.Create(
+                craft.CtrlNbr,
+                compensableDayMaxAssignments: 3,
+                vacationWeekMaxAssignments: 3,
+                isEnabled: true);
+            seed.Set<CraftAbsenceWaitListPolicy>().Add(craftWaitListPolicy);
+
+            // Intentionally do not create any AbsenceWaitListAllowancePolicy row for this code/year.
+            var compDayCode = AbsenceCode.Create(
+                seeded.Railroad.CtrlNbr.Value,
+                "CD",
+                "Comp Day",
+                isExcused: true,
+                isCompensated: true,
+                requiresApproval: true,
+                isSystemOnly: false,
+                isHolidayExempt: false,
+                defaultAutoMarkUpHours: null,
+                isActive: true);
+            seed.Set<AbsenceCode>().Add(compDayCode);
+
+            await seed.SaveChangesAsync(ct);
+            absenceCodeCtrlNbr = compDayCode.CtrlNbr;
+        }
+
+        var factory = new OrchestrationUnitOfWorkFactory(
+            _connection,
+            _crewContext,
+            _userContext,
+            _currentUser,
+            NullLoggerFactory.Instance);
+
+        var workAreaClock = new FixedWorkAreaClock(new DateTimeOffset(2026, 7, 30, 12, 0, 0, TimeSpan.Zero));
+        var employeeNotificationService = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            new NullRailroadResolver(),
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance),
+            userAccounts: null,
+            clock: workAreaClock);
+        var startProposalService = new AbsenceStartProposalService(
+            factory,
+            new NullDepartmentAbsenceRequestWindowPolicyRepository(),
+            workAreaClock);
+
+        var service = new AbsenceRequestService(
+            factory,
+            new AbsenceCodeRepository(_crewContext, _currentUser),
+            new StaticAbsenceApprovalPolicyResolver(),
+            new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser),
+            new AbsenceRequestWaitListLinkRepository(_crewContext, _currentUser),
+            new CraftAbsenceWaitListPolicyRepository(_crewContext, _currentUser),
+            new AbsenceWaitListAllowancePolicyRepository(_crewContext, _currentUser),
+            startProposalService,
+            new AbsenceMarkOffSignal(),
+            new AutoMarkUpSignal(),
+            employeeNotificationService,
+            NullLogger<AbsenceRequestService>.Instance);
+
+        var first = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+        var second = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+        var third = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+        var fourth = await service.SubmitWithCodeAsync(seeded.EmployeeA.CtrlNbr, startUtc, null, absenceCodeCtrlNbr, "MARKOFF");
+
+        Assert.NotNull(first.AbsenceRequest);
+        Assert.Null(first.WaitListRecord);
+        Assert.NotNull(second.AbsenceRequest);
+        Assert.Null(second.WaitListRecord);
+        Assert.NotNull(third.AbsenceRequest);
+        Assert.Null(third.WaitListRecord);
+
+        Assert.Null(fourth.AbsenceRequest);
+        Assert.NotNull(fourth.WaitListRecord);
+        Assert.Equal(AbsenceRequestWaitListType.CompensableDay, fourth.WaitListRecord!.WaitListType);
+
+        await using var verify = CreateReadContext();
+        var savedWaitListRecord = await verify.Set<AbsenceRequestWaitListRecord>()
+            .SingleOrDefaultAsync(r => r.CtrlNbr == fourth.WaitListRecord.CtrlNbr, ct);
+        Assert.NotNull(savedWaitListRecord);
     }
 
     [Fact]
@@ -442,7 +989,9 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         ControlNumber railroadCtrlNbr,
         Dictionary<long, TimeZoneInfo>? workAreaTimeZones = null,
         IAbsenceCodeRepository? absenceCodeRepository = null,
-        IAbsenceRequestWaitListRecordRepository? waitListRecordRepository = null)
+        IAbsenceRequestWaitListRecordRepository? waitListRecordRepository = null,
+        ICraftAbsenceWaitListPolicyRepository? craftWaitListPolicyRepository = null,
+        IAbsenceWaitListAllowancePolicyRepository? waitListAllowancePolicyRepository = null)
     {
         var actorContextResolver = new FixedActorContextResolver(railroadCtrlNbr.Value);
         var workAreaClock = new FixedWorkAreaClock(utcNow, workAreaTimeZones);
@@ -463,12 +1012,14 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         services.AddSingleton<IAbsenceCodeRepository>(absenceCodeRepository ?? new NullAbsenceCodeRepository());
         services.AddSingleton<IDepartmentAbsenceRequestWindowPolicyRepository, NullDepartmentAbsenceRequestWindowPolicyRepository>();
         services.AddSingleton<IAbsenceRequestWaitListRecordRepository>(waitListRecordRepository ?? new NullAbsenceRequestWaitListRecordRepository());
-        services.AddSingleton<IDepartmentAbsenceWaitListPolicyRepository, NullDepartmentAbsenceWaitListPolicyRepository>();
-        services.AddSingleton<IAbsenceWaitListAllowancePolicyRepository, NullAbsenceWaitListAllowancePolicyRepository>();
+        services.AddSingleton<ICraftAbsenceWaitListPolicyRepository>(craftWaitListPolicyRepository ?? new NullCraftAbsenceWaitListPolicyRepository());
+        services.AddSingleton<IAbsenceWaitListAllowancePolicyRepository>(waitListAllowancePolicyRepository ?? new NullAbsenceWaitListAllowancePolicyRepository());
         services.AddSingleton<IAbsenceApprovalPolicyResolver, StaticAbsenceApprovalPolicyResolver>();
         services.AddSingleton<IAbsenceMarkOffSignal, AbsenceMarkOffSignal>();
         services.AddSingleton<IAutoMarkUpSignal, AutoMarkUpSignal>();
         services.AddSingleton<IWaitListReassignmentSignal, WaitListReassignmentSignal>();
+        services.AddSingleton<IWorkerScheduleRepository, NullWorkerScheduleRepository>();
+        services.AddSingleton<IAbsenceRequestWaitListLinkRepository>(new AbsenceRequestWaitListLinkRepository(_crewContext, _currentUser));
         services.AddSingleton(_ => new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         services.AddSingleton(sp => new EmployeeNotificationService(
             NullLogger<EmployeeNotificationService>.Instance,
@@ -478,6 +1029,8 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             clock: sp.GetRequiredService<IWorkAreaClock>()));
         services.AddTransient<AbsenceStartProposalService>();
         services.AddTransient<AbsenceRequestService>();
+        services.AddTransient<AbsenceWaitListReassignmentEvaluator>();
+        services.AddTransient<AbsenceWaitListReassignmentProcessor>();
 
         return new AbsenceService(services.BuildServiceProvider());
     }
@@ -485,7 +1038,8 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
     private (AbsenceRequestService Service, WaitListReassignmentSignal WaitListSignal) BuildAbsenceRequestService(
         DateTimeOffset utcNow,
         ControlNumber railroadCtrlNbr,
-        Dictionary<long, TimeZoneInfo>? workAreaTimeZones = null)
+        Dictionary<long, TimeZoneInfo>? workAreaTimeZones = null,
+        IAbsenceRequestWaitListRecordRepository? waitListRecordRepository = null)
     {
         var actorContextResolver = new FixedActorContextResolver(railroadCtrlNbr.Value);
         var workAreaClock = new FixedWorkAreaClock(utcNow, workAreaTimeZones);
@@ -514,10 +1068,10 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new NullAbsenceCodeRepository(),
             new StaticAbsenceApprovalPolicyResolver(),
-            new NullAbsenceRequestWaitListRecordRepository(),
-            new NullDepartmentAbsenceWaitListPolicyRepository(),
+            waitListRecordRepository ?? new NullAbsenceRequestWaitListRecordRepository(),
+            new NullAbsenceRequestWaitListLinkRepository(),
+            new NullCraftAbsenceWaitListPolicyRepository(),
             new NullAbsenceWaitListAllowancePolicyRepository(),
-            waitListSignal,
             startProposalService,
             new AbsenceMarkOffSignal(),
             new AutoMarkUpSignal(),
@@ -736,6 +1290,27 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         public void Remove(AbsenceRequestWaitListRecord entity) { }
     }
 
+    private sealed class NullAbsenceRequestWaitListLinkRepository : IAbsenceRequestWaitListLinkRepository
+    {
+        public Task<List<AbsenceRequestWaitListLink>> GetByRequestAsync(ControlNumber absenceRequestCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<AbsenceRequestWaitListLink>());
+
+        public Task<List<AbsenceRequestWaitListLink>> GetByWaitListRecordAsync(ControlNumber waitListRecordCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(new List<AbsenceRequestWaitListLink>());
+
+        public Task<List<AbsenceRequestWaitListLink>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<AbsenceRequestWaitListLink>());
+        public Task<List<AbsenceRequestWaitListLink>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<AbsenceRequestWaitListLink>());
+        public Task<AbsenceRequestWaitListLink?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceRequestWaitListLink?>(null);
+        public Task<AbsenceRequestWaitListLink?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceRequestWaitListLink?>(null);
+        public Task AddAsync(AbsenceRequestWaitListLink entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(AbsenceRequestWaitListLink entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public void Add(AbsenceRequestWaitListLink entity) { }
+        public void Update(AbsenceRequestWaitListLink entity) { }
+        public void Remove(AbsenceRequestWaitListLink entity) { }
+    }
+
     private sealed class NullDepartmentAbsenceRequestWindowPolicyRepository : IDepartmentAbsenceRequestWindowPolicyRepository
     {
         public Task<DepartmentAbsenceRequestWindowPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr)
@@ -754,22 +1329,22 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         public void Remove(DepartmentAbsenceRequestWindowPolicy entity) { }
     }
 
-    private sealed class NullDepartmentAbsenceWaitListPolicyRepository : IDepartmentAbsenceWaitListPolicyRepository
+    private sealed class NullCraftAbsenceWaitListPolicyRepository : ICraftAbsenceWaitListPolicyRepository
     {
-        public Task<DepartmentAbsenceWaitListPolicy?> GetByDepartmentAsync(ControlNumber departmentCtrlNbr)
-            => Task.FromResult<DepartmentAbsenceWaitListPolicy?>(null);
+        public Task<CraftAbsenceWaitListPolicy?> GetByCraftAsync(ControlNumber craftCtrlNbr)
+            => Task.FromResult<CraftAbsenceWaitListPolicy?>(null);
 
-        public Task<List<DepartmentAbsenceWaitListPolicy>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<DepartmentAbsenceWaitListPolicy>());
-        public Task<List<DepartmentAbsenceWaitListPolicy>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<DepartmentAbsenceWaitListPolicy>());
-        public Task<DepartmentAbsenceWaitListPolicy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<DepartmentAbsenceWaitListPolicy?>(null);
-        public Task<DepartmentAbsenceWaitListPolicy?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<DepartmentAbsenceWaitListPolicy?>(null);
-        public Task AddAsync(DepartmentAbsenceWaitListPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
-        public Task UpdateAsync(DepartmentAbsenceWaitListPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<List<CraftAbsenceWaitListPolicy>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<CraftAbsenceWaitListPolicy>());
+        public Task<List<CraftAbsenceWaitListPolicy>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<CraftAbsenceWaitListPolicy>());
+        public Task<CraftAbsenceWaitListPolicy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<CraftAbsenceWaitListPolicy?>(null);
+        public Task<CraftAbsenceWaitListPolicy?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<CraftAbsenceWaitListPolicy?>(null);
+        public Task AddAsync(CraftAbsenceWaitListPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(CraftAbsenceWaitListPolicy entity, CancellationToken ct = default) => Task.CompletedTask;
         public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
         public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
-        public void Add(DepartmentAbsenceWaitListPolicy entity) { }
-        public void Update(DepartmentAbsenceWaitListPolicy entity) { }
-        public void Remove(DepartmentAbsenceWaitListPolicy entity) { }
+        public void Add(CraftAbsenceWaitListPolicy entity) { }
+        public void Update(CraftAbsenceWaitListPolicy entity) { }
+        public void Remove(CraftAbsenceWaitListPolicy entity) { }
     }
 
     private sealed class NullAbsenceWaitListAllowancePolicyRepository : IAbsenceWaitListAllowancePolicyRepository
@@ -791,6 +1366,25 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         public void Add(AbsenceWaitListAllowancePolicy entity) { }
         public void Update(AbsenceWaitListAllowancePolicy entity) { }
         public void Remove(AbsenceWaitListAllowancePolicy entity) { }
+    }
+
+    private sealed class NullWorkerScheduleRepository : IWorkerScheduleRepository
+    {
+        public Task<IReadOnlyList<WorkerSchedule>> GetDueByTypeAsync(string workerType, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<WorkerSchedule>>([]);
+
+        public Task<IReadOnlyList<WorkerSchedule>> GetEnabledByTypeAsync(string workerType, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<WorkerSchedule>>([]);
+
+        public Task<IReadOnlyList<WorkerSchedule>> GetAllAsync(string? workerType = null, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<WorkerSchedule>>([]);
+
+        public Task<WorkerSchedule?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult<WorkerSchedule?>(null);
+
+        public Task AddAsync(WorkerSchedule schedule, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task UpdateAsync(WorkerSchedule schedule, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private static class TestServerCallContextFactory

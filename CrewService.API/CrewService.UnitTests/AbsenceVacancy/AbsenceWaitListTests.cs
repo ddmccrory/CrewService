@@ -23,7 +23,7 @@ public class AbsenceWaitListTests
 
         Assert.Equal(100, record.EmployeeCtrlNbr.Value);
         Assert.Equal(200, record.AbsenceCodeCtrlNbr.Value);
-        Assert.Equal(new DateTime(2026, 08, 30, 0, 0, 0, DateTimeKind.Utc), record.RequestDateUtc);
+        Assert.Equal(requestDateUtc, record.RequestDateUtc);
         Assert.Equal(entryUtc, record.EntryUtc);
         Assert.Equal(AbsenceRequestWaitListType.CompensableDay, record.WaitListType);
         Assert.Equal(300, record.CraftCtrlNbr!.Value);
