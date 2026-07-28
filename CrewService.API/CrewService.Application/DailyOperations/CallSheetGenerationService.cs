@@ -9,7 +9,8 @@ namespace CrewService.Application.DailyOperations;
 public sealed class CallSheetGenerationService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IAssignmentQueryService assignmentQuery,
-    IWorkAreaClock clock)
+    IWorkAreaClock clock,
+    CallSheetSlotVacancyEvaluationService vacancyEvaluationService)
 {
     public async Task<ShiftInstance> GenerateForShiftAsync(
         ControlNumber workAreaGroupCtrlNbr,
@@ -80,6 +81,12 @@ public sealed class CallSheetGenerationService(
         await uow.ShiftInstances.AddAsync(shiftInstance, ct);
 
         await CreateScheduledOnDutyRecordsAsync(uow, shiftInstance, workAreaGroupCtrlNbr, targetDate, ct);
+        _ = await vacancyEvaluationService.ApplyEvaluatedStateAsync(
+            uow,
+            shiftInstance,
+            workAreaGroupCtrlNbr,
+            targetDate,
+            ct);
 
         await uow.CommitAsync(ct);
         return shiftInstance;
@@ -154,6 +161,12 @@ public sealed class CallSheetGenerationService(
         await uow.ShiftInstances.AddAsync(newShift, ct);
 
         await CreateScheduledOnDutyRecordsAsync(uow, newShift, workInstance.WorkAreaGroupCtrlNbr, targetDate, ct);
+        _ = await vacancyEvaluationService.ApplyEvaluatedStateAsync(
+            uow,
+            newShift,
+            workInstance.WorkAreaGroupCtrlNbr,
+            targetDate,
+            ct);
 
         await uow.CommitAsync(ct);
         return newShift;

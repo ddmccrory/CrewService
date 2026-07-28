@@ -1,0 +1,461 @@
+@page "/daily/vacancy-resolution"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject DailyOperationsClient DailyOperationsClient
+@inject RailroadReferenceDataService ReferenceData
+
+<PageTitle>Vacancy Resolution</PageTitle>
+
+<h1>Vacancy Resolution</h1>
+
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view vacancy resolution.
+    </div>
+}
+else if (HasRailroad)
+{
+    @if (isLoading)
+    {
+        <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
+    }
+    else
+    {
+        <p class="text-muted mb-1">Daily operations for <strong>@SelectedRailroadName</strong></p>
+
+        <div class="row align-items-end g-2" style="padding-bottom: 2.5rem; margin-bottom: 0.75rem;">
+            <div class="col-auto">
+                <label class="form-label fw-semibold">Work Area</label>
+                <FilterSelect TItem="GroupResponse" TValue="long"
+                              @bind-Value="selectedWorkAreaCtrlNbr"
+                              @bind-Value:after="LoadVacanciesAsync"
+                              Items="workAreas"
+                              ValueSelector="@(wa => wa.CtrlNbr)"
+                              TextSelector="@(wa => wa.Name)"
+                              Placeholder="-- Select Work Area --"
+                              class="form-select form-select-sm" style="width: 180px;" />
+            </div>
+            <div class="col-auto" style="position: relative; width: 180px;">
+                <label class="form-label fw-semibold">Date</label>
+                <input type="date" class="form-control form-control-sm" style="width: 100%;"
+                       value="@selectedDate.ToString("yyyy-MM-dd")"
+                       @onchange="OnDateChanged" />
+                <div style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 3;">
+                    <RelativeDaySelector YesterdayCount="yesterdayVacancyCount"
+                                       TodayCount="todayVacancyCount"
+                                       TomorrowCount="tomorrowVacancyCount"
+                                       WidthPx="180"
+                                       OnSelectOffset="SetDate" />
+                </div>
+            </div>
+            <div class="col-auto">
+                <label class="form-label fw-semibold">Department</label>
+                <FilterSelect TItem="DepartmentResponse" TValue="long"
+                              @bind-Value="selectedDepartmentCtrlNbr"
+                              @bind-Value:after="LoadVacanciesAsync"
+                              Items="departments"
+                              ValueSelector="@(d => d.CtrlNbr)"
+                              TextSelector="@(d => d.Name)"
+                              Placeholder="All Departments"
+                              class="form-select form-select-sm" style="width: 180px;" />
+            </div>
+            <div class="col-auto d-flex align-items-end" style="padding-bottom: 0.375rem;">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showClosedToggle"
+                           checked="@includeClosed"
+                           @onchange="OnShowClosedChanged" />
+                    <label class="form-check-label" for="showClosedToggle">Show closed</label>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(pageErrorMessage))
+        {
+            <div class="alert alert-danger">@pageErrorMessage</div>
+        }
+
+        @if (shiftCards.Count == 0)
+        {
+            <div class="alert alert-info">No vacancies found for the selected criteria.</div>
+        }
+        else
+        {
+            foreach (var shift in shiftCards)
+            {
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-primary me-2">@shift.ShiftCode</span>
+                            <strong>@shift.ShiftDisplayName</strong>
+                            @if (!string.IsNullOrWhiteSpace(shift.DepartmentName))
+                            {
+                                <span class="text-muted ms-2">@shift.DepartmentName</span>
+                            }
+                        </div>
+                        <span class="badge @GetShiftStatusBadgeClass(shift.Status)">@shift.Status</span>
+                    </div>
+                    <div class="table-responsive">
+                        <DataTable TItem="DailyPositionSlotResponse"
+                                   Items="GetSortedSlots(shift)"
+                                   Columns="slotColumns"
+                                   EmptyMessage="No vacancy rows found.">
+                            <RowContent Context="slot">
+                                <td>@slot.AssignmentCode.ToUpperInvariant()</td>
+                                <td>@slot.CraftRoleName</td>
+                                <td>@slot.OnDutyTime</td>
+                                <td>
+                                    @if (slot.HasIncumbentEmployeeCtrlNbr)
+                                    {
+                                        <span title="@GetIncumbentFullDisplay(slot)">
+                                            <span class="@GetIncumbentCss(slot)">@GetIncumbentDisplay(slot)</span>
+                                            @if (!string.IsNullOrWhiteSpace(GetIncumbentAbsenceCodeDisplay(slot)))
+                                            {
+                                                <span class="text-danger ms-1">(@GetIncumbentAbsenceCodeDisplay(slot))</span>
+                                            }
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <em class="text-muted">—</em>
+                                    }
+                                </td>
+                                <td>
+                                    @{ var projectedEmployee = GetProjectedEmployeeDisplay(slot); }
+                                    @if (!string.IsNullOrWhiteSpace(projectedEmployee))
+                                    {
+                                        <span title="@GetProjectedEmployeeFullDisplay(slot)">@projectedEmployee</span>
+                                    }
+                                    else
+                                    {
+                                        <em class="text-muted">—</em>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">@GetReasonDisplay(slot)</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap align-items-center gap-1">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                disabled
+                                                title="Fill Vacancy is not available yet">
+                                            <span class="bi bi-person-plus me-1"></span>Fill Vacancy
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-warning"
+                                                disabled="@(!CanDoNotFill(slot))"
+                                                @onclick="() => OpenDoNotFillModal(shift.ShiftInstanceCtrlNbr, slot)">
+                                            <span class="bi bi-slash-circle me-1"></span>Do Not Fill
+                                        </button>
+                                    </div>
+                                </td>
+                            </RowContent>
+                        </DataTable>
+                    </div>
+                </div>
+            }
+        }
+    }
+}
+
+<ConfirmModal Visible="showDoNotFillModal" ItemName="@doNotFillItemName" IsSaving="isDoNotFilling"
+              ActionVerb="Do Not Fill" ButtonIcon="bi bi-slash-circle" ButtonClass="btn-warning"
+              OnConfirm="ConfirmDoNotFill" OnCancel="() => showDoNotFillModal = false" />
+
+@code {
+    private bool isLoading;
+    private string? pageErrorMessage;
+    private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private long selectedWorkAreaCtrlNbr;
+    private long selectedDepartmentCtrlNbr;
+    private bool includeClosed;
+
+    private IReadOnlyList<GroupResponse> workAreas = [];
+    private IReadOnlyList<DepartmentResponse> departments = [];
+    private List<VacancyResolutionShiftCard> shiftCards = [];
+    private readonly IReadOnlyList<DataTableColumn<DailyPositionSlotResponse>> slotColumns =
+    [
+        new("Assignment", width: "12%"),
+        new("Craft/Role", width: "12%"),
+        new("On Duty", width: "8%"),
+        new("Incumbent", width: "18%"),
+        new("Projected Employee", width: "18%"),
+        new("Reason", width: "8%"),
+        DataTableColumn<DailyPositionSlotResponse>.Actions("24%")
+    ];
+    private const int EmployeeDisplayMaxChars = 24;
+
+    private bool showDoNotFillModal;
+    private bool isDoNotFilling;
+    private long doNotFillShiftCtrlNbr;
+    private long doNotFillSlotCtrlNbr;
+    private string doNotFillItemName = string.Empty;
+    private int? yesterdayVacancyCount;
+    private int? todayVacancyCount;
+    private int? tomorrowVacancyCount;
+
+    protected override string? FeatureKey => "daily/vacancy-resolution";
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!HasRailroad)
+            return;
+
+        isLoading = true;
+        try
+        {
+            ReferenceData.Invalidate();
+            var workAreasTask = ReferenceData.GetWorkAreasAsync();
+            var departmentsTask = ReferenceData.GetDepartmentsAsync();
+            await Task.WhenAll(workAreasTask, departmentsTask);
+
+            workAreas = workAreasTask.Result;
+            departments = departmentsTask.Result;
+
+            if (selectedWorkAreaCtrlNbr == 0 && workAreas.Count == 1)
+                selectedWorkAreaCtrlNbr = workAreas[0].CtrlNbr;
+
+            await LoadVacanciesAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static IReadOnlyList<DailyPositionSlotResponse> GetSortedSlots(VacancyResolutionShiftCard shift)
+        => shift.PositionSlots.OrderBy(s => s.AssignmentCode).ThenBy(s => s.DisplayOrder).ToList();
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        selectedWorkAreaCtrlNbr = 0;
+        selectedDepartmentCtrlNbr = 0;
+        shiftCards.Clear();
+        yesterdayVacancyCount = null;
+        todayVacancyCount = null;
+        tomorrowVacancyCount = null;
+
+        if (HasRailroad)
+            await LoadDataAsync();
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var parsed))
+        {
+            selectedDate = parsed;
+            await LoadVacanciesAsync();
+        }
+    }
+
+    private Task SetDate(int offsetFromToday)
+    {
+        var target = DateOnly.FromDateTime(DateTime.Today.AddDays(offsetFromToday)).ToString("yyyy-MM-dd");
+        return OnDateChanged(new ChangeEventArgs { Value = target });
+    }
+
+    private async Task OnShowClosedChanged(ChangeEventArgs e)
+    {
+        includeClosed = e.Value is true;
+        await LoadVacanciesAsync();
+    }
+
+    private async Task LoadVacanciesAsync()
+    {
+        if (!HasRailroad || selectedWorkAreaCtrlNbr == 0)
+        {
+            shiftCards.Clear();
+            return;
+        }
+
+        isLoading = true;
+        pageErrorMessage = null;
+
+        try
+        {
+            var response = await DailyOperationsClient.GetVacancyResolutionAsync(
+                selectedWorkAreaCtrlNbr,
+                selectedDate.ToString("yyyy-MM-dd"),
+                includeClosed,
+                selectedDepartmentCtrlNbr);
+
+            shiftCards = response.Shifts
+                .OrderBy(s => s.ShiftCode)
+                .ThenBy(s => s.ShiftDisplayName)
+                .ToList();
+
+            await LoadRelativeVacancyCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            pageErrorMessage = $"Failed to load vacancy resolution: {ex.Message}";
+            shiftCards.Clear();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string GetShiftStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Planned" => "bg-warning text-dark",
+        "Completed" => "bg-secondary",
+        "Cancelled" => "bg-danger",
+        _ => "bg-info"
+    };
+
+    private static string GetIncumbentCss(DailyPositionSlotResponse slot)
+    {
+        if (slot.UseLegacyMarkedOffStyling)
+            return "text-danger text-decoration-line-through";
+
+        return string.Empty;
+    }
+
+    private static string GetIncumbentFullDisplay(DailyPositionSlotResponse slot)
+    {
+        return !string.IsNullOrWhiteSpace(slot.IncumbentEmployeeName)
+            ? slot.IncumbentEmployeeName
+            : !string.IsNullOrWhiteSpace(slot.IncumbentEmployeeNumber)
+                ? slot.IncumbentEmployeeNumber.ToUpperInvariant()
+                : $"Emp #{slot.IncumbentEmployeeCtrlNbr}";
+    }
+
+    private static string GetIncumbentDisplay(DailyPositionSlotResponse slot)
+        => TruncateWithEllipsis(GetIncumbentFullDisplay(slot), EmployeeDisplayMaxChars);
+
+    private static string GetProjectedEmployeeFullDisplay(DailyPositionSlotResponse slot)
+        => string.Empty;
+
+    private static string GetProjectedEmployeeDisplay(DailyPositionSlotResponse slot)
+        => TruncateWithEllipsis(GetProjectedEmployeeFullDisplay(slot), EmployeeDisplayMaxChars);
+
+    private static string TruncateWithEllipsis(string value, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var trimmed = value.Trim();
+        if (trimmed.Length <= maxChars)
+            return trimmed;
+
+        return $"{trimmed[..Math.Max(0, maxChars)]}...";
+    }
+
+    private static string GetIncumbentAbsenceCodeDisplay(DailyPositionSlotResponse slot)
+        => slot.UseLegacyMarkedOffStyling && !string.IsNullOrWhiteSpace(slot.VacancyDisplayCode)
+            ? slot.VacancyDisplayCode.Trim().ToUpperInvariant()
+            : string.Empty;
+
+    private static string GetReasonDisplay(DailyPositionSlotResponse slot)
+    {
+        if (string.Equals(slot.VacancyReason, "MarkedOffAbsence", StringComparison.OrdinalIgnoreCase))
+            return "Absence";
+
+        if (string.Equals(slot.VacancyReason, "DoNotFill", StringComparison.OrdinalIgnoreCase))
+            return "Do Not Fill";
+
+        if (string.Equals(slot.VacancyReason, "Annulled", StringComparison.OrdinalIgnoreCase))
+            return "Annulled";
+
+        if (string.Equals(slot.VacancyReason, "Vacancy", StringComparison.OrdinalIgnoreCase))
+            return "Vacancy";
+
+        return slot.VacancyReason;
+    }
+
+    private async Task LoadRelativeVacancyCountsAsync()
+    {
+        if (selectedWorkAreaCtrlNbr == 0)
+        {
+            yesterdayVacancyCount = null;
+            todayVacancyCount = null;
+            tomorrowVacancyCount = null;
+            return;
+        }
+
+        try
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var offsets = new[] { -1, 0, 1 };
+
+            var tasks = offsets.Select(async offset =>
+            {
+                var date = today.AddDays(offset).ToString("yyyy-MM-dd");
+                var response = await DailyOperationsClient.GetVacancyResolutionAsync(
+                    selectedWorkAreaCtrlNbr,
+                    date,
+                    includeClosed: false,
+                    selectedDepartmentCtrlNbr);
+                return (offset, response);
+            });
+
+            var results = await Task.WhenAll(tasks);
+            yesterdayVacancyCount = ToDisplayCount(CountVacancies(results.First(r => r.offset == -1).response));
+            todayVacancyCount = ToDisplayCount(CountVacancies(results.First(r => r.offset == 0).response));
+            tomorrowVacancyCount = ToDisplayCount(CountVacancies(results.First(r => r.offset == 1).response));
+        }
+        catch
+        {
+            yesterdayVacancyCount = null;
+            todayVacancyCount = null;
+            tomorrowVacancyCount = null;
+        }
+    }
+
+    private static int CountVacancies(GetVacancyResolutionResponse response)
+        => response.Shifts.Sum(s => s.PositionSlots.Count);
+
+    private static int? ToDisplayCount(int count) => count > 0 ? count : null;
+
+    private static bool CanDoNotFill(DailyPositionSlotResponse slot)
+        => slot.Status != PositionSlotStatusEnum.PositionSlotStatusAnnulled
+           && slot.Status != PositionSlotStatusEnum.PositionSlotStatusDoNotFill
+           && slot.Status != PositionSlotStatusEnum.PositionSlotStatusTiedUp;
+
+    private void OpenDoNotFillModal(long shiftCtrlNbr, DailyPositionSlotResponse slot)
+    {
+        if (!CanDoNotFill(slot))
+            return;
+
+        doNotFillShiftCtrlNbr = shiftCtrlNbr;
+        doNotFillSlotCtrlNbr = slot.CtrlNbr;
+        doNotFillItemName = string.IsNullOrWhiteSpace(slot.CraftRoleName)
+            ? slot.AssignmentCode
+            : $"{slot.AssignmentCode.ToUpperInvariant()} - {slot.CraftRoleName}";
+        showDoNotFillModal = true;
+    }
+
+    private async Task ConfirmDoNotFill()
+    {
+        isDoNotFilling = true;
+        pageErrorMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.DoNotFillPositionAsync(doNotFillShiftCtrlNbr, doNotFillSlotCtrlNbr);
+            showDoNotFillModal = false;
+            await LoadVacanciesAsync();
+        }
+        catch (Exception ex)
+        {
+            pageErrorMessage = $"Failed to mark position: {ex.Message}";
+        }
+        finally
+        {
+            isDoNotFilling = false;
+        }
+    }
+}

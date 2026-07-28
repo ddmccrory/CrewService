@@ -2,6 +2,7 @@ using CrewService.Application.Absence;
 using CrewService.Application.AbsenceVacancy;
 using CrewService.Application.Authorization;
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Application.Notifications;
@@ -386,6 +387,10 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new NullDepartmentAbsenceRequestWindowPolicyRepository(),
             workAreaClock);
+        var slotVacancyEvaluationService = new CallSheetSlotVacancyEvaluationService(
+            workAreaClock,
+            new NullRailroadResolver(),
+            new AbsenceCodeRepository(_crewContext, _currentUser));
 
         var service = new AbsenceRequestService(
             factory,
@@ -398,6 +403,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             startProposalService,
             new AbsenceMarkOffSignal(),
             new AutoMarkUpSignal(),
+            slotVacancyEvaluationService,
             employeeNotificationService,
             NullLogger<AbsenceRequestService>.Instance);
 
@@ -844,6 +850,10 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new NullDepartmentAbsenceRequestWindowPolicyRepository(),
             workAreaClock);
+        var slotVacancyEvaluationService = new CallSheetSlotVacancyEvaluationService(
+            workAreaClock,
+            new NullRailroadResolver(),
+            new AbsenceCodeRepository(_crewContext, _currentUser));
 
         var service = new AbsenceRequestService(
             factory,
@@ -856,6 +866,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             startProposalService,
             new AbsenceMarkOffSignal(),
             new AutoMarkUpSignal(),
+            slotVacancyEvaluationService,
             employeeNotificationService,
             NullLogger<AbsenceRequestService>.Instance);
 
@@ -1028,6 +1039,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             userAccounts: null,
             clock: sp.GetRequiredService<IWorkAreaClock>()));
         services.AddTransient<AbsenceStartProposalService>();
+        services.AddTransient<CallSheetSlotVacancyEvaluationService>();
         services.AddTransient<AbsenceRequestService>();
         services.AddTransient<AbsenceWaitListReassignmentEvaluator>();
         services.AddTransient<AbsenceWaitListReassignmentProcessor>();
@@ -1063,6 +1075,10 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new NullDepartmentAbsenceRequestWindowPolicyRepository(),
             workAreaClock);
+        var slotVacancyEvaluationService = new CallSheetSlotVacancyEvaluationService(
+            workAreaClock,
+            new NullRailroadResolver(),
+            new NullAbsenceCodeRepository());
 
         var service = new AbsenceRequestService(
             factory,
@@ -1075,6 +1091,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             startProposalService,
             new AbsenceMarkOffSignal(),
             new AutoMarkUpSignal(),
+            slotVacancyEvaluationService,
             employeeNotificationService,
             NullLogger<AbsenceRequestService>.Instance);
 

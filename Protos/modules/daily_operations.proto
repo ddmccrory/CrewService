@@ -13,6 +13,9 @@ service DailyOperationsSrvc {
   rpc GetCallSheet (GetCallSheetRequest) returns (GetCallSheetResponse) {
     option (google.api.http) = { get: "/v1/daily-operations/call-sheet/{work_area_group_ctrl_nbr}/{target_date}" };
   }
+  rpc GetVacancyResolution (GetVacancyResolutionRequest) returns (GetVacancyResolutionResponse) {
+    option (google.api.http) = { get: "/v1/daily-operations/vacancy-resolution/{work_area_group_ctrl_nbr}/{target_date}" };
+  }
   rpc GenerateCallSheet (GenerateCallSheetRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/call-sheet/generate" body: "*" };
   }
@@ -88,6 +91,27 @@ message GetCallSheetResponse {
   repeated DailyShiftInstanceResponse shifts = 1;
 }
 
+message GetVacancyResolutionRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  string target_date = 2;
+  bool include_closed = 3;
+  optional int64 department_ctrl_nbr = 4;
+}
+
+message GetVacancyResolutionResponse {
+  repeated VacancyResolutionShiftCard shifts = 1;
+}
+
+message VacancyResolutionShiftCard {
+  int64 shift_instance_ctrl_nbr = 1;
+  string shift_code = 2;
+  string shift_display_name = 3;
+  string status = 4;
+  optional int64 department_ctrl_nbr = 5;
+  string department_name = 6;
+  repeated DailyPositionSlotResponse position_slots = 7;
+}
+
 message GenerateCallSheetRequest {
   int64 work_area_group_ctrl_nbr = 1;
   int64 shift_definition_ctrl_nbr = 2;
@@ -149,6 +173,11 @@ message DailyPositionSlotResponse {
   string crew_type = 20;
   string incumbent_employee_number = 21;
   string incumbent_employee_name = 22;
+  string vacancy_reason = 24;
+  string vacancy_actionability = 25;
+  string vacancy_display_code = 26;
+  bool use_legacy_marked_off_styling = 27;
+  string vacancy_impact_start_local = 28;
 }
 
 message PlaceOnDutyRequest {
