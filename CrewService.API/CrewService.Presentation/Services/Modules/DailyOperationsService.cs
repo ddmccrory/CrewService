@@ -80,6 +80,61 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         return response;
     }
 
+    public override async Task<GetVacancyResolutionResponse> GetVacancyResolution(
+        GetVacancyResolutionRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<Application.DailyOperations.DailyOperationsService>();
+        var employeeNameSvc = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+
+        if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
+
+        var workAreaCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
+        var tz = await clock.GetWorkAreaTimeZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+        var nowLocal = tz is null
+            ? clock.UtcNow.UtcDateTime
+            : TimeZoneInfo.ConvertTime(clock.UtcNow, tz).DateTime;
+
+        var shifts = await svc.GetCallSheetAsync(workAreaCtrlNbr, targetDate, context.CancellationToken);
+        var response = new GetVacancyResolutionResponse();
+
+        foreach (var shift in shifts)
+        {
+            if (!request.IncludeClosed && shift.IsComplete)
+                continue;
+
+            if (request.HasDepartmentCtrlNbr
+                && (shift.DepartmentCtrlNbr?.Value ?? 0) != request.DepartmentCtrlNbr)
+            {
+                continue;
+            }
+
+            var mapped = await MapShiftToResponseAsync(shift, employeeNameSvc, targetDate, nowLocal);
+            var relevantSlots = mapped.PositionSlots.Where(IsVacancyResolutionSlot).ToList();
+            if (relevantSlots.Count == 0)
+                continue;
+
+            var card = new VacancyResolutionShiftCard
+            {
+                ShiftInstanceCtrlNbr = mapped.CtrlNbr,
+                ShiftCode = mapped.ShiftCode,
+                ShiftDisplayName = mapped.ShiftDisplayName,
+                Status = mapped.Status,
+                DepartmentName = mapped.DepartmentName,
+            };
+
+            if (mapped.HasDepartmentCtrlNbr)
+                card.DepartmentCtrlNbr = mapped.DepartmentCtrlNbr;
+
+            card.PositionSlots.AddRange(relevantSlots);
+            response.Shifts.Add(card);
+        }
+
+        return response;
+    }
+
     public override async Task<GenerateCallSheetResponse> GenerateCallSheet(
         GenerateCallSheetRequest request, ServerCallContext context)
     {
@@ -459,12 +514,44 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         DateOnly? targetDate = null,
         DateTime? nowLocal = null)
     {
+        var vacancyEvaluationService = serviceProvider.GetRequiredService<CallSheetSlotVacancyEvaluationService>();
+        var workAreaClock = serviceProvider.GetRequiredService<IWorkAreaClock>();
+
         var slotCtrlNbrs = shift.PositionSlots.Select(s => s.CtrlNbr).ToList();
         IReadOnlyList<CrewService.Domain.Modules.Dispatching.OnDutyRecord> onDutyRecords;
+        IReadOnlyDictionary<ControlNumber, SlotVacancyEvaluation> vacancyEvaluations = new Dictionary<ControlNumber, SlotVacancyEvaluation>();
+        Dictionary<ControlNumber, DateTime?> vacancyImpactStartLocalBySlot = [];
+
         await using (var uow = await serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>()
             .CreateAsync())
         {
             onDutyRecords = await uow.OnDutyRecords.GetByPositionSlotsAsync(slotCtrlNbrs);
+
+            var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr)
+                ?? throw new KeyNotFoundException($"Work instance {shift.WorkInstanceCtrlNbr.Value} not found for shift {shift.CtrlNbr.Value}.");
+
+            var evaluationDate = targetDate ?? DateOnly.FromDateTime(workInstance.StartUtc);
+            vacancyEvaluations = await vacancyEvaluationService.EvaluateShiftAsync(
+                uow,
+                shift,
+                workInstance.WorkAreaGroupCtrlNbr,
+                evaluationDate);
+
+            var workAreaTimeZone = await workAreaClock.GetWorkAreaTimeZoneAsync(workInstance.WorkAreaGroupCtrlNbr);
+            foreach (var slotCtrlNbr in slotCtrlNbrs)
+            {
+                var impacts = await uow.VacancyImpacts.GetByPositionSlotAsync(slotCtrlNbr);
+                var openImpact = impacts
+                    .Where(i => i.ImpactEndUtc is null)
+                    .OrderByDescending(i => i.ImpactStartUtc)
+                    .FirstOrDefault();
+
+                vacancyImpactStartLocalBySlot[slotCtrlNbr] = openImpact is null
+                    ? null
+                    : (workAreaTimeZone is null
+                        ? DateTime.SpecifyKind(openImpact.ImpactStartUtc, DateTimeKind.Utc)
+                        : TimeZoneInfo.ConvertTime(DateTime.SpecifyKind(openImpact.ImpactStartUtc, DateTimeKind.Utc), workAreaTimeZone));
+            }
         }
 
         var slotOnDutyMap = onDutyRecords
@@ -496,9 +583,13 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
 
         foreach (var slot in shift.PositionSlots)
         {
-            var effectiveSlotStatus = targetDate.HasValue && nowLocal.HasValue
-                ? ResolveSlotDisplayStatus(slot, targetDate.Value, nowLocal.Value)
+            var evaluatedStatus = vacancyEvaluations.TryGetValue(slot.CtrlNbr, out var evaluation)
+                ? evaluation.EffectiveStatus
                 : slot.Status;
+
+            var effectiveSlotStatus = (targetDate.HasValue && nowLocal.HasValue)
+                ? ResolveSlotDisplayStatus(slot, targetDate.Value, nowLocal.Value, evaluatedStatus)
+                : evaluatedStatus;
 
             var slotResp = new DailyPositionSlotResponse
             {
@@ -519,6 +610,13 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                 GroupName = slot.GroupName,
                 GroupCode = slot.GroupCode,
                 IsIncumbent = slot.IsIncumbent,
+                VacancyReason = evaluation?.Display.Reason.ToString() ?? SlotVacancyDisplayReason.None.ToString(),
+                VacancyActionability = evaluation?.Display.Actionability.ToString() ?? SlotVacancyActionability.None.ToString(),
+                VacancyDisplayCode = evaluation?.Display.DisplayCode ?? string.Empty,
+                UseLegacyMarkedOffStyling = evaluation?.Display.UseLegacyMarkedOffStyling ?? false,
+                VacancyImpactStartLocal = vacancyImpactStartLocalBySlot.TryGetValue(slot.CtrlNbr, out var localImpactStart)
+                    ? localImpactStart?.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty
+                    : string.Empty
             };
             if (slotOnDutyMap.TryGetValue(slot.CtrlNbr, out var onDutyCtrlNbr))
                 slotResp.OnDutyRecordCtrlNbr = onDutyCtrlNbr.Value;
@@ -576,13 +674,19 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             : "Planned";
     }
 
-    private static PositionSlotStatus ResolveSlotDisplayStatus(PositionSlotInstance slot, DateOnly targetDate, DateTime nowLocal)
+    private static PositionSlotStatus ResolveSlotDisplayStatus(
+        PositionSlotInstance slot,
+        DateOnly targetDate,
+        DateTime nowLocal,
+        PositionSlotStatus? statusOverride = null)
     {
-        if (slot.IncumbentEmployeeCtrlNbr is null)
-            return slot.Status;
+        var status = statusOverride ?? slot.Status;
 
-        if (slot.Status is not (PositionSlotStatus.Filled or PositionSlotStatus.OnDuty or PositionSlotStatus.OnDutyOvertime))
-            return slot.Status;
+        if (slot.IncumbentEmployeeCtrlNbr is null)
+            return status;
+
+        if (status is not (PositionSlotStatus.Filled or PositionSlotStatus.OnDuty or PositionSlotStatus.OnDutyOvertime))
+            return status;
 
         var onDutyLocal = targetDate.ToDateTime(slot.OnDutyTime);
         var offDutyDate = slot.OffDutyTime <= slot.OnDutyTime ? targetDate.AddDays(1) : targetDate;
@@ -613,4 +717,9 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         PositionSlotStatus.Skipped => PositionSlotStatusEnum.PositionSlotStatusSkipped,
         _ => PositionSlotStatusEnum.PositionSlotStatusOpen
     };
+
+    private static bool IsVacancyResolutionSlot(DailyPositionSlotResponse slot)
+    {
+        return !string.Equals(slot.VacancyReason, SlotVacancyDisplayReason.None.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -6,6 +6,7 @@ using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using CrewService.Application.Absence;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.Notifications;
 using Microsoft.Extensions.Logging;
 
@@ -22,6 +23,7 @@ public sealed class AbsenceRequestService(
     AbsenceStartProposalService absenceStartProposalService,
     BackgroundWorkers.IAbsenceMarkOffSignal absenceMarkOffSignal,
     BackgroundWorkers.IAutoMarkUpSignal autoMarkUpSignal,
+    CallSheetSlotVacancyEvaluationService slotVacancyEvaluationService,
     EmployeeNotificationService employeeNotificationService,
     ILogger<AbsenceRequestService> logger)
 {
@@ -115,6 +117,7 @@ public sealed class AbsenceRequestService(
         }
 
         uow.AbsenceRequests.Update(absence);
+        await SyncCallSheetSlotsForEmployeeAsync(uow, absence.EmployeeCtrlNbr);
         await uow.CommitAsync();
 
         NotifyAutoMarkUpIfScheduledEnd(absence);
@@ -136,7 +139,11 @@ public sealed class AbsenceRequestService(
             uow.AbsenceRequests.Update(request);
         }
 
+        foreach (var employeeCtrlNbr in due.Select(d => d.EmployeeCtrlNbr).Distinct())
+            await SyncCallSheetSlotsForEmployeeAsync(uow, employeeCtrlNbr, ct);
+
         await uow.CommitAsync(ct);
+
         return due.Count;
     }
 
@@ -252,6 +259,10 @@ public sealed class AbsenceRequestService(
         }
 
         uow.AbsenceRequests.Add(absence);
+
+        if (absence.StartRecords.Count > 0)
+            await SyncCallSheetSlotsForEmployeeAsync(uow, absence.EmployeeCtrlNbr);
+
         await uow.CommitAsync();
 
         if (autoMarkOffOnApproval
@@ -645,6 +656,10 @@ public sealed class AbsenceRequestService(
         }
 
         uow.AbsenceRequests.Update(absence);
+
+        if (absence.StartRecords.Count > 0)
+            await SyncCallSheetSlotsForEmployeeAsync(uow, absence.EmployeeCtrlNbr);
+
         await uow.CommitAsync();
 
         // Always wake mark-off processing after an approval decision so the worker
@@ -689,6 +704,9 @@ public sealed class AbsenceRequestService(
             uow.AbsenceRequests.Update(request);
         }
 
+        foreach (var employeeCtrlNbr in due.Select(d => d.EmployeeCtrlNbr).Distinct())
+            await SyncCallSheetSlotsForEmployeeAsync(uow, employeeCtrlNbr, ct);
+
         await uow.CommitAsync(ct);
 
         foreach (var request in due)
@@ -701,6 +719,22 @@ public sealed class AbsenceRequestService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         return await uow.AbsenceRequests.GetNextApprovedAutoMarkOffStartUtcAsync(ct);
+    }
+
+    private async Task SyncCallSheetSlotsForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+    {
+        await using var syncUow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var changedShiftCount = await SyncCallSheetSlotsForEmployeeAsync(syncUow, employeeCtrlNbr, ct);
+        if (changedShiftCount > 0)
+            await syncUow.CommitAsync(ct);
+    }
+
+    private Task<int> SyncCallSheetSlotsForEmployeeAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct = default)
+    {
+        return slotVacancyEvaluationService.SyncImpactedShiftsForEmployeeAsync(uow, employeeCtrlNbr, ct);
     }
 
     private static bool ShouldAutoMarkOffImmediately(

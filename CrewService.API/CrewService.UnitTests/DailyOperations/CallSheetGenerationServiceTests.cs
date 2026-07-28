@@ -1,4 +1,6 @@
 using CrewService.Application.DailyOperations;
+using CrewService.Application.Absence;
+using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
@@ -376,7 +378,14 @@ public class CallSheetGenerationServiceTests
         IDynamicGroupRepository? dynamicGroups = null,
         ICrewPositionRepository? crewPositions = null,
         IPositionAssignmentRepository? positionAssignments = null)
-        => new(
+    {
+        var clock = CreateClock();
+        var vacancyEvaluationService = new CallSheetSlotVacancyEvaluationService(
+            clock,
+            new NullRailroadResolver(),
+            new NullAbsenceCodeRepository());
+
+        return new CallSheetGenerationService(
             new FakeCallSheetUoWFactory(
                 shiftDefinitions, shiftInstances, workInstances, departments,
                 dynamicGroups ?? new FakeDynamicGroupRepository(),
@@ -385,7 +394,34 @@ public class CallSheetGenerationServiceTests
                 crewPositions ?? new FakeCrewPositionRepository(),
                 positionAssignments ?? new FakePositionAssignmentRepository()),
             assignmentQuery,
-            CreateClock());
+            clock,
+            vacancyEvaluationService);
+    }
+
+    private sealed class NullRailroadResolver : IRailroadResolver
+    {
+        public Task<ControlNumber?> ResolveFromWorkAreaAsync(IOrchestrationUnitOfWork uow, ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<ControlNumber?>(null);
+
+        public ControlNumber? ResolveFromGroup(DynamicGroup? group) => null;
+    }
+
+    private sealed class NullAbsenceCodeRepository : IAbsenceCodeRepository
+    {
+        public Task<List<AbsenceCode>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default) => Task.FromResult(new List<AbsenceCode>());
+        public Task<AbsenceCodeCraftOverride?> GetOverrideAsync(ControlNumber absenceCodeCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceCodeCraftOverride?>(null);
+        public Task<List<AbsenceCode>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<AbsenceCode>());
+        public Task<List<AbsenceCode>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default) => Task.FromResult(new List<AbsenceCode>());
+        public Task<AbsenceCode?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceCode?>(null);
+        public Task<AbsenceCode?> GetByCtrlNbrIncludingDeletedAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult<AbsenceCode?>(null);
+        public Task AddAsync(AbsenceCode entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(AbsenceCode entity, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RestoreAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.CompletedTask;
+        public void Add(AbsenceCode entity) { }
+        public void Update(AbsenceCode entity) { }
+        public void Remove(AbsenceCode entity) { }
+    }
 
     private static ShiftDefinition CreateActiveShiftDef(long workAreaCtrlNbr = 1)
     {

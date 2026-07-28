@@ -185,6 +185,7 @@ public static class DependencyInjection
         services.AddScoped<CrewCallingService>();
         services.AddScoped<ICrewNotificationProvider, MockNotificationProvider>();
         services.AddScoped<CallSheetGenerationService>();
+        services.AddScoped<CallSheetSlotVacancyEvaluationService>();
 
         // B08 – Roster Board Ops
         services.AddScoped<HangoutProcessingService>();

@@ -92,12 +92,12 @@ public sealed class TieUpService(
             }
         }
 
-        await uow.CommitAsync(ct);
-
         if (tieUpContext is not null)
         {
-            await AutoCloseShiftIfAllOnDutyStartedAsync(tieUpContext.ShiftInstanceCtrlNbr, ct);
+            await AutoCloseShiftIfAllOnDutyStartedAsync(uow, tieUpContext.ShiftInstanceCtrlNbr, ct);
         }
+
+        await uow.CommitAsync(ct);
 
         return offDutyRecord;
     }
@@ -108,20 +108,33 @@ public sealed class TieUpService(
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
+        var changed = await AutoCloseShiftIfAllOnDutyStartedAsync(uow, shiftInstanceCtrlNbr, ct);
+        if (changed)
+            await uow.CommitAsync(ct);
+    }
+
+    private static async Task<bool> AutoCloseShiftIfAllOnDutyStartedAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber shiftInstanceCtrlNbr,
+        CancellationToken ct = default)
+    {
+
         var shift = await uow.ShiftInstances.GetByCtrlNbrAsync(shiftInstanceCtrlNbr, ct);
         if (shift is null || shift.IsComplete)
-            return;
+            return false;
 
         var completionStatuses = await uow.OnDutyRecords.GetCompletionStatusesForShiftAsync(shiftInstanceCtrlNbr, ct);
         if (completionStatuses.Count == 0)
-            return;
+            return false;
 
         if (completionStatuses.All(status => status != OnDutyCompletionStatus.NotStarted))
         {
             shift.Complete();
             await uow.ShiftInstances.UpdateAsync(shift, ct);
-            await uow.CommitAsync(ct);
+            return true;
         }
+
+        return false;
     }
 
     private static async Task<RegulatoryStandard?> ResolveRegulatoryStandardAsync(

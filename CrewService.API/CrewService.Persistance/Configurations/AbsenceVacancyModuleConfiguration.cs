@@ -60,7 +60,7 @@ internal class VacancyImpactConfiguration : IEntityTypeConfiguration<VacancyImpa
         builder.Property(i => i.PositionSlotCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
 
         builder.HasOne<AbsenceRequest>().WithMany().HasForeignKey(i => i.AbsenceRequestCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(i => i.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(i => i.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(i => i.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(i => i.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

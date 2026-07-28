@@ -120,6 +120,38 @@ public sealed class PositionSlotInstance : Entity
         Status = PositionSlotStatus.TiedUp;
     }
 
+    public void MarkMarkedOff()
+    {
+        if (IsAnnulled || IsDoNotFill || IsSkipped)
+            return;
+
+        if (Status is PositionSlotStatus.OnDuty
+            or PositionSlotStatus.OnDutyOvertime
+            or PositionSlotStatus.TiedUp)
+        {
+            return;
+        }
+
+        Status = PositionSlotStatus.MarkedOff;
+    }
+
+    public void ClearMarkedOff()
+    {
+        if (Status != PositionSlotStatus.MarkedOff)
+            return;
+
+        if (IsAnnulled || IsDoNotFill || IsSkipped)
+            return;
+
+        if (IncumbentEmployeeCtrlNbr is null)
+        {
+            Status = PositionSlotStatus.Open;
+            return;
+        }
+
+        Status = PositionSlotStatus.Filled;
+    }
+
     public void Annul(string reason, DateTime annulmentDateTimeUtc)
     {
         IsAnnulled = true;
