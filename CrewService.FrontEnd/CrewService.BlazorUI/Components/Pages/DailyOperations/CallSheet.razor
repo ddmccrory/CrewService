@@ -55,45 +55,17 @@ else if (HasRailroad)
                           Placeholder="-- Select Work Area --"
                           class="form-select form-select-sm" style="width: 180px;" />
         </div>
-        <div class="col-auto" style="position: relative;">
+        <div class="col-auto" style="position: relative; width: 180px;">
             <label class="form-label fw-semibold">Date</label>
-            <input type="date" class="form-control form-control-sm" style="width: 180px;"
+            <input type="date" class="form-control form-control-sm" style="width: 100%;"
                    value="@selectedDate.ToString("yyyy-MM-dd")"
                    @onchange="OnDateChanged" />
-            <div class="btn-group mt-1" style="position: absolute; width: 180px; font-size: 0.7rem;">
-                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(-1)">
-                    <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
-                        <span>Yesterday</span>
-                        <span style="min-height: 0.85rem; margin-top: 0.2rem;">
-                            @if (yesterdayActiveShiftCount.HasValue)
-                            {
-                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@yesterdayActiveShiftCount.Value</span>
-                            }
-                        </span>
-                    </span>
-                </button>
-                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(0)">
-                    <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
-                        <span>Today</span>
-                        <span style="min-height: 0.85rem; margin-top: 0.2rem;">
-                            @if (todayActiveShiftCount.HasValue)
-                            {
-                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@todayActiveShiftCount.Value</span>
-                            }
-                        </span>
-                    </span>
-                </button>
-                <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => SetDate(1)">
-                    <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
-                        <span>Tomorrow</span>
-                        <span style="min-height: 0.85rem; margin-top: 0.2rem;">
-                            @if (tomorrowActiveShiftCount.HasValue)
-                            {
-                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@tomorrowActiveShiftCount.Value</span>
-                            }
-                        </span>
-                    </span>
-                </button>
+            <div style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 2;">
+                <RelativeDaySelector YesterdayCount="yesterdayActiveShiftCount"
+                                   TodayCount="todayActiveShiftCount"
+                                   TomorrowCount="tomorrowActiveShiftCount"
+                                   WidthPx="180"
+                                   OnSelectOffset="SetDate" />
             </div>
         </div>
         <div class="col-auto">
@@ -311,7 +283,17 @@ else if (HasRailroad)
                                                                                     }
                                                                                     else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                                                     {
-                                                                                        <span class="@GetSlotEmployeeCssClass(slot) flex-grow-1 text-truncate" title="@GetSlotEmployeeDisplay(slot)">@GetSlotEmployeeDisplay(slot)</span>
+                                                                                        <span class="flex-grow-1 text-truncate" title="@GetSlotEmployeeDisplay(slot)">
+                                                                                            <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
+                                                                                            @if (!string.IsNullOrWhiteSpace(GetSlotAbsenceCodeDisplay(slot)))
+                                                                                            {
+                                                                                                 <span class="text-primary ms-1">(@GetSlotAbsenceCodeDisplay(slot))</span>
+                                                                                            }
+                                                                                             @if (!string.IsNullOrWhiteSpace(GetSlotDoNotFillSuffix(slot)))
+                                                                                             {
+                                                                                                 <small class="text-primary ms-1">@GetSlotDoNotFillSuffix(slot)</small>
+                                                                                            }
+                                                                                        </span>
                                                                                         @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled)
                                                                                         {
                                                                                             <small class="text-primary ms-1">ANLD</small>
@@ -500,6 +482,14 @@ else if (HasRailroad)
                                                         else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                         {
                                                             <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
+                                                            @if (!string.IsNullOrWhiteSpace(GetSlotAbsenceCodeDisplay(slot)))
+                                                            {
+                                                                <span class="text-primary ms-1">(@GetSlotAbsenceCodeDisplay(slot))</span>
+                                                            }
+                                                             @if (!string.IsNullOrWhiteSpace(GetSlotDoNotFillSuffix(slot)))
+                                                             {
+                                                                 <small class="text-primary ms-1">@GetSlotDoNotFillSuffix(slot)</small>
+                                                             }
                                                             @if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusAnnulled)
                                                             {
                                                                 <small class="text-primary ms-1">ANLD</small>
@@ -1775,15 +1765,31 @@ else if (HasRailroad)
         var prefix = slot.IsIncumbent ? "" : "* ";
         var empNum = slot.IncumbentEmployeeNumber;
         var name = slot.IncumbentEmployeeName;
+        string display;
         if (!string.IsNullOrEmpty(empNum) && !string.IsNullOrEmpty(name))
-            return $"{prefix}{empNum.ToUpperInvariant()} – {name}";
-        if (!string.IsNullOrEmpty(empNum))
-            return $"{prefix}{empNum.ToUpperInvariant()}";
-        return $"{prefix}Emp #{slot.IncumbentEmployeeCtrlNbr}";
+            display = $"{prefix}{empNum.ToUpperInvariant()} – {name}";
+        else if (!string.IsNullOrEmpty(empNum))
+            display = $"{prefix}{empNum.ToUpperInvariant()}";
+        else
+            display = $"{prefix}Emp #{slot.IncumbentEmployeeCtrlNbr}";
+
+        return display;
     }
+
+    private static string GetSlotAbsenceCodeDisplay(DailyPositionSlotResponse slot)
+        => slot.UseLegacyMarkedOffStyling && !string.IsNullOrWhiteSpace(slot.VacancyDisplayCode)
+            ? slot.VacancyDisplayCode.Trim().ToUpperInvariant()
+            : string.Empty;
+
+    private static string GetSlotDoNotFillSuffix(DailyPositionSlotResponse slot)
+        => slot.Status == PositionSlotStatusEnum.PositionSlotStatusDoNotFill
+            ? "**DNF**"
+            : string.Empty;
 
     private static string GetSlotEmployeeCssClass(DailyPositionSlotResponse slot) => slot.Status switch
     {
+        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "text-primary text-decoration-line-through",
+        _ when slot.UseLegacyMarkedOffStyling => "text-danger text-decoration-line-through",
         PositionSlotStatusEnum.PositionSlotStatusFilled => "",
         PositionSlotStatusEnum.PositionSlotStatusOnDuty => "text-success fw-bold",
         PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "text-danger fw-bold",
@@ -1803,7 +1809,7 @@ else if (HasRailroad)
             PositionSlotStatusEnum.PositionSlotStatusOpen => "***VACANCY***",
             PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "*EXTRA BOARD*",
             PositionSlotStatusEnum.PositionSlotStatusNoBids => "***NO BIDS***",
-            PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "**DO NOT FILL**",
+            PositionSlotStatusEnum.PositionSlotStatusDoNotFill when !slot.HasIncumbentEmployeeCtrlNbr => "**DO NOT FILL**",
             PositionSlotStatusEnum.PositionSlotStatusAnnulled when !slot.HasIncumbentEmployeeCtrlNbr => "***ANNULLED***",
             _ => string.Empty
         };

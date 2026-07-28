@@ -18,6 +18,29 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<GetVacancyResolutionResponse> GetVacancyResolutionAsync(
+        long workAreaGroupCtrlNbr,
+        string targetDate,
+        bool includeClosed = false,
+        long departmentCtrlNbr = 0)
+    {
+        try
+        {
+            var request = new GetVacancyResolutionRequest
+            {
+                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+                TargetDate = targetDate,
+                IncludeClosed = includeClosed
+            };
+
+            if (departmentCtrlNbr > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr;
+
+            return await _client.GetVacancyResolutionAsync(request);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     public async Task<GetCallSheetResponse> GetCallSheetAsync(long workAreaGroupCtrlNbr, string targetDate, bool includeClosed = false)
     {
         try

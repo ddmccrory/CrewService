@@ -1,0 +1,43 @@
+<div class="btn-group d-flex" style="width: @(WidthPx)px; font-size: 0.7rem; margin-top: 0;">
+    <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => OnSelectOffset.InvokeAsync(-1)">
+        <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
+            <span>Yesterday</span>
+            <span style="min-height: 0.85rem; margin-top: 0.2rem;">
+                @if (YesterdayCount.HasValue)
+                {
+                    <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@YesterdayCount.Value</span>
+                }
+            </span>
+        </span>
+    </button>
+    <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => OnSelectOffset.InvokeAsync(0)">
+        <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
+            <span>Today</span>
+            <span style="min-height: 0.85rem; margin-top: 0.2rem;">
+                @if (TodayCount.HasValue)
+                {
+                    <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@TodayCount.Value</span>
+                }
+            </span>
+        </span>
+    </button>
+    <button type="button" class="btn btn-outline-secondary py-0 px-1 flex-fill" style="font-size: inherit;" @onclick="() => OnSelectOffset.InvokeAsync(1)">
+        <span class="d-flex flex-column align-items-center justify-content-start" style="line-height: 1; min-height: 2rem;">
+            <span>Tomorrow</span>
+            <span style="min-height: 0.85rem; margin-top: 0.2rem;">
+                @if (TomorrowCount.HasValue)
+                {
+                    <span class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">@TomorrowCount.Value</span>
+                }
+            </span>
+        </span>
+    </button>
+</div>
+
+@code {
+    [Parameter] public int? YesterdayCount { get; set; }
+    [Parameter] public int? TodayCount { get; set; }
+    [Parameter] public int? TomorrowCount { get; set; }
+    [Parameter] public int WidthPx { get; set; } = 180;
+    [Parameter] public EventCallback<int> OnSelectOffset { get; set; }
+}
