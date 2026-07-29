@@ -102,7 +102,14 @@ else if (HasRailroad)
                                 <span class="text-muted ms-2">@shift.DepartmentName</span>
                             }
                         </div>
-                        <span class="badge @GetShiftStatusBadgeClass(shift.Status)">@shift.Status</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="@BuildCallBoardHistoryLink(shift.ShiftInstanceCtrlNbr)"
+                               title="Open call board history for this shift">
+                                <span class="bi bi-clock-history me-1"></span>View Snapshot
+                            </a>
+                            <span class="badge @GetShiftStatusBadgeClass(shift.Status)">@shift.Status</span>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <DataTable TItem="DailyPositionSlotResponse"
@@ -374,6 +381,12 @@ else if (HasRailroad)
             return "Vacancy";
 
         return slot.VacancyReason;
+    }
+
+    private string BuildCallBoardHistoryLink(long shiftInstanceCtrlNbr)
+    {
+        var dateValue = selectedDate.ToString("yyyy-MM-dd");
+        return $"/daily/call-board?workArea={selectedWorkAreaCtrlNbr}&date={Uri.EscapeDataString(dateValue)}&shift={shiftInstanceCtrlNbr}&tab=history";
     }
 
     private async Task LoadRelativeVacancyCountsAsync()

@@ -1,0 +1,601 @@
+@page "/daily/call-board"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+@using Grpc.Core
+@using Microsoft.AspNetCore.WebUtilities
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject DailyOperationsClient DailyOperationsClient
+@inject VacancyAssignmentClient VacancyAssignmentClient
+@inject CraftClient CraftClient
+@inject RosterBoardClient RosterBoardClient
+@inject RailroadReferenceDataService ReferenceData
+@inject NavigationManager Navigation
+
+<PageTitle>Call Board</PageTitle>
+
+<h1>Call Board</h1>
+
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view the call board.
+    </div>
+}
+else if (HasRailroad)
+{
+    @if (isLoading)
+    {
+        <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
+    }
+    else
+    {
+        <p class="text-muted mb-3">Daily operations for <strong>@SelectedRailroadName</strong></p>
+
+        <div class="row align-items-end g-2 mb-3">
+            <div class="col-auto">
+                <label class="form-label fw-semibold">Work Area</label>
+                <FilterSelect TItem="GroupResponse" TValue="long"
+                              @bind-Value="selectedWorkAreaCtrlNbr"
+                              @bind-Value:after="OnWorkAreaChangedAsync"
+                              Items="workAreas"
+                              ValueSelector="@(wa => wa.CtrlNbr)"
+                              TextSelector="@(wa => wa.Name)"
+                              Placeholder="-- Select Work Area --"
+                              class="form-select form-select-sm" style="width: 220px;" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label fw-semibold">Date</label>
+                <input type="date" class="form-control form-control-sm" style="width: 180px;"
+                       value="@selectedDate.ToString("yyyy-MM-dd")"
+                       @onchange="OnDateChanged" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label fw-semibold">Craft</label>
+                <FilterSelect TItem="CraftResponse" TValue="long"
+                              @bind-Value="selectedCraftCtrlNbr"
+                              @bind-Value:after="OnCraftChangedAsync"
+                              Items="crafts"
+                              ValueSelector="@(c => c.CtrlNbr)"
+                              TextSelector="@(c => c.CraftName)"
+                              Placeholder="-- Select Craft --"
+                              class="form-select form-select-sm" style="width: 260px;" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label fw-semibold" for="call-board-type">Board Type</label>
+                <select id="call-board-type" class="form-select form-select-sm" style="width: 220px;" @bind="selectedBoardType" @bind:after="LoadCurrentBoardAsync">
+                    @foreach (var boardType in boardTypeOptions)
+                    {
+                        <option value="@boardType.Value">@boardType.Label</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(pageErrorMessage))
+        {
+            <div class="alert alert-danger">@pageErrorMessage</div>
+        }
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button type="button"
+                        class="nav-link @(activeTab == CurrentTabKey ? "active" : null)"
+                        role="tab"
+                        @onclick="SwitchToCurrentTabAsync">
+                    Current
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button type="button"
+                        class="nav-link @(activeTab == HistoryTabKey ? "active" : null)"
+                        role="tab"
+                        @onclick="SwitchToHistoryTabAsync">
+                    History Snapshots
+                </button>
+            </li>
+        </ul>
+
+        @if (activeTab == CurrentTabKey)
+        {
+            <DataTable TItem="CurrentBoardRow"
+                       Items="currentBoardRows"
+                       Columns="currentBoardColumns"
+                       DefaultSortColumn="RowNumber"
+                       DefaultSortAscending="true"
+                       EmptyMessage="No live board rows available for the selected craft.">
+                <RowContent Context="row">
+                    <td>@row.RowNumber</td>
+                    <td>@row.EmployeeName</td>
+                    <td>@row.Status</td>
+                    <td>@row.RestTimeDisplay</td>
+                    <td>@row.ConsecutiveDaysDisplay</td>
+                    <td>@row.DaysWorkedDisplay</td>
+                    <td>@row.BoardPositionDisplay</td>
+                    <td>@row.ProjectedVacancyDisplay</td>
+                    <td>@row.OnDutyDisplay</td>
+                </RowContent>
+            </DataTable>
+        }
+        else
+        {
+            <div class="row align-items-end g-2 mb-3">
+                <div class="col-auto">
+                    <label class="form-label fw-semibold">Shift</label>
+                    <select class="form-select form-select-sm" style="width: 260px;" @bind="selectedShiftInstanceCtrlNbr" @bind:after="OnShiftChangedAsync">
+                        <option value="0">-- Select Shift --</option>
+                        @foreach (var shift in shifts)
+                        {
+                            <option value="@shift.ShiftInstanceCtrlNbr">@shift.ShiftCode - @shift.ShiftDisplayName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-semibold">Snapshot</label>
+                    <select class="form-select form-select-sm" style="width: 320px;" @bind="selectedSnapshotCtrlNbr" @bind:after="LoadSnapshotDetailAsync">
+                        <option value="0">-- Select Snapshot --</option>
+                        @foreach (var snapshot in timelineItems)
+                        {
+                            <option value="@snapshot.SnapshotCtrlNbr">Seq @snapshot.DecisionSequence · @ToLocalDisplay(snapshot.CapturedAt)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            @if (selectedDecision is not null)
+            {
+                <div class="alert alert-secondary py-2 mb-3">
+                    <div><strong>Decision Sequence:</strong> @selectedDecision.DecisionSequence</div>
+                    <div><strong>Occurred:</strong> @ToLocalDisplay(selectedDecision.OccurredAt)</div>
+                    <div><strong>Source:</strong> @selectedDecision.DecisionSource</div>
+                    <div><strong>Phase:</strong> @selectedDecision.DecisionPhase</div>
+                    <div><strong>Selected Employee:</strong> @GetSelectedEmployeeDisplay(selectedDecision)</div>
+                    @if (!string.IsNullOrWhiteSpace(selectedDecision.DecisionJson))
+                    {
+                        <div class="mt-1"><strong>Evidence:</strong> @selectedDecision.DecisionJson</div>
+                    }
+                </div>
+            }
+
+            <DataTable TItem="BoardSnapshotRowDetail"
+                       Items="snapshotRows"
+                       Columns="snapshotColumns"
+                       EmptyMessage="No board rows available for the selected snapshot.">
+                <RowContent Context="row">
+                    <td>@row.BoardOrder</td>
+                    <td>@row.EmployeeName</td>
+                    <td>@row.PositionName</td>
+                    <td>@row.CallSequence</td>
+                    <td>@ToLocalDisplay(row.TieUpAt)</td>
+                    <td>@row.Status</td>
+                    <td>
+                        @if (selectedDecision?.SelectedBoardSlotInstanceCtrlNbr == row.BoardSlotInstanceCtrlNbr)
+                        {
+                            <span class="badge bg-success">Selected</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                </RowContent>
+            </DataTable>
+        }
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "daily/call-board";
+
+    private const string CurrentTabKey = "current";
+    private const string HistoryTabKey = "history";
+    private bool isLoading;
+    private string? pageErrorMessage;
+    private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private long selectedWorkAreaCtrlNbr;
+    private long selectedCraftCtrlNbr;
+    private long selectedShiftInstanceCtrlNbr;
+    private long selectedSnapshotCtrlNbr;
+    private long? requestedShiftInstanceCtrlNbr;
+    private long? requestedSnapshotCtrlNbr;
+    private string activeTab = CurrentTabKey;
+
+    private IReadOnlyList<GroupResponse> workAreas = [];
+    private IReadOnlyList<CraftResponse> crafts = [];
+    private List<VacancyResolutionShiftCard> shifts = [];
+    private List<CurrentBoardRow> currentBoardRows = [];
+    private List<BoardSnapshotTimelineItem> timelineItems = [];
+    private List<BoardSnapshotRowDetail> snapshotRows = [];
+    private List<BoardSelectionDecisionItem> decisionItems = [];
+    private BoardSelectionDecisionItem? selectedDecision;
+    private string selectedBoardType = "ExtraBoard";
+
+    private readonly IReadOnlyList<BoardTypeOption> boardTypeOptions =
+    [
+        new("ExtraBoard", "Extra Board"),
+        new("Hangout", "Hangout"),
+        new("ExtendedAbsence", "Extended Absence"),
+        new("Training", "Training"),
+        new("NewHire", "New Hire")
+    ];
+
+    private readonly IReadOnlyList<DataTableColumn<CurrentBoardRow>> currentBoardColumns =
+    [
+        new("#", r => r.RowNumber, sortKey: "RowNumber", width: "6%"),
+        new("Employee", r => r.EmployeeName, width: "21%"),
+        new("Status", r => r.Status, width: "11%"),
+        new("24Hr Rest Time", r => r.RestTimeDisplay, width: "12%"),
+        new("CD", r => r.ConsecutiveDaysDisplay, width: "6%"),
+        new("DW", r => r.DaysWorkedDisplay, width: "6%"),
+        new("Board Position", r => r.BoardPositionDisplay, width: "14%"),
+        new("Projected Vacancy", r => r.ProjectedVacancyDisplay, width: "14%"),
+        new("On Duty", r => r.OnDutyDisplay, width: "10%")
+    ];
+
+    private readonly IReadOnlyList<DataTableColumn<BoardSnapshotRowDetail>> snapshotColumns =
+    [
+        new("Order", r => r.BoardOrder, width: "8%"),
+        new("Employee", r => r.EmployeeName, width: "20%"),
+        new("Projected Position", r => r.PositionName, width: "16%"),
+        new("Call Sequence", r => r.CallSequence, width: "12%"),
+        new("Tie-Up", r => r.TieUpAt?.ToDateTime(), width: "14%"),
+        new("Status", r => r.Status, width: "10%"),
+        new("Decision", r => string.Empty, width: "12%")
+    ];
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!HasRailroad)
+            return;
+
+        isLoading = true;
+        pageErrorMessage = null;
+
+        try
+        {
+            ApplyNavigationParameters();
+            ReferenceData.Invalidate();
+            workAreas = await ReferenceData.GetWorkAreasAsync();
+            await LoadCraftsAsync();
+
+            if (selectedWorkAreaCtrlNbr == 0 && workAreas.Count == 1)
+                selectedWorkAreaCtrlNbr = workAreas[0].CtrlNbr;
+
+            if (selectedCraftCtrlNbr == 0 && crafts.Count == 1)
+                selectedCraftCtrlNbr = crafts[0].CtrlNbr;
+
+            await LoadBoardEvidenceAsync();
+        }
+        catch (RpcException ex)
+        {
+            pageErrorMessage = ex.Status.Detail;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAppContextChangedAsync()
+    {
+        selectedWorkAreaCtrlNbr = 0;
+        selectedCraftCtrlNbr = 0;
+        selectedShiftInstanceCtrlNbr = 0;
+        selectedSnapshotCtrlNbr = 0;
+        requestedShiftInstanceCtrlNbr = null;
+        requestedSnapshotCtrlNbr = null;
+        crafts = [];
+        currentBoardRows.Clear();
+        shifts.Clear();
+        timelineItems.Clear();
+        snapshotRows.Clear();
+        decisionItems.Clear();
+        selectedDecision = null;
+        activeTab = CurrentTabKey;
+
+        if (HasRailroad)
+            await LoadDataAsync();
+    }
+
+    private async Task LoadCraftsAsync()
+    {
+        if (!HasParent || !HasRailroad)
+        {
+            crafts = [];
+            return;
+        }
+
+        var response = await CraftClient.GetAllCraftsAsync(SelectedParentCtrlNbr ?? 0, SelectedRailroadCtrlNbr ?? 0);
+        crafts = response.Crafts
+            .OrderBy(c => c.CraftName)
+            .ToList();
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var parsed))
+        {
+            selectedDate = parsed;
+            if (activeTab == HistoryTabKey)
+                await LoadHistoryShiftsAsync();
+        }
+    }
+
+    private async Task OnWorkAreaChangedAsync()
+    {
+        await LoadCurrentBoardAsync();
+        if (activeTab == HistoryTabKey)
+            await LoadHistoryShiftsAsync();
+    }
+
+    private async Task OnCraftChangedAsync()
+    {
+        await LoadCurrentBoardAsync();
+    }
+
+    private async Task LoadBoardEvidenceAsync()
+    {
+        pageErrorMessage = null;
+        currentBoardRows.Clear();
+
+        if (selectedWorkAreaCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            await LoadCurrentBoardAsync();
+
+            if (activeTab == HistoryTabKey)
+                await LoadHistoryShiftsAsync();
+        }
+        catch (RpcException ex)
+        {
+            pageErrorMessage = ex.Status.Detail;
+        }
+    }
+
+    private async Task OnShiftChangedAsync()
+    {
+        await LoadSnapshotTimelineAsync();
+    }
+
+    private async Task LoadCurrentBoardAsync()
+    {
+        pageErrorMessage = null;
+        currentBoardRows.Clear();
+
+        if (selectedWorkAreaCtrlNbr <= 0 || selectedCraftCtrlNbr <= 0 || !HasRailroad)
+            return;
+
+        try
+        {
+            var currentBoard = await VacancyAssignmentClient.GetCurrentCallBoardAsync(
+                selectedWorkAreaCtrlNbr,
+                selectedCraftCtrlNbr,
+                selectedBoardType,
+                selectedDate);
+
+            currentBoardRows = currentBoard.Rows
+                .Select(r => new CurrentBoardRow(
+                    r.RowNumber,
+                    r.EmployeeName,
+                    r.StatusDisplay,
+                    r.RestTimeDisplay,
+                    r.ConsecutiveDaysDisplay,
+                    r.DaysWorkedDisplay,
+                    r.BoardPositionDisplay,
+                    r.ProjectedVacancyDisplay,
+                    r.OnDutyDisplay))
+                .ToList();
+        }
+        catch (RpcException ex)
+        {
+            pageErrorMessage = ex.Status.Detail;
+        }
+    }
+
+    private async Task LoadHistoryShiftsAsync()
+    {
+        shifts.Clear();
+        timelineItems.Clear();
+        snapshotRows.Clear();
+        decisionItems.Clear();
+        selectedDecision = null;
+        selectedShiftInstanceCtrlNbr = 0;
+        selectedSnapshotCtrlNbr = 0;
+
+        if (selectedWorkAreaCtrlNbr <= 0)
+            return;
+
+        var response = await DailyOperationsClient.GetVacancyResolutionAsync(
+            selectedWorkAreaCtrlNbr,
+            selectedDate.ToString("yyyy-MM-dd"),
+            includeClosed: true);
+
+        shifts = response.Shifts
+            .OrderBy(s => s.ShiftCode)
+            .ThenBy(s => s.ShiftDisplayName)
+            .ToList();
+
+        if (shifts.Count == 0)
+            return;
+
+        var requestedShift = requestedShiftInstanceCtrlNbr;
+        var matchingShift = requestedShift.HasValue
+            ? shifts.FirstOrDefault(s => s.ShiftInstanceCtrlNbr == requestedShift.Value)
+            : null;
+
+        selectedShiftInstanceCtrlNbr = matchingShift?.ShiftInstanceCtrlNbr ?? shifts[0].ShiftInstanceCtrlNbr;
+        await LoadSnapshotTimelineAsync();
+    }
+
+    private async Task SwitchToCurrentTabAsync()
+    {
+        if (activeTab == CurrentTabKey)
+            return;
+
+        activeTab = CurrentTabKey;
+        await LoadCurrentBoardAsync();
+    }
+
+    private async Task SwitchToHistoryTabAsync()
+    {
+        if (activeTab == HistoryTabKey)
+            return;
+
+        activeTab = HistoryTabKey;
+        await LoadHistoryShiftsAsync();
+    }
+
+    private async Task LoadSnapshotTimelineAsync()
+    {
+        timelineItems.Clear();
+        snapshotRows.Clear();
+        decisionItems.Clear();
+        selectedDecision = null;
+        selectedSnapshotCtrlNbr = 0;
+
+        if (selectedShiftInstanceCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            var timeline = await VacancyAssignmentClient.GetBoardSnapshotTimelineAsync(selectedShiftInstanceCtrlNbr);
+            var decisions = await VacancyAssignmentClient.GetBoardSelectionDecisionsAsync(selectedShiftInstanceCtrlNbr);
+
+            timelineItems = timeline.Snapshots
+                .OrderBy(s => s.DecisionSequence)
+                .ThenBy(s => s.CapturedAt?.ToDateTime() ?? DateTime.MinValue)
+                .ToList();
+
+            decisionItems = decisions.Decisions
+                .OrderBy(d => d.DecisionSequence)
+                .ThenBy(d => d.OccurredAt?.ToDateTime() ?? DateTime.MinValue)
+                .ToList();
+
+            if (timelineItems.Count > 0)
+            {
+                var requestedSnapshot = requestedSnapshotCtrlNbr;
+                var matchingSnapshot = requestedSnapshot.HasValue
+                    ? timelineItems.FirstOrDefault(s => s.SnapshotCtrlNbr == requestedSnapshot.Value)
+                    : null;
+
+                selectedSnapshotCtrlNbr = matchingSnapshot?.SnapshotCtrlNbr ?? timelineItems[0].SnapshotCtrlNbr;
+                await LoadSnapshotDetailAsync();
+            }
+
+            requestedShiftInstanceCtrlNbr = null;
+            requestedSnapshotCtrlNbr = null;
+        }
+        catch (RpcException ex)
+        {
+            pageErrorMessage = ex.Status.Detail;
+        }
+    }
+
+    private async Task LoadSnapshotDetailAsync()
+    {
+        snapshotRows.Clear();
+        selectedDecision = null;
+
+        if (selectedSnapshotCtrlNbr <= 0)
+            return;
+
+        try
+        {
+            var detail = await VacancyAssignmentClient.GetBoardSnapshotDetailAsync(selectedSnapshotCtrlNbr);
+            snapshotRows = detail.Snapshot?.Rows
+                ?.OrderBy(r => r.BoardOrder)
+                .ThenBy(r => r.CallSequence)
+                .ThenBy(r => r.BoardSnapshotRowCtrlNbr)
+                .ToList() ?? [];
+
+            selectedDecision = decisionItems
+                .Where(d => d.SnapshotCtrlNbr == selectedSnapshotCtrlNbr)
+                .OrderBy(d => d.DecisionSequence)
+                .ThenBy(d => d.OccurredAt?.ToDateTime() ?? DateTime.MinValue)
+                .LastOrDefault();
+        }
+        catch (RpcException ex)
+        {
+            pageErrorMessage = ex.Status.Detail;
+        }
+    }
+
+    private static string ToLocalDisplay(global::Google.Protobuf.WellKnownTypes.Timestamp? timestamp)
+    {
+        if (timestamp is null)
+            return "—";
+
+        var utc = timestamp.ToDateTime();
+        return utc.ToLocalTime().ToString("MM/dd/yyyy HH:mm");
+    }
+
+    private static string GetSelectedEmployeeDisplay(BoardSelectionDecisionItem decision)
+        => decision.SelectedEmployeeCtrlNbr > 0
+            ? decision.SelectedEmployeeCtrlNbr.ToString()
+            : "—";
+
+    private void ApplyNavigationParameters()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("workArea", out var workAreaValues)
+            && long.TryParse(workAreaValues.FirstOrDefault(), out var workAreaCtrlNbr)
+            && workAreaCtrlNbr > 0)
+        {
+            selectedWorkAreaCtrlNbr = workAreaCtrlNbr;
+        }
+
+        if (query.TryGetValue("date", out var dateValues)
+            && DateOnly.TryParse(dateValues.FirstOrDefault(), out var parsedDate))
+        {
+            selectedDate = parsedDate;
+        }
+
+        if (query.TryGetValue("shift", out var shiftValues)
+            && long.TryParse(shiftValues.FirstOrDefault(), out var shiftCtrlNbr)
+            && shiftCtrlNbr > 0)
+        {
+            requestedShiftInstanceCtrlNbr = shiftCtrlNbr;
+        }
+
+        if (query.TryGetValue("snapshot", out var snapshotValues)
+            && long.TryParse(snapshotValues.FirstOrDefault(), out var snapshotCtrlNbr)
+            && snapshotCtrlNbr > 0)
+        {
+            requestedSnapshotCtrlNbr = snapshotCtrlNbr;
+        }
+
+        if (query.TryGetValue("tab", out var tabValues))
+        {
+            var requestedTab = tabValues.FirstOrDefault();
+            if (string.Equals(requestedTab, HistoryTabKey, StringComparison.OrdinalIgnoreCase))
+                activeTab = HistoryTabKey;
+            else if (string.Equals(requestedTab, CurrentTabKey, StringComparison.OrdinalIgnoreCase))
+                activeTab = CurrentTabKey;
+        }
+    }
+
+    private sealed record CurrentBoardRow(
+        int RowNumber,
+        string EmployeeName,
+        string Status,
+        string RestTimeDisplay,
+        string ConsecutiveDaysDisplay,
+        string DaysWorkedDisplay,
+        string BoardPositionDisplay,
+        string ProjectedVacancyDisplay,
+        string OnDutyDisplay);
+
+    private sealed record BoardTypeOption(string Value, string Label);
+
+}
