@@ -70,6 +70,9 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.WorkManagement.ShiftInstance> ShiftInstances => Set<Domain.Modules.WorkManagement.ShiftInstance>();
     public DbSet<Domain.Modules.WorkManagement.PositionSlotInstance> PositionSlotInstances => Set<Domain.Modules.WorkManagement.PositionSlotInstance>();
     public DbSet<Domain.Modules.WorkManagement.BoardSlotInstance> BoardSlotInstances => Set<Domain.Modules.WorkManagement.BoardSlotInstance>();
+    public DbSet<Domain.Modules.WorkManagement.BoardSnapshot> BoardSnapshots => Set<Domain.Modules.WorkManagement.BoardSnapshot>();
+    public DbSet<Domain.Modules.WorkManagement.BoardSnapshotRow> BoardSnapshotRows => Set<Domain.Modules.WorkManagement.BoardSnapshotRow>();
+    public DbSet<Domain.Modules.WorkManagement.BoardSelectionDecision> BoardSelectionDecisions => Set<Domain.Modules.WorkManagement.BoardSelectionDecision>();
     public DbSet<Domain.Modules.WorkManagement.AbolishmentRecord> AbolishmentRecords => Set<Domain.Modules.WorkManagement.AbolishmentRecord>();
 
     // Crews Module

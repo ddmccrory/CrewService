@@ -22,6 +22,7 @@ public sealed class BoardSlotInstance : Entity
     public int DaysWorked { get; private set; }
     public int ConsecutiveDays { get; private set; }
     public DateTime? RestAvailableAtUtc { get; private set; }
+    public DateTime? TieUpAtUtc { get; private set; }
 
     private BoardSlotInstance()
     {
@@ -42,7 +43,8 @@ public sealed class BoardSlotInstance : Entity
         string positionName = "",
         int daysWorked = 0,
         int consecutiveDays = 0,
-        DateTime? restAvailableAtUtc = null)
+        DateTime? restAvailableAtUtc = null,
+        DateTime? tieUpAtUtc = null)
     {
         return new BoardSlotInstance
         {
@@ -57,7 +59,8 @@ public sealed class BoardSlotInstance : Entity
             PositionName = positionName,
             DaysWorked = daysWorked,
             ConsecutiveDays = consecutiveDays,
-            RestAvailableAtUtc = restAvailableAtUtc
+            RestAvailableAtUtc = restAvailableAtUtc,
+            TieUpAtUtc = tieUpAtUtc
         };
     }
 
@@ -75,6 +78,7 @@ public sealed class BoardSlotInstance : Entity
     {
         Status = BoardSlotStatus.TiedUp;
         CallSequence = newCallSequence;
+        TieUpAtUtc = DateTime.UtcNow;
     }
 
     public void Reposition(int newBoardOrder)

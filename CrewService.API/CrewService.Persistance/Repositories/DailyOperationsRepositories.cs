@@ -28,6 +28,7 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
     public override async Task<ShiftInstance?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<ShiftInstance>()
             .Include(s => s.PositionSlots)
+            .Include(s => s.BoardSlots)
             .Include(s => s.AssignmentNotes)
             .SingleOrDefaultAsync(s => s.CtrlNbr == ctrlNbr, ct);
 
@@ -35,6 +36,7 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
         ControlNumber workInstanceCtrlNbr, CancellationToken ct = default) =>
         await DbContext.Set<ShiftInstance>()
             .Include(s => s.PositionSlots)
+            .Include(s => s.BoardSlots)
             .Include(s => s.AssignmentNotes)
             .Where(s => s.WorkInstanceCtrlNbr == workInstanceCtrlNbr)
             .OrderBy(s => s.ShiftCode)
@@ -50,6 +52,7 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
         CancellationToken ct = default) =>
         await DbContext.Set<ShiftInstance>()
             .Include(s => s.PositionSlots)
+            .Include(s => s.BoardSlots)
             .Include(s => s.AssignmentNotes)
             .Where(s => !s.IsComplete && s.PositionSlots.Any(ps => ps.CrewPositionCtrlNbr == crewPositionCtrlNbr))
             .ToListAsync(ct);

@@ -2,6 +2,7 @@ using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
 using Xunit;
@@ -35,6 +36,7 @@ public class VacancyResolutionEngineTests
         var engine = new VacancyResolutionEngine(
             new FakeOpenSlotProvider([slot]),
             new FakeBoardCandidateProvider([candidate]),
+            new FakeBoardSnapshotSource([]),
             new FakeSkipContextProvider(new SkipContext
             {
                 IsQualified = false,
@@ -43,6 +45,8 @@ public class VacancyResolutionEngineTests
             }),
             runRepo,
             decisionLogRepo,
+            new FakeBoardSnapshotRepository(),
+            new FakeBoardSelectionDecisionRepository(),
             [new QualificationRule()],
             new StandardAssignmentStrategy());
 
@@ -50,11 +54,155 @@ public class VacancyResolutionEngineTests
             ControlNumber.Create(500),
             ControlNumber.Create(600),
             ControlNumber.Create(700),
+            options: null,
             TestContext.Current.CancellationToken);
 
         var skipLog = Assert.Single(decisionLogRepo.AddedLogs, l => l.Phase == "Skip");
         Assert.Contains("NOT_QUALIFIED", skipLog.DecisionJson);
         Assert.Contains("Missing FOREMAN qualification", skipLog.DecisionJson);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CapturesOrderedSnapshotRows_AndSelectionDecisionEvidence()
+    {
+        var shiftCtrlNbr = ControlNumber.Create(600);
+        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
+        var candidate = new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1);
+
+        var runRepo = new FakeVacancyResolutionRunRepository();
+        var decisionLogRepo = new FakeDispatchDecisionLogRepository();
+        var snapshotRepo = new FakeBoardSnapshotRepository();
+        var decisionRepo = new FakeBoardSelectionDecisionRepository();
+        var boardSlots = new List<BoardSnapshotSlot>
+        {
+            new(ControlNumber.Create(3003), shiftCtrlNbr, ControlNumber.Create(91), ControlNumber.Create(801), ControlNumber.Create(2), 2, 20, null, "Active", "Extra Board", "Employee B", "Position B"),
+            new(ControlNumber.Create(3002), shiftCtrlNbr, ControlNumber.Create(91), ControlNumber.Create(802), ControlNumber.Create(1), 1, 20, null, "Active", "Extra Board", "Employee A", "Position A"),
+            new(ControlNumber.Create(3001), shiftCtrlNbr, ControlNumber.Create(91), ControlNumber.Create(803), ControlNumber.Create(3), 1, 10, null, "Active", "Extra Board", "Employee C", "Position C")
+        };
+
+        var engine = new VacancyResolutionEngine(
+            new FakeOpenSlotProvider([slot]),
+            new FakeBoardCandidateProvider([candidate]),
+            new FakeBoardSnapshotSource(boardSlots),
+            new FakeSkipContextProvider(new SkipContext { IsQualified = true, IsRested = true }),
+            runRepo,
+            decisionLogRepo,
+            snapshotRepo,
+            decisionRepo,
+            [new QualificationRule()],
+            new StandardAssignmentStrategy());
+
+        await engine.ExecuteAsync(
+            ControlNumber.Create(500),
+            shiftCtrlNbr,
+            ControlNumber.Create(700),
+            options: VacancyResolutionExecutionOptions.Default,
+            TestContext.Current.CancellationToken);
+
+        var snapshot = Assert.Single(snapshotRepo.Snapshots);
+        Assert.Equal(1, snapshot.DecisionSequence);
+        Assert.Equal(3, snapshot.Rows.Count);
+
+        Assert.Collection(snapshot.Rows,
+            row =>
+            {
+                Assert.Equal(1, row.BoardOrder);
+                Assert.Equal(10, row.CallSequence);
+                Assert.Equal("Employee C", row.EmployeeName);
+            },
+            row =>
+            {
+                Assert.Equal(1, row.BoardOrder);
+                Assert.Equal(20, row.CallSequence);
+                Assert.Equal("Employee A", row.EmployeeName);
+            },
+            row =>
+            {
+                Assert.Equal(2, row.BoardOrder);
+                Assert.Equal(20, row.CallSequence);
+                Assert.Equal("Employee B", row.EmployeeName);
+            });
+
+        var selectDecision = Assert.Single(decisionRepo.Decisions, d => d.DecisionPhase == "Select");
+        Assert.Equal(snapshot.CtrlNbr, selectDecision.SnapshotCtrlNbr);
+        Assert.Equal(candidate.EmployeeCtrlNbr, selectDecision.SelectedEmployeeCtrlNbr);
+        Assert.Equal(ControlNumber.Create(3002), selectDecision.SelectedBoardSlotInstanceCtrlNbr);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenSnapshotCaptureDisabled_DoesNotWriteSnapshot_AndDecisionHasNoSnapshotLink()
+    {
+        var slot = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
+        var candidate = new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1);
+
+        var runRepo = new FakeVacancyResolutionRunRepository();
+        var decisionLogRepo = new FakeDispatchDecisionLogRepository();
+        var snapshotRepo = new FakeBoardSnapshotRepository();
+        var decisionRepo = new FakeBoardSelectionDecisionRepository();
+
+        var engine = new VacancyResolutionEngine(
+            new FakeOpenSlotProvider([slot]),
+            new FakeBoardCandidateProvider([candidate]),
+            new FakeBoardSnapshotSource([]),
+            new FakeSkipContextProvider(new SkipContext { IsQualified = true, IsRested = true }),
+            runRepo,
+            decisionLogRepo,
+            snapshotRepo,
+            decisionRepo,
+            [new QualificationRule()],
+            new StandardAssignmentStrategy());
+
+        await engine.ExecuteAsync(
+            ControlNumber.Create(500),
+            ControlNumber.Create(600),
+            ControlNumber.Create(700),
+            options: new VacancyResolutionExecutionOptions("PostCall", CaptureBoardSnapshots: false),
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(snapshotRepo.Snapshots);
+        var decision = Assert.Single(decisionRepo.Decisions);
+        Assert.Null(decision.SnapshotCtrlNbr);
+        Assert.Equal("PostCall", decision.DecisionSource);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InterleavedShiftRuns_UseIndependentDecisionSequences()
+    {
+        var openSlot = new FakeOpenSlotProvider([new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200))]);
+        var candidates = new FakeBoardCandidateProvider([new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1)]);
+        var boardSnapshotSource = new FakeBoardSnapshotSource([
+            new(ControlNumber.Create(7001), ControlNumber.Create(6001), ControlNumber.Create(91), ControlNumber.Create(8001), ControlNumber.Create(1), 1, 1, null, "Active", "Extra Board", "Employee A", "Position A")
+        ]);
+
+        var runRepo = new FakeVacancyResolutionRunRepository();
+        var decisionLogRepo = new FakeDispatchDecisionLogRepository();
+        var snapshotRepo = new FakeBoardSnapshotRepository();
+        var decisionRepo = new FakeBoardSelectionDecisionRepository();
+
+        var engine = new VacancyResolutionEngine(
+            openSlot,
+            candidates,
+            boardSnapshotSource,
+            new FakeSkipContextProvider(new SkipContext { IsQualified = true, IsRested = true }),
+            runRepo,
+            decisionLogRepo,
+            snapshotRepo,
+            decisionRepo,
+            [new QualificationRule()],
+            new StandardAssignmentStrategy());
+
+        var shiftA = ControlNumber.Create(6001);
+        var shiftB = ControlNumber.Create(6002);
+
+        await engine.ExecuteAsync(ControlNumber.Create(500), shiftA, ControlNumber.Create(700), options: VacancyResolutionExecutionOptions.Default, TestContext.Current.CancellationToken);
+        await engine.ExecuteAsync(ControlNumber.Create(500), shiftB, ControlNumber.Create(700), options: VacancyResolutionExecutionOptions.Default, TestContext.Current.CancellationToken);
+        await engine.ExecuteAsync(ControlNumber.Create(500), shiftA, ControlNumber.Create(700), options: VacancyResolutionExecutionOptions.Default, TestContext.Current.CancellationToken);
+
+        var shiftASnapshots = snapshotRepo.Snapshots.Where(s => s.ShiftInstanceCtrlNbr == shiftA).OrderBy(s => s.DecisionSequence).ToList();
+        var shiftBSnapshots = snapshotRepo.Snapshots.Where(s => s.ShiftInstanceCtrlNbr == shiftB).OrderBy(s => s.DecisionSequence).ToList();
+
+        Assert.Equal([1, 2], shiftASnapshots.Select(s => s.DecisionSequence));
+        Assert.Equal([1], shiftBSnapshots.Select(s => s.DecisionSequence));
     }
 
     private sealed class FakeOpenSlotProvider(IReadOnlyList<SkipRuleSlot> slots) : IOpenSlotProvider
@@ -73,6 +221,12 @@ public class VacancyResolutionEngineTests
     {
         public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
             => Task.FromResult(ctx);
+    }
+
+    private sealed class FakeBoardSnapshotSource(IReadOnlyList<BoardSnapshotSlot> slots) : IBoardSnapshotSource
+    {
+        public Task<IReadOnlyList<BoardSnapshotSlot>> GetBoardSlotsAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult(slots);
     }
 
     private sealed class FakeVacancyResolutionRunRepository : IVacancyResolutionRunRepository
@@ -96,8 +250,67 @@ public class VacancyResolutionEngineTests
             return Task.CompletedTask;
         }
 
+        public override void Add(DispatchDecisionLog entity)
+        {
+            AddedLogs.Add(entity);
+        }
+
         public Task<List<DispatchDecisionLog>> GetByPositionSlotAsync(ControlNumber positionSlotCtrlNbr)
             => Task.FromResult(AddedLogs.Where(l => l.PositionSlotCtrlNbr == positionSlotCtrlNbr).ToList());
+    }
+
+    private sealed class FakeBoardSnapshotRepository : FakeRepositoryBase<BoardSnapshot>, IBoardSnapshotRepository
+    {
+        private readonly List<BoardSnapshot> _snapshots = [];
+
+        public IReadOnlyList<BoardSnapshot> Snapshots => _snapshots;
+
+        public Task<IReadOnlyList<BoardSnapshot>> GetByShiftInstanceAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<BoardSnapshot>>(_snapshots.Where(s => s.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr).ToList());
+
+        public Task<IReadOnlyList<BoardSnapshot>> GetByPositionSlotInstanceAsync(ControlNumber positionSlotInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<BoardSnapshot>>(_snapshots.Where(s => s.PositionSlotInstanceCtrlNbr == positionSlotInstanceCtrlNbr).ToList());
+
+        public Task<int> GetNextDecisionSequenceAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+        {
+            var max = _snapshots.Where(s => s.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr).Select(s => (int?)s.DecisionSequence).Max();
+            return Task.FromResult((max ?? 0) + 1);
+        }
+
+        public override Task AddAsync(BoardSnapshot entity, CancellationToken ct = default)
+        {
+            _snapshots.Add(entity);
+            return Task.CompletedTask;
+        }
+
+        public override void Add(BoardSnapshot entity)
+        {
+            _snapshots.Add(entity);
+        }
+    }
+
+    private sealed class FakeBoardSelectionDecisionRepository : FakeRepositoryBase<BoardSelectionDecision>, IBoardSelectionDecisionRepository
+    {
+        private readonly List<BoardSelectionDecision> _decisions = [];
+
+        public IReadOnlyList<BoardSelectionDecision> Decisions => _decisions;
+
+        public Task<IReadOnlyList<BoardSelectionDecision>> GetByShiftInstanceAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<BoardSelectionDecision>>(_decisions.Where(d => d.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr).ToList());
+
+        public Task<IReadOnlyList<BoardSelectionDecision>> GetByPositionSlotInstanceAsync(ControlNumber positionSlotInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<BoardSelectionDecision>>(_decisions.Where(d => d.PositionSlotInstanceCtrlNbr == positionSlotInstanceCtrlNbr).ToList());
+
+        public override Task AddAsync(BoardSelectionDecision entity, CancellationToken ct = default)
+        {
+            _decisions.Add(entity);
+            return Task.CompletedTask;
+        }
+
+        public override void Add(BoardSelectionDecision entity)
+        {
+            _decisions.Add(entity);
+        }
     }
 
     private abstract class FakeRepositoryBase<TEntity> : IRepository<TEntity> where TEntity : Entity

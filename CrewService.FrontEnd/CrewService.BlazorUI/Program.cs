@@ -47,6 +47,7 @@ builder.Services.AddScoped<RequiredPositionsStrategyClient>();
 builder.Services.AddScoped<NotificationsClient>();
 builder.Services.AddScoped<BackgroundServicesClient>();
 builder.Services.AddScoped<AbsenceClient>();
+builder.Services.AddScoped<VacancyAssignmentClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 

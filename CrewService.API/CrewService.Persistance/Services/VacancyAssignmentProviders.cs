@@ -28,6 +28,32 @@ internal sealed class OpenSlotProvider(CrewServiceDbContext dbContext) : IOpenSl
     }
 }
 
+internal sealed class BoardSnapshotSource(CrewServiceDbContext dbContext) : IBoardSnapshotSource
+{
+    public async Task<IReadOnlyList<BoardSnapshotSlot>> GetBoardSlotsAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+    {
+        return await dbContext.Set<ShiftInstance>()
+            .Where(s => s.CtrlNbr == shiftInstanceCtrlNbr)
+            .SelectMany(s => s.BoardSlots)
+            .OrderBy(b => b.BoardOrder)
+            .ThenBy(b => b.CallSequence)
+            .Select(b => new BoardSnapshotSlot(
+                b.CtrlNbr,
+                b.ShiftInstanceCtrlNbr,
+                b.RosterBoardCtrlNbr,
+                b.RosterBoardPositionCtrlNbr,
+                b.EmployeeCtrlNbr,
+                b.BoardOrder,
+                b.CallSequence,
+                b.TieUpAtUtc,
+                b.Status.ToString(),
+                b.BoardName,
+                b.EmployeeName,
+                b.PositionName))
+            .ToListAsync(ct);
+    }
+}
+
 internal sealed class BoardCandidateProvider(CrewServiceDbContext dbContext) : IBoardCandidateProvider
 {
     public async Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(

@@ -12,6 +12,18 @@ service VacancyAssignmentSrvc {
   rpc GetResolutionRuns (GetResolutionRunsRequest) returns (GetResolutionRunsResponse) {
     option (google.api.http) = { get: "/v1/vacancy-assignment/runs/{work_area_group_ctrl_nbr}" };
   }
+  rpc GetBoardSnapshotTimeline (GetBoardSnapshotTimelineRequest) returns (GetBoardSnapshotTimelineResponse) {
+    option (google.api.http) = { get: "/v1/vacancy-assignment/board-snapshots/{shift_instance_ctrl_nbr}" };
+  }
+  rpc GetBoardSnapshotDetail (GetBoardSnapshotDetailRequest) returns (GetBoardSnapshotDetailResponse) {
+    option (google.api.http) = { get: "/v1/vacancy-assignment/board-snapshot/{snapshot_ctrl_nbr}" };
+  }
+  rpc GetBoardSelectionDecisions (GetBoardSelectionDecisionsRequest) returns (GetBoardSelectionDecisionsResponse) {
+    option (google.api.http) = { get: "/v1/vacancy-assignment/board-decisions/{shift_instance_ctrl_nbr}" };
+  }
+  rpc GetCurrentCallBoard (GetCurrentCallBoardRequest) returns (GetCurrentCallBoardResponse) {
+    option (google.api.http) = { get: "/v1/vacancy-assignment/current-call-board" };
+  }
 }
 
 message TriggerResolutionRequest {
@@ -36,4 +48,119 @@ message GetResolutionRunsRequest {
 
 message GetResolutionRunsResponse {
   repeated VacancyResolutionRunResponse runs = 1;
+}
+
+message GetBoardSnapshotTimelineRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+}
+
+message BoardSnapshotTimelineItem {
+  int64 snapshot_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 position_slot_instance_ctrl_nbr = 3;
+  optional int64 vacancy_impact_ctrl_nbr = 4;
+  string trigger_source = 5;
+  int32 decision_sequence = 6;
+  google.protobuf.Timestamp captured_at = 7;
+  int32 row_count = 8;
+}
+
+message GetBoardSnapshotTimelineResponse {
+  repeated BoardSnapshotTimelineItem snapshots = 1;
+}
+
+message GetBoardSnapshotDetailRequest {
+  int64 snapshot_ctrl_nbr = 1;
+}
+
+message BoardSnapshotDetail {
+  int64 snapshot_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 position_slot_instance_ctrl_nbr = 3;
+  optional int64 vacancy_impact_ctrl_nbr = 4;
+  string trigger_source = 5;
+  int32 decision_sequence = 6;
+  google.protobuf.Timestamp captured_at = 7;
+  repeated BoardSnapshotRowDetail rows = 8;
+}
+
+message BoardSnapshotRowDetail {
+  int64 board_snapshot_row_ctrl_nbr = 1;
+  int64 board_slot_instance_ctrl_nbr = 2;
+  int64 shift_instance_ctrl_nbr = 3;
+  int64 roster_board_ctrl_nbr = 4;
+  optional int64 roster_board_position_ctrl_nbr = 5;
+  int64 employee_ctrl_nbr = 6;
+  int32 board_order = 7;
+  int64 call_sequence = 8;
+  optional google.protobuf.Timestamp tie_up_at = 9;
+  string status = 10;
+  string board_name = 11;
+  string employee_name = 12;
+  string position_name = 13;
+}
+
+message GetBoardSnapshotDetailResponse {
+  BoardSnapshotDetail snapshot = 1;
+}
+
+message GetBoardSelectionDecisionsRequest {
+  int64 shift_instance_ctrl_nbr = 1;
+}
+
+message BoardSelectionDecisionItem {
+  int64 decision_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 position_slot_instance_ctrl_nbr = 3;
+  optional int64 vacancy_impact_ctrl_nbr = 4;
+  optional int64 snapshot_ctrl_nbr = 5;
+  optional int64 selected_board_slot_instance_ctrl_nbr = 6;
+  optional int64 selected_employee_ctrl_nbr = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  int32 decision_sequence = 9;
+  string decision_source = 10;
+  string decision_phase = 11;
+  string decision_json = 12;
+}
+
+message GetBoardSelectionDecisionsResponse {
+  repeated BoardSelectionDecisionItem decisions = 1;
+}
+
+message GetCurrentCallBoardRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 craft_ctrl_nbr = 2;
+  string board_type = 3;
+  string target_date_yyyy_mm_dd = 4;
+}
+
+message CurrentCallBoardRow {
+  int64 board_slot_instance_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 roster_board_ctrl_nbr = 3;
+  optional int64 roster_board_position_ctrl_nbr = 4;
+  int64 employee_ctrl_nbr = 5;
+  int32 board_order = 6;
+  int64 call_sequence = 7;
+  optional google.protobuf.Timestamp tie_up_at = 8;
+  string status = 9;
+  string board_name = 10;
+  string board_type = 11;
+  string employee_name = 12;
+  string position_name = 13;
+  int32 days_worked = 14;
+  int32 consecutive_days = 15;
+  optional google.protobuf.Timestamp rest_available_at = 16;
+  int32 row_number = 17;
+  string status_display = 18;
+  string rest_time_display = 19;
+  string consecutive_days_display = 20;
+  string days_worked_display = 21;
+  string board_position_display = 22;
+  string projected_vacancy_display = 23;
+  string on_duty_display = 24;
+}
+
+message GetCurrentCallBoardResponse {
+  repeated CurrentCallBoardRow rows = 1;
 }

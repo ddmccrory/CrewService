@@ -125,3 +125,66 @@ internal sealed class DepartmentRepository(CrewServiceDbContext dbContext, ICurr
             .ToListAsync();
     }
 }
+
+internal sealed class BoardSnapshotRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<BoardSnapshot>(dbContext, currentUserService), IBoardSnapshotRepository
+{
+    public override async Task<BoardSnapshot?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<BoardSnapshot>()
+            .Include(s => s.Rows)
+            .SingleOrDefaultAsync(s => s.CtrlNbr == ctrlNbr, ct);
+    }
+
+    public async Task<IReadOnlyList<BoardSnapshot>> GetByShiftInstanceAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<BoardSnapshot>()
+            .Include(s => s.Rows)
+            .Where(s => s.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr)
+            .OrderBy(s => s.DecisionSequence)
+            .ThenBy(s => s.CapturedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<BoardSnapshot>> GetByPositionSlotInstanceAsync(ControlNumber positionSlotInstanceCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<BoardSnapshot>()
+            .Include(s => s.Rows)
+            .Where(s => s.PositionSlotInstanceCtrlNbr == positionSlotInstanceCtrlNbr)
+            .OrderBy(s => s.DecisionSequence)
+            .ThenBy(s => s.CapturedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<int> GetNextDecisionSequenceAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+    {
+        var max = await DbContext.Set<BoardSnapshot>()
+            .Where(s => s.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr)
+            .Select(s => (int?)s.DecisionSequence)
+            .MaxAsync(ct);
+
+        return (max ?? 0) + 1;
+    }
+}
+
+internal sealed class BoardSelectionDecisionRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)
+    : Repository<BoardSelectionDecision>(dbContext, currentUserService), IBoardSelectionDecisionRepository
+{
+    public async Task<IReadOnlyList<BoardSelectionDecision>> GetByShiftInstanceAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<BoardSelectionDecision>()
+            .Where(d => d.ShiftInstanceCtrlNbr == shiftInstanceCtrlNbr)
+            .OrderBy(d => d.DecisionSequence)
+            .ThenBy(d => d.OccurredAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<BoardSelectionDecision>> GetByPositionSlotInstanceAsync(ControlNumber positionSlotInstanceCtrlNbr, CancellationToken ct = default)
+    {
+        return await DbContext.Set<BoardSelectionDecision>()
+            .Where(d => d.PositionSlotInstanceCtrlNbr == positionSlotInstanceCtrlNbr)
+            .OrderBy(d => d.DecisionSequence)
+            .ThenBy(d => d.OccurredAtUtc)
+            .ToListAsync(ct);
+    }
+}

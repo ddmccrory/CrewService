@@ -131,6 +131,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private ISlotRequirementRepository? _slotRequirements;
     private IShiftDefinitionRepository? _shiftDefinitions;
     private IShiftInstanceRepository? _shiftInstances;
+    private IBoardSnapshotRepository? _boardSnapshots;
+    private IBoardSelectionDecisionRepository? _boardSelectionDecisions;
     private IOnDutyRecordRepository? _onDutyRecords;
     private IOffDutyRecordRepository? _offDutyRecords;
     private ICraftOperationsPolicyRepository? _craftOperationsPolicies;
@@ -305,6 +307,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public ISlotRequirementRepository SlotRequirements => _slotRequirements ??= new SlotRequirementRepository(_crewContext, _currentUserService);
     public IShiftDefinitionRepository ShiftDefinitions => _shiftDefinitions ??= new ShiftDefinitionRepository(_crewContext, _currentUserService);
     public IShiftInstanceRepository ShiftInstances => _shiftInstances ??= new ShiftInstanceRepository(_crewContext, _currentUserService);
+    public IBoardSnapshotRepository BoardSnapshots => _boardSnapshots ??= new BoardSnapshotRepository(_crewContext, _currentUserService);
+    public IBoardSelectionDecisionRepository BoardSelectionDecisions => _boardSelectionDecisions ??= new BoardSelectionDecisionRepository(_crewContext, _currentUserService);
     public IOnDutyRecordRepository OnDutyRecords => _onDutyRecords ??= new OnDutyRecordRepository(_crewContext, _currentUserService);
     public IOffDutyRecordRepository OffDutyRecords => _offDutyRecords ??= new OffDutyRecordRepository(_crewContext, _currentUserService);
 

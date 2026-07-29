@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728212622_AddBoardSnapshotAuditEntities")]
+    partial class AddBoardSnapshotAuditEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -6088,6 +6091,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("BoardSnapshotCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("BoardSnapshotCtrlNbr1")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("CallSequence")
                         .HasColumnType("INTEGER");
 
@@ -6134,6 +6140,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("BoardSlotInstanceCtrlNbr");
+
+                    b.HasIndex("BoardSnapshotCtrlNbr1");
 
                     b.HasIndex("EmployeeCtrlNbr");
 
@@ -17902,10 +17910,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .IsRequired();
 
                     b.HasOne("CrewService.Domain.Modules.WorkManagement.BoardSnapshot", null)
-                        .WithMany("Rows")
+                        .WithMany()
                         .HasForeignKey("BoardSnapshotCtrlNbr")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.BoardSnapshot", null)
+                        .WithMany("Rows")
+                        .HasForeignKey("BoardSnapshotCtrlNbr1");
 
                     b.HasOne("CrewService.Domain.Models.Employees.Employee", null)
                         .WithMany()
