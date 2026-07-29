@@ -107,6 +107,7 @@ internal class BoardSlotInstanceConfiguration : IEntityTypeConfiguration<BoardSl
         builder.Property(b => b.BoardName).HasMaxLength(100).IsRequired();
         builder.Property(b => b.EmployeeName).HasMaxLength(200).HasDefaultValue(string.Empty);
         builder.Property(b => b.PositionName).HasMaxLength(100).HasDefaultValue(string.Empty);
+        builder.Property(b => b.TieUpAtUtc);
 
         builder.HasOne<RosterBoard>().WithMany().HasForeignKey(b => b.RosterBoardCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RosterBoardPosition>().WithMany().HasForeignKey(b => b.RosterBoardPositionCtrlNbr).IsRequired(false).OnDelete(DeleteBehavior.Restrict);

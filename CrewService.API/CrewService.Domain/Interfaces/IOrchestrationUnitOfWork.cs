@@ -146,6 +146,10 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     ISlotRequirementRepository SlotRequirements { get; }
     IShiftDefinitionRepository ShiftDefinitions { get; }
     IShiftInstanceRepository ShiftInstances { get; }
+    IBoardSnapshotRepository BoardSnapshots =>
+        throw new NotSupportedException("BoardSnapshots repository is not implemented for this unit of work.");
+    IBoardSelectionDecisionRepository BoardSelectionDecisions =>
+        throw new NotSupportedException("BoardSelectionDecisions repository is not implemented for this unit of work.");
     IOnDutyRecordRepository OnDutyRecords { get; }
     IOffDutyRecordRepository OffDutyRecords { get; }
     // ────────────────────────────────────────────────────

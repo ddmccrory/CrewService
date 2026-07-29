@@ -140,11 +140,13 @@ public static class DependencyInjection
         services.AddScoped<IGroupAttributeValueRepository, GroupAttributeValueRepository>();
 
         // WorkManagement Module Repositories
-                services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
+        services.AddScoped<IWorkInstanceRepository, WorkInstanceRepository>();
         services.AddScoped<ICraftRoleRepository, CraftRoleRepository>();
         services.AddScoped<ICraftRoleQualificationRepository, CraftRoleQualificationRepository>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<ISlotRequirementRepository, SlotRequirementRepository>();
+        services.AddScoped<IBoardSnapshotRepository, BoardSnapshotRepository>();
+        services.AddScoped<IBoardSelectionDecisionRepository, BoardSelectionDecisionRepository>();
 
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         // Staffing Module Repositories
@@ -246,6 +248,7 @@ public static class DependencyInjection
         services.AddScoped<IVacancyResolutionRunRepository, VacancyResolutionRunRepository>();
         services.AddScoped<IOpenSlotProvider, OpenSlotProvider>();
         services.AddScoped<IBoardCandidateProvider, BoardCandidateProvider>();
+        services.AddScoped<IBoardSnapshotSource, BoardSnapshotSource>();
         services.AddScoped<ISkipContextProvider, SkipContextProvider>();
 
         // Payroll Engine Repositories (B05)
