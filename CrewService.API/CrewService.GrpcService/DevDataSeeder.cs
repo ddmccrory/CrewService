@@ -860,7 +860,8 @@ internal static class DevDataSeeder
             await callSheetRuleRepo.UpdateAsync(existingRule);
         }
 
-        // Seed Transportation department request-window caps.
+        // Seed department request-window caps to match configured defaults.
+        // Transportation = 45 days, Clerical = no cap entry.
         var allDepartmentRequestWindowPolicies = await departmentAbsenceRequestWindowPolicyRepo.GetAllAsync();
         var departmentRequestWindowPolicyByDepartment = allDepartmentRequestWindowPolicies
             .ToDictionary(p => p.DepartmentCtrlNbr);
@@ -886,13 +887,27 @@ internal static class DevDataSeeder
             }
         }
 
-        // Seed craft waitlist defaults.
+        foreach (var clericalDepartment in allDepartments.Where(d => d.Name.Equals("Clerical", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (departmentRequestWindowPolicyByDepartment.TryGetValue(clericalDepartment.CtrlNbr, out var clericalPolicy))
+                await departmentAbsenceRequestWindowPolicyRepo.DeleteAsync(clericalPolicy.CtrlNbr);
+        }
+
+        // Seed craft waitlist defaults to match configured defaults.
+        // Clerical, Engineer, Trainman => Comp Day Max 3, Vacation Week Max 3, Enabled.
         var allCraftWaitListPolicies = await craftAbsenceWaitListPolicyRepo.GetAllAsync();
         var craftWaitListPolicyByCraft = allCraftWaitListPolicies
             .ToDictionary(p => p.CraftCtrlNbr);
 
         var allCrafts = await craftRepo.GetAllAsync();
-        foreach (var craft in allCrafts)
+        var waitListCraftNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Clerical",
+            "Engineer",
+            "Trainman"
+        };
+
+        foreach (var craft in allCrafts.Where(c => waitListCraftNames.Contains(c.CraftName)))
         {
             if (craft.ParentCtrlNbr is null)
                 continue;
@@ -1213,14 +1228,56 @@ internal static class DevDataSeeder
         var ptraRailroadWM = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value)).First(g => g.Code == "PTRA");
         var ptraEngCraft = crafts.First(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
         var ptraCondCraft = crafts.First(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == ptraRailroadWM.CtrlNbr);
-        var ptraEngineerRole = CraftRole.Create(ptraEngCraft.CtrlNbr, "E", "Engineer");
-        await craftRoleRepo.AddAsync(ptraEngineerRole);
+        var ptraBoardsForRoles = await sp.GetRequiredService<IRosterBoardRepository>().GetAllAsync();
+        var ptraEngineerExtraBoard = ptraBoardsForRoles
+            .FirstOrDefault(b => b.CraftCtrlNbr == ptraEngCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard && b.Name == "Engineer Extra Board")
+            ?? ptraBoardsForRoles.First(b => b.CraftCtrlNbr == ptraEngCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard);
+        var ptraEngineerNewHireBoard = ptraBoardsForRoles
+            .FirstOrDefault(b => b.CraftCtrlNbr == ptraEngCraft.CtrlNbr && b.BoardType == BoardType.NewHire && b.Name == "Engineer New Hires")
+            ?? ptraBoardsForRoles.First(b => b.CraftCtrlNbr == ptraEngCraft.CtrlNbr && b.BoardType == BoardType.NewHire);
+        var ptraTrainmanExtraBoard = ptraBoardsForRoles
+            .FirstOrDefault(b => b.CraftCtrlNbr == ptraCondCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard && b.Name == "Trainman Extra Board")
+            ?? ptraBoardsForRoles.First(b => b.CraftCtrlNbr == ptraCondCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard);
+        var ptraTrainmanNewHireBoard = ptraBoardsForRoles
+            .FirstOrDefault(b => b.CraftCtrlNbr == ptraCondCraft.CtrlNbr && b.BoardType == BoardType.NewHire && b.Name == "Trainman New Hires")
+            ?? ptraBoardsForRoles.First(b => b.CraftCtrlNbr == ptraCondCraft.CtrlNbr && b.BoardType == BoardType.NewHire);
 
-        // Craft Roles - PTRA Trainman craft (hierarchy: Helper < Foreman; Foreman force-assigns from Helper tier)
-        var ptraForeman = CraftRole.Create(ptraCondCraft.CtrlNbr, "F", "Foreman", hierarchyLevel: 1);
-        var ptraHelper = CraftRole.Create(ptraCondCraft.CtrlNbr, "H", "Helper", hierarchyLevel: 0);
+        var ptraEngineerRole = CraftRole.Create(
+            ptraEngCraft.CtrlNbr,
+            "E",
+            "Engineer",
+            defaultRosterBoardCtrlNbr: ptraEngineerExtraBoard.CtrlNbr);
+        var ptraEngineerTraineeRole = CraftRole.Create(
+            ptraEngCraft.CtrlNbr,
+            "ET",
+            "Engineer Trainee",
+            hierarchyLevel: 0,
+            defaultRosterBoardCtrlNbr: ptraEngineerNewHireBoard.CtrlNbr);
+        await craftRoleRepo.AddAsync(ptraEngineerRole);
+        await craftRoleRepo.AddAsync(ptraEngineerTraineeRole);
+
+        // Craft Roles - PTRA Trainman craft (hierarchy: Trainman Trainee < Helper < Foreman)
+        var ptraForeman = CraftRole.Create(
+            ptraCondCraft.CtrlNbr,
+            "F",
+            "Foreman",
+            hierarchyLevel: 2,
+            defaultRosterBoardCtrlNbr: ptraTrainmanExtraBoard.CtrlNbr);
+        var ptraHelper = CraftRole.Create(
+            ptraCondCraft.CtrlNbr,
+            "H",
+            "Helper",
+            hierarchyLevel: 1,
+            defaultRosterBoardCtrlNbr: ptraTrainmanExtraBoard.CtrlNbr);
+        var ptraTrainmanTrainee = CraftRole.Create(
+            ptraCondCraft.CtrlNbr,
+            "TT",
+            "Trainman Trainee",
+            hierarchyLevel: 0,
+            defaultRosterBoardCtrlNbr: ptraTrainmanNewHireBoard.CtrlNbr);
         await craftRoleRepo.AddAsync(ptraForeman);
         await craftRoleRepo.AddAsync(ptraHelper);
+        await craftRoleRepo.AddAsync(ptraTrainmanTrainee);
 
 
         SetParent(csxParentCtrlNbr);
@@ -1265,6 +1322,73 @@ internal static class DevDataSeeder
         await positionSlotRepo.UpdateAsync(slots[5]);
 
         } // end work management guard
+
+        async Task EnsurePtraCraftRolesAsync()
+        {
+            SetParent(ptraParentCore.CtrlNbr.Value);
+
+            var ptraRailroad = (await groupRepo.GetByGroupTypeNameAsync("Railroad", ptraParentCore.CtrlNbr.Value))
+                .FirstOrDefault(g => g.Code == "PTRA");
+            if (ptraRailroad is null)
+                return;
+
+            var crafts = await craftRepo.GetAllAsync();
+            var ptraEngineerCraft = crafts.FirstOrDefault(c => c.CraftName == "Engineer" && c.DynamicGroupCtrlNbr == ptraRailroad.CtrlNbr);
+            var ptraTrainmanCraft = crafts.FirstOrDefault(c => c.CraftName == "Trainman" && c.DynamicGroupCtrlNbr == ptraRailroad.CtrlNbr);
+            if (ptraEngineerCraft is null || ptraTrainmanCraft is null)
+                return;
+
+            var boards = await sp.GetRequiredService<IRosterBoardRepository>().GetAllAsync();
+
+            var ptraEngineerExtraBoard = boards
+                .FirstOrDefault(b => b.CraftCtrlNbr == ptraEngineerCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard && b.Name == "Engineer Extra Board")
+                ?? boards.FirstOrDefault(b => b.CraftCtrlNbr == ptraEngineerCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard);
+            var ptraEngineerNewHireBoard = boards
+                .FirstOrDefault(b => b.CraftCtrlNbr == ptraEngineerCraft.CtrlNbr && b.BoardType == BoardType.NewHire && b.Name == "Engineer New Hires")
+                ?? boards.FirstOrDefault(b => b.CraftCtrlNbr == ptraEngineerCraft.CtrlNbr && b.BoardType == BoardType.NewHire);
+            var ptraTrainmanExtraBoard = boards
+                .FirstOrDefault(b => b.CraftCtrlNbr == ptraTrainmanCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard && b.Name == "Trainman Extra Board")
+                ?? boards.FirstOrDefault(b => b.CraftCtrlNbr == ptraTrainmanCraft.CtrlNbr && b.BoardType == BoardType.ExtraBoard);
+            var ptraTrainmanNewHireBoard = boards
+                .FirstOrDefault(b => b.CraftCtrlNbr == ptraTrainmanCraft.CtrlNbr && b.BoardType == BoardType.NewHire && b.Name == "Trainman New Hires")
+                ?? boards.FirstOrDefault(b => b.CraftCtrlNbr == ptraTrainmanCraft.CtrlNbr && b.BoardType == BoardType.NewHire);
+
+            if (ptraEngineerExtraBoard is null || ptraEngineerNewHireBoard is null || ptraTrainmanExtraBoard is null || ptraTrainmanNewHireBoard is null)
+                return;
+
+            var ptraRoles = await craftRoleRepo.GetByRailroadAsync(ptraRailroad.CtrlNbr);
+
+            async Task UpsertPtraRoleAsync(ControlNumber craftCtrlNbr, string code, string name, int hierarchyLevel, ControlNumber defaultBoardCtrlNbr)
+            {
+                var existingRole = ptraRoles.FirstOrDefault(r => r.Code == code && r.CraftCtrlNbr == craftCtrlNbr);
+                if (existingRole is null)
+                {
+                    await craftRoleRepo.AddAsync(CraftRole.Create(
+                        craftCtrlNbr,
+                        code,
+                        name,
+                        hierarchyLevel: hierarchyLevel,
+                        defaultRosterBoardCtrlNbr: defaultBoardCtrlNbr));
+                    return;
+                }
+
+                existingRole.Update(
+                    code,
+                    name,
+                    alternateName: null,
+                    defaultRosterBoardCtrlNbr: defaultBoardCtrlNbr,
+                    hierarchyLevel: hierarchyLevel);
+                await craftRoleRepo.UpdateAsync(existingRole);
+            }
+
+            await UpsertPtraRoleAsync(ptraEngineerCraft.CtrlNbr, "E", "Engineer", 1, ptraEngineerExtraBoard.CtrlNbr);
+            await UpsertPtraRoleAsync(ptraEngineerCraft.CtrlNbr, "ET", "Engineer Trainee", 0, ptraEngineerNewHireBoard.CtrlNbr);
+            await UpsertPtraRoleAsync(ptraTrainmanCraft.CtrlNbr, "F", "Foreman", 2, ptraTrainmanExtraBoard.CtrlNbr);
+            await UpsertPtraRoleAsync(ptraTrainmanCraft.CtrlNbr, "H", "Helper", 1, ptraTrainmanExtraBoard.CtrlNbr);
+            await UpsertPtraRoleAsync(ptraTrainmanCraft.CtrlNbr, "TT", "Trainman Trainee", 0, ptraTrainmanNewHireBoard.CtrlNbr);
+        }
+
+        await EnsurePtraCraftRolesAsync();
 
         // ?? Section 6: Crews � Crews, Positions, Incumbencies, Attachments ???
         var crewRepo = sp.GetRequiredService<ICrewRepository>();

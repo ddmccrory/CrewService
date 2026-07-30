@@ -26,12 +26,16 @@ public sealed class NoBidBulletinHandler(
         var expiredBulletins = await noBidQuery.GetExpiredNoBidBulletinsAsync(workAreaGroupCtrlNbr, ct);
         if (expiredBulletins.Count == 0) return 0;
 
-        var candidates = await candidateProvider.GetCandidatesAsync(workAreaGroupCtrlNbr, craftCtrlNbr, ct);
-        var reverseSeniority = candidates.OrderByDescending(c => c.OrderIndex).ToList();
-
         var assigned = 0;
         foreach (var bulletin in expiredBulletins)
         {
+            var candidates = await candidateProvider.GetCandidatesAsync(
+                workAreaGroupCtrlNbr,
+                craftCtrlNbr,
+                new SkipRuleSlot(bulletin.PositionSlotCtrlNbr, bulletin.CrewPositionCtrlNbr),
+                ct);
+            var reverseSeniority = candidates.OrderByDescending(c => c.OrderIndex).ToList();
+
             if (assigned >= reverseSeniority.Count) break;
             // Force-assign most junior qualified employee
             assigned++;

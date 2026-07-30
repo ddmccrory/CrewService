@@ -1,5 +1,6 @@
 using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -126,7 +127,62 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
                 .Select(p => p.EmployeeCtrlNbr)
                 .Distinct());
 
+        var boardEmployeeCtrlNbrs = eligibleBoards
+            .SelectMany(b => b.Positions)
+            .Select(p => p.EmployeeCtrlNbr)
+            .Distinct()
+            .ToList();
+
+        var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaCtrlNbr, context.CancellationToken);
+        var railroadCtrlNbr = workArea?.OwningRailroadCtrlNbr;
+        var railroad = railroadCtrlNbr is null
+            ? null
+            : await uow.DynamicGroups.GetByCtrlNbrAsync(railroadCtrlNbr, context.CancellationToken);
+        var workPeriodMode = railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
+        var (workPeriodStartUtc, workPeriodEndUtc) = ResolveCurrentWorkPeriodBounds(workPeriodMode, clock.UtcNow.UtcDateTime);
+
+        var fraConsecutiveDaysByEmployee = new Dictionary<ControlNumber, int>();
+        var workPeriodDaysWorkedByEmployee = new Dictionary<ControlNumber, int>();
+
+        foreach (var employeeCtrlNbr in boardEmployeeCtrlNbrs)
+        {
+            var activeTour = await uow.FraDutyTours.GetActiveTourForEmployeeAsync(employeeCtrlNbr, context.CancellationToken);
+            var consecutiveDays = activeTour?.ConsecutiveDays ?? 0;
+
+            if (consecutiveDays == 0)
+            {
+                var tours = await uow.FraDutyTours.SearchAsync(
+                    new Domain.Modules.FraCompliance.FraRecordSearchCriteria
+                    {
+                        EmployeeCtrlNbr = employeeCtrlNbr,
+                        EndDateUtc = clock.UtcNow.UtcDateTime
+                    },
+                    context.CancellationToken);
+
+                consecutiveDays = tours
+                    .OrderByDescending(t => t.DutyTourStartUtc)
+                    .Select(t => t.ConsecutiveDays)
+                    .FirstOrDefault();
+            }
+
+            fraConsecutiveDaysByEmployee[employeeCtrlNbr] = consecutiveDays;
+
+            var onDutyHistory = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(
+                employeeCtrlNbr,
+                workPeriodStartUtc,
+                workPeriodEndUtc,
+                context.CancellationToken);
+
+            var daysWorked = onDutyHistory
+                .Select(r => DateTime.SpecifyKind(r.OnDutyTimeUtc, DateTimeKind.Utc).Date)
+                .Distinct()
+                .Count();
+
+            workPeriodDaysWorkedByEmployee[employeeCtrlNbr] = daysWorked;
+        }
+
         var operationalByBoardAndEmployee = new Dictionary<(long BoardCtrlNbr, long EmployeeCtrlNbr), Domain.Modules.WorkManagement.BoardSlotInstance>();
+        var rest24ByEmployee = new Dictionary<ControlNumber, DateTime>();
 
         foreach (var shift in shifts)
         {
@@ -140,6 +196,59 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
                     operationalByBoardAndEmployee[key] = slot;
                 }
             }
+
+            var shiftSlotIds = shift.PositionSlots.Select(s => s.CtrlNbr).ToList();
+            var shiftOnDutyRecords = await uow.OnDutyRecords.GetByPositionSlotsAsync(shiftSlotIds, context.CancellationToken);
+            var latestOnDutyBySlot = shiftOnDutyRecords
+                .OrderByDescending(r => r.OnDutyTimeUtc)
+                .GroupBy(r => r.PositionSlotCtrlNbr)
+                .ToDictionary(g => g.Key, g => g.First());
+            var shiftOffDutyRecords = await uow.OffDutyRecords.GetByOnDutyRecordsAsync(
+                latestOnDutyBySlot.Values.Select(r => r.CtrlNbr).ToList(),
+                context.CancellationToken);
+            var latestOffDutyByOnDuty = shiftOffDutyRecords
+                .OrderByDescending(r => r.OffDutyTimeUtc)
+                .GroupBy(r => r.OnDutyRecordCtrlNbr)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            foreach (var positionSlot in shift.PositionSlots)
+            {
+                if (positionSlot.IncumbentEmployeeCtrlNbr is not { } employeeCtrlNbr)
+                    continue;
+
+                if (!latestOnDutyBySlot.TryGetValue(positionSlot.CtrlNbr, out var onDutyRecord))
+                    continue;
+
+                if (!latestOffDutyByOnDuty.TryGetValue(onDutyRecord.CtrlNbr, out var offDutyRecord))
+                    continue;
+
+                var rest24Utc = offDutyRecord.TwentyFourHourRestAtUtc;
+
+                if (!rest24ByEmployee.TryGetValue(employeeCtrlNbr, out var existingRest)
+                    || DateTime.SpecifyKind(rest24Utc, DateTimeKind.Utc) > existingRest)
+                {
+                    rest24ByEmployee[employeeCtrlNbr] = DateTime.SpecifyKind(rest24Utc, DateTimeKind.Utc);
+                }
+            }
+        }
+
+        var projectedSlotByEmployee = new Dictionary<ControlNumber, Domain.Modules.WorkManagement.PositionSlotInstance>();
+        var allPositionSlots = shifts
+            .SelectMany(s => s.PositionSlots)
+            .ToList();
+
+        foreach (var slot in allPositionSlots)
+        {
+            var projections = await uow.DispatchProjections.GetByPositionSlotAsync(slot.CtrlNbr);
+            var latestProjection = projections.FirstOrDefault();
+            if (latestProjection?.ProjectedEmployeeCtrlNbr is not { } projectedEmployeeCtrlNbr)
+                continue;
+
+            if (!projectedSlotByEmployee.TryGetValue(projectedEmployeeCtrlNbr, out var existingSlot)
+                || ComparePositionSlotOrdering(slot, existingSlot) < 0)
+            {
+                projectedSlotByEmployee[projectedEmployeeCtrlNbr] = slot;
+            }
         }
 
         var response = new GetCurrentCallBoardResponse();
@@ -147,20 +256,26 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             .SelectMany(board => board.Positions.Select(position =>
             {
                 operationalByBoardAndEmployee.TryGetValue((board.CtrlNbr.Value, position.EmployeeCtrlNbr.Value), out var opRow);
-                return MapCurrentCallBoardRow(board, position, opRow, boardTypeByCtrlNbr, employeeInfoByCtrlNbr, tz, clock.UtcNow.UtcDateTime);
+                projectedSlotByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var projectedSlot);
+                rest24ByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var rest24Utc);
+                return MapCurrentCallBoardRow(
+                    board,
+                    position,
+                    opRow,
+                    projectedSlot,
+                    rest24Utc == default ? null : rest24Utc,
+                    boardTypeByCtrlNbr,
+                    employeeInfoByCtrlNbr,
+                    fraConsecutiveDaysByEmployee,
+                    workPeriodDaysWorkedByEmployee,
+                    tz,
+                    clock.UtcNow.UtcDateTime);
             }))
             .OrderBy(r => ResolveSortTieUpOrder(r))
             .ThenBy(r => ResolveSortBoardOrder(r))
             .ThenBy(r => r.BoardName)
             .ThenBy(r => r.EmployeeName)
             .ToList();
-
-        if (string.Equals(request.BoardType, BoardType.ExtraBoard.ToString(), StringComparison.OrdinalIgnoreCase))
-        {
-            rows = rows
-                .Where(r => !string.Equals(r.Status, "HungOut", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
 
         for (var i = 0; i < rows.Count; i++)
             rows[i].RowNumber = i + 1;
@@ -287,15 +402,23 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         Domain.Modules.Boards.RosterBoard board,
         Domain.Modules.Boards.RosterBoardPosition position,
         Domain.Modules.WorkManagement.BoardSlotInstance? slot,
+        Domain.Modules.WorkManagement.PositionSlotInstance? projectedSlot,
+        DateTime? twentyFourHourRestAtUtc,
         IReadOnlyDictionary<ControlNumber, string> boardTypeByCtrlNbr,
         IReadOnlyDictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoByCtrlNbr,
+        IReadOnlyDictionary<ControlNumber, int> fraConsecutiveDaysByEmployee,
+        IReadOnlyDictionary<ControlNumber, int> workPeriodDaysWorkedByEmployee,
         TimeZoneInfo? workAreaTimeZone,
         DateTime utcNow)
     {
         var resolvedStatus = ResolveLegacyStatus(slot, utcNow, workAreaTimeZone);
-        var resolvedRestDisplay = ResolveRestTimeDisplay(slot, workAreaTimeZone);
-        var resolvedConsecutiveDays = slot?.ConsecutiveDays.ToString() ?? "—";
-        var resolvedDaysWorked = slot?.DaysWorked.ToString() ?? "—";
+        var resolvedRestDisplay = ResolveRestTimeDisplay(twentyFourHourRestAtUtc, workAreaTimeZone);
+        var resolvedConsecutiveDays = fraConsecutiveDaysByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var fraConsecutiveDays)
+            ? fraConsecutiveDays.ToString()
+            : "—";
+        var resolvedDaysWorked = workPeriodDaysWorkedByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var workPeriodDaysWorked)
+            ? workPeriodDaysWorked.ToString()
+            : "—";
         var resolvedBoardPosition = slot is null ? "—" : $"{slot.CallSequence}/{slot.BoardOrder}";
 
         employeeInfoByCtrlNbr.TryGetValue(position.EmployeeCtrlNbr, out var employeeInfo);
@@ -318,16 +441,16 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
                 : BoardType.ExtraBoard.ToString(),
             EmployeeName = authoritativeEmployeeName,
             PositionName = slot?.PositionName ?? string.Empty,
-            DaysWorked = slot?.DaysWorked ?? 0,
-            ConsecutiveDays = slot?.ConsecutiveDays ?? 0,
+            DaysWorked = workPeriodDaysWorkedByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0),
+            ConsecutiveDays = fraConsecutiveDaysByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0),
             RowNumber = position.PositionOrder,
             StatusDisplay = resolvedStatus,
             RestTimeDisplay = resolvedRestDisplay,
             ConsecutiveDaysDisplay = resolvedConsecutiveDays,
             DaysWorkedDisplay = resolvedDaysWorked,
             BoardPositionDisplay = resolvedBoardPosition,
-            ProjectedVacancyDisplay = "—",
-            OnDutyDisplay = "—"
+            ProjectedVacancyDisplay = ResolveProjectedVacancyDisplay(projectedSlot),
+            OnDutyDisplay = ResolveProjectedOnDutyDisplay(projectedSlot)
         };
 
         if (position.CtrlNbr is not null)
@@ -336,8 +459,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         if (slot?.TieUpAtUtc is not null)
             row.TieUpAt = Timestamp.FromDateTime(DateTime.SpecifyKind(slot.TieUpAtUtc.Value, DateTimeKind.Utc));
 
-        if (slot?.RestAvailableAtUtc is not null)
-            row.RestAvailableAt = Timestamp.FromDateTime(DateTime.SpecifyKind(slot.RestAvailableAtUtc.Value, DateTimeKind.Utc));
+        if (twentyFourHourRestAtUtc is not null)
+            row.RestAvailableAt = Timestamp.FromDateTime(DateTime.SpecifyKind(twentyFourHourRestAtUtc.Value, DateTimeKind.Utc));
 
         return row;
     }
@@ -366,6 +489,99 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
 
     private static int ResolveSortBoardOrder(CurrentCallBoardRow row)
         => row.BoardOrder;
+
+    private static (DateTime StartUtc, DateTime EndUtc) ResolveCurrentWorkPeriodBounds(WorkPeriodMode mode, DateTime nowUtc)
+    {
+        var (startUtc, endUtc) = CurrentWorkPeriod(mode, nowUtc.Date);
+        return (startUtc, endUtc);
+    }
+
+    private static (DateTime StartUtc, DateTime EndUtc) CurrentWorkPeriod(WorkPeriodMode mode, DateTime onDate)
+    {
+        var day = new DateTime(onDate.Year, onDate.Month, onDate.Day, 0, 0, 0, DateTimeKind.Utc);
+
+        if (mode == WorkPeriodMode.Monthly)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, start.AddMonths(1));
+        }
+
+        if (mode == WorkPeriodMode.Weekly)
+        {
+            var start = day.AddDays(-(int)day.DayOfWeek);
+            return (start, start.AddDays(7));
+        }
+
+        if (mode == WorkPeriodMode.BiWeekly)
+        {
+            var yearStart = new DateTime(day.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var periodIndex = (int)((day - yearStart).TotalDays / 14);
+            var start = yearStart.AddDays(periodIndex * 14);
+            return (start, start.AddDays(14));
+        }
+
+        if (day.Day <= 15)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc));
+        }
+
+        var secondHalfStart = new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc);
+        return (secondHalfStart, secondHalfStart.AddDays(-15).AddMonths(1));
+    }
+
+    private static int ComparePositionSlotOrdering(
+        Domain.Modules.WorkManagement.PositionSlotInstance x,
+        Domain.Modules.WorkManagement.PositionSlotInstance y)
+    {
+        var xGroup = ResolveAssignmentOrderGroup(x.AssignmentCode);
+        var yGroup = ResolveAssignmentOrderGroup(y.AssignmentCode);
+        var cmp = xGroup.CompareTo(yGroup);
+        if (cmp != 0)
+            return cmp;
+
+        var xNumeric = ResolveNumericAssignmentOrder(x.AssignmentCode);
+        var yNumeric = ResolveNumericAssignmentOrder(y.AssignmentCode);
+        cmp = xNumeric.CompareTo(yNumeric);
+        if (cmp != 0)
+            return cmp;
+
+        cmp = string.Compare(x.AssignmentCode, y.AssignmentCode, StringComparison.OrdinalIgnoreCase);
+        if (cmp != 0)
+            return cmp;
+
+        cmp = x.DisplayOrder.CompareTo(y.DisplayOrder);
+        if (cmp != 0)
+            return cmp;
+
+        return x.CtrlNbr.Value.CompareTo(y.CtrlNbr.Value);
+    }
+
+    private static int ResolveAssignmentOrderGroup(string? assignmentCode)
+        => long.TryParse(assignmentCode, out _) ? 0 : 1;
+
+    private static long ResolveNumericAssignmentOrder(string? assignmentCode)
+        => long.TryParse(assignmentCode, out var numeric) ? numeric : long.MaxValue;
+
+    private static string ResolveProjectedVacancyDisplay(Domain.Modules.WorkManagement.PositionSlotInstance? projectedSlot)
+    {
+        if (projectedSlot is null)
+            return "—";
+
+        var roleName = string.IsNullOrWhiteSpace(projectedSlot.CraftRoleName)
+            ? $"Position {projectedSlot.DisplayOrder}"
+            : projectedSlot.CraftRoleName;
+
+        if (string.IsNullOrWhiteSpace(projectedSlot.AssignmentCode))
+            return roleName;
+
+        return $"{projectedSlot.AssignmentCode} {roleName}";
+    }
+
+    private static string ResolveProjectedOnDutyDisplay(Domain.Modules.WorkManagement.PositionSlotInstance? projectedSlot)
+        => projectedSlot is null
+            ? "—"
+            : projectedSlot.OnDutyTime.ToString("HH:mm");
 
     private static string ResolveLegacyStatus(
         Domain.Modules.WorkManagement.BoardSlotInstance? row,
@@ -406,13 +622,13 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
     }
 
     private static string ResolveRestTimeDisplay(
-        Domain.Modules.WorkManagement.BoardSlotInstance? row,
+        DateTime? twentyFourHourRestAtUtc,
         TimeZoneInfo? workAreaTimeZone)
     {
-        if (row?.RestAvailableAtUtc is null)
+        if (twentyFourHourRestAtUtc is null)
             return "—";
 
-        var restUtc = DateTime.SpecifyKind(row.RestAvailableAtUtc.Value, DateTimeKind.Utc);
+        var restUtc = DateTime.SpecifyKind(twentyFourHourRestAtUtc.Value, DateTimeKind.Utc);
         var localRest = workAreaTimeZone is null
             ? restUtc
             : TimeZoneInfo.ConvertTimeFromUtc(restUtc, workAreaTimeZone);

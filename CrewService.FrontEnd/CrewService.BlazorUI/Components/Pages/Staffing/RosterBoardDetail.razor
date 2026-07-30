@@ -82,16 +82,6 @@ else
             <td>@pos.EmployeeFullNameLnf</td>
             <td>@FormatAssignedDate(pos)</td>
             <td>
-                @if (pos.HangoutStatus == "Active")
-                {
-                    <span class="badge bg-success">Active</span>
-                }
-                else
-                {
-                    <span class="badge bg-warning text-dark">Hangout</span>
-                }
-            </td>
-            <td>
                 @foreach (var label in pos.RestrictionLabels)
                 {
                     <span class="badge bg-info text-dark me-1">@label</span>
@@ -169,7 +159,6 @@ else
         new("Employee #", p => p.EmployeeNumber.ToUpperInvariant(), width: "140px"),
         new("Name", p => p.EmployeeFullNameLnf),
         new("Assigned Date", p => FormatAssignedDate(p), width: "140px"),
-        new("Status", p => p.HangoutStatus, width: "120px"),
         new("Restrictions", p => p.RestrictionLabels.Count > 0 ? string.Join(", ", p.RestrictionLabels) : "", width: "120px"),
         DataTableColumn<RosterBoardPositionResponse>.Actions()
     ];
@@ -286,46 +275,6 @@ else
         {
             errorMessage = $"Failed to remove position: {ex.Message}";
             showRemoveModal = false;
-        }
-        finally { isSaving = false; }
-    }
-
-    // ── Hangout / Restore ──
-
-    private async Task HangoutPosition(RosterBoardPositionResponse pos)
-    {
-        try
-        {
-            isSaving = true;
-            errorMessage = null;
-            successMessage = null;
-
-            await RosterBoardClient.HangoutPositionAsync(pos.CtrlNbr);
-            successMessage = $"Position for {pos.EmployeeNumber.ToUpperInvariant()} set to hangout.";
-            await LoadBoard();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to hangout position: {ex.Message}";
-        }
-        finally { isSaving = false; }
-    }
-
-    private async Task RestorePosition(RosterBoardPositionResponse pos)
-    {
-        try
-        {
-            isSaving = true;
-            errorMessage = null;
-            successMessage = null;
-
-            await RosterBoardClient.RestorePositionAsync(pos.CtrlNbr);
-            successMessage = $"Position for {pos.EmployeeNumber.ToUpperInvariant()} restored.";
-            await LoadBoard();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to restore position: {ex.Message}";
         }
         finally { isSaving = false; }
     }

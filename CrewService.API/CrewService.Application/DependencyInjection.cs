@@ -167,6 +167,7 @@ public static class DependencyInjection
 
         // B04 – Vacancy Assignment
         services.AddScoped<VacancyResolutionEngine>();
+        services.AddScoped<VacancyProjectionOrchestratorService>();
         services.AddScoped<IAssignmentStrategy, StandardAssignmentStrategy>();
         services.AddScoped<ISkipRule, WorkedCapRule>();
         services.AddScoped<ISkipRule, AlreadyOnDutyRule>();
@@ -186,9 +187,9 @@ public static class DependencyInjection
         services.AddScoped<ICrewNotificationProvider, MockNotificationProvider>();
         services.AddScoped<CallSheetGenerationService>();
         services.AddScoped<CallSheetSlotVacancyEvaluationService>();
+        services.AddScoped<CallSheetVacancyProjectionSyncService>();
 
         // B08 – Roster Board Ops
-        services.AddScoped<HangoutProcessingService>();
         services.AddScoped<NewHireService>();
         services.AddScoped<DailyStatusSnapshotService>();
 

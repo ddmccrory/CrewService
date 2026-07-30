@@ -45,6 +45,7 @@ internal class OffDutyRecordConfiguration : IEntityTypeConfiguration<OffDutyReco
         builder.Property(r => r.OnDutyRecordCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(r => r.RestHoursRequired).HasPrecision(5, 2);
+        builder.Property(r => r.TwentyFourHourRestAtUtc).IsRequired();
         builder.Property(r => r.ReleaseReason).HasMaxLength(50).IsRequired();
         builder.Property(r => r.OffDutyTimeConfirmedBy).HasMaxLength(100).IsRequired();
 

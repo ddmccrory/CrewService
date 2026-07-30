@@ -18,7 +18,7 @@ internal class DispatchProjectionConfiguration : IEntityTypeConfiguration<Dispat
             c => c == null ? (long?)null : c.Value,
             v => v == null ? null : ControlNumber.Create(v.Value));
 
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(p => p.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(p => p.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.ProjectedEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -40,7 +40,7 @@ internal class DispatchDecisionLogConfiguration : IEntityTypeConfiguration<Dispa
         builder.Property(l => l.Phase).HasMaxLength(20).IsRequired();
         builder.Property(l => l.SelectionSource).HasMaxLength(50);
 
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(l => l.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(l => l.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(l => l.SelectedEmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(l => l.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
@@ -65,7 +65,7 @@ internal class DispatchOverrideConfiguration : IEntityTypeConfiguration<Dispatch
         builder.Property(o => o.ReasonText).HasMaxLength(512);
         builder.Property(o => o.Status).HasMaxLength(20).IsRequired();
 
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(o => o.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(o => o.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(o => o.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(o => o.ApprovedByCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
@@ -87,7 +87,7 @@ internal class EmployeeBookingConfiguration : IEntityTypeConfiguration<EmployeeB
             v => v == null ? null : ControlNumber.Create(v.Value));
 
         builder.HasOne<Employee>().WithMany().HasForeignKey(b => b.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<PositionSlot>().WithMany().HasForeignKey(b => b.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(b => b.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
         builder.OwnsOne(b => b.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(b => b.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

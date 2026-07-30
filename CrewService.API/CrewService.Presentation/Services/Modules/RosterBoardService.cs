@@ -102,11 +102,6 @@ public class RosterBoardService(
                     CtrlNbr = position.CtrlNbr?.Value ?? 0,
                     EmployeeCtrlNbr = position.EmployeeCtrlNbr?.Value ?? 0,
                     PositionOrder = position.PositionOrder,
-                    HangoutStatus = position.HangoutStatus,
-                    HangoutAt = position.HangoutAtUtc.HasValue
-                        ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
-                            DateTime.SpecifyKind(position.HangoutAtUtc.Value, DateTimeKind.Utc))
-                        : null,
                     EmployeeNumber = emp?.EmployeeNumber ?? string.Empty,
                     EmployeeUserId = userId,
                     EmployeeFullNameLnf = fullName,
@@ -221,22 +216,6 @@ public class RosterBoardService(
         {
             var ctrlNbr = await svc.RemoveRosterBoardPositionAsync(ControlNumber.Create(request.CtrlNbr), context.CancellationToken);
             return new DeleteResponse { Success = true, Messages = { $"Position {ctrlNbr.Value} removed." } };
-        }
-        catch (KeyNotFoundException ex)
-        {
-            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
-        }
-    }
-
-    public override async Task<RosterBoardPositionResponse> HangoutPosition(
-        HangoutPositionRequest request, ServerCallContext context)
-    {
-        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
-        try
-        {
-            var (position, labels) = await svc.HangoutPositionAsync(ControlNumber.Create(request.PositionCtrlNbr), context.CancellationToken);
-            var tz = await ResolvePositionZoneAsync(svc, position.RosterBoardCtrlNbr, context.CancellationToken);
-            return await MapPositionAsync(position, labels, tz, svc, context.CancellationToken);
         }
         catch (KeyNotFoundException ex)
         {
@@ -369,11 +348,6 @@ public class RosterBoardService(
             CtrlNbr = position.CtrlNbr?.Value ?? 0,
             EmployeeCtrlNbr = position.EmployeeCtrlNbr?.Value ?? 0,
             PositionOrder = position.PositionOrder,
-            HangoutStatus = position.HangoutStatus,
-            HangoutAt = position.HangoutAtUtc.HasValue
-                ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
-                    DateTime.SpecifyKind(position.HangoutAtUtc.Value, DateTimeKind.Utc))
-                : null,
             EmployeeNumber = employeeNumber,
             EmployeeFullNameLnf = fullName,
             AssignedDateUtc = positionAssignment is not null

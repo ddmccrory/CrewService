@@ -173,45 +173,21 @@ public class RosterBoardTests
 
     }
 
-    public class RosterBoardPositionTests
+public class RosterBoardPositionTests
 {
     [Fact]
-    public void Hangout_SetsHungOutStatus()
+    public void CreatePosition_SetsRequiredFields()
     {
         var board = RosterBoard.Create(
             ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
+        var staffablePosition = StaffablePosition.Create(StaffablePositionType.Board);
 
-        pos.Hangout();
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, staffablePosition.CtrlNbr);
 
-        Assert.Equal("HungOut", pos.HangoutStatus);
-        Assert.NotNull(pos.HangoutAtUtc);
-    }
-
-    [Fact]
-    public void MarkOff_SetsMarkedOffStatus()
-    {
-        var board = RosterBoard.Create(
-            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
-
-        pos.MarkOff();
-
-        Assert.Equal("MarkedOff", pos.HangoutStatus);
-    }
-
-    [Fact]
-    public void RestoreFromHangout_ResetsToActive()
-    {
-        var board = RosterBoard.Create(
-            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
-        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
-        pos.Hangout();
-
-        pos.RestoreFromHangout();
-
-        Assert.Equal("Active", pos.HangoutStatus);
-        Assert.Null(pos.HangoutAtUtc);
+        Assert.Equal(board.CtrlNbr, pos.RosterBoardCtrlNbr);
+        Assert.Equal(ControlNumber.Create(200), pos.EmployeeCtrlNbr);
+        Assert.Equal(staffablePosition.CtrlNbr, pos.StaffablePositionCtrlNbr);
+        Assert.Equal(1, pos.PositionOrder);
     }
 }
 

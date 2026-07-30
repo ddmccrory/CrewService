@@ -4,7 +4,9 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
 
-public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class DailyOperationsService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService)
 {
     public async Task<IReadOnlyList<ShiftInstance>> GetCallSheetAsync(
         ControlNumber workAreaGroupCtrlNbr, DateOnly targetDate, CancellationToken ct = default)
@@ -52,6 +54,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
 
         slot.Annul(reason, annulmentDateTime);
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -74,6 +77,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
             slot.Annul(reason, annulmentDateTime);
 
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -90,6 +94,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
 
         slot.MarkDoNotFill();
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -106,6 +111,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
 
         slot.RestoreSlot();
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -128,6 +134,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
             slot.RestoreSlot();
 
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -167,6 +174,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
             shift.ReorderPositionSlots(orders.Select(o => (o.CtrlNbr, o.DisplayOrder)));
 
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -226,6 +234,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
             template.GroupName, template.GroupCode, onDutyTime, offDutyTime, positions);
 
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -241,6 +250,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
 
         shift.AddAdHocAssignment(assignmentCode, assignmentName, groupName, groupCode, onDutyTime, offDutyTime, craftRoleNames);
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }
@@ -254,6 +264,7 @@ public sealed class DailyOperationsService(IOrchestrationUnitOfWorkFactory uowFa
 
         shift.RemoveAssignment(assignmentCtrlNbr);
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
         await uow.CommitAsync(ct);
         return shift;
     }

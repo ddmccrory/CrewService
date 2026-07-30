@@ -36,6 +36,11 @@ public class DepartmentReassignmentServiceTests
     private static readonly ControlNumber EmployeeCtrlNbr = ControlNumber.Create(20);
     private static readonly ControlNumber CraftCtrlNbr = ControlNumber.Create(30);
 
+    private static DepartmentReassignmentService BuildService(FakeOrchestrationUnitOfWork uow, EmployeeNotificationService? notifications = null)
+        => new(
+            TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
+            notifications);
+
     [Fact]
     public async Task ReassignEmployeeAsync_WhenRuleMissing_Throws()
     {
@@ -44,7 +49,7 @@ public class DepartmentReassignmentServiceTests
             crafts: [MakeCraft(DepartmentCtrlNbr)],
             boardsByCraft: new Dictionary<ControlNumber, IReadOnlyList<RosterBoard>>());
 
-        var sut = new DepartmentReassignmentService();
+        var sut = BuildService(uow);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken));
@@ -59,7 +64,7 @@ public class DepartmentReassignmentServiceTests
             crafts: [MakeCraft(DepartmentCtrlNbr)],
             boardsByCraft: new Dictionary<ControlNumber, IReadOnlyList<RosterBoard>>());
 
-        var sut = new DepartmentReassignmentService();
+        var sut = BuildService(uow);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken));
@@ -82,7 +87,7 @@ public class DepartmentReassignmentServiceTests
                 [craft.CtrlNbr] = [board]
             });
 
-        var sut = new DepartmentReassignmentService();
+        var sut = BuildService(uow);
 
         await sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken);
 
@@ -99,7 +104,7 @@ public class DepartmentReassignmentServiceTests
             crafts: [MakeCraft(DepartmentCtrlNbr)],
             boardsByCraft: new Dictionary<ControlNumber, IReadOnlyList<RosterBoard>>());
 
-        var sut = new DepartmentReassignmentService();
+        var sut = BuildService(uow);
 
         await sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken);
 
@@ -122,7 +127,7 @@ public class DepartmentReassignmentServiceTests
                 [craft.CtrlNbr] = [board]
             });
 
-        var sut = new DepartmentReassignmentService();
+        var sut = BuildService(uow);
 
         await sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken);
 
@@ -175,7 +180,7 @@ public class DepartmentReassignmentServiceTests
             new RailroadResolver(),
             new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
 
-        var sut = new DepartmentReassignmentService(notifications);
+        var sut = BuildService(uow, notifications);
 
         await sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken);
 
@@ -229,7 +234,7 @@ public class DepartmentReassignmentServiceTests
                 [EmployeeCtrlNbr] = [currentAssignment]
             });
 
-        var sut = new DepartmentReassignmentService();
+        var sut = BuildService(uow);
 
         await sut.ReassignEmployeeAsync(uow, EmployeeCtrlNbr, DepartmentCtrlNbr, TestContext.Current.CancellationToken);
 
@@ -633,5 +638,11 @@ public class DepartmentReassignmentServiceTests
         public IBulletinRuleRepository BulletinRules => null!;
         public IEmployeeNotificationRepository EmployeeNotifications => EmployeeNotificationRepo;
         public INotificationTypeConfigRepository NotificationTypeConfigs => _notificationTypeConfigs;
+    }
+
+    private sealed class FakeUowFactory(FakeOrchestrationUnitOfWork uow) : IOrchestrationUnitOfWorkFactory
+    {
+        public Task<IOrchestrationUnitOfWork> CreateAsync(OrchestrationUnitOfWorkOptions? options = null, CancellationToken ct = default)
+            => Task.FromResult<IOrchestrationUnitOfWork>(uow);
     }
 }

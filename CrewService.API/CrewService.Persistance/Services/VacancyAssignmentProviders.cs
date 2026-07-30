@@ -2,6 +2,7 @@ using CrewService.Application.VacancyAssignment;
 using CrewService.Application.Qualifications;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
@@ -57,25 +58,103 @@ internal sealed class BoardSnapshotSource(CrewServiceDbContext dbContext) : IBoa
 internal sealed class BoardCandidateProvider(CrewServiceDbContext dbContext) : IBoardCandidateProvider
 {
     public async Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(
-        ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
+        ControlNumber workAreaGroupCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        SkipRuleSlot slot,
+        CancellationToken ct = default)
     {
+        ControlNumber? scopedBoardCtrlNbr = null;
+
+        if (slot.CrewPositionCtrlNbr is { } crewPositionCtrlNbr)
+        {
+            var craftRoleCtrlNbr = await dbContext.Set<CrewPosition>()
+                .Where(p => p.CtrlNbr == crewPositionCtrlNbr)
+                .Select(p => (ControlNumber?)p.CraftRoleCtrlNbr)
+                .SingleOrDefaultAsync(ct);
+
+            if (craftRoleCtrlNbr is not null)
+            {
+                scopedBoardCtrlNbr = await dbContext.Set<CraftRole>()
+                    .Where(r => r.CtrlNbr == craftRoleCtrlNbr)
+                    .Select(r => r.DefaultRosterBoardCtrlNbr)
+                    .SingleOrDefaultAsync(ct);
+            }
+        }
+
         var boards = await dbContext.Set<RosterBoard>()
             .Include(b => b.Positions)
             .Where(b => b.CraftCtrlNbr == craftCtrlNbr
                         && b.IsActive
-                        && b.BoardType == BoardType.ExtraBoard)
+                        && b.BoardType == BoardType.ExtraBoard
+                        && (scopedBoardCtrlNbr == null || b.CtrlNbr == scopedBoardCtrlNbr))
             .ToListAsync(ct);
 
         if (boards.Count == 0) return [];
 
+        var boardPositionCtrlNbrs = boards
+            .SelectMany(b => b.Positions)
+            .Select(p => p.CtrlNbr)
+            .ToHashSet();
+
+        var nowUtc = DateTime.UtcNow;
+        var latestBoardSlotByPosition = await dbContext.Set<BoardSlotInstance>()
+            .Where(bs => bs.RosterBoardPositionCtrlNbr != null
+                && boardPositionCtrlNbrs.Contains(bs.RosterBoardPositionCtrlNbr!))
+            .GroupBy(bs => bs.RosterBoardPositionCtrlNbr!)
+            .Select(g => g
+                .OrderByDescending(bs => bs.CallSequence)
+                .ThenBy(bs => bs.BoardOrder)
+                .Select(bs => new
+                {
+                    PositionCtrlNbr = bs.RosterBoardPositionCtrlNbr!,
+                    bs.Status,
+                    bs.RestAvailableAtUtc
+                })
+                .First())
+            .ToListAsync(ct);
+
+        var latestBoardSlotByPositionCtrlNbr = latestBoardSlotByPosition
+            .ToDictionary(x => x.PositionCtrlNbr, x => (x.Status, x.RestAvailableAtUtc));
+
         var positions = boards
             .SelectMany(b => b.Positions)
-            .Where(p => p.HangoutStatus == "Active")
+            .Where(p => IsCallBoardRested(
+                latestBoardSlotByPositionCtrlNbr.TryGetValue(p.CtrlNbr, out var boardSlot)
+                    ? boardSlot.Status
+                    : (BoardSlotStatus?)null,
+                latestBoardSlotByPositionCtrlNbr.TryGetValue(p.CtrlNbr, out boardSlot)
+                    ? boardSlot.RestAvailableAtUtc
+                    : null,
+                nowUtc))
             .OrderBy(p => p.PositionOrder)
+            .ThenBy(p => p.CtrlNbr.Value)
             .ToList();
 
         return [.. positions
             .Select(p => new SkipRuleCandidate(p.EmployeeCtrlNbr, p.CtrlNbr, p.PositionOrder))];
+    }
+
+    private static bool IsCallBoardRested(
+        BoardSlotStatus? status,
+        DateTime? restAvailableAtUtc,
+        DateTime nowUtc)
+    {
+        if (status is null)
+            return true;
+
+        if (status is BoardSlotStatus.Called
+            or BoardSlotStatus.OnDuty
+            or BoardSlotStatus.MarkedOff
+            or BoardSlotStatus.Unavailable)
+        {
+            return false;
+        }
+
+        if (restAvailableAtUtc is null)
+            return true;
+
+        var restUtc = DateTime.SpecifyKind(restAvailableAtUtc.Value, DateTimeKind.Utc);
+        return restUtc <= nowUtc;
     }
 }
 

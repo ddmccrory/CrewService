@@ -27,13 +27,14 @@ public sealed class SeniorityMoveExecutionService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     ILogger<SeniorityMoveExecutionService> logger,
     EmployeeNotificationService notifications,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     SeniorityMoveCancellationPath? seniorityMoveCancellationPath = null,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
     private const string SupersededByExecutedMoveReason = "Superseded by an executed seniority move for the same employee.";
     private const string SupersededByNoAccessReason = "Superseded by a No Access bump for the same employee.";
     private readonly SeniorityMoveCancellationPath _seniorityMoveCancellationPath = seniorityMoveCancellationPath ?? new();
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(seniorityMoveCancellationPath ?? new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(seniorityMoveCancellationPath ?? new(), vacancyProjectionSyncService);
 
     /// <summary>
     /// Executes a single approved seniority move identified by <paramref name="moveCtrlNbr"/>.
@@ -103,6 +104,10 @@ public sealed class SeniorityMoveExecutionService(
                 vacatedStaffablePositionCtrlNbr,
                 incumbentEmployeeCtrlNbr: null,
                 ct);
+            await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+                uow,
+                vacatedStaffablePositionCtrlNbr,
+                ct);
             if (logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("SeniorityMoveExecution: Vacated employee {Employee} from position {Position}.",
@@ -128,6 +133,10 @@ public sealed class SeniorityMoveExecutionService(
                 uow,
                 vacatedTargetStaffablePositionCtrlNbr,
                 incumbentEmployeeCtrlNbr: null,
+                ct);
+            await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+                uow,
+                vacatedTargetStaffablePositionCtrlNbr,
                 ct);
             if (logger.IsEnabled(LogLevel.Information))
             {

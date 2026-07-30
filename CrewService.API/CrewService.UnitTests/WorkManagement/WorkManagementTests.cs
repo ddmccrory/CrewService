@@ -549,6 +549,14 @@ public class CraftRoleTests
     }
 
     [Fact]
+    public void Create_WithDefaultRosterBoard_SetsDefaultRosterBoard()
+    {
+        var role = CraftRole.Create(1, "F", "Foreman", defaultRosterBoardCtrlNbr: ControlNumber.Create(25));
+
+        Assert.Equal(25, role.DefaultRosterBoardCtrlNbr!.Value);
+    }
+
+    [Fact]
     public void SetHierarchyLevel_UpdatesHierarchyLevel()
     {
         var role = CraftRole.Create(1, "F", "Foreman");
@@ -576,5 +584,15 @@ public class CraftRoleTests
         role.Update("F", "Lead Foreman", "Crew Foreman");
 
         Assert.Equal(4, role.HierarchyLevel);
+    }
+
+    [Fact]
+    public void Update_WithDefaultRosterBoard_ChangesDefaultRosterBoard()
+    {
+        var role = CraftRole.Create(1, "F", "Foreman");
+
+        role.Update("F", "Foreman", null, ControlNumber.Create(90));
+
+        Assert.Equal(90, role.DefaultRosterBoardCtrlNbr!.Value);
     }
 }

@@ -89,25 +89,67 @@ public sealed class WorkManagementService(
     }
 
     public async Task<CraftRole> CreateCraftRoleAsync(
-        long craftCtrlNbr, string code, string name, string alternateName, CancellationToken ct = default)
+        long craftCtrlNbr,
+        string code,
+        string name,
+        string alternateName,
+        long? defaultRosterBoardCtrlNbr = null,
+        CancellationToken ct = default)
     {
-        var role = CraftRole.Create(craftCtrlNbr, code, name, alternateName);
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var craftCtrl = ControlNumber.Create(craftCtrlNbr);
+        var boardCtrl = defaultRosterBoardCtrlNbr is > 0 ? ControlNumber.Create(defaultRosterBoardCtrlNbr.Value) : null;
+        await ValidateRoleBoardLinkAsync(uow, craftCtrl, boardCtrl, ct);
+
+        var role = CraftRole.Create(
+            craftCtrlNbr,
+            code,
+            name,
+            alternateName,
+            defaultRosterBoardCtrlNbr: boardCtrl);
         uow.CraftRoles.Add(role);
         await uow.CommitAsync(ct);
         return role;
     }
 
     public async Task<CraftRole> UpdateCraftRoleAsync(
-        ControlNumber ctrlNbr, string code, string name, string alternateName, CancellationToken ct = default)
+        ControlNumber ctrlNbr,
+        string code,
+        string name,
+        string alternateName,
+        long? defaultRosterBoardCtrlNbr = null,
+        CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var role = await uow.CraftRoles.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"CraftRole {ctrlNbr.Value} not found.");
-        role.Update(code, name, alternateName);
+        var boardCtrl = defaultRosterBoardCtrlNbr is > 0 ? ControlNumber.Create(defaultRosterBoardCtrlNbr.Value) : null;
+        await ValidateRoleBoardLinkAsync(uow, role.CraftCtrlNbr, boardCtrl, ct);
+
+        role.Update(
+            code,
+            name,
+            alternateName,
+            boardCtrl);
         uow.CraftRoles.Update(role);
         await uow.CommitAsync(ct);
         return role;
+    }
+
+    private static async Task ValidateRoleBoardLinkAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber craftCtrlNbr,
+        ControlNumber? defaultRosterBoardCtrlNbr,
+        CancellationToken ct)
+    {
+        if (defaultRosterBoardCtrlNbr is null)
+            return;
+
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(defaultRosterBoardCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"RosterBoard {defaultRosterBoardCtrlNbr.Value} not found.");
+
+        if (board.CraftCtrlNbr != craftCtrlNbr)
+            throw new InvalidOperationException("Default roster board must belong to the same craft as the craft role.");
     }
 
     public async Task DeleteCraftRoleAsync(ControlNumber ctrlNbr, CancellationToken ct = default)

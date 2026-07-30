@@ -1,6 +1,7 @@
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Application.Authorization;
 using CrewService.Application.Notifications;
+using CrewService.Application.DailyOperations;
 using CrewService.Application.Staffing;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
@@ -16,9 +17,9 @@ using System.Linq;
 
 namespace CrewService.Application.Policies;
 
-public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IAbsenceMarkOffSignal absenceMarkOffSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, IncumbentAssignmentPath? incumbentAssignmentPath = null, IDepartmentAbsenceRequestWindowPolicyRepository? departmentAbsenceRequestWindowPolicyRepository = null, ICraftAbsenceWaitListPolicyRepository? craftAbsenceWaitListPolicyRepository = null)
+public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, ISeniorityMoveSignal seniorityMoveSignal, IAbsenceMarkOffSignal absenceMarkOffSignal, IWorkAreaClock workAreaClock, EmployeeNotificationService notifications, ICurrentUserService currentUserService, SeniorityMoveExecutionService seniorityMoveExecutionService, IRequestActorContextResolver actorContextResolver, IRequestActorContextPolicy actorContextPolicy, IRailroadResolver railroadResolver, CallSheetVacancyProjectionSyncService vacancyProjectionSyncService, IncumbentAssignmentPath? incumbentAssignmentPath = null, IDepartmentAbsenceRequestWindowPolicyRepository? departmentAbsenceRequestWindowPolicyRepository = null, ICraftAbsenceWaitListPolicyRepository? craftAbsenceWaitListPolicyRepository = null)
 {
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new(), vacancyProjectionSyncService);
     private readonly IDepartmentAbsenceRequestWindowPolicyRepository? _departmentAbsenceRequestWindowPolicyRepository = departmentAbsenceRequestWindowPolicyRepository;
     private readonly ICraftAbsenceWaitListPolicyRepository? _craftAbsenceWaitListPolicyRepository = craftAbsenceWaitListPolicyRepository;
 

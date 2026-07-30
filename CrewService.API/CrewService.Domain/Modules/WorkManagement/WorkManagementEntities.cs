@@ -99,6 +99,7 @@ public sealed class CraftRole : Entity
     public string? Code { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string? AlternateName { get; private set; }
+    public ControlNumber? DefaultRosterBoardCtrlNbr { get; private set; }
 
     /// <summary>
     /// Tenant-configurable rank of this role within its craft. Higher = more senior
@@ -113,7 +114,13 @@ public sealed class CraftRole : Entity
 
     private CraftRole() { CraftCtrlNbr = null!; }
 
-    public static CraftRole Create(ControlNumber craftCtrlNbr, string? code, string name, string? alternateName = null, int hierarchyLevel = 0)
+    public static CraftRole Create(
+        ControlNumber craftCtrlNbr,
+        string? code,
+        string name,
+        string? alternateName = null,
+        int hierarchyLevel = 0,
+        ControlNumber? defaultRosterBoardCtrlNbr = null)
     {
         var role = new CraftRole
         {
@@ -121,7 +128,8 @@ public sealed class CraftRole : Entity
             Code = code,
             Name = name,
             AlternateName = alternateName,
-            HierarchyLevel = hierarchyLevel
+            HierarchyLevel = hierarchyLevel,
+            DefaultRosterBoardCtrlNbr = defaultRosterBoardCtrlNbr
         };
         role.Raise(new CraftRoleCreatedDomainEvent(role));
         return role;
@@ -132,6 +140,21 @@ public sealed class CraftRole : Entity
         Code = code;
         Name = name;
         AlternateName = alternateName;
+        if (hierarchyLevel is not null)
+            HierarchyLevel = hierarchyLevel.Value;
+    }
+
+    public void Update(
+        string? code,
+        string name,
+        string? alternateName,
+        ControlNumber? defaultRosterBoardCtrlNbr,
+        int? hierarchyLevel = null)
+    {
+        Code = code;
+        Name = name;
+        AlternateName = alternateName;
+        DefaultRosterBoardCtrlNbr = defaultRosterBoardCtrlNbr;
         if (hierarchyLevel is not null)
             HierarchyLevel = hierarchyLevel.Value;
     }

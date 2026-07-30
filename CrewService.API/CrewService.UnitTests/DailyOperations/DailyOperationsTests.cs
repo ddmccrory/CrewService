@@ -156,15 +156,15 @@ public class BoardSlotInstanceTests
     }
 
     [Fact]
-    public void Hangout_And_Restore_CyclesStatus()
+    public void MarkOff_And_Restore_CyclesStatus()
     {
         var shift = CreateShift();
         var slot = shift.AddBoardSlot(
             ControlNumber.Create(500), null,
             ControlNumber.Create(200), 1, 100L, "Extra Board", "John Doe");
 
-        slot.Hangout();
-        Assert.Equal(BoardSlotStatus.HungOut, slot.Status);
+        slot.MarkOff();
+        Assert.Equal(BoardSlotStatus.MarkedOff, slot.Status);
 
         slot.RestoreToAvailable();
         Assert.Equal(BoardSlotStatus.Available, slot.Status);

@@ -13,7 +13,10 @@ public interface IVacancyResolutionRunRepository
 public interface IBoardCandidateProvider
 {
     Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(
-        ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default);
+        ControlNumber workAreaGroupCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        SkipRuleSlot slot,
+        CancellationToken ct = default);
 }
 
 public interface IBoardSnapshotSource
@@ -77,13 +80,13 @@ public sealed class VacancyResolutionEngine(
         try
         {
             var openSlots = await openSlotProvider.GetOpenSlotsAsync(shiftInstanceCtrlNbr, ct);
-            var candidates = await candidateProvider.GetCandidatesAsync(workAreaGroupCtrlNbr, craftCtrlNbr, ct);
 
             var slotsEvaluated = 0;
             var slotsFilled = 0;
 
             foreach (var slot in openSlots)
             {
+                var candidates = await candidateProvider.GetCandidatesAsync(workAreaGroupCtrlNbr, craftCtrlNbr, slot, ct);
                 slotsEvaluated++;
                 var filled = false;
                 var nowUtc = DateTime.UtcNow;

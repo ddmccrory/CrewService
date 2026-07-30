@@ -205,6 +205,37 @@ public class VacancyResolutionEngineTests
         Assert.Equal([1], shiftBSnapshots.Select(s => s.DecisionSequence));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_RequestsCandidatesPerOpenSlot()
+    {
+        var slot1 = new SkipRuleSlot(ControlNumber.Create(100), ControlNumber.Create(200));
+        var slot2 = new SkipRuleSlot(ControlNumber.Create(101), ControlNumber.Create(201));
+        var candidateProvider = new FakeBoardCandidateProvider([new SkipRuleCandidate(ControlNumber.Create(1), ControlNumber.Create(10), 1)]);
+
+        var engine = new VacancyResolutionEngine(
+            new FakeOpenSlotProvider([slot1, slot2]),
+            candidateProvider,
+            new FakeBoardSnapshotSource([]),
+            new FakeSkipContextProvider(new SkipContext { IsQualified = true, IsRested = true }),
+            new FakeVacancyResolutionRunRepository(),
+            new FakeDispatchDecisionLogRepository(),
+            new FakeBoardSnapshotRepository(),
+            new FakeBoardSelectionDecisionRepository(),
+            [new QualificationRule()],
+            new StandardAssignmentStrategy());
+
+        await engine.ExecuteAsync(
+            ControlNumber.Create(500),
+            ControlNumber.Create(600),
+            ControlNumber.Create(700),
+            options: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, candidateProvider.RequestedSlots.Count);
+        Assert.Equal(slot1.PositionSlotCtrlNbr, candidateProvider.RequestedSlots[0].PositionSlotCtrlNbr);
+        Assert.Equal(slot2.PositionSlotCtrlNbr, candidateProvider.RequestedSlots[1].PositionSlotCtrlNbr);
+    }
+
     private sealed class FakeOpenSlotProvider(IReadOnlyList<SkipRuleSlot> slots) : IOpenSlotProvider
     {
         public Task<IReadOnlyList<SkipRuleSlot>> GetOpenSlotsAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
@@ -213,8 +244,13 @@ public class VacancyResolutionEngineTests
 
     private sealed class FakeBoardCandidateProvider(IReadOnlyList<SkipRuleCandidate> candidates) : IBoardCandidateProvider
     {
-        public Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr, CancellationToken ct = default)
-            => Task.FromResult(candidates);
+        public List<SkipRuleSlot> RequestedSlots { get; } = [];
+
+        public Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(ControlNumber workAreaGroupCtrlNbr, ControlNumber craftCtrlNbr, SkipRuleSlot slot, CancellationToken ct = default)
+        {
+            RequestedSlots.Add(slot);
+            return Task.FromResult(candidates);
+        }
     }
 
     private sealed class FakeSkipContextProvider(SkipContext ctx) : ISkipContextProvider

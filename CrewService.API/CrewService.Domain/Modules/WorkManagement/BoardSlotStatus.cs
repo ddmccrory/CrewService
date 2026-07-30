@@ -6,7 +6,6 @@ public enum BoardSlotStatus
     Called,
     OnDuty,
     TiedUp,
-    HungOut,
     MarkedOff,
     Unavailable
 }

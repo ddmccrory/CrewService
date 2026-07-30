@@ -19,10 +19,11 @@ public sealed class BulletinsService(
     IBulletinScheduleSignal scheduleSignal,
     EmployeeNotificationService notifications,
     EmployeeEligibilityService eligibility,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     SeniorityMoveCancellationPath? seniorityMoveCancellationPath = null,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(seniorityMoveCancellationPath ?? new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(seniorityMoveCancellationPath ?? new(), vacancyProjectionSyncService);
 
     public async Task<IReadOnlyList<PositionVacancy>> GetOpenVacanciesAsync(ControlNumber? railroadCtrlNbr = null, CancellationToken ct = default)
     {
@@ -870,7 +871,7 @@ public sealed class BulletinsService(
             // PositionAssignmentVacatedDomainEvent, which the DomainEventReactor routes to
             // VacancyRepostService to auto-bulletin the vacated position under the standard policy
             // (crew: always; board: only when occupancy falls below RequiredPositions).
-            await VacateOutgoingPositionAsync(uow, employeeCtrlNbr, effectiveUtc ?? DateTime.UtcNow, ct);
+            await VacateOutgoingPositionAsync(uow, employeeCtrlNbr, effectiveUtc ?? DateTime.UtcNow, vacancyProjectionSyncService, ct);
 
             // The bulletin's target position is always vacant here: a position is vacated (its
             // incumbency ended) BEFORE the bulletin is created, and the vacate is what triggers
@@ -995,6 +996,7 @@ public sealed class BulletinsService(
         Domain.Interfaces.IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
         DateTime effectiveUtc,
+        CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
         CancellationToken ct)
     {
         _ = ct;
@@ -1010,6 +1012,11 @@ public sealed class BulletinsService(
                 uow,
                 assignment.StaffablePositionCtrlNbr,
                 incumbentEmployeeCtrlNbr: null,
+                ct);
+
+            await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+                uow,
+                assignment.StaffablePositionCtrlNbr,
                 ct);
 
             // If the outgoing position was a crew seat, end its active incumbency effective at the

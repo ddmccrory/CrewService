@@ -59,21 +59,23 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
             NullLogger<EmployeeNotificationService>.Instance,
             railroadResolver,
             new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
+        var vacancySync = TestCallSheetVacancyProjectionSyncFactory.Create(UowFactory);
         var requirementEvaluation = new RequirementEvaluationService(UowFactory, []);
         var eligibility = new EmployeeEligibilityService(UowFactory);
         Bulletins = new BulletinsService(
-            UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility);
+            UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility, vacancySync);
         Repost = new VacancyRepostService(UowFactory, Bulletins, NullLogger<VacancyRepostService>.Instance);
-        var departmentReassignment = new DepartmentReassignmentService();
+        var departmentReassignment = new DepartmentReassignmentService(vacancySync);
 
-        Crews = new CrewsAppService(UowFactory, Repost, departmentReassignment, NullLogger<CrewsAppService>.Instance);
+        Crews = new CrewsAppService(UowFactory, Repost, departmentReassignment, vacancySync, NullLogger<CrewsAppService>.Instance);
         RosterBoards = new RosterBoardAppService(
             UowFactory,
             requirementEvaluation,
             new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
             Repost,
             departmentReassignment,
-            notifications);
+            notifications,
+            vacancySync);
         VacancyConfig = new SeniorityStateVacancyConfigService(
             UowFactory, Crews, RosterBoards, railroadResolver, NullLogger<SeniorityStateVacancyConfigService>.Instance);
         var seniorityStateChangeSignal = new SeniorityStateChangeSignal();
