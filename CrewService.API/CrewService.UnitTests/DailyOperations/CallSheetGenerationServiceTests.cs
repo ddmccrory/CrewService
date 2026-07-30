@@ -2,6 +2,7 @@ using CrewService.Application.DailyOperations;
 using CrewService.Application.Absence;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
+using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Interfaces.Repositories;
@@ -100,9 +101,14 @@ public class CallSheetGenerationServiceTests
             return Task.CompletedTask;
         }
 
+        public override Task<WorkInstance?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult<WorkInstance?>(Added.FirstOrDefault(w => w.CtrlNbr == ctrlNbr));
+
         public Task<List<WorkInstance>> GetByWorkAreaAndDateRangeAsync(
             ControlNumber workAreaGroupCtrlNbr, DateTime startUtc, DateTime endUtc)
-            => Task.FromResult(new List<WorkInstance>());
+            => Task.FromResult(Added
+                .Where(w => w.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr && w.StartUtc >= startUtc && w.EndUtc <= endUtc)
+                .ToList());
     }
 
     private sealed class FakeDepartmentRepository : FakeRepository<Department>, IDepartmentRepository
@@ -384,6 +390,11 @@ public class CallSheetGenerationServiceTests
             clock,
             new NullRailroadResolver(),
             new NullAbsenceCodeRepository());
+        var vacancyProjectionSyncService = new CallSheetVacancyProjectionSyncService(
+            vacancyEvaluationService,
+            new VacancyProjectionOrchestratorService(
+                new EmptyBoardCandidateProvider(),
+                new AlwaysRestedSkipContextProvider()));
 
         return new CallSheetGenerationService(
             new FakeCallSheetUoWFactory(
@@ -395,7 +406,23 @@ public class CallSheetGenerationServiceTests
                 positionAssignments ?? new FakePositionAssignmentRepository()),
             assignmentQuery,
             clock,
-            vacancyEvaluationService);
+            vacancyProjectionSyncService);
+    }
+
+    private sealed class EmptyBoardCandidateProvider : IBoardCandidateProvider
+    {
+        public Task<IReadOnlyList<SkipRuleCandidate>> GetCandidatesAsync(
+            ControlNumber workAreaGroupCtrlNbr,
+            ControlNumber craftCtrlNbr,
+            SkipRuleSlot slot,
+            CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<SkipRuleCandidate>>([]);
+    }
+
+    private sealed class AlwaysRestedSkipContextProvider : ISkipContextProvider
+    {
+        public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+            => Task.FromResult(new SkipContext { IsRested = true, IsQualified = true });
     }
 
     private sealed class NullRailroadResolver : IRailroadResolver

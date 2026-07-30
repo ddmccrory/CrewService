@@ -115,7 +115,8 @@ public sealed class PoliciesServiceTimeZoneTests : IDisposable
         var execution = new SeniorityMoveExecutionService(
             _host.UowFactory,
             NullLogger<SeniorityMoveExecutionService>.Instance,
-            notifications);
+            notifications,
+            TestCallSheetVacancyProjectionSyncFactory.Create(_host.UowFactory));
         var service = new PoliciesService(
             _host.UowFactory,
             new SeniorityMoveSignal(),
@@ -126,7 +127,8 @@ public sealed class PoliciesServiceTimeZoneTests : IDisposable
             execution,
             new TestRequestActorContextResolver(),
             new RequestActorContextPolicy(),
-            new RailroadResolver());
+            new RailroadResolver(),
+            TestCallSheetVacancyProjectionSyncFactory.Create(_host.UowFactory));
 
         var moves = await service.GetAllSeniorityMovesAsync(ct);
         var item = Assert.Single(moves);

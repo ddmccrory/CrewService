@@ -284,7 +284,8 @@ public sealed class ReassignmentCancelsSeniorityMovesTests : IDisposable
         var executionService = new SeniorityMoveExecutionService(
             _host.UowFactory,
             NullLogger<SeniorityMoveExecutionService>.Instance,
-            notifications);
+            notifications,
+            TestCallSheetVacancyProjectionSyncFactory.Create(_host.UowFactory));
 
         await executionService.ExecuteAsync(moveToExecuteCtrlNbr, ct);
 

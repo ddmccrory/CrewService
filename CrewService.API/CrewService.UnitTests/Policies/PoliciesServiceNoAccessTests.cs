@@ -285,7 +285,8 @@ public sealed class PoliciesServiceNoAccessTests : IDisposable
         var execution = new SeniorityMoveExecutionService(
             _host.UowFactory,
             NullLogger<SeniorityMoveExecutionService>.Instance,
-            notifications);
+            notifications,
+            TestCallSheetVacancyProjectionSyncFactory.Create(_host.UowFactory));
 
         return new PoliciesService(
             _host.UowFactory,
@@ -297,7 +298,8 @@ public sealed class PoliciesServiceNoAccessTests : IDisposable
             execution,
             new TestRequestActorContextResolver(),
             new RequestActorContextPolicy(),
-            new RailroadResolver());
+            new RailroadResolver(),
+            TestCallSheetVacancyProjectionSyncFactory.Create(_host.UowFactory));
     }
 
     private async Task<NoAccessScenarioSeed> SeedNoAccessScenarioAsync(

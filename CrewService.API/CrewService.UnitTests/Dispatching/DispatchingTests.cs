@@ -33,6 +33,7 @@ public class OnDutyRecordTests
         Assert.True(record.IsLateCall);
         Assert.NotNull(record.LateCallAdjustedTimeUtc);
     }
+
 }
 
 public class OffDutyRecordTests
@@ -46,8 +47,36 @@ public class OffDutyRecordTests
             offDutyTime, 480, 10m, 24m, "Completed");
 
         Assert.Equal(offDutyTime.AddHours(10), record.RestedAtUtc);
+        Assert.Equal(offDutyTime.AddHours(24), record.TwentyFourHourRestAtUtc);
         Assert.Equal(offDutyTime.AddHours(24), record.ConsecutiveDayRestedAtUtc);
         Assert.Equal("Completed", record.ReleaseReason);
+    }
+
+    [Fact]
+    public void ConfirmOffDutyTime_UpdatesTwentyFourHourRestAtUtc()
+    {
+        var originalOffDutyTime = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddHours(16), DateTimeKind.Utc);
+        var adjustedOffDutyTime = originalOffDutyTime.AddHours(2);
+
+        var record = OffDutyRecord.Create(
+            ControlNumber.Create(1),
+            ControlNumber.Create(100),
+            originalOffDutyTime,
+            totalTimeOnDutyMinutes: 480,
+            restHoursRequired: 10m,
+            consecutiveDayResetHours: 24m,
+            releaseReason: "Completed");
+
+        record.ConfirmOffDutyTime(
+            adjustedOffDutyTime,
+            totalTimeOnDutyMinutes: 600,
+            restHoursRequired: 10m,
+            consecutiveDayResetHours: 24m,
+            releaseReason: "Confirmed",
+            confirmedAtUtc: DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc),
+            confirmedBy: "SYSTEM");
+
+        Assert.Equal(adjustedOffDutyTime.AddHours(24), record.TwentyFourHourRestAtUtc);
     }
 }
 

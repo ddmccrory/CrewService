@@ -208,8 +208,9 @@ public sealed class BulletinForceAssignSelectionTests
             railroadResolver,
             new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var eligibility = new EmployeeEligibilityService(factory);
+        var vacancySync = TestCallSheetVacancyProjectionSyncFactory.Create(factory);
         return new BulletinsService(
-            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
+            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility, vacancySync);
     }
 }
 

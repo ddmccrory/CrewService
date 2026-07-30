@@ -120,8 +120,12 @@ public class NewHireServiceTests
 
     private static NewHireService BuildService(FakeOrchestrationUnitOfWork uow)
     {
+        var factory = new FakeUowFactory(uow);
         var qualReactiveSvc = new QualificationReactiveService();
-        return new NewHireService(new FakeUowFactory(uow), qualReactiveSvc);
+        return new NewHireService(
+            factory,
+            qualReactiveSvc,
+            TestCallSheetVacancyProjectionSyncFactory.Create(factory));
     }
 
     // ────────────────────────────────────────────────────────────

@@ -110,8 +110,9 @@ public class VacancyRepostServiceTests
             railroadResolver,
             new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var eligibility = new EmployeeEligibilityService(factory);
+        var vacancySync = TestCallSheetVacancyProjectionSyncFactory.Create(factory);
         var bulletins = new BulletinsService(
-            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility);
+            factory, NullLogger<BulletinsService>.Instance, new FakeBulletinScheduleSignal(), notifications, eligibility, vacancySync);
         return new VacancyRepostService(factory, bulletins, NullLogger<VacancyRepostService>.Instance);
     }
 

@@ -83,7 +83,13 @@ public class BulletinCreationServiceTests
         BuildService(uow, new RecordingVacancyRepostService());
 
     private static CrewsAppService BuildService(FakeOrchestrationUnitOfWork uow, IVacancyRepostService repost) =>
-        new(new FakeUowFactory(uow), repost, new DepartmentReassignmentService(), NullLogger<CrewsAppService>.Instance);
+        new(
+            new FakeUowFactory(uow),
+            repost,
+            new DepartmentReassignmentService(
+                TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow))),
+            TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
+            NullLogger<CrewsAppService>.Instance);
 
     // ── CreateCrewPositionAsync ───────────────────────────────────────────────
 
@@ -265,7 +271,10 @@ public class BulletinCreationServiceTests
         var sut = new CrewsAppService(
             new FakeUowFactory(uow),
             repost,
-            new DepartmentReassignmentService(notifications),
+            new DepartmentReassignmentService(
+                TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
+                notifications),
+            TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
             NullLogger<CrewsAppService>.Instance);
 
         await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken);
