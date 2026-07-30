@@ -5,7 +5,9 @@ using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
 
-public sealed class CallSheetIncumbentSyncService(IOrchestrationUnitOfWorkFactory uowFactory)
+public sealed class CallSheetIncumbentSyncService(
+    IOrchestrationUnitOfWorkFactory uowFactory,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService)
 {
     public async Task SyncStaffablePositionIncumbentAsync(
         ControlNumber staffablePositionCtrlNbr,
@@ -14,6 +16,7 @@ public sealed class CallSheetIncumbentSyncService(IOrchestrationUnitOfWorkFactor
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         await SyncStaffablePositionIncumbentAsync(uow, staffablePositionCtrlNbr, incumbentEmployeeCtrlNbr, ct);
+        await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(uow, staffablePositionCtrlNbr, ct);
         await uow.CommitAsync(ct);
     }
 

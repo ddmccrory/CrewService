@@ -231,9 +231,9 @@ else if (HasRailroad)
         new("#", r => r.RowNumber, sortKey: "RowNumber", width: "6%"),
         new("Employee", r => r.EmployeeName, width: "21%"),
         new("Status", r => r.Status, width: "11%"),
-        new("24Hr Rest Time", r => r.RestTimeDisplay, width: "12%"),
-        new("CD", r => r.ConsecutiveDaysDisplay, width: "6%"),
-        new("DW", r => r.DaysWorkedDisplay, width: "6%"),
+        new("24Hr Rest", r => r.RestTimeDisplay, width: "12%"),
+        new("CD", r => r.ConsecutiveDaysDisplay, width: "6%", headerTooltip: "Consecutive Days (FRA): employee's current FRA consecutive-day count."),
+        new("DW", r => r.DaysWorkedDisplay, width: "6%", headerTooltip: "Days Worked (Current Work Period): distinct on-duty days in the railroad work period."),
         new("Board Position", r => r.BoardPositionDisplay, width: "14%"),
         new("Projected Vacancy", r => r.ProjectedVacancyDisplay, width: "14%"),
         new("On Duty", r => r.OnDutyDisplay, width: "10%")

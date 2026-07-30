@@ -4,6 +4,7 @@ using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -45,8 +46,12 @@ internal class CraftRoleConfiguration : IEntityTypeConfiguration<CraftRole>
         builder.Property(r => r.Name).HasMaxLength(100).IsRequired();
         builder.Property(r => r.AlternateName).HasMaxLength(100);
         builder.Property(r => r.HierarchyLevel).HasDefaultValue(0);
+        builder.Property(r => r.DefaultRosterBoardCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
 
         builder.HasOne<Craft>().WithMany().HasForeignKey(r => r.CraftCtrlNbr).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<RosterBoard>().WithMany().HasForeignKey(r => r.DefaultRosterBoardCtrlNbr).OnDelete(DeleteBehavior.SetNull);
         builder.HasMany(r => r.RequiredQualifications).WithOne().HasForeignKey(q => q.CraftRoleCtrlNbr).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(r => r.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });

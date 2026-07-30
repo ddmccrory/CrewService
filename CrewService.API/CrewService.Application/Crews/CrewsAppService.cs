@@ -15,10 +15,11 @@ public sealed class CrewsAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IVacancyRepostService vacancyRepostService,
     DepartmentReassignmentService departmentReassignmentService,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     ILogger<CrewsAppService> logger,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new(), vacancyProjectionSyncService);
 
     // ── Crews ────────────────────────────────────────────────────────────────
 
@@ -258,6 +259,10 @@ public sealed class CrewsAppService(
                         uow,
                         crewPosition.StaffablePositionCtrlNbr,
                         incumbentEmployeeCtrlNbr: null,
+                        ct);
+                    await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+                        uow,
+                        crewPosition.StaffablePositionCtrlNbr,
                         ct);
                     vacatedStaffablePositionCtrlNbr = crewPosition.StaffablePositionCtrlNbr;
                     previousIncumbentCtrlNbr = incumbency.EmployeeCtrlNbr;

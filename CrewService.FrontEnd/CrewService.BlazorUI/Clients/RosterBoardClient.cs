@@ -104,19 +104,6 @@ public sealed class RosterBoardClient(GrpcChannelProvider channelProvider, Circu
         }
     }
 
-    public async Task<RosterBoardPositionResponse> HangoutPositionAsync(long positionCtrlNbr)
-    {
-        try
-        {
-            return await _client.HangoutPositionAsync(new HangoutPositionRequest { PositionCtrlNbr = positionCtrlNbr });
-        }
-        catch (Exception ex)
-        {
-            LogException(ex);
-            throw;
-        }
-    }
-
     public async Task<RosterBoardPositionResponse> RestorePositionAsync(long positionCtrlNbr)
     {
         try

@@ -27,7 +27,12 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         }
     }
 
-    public async Task<CraftRoleResponse> CreateCraftRoleAsync(long craftCtrlNbr, string? code, string name, string? alternateName)
+    public async Task<CraftRoleResponse> CreateCraftRoleAsync(
+        long craftCtrlNbr,
+        string? code,
+        string name,
+        string? alternateName,
+        long? defaultRosterBoardCtrlNbr = null)
     {
         try
         {
@@ -36,7 +41,8 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 CraftCtrlNbr = craftCtrlNbr,
                 Code = code ?? string.Empty,
                 Name = name,
-                AlternateName = alternateName ?? string.Empty
+                AlternateName = alternateName ?? string.Empty,
+                DefaultRosterBoardCtrlNbr = defaultRosterBoardCtrlNbr ?? 0
             });
         }
         catch (Exception ex)
@@ -46,7 +52,12 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
         }
     }
 
-    public async Task<CraftRoleResponse> UpdateCraftRoleAsync(long ctrlNbr, string? code, string name, string? alternateName)
+    public async Task<CraftRoleResponse> UpdateCraftRoleAsync(
+        long ctrlNbr,
+        string? code,
+        string name,
+        string? alternateName,
+        long? defaultRosterBoardCtrlNbr = null)
     {
         try
         {
@@ -55,7 +66,8 @@ public sealed class WorkManagementClient(GrpcChannelProvider channelProvider, Ci
                 CtrlNbr = ctrlNbr,
                 Code = code ?? string.Empty,
                 Name = name,
-                AlternateName = alternateName ?? string.Empty
+                AlternateName = alternateName ?? string.Empty,
+                DefaultRosterBoardCtrlNbr = defaultRosterBoardCtrlNbr ?? 0
             });
         }
         catch (Exception ex)

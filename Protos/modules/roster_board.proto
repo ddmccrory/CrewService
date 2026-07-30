@@ -29,9 +29,6 @@ service RosterBoardSrvc {
   rpc RemoveRosterBoardPosition (RemoveRosterBoardPositionRequest) returns (common.DeleteResponse) {
     option (google.api.http) = { delete: "/v1/roster-board/positions/{ctrl_nbr}" };
   }
-  rpc HangoutPosition (HangoutPositionRequest) returns (RosterBoardPositionResponse) {
-    option (google.api.http) = { post: "/v1/roster-board/hangout" body: "*" };
-  }
   rpc RestorePosition (RestorePositionRequest) returns (RosterBoardPositionResponse) {
     option (google.api.http) = { post: "/v1/roster-board/restore" body: "*" };
   }
@@ -130,20 +127,14 @@ message RosterBoardPositionResponse {
   int64 ctrl_nbr = 1;
   int64 employee_ctrl_nbr = 2;
   int32 position_order = 3;
-  string hangout_status = 4;
-  optional google.protobuf.Timestamp hangout_at = 5;
-  string employee_number = 6;
-  string employee_user_id = 7;
-  string employee_full_name_lnf = 8;
-  repeated string restriction_labels = 9;
-  optional google.protobuf.Timestamp assigned_date_utc = 10;
+  string employee_number = 4;
+  string employee_user_id = 5;
+  string employee_full_name_lnf = 6;
+  repeated string restriction_labels = 7;
+  optional google.protobuf.Timestamp assigned_date_utc = 8;
   // Offset-carrying ISO-8601 assigned date, localized to the board roster's work-area time
   // zone (via IWorkAreaClock). assigned_date_utc above stays authoritative; this is display-only.
-  string assigned_date_local = 11;
-}
-
-message HangoutPositionRequest {
-  int64 position_ctrl_nbr = 1;
+  string assigned_date_local = 9;
 }
 
 message RestorePositionRequest {

@@ -8,6 +8,7 @@ using CrewService.Domain.ValueObjects;
 using CrewService.Application.Absence;
 using CrewService.Application.DailyOperations;
 using CrewService.Application.Notifications;
+using CrewService.Application.VacancyAssignment;
 using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.AbsenceVacancy;
@@ -25,7 +26,8 @@ public sealed class AbsenceRequestService(
     BackgroundWorkers.IAutoMarkUpSignal autoMarkUpSignal,
     CallSheetSlotVacancyEvaluationService slotVacancyEvaluationService,
     EmployeeNotificationService employeeNotificationService,
-    ILogger<AbsenceRequestService> logger)
+    ILogger<AbsenceRequestService> logger,
+    VacancyProjectionOrchestratorService? vacancyProjectionOrchestrator = null)
 {
     public const long SystemApprovalOfficerCtrlNbr = 1;
 
@@ -117,7 +119,7 @@ public sealed class AbsenceRequestService(
         }
 
         uow.AbsenceRequests.Update(absence);
-        await SyncCallSheetSlotsForEmployeeAsync(uow, absence.EmployeeCtrlNbr);
+        await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: effectiveEndUtc);
         await uow.CommitAsync();
 
         NotifyAutoMarkUpIfScheduledEnd(absence);
@@ -139,8 +141,12 @@ public sealed class AbsenceRequestService(
             uow.AbsenceRequests.Update(request);
         }
 
-        foreach (var employeeCtrlNbr in due.Select(d => d.EmployeeCtrlNbr).Distinct())
-            await SyncCallSheetSlotsForEmployeeAsync(uow, employeeCtrlNbr, ct);
+        foreach (var request in due)
+            await ReconcileVacancyProjectionsForEmployeeAsync(
+                uow,
+                request.EmployeeCtrlNbr,
+                DateTime.SpecifyKind(request.ScheduledEndUtc!.Value, DateTimeKind.Utc),
+                ct);
 
         await uow.CommitAsync(ct);
 
@@ -261,7 +267,7 @@ public sealed class AbsenceRequestService(
         uow.AbsenceRequests.Add(absence);
 
         if (absence.StartRecords.Count > 0)
-            await SyncCallSheetSlotsForEmployeeAsync(uow, absence.EmployeeCtrlNbr);
+            await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: markOffReferenceUtc);
 
         await uow.CommitAsync();
 
@@ -658,7 +664,7 @@ public sealed class AbsenceRequestService(
         uow.AbsenceRequests.Update(absence);
 
         if (absence.StartRecords.Count > 0)
-            await SyncCallSheetSlotsForEmployeeAsync(uow, absence.EmployeeCtrlNbr);
+            await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc));
 
         await uow.CommitAsync();
 
@@ -704,8 +710,8 @@ public sealed class AbsenceRequestService(
             uow.AbsenceRequests.Update(request);
         }
 
-        foreach (var employeeCtrlNbr in due.Select(d => d.EmployeeCtrlNbr).Distinct())
-            await SyncCallSheetSlotsForEmployeeAsync(uow, employeeCtrlNbr, ct);
+        foreach (var request in due)
+            await ReconcileVacancyProjectionsForEmployeeAsync(uow, request.EmployeeCtrlNbr, asOf, ct);
 
         await uow.CommitAsync(ct);
 
@@ -724,17 +730,19 @@ public sealed class AbsenceRequestService(
     private async Task SyncCallSheetSlotsForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
     {
         await using var syncUow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var changedShiftCount = await SyncCallSheetSlotsForEmployeeAsync(syncUow, employeeCtrlNbr, ct);
-        if (changedShiftCount > 0)
-            await syncUow.CommitAsync(ct);
+        await ReconcileVacancyProjectionsForEmployeeAsync(syncUow, employeeCtrlNbr, effectiveFromUtc: DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc), ct);
+        await syncUow.CommitAsync(ct);
     }
 
-    private Task<int> SyncCallSheetSlotsForEmployeeAsync(
+    private async Task ReconcileVacancyProjectionsForEmployeeAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
+        DateTime? effectiveFromUtc = null,
         CancellationToken ct = default)
     {
-        return slotVacancyEvaluationService.SyncImpactedShiftsForEmployeeAsync(uow, employeeCtrlNbr, ct);
+        _ = await slotVacancyEvaluationService.SyncImpactedShiftsForEmployeeAsync(uow, employeeCtrlNbr, ct);
+        if (vacancyProjectionOrchestrator is not null)
+            await vacancyProjectionOrchestrator.ReconcileForEmployeeAsync(uow, employeeCtrlNbr, effectiveFromUtc, ct);
     }
 
     private static bool ShouldAutoMarkOffImmediately(
@@ -850,6 +858,8 @@ public sealed class AbsenceRequestService(
 
         absence.Exercise(DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc));
         uow.AbsenceRequests.Update(absence);
+
+        await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc));
         await uow.CommitAsync();
 
         NotifyAutoMarkUpIfScheduledEnd(absence);

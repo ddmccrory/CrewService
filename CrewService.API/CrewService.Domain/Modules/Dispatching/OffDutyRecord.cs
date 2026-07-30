@@ -12,6 +12,7 @@ public sealed class OffDutyRecord : Entity
     public int TotalTimeOnDutyMinutes { get; private set; }
     public decimal RestHoursRequired { get; private set; }
     public DateTime RestedAtUtc { get; private set; }
+    public DateTime TwentyFourHourRestAtUtc { get; private set; }
     public DateTime ConsecutiveDayRestedAtUtc { get; private set; }
     public string ReleaseReason { get; private set; } = string.Empty;
     public bool OffDutyTimeConfirmed { get; private set; }
@@ -44,6 +45,7 @@ public sealed class OffDutyRecord : Entity
             TotalTimeOnDutyMinutes = totalTimeOnDutyMinutes,
             RestHoursRequired = restHoursRequired,
             RestedAtUtc = offDutyTimeUtc.AddHours((double)restHoursRequired),
+            TwentyFourHourRestAtUtc = offDutyTimeUtc.AddHours(24),
             ConsecutiveDayRestedAtUtc = offDutyTimeUtc.AddHours((double)consecutiveDayResetHours),
             ReleaseReason = releaseReason,
             OffDutyTimeConfirmed = offDutyTimeConfirmed,
@@ -67,6 +69,7 @@ public sealed class OffDutyRecord : Entity
         TotalTimeOnDutyMinutes = totalTimeOnDutyMinutes;
         RestHoursRequired = restHoursRequired;
         RestedAtUtc = offDutyTimeUtc.AddHours((double)restHoursRequired);
+        TwentyFourHourRestAtUtc = offDutyTimeUtc.AddHours(24);
         ConsecutiveDayRestedAtUtc = offDutyTimeUtc.AddHours((double)consecutiveDayResetHours);
         if (!string.IsNullOrWhiteSpace(releaseReason))
             ReleaseReason = releaseReason;

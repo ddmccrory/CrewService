@@ -93,7 +93,13 @@ public class WorkManagementService(IServiceProvider serviceProvider) : WorkManag
     public override async Task<CraftRoleResponse> CreateCraftRole(CreateCraftRoleRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
-        var role = await svc.CreateCraftRoleAsync(request.CraftCtrlNbr, request.Code, request.Name, request.AlternateName, context.CancellationToken);
+        var role = await svc.CreateCraftRoleAsync(
+            request.CraftCtrlNbr,
+            request.Code,
+            request.Name,
+            request.AlternateName,
+            request.DefaultRosterBoardCtrlNbr > 0 ? request.DefaultRosterBoardCtrlNbr : null,
+            context.CancellationToken);
         return MapRole(role);
     }
 
@@ -102,7 +108,13 @@ public class WorkManagementService(IServiceProvider serviceProvider) : WorkManag
         var svc = serviceProvider.GetRequiredService<Application.WorkManagement.WorkManagementService>();
         try
         {
-            var role = await svc.UpdateCraftRoleAsync(ControlNumber.Create(request.CtrlNbr), request.Code, request.Name, request.AlternateName, context.CancellationToken);
+            var role = await svc.UpdateCraftRoleAsync(
+                ControlNumber.Create(request.CtrlNbr),
+                request.Code,
+                request.Name,
+                request.AlternateName,
+                request.DefaultRosterBoardCtrlNbr > 0 ? request.DefaultRosterBoardCtrlNbr : null,
+                context.CancellationToken);
             return MapRole(role);
         }
         catch (KeyNotFoundException ex)
@@ -255,7 +267,8 @@ public class WorkManagementService(IServiceProvider serviceProvider) : WorkManag
         CraftCtrlNbr = r.CraftCtrlNbr.Value,
         Code = r.Code ?? string.Empty,
         Name = r.Name,
-        AlternateName = r.AlternateName ?? string.Empty
+        AlternateName = r.AlternateName ?? string.Empty,
+        DefaultRosterBoardCtrlNbr = r.DefaultRosterBoardCtrlNbr?.Value ?? 0
     };
 
     private static ShiftDefinitionResponse MapShiftDefinition(ShiftDefinition sd) => new()

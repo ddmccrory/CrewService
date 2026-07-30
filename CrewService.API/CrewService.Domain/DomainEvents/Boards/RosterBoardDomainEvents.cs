@@ -9,13 +9,6 @@ public sealed record RosterBoardCreatedDomainEvent : DomainEvent
             payload: new { BoardCtrlNbr = boardCtrlNbr.Value, Name = name }) { }
 }
 
-public sealed record PositionHungOutDomainEvent : DomainEvent
-{
-    public PositionHungOutDomainEvent(ControlNumber positionCtrlNbr, ControlNumber employeeCtrlNbr)
-        : base("RosterBoardPosition", positionCtrlNbr.Value,
-            payload: new { PositionCtrlNbr = positionCtrlNbr.Value, EmployeeCtrlNbr = employeeCtrlNbr.Value }) { }
-}
-
 public sealed record PositionMarkedOffDomainEvent : DomainEvent
 {
     public PositionMarkedOffDomainEvent(ControlNumber positionCtrlNbr, ControlNumber employeeCtrlNbr)

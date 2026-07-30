@@ -3,14 +3,16 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using CrewService.Application.Notifications;
+using CrewService.Application.DailyOperations;
 
 namespace CrewService.Application.Policies;
 
 public sealed class DepartmentReassignmentService(
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     EmployeeNotificationService? notifications = null,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new(), vacancyProjectionSyncService);
 
     public async Task ReassignEmployeeAsync(
         IOrchestrationUnitOfWork uow,

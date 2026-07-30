@@ -23,9 +23,10 @@ public sealed class RosterBoardAppService(
     VacancyAssignment.IVacancyRepostService vacancyRepostService,
     DepartmentReassignmentService departmentReassignmentService,
     EmployeeNotificationService notifications,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new(), vacancyProjectionSyncService);
 
     // ── Single Board ─────────────────────────────────────────────────────────
 
@@ -313,6 +314,10 @@ public sealed class RosterBoardAppService(
                     position.StaffablePositionCtrlNbr,
                     incumbentEmployeeCtrlNbr: null,
                     ct);
+                await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+                    uow,
+                    position.StaffablePositionCtrlNbr,
+                    ct);
             }
 
             // Refresh the required-position threshold using the craft's assigned strategy (ExtraBoard only).
@@ -338,18 +343,6 @@ public sealed class RosterBoardAppService(
     }
 
     public async Task<(RosterBoardPosition Position, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
-        HangoutPositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
-    {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var boards = await uow.RosterBoards.GetAllAsync(ct);
-        var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
-            ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found.");
-        var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
-        var labels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, [position.EmployeeCtrlNbr], ct);
-        return (position, labels);
-    }
-
-    public async Task<(RosterBoardPosition Position, Dictionary<ControlNumber, List<string>> RestrictionLabels)>
         RestorePositionAsync(ControlNumber positionCtrlNbr, CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -357,8 +350,22 @@ public sealed class RosterBoardAppService(
         var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
             ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found.");
         var position = board.Positions.First(p => p.CtrlNbr == positionCtrlNbr);
-        position.RestoreFromHangout();
-        uow.RosterBoards.Update(board);
+        var shiftInstances = await uow.ShiftInstances.GetAllAsync(ct);
+        foreach (var shift in shiftInstances)
+        {
+            var boardSlot = shift.BoardSlots.FirstOrDefault(s => s.RosterBoardPositionCtrlNbr == positionCtrlNbr);
+            if (boardSlot is null)
+                continue;
+
+            if (boardSlot.Status == Domain.Modules.WorkManagement.BoardSlotStatus.MarkedOff
+                || boardSlot.Status == Domain.Modules.WorkManagement.BoardSlotStatus.Unavailable)
+            {
+                boardSlot.RestoreToAvailable();
+            }
+            await uow.ShiftInstances.UpdateAsync(shift, ct);
+            break;
+        }
+
         var labels = await ComputeRestrictionLabelsAsync(uow, board.CraftCtrlNbr, [position.EmployeeCtrlNbr], ct);
         await uow.CommitAsync(ct);
         return (position, labels);

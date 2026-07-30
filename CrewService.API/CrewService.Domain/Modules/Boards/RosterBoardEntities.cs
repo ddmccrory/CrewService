@@ -199,8 +199,6 @@ public sealed class RosterBoardPosition : Entity
     public ControlNumber EmployeeCtrlNbr { get; private set; }
     public ControlNumber StaffablePositionCtrlNbr { get; private set; }
     public int PositionOrder { get; private set; }
-    public string HangoutStatus { get; private set; } = "Active";
-    public DateTime? HangoutAtUtc { get; private set; }
 
     private RosterBoardPosition()
     {
@@ -220,26 +218,6 @@ public sealed class RosterBoardPosition : Entity
             StaffablePositionCtrlNbr = staffablePositionCtrlNbr,
             PositionOrder = positionOrder
         };
-    }
-
-    public void Hangout()
-    {
-        HangoutStatus = "HungOut";
-        HangoutAtUtc = DateTime.UtcNow;
-        Raise(new PositionHungOutDomainEvent(CtrlNbr, EmployeeCtrlNbr));
-    }
-
-    public void MarkOff()
-    {
-        HangoutStatus = "MarkedOff";
-        Raise(new PositionMarkedOffDomainEvent(CtrlNbr, EmployeeCtrlNbr));
-    }
-
-    public void RestoreFromHangout()
-    {
-        HangoutStatus = "Active";
-        HangoutAtUtc = null;
-        Raise(new PositionRestoredDomainEvent(CtrlNbr, EmployeeCtrlNbr));
     }
 
     internal void UpdateOrder(int newOrder)

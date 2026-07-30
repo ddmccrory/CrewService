@@ -1,5 +1,6 @@
 using CrewService.Application.Qualifications;
 using CrewService.Application.Policies;
+using CrewService.Application.DailyOperations;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
@@ -22,9 +23,10 @@ namespace CrewService.Application.RosterBoardOps;
 public sealed class NewHireService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     QualificationReactiveService qualificationReactiveService,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
 {
-    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new());
+    private readonly IncumbentAssignmentPath _incumbentAssignmentPath = incumbentAssignmentPath ?? new(new(), vacancyProjectionSyncService);
 
     public async Task OnboardAsync(
         ControlNumber employeeCtrlNbr,

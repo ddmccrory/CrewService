@@ -6,7 +6,9 @@ using CrewService.Application.DailyOperations;
 
 namespace CrewService.Application.Policies;
 
-public sealed class IncumbentAssignmentPath(SeniorityMoveCancellationPath seniorityMoveCancellationPath)
+public sealed class IncumbentAssignmentPath(
+    SeniorityMoveCancellationPath seniorityMoveCancellationPath,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService)
 {
     public const string DefaultCancellationReason = "Cancelled because employee was assigned to a different position.";
 
@@ -45,6 +47,11 @@ public sealed class IncumbentAssignmentPath(SeniorityMoveCancellationPath senior
                 uow,
                 staffablePositionCtrlNbr,
                 employeeCtrlNbr,
+                ct);
+
+            await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+                uow,
+                staffablePositionCtrlNbr,
                 ct);
         }
 

@@ -90,11 +90,6 @@ public sealed class BoardSlotInstance : Entity
         }
     }
 
-    public void Hangout()
-    {
-        Status = BoardSlotStatus.HungOut;
-    }
-
     public void MarkOff()
     {
         Status = BoardSlotStatus.MarkedOff;
