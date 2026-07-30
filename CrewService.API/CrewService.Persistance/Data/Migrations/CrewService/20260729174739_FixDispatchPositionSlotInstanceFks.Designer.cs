@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729174739_FixDispatchPositionSlotInstanceFks")]
+    partial class FixDispatchPositionSlotInstanceFks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -1646,6 +1649,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("EmployeeCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("HangoutAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HangoutStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
@@ -2413,9 +2424,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.Property<int>("TotalTimeOnDutyMinutes")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("TwentyFourHourRestAtUtc")
-                        .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
 

@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729142835_AddCraftRoleDefaultRosterBoardLink")]
+    partial class AddCraftRoleDefaultRosterBoardLink
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -1646,6 +1649,14 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<long>("EmployeeCtrlNbr")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("HangoutAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HangoutStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
@@ -2413,9 +2424,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.Property<int>("TotalTimeOnDutyMinutes")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("TwentyFourHourRestAtUtc")
-                        .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
 
@@ -10857,7 +10865,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchDecisionLog", b =>
                 {
-                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlotInstance", null)
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
                         .WithMany()
                         .HasForeignKey("PositionSlotCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -10951,7 +10959,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlotInstance", null)
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
                         .WithMany()
                         .HasForeignKey("PositionSlotCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -11029,7 +11037,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             modelBuilder.Entity("CrewService.Domain.Modules.Dispatching.DispatchProjection", b =>
                 {
-                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlotInstance", null)
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
                         .WithMany()
                         .HasForeignKey("PositionSlotCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -11118,7 +11126,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlotInstance", null)
+                    b.HasOne("CrewService.Domain.Modules.WorkManagement.PositionSlot", null)
                         .WithMany()
                         .HasForeignKey("PositionSlotCtrlNbr")
                         .OnDelete(DeleteBehavior.Restrict);
