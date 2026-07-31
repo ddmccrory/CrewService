@@ -190,7 +190,7 @@ public class ForeignKeyIntegrityTests
     [InlineData("Address", "AddressType", DeleteBehavior.Restrict)]
     [InlineData("EmailAddress", "EmailAddressType", DeleteBehavior.Restrict)]
     [InlineData("PhoneNumber", "PhoneNumberType", DeleteBehavior.Restrict)]
-    [InlineData("EmployeeBooking", "PositionSlot", DeleteBehavior.Restrict)]
+    [InlineData("EmployeeBooking", "PositionSlotInstance", DeleteBehavior.Restrict)]
     [InlineData("OnDutyRecord", "EmployeeBooking", DeleteBehavior.Restrict)]
     [InlineData("CertificationRevocationRecord", "Employee", DeleteBehavior.Restrict)]
     [InlineData("HolidayPayrollRecord", "PayrollRecord", DeleteBehavior.Restrict)]

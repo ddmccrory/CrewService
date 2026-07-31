@@ -76,6 +76,12 @@ public class CallSheetGenerationServiceTests
         public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByCrewPositionAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<ShiftInstance>>([]);
 
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByIncumbentEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>([]);
+
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>([]);
+
         public Task DeleteAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
             => Task.CompletedTask;
 
@@ -111,8 +117,14 @@ public class CallSheetGenerationServiceTests
                 .ToList());
     }
 
-    private sealed class FakeDepartmentRepository : FakeRepository<Department>, IDepartmentRepository
+    private sealed class FakeDepartmentRepository(IReadOnlyDictionary<ControlNumber, Department>? byCtrlNbr = null) : FakeRepository<Department>, IDepartmentRepository
     {
+        private readonly IReadOnlyDictionary<ControlNumber, Department> _byCtrlNbr =
+            byCtrlNbr ?? new Dictionary<ControlNumber, Department>();
+
+        public override Task<Department?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(_byCtrlNbr.GetValueOrDefault(ctrlNbr));
+
         public Task<List<Department>> GetByParentAndRailroadAsync(ControlNumber? parentCtrlNbr, ControlNumber? railroadCtrlNbr)
             => Task.FromResult(new List<Department>());
     }
@@ -128,6 +140,17 @@ public class CallSheetGenerationServiceTests
         public Task<List<DynamicGroup>> GetTreeAsync(ControlNumber? rootCtrlNbr = null) => Task.FromResult(new List<DynamicGroup>());
         public Task<List<DynamicGroup>> GetByGroupTypeNameAsync(string typeName, ControlNumber? parentCtrlNbr = null) => Task.FromResult(new List<DynamicGroup>());
         public Task BackfillPathsAsync() => Task.CompletedTask;
+    }
+
+    private static (ControlNumber DepartmentCtrlNbr, FakeDepartmentRepository Repo) CreateDepartmentRepo(long workAreaCtrlNbr = 1)
+    {
+        var department = Department.Create(parentCtrlNbr: null, dynamicGroupCtrlNbr: ControlNumber.Create(workAreaCtrlNbr), name: "Transportation");
+        var repo = new FakeDepartmentRepository(new Dictionary<ControlNumber, Department>
+        {
+            [department.CtrlNbr] = department
+        });
+
+        return (department.CtrlNbr, repo);
     }
 
     private sealed class FakeOnDutyRecordRepository : FakeRepository<OnDutyRecord>, IOnDutyRecordRepository
@@ -463,19 +486,21 @@ public class CallSheetGenerationServiceTests
         // Arrange - Saturday, no assignments scheduled
         var shiftDef = CreateActiveShiftDef();
         var shiftInstanceRepo = new FakeShiftInstanceRepository();
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var sut = CreateSut(
             new FakeAssignmentQueryService([]),
             new FakeShiftDefinitionRepository(shiftDef),
             shiftInstanceRepo,
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository());
+            departmentRepo);
 
         // Act - should NOT throw
         var result = await sut.GenerateForShiftAsync(
             ControlNumber.Create(1),
             shiftDef.CtrlNbr,
             new DateOnly(2026, 4, 4),  // Saturday
+            departmentCtrlNbr,
             ct: TestContext.Current.CancellationToken);
 
         // Assert
@@ -491,6 +516,7 @@ public class CallSheetGenerationServiceTests
         // Arrange - weekday with one assignment having two positions
         var shiftDef = CreateActiveShiftDef();
         var shiftInstanceRepo = new FakeShiftInstanceRepository();
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var templates = new List<AssignmentDto>
         {
@@ -509,13 +535,14 @@ public class CallSheetGenerationServiceTests
             new FakeShiftDefinitionRepository(shiftDef),
             shiftInstanceRepo,
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository());
+            departmentRepo);
 
         // Act
         var result = await sut.GenerateForShiftAsync(
             ControlNumber.Create(1),
             shiftDef.CtrlNbr,
             new DateOnly(2026, 4, 6),  // Monday
+            departmentCtrlNbr,
             ct: TestContext.Current.CancellationToken);
 
         // Assert
@@ -529,18 +556,20 @@ public class CallSheetGenerationServiceTests
     {
         var shiftDef = ShiftDefinition.Create(
             ControlNumber.Create(1), "1", "First Shift", 1, isActive: false);
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var sut = CreateSut(
             new FakeAssignmentQueryService([]),
             new FakeShiftDefinitionRepository(shiftDef),
             new FakeShiftInstanceRepository(),
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository());
+            departmentRepo);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.GenerateForShiftAsync(
                 ControlNumber.Create(1), shiftDef.CtrlNbr,
                 new DateOnly(2026, 4, 6),
+                departmentCtrlNbr,
                 ct: TestContext.Current.CancellationToken));
     }
 
@@ -550,6 +579,7 @@ public class CallSheetGenerationServiceTests
         // Arrange - one incumbent (Engineer) and one vacant (Conductor) position
         var shiftDef = CreateActiveShiftDef();
         var onDutyRepo = new FakeOnDutyRecordRepository();
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var templates = new List<AssignmentDto>
         {
@@ -568,7 +598,7 @@ public class CallSheetGenerationServiceTests
             new FakeShiftDefinitionRepository(shiftDef),
             new FakeShiftInstanceRepository(),
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository(),
+            departmentRepo,
             onDutyRecords: onDutyRepo);
 
         // Act
@@ -576,6 +606,7 @@ public class CallSheetGenerationServiceTests
             ControlNumber.Create(1),
             shiftDef.CtrlNbr,
             new DateOnly(2026, 4, 6),  // Monday
+            departmentCtrlNbr,
             ct: TestContext.Current.CancellationToken);
 
         // Assert - exactly one record, for the incumbent, in Scheduled state, no late call
@@ -596,6 +627,7 @@ public class CallSheetGenerationServiceTests
         // staffable position 500, and employee 200 is assigned to staffable position 500.
         var shiftDef = CreateActiveShiftDef();
         var onDutyRepo = new FakeOnDutyRecordRepository();
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var staffablePositionCtrlNbr = ControlNumber.Create(500);
         var crewPosition = CrewPosition.Create(
@@ -623,7 +655,7 @@ public class CallSheetGenerationServiceTests
             new FakeShiftDefinitionRepository(shiftDef),
             new FakeShiftInstanceRepository(),
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository(),
+            departmentRepo,
             onDutyRecords: onDutyRepo,
             crewPositions: new FakeCrewPositionRepository(crewPositions),
             positionAssignments: new FakePositionAssignmentRepository([assignment]));
@@ -633,6 +665,7 @@ public class CallSheetGenerationServiceTests
             ControlNumber.Create(1),
             shiftDef.CtrlNbr,
             new DateOnly(2026, 4, 6),  // Monday
+            departmentCtrlNbr,
             ct: TestContext.Current.CancellationToken);
 
         // Assert - the record is flagged assigned because the employee works their own position
@@ -648,6 +681,7 @@ public class CallSheetGenerationServiceTests
         // but the employee's only assignment is to a different staffable position (600).
         var shiftDef = CreateActiveShiftDef();
         var onDutyRepo = new FakeOnDutyRecordRepository();
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var crewPosition = CrewPosition.Create(
             ControlNumber.Create(20), ControlNumber.Create(30), 1, ControlNumber.Create(500));
@@ -674,7 +708,7 @@ public class CallSheetGenerationServiceTests
             new FakeShiftDefinitionRepository(shiftDef),
             new FakeShiftInstanceRepository(),
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository(),
+            departmentRepo,
             onDutyRecords: onDutyRepo,
             crewPositions: new FakeCrewPositionRepository(crewPositions),
             positionAssignments: new FakePositionAssignmentRepository([assignment]));
@@ -684,6 +718,7 @@ public class CallSheetGenerationServiceTests
             ControlNumber.Create(1),
             shiftDef.CtrlNbr,
             new DateOnly(2026, 4, 6),  // Monday
+            departmentCtrlNbr,
             ct: TestContext.Current.CancellationToken);
 
         // Assert - covering another position is not "assigned"
@@ -697,6 +732,7 @@ public class CallSheetGenerationServiceTests
         // Arrange - assignment with only vacant positions (no incumbents)
         var shiftDef = CreateActiveShiftDef();
         var onDutyRepo = new FakeOnDutyRecordRepository();
+        var (departmentCtrlNbr, departmentRepo) = CreateDepartmentRepo();
 
         var templates = new List<AssignmentDto>
         {
@@ -715,7 +751,7 @@ public class CallSheetGenerationServiceTests
             new FakeShiftDefinitionRepository(shiftDef),
             new FakeShiftInstanceRepository(),
             new FakeWorkInstanceRepository(),
-            new FakeDepartmentRepository(),
+            departmentRepo,
             onDutyRecords: onDutyRepo);
 
         // Act
@@ -723,6 +759,7 @@ public class CallSheetGenerationServiceTests
             ControlNumber.Create(1),
             shiftDef.CtrlNbr,
             new DateOnly(2026, 4, 6),  // Monday
+            departmentCtrlNbr,
             ct: TestContext.Current.CancellationToken);
 
         // Assert - vacancies do not produce on-duty records in this increment

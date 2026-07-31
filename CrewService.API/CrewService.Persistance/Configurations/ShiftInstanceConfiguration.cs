@@ -20,7 +20,8 @@ internal class ShiftInstanceConfiguration : IEntityTypeConfiguration<ShiftInstan
         builder.Property(s => s.ShiftDisplayName).HasMaxLength(100).IsRequired();
         builder.Property(s => s.DepartmentCtrlNbr).HasConversion(
             c => c == null ? (long?)null : c.Value,
-            v => v == null ? null : ControlNumber.Create(v.Value));
+            v => v == null ? null : ControlNumber.Create(v.Value))
+            .IsRequired();
         builder.Property(s => s.DepartmentName).HasMaxLength(100);
         builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
 

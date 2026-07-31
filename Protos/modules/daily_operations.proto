@@ -178,6 +178,9 @@ message DailyPositionSlotResponse {
   string vacancy_display_code = 26;
   bool use_legacy_marked_off_styling = 27;
   string vacancy_impact_start_local = 28;
+  optional int64 projected_employee_ctrl_nbr = 29;
+  string projected_employee_number = 30;
+  string projected_employee_name = 31;
 }
 
 message PlaceOnDutyRequest {

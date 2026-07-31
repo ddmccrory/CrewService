@@ -283,11 +283,11 @@ else if (HasRailroad)
                                                                                     }
                                                                                     else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                                                     {
-                                                                                        <span class="flex-grow-1 text-truncate" title="@GetSlotEmployeeDisplay(slot)">
+                                                                                        <span class="flex-grow-1 text-truncate" title="@GetSlotProjectedEmployeeHoverText(slot)">
                                                                                             <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
                                                                                             @if (!string.IsNullOrWhiteSpace(GetSlotAbsenceCodeDisplay(slot)))
                                                                                             {
-                                                                                                 <span class="text-primary ms-1">(@GetSlotAbsenceCodeDisplay(slot))</span>
+                                                                                                  <span class="@GetSlotAbsenceCodeCssClass(slot)">(@GetSlotAbsenceCodeDisplay(slot))</span>
                                                                                             }
                                                                                              @if (!string.IsNullOrWhiteSpace(GetSlotDoNotFillSuffix(slot)))
                                                                                              {
@@ -484,7 +484,7 @@ else if (HasRailroad)
                                                             <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
                                                             @if (!string.IsNullOrWhiteSpace(GetSlotAbsenceCodeDisplay(slot)))
                                                             {
-                                                                <span class="text-primary ms-1">(@GetSlotAbsenceCodeDisplay(slot))</span>
+                                                                <span class="@GetSlotAbsenceCodeCssClass(slot)">(@GetSlotAbsenceCodeDisplay(slot))</span>
                                                             }
                                                              @if (!string.IsNullOrWhiteSpace(GetSlotDoNotFillSuffix(slot)))
                                                              {
@@ -610,7 +610,7 @@ else if (HasRailroad)
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseGenerateModal">Cancel</button>
             <button type="submit" form="generate-shift-form" class="btn btn-success"
-                    disabled="@(generateModel.ShiftDefinitionCtrlNbr == 0 || isGenerating)">
+                    disabled="@(generateModel.ShiftDefinitionCtrlNbr == 0 || generateModel.DepartmentCtrlNbr == 0 || isGenerating)">
                 @if (isGenerating)
                 {
                     <span class="spinner-border spinner-border-sm me-1"></span>
@@ -1776,10 +1776,56 @@ else if (HasRailroad)
         return display;
     }
 
+    private static string GetSlotProjectedEmployeeHoverText(DailyPositionSlotResponse slot)
+    {
+        if (!slot.HasProjectedEmployeeCtrlNbr)
+            return GetSlotEmployeeDisplay(slot);
+
+        var projectedEmployeeDisplay = BuildProjectedEmployeeDisplay(slot);
+        if (string.IsNullOrWhiteSpace(projectedEmployeeDisplay))
+            return GetSlotEmployeeDisplay(slot);
+
+        return $"Projected employee: {projectedEmployeeDisplay}";
+    }
+
+    private static string BuildProjectedEmployeeDisplay(DailyPositionSlotResponse slot)
+    {
+        if (!string.IsNullOrWhiteSpace(slot.ProjectedEmployeeNumber)
+            && !string.IsNullOrWhiteSpace(slot.ProjectedEmployeeName))
+        {
+            return $"{slot.ProjectedEmployeeNumber.ToUpperInvariant()} – {slot.ProjectedEmployeeName}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(slot.ProjectedEmployeeNumber))
+            return slot.ProjectedEmployeeNumber.ToUpperInvariant();
+
+        if (!string.IsNullOrWhiteSpace(slot.ProjectedEmployeeName))
+            return slot.ProjectedEmployeeName;
+
+        return slot.HasProjectedEmployeeCtrlNbr
+            ? $"Emp #{slot.ProjectedEmployeeCtrlNbr}"
+            : string.Empty;
+    }
+
     private static string GetSlotAbsenceCodeDisplay(DailyPositionSlotResponse slot)
         => slot.UseLegacyMarkedOffStyling && !string.IsNullOrWhiteSpace(slot.VacancyDisplayCode)
             ? slot.VacancyDisplayCode.Trim().ToUpperInvariant()
             : string.Empty;
+
+    private static string GetSlotAbsenceCodeCssClass(DailyPositionSlotResponse slot)
+    {
+        var employeeClasses = GetSlotEmployeeCssClass(slot);
+        if (string.IsNullOrWhiteSpace(employeeClasses))
+            return "text-primary ms-1";
+
+        var classes = employeeClasses
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(c => !string.Equals(c, "text-decoration-line-through", StringComparison.Ordinal))
+            .ToList();
+
+        classes.Add("ms-1");
+        return string.Join(" ", classes);
+    }
 
     private static string GetSlotDoNotFillSuffix(DailyPositionSlotResponse slot)
         => slot.Status == PositionSlotStatusEnum.PositionSlotStatusDoNotFill

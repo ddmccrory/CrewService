@@ -146,7 +146,10 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
 
         var workAreaGroupCtrlNbr = ControlNumber.Create(request.WorkAreaGroupCtrlNbr);
         var shiftDefinitionCtrlNbr = ControlNumber.Create(request.ShiftDefinitionCtrlNbr);
-        var departmentCtrlNbr = request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null;
+        if (!request.HasDepartmentCtrlNbr || request.DepartmentCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Department is required."));
+
+        var departmentCtrlNbr = ControlNumber.Create(request.DepartmentCtrlNbr);
 
         if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
@@ -565,6 +568,28 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             .ToList();
         var employeeInfoMap = await employeeNameSvc.GetEmployeeInfoBatchAsync(employeeCtrlNbrs);
 
+        var projectedEmployeeBySlot = new Dictionary<ControlNumber, ControlNumber>();
+        var projectedEmployeeCtrlNbrs = new HashSet<ControlNumber>();
+
+        await using (var uow = await serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>()
+            .CreateAsync())
+        {
+            foreach (var slot in shift.PositionSlots)
+            {
+                var projections = await uow.DispatchProjections.GetByPositionSlotAsync(slot.CtrlNbr);
+                var latestProjection = projections.FirstOrDefault();
+                if (latestProjection?.ProjectedEmployeeCtrlNbr is not { } projectedEmployeeCtrlNbr)
+                    continue;
+
+                projectedEmployeeBySlot[slot.CtrlNbr] = projectedEmployeeCtrlNbr;
+                projectedEmployeeCtrlNbrs.Add(projectedEmployeeCtrlNbr);
+            }
+        }
+
+        var projectedEmployeeInfoMap = projectedEmployeeCtrlNbrs.Count == 0
+            ? new Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)>()
+            : await employeeNameSvc.GetEmployeeInfoBatchAsync(projectedEmployeeCtrlNbrs);
+
         var effectiveShiftStatus = targetDate.HasValue && nowLocal.HasValue
             ? ResolveShiftDisplayStatus(shift, targetDate.Value, nowLocal.Value)
             : shift.Status;
@@ -622,6 +647,17 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                 slotResp.OnDutyRecordCtrlNbr = onDutyCtrlNbr.Value;
             slotResp.CrewName = slot.CrewName;
             slotResp.CrewType = slot.CrewType;
+
+            if (projectedEmployeeBySlot.TryGetValue(slot.CtrlNbr, out var projectedEmployeeCtrlNbr))
+            {
+                slotResp.ProjectedEmployeeCtrlNbr = projectedEmployeeCtrlNbr.Value;
+                if (projectedEmployeeInfoMap.TryGetValue(projectedEmployeeCtrlNbr, out var projectedInfo))
+                {
+                    slotResp.ProjectedEmployeeNumber = projectedInfo.EmployeeNumber;
+                    slotResp.ProjectedEmployeeName = projectedInfo.FullNameLnf;
+                }
+            }
+
             if (slot.IncumbentEmployeeCtrlNbr is not null)
             {
                 slotResp.IncumbentEmployeeCtrlNbr = slot.IncumbentEmployeeCtrlNbr.Value;
