@@ -33,26 +33,80 @@ public sealed class VacancyProjectionOrchestratorService(
             ? DateTime.SpecifyKind(effectiveFromUtc.Value, DateTimeKind.Utc)
             : (DateTime?)null;
 
-        var shifts = await GetImpactedIncompleteShiftsAsync(uow, employeeCtrlNbr, normalizedFromUtc, ct);
-        var projectionSequenceByCraft = new Dictionary<ControlNumber, int>();
-        foreach (var impactedShift in shifts)
+        var impactedShifts = await GetImpactedIncompleteShiftsAsync(uow, employeeCtrlNbr, normalizedFromUtc, ct);
+        if (impactedShifts.Count == 0)
+            return;
+
+        var impactedWorkAreas = impactedShifts
+            .Select(s => s.WorkAreaGroupCtrlNbr)
+            .Distinct()
+            .ToList();
+
+        foreach (var workAreaGroupCtrlNbr in impactedWorkAreas)
         {
-            var shift = impactedShift.Shift;
-            var matchingSlots = shift.PositionSlots
-                .Where(s => s.IncumbentEmployeeCtrlNbr == employeeCtrlNbr)
-                .ToList();
-
-            if (matchingSlots.Count == 0)
-                continue;
-
-            await ReconcileForShiftSlotsAsync(
+            await ReconcileForWorkAreaAsync(
                 uow,
-                shift,
-                impactedShift.WorkAreaGroupCtrlNbr,
-                shift.PositionSlots,
-                projectionSequenceByCraft,
+                workAreaGroupCtrlNbr,
+                normalizedFromUtc,
                 ct);
         }
+    }
+
+    public Task ReconcileForWorkAreaAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber workAreaGroupCtrlNbr,
+        CancellationToken ct = default)
+    {
+        return ReconcileForWorkAreaAsync(uow, workAreaGroupCtrlNbr, effectiveFromUtc: null, ct);
+    }
+
+    public async Task ReconcileForWorkAreaAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber workAreaGroupCtrlNbr,
+        DateTime? effectiveFromUtc,
+        CancellationToken ct = default)
+    {
+        var normalizedFromUtc = effectiveFromUtc.HasValue
+            ? DateTime.SpecifyKind(effectiveFromUtc.Value, DateTimeKind.Utc)
+            : (DateTime?)null;
+
+        var shifts = await uow.ShiftInstances.GetIncompleteByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        if (shifts.Count == 0)
+            return;
+
+        var orderedContexts = new List<ImpactedShiftContext>();
+        foreach (var shift in shifts)
+        {
+            var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, ct);
+            if (workInstance is null)
+                continue;
+
+            var workStartUtc = DateTime.SpecifyKind(workInstance.StartUtc, DateTimeKind.Utc);
+            var workEndUtc = DateTime.SpecifyKind(workInstance.EndUtc, DateTimeKind.Utc);
+
+            if (normalizedFromUtc.HasValue
+                && workStartUtc < normalizedFromUtc.Value
+                && workEndUtc < normalizedFromUtc.Value)
+            {
+                continue;
+            }
+
+            orderedContexts.Add(new ImpactedShiftContext(shift, workAreaGroupCtrlNbr, workStartUtc));
+        }
+
+        if (orderedContexts.Count == 0)
+            return;
+
+        await ReconcileForShiftsAsync(
+            uow,
+            workAreaGroupCtrlNbr,
+            orderedContexts
+                .OrderBy(c => c.WorkStartUtc)
+                .ThenBy(c => c.Shift.ShiftCode, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(c => c.Shift.CtrlNbr.Value)
+                .Select(c => c.Shift)
+                .ToList(),
+            ct);
     }
 
     public async Task ReconcileForShiftsAsync(
@@ -273,10 +327,17 @@ public sealed class VacancyProjectionOrchestratorService(
         DateTime? effectiveFromUtc,
         CancellationToken ct)
     {
-        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
-        if (assignments.Count == 0)
-            return [];
+        var shifts = new List<ShiftInstance>();
+        var seen = new HashSet<ControlNumber>();
 
+        var incumbentImpactedShifts = await uow.ShiftInstances.GetIncompleteByIncumbentEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var shift in incumbentImpactedShifts)
+        {
+            if (seen.Add(shift.CtrlNbr))
+                shifts.Add(shift);
+        }
+
+        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
         var crewPositionCtrlNbrs = new HashSet<ControlNumber>();
         foreach (var assignment in assignments)
         {
@@ -285,11 +346,6 @@ public sealed class VacancyProjectionOrchestratorService(
                 crewPositionCtrlNbrs.Add(crewPosition.CtrlNbr);
         }
 
-        if (crewPositionCtrlNbrs.Count == 0)
-            return [];
-
-        var shifts = new List<ShiftInstance>();
-        var seen = new HashSet<ControlNumber>();
         foreach (var crewPositionCtrlNbr in crewPositionCtrlNbrs)
         {
             var impacted = await uow.ShiftInstances.GetIncompleteByCrewPositionAsync(crewPositionCtrlNbr, ct);

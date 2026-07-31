@@ -47,6 +47,8 @@ public interface IShiftInstanceRepository : IRepository<ShiftInstance>
     Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default);
     Task<bool> ExistsByWorkInstanceAndShiftCodeAsync(ControlNumber workInstanceCtrlNbr, string shiftCode, ControlNumber? departmentCtrlNbr, CancellationToken ct = default);
     Task<IReadOnlyList<ShiftInstance>> GetIncompleteByCrewPositionAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default);
+    Task<IReadOnlyList<ShiftInstance>> GetIncompleteByIncumbentEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default);
+    Task<IReadOnlyList<ShiftInstance>> GetIncompleteByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default);
 }
 
 public interface IBoardSnapshotRepository : IRepository<BoardSnapshot>

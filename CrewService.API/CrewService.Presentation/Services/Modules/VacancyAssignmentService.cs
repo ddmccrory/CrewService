@@ -232,7 +232,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             }
         }
 
-        var projectedSlotByEmployee = new Dictionary<ControlNumber, Domain.Modules.WorkManagement.PositionSlotInstance>();
+        var vacancyProjectionByEmployee = new Dictionary<ControlNumber, (Domain.Modules.WorkManagement.PositionSlotInstance Slot, ControlNumber ProjectedEmployeeCtrlNbr)>();
         var allPositionSlots = shifts
             .SelectMany(s => s.PositionSlots)
             .ToList();
@@ -244,10 +244,10 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             if (latestProjection?.ProjectedEmployeeCtrlNbr is not { } projectedEmployeeCtrlNbr)
                 continue;
 
-            if (!projectedSlotByEmployee.TryGetValue(projectedEmployeeCtrlNbr, out var existingSlot)
-                || ComparePositionSlotOrdering(slot, existingSlot) < 0)
+            if (!vacancyProjectionByEmployee.TryGetValue(projectedEmployeeCtrlNbr, out var existingProjection)
+                || ComparePositionSlotOrdering(slot, existingProjection.Slot) < 0)
             {
-                projectedSlotByEmployee[projectedEmployeeCtrlNbr] = slot;
+                vacancyProjectionByEmployee[projectedEmployeeCtrlNbr] = (slot, projectedEmployeeCtrlNbr);
             }
         }
 
@@ -256,13 +256,15 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             .SelectMany(board => board.Positions.Select(position =>
             {
                 operationalByBoardAndEmployee.TryGetValue((board.CtrlNbr.Value, position.EmployeeCtrlNbr.Value), out var opRow);
-                projectedSlotByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var projectedSlot);
+                vacancyProjectionByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var projectedProjection);
+                var projectedSlot = projectedProjection.Slot;
                 rest24ByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var rest24Utc);
                 return MapCurrentCallBoardRow(
                     board,
                     position,
                     opRow,
                     projectedSlot,
+                    projectedProjection.ProjectedEmployeeCtrlNbr,
                     rest24Utc == default ? null : rest24Utc,
                     boardTypeByCtrlNbr,
                     employeeInfoByCtrlNbr,
@@ -403,6 +405,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         Domain.Modules.Boards.RosterBoardPosition position,
         Domain.Modules.WorkManagement.BoardSlotInstance? slot,
         Domain.Modules.WorkManagement.PositionSlotInstance? projectedSlot,
+        ControlNumber? projectedEmployeeCtrlNbr,
         DateTime? twentyFourHourRestAtUtc,
         IReadOnlyDictionary<ControlNumber, string> boardTypeByCtrlNbr,
         IReadOnlyDictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoByCtrlNbr,
@@ -419,7 +422,9 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         var resolvedDaysWorked = workPeriodDaysWorkedByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var workPeriodDaysWorked)
             ? workPeriodDaysWorked.ToString()
             : "—";
-        var resolvedBoardPosition = slot is null ? "—" : $"{slot.CallSequence}/{slot.BoardOrder}";
+        var resolvedBoardPosition = position.PositionOrder > 0
+            ? position.PositionOrder.ToString()
+            : "—";
 
         employeeInfoByCtrlNbr.TryGetValue(position.EmployeeCtrlNbr, out var employeeInfo);
         var authoritativeEmployeeName = !string.IsNullOrWhiteSpace(employeeInfo.FullNameLnf)
@@ -432,7 +437,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             ShiftInstanceCtrlNbr = slot?.ShiftInstanceCtrlNbr.Value ?? 0,
             RosterBoardCtrlNbr = board.CtrlNbr.Value,
             EmployeeCtrlNbr = position.EmployeeCtrlNbr.Value,
-            BoardOrder = slot?.BoardOrder ?? int.MaxValue,
+            BoardOrder = position.PositionOrder > 0 ? position.PositionOrder : int.MaxValue,
             CallSequence = slot?.CallSequence ?? 0,
             Status = slot?.Status.ToString() ?? "Available",
             BoardName = board.Name,
@@ -450,6 +455,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             DaysWorkedDisplay = resolvedDaysWorked,
             BoardPositionDisplay = resolvedBoardPosition,
             ProjectedVacancyDisplay = ResolveProjectedVacancyDisplay(projectedSlot),
+            ProjectedEmployeeDisplay = ResolveProjectedEmployeeDisplay(projectedEmployeeCtrlNbr, employeeInfoByCtrlNbr),
             OnDutyDisplay = ResolveProjectedOnDutyDisplay(projectedSlot)
         };
 
@@ -582,6 +588,22 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         => projectedSlot is null
             ? "—"
             : projectedSlot.OnDutyTime.ToString("HH:mm");
+
+    private static string ResolveProjectedEmployeeDisplay(
+        ControlNumber? projectedEmployeeCtrlNbr,
+        IReadOnlyDictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoByCtrlNbr)
+    {
+        if (projectedEmployeeCtrlNbr is null)
+            return "—";
+
+        if (employeeInfoByCtrlNbr.TryGetValue(projectedEmployeeCtrlNbr, out var employeeInfo)
+            && !string.IsNullOrWhiteSpace(employeeInfo.FullNameLnf))
+        {
+            return employeeInfo.FullNameLnf;
+        }
+
+        return projectedEmployeeCtrlNbr.Value.ToString();
+    }
 
     private static string ResolveLegacyStatus(
         Domain.Modules.WorkManagement.BoardSlotInstance? row,

@@ -267,7 +267,10 @@ public sealed class AbsenceRequestService(
         uow.AbsenceRequests.Add(absence);
 
         if (absence.StartRecords.Count > 0)
+        {
+            await uow.SaveAsync();
             await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: markOffReferenceUtc);
+        }
 
         await uow.CommitAsync();
 

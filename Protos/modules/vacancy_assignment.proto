@@ -159,6 +159,7 @@ message CurrentCallBoardRow {
   string board_position_display = 22;
   string projected_vacancy_display = 23;
   string on_duty_display = 24;
+  string projected_employee_display = 25;
 }
 
 message GetCurrentCallBoardResponse {
