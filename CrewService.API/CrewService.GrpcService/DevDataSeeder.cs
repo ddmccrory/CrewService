@@ -2574,6 +2574,37 @@ internal static class DevDataSeeder
         await SyncExtendedAbsenceBoardStatesAsync(csxParentCore.CtrlNbr);
         await SyncExtendedAbsenceBoardStatesAsync(ptraParentCore.CtrlNbr);
 
+        async Task SeedDefaultBoardPositionOrderAsync(ControlNumber parentCtrlNbr)
+        {
+            SetParent(parentCtrlNbr.Value);
+
+            var rosterBoardAppSvc = sp.GetRequiredService<RosterBoardAppService>();
+            var boards = await rosterBoardRepo.GetAllAsync();
+
+            foreach (var board in boards.Where(b => b.Positions.Count > 0))
+            {
+                var orderedPositions = board.Positions
+                    .OrderBy(p => p.PositionOrder <= 0 ? int.MaxValue : p.PositionOrder)
+                    .ThenBy(p => p.CtrlNbr.Value)
+                    .ToList();
+
+                var reorder = orderedPositions
+                    .Select((position, index) => (position.CtrlNbr, PositionOrder: index + 1))
+                    .ToList();
+
+                if (!orderedPositions
+                    .Select((position, index) => position.PositionOrder == index + 1)
+                    .All(isAlreadyOrdered => isAlreadyOrdered))
+                {
+                    await rosterBoardAppSvc.ReorderRosterBoardPositionsAsync(board.CtrlNbr, reorder);
+                }
+            }
+        }
+
+        await SeedDefaultBoardPositionOrderAsync(simpleCorpCore.CtrlNbr);
+        await SeedDefaultBoardPositionOrderAsync(ptraParentCore.CtrlNbr);
+        await SeedDefaultBoardPositionOrderAsync(csxParentCore.CtrlNbr);
+
         await SeedPtraAnnualizedStrategyAsync(sp);
     }
 

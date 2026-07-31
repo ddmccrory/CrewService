@@ -265,6 +265,106 @@ public sealed class VacancyProjectionOrchestratorServiceTests
     }
 
     [Fact]
+    public async Task ReconcileForEmployeeAsync_RebuildsAllIncompleteShiftsInImpactedWorkArea()
+    {
+        var targetEmployeeCtrlNbr = ControlNumber.Create(9600);
+        var otherEmployeeCtrlNbr = ControlNumber.Create(9601);
+        var craftCtrlNbr = ControlNumber.Create(111);
+        var craftRole = CraftRole.Create(craftCtrlNbr, "F", "Foreman");
+
+        var impactedWorkAreaCtrlNbr = ControlNumber.Create(4200);
+        var otherWorkAreaCtrlNbr = ControlNumber.Create(4300);
+        var start = DateTime.SpecifyKind(new DateTime(2026, 8, 1, 12, 0, 0), DateTimeKind.Utc);
+
+        var workInstance1 = WorkInstance.Create(null, impactedWorkAreaCtrlNbr, start, start.AddHours(8), null);
+        var shift1 = ShiftInstance.Create(workInstance1.CtrlNbr, ControlNumber.Create(5100), "1", "First Shift");
+        var targetStaffablePosition = ControlNumber.Create(7700);
+        var targetCrewPosition = CrewPosition.Create(ControlNumber.Create(6200), craftRole.CtrlNbr, 1, targetStaffablePosition);
+        var impactedSlot = shift1.AddPositionSlot(
+            targetCrewPosition.CtrlNbr,
+            targetEmployeeCtrlNbr,
+            1,
+            ControlNumber.Create(8400),
+            "110",
+            "Assignment 110",
+            craftRole.Name,
+            "Group",
+            "GRP",
+            new TimeOnly(7, 0),
+            new TimeOnly(15, 0));
+        impactedSlot.MarkMarkedOff();
+
+        var workInstance2 = WorkInstance.Create(null, impactedWorkAreaCtrlNbr, start.AddDays(1), start.AddDays(1).AddHours(8), null);
+        var shift2 = ShiftInstance.Create(workInstance2.CtrlNbr, ControlNumber.Create(5101), "2", "Second Shift");
+        var otherStaffablePosition = ControlNumber.Create(7701);
+        var otherCrewPosition = CrewPosition.Create(ControlNumber.Create(6201), craftRole.CtrlNbr, 2, otherStaffablePosition);
+        var sameAreaSlot = shift2.AddPositionSlot(
+            otherCrewPosition.CtrlNbr,
+            otherEmployeeCtrlNbr,
+            1,
+            ControlNumber.Create(8401),
+            "120",
+            "Assignment 120",
+            craftRole.Name,
+            "Group",
+            "GRP",
+            new TimeOnly(7, 0),
+            new TimeOnly(15, 0));
+        sameAreaSlot.MarkMarkedOff();
+
+        var workInstance3 = WorkInstance.Create(null, otherWorkAreaCtrlNbr, start.AddDays(1), start.AddDays(1).AddHours(8), null);
+        var shift3 = ShiftInstance.Create(workInstance3.CtrlNbr, ControlNumber.Create(5102), "1", "Other Area Shift");
+        var outsideAreaSlot = shift3.AddPositionSlot(
+            otherCrewPosition.CtrlNbr,
+            otherEmployeeCtrlNbr,
+            1,
+            ControlNumber.Create(8402),
+            "130",
+            "Assignment 130",
+            craftRole.Name,
+            "Group",
+            "GRP",
+            new TimeOnly(7, 0),
+            new TimeOnly(15, 0));
+        outsideAreaSlot.MarkMarkedOff();
+
+        var shiftRepo = new FakeShiftInstanceRepository(
+            [shift1, shift2, shift3],
+            new Dictionary<ControlNumber, ControlNumber>
+            {
+                [workInstance1.CtrlNbr] = impactedWorkAreaCtrlNbr,
+                [workInstance2.CtrlNbr] = impactedWorkAreaCtrlNbr,
+                [workInstance3.CtrlNbr] = otherWorkAreaCtrlNbr
+            });
+        var workRepo = new FakeWorkInstanceRepository([workInstance1, workInstance2, workInstance3]);
+        var assignmentRepo = new FakePositionAssignmentRepository([PositionAssignment.Create(targetStaffablePosition, targetEmployeeCtrlNbr, PositionAssignmentType.Direct)]);
+        var crewPositionRepo = new FakeCrewPositionRepository([targetCrewPosition, otherCrewPosition]);
+        var craftRoleRepo = new FakeCraftRoleRepository([craftRole]);
+        var vacancyRepo = new FakePositionVacancyRepository();
+        var projectionRepo = new FakeDispatchProjectionRepository();
+
+        var uow = new FakeOrchestrationUow(
+            shiftRepo,
+            workRepo,
+            crewPositionRepo,
+            assignmentRepo,
+            craftRoleRepo,
+            vacancyRepo,
+            projectionRepo);
+
+        var candidateProvider = new FakeBoardCandidateProvider(
+            [new SkipRuleCandidate(ControlNumber.Create(1801), ControlNumber.Create(18001), 1)]);
+        var skipContextProvider = new FakeSkipContextProvider(new HashSet<long> { 1801 });
+        var sut = new VacancyProjectionOrchestratorService(candidateProvider, skipContextProvider);
+
+        await sut.ReconcileForEmployeeAsync(uow, targetEmployeeCtrlNbr, TestContext.Current.CancellationToken);
+
+        Assert.Contains(projectionRepo.Seeded, p => p.PositionSlotCtrlNbr == impactedSlot.CtrlNbr);
+        Assert.Contains(projectionRepo.Seeded, p => p.PositionSlotCtrlNbr == sameAreaSlot.CtrlNbr);
+        Assert.DoesNotContain(projectionRepo.Seeded, p => p.PositionSlotCtrlNbr == outsideAreaSlot.CtrlNbr);
+    }
+
+    [Fact]
     public async Task ReconcileForShiftAsync_WithSharedSequence_AdvancesAcrossShifts()
     {
         var fixture = Fixture.Create(
@@ -494,7 +594,9 @@ public sealed class VacancyProjectionOrchestratorServiceTests
                 .ToList());
     }
 
-    private sealed class FakeShiftInstanceRepository(IReadOnlyList<ShiftInstance> shifts)
+    private sealed class FakeShiftInstanceRepository(
+        IReadOnlyList<ShiftInstance> shifts,
+        IReadOnlyDictionary<ControlNumber, ControlNumber>? workAreaByWorkInstanceCtrlNbr = null)
         : FakeRepository<ShiftInstance>, IShiftInstanceRepository
     {
         public Task<IReadOnlyList<ShiftInstance>> GetByWorkInstanceAsync(ControlNumber workInstanceCtrlNbr, CancellationToken ct = default)
@@ -506,6 +608,18 @@ public sealed class VacancyProjectionOrchestratorServiceTests
         public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByCrewPositionAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<ShiftInstance>>(shifts
                 .Where(s => !s.IsComplete && s.PositionSlots.Any(p => p.CrewPositionCtrlNbr == crewPositionCtrlNbr))
+                .ToList());
+
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByIncumbentEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>(shifts
+                .Where(s => !s.IsComplete && s.PositionSlots.Any(p => p.IncumbentEmployeeCtrlNbr == employeeCtrlNbr))
+                .ToList());
+
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>(shifts
+                .Where(s => !s.IsComplete
+                    && (workAreaByWorkInstanceCtrlNbr?.TryGetValue(s.WorkInstanceCtrlNbr, out var areaCtrlNbr) != true
+                        || areaCtrlNbr == workAreaGroupCtrlNbr))
                 .ToList());
     }
 

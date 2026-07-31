@@ -463,6 +463,12 @@ public sealed class CallSheetIncumbentSyncServiceTests
         public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByCrewPositionAsync(ControlNumber crewPositionCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<ShiftInstance>>(shifts.Where(s => s.PositionSlots.Any(p => p.CrewPositionCtrlNbr == crewPositionCtrlNbr)).ToList());
 
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByIncumbentEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>(shifts.Where(s => s.PositionSlots.Any(p => p.IncumbentEmployeeCtrlNbr == employeeCtrlNbr)).ToList());
+
+        public Task<IReadOnlyList<ShiftInstance>> GetIncompleteByWorkAreaAsync(ControlNumber workAreaGroupCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ShiftInstance>>([]);
+
         public override Task UpdateAsync(ShiftInstance entity, CancellationToken ct = default)
         {
             Updated.Add(entity);

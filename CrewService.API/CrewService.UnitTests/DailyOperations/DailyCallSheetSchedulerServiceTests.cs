@@ -79,7 +79,7 @@ public class DailyCallSheetSchedulerServiceTests : IDisposable
         var workInstance = WorkInstance.Create(null, workArea.CtrlNbr, dayStartUtc, dayStartUtc.AddDays(1), callTimeUtc: null);
         await context.Set<WorkInstance>().AddAsync(workInstance, TestContext.Current.CancellationToken);
         await context.Set<ShiftInstance>().AddAsync(
-            ShiftInstance.Create(workInstance.CtrlNbr, shiftDefinition.CtrlNbr, shiftDefinition.ShiftCode, shiftDefinition.DisplayName),
+            ShiftInstance.Create(workInstance.CtrlNbr, shiftDefinition.CtrlNbr, shiftDefinition.ShiftCode, shiftDefinition.DisplayName, department.CtrlNbr, department.Name),
             TestContext.Current.CancellationToken);
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);

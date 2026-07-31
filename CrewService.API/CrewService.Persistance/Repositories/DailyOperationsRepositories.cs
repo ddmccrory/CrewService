@@ -56,6 +56,28 @@ internal sealed class ShiftInstanceRepository(CrewServiceDbContext dbContext, IC
             .Include(s => s.AssignmentNotes)
             .Where(s => !s.IsComplete && s.PositionSlots.Any(ps => ps.CrewPositionCtrlNbr == crewPositionCtrlNbr))
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ShiftInstance>> GetIncompleteByIncumbentEmployeeAsync(
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct = default) =>
+        await DbContext.Set<ShiftInstance>()
+            .Include(s => s.PositionSlots)
+            .Include(s => s.BoardSlots)
+            .Include(s => s.AssignmentNotes)
+            .Where(s => !s.IsComplete && s.PositionSlots.Any(ps => ps.IncumbentEmployeeCtrlNbr == employeeCtrlNbr))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ShiftInstance>> GetIncompleteByWorkAreaAsync(
+        ControlNumber workAreaGroupCtrlNbr,
+        CancellationToken ct = default) =>
+        await DbContext.Set<ShiftInstance>()
+            .Include(s => s.PositionSlots)
+            .Include(s => s.BoardSlots)
+            .Include(s => s.AssignmentNotes)
+            .Where(s => !s.IsComplete
+                && DbContext.Set<WorkInstance>()
+                    .Any(w => w.CtrlNbr == s.WorkInstanceCtrlNbr && w.WorkAreaGroupCtrlNbr == workAreaGroupCtrlNbr))
+            .ToListAsync(ct);
 }
 
 internal sealed class OnDutyRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

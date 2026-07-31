@@ -103,11 +103,8 @@ public sealed class CallSheetSlotVacancyEvaluationService(
         ControlNumber employeeCtrlNbr,
         CancellationToken ct = default)
     {
-        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
-        if (assignments.Count == 0)
-            return 0;
-
         var crewPositionIds = new HashSet<ControlNumber>();
+        var assignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
         foreach (var assignment in assignments)
         {
             var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(assignment.StaffablePositionCtrlNbr);
@@ -115,11 +112,16 @@ public sealed class CallSheetSlotVacancyEvaluationService(
                 crewPositionIds.Add(crewPosition.CtrlNbr);
         }
 
-        if (crewPositionIds.Count == 0)
-            return 0;
-
         var shiftIds = new HashSet<ControlNumber>();
         var shifts = new List<ShiftInstance>();
+
+        var incumbentImpacted = await uow.ShiftInstances.GetIncompleteByIncumbentEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var shift in incumbentImpacted)
+        {
+            if (shiftIds.Add(shift.CtrlNbr))
+                shifts.Add(shift);
+        }
+
         foreach (var crewPositionId in crewPositionIds)
         {
             var impacted = await uow.ShiftInstances.GetIncompleteByCrewPositionAsync(crewPositionId, ct);
@@ -130,6 +132,9 @@ public sealed class CallSheetSlotVacancyEvaluationService(
             }
         }
 
+        if (shifts.Count == 0)
+            return 0;
+
         var changedCount = 0;
         foreach (var shift in shifts)
         {
@@ -137,7 +142,7 @@ public sealed class CallSheetSlotVacancyEvaluationService(
             if (workInstance is null)
                 continue;
 
-            var targetDate = await ResolveTargetDateAsync(workInstance, ct);
+            var targetDate = ResolveTargetDate(workInstance);
             if (await ApplyEvaluatedStateAsync(uow, shift, workInstance.WorkAreaGroupCtrlNbr, targetDate, ct))
             {
                 await uow.ShiftInstances.UpdateAsync(shift, ct);
@@ -148,16 +153,8 @@ public sealed class CallSheetSlotVacancyEvaluationService(
         return changedCount;
     }
 
-    private async Task<DateOnly> ResolveTargetDateAsync(WorkInstance workInstance, CancellationToken ct)
-    {
-        var tz = await clock.GetWorkAreaTimeZoneAsync(workInstance.WorkAreaGroupCtrlNbr, ct);
-        if (tz is null)
-            return DateOnly.FromDateTime(workInstance.StartUtc);
-
-        var startUtc = DateTime.SpecifyKind(workInstance.StartUtc, DateTimeKind.Utc);
-        var localStart = TimeZoneInfo.ConvertTimeFromUtc(startUtc, tz);
-        return DateOnly.FromDateTime(localStart);
-    }
+    private static DateOnly ResolveTargetDate(WorkInstance workInstance)
+        => DateOnly.FromDateTime(workInstance.StartUtc);
 
     public async Task<IReadOnlyDictionary<ControlNumber, SlotVacancyEvaluation>> EvaluateShiftAsync(
         IOrchestrationUnitOfWork uow,

@@ -20,6 +20,9 @@ public sealed class CallSheetGenerationService(
         ControlNumber? departmentCtrlNbr = null,
         CancellationToken ct = default)
     {
+        if (departmentCtrlNbr is null)
+            throw new InvalidOperationException("Department is required.");
+
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         try
         {
@@ -41,12 +44,9 @@ public sealed class CallSheetGenerationService(
                 throw new InvalidOperationException(
                     $"A call sheet for shift '{shiftDef.ShiftCode}' on {targetDate:yyyy-MM-dd} already exists.");
 
-            string? departmentName = null;
-            if (departmentCtrlNbr is not null)
-            {
-                var dept = await uow.Departments.GetByCtrlNbrAsync(departmentCtrlNbr, ct);
-                departmentName = dept?.Name;
-            }
+            var dept = await uow.Departments.GetByCtrlNbrAsync(departmentCtrlNbr, ct)
+                ?? throw new InvalidOperationException($"Department {departmentCtrlNbr} not found.");
+            var departmentName = dept.Name;
 
             var templates = await assignmentQuery.GetTemplatesForDateAsync(
                 workAreaGroupCtrlNbr, shiftDefinitionCtrlNbr, targetDate, departmentCtrlNbr, ct);
