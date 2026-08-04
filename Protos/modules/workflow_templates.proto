@@ -1,0 +1,250 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+
+import "google/api/annotations.proto";
+import "common.proto";
+
+package workflowtemplates;
+
+service WorkflowTemplatesSrvc {
+  rpc GetByRailroad(GetWorkflowTemplatesRequest) returns (GetWorkflowTemplatesResponse) {
+	option (google.api.http) = { get: "/v1/workflow-templates" };
+  }
+
+  rpc GetByCtrlNbr(GetWorkflowTemplateRequest) returns (WorkflowTemplateDetailResponse) {
+	option (google.api.http) = { get: "/v1/workflow-templates/{ctrl_nbr}" };
+  }
+
+  rpc Create(CreateWorkflowTemplateRequest) returns (WorkflowTemplateDetailResponse) {
+	option (google.api.http) = { post: "/v1/workflow-templates" body: "*" };
+  }
+
+  rpc SaveDraft(SaveWorkflowTemplateDraftRequest) returns (WorkflowTemplateDetailResponse) {
+	option (google.api.http) = { put: "/v1/workflow-templates/{ctrl_nbr}/draft" body: "*" };
+  }
+
+  rpc Publish(PublishWorkflowTemplateRequest) returns (WorkflowTemplateDetailResponse) {
+	option (google.api.http) = { put: "/v1/workflow-templates/{ctrl_nbr}/publish" body: "*" };
+  }
+
+  rpc RestoreAsDraft(RestoreWorkflowTemplateVersionRequest) returns (WorkflowTemplateDetailResponse) {
+	option (google.api.http) = { post: "/v1/workflow-templates/{ctrl_nbr}/versions/{version_number}:restore-as-draft" body: "*" };
+  }
+
+  rpc Delete(DeleteWorkflowTemplateRequest) returns (common.DeleteResponse) {
+	option (google.api.http) = { delete: "/v1/workflow-templates/{ctrl_nbr}" };
+  }
+
+  rpc SetEnabled(SetWorkflowTemplateEnabledRequest) returns (WorkflowTemplateDetailResponse) {
+	option (google.api.http) = { put: "/v1/workflow-templates/{ctrl_nbr}/enabled" body: "*" };
+  }
+
+  rpc GetExecutionHistory(GetWorkflowTemplateExecutionHistoryRequest) returns (GetWorkflowTemplateExecutionHistoryResponse) {
+	option (google.api.http) = { get: "/v1/workflow-templates/{ctrl_nbr}/history" };
+  }
+
+  rpc GetReferenceCatalog(GetWorkflowReferenceCatalogRequest) returns (GetWorkflowReferenceCatalogResponse) {
+	option (google.api.http) = { get: "/v1/workflow-templates/reference-catalog" };
+  }
+}
+
+message GetWorkflowTemplatesRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message GetWorkflowTemplatesResponse {
+  repeated WorkflowTemplateSummaryResponse workflows = 1;
+}
+
+message GetWorkflowTemplateRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message CreateWorkflowTemplateRequest {
+  int64 railroad_ctrl_nbr = 1;
+  string name = 2;
+  bool can_start_from_trigger = 3;
+	int64 trigger_type_ctrl_nbr = 4;
+  bool is_enabled = 5;
+}
+
+message SaveWorkflowTemplateDraftRequest {
+  int64 ctrl_nbr = 1;
+  WorkflowTemplateUpsertPayload template = 2;
+}
+
+message PublishWorkflowTemplateRequest {
+  int64 ctrl_nbr = 1;
+  WorkflowTemplateUpsertPayload template = 2;
+}
+
+message RestoreWorkflowTemplateVersionRequest {
+  int64 ctrl_nbr = 1;
+  int32 version_number = 2;
+  string notes = 3;
+}
+
+message DeleteWorkflowTemplateRequest {
+  int64 ctrl_nbr = 1;
+}
+
+message SetWorkflowTemplateEnabledRequest {
+  int64 ctrl_nbr = 1;
+  bool is_enabled = 2;
+}
+
+message GetWorkflowTemplateExecutionHistoryRequest {
+  int64 ctrl_nbr = 1;
+  int32 take = 2;
+}
+
+message GetWorkflowTemplateExecutionHistoryResponse {
+  repeated WorkflowExecutionHistoryResponse entries = 1;
+}
+
+message WorkflowTemplateSummaryResponse {
+  int64 ctrl_nbr = 1;
+  string name = 2;
+  bool can_start_from_trigger = 3;
+	int64 trigger_type_ctrl_nbr = 4;
+  bool is_enabled = 5;
+  string status = 6;
+  int32 current_version_number = 7;
+  int32 step_count = 8;
+}
+
+message WorkflowExecutionHistoryResponse {
+  int64 ctrl_nbr = 1;
+  int64 workflow_template_ctrl_nbr = 2;
+  int64 workflow_version_ctrl_nbr = 3;
+  int32 workflow_version_number = 4;
+  int64 railroad_ctrl_nbr = 5;
+	int64 trigger_type_ctrl_nbr = 6;
+  int64 aggregate_ctrl_nbr = 7;
+	string aggregate_display = 13;
+  string correlation_id = 8;
+  string started_at_utc = 9;
+  string completed_at_utc = 10;
+  string status = 11;
+  string details_json = 12;
+  string details_display_json = 14;
+}
+
+message WorkflowTemplateDetailResponse {
+  int64 ctrl_nbr = 1;
+  int64 railroad_ctrl_nbr = 2;
+  string name = 3;
+  bool can_start_from_trigger = 4;
+	int64 trigger_type_ctrl_nbr = 5;
+  bool is_enabled = 6;
+  string status = 7;
+  int32 current_version_number = 8;
+  repeated WorkflowStepResponse steps = 9;
+  repeated WorkflowTemplateVersionResponse versions = 10;
+  string trigger_condition_group_operator = 11;
+  repeated WorkflowConditionPayload trigger_conditions = 12;
+}
+
+message WorkflowTemplateVersionResponse {
+  int32 version_number = 1;
+  string status = 2;
+  string saved_at_utc = 3;
+  string notes = 4;
+  int32 step_count = 5;
+  string definition_json = 6;
+}
+
+message WorkflowTemplateUpsertPayload {
+  string name = 1;
+  bool can_start_from_trigger = 2;
+	int64 trigger_type_ctrl_nbr = 3;
+  bool is_enabled = 4;
+  string version_notes = 5;
+  repeated WorkflowStepUpsertPayload steps = 6;
+  string trigger_condition_group_operator = 7;
+  repeated WorkflowConditionPayload trigger_conditions = 8;
+}
+
+message WorkflowStepUpsertPayload {
+	int64 ctrl_nbr = 8;
+  int32 order = 1;
+	string name = 2;
+  bool is_enabled = 3;
+  string failure_policy = 4;
+  string condition_group_operator = 5;
+  repeated WorkflowConditionPayload conditions = 6;
+  repeated WorkflowEffectPayload effects = 7;
+}
+
+message WorkflowStepResponse {
+	int64 ctrl_nbr = 8;
+  int32 order = 1;
+	string name = 2;
+  bool is_enabled = 3;
+  string failure_policy = 4;
+  string condition_group_operator = 5;
+  repeated WorkflowConditionPayload conditions = 6;
+  repeated WorkflowEffectPayload effects = 7;
+}
+
+message WorkflowConditionPayload {
+	int64 ctrl_nbr = 4;
+	int64 field_type_ctrl_nbr = 1;
+  int64 operator_type_ctrl_nbr = 2;
+  string value = 3;
+}
+
+message WorkflowEffectPayload {
+	int64 ctrl_nbr = 6;
+  int32 order = 1;
+  bool is_enabled = 2;
+	int64 effect_type_ctrl_nbr = 3;
+  string effect_option = 4;
+  repeated WorkflowEffectOptionPayload options = 5;
+}
+
+message WorkflowEffectOptionPayload {
+  string key = 1;
+  string value = 2;
+}
+
+message GetWorkflowReferenceCatalogRequest {
+  int64 railroad_ctrl_nbr = 1;
+}
+
+message GetWorkflowReferenceCatalogResponse {
+  repeated WorkflowTriggerTypeReference trigger_types = 1;
+  repeated WorkflowEffectTypeReference effect_types = 2;
+  repeated WorkflowOperatorTypeReference operator_types = 3;
+  repeated WorkflowMetadataFieldTypeReference metadata_field_types = 4;
+  repeated WorkflowTriggerMetadataFieldMap trigger_metadata_field_maps = 5;
+}
+
+message WorkflowTriggerTypeReference {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message WorkflowEffectTypeReference {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message WorkflowOperatorTypeReference {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message WorkflowMetadataFieldTypeReference {
+  int64 ctrl_nbr = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message WorkflowTriggerMetadataFieldMap {
+  int64 trigger_type_ctrl_nbr = 1;
+  int64 metadata_field_type_ctrl_nbr = 2;
+}

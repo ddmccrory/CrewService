@@ -1,0 +1,1838 @@
+@page "/admin/workflow-templates"
+@rendermode InteractiveServer
+
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+@using Microsoft.AspNetCore.Authorization
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject AuthorizationClient AuthorizationClient
+@inject WorkflowTemplatesClient WorkflowTemplatesClient
+@inject DepartmentClient DepartmentClient
+@inject CraftClient CraftClient
+@inject SeniorityStateClient SeniorityStateClient
+
+<PageTitle>Workflow Templates — Crew Service</PageTitle>
+
+<h1>Workflow Templates</h1>
+
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to build and manage workflow templates.
+    </div>
+}
+else if (HasRailroad)
+{
+    @if (isPageLoading)
+    {
+        <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-3" />
+    }
+    else
+    {
+        <p class="text-muted mb-3">Build and manage workflow templates for <strong>@SelectedRailroadName</strong>.</p>
+
+        <div class="d-flex justify-content-start align-items-center mb-3">
+            <button class="btn btn-primary" @onclick="CreateWorkflow">
+                <span class="bi bi-plus-circle me-1"></span>Create Workflow
+            </button>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">Workflow Templates</div>
+            <div class="card-body">
+                @if (workflows.Count == 0)
+                {
+                    <div class="text-muted">No workflows created yet.</div>
+                }
+                else
+                {
+                    <DataTable TItem="WorkflowTemplateDraft"
+                               Items="workflows"
+                               Columns="workflowColumns"
+                               SearchFilter="@WorkflowSearchFilter"
+                               SearchPlaceholder="Search workflow templates..."
+                               EmptyMessage="No workflows created yet."
+                               DefaultSortColumn="Name">
+                        <RowContent Context="workflow">
+                            <td>@workflow.Name</td>
+                            <td>@(workflow.CanStartFromTrigger ? "Enabled" : "Disabled")</td>
+                            <td>@(workflow.CanStartFromTrigger && !string.IsNullOrWhiteSpace(workflow.TriggerTypeName) ? workflow.TriggerTypeName : "—")</td>
+                            <td>
+                                <span class="badge @(workflow.Status == "Published" ? "bg-success" : "bg-warning text-dark")"
+                                      style="display:inline-block; min-width:96px; text-align:center;">@workflow.Status</span>
+                            </td>
+                            <td>
+                                <span class="badge @(workflow.IsEnabled ? "bg-success" : "bg-secondary")"
+                                      role="button"
+                                      tabindex="0"
+                                      style="cursor:pointer; display:inline-block; min-width:96px; text-align:center;"
+                                      @onclick="() => ToggleWorkflowEnabled(workflow.Id)"
+                                      @onkeydown="(KeyboardEventArgs e) => OnWorkflowEnabledBadgeKeyDown(e, workflow.Id)">
+                                    @(workflow.IsEnabled ? "Enabled" : "Disabled")
+                                </span>
+                            </td>
+                            <td>@(workflow.CurrentVersionNumber > 0 ? $"v{workflow.CurrentVersionNumber}" : "Draft")</td>
+                            <td>@workflow.StepCount</td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" @onclick="() => OpenWorkflowDetails(workflow.Id)">
+                                        <span class="bi bi-pencil-square me-1"></span>Open
+                                    </button>
+                                    <button class="btn btn-outline-secondary" @onclick="() => OpenWorkflowHistory(workflow.Id)">
+                                        <span class="bi bi-clock-history me-1"></span>History
+                                    </button>
+                                    <button class="btn btn-outline-danger" @onclick="() => DeleteWorkflow(workflow.Id)">
+                                        <span class="bi bi-trash"></span>
+                                    </button>
+                                </div>
+                            </td>
+                        </RowContent>
+                    </DataTable>
+                }
+            </div>
+        </div>
+    }
+
+    <Modal Visible="showWorkflowDetailsModal"
+           Title="@detailsModalTitle"
+           Icon="bi bi-diagram-3"
+           OnClose="CloseWorkflowDetails"
+           Size="xl"
+           Scrollable="true">
+        <BodyContent>
+            @if (activeWorkflow is null)
+            {
+                <p class="mb-0">No workflow selected.</p>
+            }
+            else
+            {
+                <div class="card mb-3">
+                    <div class="card-header fw-semibold">Template</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Template Name</label>
+                                <input class="form-control" @bind="activeWorkflow.Name" @bind:after="MarkActiveWorkflowAsDraft" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Can Start From Trigger</label>
+                                <div>
+                                    <button type="button"
+                                            class="btn btn-sm @(activeWorkflow.CanStartFromTrigger ? "btn-success" : "btn-outline-secondary")"
+                                            style="min-width: 110px;"
+                                            @onclick="ToggleActiveWorkflowTriggerStart">
+                                        @(activeWorkflow.CanStartFromTrigger ? "Enabled" : "Disabled")
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Trigger</label>
+                                <select class="form-select" @bind="activeWorkflow.TriggerTypeCtrlNbr" @bind:after="OnActiveWorkflowTriggerChanged" disabled="@(!activeWorkflow.CanStartFromTrigger)">
+                                    @foreach (var trigger in triggerDefinitions)
+                                    {
+                                        <option value="@trigger.CtrlNbr">@trigger.Name</option>
+                                    }
+                                </select>
+                                @if (!activeWorkflow.CanStartFromTrigger)
+                                {
+                                    <div class="form-text">Composable workflow — executes only when called by another workflow.</div>
+                                }
+                            </div>
+                            <div class="col-12">
+                                <div class="border rounded p-2 bg-body-tertiary">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="small text-muted">Trigger filters</span>
+                                        <select class="form-select form-select-sm w-auto" @bind="activeWorkflow.TriggerConditionGroupOperator" @bind:after="MarkActiveWorkflowAsDraft" disabled="@(!activeWorkflow.CanStartFromTrigger)">
+                                            <option value="ALL">All of</option>
+                                            <option value="ANY">Any of</option>
+                                        </select>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary ms-auto"
+                                                @onclick="AddTriggerCondition"
+                                                disabled="@(!activeWorkflow.CanStartFromTrigger || !HasMetadataFieldsForActiveWorkflow())">
+                                            <span class="bi bi-plus-circle me-1"></span>Add Filter
+                                        </button>
+                                    </div>
+
+                                    @if (!activeWorkflow.CanStartFromTrigger)
+                                    {
+                                        <div class="small text-muted">Trigger filters are disabled when trigger start is disabled.</div>
+                                    }
+                                    else if (!HasMetadataFieldsForActiveWorkflow())
+                                    {
+                                        <div class="small text-muted">No trigger metadata filters are available for this trigger.</div>
+                                    }
+                                    else
+                                    {
+                                        @if (activeWorkflow.TriggerConditions.Count == 0)
+                                        {
+                                            <div class="small text-muted">No filters defined. Use <span class="fw-semibold">Add Filter</span> to add one.</div>
+                                        }
+                                        else
+                                        {
+                                            @for (var conditionIndex = 0; conditionIndex < activeWorkflow.TriggerConditions.Count; conditionIndex++)
+                                            {
+                                                var condition = activeWorkflow.TriggerConditions[conditionIndex];
+                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                    <select class="form-select form-select-sm" @bind="condition.FieldTypeCtrlNbr" @bind:after="() => OnTriggerConditionFieldChanged(condition)">
+                                                        <option value="">Select value...</option>
+                                                        @foreach (var field in GetMetadataFieldsForActiveWorkflow())
+                                                        {
+                                                            <option value="@field.CtrlNbr">@field.Label</option>
+                                                        }
+                                                    </select>
+                                                    <select class="form-select form-select-sm" @bind="condition.OperatorTypeCtrlNbr" @bind:after="MarkActiveWorkflowAsDraft">
+                                                        <option value="">Select value...</option>
+                                                        @foreach (var op in GetOperatorsForCondition(condition))
+                                                        {
+                                                            <option value="@op.CtrlNbr">@op.Name</option>
+                                                        }
+                                                    </select>
+                                                    <select class="form-select form-select-sm" @bind="condition.Value" @bind:after="MarkActiveWorkflowAsDraft">
+                                                        <option value="">Select value...</option>
+                                                        @foreach (var valueOption in GetAllowedValuesForCondition(condition))
+                                                        {
+                                                            <option value="@valueOption">@valueOption</option>
+                                                        }
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveTriggerCondition(condition.Id)">
+                                                        <span class="bi bi-dash-circle"></span>
+                                                    </button>
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="border rounded p-2 bg-body-tertiary">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-3">
+                                            <label class="form-label fw-semibold mb-1">Workflow Enabled</label>
+                                            <div>
+                                                <button type="button"
+                                                        class="btn btn-sm @(activeWorkflow.IsEnabled ? "btn-success" : "btn-outline-secondary")"
+                                                        style="min-width: 110px;"
+                                                        @onclick="ToggleActiveWorkflowEnabled">
+                                                    @(activeWorkflow.IsEnabled ? "Enabled" : "Disabled")
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label fw-semibold mb-1">Execution Mode</label>
+                                            <input class="form-control form-control-sm" value="Sequential (Stop on First Failure)" disabled />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label fw-semibold mb-1">Status</label>
+                                            <input class="form-control form-control-sm" style="max-width: 120px;" value="@activeWorkflow.Status" disabled />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label fw-semibold mb-1">Version</label>
+                                            <input class="form-control form-control-sm" style="max-width: 120px;" value="@(activeWorkflow.CurrentVersionNumber > 0 ? $"v{activeWorkflow.CurrentVersionNumber}" : "Draft")" disabled />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">Workflow Steps</span>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="AddStepToActiveWorkflow">
+                            <span class="bi bi-plus-circle me-1"></span>Add Step
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (activeWorkflow.Steps.Count == 0)
+                        {
+                            <div class="p-3 text-muted">No steps defined.</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:80px;">Order</th>
+                                            <th>Step Definition</th>
+                                            <th style="width:120px;">Enabled</th>
+                                            <th style="width:150px;">Failure Policy</th>
+                                            <th class="text-end" style="width:120px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var i = 0; i < activeWorkflow.Steps.Count; i++)
+                                        {
+                                            var step = activeWorkflow.Steps[i];
+                                            <tr>
+                                                <td>#@step.Order</td>
+                                                <td>
+                                                    <div class="border rounded p-2">
+                                                        <div class="d-flex align-items-start justify-content-between mb-2">
+                                                            <div>
+                                                                <div class="fw-semibold">@step.Name</div>
+                                                                <div class="small text-muted">@GetStepConditionSummary(step) · @GetStepEffectSummary(step)</div>
+                                                            </div>
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleStepExpanded(step)">
+                                                                <span class="bi @(step.IsExpanded ? "bi-chevron-up" : "bi-chevron-down") me-1"></span>
+                                                                @(step.IsExpanded ? "Collapse" : "Expand")
+                                                            </button>
+                                                        </div>
+
+                                                        @if (step.IsExpanded)
+                                                        {
+                                                            <div class="mb-2">
+                                                                <label class="form-label fw-semibold small mb-1">Step Name</label>
+                                                                <input class="form-control form-control-sm" @bind="step.Name" @bind:after="MarkActiveWorkflowAsDraft" />
+                                                            </div>
+
+                                                            <div class="border rounded p-2 bg-body-tertiary mb-2">
+                                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                                    <span class="small text-muted">Step filters</span>
+                                                                    <select class="form-select form-select-sm w-auto" @bind="step.ConditionGroupOperator" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                        <option value="ALL">All of</option>
+                                                                        <option value="ANY">Any of</option>
+                                                                    </select>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => AddCondition(step)" disabled="@(!HasMetadataFieldsForActiveWorkflow())">
+                                                                        <span class="bi bi-plus-circle me-1"></span>Add Filter
+                                                                    </button>
+                                                                </div>
+
+                                                                @if (!HasMetadataFieldsForActiveWorkflow())
+                                                                {
+                                                                    <div class="small text-muted">No trigger metadata filters are available. This step will run when reached.</div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    @if (step.Conditions.Count == 0)
+                                                                    {
+                                                                        <div class="small text-muted">No filters defined. Use <span class="fw-semibold">Add Filter</span> to add one.</div>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        @for (var conditionIndex = 0; conditionIndex < step.Conditions.Count; conditionIndex++)
+                                                                        {
+                                                                            var condition = step.Conditions[conditionIndex];
+                                                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                                                <select class="form-select form-select-sm" @bind="condition.FieldTypeCtrlNbr" @bind:after="() => OnConditionFieldChanged(step, condition)">
+                                                                                    <option value="">Select value...</option>
+                                                                                    @foreach (var field in GetMetadataFieldsForActiveWorkflow())
+                                                                                    {
+                                                                                        <option value="@field.CtrlNbr">@field.Label</option>
+                                                                                    }
+                                                                                </select>
+                                                                                <select class="form-select form-select-sm" @bind="condition.OperatorTypeCtrlNbr" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                    <option value="">Select value...</option>
+                                                                                    @foreach (var op in GetOperatorsForCondition(condition))
+                                                                                    {
+                                                                                        <option value="@op.CtrlNbr">@op.Name</option>
+                                                                                    }
+                                                                                </select>
+                                                                                <select class="form-select form-select-sm" @bind="condition.Value" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                    <option value="">Select value...</option>
+                                                                                    @foreach (var valueOption in GetAllowedValuesForCondition(condition))
+                                                                                    {
+                                                                                        <option value="@valueOption">@valueOption</option>
+                                                                                    }
+                                                                                </select>
+
+                                                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveCondition(step, condition.Id)">
+                                                                                    <span class="bi bi-dash-circle"></span>
+                                                                                </button>
+                                                                            </div>
+                                                                        }
+                                                                    }
+                                                                }
+                                                            </div>
+
+                                                            <div class="border rounded p-2 bg-body-tertiary">
+                                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                                    <span class="small text-muted">Effects</span>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => AddEffect(step)">
+                                                                        <span class="bi bi-plus-circle me-1"></span>Add Effect
+                                                                    </button>
+                                                                </div>
+
+                                                                @for (var effectIndex = 0; effectIndex < step.Effects.Count; effectIndex++)
+                                                                {
+                                                                    var effect = step.Effects[effectIndex];
+                                                                    <div class="d-flex align-items-start gap-2 mb-2">
+                                                                        <span class="small text-muted" style="min-width:24px;">#@effect.Order</span>
+                                                                        <div class="d-flex flex-column gap-2 flex-grow-1">
+                                                                            <select class="form-select form-select-sm" @bind="effect.EffectTypeCtrlNbr" @bind:after="() => OnEffectChanged(step, effect)">
+                                                                                <option value="">Select value...</option>
+                                                                                @foreach (var effectOption in effectTypeOptions)
+                                                                                {
+                                                                                    <option value="@effectOption.CtrlNbr">@effectOption.Name</option>
+                                                                                }
+                                                                            </select>
+
+                                                                            @if (IsEffectType(effect, addToRosterBoardEffectTypeCtrlNbr))
+                                                                            {
+                                                                                <div class="input-group input-group-sm" style="max-width: 360px;">
+                                                                                    <span class="input-group-text">Board</span>
+                                                                                    <select class="form-select" @bind="effect.EffectOption" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                        <option value="">Select value...</option>
+                                                                                        @foreach (var boardType in boardTypeOptions)
+                                                                                        {
+                                                                                            <option value="@boardType">@boardType</option>
+                                                                                        }
+                                                                                    </select>
+                                                                                </div>
+                                                                            }
+                                                                            else if (IsEffectType(effect, sendInvitationEffectTypeCtrlNbr))
+                                                                            {
+                                                                                <div class="border rounded p-2 bg-body-tertiary">
+                                                                                    <div class="d-flex flex-column gap-2">
+                                                                                        <div class="input-group input-group-sm" style="max-width: 420px;">
+                                                                                            <span class="input-group-text" style="width: 90px;">Role</span>
+                                                                                            <select class="form-select" @bind="effect.EffectOption" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                                <option value="">Select value...</option>
+                                                                                                @foreach (var role in roleOptions)
+                                                                                                {
+                                                                                                    <option value="@role.CtrlNbr">@role.Name</option>
+                                                                                                }
+                                                                                            </select>
+                                                                                        </div>
+                                                                                        <div class="input-group input-group-sm" style="max-width: 220px;">
+                                                                                            <span class="input-group-text" style="width: 90px;">Days</span>
+                                                                                            <input type="number"
+                                                                                                   min="1"
+                                                                                                   max="90"
+                                                                                                   class="form-control"
+                                                                                                   @bind="effect.ExpirationDays"
+                                                                                                   @bind:after="MarkActiveWorkflowAsDraft" />
+                                                                                        </div>
+                                                                                        <div class="input-group input-group-sm" style="max-width: 320px;">
+                                                                                            <span class="input-group-text" style="width: 90px;">Email</span>
+                                                                                            <select class="form-select" @bind="effect.EmailSource" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                                <option value="">Select value...</option>
+                                                                                                @foreach (var emailSource in invitationEmailSourceOptions)
+                                                                                                {
+                                                                                                    <option value="@emailSource.Value">@emailSource.Label</option>
+                                                                                                }
+                                                                                            </select>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            }
+                                                                            else if (IsEffectType(effect, callWorkflowEffectTypeCtrlNbr))
+                                                                            {
+                                                                                var callableTargets = GetCallableWorkflowNames(activeWorkflow.Id).ToList();
+                                                                                if (callableTargets.Count > 0)
+                                                                                {
+                                                                                    <div class="input-group input-group-sm" style="max-width: 420px;">
+                                                                                        <span class="input-group-text">Workflow</span>
+                                                                                        <select class="form-select" @bind="effect.EffectOption" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                            <option value="">Select value...</option>
+                                                                                            @foreach (var workflowName in callableTargets)
+                                                                                            {
+                                                                                                <option value="@workflowName">@workflowName</option>
+                                                                                            }
+                                                                                        </select>
+                                                                                    </div>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    <input class="form-control form-control-sm" value="No callable workflows available" disabled style="max-width: 420px;" />
+                                                                                }
+                                                                            }
+                                                                        </div>
+
+                                                                        <button type="button"
+                                                                                class="btn btn-sm @(effect.IsEnabled ? "btn-success" : "btn-outline-secondary")"
+                                                                                style="min-width: 82px;"
+                                                                                @onclick="() => ToggleEffectEnabled(effect)">
+                                                                            @(effect.IsEnabled ? "Enabled" : "Disabled")
+                                                                        </button>
+
+                                                                        <div class="btn-group btn-group-sm">
+                                                                            <button type="button" class="btn btn-outline-secondary" @onclick="() => MoveEffectUp(step, effectIndex)" disabled="@(effectIndex == 0)">
+                                                                                <span class="bi bi-arrow-up"></span>
+                                                                            </button>
+                                                                            <button type="button" class="btn btn-outline-secondary" @onclick="() => MoveEffectDown(step, effectIndex)" disabled="@(effectIndex == step.Effects.Count - 1)">
+                                                                                <span class="bi bi-arrow-down"></span>
+                                                                            </button>
+                                                                            <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveEffect(step, effect.Id)" disabled="@(step.Effects.Count == 1)">
+                                                                                <span class="bi bi-trash"></span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </td>
+                                                <td class="text-end">
+                                                    <button type="button"
+                                                            class="btn btn-sm @(step.IsEnabled ? "btn-success" : "btn-outline-secondary")"
+                                                            style="min-width: 110px;"
+                                                            @onclick="() => ToggleStepEnabled(step)">
+                                                        @(step.IsEnabled ? "Enabled" : "Disabled")
+                                                    </button>
+                                                </td>
+                                                <td class="text-end">
+                                                    <select class="form-select form-select-sm d-inline-block" style="min-width: 130px; width: 130px;" @bind="step.FailurePolicy" @bind:after="MarkActiveWorkflowAsDraft">
+                                                        <option value="StopWorkflow">Stop Workflow</option>
+                                                    </select>
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-secondary" @onclick="() => MoveStepUp(i)" disabled="@(i == 0)">
+                                                            <span class="bi bi-arrow-up"></span>
+                                                        </button>
+                                                        <button class="btn btn-outline-secondary" @onclick="() => MoveStepDown(i)" disabled="@(i == activeWorkflow.Steps.Count - 1)">
+                                                            <span class="bi bi-arrow-down"></span>
+                                                        </button>
+                                                        <button class="btn btn-outline-danger" @onclick="() => RemoveStep(step.Id)">
+                                                            <span class="bi bi-trash"></span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header fw-semibold">Versioning</div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Change Notes</label>
+                                <input class="form-control" placeholder="Describe what changed in this version..." @bind="versionNotes" />
+                            </div>
+                            <div class="col-md-4 d-flex gap-2">
+                                <button class="btn btn-outline-primary flex-fill" @onclick="SaveDraftVersionForActive">
+                                    <span class="bi bi-save me-1"></span>Save Draft
+                                </button>
+                                <button class="btn btn-success flex-fill" @onclick="PublishVersionForActive">
+                                    <span class="bi bi-upload me-1"></span>Publish
+                                </button>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(statusMessage))
+                        {
+                            <div class="alert alert-info mt-3 mb-0">@statusMessage</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header fw-semibold">Template Version History</div>
+                    <div class="card-body p-0">
+                        @if (activeWorkflow.Versions.Count == 0)
+                        {
+                            <div class="p-3 text-muted">No versions created yet.</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:90px;">Version</th>
+                                            <th style="width:180px;">Status</th>
+                                            <th style="width:200px;">Saved (UTC)</th>
+                                            <th>Notes</th>
+                                            <th style="width:120px;">Steps</th>
+                                            <th class="text-end" style="width:180px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var version in activeWorkflow.Versions.OrderByDescending(v => v.VersionNumber))
+                                        {
+                                            <tr>
+                                                <td><span class="badge bg-secondary">@($"v{version.VersionNumber}")</span></td>
+                                                <td>
+                                                    <span class="badge @(version.Status == "Published" ? "bg-success" : "bg-warning text-dark")">@version.Status</span>
+                                                </td>
+                                                <td>@version.SavedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")</td>
+                                                <td>@version.Notes</td>
+                                                <td>@version.StepCount</td>
+                                                <td class="text-end">
+                                                    @if (version.StepCount > 0)
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => RestoreVersionForActive(version.VersionNumber)">
+                                                            <span class="bi bi-arrow-counterclockwise me-1"></span>Restore as Draft
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">—</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseWorkflowDetails">Close</button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="showWorkflowHistoryModal"
+           Title="@historyModalTitle"
+           Icon="bi bi-clock-history"
+           OnClose="CloseWorkflowHistory"
+           Size="xl"
+           Scrollable="true">
+        <BodyContent>
+            @if (historyWorkflow is null)
+            {
+                <p class="mb-0">No workflow selected.</p>
+            }
+            else if (isHistoryLoading)
+            {
+                <LoadingMessage ContainerClass="d-flex align-items-center gap-2 mt-1" />
+            }
+            else
+            {
+                <DataTable TItem="WorkflowExecutionHistoryItem"
+                           Items="workflowHistoryEntries"
+                           Columns="workflowHistoryColumns"
+                           SearchFilter="@WorkflowHistorySearchFilter"
+                           SearchPlaceholder="Search workflow history..."
+                           EmptyMessage="No workflow execution history found."
+                           DefaultSortColumn="Started (Local)">
+                    <RowContent Context="entry">
+                        <td>@entry.StartedAtDisplay</td>
+                        <td>
+                            <span class="badge @GetHistoryStatusBadgeClass(entry.Status)">@entry.Status</span>
+                        </td>
+                        <td>@($"v{entry.WorkflowVersionNumber}")</td>
+                        <td>@entry.TriggerType</td>
+                        <td>@entry.AggregateDisplay</td>
+                        <td class="small text-break">@entry.DetailsSummary</td>
+                    </RowContent>
+                </DataTable>
+            }
+        </BodyContent>
+        <Footer>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CloseWorkflowHistory">Close</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    protected override string? FeatureKey => "admin/workflow-templates";
+
+    private sealed class WorkflowStepDraft
+    {
+        public long CtrlNbr { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public int Order { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public bool IsExpanded { get; set; }
+        public bool IsEnabled { get; set; } = true;
+        public string ConditionGroupOperator { get; set; } = "ALL";
+        public List<WorkflowConditionDraft> Conditions { get; set; } = [];
+        public List<WorkflowEffectDraft> Effects { get; set; } = [];
+        public string FailurePolicy { get; set; } = "StopWorkflow";
+    }
+
+    private sealed class WorkflowConditionDraft
+    {
+        public long CtrlNbr { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public long FieldTypeCtrlNbr { get; set; }
+        public long OperatorTypeCtrlNbr { get; set; }
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private sealed class WorkflowEffectDraft
+    {
+        public long CtrlNbr { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public int Order { get; set; }
+        public long EffectTypeCtrlNbr { get; set; }
+        public string? EffectOption { get; set; }
+        public int ExpirationDays { get; set; } = 7;
+        public string EmailSource { get; set; } = "primary";
+        public bool IsEnabled { get; set; } = true;
+    }
+
+    private sealed class TriggerMetadataFieldDefinition
+    {
+        public long CtrlNbr { get; init; }
+        public string Key { get; init; } = string.Empty;
+        public string Label { get; init; } = string.Empty;
+        public List<string> AllowedValues { get; init; } = [];
+        public List<WorkflowOperatorOption> AllowedOperators { get; init; } =
+        [
+            new() { Code = "Equals" },
+            new() { Code = "NotEquals" }
+        ];
+    }
+
+    private sealed class WorkflowOperatorOption
+    {
+        public long CtrlNbr { get; init; }
+        public string Code { get; init; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
+    }
+
+    private sealed class TriggerDefinition
+    {
+        public long CtrlNbr { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public List<TriggerMetadataFieldDefinition> MetadataFields { get; init; } = [];
+    }
+
+    private sealed class WorkflowTemplateVersion
+    {
+        public int VersionNumber { get; set; }
+        public string Status { get; set; } = "Draft";
+        public bool WorkflowEnabled { get; set; } = true;
+        public DateTime SavedAtUtc { get; set; } = DateTime.UtcNow;
+        public string Notes { get; set; } = string.Empty;
+        public int StepCount { get; set; }
+        public List<WorkflowStepDraft> Steps { get; set; } = [];
+    }
+
+    private sealed class WorkflowTemplateDraft
+    {
+        public long CtrlNbr { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;
+        public bool CanStartFromTrigger { get; set; } = true;
+        public long TriggerTypeCtrlNbr { get; set; }
+        public string TriggerTypeName { get; set; } = string.Empty;
+        public string TriggerConditionGroupOperator { get; set; } = "ALL";
+        public List<WorkflowConditionDraft> TriggerConditions { get; set; } = [];
+        public bool IsEnabled { get; set; } = true;
+        public string Status { get; set; } = "Draft";
+        public int CurrentVersionNumber { get; set; }
+        public int StepCount { get; set; }
+        public List<WorkflowStepDraft> Steps { get; set; } = [];
+        public List<WorkflowTemplateVersion> Versions { get; set; } = [];
+    }
+
+    private readonly List<TriggerDefinition> triggerDefinitions = [];
+
+    private readonly IReadOnlyList<DataTableColumn<WorkflowTemplateDraft>> workflowColumns =
+    [
+        new("Name", w => w.Name),
+        new("Trigger Mode", w => w.CanStartFromTrigger ? "Enabled" : "Disabled", width: "180px"),
+        new("Trigger Name", w => w.CanStartFromTrigger && !string.IsNullOrWhiteSpace(w.TriggerTypeName) ? w.TriggerTypeName : "—", width: "260px"),
+        new("Status", w => w.Status, width: "140px"),
+        new("Enabled", w => w.IsEnabled ? "Enabled" : "Disabled", width: "120px"),
+        new("Version", w => w.CurrentVersionNumber > 0 ? $"v{w.CurrentVersionNumber}" : "Draft", width: "120px"),
+        new("Steps", w => w.StepCount, width: "90px"),
+        DataTableColumn<WorkflowTemplateDraft>.Actions("340px")
+    ];
+
+    private readonly IReadOnlyList<DataTableColumn<WorkflowExecutionHistoryItem>> workflowHistoryColumns =
+    [
+        new("Started (Local)", h => h.StartedAtDisplay, width: "180px"),
+        new("Status", h => h.Status, width: "120px"),
+        new("Version", h => h.WorkflowVersionNumber, width: "100px"),
+        new("Trigger", h => h.TriggerType, width: "220px"),
+        new("Aggregate", h => h.AggregateDisplay, width: "220px"),
+        new("Details", h => h.DetailsSummary)
+    ];
+
+    private readonly List<(long CtrlNbr, string Code, string Name)> effectTypeOptions = [];
+    private readonly List<WorkflowOperatorOption> operatorTypeOptions = [];
+    private readonly Dictionary<long, string> triggerTypeNameByCtrlNbr = [];
+    private long addToRosterBoardEffectTypeCtrlNbr;
+    private long sendInvitationEffectTypeCtrlNbr;
+    private long callWorkflowEffectTypeCtrlNbr;
+    private long departmentNameMetadataFieldTypeCtrlNbr;
+    private long craftNameMetadataFieldTypeCtrlNbr;
+    private long seniorityStateNameMetadataFieldTypeCtrlNbr;
+    private long newSeniorityStateMetadataFieldTypeCtrlNbr;
+
+    private readonly List<RoleOption> roleOptions = [];
+    private readonly Dictionary<long, List<string>> triggerFilterValueOptionsByFieldCtrlNbr = [];
+
+    private static readonly List<string> boardTypeOptions =
+    [
+        "Hangout",
+        "Extended Absence",
+        "Extra Board",
+        "Training",
+        "New Hires"
+    ];
+
+    private static readonly List<(string Value, string Label)> invitationEmailSourceOptions =
+    [
+        ("primary", "Primary Email")
+    ];
+
+    private readonly List<WorkflowTemplateDraft> workflows = [];
+
+    private WorkflowTemplateDraft? activeWorkflow;
+    private WorkflowTemplateDraft? historyWorkflow;
+    private bool isPageLoading = true;
+    private bool showWorkflowDetailsModal;
+    private bool showWorkflowHistoryModal;
+    private bool isHistoryLoading;
+    private List<WorkflowExecutionHistoryItem> workflowHistoryEntries = [];
+    private string versionNotes = string.Empty;
+    private string? statusMessage;
+    private string detailsModalTitle = "Workflow Details";
+    private string historyModalTitle = "Workflow History";
+
+    private static bool WorkflowSearchFilter(WorkflowTemplateDraft workflow, string term)
+    {
+        return workflow.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (workflow.CanStartFromTrigger ? "Enabled" : "Disabled").Contains(term, StringComparison.OrdinalIgnoreCase)
+            || workflow.TriggerTypeName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || workflow.Status.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool WorkflowHistorySearchFilter(WorkflowExecutionHistoryItem entry, string term)
+    {
+        return entry.StartedAtDisplay.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || entry.Status.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || entry.TriggerType.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || entry.AggregateDisplay.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || entry.DetailsSummary.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected override async Task LoadDataAsync()
+    {
+        isPageLoading = true;
+        try
+        {
+            RequireFeatureAccess();
+
+            await LoadRoleOptionsAsync();
+
+            triggerDefinitions.Clear();
+            effectTypeOptions.Clear();
+            operatorTypeOptions.Clear();
+            triggerTypeNameByCtrlNbr.Clear();
+            addToRosterBoardEffectTypeCtrlNbr = 0;
+            sendInvitationEffectTypeCtrlNbr = 0;
+            callWorkflowEffectTypeCtrlNbr = 0;
+            departmentNameMetadataFieldTypeCtrlNbr = 0;
+            craftNameMetadataFieldTypeCtrlNbr = 0;
+            seniorityStateNameMetadataFieldTypeCtrlNbr = 0;
+            newSeniorityStateMetadataFieldTypeCtrlNbr = 0;
+
+            workflows.Clear();
+
+            if (!HasRailroad || SelectedRailroadCtrlNbr is null)
+                return;
+
+            await LoadReferenceCatalogAsync(SelectedRailroadCtrlNbr.Value);
+            await LoadTriggerFilterValueOptionsAsync();
+
+            var response = await WorkflowTemplatesClient.GetByRailroadAsync(SelectedRailroadCtrlNbr.Value);
+            workflows.AddRange(response.Workflows.Select(MapSummary));
+
+            foreach (var workflow in workflows)
+                ReorderSteps(workflow.Steps);
+
+            if (activeWorkflow is not null)
+                activeWorkflow = workflows.FirstOrDefault(w => w.CtrlNbr == activeWorkflow.CtrlNbr);
+        }
+        finally
+        {
+            isPageLoading = false;
+        }
+    }
+
+    private async Task LoadRoleOptionsAsync()
+    {
+        try
+        {
+            var response = await AuthorizationClient.GetAllRolesAsync();
+
+            roleOptions.Clear();
+            roleOptions.AddRange(response.Roles
+                .Where(role => !role.Name.Equals("SystemAdmin", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(role => role.Level)
+                .ThenBy(role => role.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(role => new RoleOption
+                {
+                    CtrlNbr = role.CtrlNbr,
+                    Name = role.Name,
+                    Level = role.Level
+                })
+                .GroupBy(role => role.CtrlNbr)
+                .Select(group => group.First()));
+        }
+        catch
+        {
+            roleOptions.Clear();
+        }
+    }
+
+    private async Task LoadTriggerFilterValueOptionsAsync()
+    {
+        triggerFilterValueOptionsByFieldCtrlNbr.Clear();
+
+        if (SelectedParentCtrlNbr is not long parentCtrlNbr || SelectedRailroadCtrlNbr is not long railroadCtrlNbr)
+            return;
+
+        try
+        {
+            var departmentsResponse = await DepartmentClient.GetAllAsync(parentCtrlNbr, railroadCtrlNbr);
+            var departmentNames = departmentsResponse.Departments
+                .Select(d => d.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (departmentNameMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[departmentNameMetadataFieldTypeCtrlNbr] = departmentNames;
+        }
+        catch
+        {
+            if (departmentNameMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[departmentNameMetadataFieldTypeCtrlNbr] = [];
+        }
+
+        try
+        {
+            var craftsResponse = await CraftClient.GetAllCraftsAsync(parentCtrlNbr, railroadCtrlNbr);
+            var craftNames = craftsResponse.Crafts
+                .Select(c => c.CraftName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (craftNameMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[craftNameMetadataFieldTypeCtrlNbr] = craftNames;
+        }
+        catch
+        {
+            if (craftNameMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[craftNameMetadataFieldTypeCtrlNbr] = [];
+        }
+
+        try
+        {
+            var statesResponse = await SeniorityStateClient.GetAllAsync(parentCtrlNbr);
+            var stateNames = statesResponse.States
+                .Select(s => s.StateDescription)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (seniorityStateNameMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[seniorityStateNameMetadataFieldTypeCtrlNbr] = stateNames;
+
+            if (stateNames.Count > 0 && newSeniorityStateMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[newSeniorityStateMetadataFieldTypeCtrlNbr] = stateNames;
+        }
+        catch
+        {
+            if (seniorityStateNameMetadataFieldTypeCtrlNbr > 0)
+                triggerFilterValueOptionsByFieldCtrlNbr[seniorityStateNameMetadataFieldTypeCtrlNbr] = [];
+        }
+    }
+
+    private async Task LoadReferenceCatalogAsync(long railroadCtrlNbr)
+    {
+        var response = await WorkflowTemplatesClient.GetReferenceCatalogAsync(railroadCtrlNbr);
+
+        operatorTypeOptions.AddRange(response.OperatorTypes
+            .Select(o => new WorkflowOperatorOption
+            {
+                CtrlNbr = o.CtrlNbr,
+                Code = o.Code,
+                Name = o.Name
+            })
+            .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase));
+
+        foreach (var trigger in response.TriggerTypes)
+            triggerTypeNameByCtrlNbr[trigger.CtrlNbr] = trigger.Name;
+
+        foreach (var effect in response.EffectTypes)
+            effectTypeOptions.Add((effect.CtrlNbr, effect.Code, effect.Name));
+
+        effectTypeOptions.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name));
+
+        var metadataFieldsByCtrlNbr = response.MetadataFieldTypes
+            .ToDictionary(
+                m => m.CtrlNbr,
+                m => new TriggerMetadataFieldDefinition
+                {
+                    CtrlNbr = m.CtrlNbr,
+                    Key = m.Code,
+                    Label = m.Name,
+                    AllowedValues = [],
+                    AllowedOperators = operatorTypeOptions.ToList()
+                });
+
+        addToRosterBoardEffectTypeCtrlNbr = response.EffectTypes
+            .FirstOrDefault(e => string.Equals(e.Code, "Add to Roster Board", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        sendInvitationEffectTypeCtrlNbr = response.EffectTypes
+            .FirstOrDefault(e => string.Equals(e.Code, "Send Invitation", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        callWorkflowEffectTypeCtrlNbr = response.EffectTypes
+            .FirstOrDefault(e => string.Equals(e.Code, "Call Workflow", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+
+        departmentNameMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
+            .FirstOrDefault(m => string.Equals(m.Code, "departmentName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        craftNameMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
+            .FirstOrDefault(m => string.Equals(m.Code, "craftName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        seniorityStateNameMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
+            .FirstOrDefault(m => string.Equals(m.Code, "seniorityStateName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        newSeniorityStateMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
+            .FirstOrDefault(m => string.Equals(m.Code, "newSeniorityState", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+
+        var metadataFieldCtrlNbrByTriggerCtrlNbr = response.TriggerMetadataFieldMaps
+            .GroupBy(m => m.TriggerTypeCtrlNbr)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(m => m.MetadataFieldTypeCtrlNbr).Distinct().ToList());
+
+        triggerDefinitions.AddRange(response.TriggerTypes
+            .Select(trigger => new TriggerDefinition
+            {
+                CtrlNbr = trigger.CtrlNbr,
+                Name = trigger.Name,
+                MetadataFields = metadataFieldCtrlNbrByTriggerCtrlNbr.TryGetValue(trigger.CtrlNbr, out var mappedFields)
+                    ? mappedFields
+                        .Where(metadataFieldsByCtrlNbr.ContainsKey)
+                        .Select(ctrlNbr => metadataFieldsByCtrlNbr[ctrlNbr])
+                        .OrderBy(f => f.Label, StringComparer.OrdinalIgnoreCase)
+                        .ToList()
+                    : []
+            })
+            .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private async Task CreateWorkflow()
+    {
+        if (!HasRailroad || SelectedRailroadCtrlNbr is null)
+            return;
+
+        var created = await WorkflowTemplatesClient.CreateAsync(
+            SelectedRailroadCtrlNbr.Value,
+            $"New Workflow {workflows.Count + 1}",
+            canStartFromTrigger: true,
+            triggerTypeCtrlNbr: 0,
+            isEnabled: true);
+
+        await LoadDataAsync();
+        await OpenWorkflowDetails(created.CtrlNbr);
+    }
+
+    private async Task DeleteWorkflow(Guid workflowId)
+    {
+        var workflow = workflows.FirstOrDefault(w => w.Id == workflowId);
+        if (workflow is null)
+            return;
+
+        await WorkflowTemplatesClient.DeleteAsync(workflow.CtrlNbr);
+
+        if (activeWorkflow?.Id == workflowId)
+            CloseWorkflowDetails();
+
+        await LoadDataAsync();
+    }
+
+    private async Task ToggleWorkflowEnabled(Guid workflowId)
+    {
+        var workflow = workflows.FirstOrDefault(w => w.Id == workflowId);
+        if (workflow is null)
+            return;
+
+        workflow.IsEnabled = !workflow.IsEnabled;
+        await WorkflowTemplatesClient.SetEnabledAsync(workflow.CtrlNbr, workflow.IsEnabled);
+        await LoadDataAsync();
+    }
+
+    private async Task OnWorkflowEnabledBadgeKeyDown(KeyboardEventArgs e, Guid workflowId)
+    {
+        if (e.Key is "Enter" or " ")
+            await ToggleWorkflowEnabled(workflowId);
+    }
+
+    private void ToggleActiveWorkflowEnabled()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        activeWorkflow.IsEnabled = !activeWorkflow.IsEnabled;
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private async Task OpenWorkflowDetails(Guid workflowId)
+    {
+        var workflow = workflows.FirstOrDefault(w => w.Id == workflowId);
+        if (workflow is null)
+            return;
+
+        await OpenWorkflowDetails(workflow.CtrlNbr);
+    }
+
+    private async Task OpenWorkflowHistory(Guid workflowId)
+    {
+        var workflow = workflows.FirstOrDefault(w => w.Id == workflowId);
+        if (workflow is null)
+            return;
+
+        historyWorkflow = workflow;
+        historyModalTitle = $"Workflow History — {workflow.Name}";
+        showWorkflowHistoryModal = true;
+        isHistoryLoading = true;
+        workflowHistoryEntries = [];
+
+        try
+        {
+            var response = await WorkflowTemplatesClient.GetExecutionHistoryAsync(workflow.CtrlNbr, take: 200);
+            workflowHistoryEntries = response.Entries
+                .Select(e => new WorkflowExecutionHistoryItem
+                {
+                    Status = e.Status,
+                    TriggerType = ResolveTriggerTypeName(e.TriggerTypeCtrlNbr),
+                    WorkflowVersionNumber = e.WorkflowVersionNumber,
+                    StartedAtDisplay = FormatDisplayLocal(e.StartedAtUtc),
+                    AggregateDisplay = string.IsNullOrWhiteSpace(e.AggregateDisplay)
+                        ? (e.AggregateCtrlNbr > 0 ? e.AggregateCtrlNbr.ToString() : "—")
+                        : e.AggregateDisplay,
+                    DetailsSummary = BuildHistoryDetailsSummary(
+                        !string.IsNullOrWhiteSpace(e.DetailsDisplayJson)
+                            ? e.DetailsDisplayJson
+                            : e.DetailsJson)
+                })
+                .ToList();
+        }
+        finally
+        {
+            isHistoryLoading = false;
+        }
+    }
+
+    private async Task OpenWorkflowDetails(long ctrlNbr)
+    {
+        var detail = await WorkflowTemplatesClient.GetByCtrlNbrAsync(ctrlNbr);
+        activeWorkflow = MapDetail(detail);
+        if (activeWorkflow is null)
+            return;
+
+        CollapseAllSteps(activeWorkflow);
+
+        detailsModalTitle = $"Workflow Details — {activeWorkflow.Name}";
+        showWorkflowDetailsModal = true;
+        versionNotes = string.Empty;
+        statusMessage = null;
+    }
+
+    private void CloseWorkflowDetails()
+    {
+        showWorkflowDetailsModal = false;
+        activeWorkflow = null;
+        statusMessage = null;
+        versionNotes = string.Empty;
+        detailsModalTitle = "Workflow Details";
+    }
+
+    private void CloseWorkflowHistory()
+    {
+        showWorkflowHistoryModal = false;
+        isHistoryLoading = false;
+        historyWorkflow = null;
+        workflowHistoryEntries = [];
+        historyModalTitle = "Workflow History";
+    }
+
+    private void AddStepToActiveWorkflow()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        activeWorkflow.Steps.Add(CreateDefaultStep(activeWorkflow.Steps.Count + 1));
+
+        MarkActiveWorkflowAsDraft();
+        statusMessage = "Added a new workflow step.";
+        ReorderSteps(activeWorkflow.Steps);
+        ReorderEffects(activeWorkflow.Steps[^1]);
+    }
+
+    private void RemoveStep(Guid id)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        var removed = activeWorkflow.Steps.RemoveAll(s => s.Id == id);
+        if (removed > 0)
+        {
+            MarkActiveWorkflowAsDraft();
+            statusMessage = "Removed workflow step.";
+            ReorderSteps(activeWorkflow.Steps);
+        }
+    }
+
+    private void MoveStepUp(int index)
+    {
+        if (activeWorkflow is null || index <= 0 || index >= activeWorkflow.Steps.Count)
+            return;
+
+        (activeWorkflow.Steps[index - 1], activeWorkflow.Steps[index]) = (activeWorkflow.Steps[index], activeWorkflow.Steps[index - 1]);
+        MarkActiveWorkflowAsDraft();
+        statusMessage = "Reordered workflow steps.";
+        ReorderSteps(activeWorkflow.Steps);
+    }
+
+    private void ToggleStepEnabled(WorkflowStepDraft step)
+    {
+        step.IsEnabled = !step.IsEnabled;
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void ToggleEffectEnabled(WorkflowEffectDraft effect)
+    {
+        effect.IsEnabled = !effect.IsEnabled;
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private static void ToggleStepExpanded(WorkflowStepDraft step)
+    {
+        step.IsExpanded = !step.IsExpanded;
+    }
+
+    private static string GetStepConditionSummary(WorkflowStepDraft step)
+    {
+        if (step.Conditions.Count == 0)
+            return "Runs when reached";
+
+        return $"{step.ConditionGroupOperator} {step.Conditions.Count} filter{(step.Conditions.Count == 1 ? string.Empty : "s")}";
+    }
+
+    private static string GetStepEffectSummary(WorkflowStepDraft step)
+    {
+        var enabledEffectCount = step.Effects.Count(e => e.IsEnabled);
+        if (enabledEffectCount == 0)
+            return "No enabled effects";
+
+        return $"{enabledEffectCount} enabled effect{(enabledEffectCount == 1 ? string.Empty : "s")}";
+    }
+
+    private void MoveStepDown(int index)
+    {
+        if (activeWorkflow is null || index < 0 || index >= activeWorkflow.Steps.Count - 1)
+            return;
+
+        (activeWorkflow.Steps[index + 1], activeWorkflow.Steps[index]) = (activeWorkflow.Steps[index], activeWorkflow.Steps[index + 1]);
+        MarkActiveWorkflowAsDraft();
+        statusMessage = "Reordered workflow steps.";
+        ReorderSteps(activeWorkflow.Steps);
+    }
+
+    private void AddEffect(WorkflowStepDraft step)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        step.Effects.Add(CreateDefaultEffect(activeWorkflow, step.Effects.Count + 1));
+        ReorderEffects(step);
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void AddCondition(WorkflowStepDraft step)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        if (!HasMetadataFieldsForActiveWorkflow())
+            return;
+
+        var condition = CreateDefaultCondition();
+        if (condition is null)
+            return;
+
+        step.Conditions.Add(condition);
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void RemoveEffect(WorkflowStepDraft step, Guid effectId)
+    {
+        if (step.Effects.Count <= 1)
+            return;
+
+        var removed = step.Effects.RemoveAll(e => e.Id == effectId);
+        if (removed > 0)
+        {
+            ReorderEffects(step);
+            MarkActiveWorkflowAsDraft();
+        }
+    }
+
+    private void MoveEffectUp(WorkflowStepDraft step, int index)
+    {
+        if (index <= 0 || index >= step.Effects.Count)
+            return;
+
+        (step.Effects[index - 1], step.Effects[index]) = (step.Effects[index], step.Effects[index - 1]);
+        ReorderEffects(step);
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void MoveEffectDown(WorkflowStepDraft step, int index)
+    {
+        if (index < 0 || index >= step.Effects.Count - 1)
+            return;
+
+        (step.Effects[index + 1], step.Effects[index]) = (step.Effects[index], step.Effects[index + 1]);
+        ReorderEffects(step);
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void OnEffectChanged(WorkflowStepDraft step, WorkflowEffectDraft effect)
+    {
+        _ = step;
+
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void OnActiveWorkflowTriggerChanged()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void ToggleActiveWorkflowTriggerStart()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        activeWorkflow.CanStartFromTrigger = !activeWorkflow.CanStartFromTrigger;
+        OnTriggerToggleChanged();
+    }
+
+    private void OnTriggerToggleChanged()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        if (!activeWorkflow.CanStartFromTrigger)
+            activeWorkflow.TriggerTypeCtrlNbr = 0;
+
+        activeWorkflow.TriggerTypeName = ResolveTriggerTypeName(activeWorkflow.TriggerTypeCtrlNbr);
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void AddTriggerCondition()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        if (!activeWorkflow.CanStartFromTrigger)
+            return;
+
+        if (!HasMetadataFieldsForActiveWorkflow())
+            return;
+
+        var condition = CreateDefaultCondition();
+        if (condition is null)
+            return;
+
+        activeWorkflow.TriggerConditions.Add(condition);
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void RemoveTriggerCondition(Guid conditionId)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        var removed = activeWorkflow.TriggerConditions.RemoveAll(c => c.Id == conditionId);
+        if (removed > 0)
+            MarkActiveWorkflowAsDraft();
+    }
+
+    private void RemoveCondition(WorkflowStepDraft step, Guid conditionId)
+    {
+        var removed = step.Conditions.RemoveAll(c => c.Id == conditionId);
+        if (removed > 0)
+            MarkActiveWorkflowAsDraft();
+    }
+
+    private void OnTriggerConditionFieldChanged(WorkflowConditionDraft condition)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private void OnConditionFieldChanged(WorkflowStepDraft step, WorkflowConditionDraft condition)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        MarkActiveWorkflowAsDraft();
+    }
+
+    private IEnumerable<TriggerMetadataFieldDefinition> GetMetadataFieldsForActiveWorkflow()
+    {
+        if (activeWorkflow is null)
+            return [];
+
+        return GetMetadataFieldsForTrigger(activeWorkflow.TriggerTypeCtrlNbr)
+            .Where(field => GetAllowedValuesForField(field).Count > 0);
+    }
+
+    private bool HasMetadataFieldsForActiveWorkflow()
+    {
+        return activeWorkflow is not null && GetMetadataFieldsForActiveWorkflow().Any();
+    }
+
+    private IEnumerable<string> GetCallableWorkflowNames(Guid callerWorkflowId)
+    {
+        return workflows
+            .Where(w => w.Id != callerWorkflowId)
+            .Select(w => w.Name)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<WorkflowOperatorOption> GetOperatorsForCondition(WorkflowConditionDraft condition)
+    {
+        if (activeWorkflow is null)
+            return [];
+
+        var field = GetMetadataFieldsForTrigger(activeWorkflow.TriggerTypeCtrlNbr)
+            .FirstOrDefault(f => f.CtrlNbr == condition.FieldTypeCtrlNbr);
+
+        return field?.AllowedOperators ?? [];
+    }
+
+    private IEnumerable<string> GetAllowedValuesForCondition(WorkflowConditionDraft condition)
+    {
+        if (activeWorkflow is null)
+            return [];
+
+        var field = GetMetadataFieldsForTrigger(activeWorkflow.TriggerTypeCtrlNbr)
+            .FirstOrDefault(f => f.CtrlNbr == condition.FieldTypeCtrlNbr);
+
+        if (field is null)
+            return [];
+
+        return GetAllowedValuesForField(field);
+    }
+
+    private IReadOnlyList<string> GetAllowedValuesForField(TriggerMetadataFieldDefinition field)
+    {
+        if (triggerFilterValueOptionsByFieldCtrlNbr.TryGetValue(field.CtrlNbr, out var dynamicValues)
+            && dynamicValues.Count > 0)
+        {
+            return dynamicValues;
+        }
+
+        return field.AllowedValues;
+    }
+
+    private WorkflowStepDraft CreateDefaultStep(int order)
+    {
+        return new WorkflowStepDraft
+        {
+            Order = order,
+            Name = $"Step {order}",
+            IsEnabled = true,
+            ConditionGroupOperator = "ALL",
+            Conditions = [],
+            Effects =
+            [
+                new WorkflowEffectDraft
+                {
+                    Order = 1,
+                    EffectTypeCtrlNbr = 0,
+                    EffectOption = string.Empty
+                }
+            ],
+            FailurePolicy = "StopWorkflow"
+        };
+    }
+
+    private WorkflowEffectDraft CreateDefaultEffect(WorkflowTemplateDraft callerWorkflow, int order)
+    {
+        _ = callerWorkflow;
+
+        return new WorkflowEffectDraft
+        {
+            Order = order,
+            EffectTypeCtrlNbr = 0,
+            EffectOption = string.Empty,
+            EmailSource = string.Empty,
+            IsEnabled = true
+        };
+    }
+
+    private static WorkflowConditionDraft CreateDefaultCondition()
+    {
+        return new WorkflowConditionDraft
+        {
+            FieldTypeCtrlNbr = 0,
+            OperatorTypeCtrlNbr = 0,
+            Value = string.Empty
+        };
+    }
+
+    private IEnumerable<TriggerMetadataFieldDefinition> GetMetadataFieldsForTrigger(long triggerTypeCtrlNbr)
+    {
+        if (triggerTypeCtrlNbr <= 0)
+            return [];
+
+        var trigger = triggerDefinitions.FirstOrDefault(t => t.CtrlNbr == triggerTypeCtrlNbr);
+        return trigger?.MetadataFields ?? [];
+    }
+
+    private void MarkActiveWorkflowAsDraft()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        activeWorkflow.Status = "Draft";
+    }
+
+    private async Task SaveDraftVersionForActive()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        await SaveWorkflowAsync(activeWorkflow, publish: false);
+    }
+
+    private async Task PublishVersionForActive()
+    {
+        if (activeWorkflow is null)
+            return;
+
+        await SaveWorkflowAsync(activeWorkflow, publish: true);
+    }
+
+    private async Task RestoreVersionForActive(int versionNumber)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        var detail = await WorkflowTemplatesClient.RestoreAsDraftAsync(
+            activeWorkflow.CtrlNbr,
+            versionNumber,
+            string.IsNullOrWhiteSpace(versionNotes)
+                ? $"Restored from v{versionNumber}"
+                : versionNotes.Trim());
+
+        activeWorkflow = MapDetail(detail);
+        if (activeWorkflow is not null)
+            CollapseAllSteps(activeWorkflow);
+
+        statusMessage = $"Loaded version v{versionNumber} as a draft. Save or publish to create a new version.";
+        await LoadDataAsync();
+        versionNotes = string.Empty;
+    }
+
+    private async Task SaveWorkflowAsync(WorkflowTemplateDraft workflow, bool publish, string? notesOverride = null)
+    {
+        var payload = BuildUpsertPayload(workflow, notesOverride);
+        var detail = publish
+            ? await WorkflowTemplatesClient.PublishAsync(workflow.CtrlNbr, payload)
+            : await WorkflowTemplatesClient.SaveDraftAsync(workflow.CtrlNbr, payload);
+
+        var mapped = MapDetail(detail);
+        if (mapped is not null)
+        {
+            activeWorkflow = mapped;
+            workflows.RemoveAll(w => w.CtrlNbr == mapped.CtrlNbr);
+            workflows.Add(new WorkflowTemplateDraft
+            {
+                CtrlNbr = detail.CtrlNbr,
+                Name = detail.Name,
+                CanStartFromTrigger = detail.CanStartFromTrigger,
+                TriggerTypeCtrlNbr = detail.TriggerTypeCtrlNbr,
+                TriggerTypeName = ResolveTriggerTypeName(detail.TriggerTypeCtrlNbr),
+                IsEnabled = detail.IsEnabled,
+                Status = detail.Status,
+                CurrentVersionNumber = detail.CurrentVersionNumber,
+                StepCount = detail.Steps.Count
+            });
+        }
+
+        statusMessage = publish
+            ? $"Published version v{detail.CurrentVersionNumber}."
+            : $"Saved draft version v{detail.CurrentVersionNumber}.";
+        versionNotes = string.Empty;
+    }
+
+    private WorkflowTemplateUpsertPayload BuildUpsertPayload(WorkflowTemplateDraft workflow, string? notesOverride)
+    {
+        var payload = new WorkflowTemplateUpsertPayload
+        {
+            Name = workflow.Name,
+            CanStartFromTrigger = workflow.CanStartFromTrigger,
+            TriggerTypeCtrlNbr = workflow.CanStartFromTrigger ? workflow.TriggerTypeCtrlNbr : 0,
+            IsEnabled = workflow.IsEnabled,
+            TriggerConditionGroupOperator = workflow.TriggerConditionGroupOperator,
+            VersionNotes = string.IsNullOrWhiteSpace(notesOverride)
+                ? versionNotes.Trim()
+                : notesOverride.Trim()
+        };
+
+        foreach (var triggerCondition in workflow.TriggerConditions)
+        {
+            payload.TriggerConditions.Add(new WorkflowConditionPayload
+            {
+                CtrlNbr = triggerCondition.CtrlNbr,
+                FieldTypeCtrlNbr = triggerCondition.FieldTypeCtrlNbr,
+                OperatorTypeCtrlNbr = triggerCondition.OperatorTypeCtrlNbr,
+                Value = triggerCondition.Value
+            });
+        }
+
+        foreach (var step in workflow.Steps.OrderBy(s => s.Order))
+        {
+            var stepPayload = new WorkflowStepUpsertPayload
+            {
+                CtrlNbr = step.CtrlNbr,
+                Order = step.Order,
+                Name = step.Name,
+                IsEnabled = step.IsEnabled,
+                FailurePolicy = step.FailurePolicy,
+                ConditionGroupOperator = step.ConditionGroupOperator
+            };
+
+            foreach (var condition in step.Conditions)
+            {
+                stepPayload.Conditions.Add(new WorkflowConditionPayload
+                {
+                    CtrlNbr = condition.CtrlNbr,
+                    FieldTypeCtrlNbr = condition.FieldTypeCtrlNbr,
+                    OperatorTypeCtrlNbr = condition.OperatorTypeCtrlNbr,
+                    Value = condition.Value
+                });
+            }
+
+            foreach (var effect in step.Effects.OrderBy(e => e.Order))
+            {
+                var effectPayload = new WorkflowEffectPayload
+                {
+                    CtrlNbr = effect.CtrlNbr,
+                    Order = effect.Order,
+                    IsEnabled = effect.IsEnabled,
+                    EffectTypeCtrlNbr = effect.EffectTypeCtrlNbr,
+                    EffectOption = effect.EffectOption ?? string.Empty
+                };
+
+                if (IsEffectType(effect, sendInvitationEffectTypeCtrlNbr) && !string.IsNullOrWhiteSpace(effect.EffectOption))
+                {
+                    effectPayload.Options.Add(new WorkflowEffectOptionPayload { Key = "roleCtrlNbr", Value = effect.EffectOption });
+
+                    effectPayload.Options.Add(new WorkflowEffectOptionPayload
+                    {
+                        Key = "expirationDays",
+                        Value = effect.ExpirationDays.ToString()
+                    });
+
+                    effectPayload.Options.Add(new WorkflowEffectOptionPayload
+                    {
+                        Key = "usePrimaryEmail",
+                        Value = string.Equals(effect.EmailSource, "primary", StringComparison.OrdinalIgnoreCase) ? "true" : "false"
+                    });
+                }
+
+                stepPayload.Effects.Add(effectPayload);
+            }
+
+            payload.Steps.Add(stepPayload);
+        }
+
+        return payload;
+    }
+
+    private WorkflowTemplateDraft MapSummary(WorkflowTemplateSummaryResponse source)
+    {
+        return new WorkflowTemplateDraft
+        {
+            CtrlNbr = source.CtrlNbr,
+            Name = source.Name,
+            CanStartFromTrigger = source.CanStartFromTrigger,
+            TriggerTypeCtrlNbr = source.TriggerTypeCtrlNbr,
+            TriggerTypeName = ResolveTriggerTypeName(source.TriggerTypeCtrlNbr),
+            IsEnabled = source.IsEnabled,
+            Status = source.Status,
+            CurrentVersionNumber = source.CurrentVersionNumber,
+            StepCount = source.StepCount,
+            Steps = []
+        };
+    }
+
+    private WorkflowTemplateDraft MapDetail(WorkflowTemplateDetailResponse source)
+    {
+        var draft = new WorkflowTemplateDraft
+        {
+            CtrlNbr = source.CtrlNbr,
+            Name = source.Name,
+            CanStartFromTrigger = source.CanStartFromTrigger,
+            TriggerTypeCtrlNbr = source.TriggerTypeCtrlNbr,
+            TriggerTypeName = ResolveTriggerTypeName(source.TriggerTypeCtrlNbr),
+            IsEnabled = source.IsEnabled,
+            Status = source.Status,
+            CurrentVersionNumber = source.CurrentVersionNumber,
+            StepCount = source.Steps.Count
+        };
+
+        draft.TriggerConditionGroupOperator = string.IsNullOrWhiteSpace(source.TriggerConditionGroupOperator)
+            ? "ALL"
+            : source.TriggerConditionGroupOperator;
+
+        draft.TriggerConditions = source.TriggerConditions.Select(c => new WorkflowConditionDraft
+        {
+            CtrlNbr = c.CtrlNbr,
+            FieldTypeCtrlNbr = c.FieldTypeCtrlNbr,
+            OperatorTypeCtrlNbr = c.OperatorTypeCtrlNbr,
+            Value = c.Value
+        }).ToList();
+
+        draft.Steps.AddRange(source.Steps.Select(step => new WorkflowStepDraft
+        {
+            CtrlNbr = step.CtrlNbr,
+            Order = step.Order,
+            Name = step.Name,
+            IsEnabled = step.IsEnabled,
+            FailurePolicy = string.IsNullOrWhiteSpace(step.FailurePolicy) ? "StopWorkflow" : step.FailurePolicy,
+            ConditionGroupOperator = string.IsNullOrWhiteSpace(step.ConditionGroupOperator) ? "ALL" : step.ConditionGroupOperator,
+            Conditions = step.Conditions.Select(c => new WorkflowConditionDraft
+            {
+                CtrlNbr = c.CtrlNbr,
+                FieldTypeCtrlNbr = c.FieldTypeCtrlNbr,
+                OperatorTypeCtrlNbr = c.OperatorTypeCtrlNbr,
+                Value = c.Value
+            }).ToList(),
+            Effects = step.Effects.Select(effect => new WorkflowEffectDraft
+            {
+                CtrlNbr = effect.CtrlNbr,
+                Order = effect.Order,
+                EffectTypeCtrlNbr = effect.EffectTypeCtrlNbr,
+                EffectOption = effect.EffectOption,
+                ExpirationDays = ResolveExpirationDays(effect),
+                EmailSource = ResolveEmailSource(effect),
+                IsEnabled = effect.IsEnabled
+            }).ToList()
+        }));
+
+        draft.Versions.AddRange(source.Versions.Select(v => new WorkflowTemplateVersion
+        {
+            VersionNumber = v.VersionNumber,
+            Status = v.Status,
+            SavedAtUtc = DateTime.TryParse(v.SavedAtUtc, out var savedAtUtc) ? savedAtUtc : DateTime.UtcNow,
+            Notes = v.Notes,
+            StepCount = v.StepCount,
+            WorkflowEnabled = draft.IsEnabled,
+            Steps = []
+        }));
+
+        return draft;
+    }
+
+    private string ResolveTriggerTypeName(long triggerTypeCtrlNbr)
+    {
+        if (triggerTypeCtrlNbr <= 0)
+            return string.Empty;
+
+        return triggerTypeNameByCtrlNbr.TryGetValue(triggerTypeCtrlNbr, out var triggerTypeName)
+            ? triggerTypeName
+            : triggerTypeCtrlNbr.ToString();
+    }
+
+    private static bool IsEffectType(WorkflowEffectDraft effect, long effectTypeCtrlNbr)
+        => effectTypeCtrlNbr > 0 && effect.EffectTypeCtrlNbr == effectTypeCtrlNbr;
+
+    private static int ResolveExpirationDays(WorkflowEffectPayload effect)
+    {
+        if (effect.Options.Any(o => o.Key == "expirationDays"))
+        {
+            var expirationDaysValue = effect.Options.FirstOrDefault(o => o.Key == "expirationDays")?.Value;
+            if (int.TryParse(expirationDaysValue, out var expirationDays) && expirationDays > 0)
+                return Math.Min(expirationDays, 90);
+        }
+
+        return 7;
+    }
+
+    private static string ResolveEmailSource(WorkflowEffectPayload effect)
+    {
+        if (effect.Options.Any(o => o.Key == "usePrimaryEmail"))
+        {
+            var usePrimaryEmailValue = effect.Options.FirstOrDefault(o => o.Key == "usePrimaryEmail")?.Value;
+            if (bool.TryParse(usePrimaryEmailValue, out var usePrimaryEmail))
+                return usePrimaryEmail ? "primary" : "trigger";
+        }
+
+        return "primary";
+    }
+
+    private static void ReorderSteps(List<WorkflowStepDraft> workflowSteps)
+    {
+        for (var i = 0; i < workflowSteps.Count; i++)
+            workflowSteps[i].Order = i + 1;
+    }
+
+    private static void CollapseAllSteps(WorkflowTemplateDraft workflow)
+    {
+        foreach (var step in workflow.Steps)
+            step.IsExpanded = false;
+    }
+
+    private static void ReorderEffects(WorkflowStepDraft step)
+    {
+        for (var i = 0; i < step.Effects.Count; i++)
+            step.Effects[i].Order = i + 1;
+    }
+
+    private static string GetHistoryStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Succeeded" => "bg-success",
+            "Failed" => "bg-danger",
+            "Skipped" => "bg-secondary",
+            "Running" => "bg-info text-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private static string BuildHistoryDetailsSummary(string detailsJson)
+    {
+        if (string.IsNullOrWhiteSpace(detailsJson))
+            return "—";
+
+        if (detailsJson.Length <= 220)
+            return detailsJson;
+
+        return $"{detailsJson[..220]}...";
+    }
+
+    private sealed class WorkflowExecutionHistoryItem
+    {
+        public string StartedAtDisplay { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public int WorkflowVersionNumber { get; set; }
+        public string TriggerType { get; set; } = string.Empty;
+        public string AggregateDisplay { get; set; } = "—";
+        public string DetailsSummary { get; set; } = "—";
+    }
+
+    private sealed class RoleOption
+    {
+        public long CtrlNbr { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int Level { get; set; }
+    }
+}
