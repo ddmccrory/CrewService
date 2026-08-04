@@ -14,26 +14,38 @@ public sealed class AuthAppService(
     public async Task<(bool Success, string? ErrorMessage)> AcceptInvitationAsync(
         string token, string? password, CancellationToken ct = default)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        string invitationEmail;
+        ControlNumber? invitationParentCtrlNbr;
+        string invitationRole;
+        ControlNumber? invitationRailroadCtrlNbr;
 
-        var invitation = await uow.Invitations.GetByTokenAsync(token);
-        if (invitation is null)
-            return (false, "Invalid invitation token.");
-
-        currentUserService.SetAuditOverride(invitation.Email);
-
-        if (!invitation.IsValid)
+        await using (var invitationLookupUow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
+            var invitation = await invitationLookupUow.Invitations.GetByTokenAsync(token);
+            if (invitation is null)
+                return (false, "Invalid invitation token.");
+
+            currentUserService.SetAuditOverride(invitation.Email);
+
+            if (!invitation.IsValid)
             {
-                invitation.MarkExpired();
-                await uow.Invitations.UpdateAsync(invitation, ct);
-                await uow.CommitAsync(ct);
+                if (invitation.Status == InvitationStatus.Pending && DateTime.UtcNow > invitation.ExpiresAt)
+                {
+                    invitation.MarkExpired();
+                    await invitationLookupUow.Invitations.UpdateAsync(invitation, ct);
+                    await invitationLookupUow.CommitAsync(ct);
+                }
+
+                return (false, $"Invitation is no longer valid (status: {invitation.Status}).");
             }
-            return (false, $"Invitation is no longer valid (status: {invitation.Status}).");
+
+            invitationEmail = invitation.Email;
+            invitationParentCtrlNbr = invitation.ParentCtrlNbr;
+            invitationRole = invitation.Role;
+            invitationRailroadCtrlNbr = invitation.RailroadCtrlNbr;
         }
 
-        var existingUser = await userAccountService.FindByEmailAsync(invitation.Email);
+        var existingUser = await userAccountService.FindByEmailAsync(invitationEmail);
         var needsPassword = existingUser is null || !await userAccountService.HasPasswordAsync(existingUser.Id);
 
         if (needsPassword)
@@ -43,11 +55,10 @@ public sealed class AuthAppService(
 
             if (existingUser is null)
             {
-                // New user (e.g. admin invitation) -- create account with password
                 var (createUserResult, userId) = await userAccountService.CreateAsync(new CreateUserRequest
                 {
-                    UserName = invitation.Email,
-                    Email = invitation.Email,
+                    UserName = invitationEmail,
+                    Email = invitationEmail,
                     Password = password
                 });
 
@@ -55,25 +66,50 @@ public sealed class AuthAppService(
                     return (false, string.Join("; ", createUserResult.Errors));
 
                 existingUser = await userAccountService.FindByIdAsync(userId);
+                if (existingUser is null)
+                    return (false, "User account could not be loaded after creation.");
             }
             else
             {
-                // Pre-created employee account -- set the password now
                 var setResult = await userAccountService.SetPasswordAsync(existingUser.Id, password);
                 if (!setResult.Succeeded)
                     return (false, string.Join("; ", setResult.Errors));
             }
         }
 
-        invitation.Accept();
-        await uow.Invitations.UpdateAsync(invitation, ct);
-
-        if (invitation.ParentCtrlNbr is null)
+        if (invitationParentCtrlNbr is null)
         {
-            await userAccountService.UpdatePrimaryRoleAsync(existingUser!.Id, Roles.SystemAdmin);
+            var updateRoleResult = await userAccountService.UpdatePrimaryRoleAsync(existingUser!.Id, Roles.SystemAdmin);
+            if (!updateRoleResult.Succeeded)
+                return (false, string.Join("; ", updateRoleResult.Errors));
+        }
 
-            var oldInvitations = await uow.Invitations.GetAcceptedByEmailAndParentAsync(invitation.Email, null);
-            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var finalInvitation = await uow.Invitations.GetByTokenAsync(token);
+        if (finalInvitation is null)
+            return (false, "Invalid invitation token.");
+
+        currentUserService.SetAuditOverride(finalInvitation.Email);
+
+        if (!finalInvitation.IsValid)
+        {
+            if (finalInvitation.Status == InvitationStatus.Pending && DateTime.UtcNow > finalInvitation.ExpiresAt)
+            {
+                finalInvitation.MarkExpired();
+                await uow.Invitations.UpdateAsync(finalInvitation, ct);
+                await uow.CommitAsync(ct);
+            }
+
+            return (false, $"Invitation is no longer valid (status: {finalInvitation.Status}).");
+        }
+
+        finalInvitation.Accept();
+        await uow.Invitations.UpdateAsync(finalInvitation, ct);
+
+        if (invitationParentCtrlNbr is null)
+        {
+            var oldInvitations = await uow.Invitations.GetAcceptedByEmailAndParentAsync(invitationEmail, null);
+            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != finalInvitation.CtrlNbr))
             {
                 oldInv.MarkSuperseded();
                 await uow.Invitations.UpdateAsync(oldInv, ct);
@@ -84,8 +120,8 @@ public sealed class AuthAppService(
         }
 
         var existingAssignments = await uow.UserParentAssignments.GetByUserAndParentAsync(
-            existingUser!.Id, invitation.ParentCtrlNbr!);
-        var isParentScoped = !Roles.RequiresRailroad(invitation.Role);
+            existingUser!.Id, invitationParentCtrlNbr);
+        var isParentScoped = !Roles.RequiresRailroad(invitationRole);
 
         if (existingAssignments.Count > 0)
         {
@@ -97,8 +133,7 @@ public sealed class AuthAppService(
                 foreach (var old in existingAssignments)
                     await uow.UserParentAssignments.DeleteAsync(old.CtrlNbr, ct);
 
-                var newAssignment = UserParentAssignment.Create(
-                    existingUser.Id, invitation.ParentCtrlNbr, invitation.Role);
+                var newAssignment = UserParentAssignment.Create(existingUser.Id, invitationParentCtrlNbr, invitationRole);
                 await uow.UserParentAssignments.AddAsync(newAssignment, ct);
             }
             else if (!isParentScoped && hasParentScoped)
@@ -106,30 +141,27 @@ public sealed class AuthAppService(
                 foreach (var old in existingAssignments)
                     await uow.UserParentAssignments.DeleteAsync(old.CtrlNbr, ct);
 
-                var newAssignment = UserParentAssignment.Create(
-                    existingUser.Id, invitation.ParentCtrlNbr, invitation.Role, invitation.RailroadCtrlNbr);
+                var newAssignment = UserParentAssignment.Create(existingUser.Id, invitationParentCtrlNbr, invitationRole, invitationRailroadCtrlNbr);
                 await uow.UserParentAssignments.AddAsync(newAssignment, ct);
             }
             else
             {
                 var matchingAssignment = existingAssignments
-                    .FirstOrDefault(a => a.RailroadCtrlNbr == invitation.RailroadCtrlNbr);
+                    .FirstOrDefault(a => a.RailroadCtrlNbr == invitationRailroadCtrlNbr);
                 if (matchingAssignment is not null)
                 {
-                    matchingAssignment.UpdateRole(invitation.Role, invitation.RailroadCtrlNbr);
+                    matchingAssignment.UpdateRole(invitationRole, invitationRailroadCtrlNbr);
                     await uow.UserParentAssignments.UpdateAsync(matchingAssignment, ct);
                 }
                 else
                 {
-                    var newAssignment = UserParentAssignment.Create(
-                        existingUser.Id, invitation.ParentCtrlNbr, invitation.Role, invitation.RailroadCtrlNbr);
+                    var newAssignment = UserParentAssignment.Create(existingUser.Id, invitationParentCtrlNbr, invitationRole, invitationRailroadCtrlNbr);
                     await uow.UserParentAssignments.AddAsync(newAssignment, ct);
                 }
             }
 
-            var oldInvitations = await uow.Invitations.GetAcceptedByEmailAndParentAsync(
-                invitation.Email, invitation.ParentCtrlNbr);
-            foreach (var oldInv in oldInvitations.Where(i => i.CtrlNbr != invitation.CtrlNbr))
+            var oldAcceptedInvitations = await uow.Invitations.GetAcceptedByEmailAndParentAsync(invitationEmail, invitationParentCtrlNbr);
+            foreach (var oldInv in oldAcceptedInvitations.Where(i => i.CtrlNbr != finalInvitation.CtrlNbr))
             {
                 oldInv.MarkSuperseded();
                 await uow.Invitations.UpdateAsync(oldInv, ct);
@@ -137,8 +169,7 @@ public sealed class AuthAppService(
         }
         else
         {
-            var assignment = UserParentAssignment.Create(
-                existingUser.Id, invitation.ParentCtrlNbr, invitation.Role, invitation.RailroadCtrlNbr);
+            var assignment = UserParentAssignment.Create(existingUser.Id, invitationParentCtrlNbr, invitationRole, invitationRailroadCtrlNbr);
             await uow.UserParentAssignments.AddAsync(assignment, ct);
         }
 

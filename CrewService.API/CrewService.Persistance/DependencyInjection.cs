@@ -28,6 +28,7 @@ using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Workflows;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Infrastructure.Outbox;
 using CrewService.Persistance.Data;
@@ -40,6 +41,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CrewService.Persistance;
 
@@ -55,8 +57,12 @@ public static class DependencyInjection
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
 
-        // Open the shared connection once and set WAL before any migrations run
-        var connection = sp.GetRequiredService<SqliteConnection>();
+        var configuration = sp.GetRequiredService<IConfiguration>();
+        var connectionString = configuration.GetConnectionString("SQLiteConnection")
+            ?? throw new InvalidOperationException("SQLiteConnection connection string not configured.");
+
+        // Set SQLite pragmas on a startup connection before migrations run.
+        await using var connection = new SqliteConnection(connectionString);
         if (connection.State != System.Data.ConnectionState.Open)
             await connection.OpenAsync();
 
@@ -75,6 +81,8 @@ public static class DependencyInjection
 
     public static IServiceCollection AddPersistance(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton<IActorContextAccessor, ActorContextAccessor>();
+        services.AddSingleton<IWorkflowEffectExecutionGuard, WorkflowEffectExecutionGuard>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IRequestActorContextResolver, RequestActorContextResolver>();
         services.AddSingleton<IFieldEncryptor, AesFieldEncryptor>();
@@ -82,15 +90,12 @@ public static class DependencyInjection
         string? connectionString = configuration.GetConnectionString("SQLiteConnection")
             ?? throw new InvalidOperationException("SQLiteConnection connection string not configured.");
 
-        // One scoped connection shared by both DbContexts — EF Core transactions require
-        // both contexts to be on the same connection instance, not just the same file.
-        services.AddScoped<SqliteConnection>(_ => new SqliteConnection(connectionString));
+        // Request-scoped contexts used by non-orchestration CRUD flows.
+        services.AddDbContext<UserAccessDbContext>(options =>
+            options.UseSqlite(connectionString));
 
-        services.AddDbContext<UserAccessDbContext>((sp, options) =>
-            options.UseSqlite(sp.GetRequiredService<SqliteConnection>()));
-
-        services.AddDbContext<CrewServiceDbContext>((sp, options) =>
-            options.UseSqlite(sp.GetRequiredService<SqliteConnection>()));
+        services.AddDbContext<CrewServiceDbContext>(options =>
+            options.UseSqlite(connectionString));
 
         services.AddScoped<IOutboxDbContext>(sp => sp.GetRequiredService<CrewServiceDbContext>());
 
@@ -101,14 +106,29 @@ public static class DependencyInjection
         }).AddRoles<IdentityRole>()
           .AddEntityFrameworkStores<UserAccessDbContext>();
 
-        // Orchestration UoW Factory (scoped - shares the request-scoped DbContexts)
-        services.AddScoped<IOrchestrationUnitOfWorkFactory, OrchestrationUnitOfWorkFactory>();
+        // Orchestration UoW Factory: creates fresh contexts/transaction per UoW instance.
+        services.AddScoped<IOrchestrationUnitOfWorkFactory>(sp =>
+            new OrchestrationUnitOfWorkFactory(
+                connectionFactory: () => new SqliteConnection(connectionString),
+                currentUserService: sp.GetRequiredService<ICurrentUserService>(),
+                fieldEncryptor: sp.GetRequiredService<IFieldEncryptor>(),
+                workflowEffectExecutionGuard: sp.GetRequiredService<IWorkflowEffectExecutionGuard>(),
+                loggerFactory: sp.GetRequiredService<ILoggerFactory>(),
+                dispatcher: sp.GetService<IOutboxDispatcher>(),
+                reactor: sp.GetService<IDomainEventReactor>()));
 
         // Core Repositories
         services.AddScoped<IParentRepository, ParentRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<IUserParentAssignmentRepository, UserParentAssignmentRepository>();
         services.AddScoped<IInvitationRepository, InvitationRepository>();
+        services.AddScoped<IWorkflowTemplateRepository, WorkflowTemplateRepository>();
+        services.AddScoped<IWorkflowVersionRepository, WorkflowVersionRepository>();
+        services.AddScoped<IWorkflowExecutionHistoryRepository, WorkflowExecutionHistoryRepository>();
+        services.AddScoped<IWorkflowTriggerTypeRepository, WorkflowTriggerTypeRepository>();
+        services.AddScoped<IWorkflowEffectTypeRepository, WorkflowEffectTypeRepository>();
+        services.AddScoped<IWorkflowOperatorTypeRepository, WorkflowOperatorTypeRepository>();
+        services.AddScoped<IWorkflowMetadataFieldTypeRepository, WorkflowMetadataFieldTypeRepository>();
 
         // ContactType Repositories
         services.AddScoped<IAddressTypeRepository, AddressTypeRepository>();
@@ -125,7 +145,6 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<ISeniorityRepository, SeniorityRepository>();
         services.AddScoped<ISeniorityStateRepository, SeniorityStateRepository>();
-        services.AddScoped<ISeniorityStateVacancyConfigRepository, SeniorityStateVacancyConfigRepository>();
         services.AddScoped<IPayrollTierRepository, PayrollTierRepository>();
 
         // Authorization Module Repositories

@@ -1,5 +1,6 @@
 using CrewService.Application.Employees;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.ValueObjects;
 using CrewService.Application.Modules.UserAccount;
 
@@ -90,6 +91,27 @@ public sealed class EmployeeNameService(
         if (distinct.Count == 0) return [];
 
         var employees = await employeeAppService.GetByCtrlNbrsAsync(distinct);
+
+        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct();
+        var nameMap = await GetFullNameLnfBatchAsync(userIds!);
+
+        return employees.ToDictionary(
+            e => e.CtrlNbr,
+            e => (
+                FullNameLnf: e.UserId is not null && nameMap.TryGetValue(e.UserId, out var n) ? n : string.Empty,
+                EmployeeNumber: e.EmployeeNumber ?? string.Empty
+            ));
+    }
+
+    public async Task<Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)>> GetEmployeeInfoBatchAsync(
+        IOrchestrationUnitOfWork uow,
+        IEnumerable<ControlNumber> ctrlNbrs,
+        CancellationToken ct = default)
+    {
+        var distinct = ctrlNbrs.Distinct().ToList();
+        if (distinct.Count == 0) return [];
+
+        var employees = await uow.Employees.GetByCtrlNbrsAsync(distinct, ct);
 
         var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct();
         var nameMap = await GetFullNameLnfBatchAsync(userIds!);

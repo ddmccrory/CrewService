@@ -7,7 +7,7 @@ public sealed record ControlNumber
 
     public long Value { get; }
 
-    private ControlNumber(long value)
+    public ControlNumber(long value)
     {
         Value = value;
     }

@@ -25,6 +25,7 @@ internal class EmailAddressConfiguration : IEntityTypeConfiguration<EmailAddress
             value => ControlNumber.Create(value));
 
         builder.Property(e => e.Email).HasMaxLength(250).IsRequired();
+        builder.Property(e => e.IsPrimary).IsRequired();
 
         builder.HasOne<EmailAddressType>().WithMany().HasForeignKey(e => e.EmailTypeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 

@@ -371,7 +371,6 @@ public class CallSheetGenerationServiceTests
         public IUserParentAssignmentRepository UserParentAssignments => null!;
         public IInvitationRepository Invitations => null!;
         public IPayrollTierRepository PayrollTiers => null!;
-        public ISeniorityStateVacancyConfigRepository    SeniorityStateVacancyConfigs => throw new NotImplementedException();
         public IPendingSeniorityStateChangeRepository    PendingSeniorityStateChanges => throw new NotImplementedException();
     }
 

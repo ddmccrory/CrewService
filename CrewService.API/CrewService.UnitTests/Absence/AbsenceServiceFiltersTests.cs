@@ -371,9 +371,8 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
 
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
-            _crewContext,
-            _userContext,
             _currentUser,
+            new TestFieldEncryptor(),
             NullLoggerFactory.Instance);
 
         var workAreaClock = new FixedWorkAreaClock(new DateTimeOffset(2026, 7, 30, 12, 0, 0, TimeSpan.Zero));
@@ -396,8 +395,6 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new AbsenceCodeRepository(_crewContext, _currentUser),
             new StaticAbsenceApprovalPolicyResolver(),
-            new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser),
-            new AbsenceRequestWaitListLinkRepository(_crewContext, _currentUser),
             new CraftAbsenceWaitListPolicyRepository(_crewContext, _currentUser),
             new AbsenceWaitListAllowancePolicyRepository(_crewContext, _currentUser),
             startProposalService,
@@ -834,9 +831,8 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
 
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
-            _crewContext,
-            _userContext,
             _currentUser,
+            new TestFieldEncryptor(),
             NullLoggerFactory.Instance);
 
         var workAreaClock = new FixedWorkAreaClock(new DateTimeOffset(2026, 7, 30, 12, 0, 0, TimeSpan.Zero));
@@ -859,8 +855,6 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new AbsenceCodeRepository(_crewContext, _currentUser),
             new StaticAbsenceApprovalPolicyResolver(),
-            new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUser),
-            new AbsenceRequestWaitListLinkRepository(_crewContext, _currentUser),
             new CraftAbsenceWaitListPolicyRepository(_crewContext, _currentUser),
             new AbsenceWaitListAllowancePolicyRepository(_crewContext, _currentUser),
             startProposalService,
@@ -1009,9 +1003,8 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
 
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
-            _crewContext,
-            _userContext,
             _currentUser,
+            new TestFieldEncryptor(),
             NullLoggerFactory.Instance);
 
         var services = new ServiceCollection();
@@ -1058,9 +1051,8 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
 
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
-            _crewContext,
-            _userContext,
             _currentUser,
+            new TestFieldEncryptor(),
             NullLoggerFactory.Instance);
 
         var waitListSignal = new WaitListReassignmentSignal();
@@ -1084,8 +1076,6 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
             factory,
             new NullAbsenceCodeRepository(),
             new StaticAbsenceApprovalPolicyResolver(),
-            waitListRecordRepository ?? new NullAbsenceRequestWaitListRecordRepository(),
-            new NullAbsenceRequestWaitListLinkRepository(),
             new NullCraftAbsenceWaitListPolicyRepository(),
             new NullAbsenceWaitListAllowancePolicyRepository(),
             startProposalService,

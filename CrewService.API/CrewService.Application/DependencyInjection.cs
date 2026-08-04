@@ -36,6 +36,8 @@ using CrewService.Application.ReportingExports.Renderers;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
 using CrewService.Application.WorkManagement;
+using CrewService.Application.Workflows;
+using CrewService.Application.Workflows.Effects;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CrewService.Application;
@@ -78,7 +80,6 @@ public static class DependencyInjection
         services.AddScoped<CraftAppService>();
         services.AddScoped<RosterAppService>();
         services.AddScoped<SeniorityStateAppService>();
-        services.AddScoped<SeniorityStateVacancyConfigService>();
         services.AddScoped<SeniorityAppService>();
 
         // Employees
@@ -204,6 +205,17 @@ public static class DependencyInjection
         services.AddScoped<EmployeeEligibilityService>();
         services.AddScoped<QualificationReactiveService>();
         services.AddScoped<EmployeeReactiveService>();
+        services.AddScoped<WorkflowRuntimeService>();
+        services.AddScoped<WorkflowTemplateManagementService>();
+        services.AddScoped<IWorkflowEffectRunner, WorkflowEffectRunner>();
+        services.AddScoped<IWorkflowEffectHandlerFactory, WorkflowEffectHandlerFactory>();
+        services.AddScoped<IWorkflowEffectExecutionTemplate, WorkflowEffectExecutionTemplate>();
+        services.AddScoped<IWorkflowTriggerExecutionTemplate, WorkflowTriggerExecutionTemplate>();
+        services.AddScoped<IWorkflowPostCommitDispatcher, WorkflowPostCommitDispatcher>();
+        services.AddScoped<IDatabaseWorkflowEffect, SendInvitationWorkflowDatabaseEffect>();
+        services.AddScoped<SeniorityWorkflowAssignmentPath>();
+        services.AddScoped<IDatabaseWorkflowEffect, SeniorityWorkflowDatabaseEffect>();
+        services.AddScoped<IDatabaseWorkflowEffect, AddToRosterBoardWorkflowDatabaseEffect>();
         services.AddScoped<IRequirementEvaluator, ManualCompletionEvaluator>();
         services.AddScoped<IRequirementEvaluator, TimeFromEventEvaluator>();
         services.AddScoped<IRequirementEvaluator, ActivityCountEvaluator>();

@@ -74,6 +74,36 @@ public sealed class InvitationAppService(
         uow.Invitations.Add(invitation);
         await uow.CommitAsync(ct);
 
+        await SendInvitationEmailAsync(invitation, parentName);
+    }
+
+    public async Task<Invitation?> CreateFromSystemInOrchestrationAsync(
+        IOrchestrationUnitOfWork uow,
+        string email,
+        ControlNumber? parentCtrlNbr,
+        string role,
+        string invitedByUserId,
+        string invitedByUserName,
+        int expirationDays,
+        ControlNumber? railroadCtrlNbr,
+        CancellationToken ct = default)
+    {
+        currentUserService.SetAuditOverride(invitedByUserName);
+
+        var existing = await uow.Invitations.GetPendingByEmailAndParentAsync(email, parentCtrlNbr);
+        if (existing is not null)
+        {
+            logger.LogWarning("InvitationAppService: Pending invitation already exists for {Email}.", email);
+            return null;
+        }
+
+        var invitation = Invitation.Create(email, parentCtrlNbr, role, invitedByUserId, expirationDays, railroadCtrlNbr);
+        uow.Invitations.Add(invitation);
+        return invitation;
+    }
+
+    public async Task SendInvitationEmailAsync(Invitation invitation, string parentName)
+    {
         try
         {
             var acceptUrl = $"{_baseUrl}/Account/AcceptInvitation?token={Uri.EscapeDataString(invitation.Token)}";

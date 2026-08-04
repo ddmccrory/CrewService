@@ -828,8 +828,6 @@ public sealed class VacancyProjectionOrchestratorServiceTests
         public IInvitationRepository Invitations => null!;
         public IPayrollTierRepository PayrollTiers => null!;
         public IDepartmentRepository Departments => null!;
-        public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => null!;
-        public ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults => null!;
         public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => null!;
         public IAbsenceRequestWaitListRecordRepository AbsenceRequestWaitListRecords => null!;
         public IAbsenceRequestWaitListLinkRepository AbsenceRequestWaitListLinks => null!;

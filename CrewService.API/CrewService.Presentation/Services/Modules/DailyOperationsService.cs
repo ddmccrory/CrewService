@@ -540,7 +540,7 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                 workInstance.WorkAreaGroupCtrlNbr,
                 evaluationDate);
 
-            var workAreaTimeZone = await workAreaClock.GetWorkAreaTimeZoneAsync(workInstance.WorkAreaGroupCtrlNbr);
+            var workAreaTimeZone = await workAreaClock.GetWorkAreaTimeZoneAsync(uow, workInstance.WorkAreaGroupCtrlNbr);
             foreach (var slotCtrlNbr in slotCtrlNbrs)
             {
                 var impacts = await uow.VacancyImpacts.GetByPositionSlotAsync(slotCtrlNbr);

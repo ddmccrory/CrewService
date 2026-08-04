@@ -229,6 +229,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("CtrlNbr");
 
                     b.HasIndex("EmailTypeCtrlNbr");
@@ -779,84 +782,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.HasIndex("ParentCtrlNbr");
 
                     b.ToTable("SeniorityStates");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Models.Seniority.SeniorityStateTypeVacancyDefault", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("DefaultVacancyAction")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("StateType")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("ParentCtrlNbr");
-
-                    b.HasIndex("RailroadCtrlNbr", "StateType")
-                        .IsUnique();
-
-                    b.ToTable("SeniorityStateTypeVacancyDefaults");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Models.Seniority.SeniorityStateVacancyConfig", b =>
-                {
-                    b.Property<long>("CtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("ParentCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("RailroadCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("SeniorityStateCtrlNbr")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("TargetBoardType")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("VacancyAction")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CtrlNbr");
-
-                    b.HasIndex("ParentCtrlNbr");
-
-                    b.HasIndex("SeniorityStateCtrlNbr");
-
-                    b.HasIndex("RailroadCtrlNbr", "SeniorityStateCtrlNbr")
-                        .IsUnique();
-
-                    b.ToTable("SeniorityStateVacancyConfigs");
                 });
 
             modelBuilder.Entity("CrewService.Domain.Models.UserAccess.Invitation", b =>
@@ -6576,6 +6501,275 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.ToTable("WorkInstances");
                 });
 
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowEffectType", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowEffectTypes");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowExecutionHistory", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("AggregateCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("TriggerTypeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WorkflowTemplateCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WorkflowVersionCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("WorkflowVersionNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("RailroadCtrlNbr");
+
+                    b.HasIndex("TriggerTypeCtrlNbr");
+
+                    b.HasIndex("WorkflowVersionCtrlNbr");
+
+                    b.HasIndex("WorkflowTemplateCtrlNbr", "StartedAtUtc");
+
+                    b.ToTable("WorkflowExecutionHistories");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowMetadataFieldType", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowMetadataFieldTypes");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowOperatorType", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowOperatorTypes");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowTemplate", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RailroadCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("TriggerTypeCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("TriggerTypeCtrlNbr");
+
+                    b.HasIndex("RailroadCtrlNbr", "TriggerTypeCtrlNbr");
+
+                    b.ToTable("WorkflowTemplates");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowTriggerType", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowTriggerTypes");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowVersion", b =>
+                {
+                    b.Property<long>("CtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DefinitionJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SavedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WorkflowTemplateCtrlNbr")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CtrlNbr");
+
+                    b.HasIndex("Status", "PublishedAtUtc");
+
+                    b.HasIndex("WorkflowTemplateCtrlNbr", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowVersions");
+                });
+
             modelBuilder.Entity("CrewService.Domain.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
@@ -7999,180 +8193,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("SeniorityStateCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Models.Seniority.SeniorityStateTypeVacancyDefault", b =>
-                {
-                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
-                        .WithMany()
-                        .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
-                        .WithMany()
-                        .HasForeignKey("RailroadCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("SeniorityStateTypeVacancyDefaultCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("SeniorityStateTypeVacancyDefaultCtrlNbr");
-
-                            b1.ToTable("SeniorityStateTypeVacancyDefaults");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SeniorityStateTypeVacancyDefaultCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("SeniorityStateTypeVacancyDefaultCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("SeniorityStateTypeVacancyDefaultCtrlNbr");
-
-                            b1.ToTable("SeniorityStateTypeVacancyDefaults");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SeniorityStateTypeVacancyDefaultCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("SeniorityStateTypeVacancyDefaultCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("SeniorityStateTypeVacancyDefaultCtrlNbr");
-
-                            b1.ToTable("SeniorityStateTypeVacancyDefaults");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SeniorityStateTypeVacancyDefaultCtrlNbr");
-                        });
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("DeletedBy");
-
-                    b.Navigation("ModifiedBy");
-                });
-
-            modelBuilder.Entity("CrewService.Domain.Models.Seniority.SeniorityStateVacancyConfig", b =>
-                {
-                    b.HasOne("CrewService.Domain.Models.Parents.Parent", null)
-                        .WithMany()
-                        .HasForeignKey("ParentCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
-                        .WithMany()
-                        .HasForeignKey("RailroadCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CrewService.Domain.Models.Seniority.SeniorityState", null)
-                        .WithMany()
-                        .HasForeignKey("SeniorityStateCtrlNbr")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
-                        {
-                            b1.Property<long>("SeniorityStateVacancyConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("SeniorityStateVacancyConfigCtrlNbr");
-
-                            b1.ToTable("SeniorityStateVacancyConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SeniorityStateVacancyConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
-                        {
-                            b1.Property<long>("SeniorityStateVacancyConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("SeniorityStateVacancyConfigCtrlNbr");
-
-                            b1.ToTable("SeniorityStateVacancyConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SeniorityStateVacancyConfigCtrlNbr");
-                        });
-
-                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
-                        {
-                            b1.Property<long>("SeniorityStateVacancyConfigCtrlNbr")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<DateTime>("AuditDateTime")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("AuditName")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("TEXT");
-
-                            b1.HasKey("SeniorityStateVacancyConfigCtrlNbr");
-
-                            b1.ToTable("SeniorityStateVacancyConfigs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SeniorityStateVacancyConfigCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");
@@ -18744,6 +18764,544 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                             b1.WithOwner()
                                 .HasForeignKey("WorkInstanceCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowEffectType", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowEffectTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowEffectTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowEffectTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowEffectTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowEffectTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowEffectTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowEffectTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowEffectTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowEffectTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowEffectTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowEffectTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowEffectTypeCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowExecutionHistory", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Workflows.WorkflowTriggerType", null)
+                        .WithMany()
+                        .HasForeignKey("TriggerTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CrewService.Domain.Modules.Workflows.WorkflowTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowTemplateCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Workflows.WorkflowVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowVersionCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowExecutionHistoryCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowExecutionHistoryCtrlNbr");
+
+                            b1.ToTable("WorkflowExecutionHistories");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowExecutionHistoryCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowExecutionHistoryCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowExecutionHistoryCtrlNbr");
+
+                            b1.ToTable("WorkflowExecutionHistories");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowExecutionHistoryCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowExecutionHistoryCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowExecutionHistoryCtrlNbr");
+
+                            b1.ToTable("WorkflowExecutionHistories");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowExecutionHistoryCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowMetadataFieldType", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowMetadataFieldTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowMetadataFieldTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowMetadataFieldTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowMetadataFieldTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowMetadataFieldTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowMetadataFieldTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowMetadataFieldTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowMetadataFieldTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowMetadataFieldTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowMetadataFieldTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowMetadataFieldTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowMetadataFieldTypeCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowOperatorType", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowOperatorTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowOperatorTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowOperatorTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowOperatorTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowOperatorTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowOperatorTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowOperatorTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowOperatorTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowOperatorTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowOperatorTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowOperatorTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowOperatorTypeCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowTemplate", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.TenantConfig.DynamicGroup", null)
+                        .WithMany()
+                        .HasForeignKey("RailroadCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CrewService.Domain.Modules.Workflows.WorkflowTriggerType", null)
+                        .WithMany()
+                        .HasForeignKey("TriggerTypeCtrlNbr")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowTemplateCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowTemplateCtrlNbr");
+
+                            b1.ToTable("WorkflowTemplates");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowTemplateCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowTemplateCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowTemplateCtrlNbr");
+
+                            b1.ToTable("WorkflowTemplates");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowTemplateCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowTemplateCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowTemplateCtrlNbr");
+
+                            b1.ToTable("WorkflowTemplates");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowTemplateCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowTriggerType", b =>
+                {
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowTriggerTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowTriggerTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowTriggerTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowTriggerTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowTriggerTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowTriggerTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowTriggerTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowTriggerTypeCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowTriggerTypeCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowTriggerTypeCtrlNbr");
+
+                            b1.ToTable("WorkflowTriggerTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowTriggerTypeCtrlNbr");
+                        });
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DeletedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
+            modelBuilder.Entity("CrewService.Domain.Modules.Workflows.WorkflowVersion", b =>
+                {
+                    b.HasOne("CrewService.Domain.Modules.Workflows.WorkflowTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowTemplateCtrlNbr")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "CreatedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowVersionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowVersionCtrlNbr");
+
+                            b1.ToTable("WorkflowVersions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowVersionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "DeletedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowVersionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowVersionCtrlNbr");
+
+                            b1.ToTable("WorkflowVersions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowVersionCtrlNbr");
+                        });
+
+                    b.OwnsOne("CrewService.Domain.ValueObjects.AuditStamp", "ModifiedBy", b1 =>
+                        {
+                            b1.Property<long>("WorkflowVersionCtrlNbr")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime>("AuditDateTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AuditName")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("WorkflowVersionCtrlNbr");
+
+                            b1.ToTable("WorkflowVersions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorkflowVersionCtrlNbr");
                         });
 
                     b.Navigation("CreatedBy");

@@ -9,6 +9,7 @@ public sealed class EmailAddress : Entity
     public ControlNumber EmployeeCtrlNbr { get; private set; }
     public ControlNumber EmailTypeCtrlNbr { get; private set; }
     public string Email { get; private set; } = string.Empty;
+    public bool IsPrimary { get; private set; }
 
     private EmailAddress()
     {
@@ -19,22 +20,26 @@ public sealed class EmailAddress : Entity
     private EmailAddress(
         ControlNumber employeeCtrlNbr,
         ControlNumber emailTypeCtrlNbr,
-        string email)
+        string email,
+        bool isPrimary)
     {
         EmployeeCtrlNbr = employeeCtrlNbr;
         EmailTypeCtrlNbr = emailTypeCtrlNbr;
         Email = email;
+        IsPrimary = isPrimary;
     }
 
     internal static EmailAddress Create(
         ControlNumber employeeCtrlNbr,
         ControlNumber emailTypeCtrlNbr,
-        string email)
+        string email,
+        bool isPrimary = false)
     {
         var entity = new EmailAddress(
             employeeCtrlNbr,
             emailTypeCtrlNbr,
-            email);
+            email,
+            isPrimary);
         entity.Raise(new EmailAddressCreatedDomainEvent(entity.CtrlNbr));
         return entity;
     }
@@ -55,6 +60,11 @@ public sealed class EmailAddress : Entity
         }
 
         return this;
+    }
+
+    public void SetPrimary(bool isPrimary)
+    {
+        IsPrimary = isPrimary;
     }
 
     public void Delete()

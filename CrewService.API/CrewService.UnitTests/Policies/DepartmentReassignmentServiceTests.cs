@@ -555,8 +555,6 @@ public class DepartmentReassignmentServiceTests
         public IRosterRepository Rosters => RosterRepo;
         public ISeniorityRepository Seniority => null!;
         public ISeniorityStateRepository SeniorityStates => null!;
-        public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => null!;
-        public ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults => null!;
         public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => null!;
         public IGroupTypeRepository GroupTypes => null!;
         public IDynamicGroupRepository DynamicGroups => DynamicGroupRepo;

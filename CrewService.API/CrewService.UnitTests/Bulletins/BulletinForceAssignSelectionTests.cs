@@ -524,6 +524,5 @@ file sealed class ForceAssignFakeUow : IOrchestrationUnitOfWork
     public IUserParentAssignmentRepository UserParentAssignments => throw new NotImplementedException();
     public IInvitationRepository Invitations => throw new NotImplementedException();
     public IPayrollTierRepository PayrollTiers => throw new NotImplementedException();
-    public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => throw new NotImplementedException();
     public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => throw new NotImplementedException();
 }

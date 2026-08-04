@@ -25,9 +25,18 @@ public sealed class DomainEventReactor(
         var employeeService = scope.ServiceProvider.GetRequiredService<EmployeeReactiveService>();
         var notificationDelivery = scope.ServiceProvider.GetRequiredService<INotificationDeliveryService>();
         var vacancyRepostService = scope.ServiceProvider.GetRequiredService<IVacancyRepostService>();
+        var actorContextAccessor = scope.ServiceProvider.GetRequiredService<IActorContextAccessor>();
 
         foreach (var domainEvent in events)
         {
+            var actorContext = new ActorContext(
+                domainEvent.ActorUserIdentifier,
+                domainEvent.ActorUserName,
+                domainEvent.ActorParentCtrlNbr,
+                domainEvent.ActorRailroadCtrlNbr);
+
+            using var actorScope = actorContextAccessor.BeginScope(actorContext);
+
             switch (domainEvent.EventType)
             {
                 case "EmployeeCreatedDomainEvent":

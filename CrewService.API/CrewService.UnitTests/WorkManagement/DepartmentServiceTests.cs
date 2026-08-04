@@ -293,9 +293,8 @@ public sealed class DepartmentServiceTests : IDisposable
         var effectiveCurrentUser = currentUser ?? _currentUser;
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
-            _crewContext,
-            _userContext,
             effectiveCurrentUser,
+            new TestFieldEncryptor(),
             NullLoggerFactory.Instance);
 
         return new DepartmentService(factory, effectiveCurrentUser);

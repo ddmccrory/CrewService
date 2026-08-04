@@ -16,6 +16,10 @@ public abstract record DomainEvent : IDomainEvent
     public string? CorrelationId { get; init; }
     public string? OrchestrationId { get; init; }
     public string? IdempotencyKey { get; init; }
+    public string? ActorUserIdentifier { get; init; }
+    public string? ActorUserName { get; init; }
+    public long? ActorParentCtrlNbr { get; init; }
+    public long? ActorRailroadCtrlNbr { get; init; }
     public int EventVersion { get; init; } = 1;
     public string? PayloadJson { get; init; }
 

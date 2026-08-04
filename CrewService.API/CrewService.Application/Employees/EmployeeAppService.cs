@@ -54,6 +54,12 @@ public sealed class EmployeeAppService(
         return await uow.Employees.GetByEmployeeNumberAsync(employeeNumber);
     }
 
+    public async Task<Employee?> GetBySocialSecurityNumberAsync(string socialSecurityNumber, CancellationToken ct = default)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await uow.Employees.GetBySocialSecurityNumberAsync(socialSecurityNumber, ct);
+    }
+
     public async Task<Employee> CreateAsync(
         ControlNumber clientCtrlNbr, string email, string employeeNumber,
         string socialSecurityNumber, Gender gender, Race race,
@@ -61,6 +67,7 @@ public sealed class EmployeeAppService(
         string? driversLicenseNumber = null, string? issuingState = null, MaritalStatus? maritalStatus = null,
         string? firstName = null, string? middleName = null, string? lastName = null,
         bool sendInvitation = true,
+        ControlNumber? railroadCtrlNbr = null,
         CancellationToken ct = default)
     {
         // Step 1 — Create Identity user (idempotent: reuse if already exists)
@@ -92,7 +99,7 @@ public sealed class EmployeeAppService(
         var parentName = parent.Name.Value;
 
         var employee = Employee.Create(
-            clientCtrlNbr, userId, employeeNumber, socialSecurityNumber,
+            clientCtrlNbr, railroadCtrlNbr, userId, employeeNumber, socialSecurityNumber,
             gender, race, birthDate, employmentDate, employmentStatusCtrlNbr,
             email, invitedByUserId, invitedByUserName, parentName);
 
@@ -102,7 +109,7 @@ public sealed class EmployeeAppService(
         var emailTypes = await uow.EmailAddressTypes.GetByClientCtrlNbrAsync(clientCtrlNbr);
         var emailType = emailTypes.FirstOrDefault()
             ?? throw new InvalidOperationException($"No email address types configured for client {clientCtrlNbr.Value}.");
-        employee.AddEmailAddress(email, emailType.CtrlNbr);
+        employee.AddEmailAddress(email, emailType.CtrlNbr, isPrimary: true);
 
         uow.Employees.Add(employee);
 

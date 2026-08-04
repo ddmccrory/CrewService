@@ -19,23 +19,21 @@ public sealed class PerCallAuthInterceptor(CircuitTokenProvider tokenProvider, A
         ClientInterceptorContext<TRequest, TResponse> context,
         AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
     {
+        var headers = context.Options.Headers ?? new Metadata();
         var token = _tokenProvider.AccessToken;
 
         if (!string.IsNullOrEmpty(token))
-        {
-            var headers = context.Options.Headers ?? new Metadata();
             headers.Add("Authorization", $"Bearer {token}");
 
-            if (_appContext.SelectedParentCtrlNbr.HasValue)
-                headers.Add("x-parent-ctrl-nbr", _appContext.SelectedParentCtrlNbr.Value.ToString());
+        if (_appContext.SelectedParentCtrlNbr.HasValue)
+            headers.Add("x-parent-ctrl-nbr", _appContext.SelectedParentCtrlNbr.Value.ToString());
 
-            if (_appContext.SelectedRailroadCtrlNbr.HasValue)
-                headers.Add("x-railroad-ctrl-nbr", _appContext.SelectedRailroadCtrlNbr.Value.ToString());
+        if (_appContext.SelectedRailroadCtrlNbr.HasValue)
+            headers.Add("x-railroad-ctrl-nbr", _appContext.SelectedRailroadCtrlNbr.Value.ToString());
 
-            var newOptions = context.Options.WithHeaders(headers);
-            context = new ClientInterceptorContext<TRequest, TResponse>(
-                context.Method, context.Host, newOptions);
-        }
+        var newOptions = context.Options.WithHeaders(headers);
+        context = new ClientInterceptorContext<TRequest, TResponse>(
+            context.Method, context.Host, newOptions);
 
         return base.AsyncUnaryCall(request, context, continuation);
     }
