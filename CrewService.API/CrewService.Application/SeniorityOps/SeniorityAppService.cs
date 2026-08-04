@@ -1,5 +1,6 @@
 using CrewService.Application.Qualifications;
 using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Workflows;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
@@ -16,7 +17,7 @@ public sealed class SeniorityAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     RequirementEvaluationService requirementEvaluationService,
     QualificationReactiveService qualificationReactiveService,
-    SeniorityStateVacancyConfigService vacancyConfigService,
+    WorkflowRuntimeService workflowRuntimeService,
     ISeniorityStateChangeSignal seniorityStateChangeSignal)
 {
     public sealed record SeniorityListItem(
@@ -311,12 +312,15 @@ public sealed class SeniorityAppService(
             await uow.CommitAsync(ct);
         }
 
-        // Apply the configured vacancy action once the seniority-state write UoW is committed and
-        // disposed so the canonical vacate/repost services each open their own transaction on the
-        // shared connection. Positions are collected employee-wide, so a single call detaches the
-        // employee from every position they currently hold.
+        // Trigger workflow execution after the seniority-state write UoW is committed.
         if (previousStateCtrlNbr != seniorityStateCtrlNbr)
-            await vacancyConfigService.ApplyVacancyActionAsync(employeeCtrlNbr, seniorityStateCtrlNbr, rosterCtrlNbr, ct);
+        {
+            await workflowRuntimeService.ExecuteSeniorityStateChangedAsync(
+                employeeCtrlNbr,
+                seniorityStateCtrlNbr,
+                rosterCtrlNbr,
+                ct);
+        }
 
         return seniority;
     }
@@ -327,8 +331,7 @@ public sealed class SeniorityAppService(
     /// Applies the employee-wide off-property cascade inside the supplied unit of work: every
     /// seniority record for the employee is moved into the off-property state and end-dated, all
     /// individual (manually granted) qualifications are removed, and every certification that is
-    /// still live is administratively cancelled. Position vacating is handled separately by the
-    /// caller via <see cref="SeniorityStateVacancyConfigService.ApplyVacancyActionAsync"/>.
+    /// still live is administratively cancelled.
     /// </summary>
     private static async Task ApplyOffPropertyCascadeAsync(
         IOrchestrationUnitOfWork uow,
@@ -572,7 +575,7 @@ public sealed class SeniorityAppService(
 
             if (previousState != pending.ToSeniorityStateCtrlNbr)
             {
-                await vacancyConfigService.ApplyVacancyActionAsync(
+                await workflowRuntimeService.ExecuteSeniorityStateChangedAsync(
                     seniority.EmployeeCtrlNbr,
                     pending.ToSeniorityStateCtrlNbr,
                     seniority.RosterCtrlNbr,

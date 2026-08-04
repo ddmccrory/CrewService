@@ -181,7 +181,7 @@ public sealed class CallSheetSlotVacancyEvaluationService(
             return evaluations;
         }
 
-        var tz = await clock.GetWorkAreaTimeZoneAsync(workAreaGroupCtrlNbr, ct);
+        var tz = await clock.GetWorkAreaTimeZoneAsync(uow, workAreaGroupCtrlNbr, ct);
         var slotIds = shift.PositionSlots.Select(s => s.CtrlNbr).ToList();
         var onDutyBySlot = (await uow.OnDutyRecords.GetByPositionSlotsAsync(slotIds, ct))
             .GroupBy(r => r.PositionSlotCtrlNbr)

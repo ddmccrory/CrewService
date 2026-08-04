@@ -2730,44 +2730,5 @@ internal static class DevDataSeeder
             }
         }
 
-        // Seed PTRA seniority state vacancy actions (railroad-level).
-        // Mirrors the "Seniority State Vacancy Actions" administration screen: each state maps
-        // to what should happen to the employee's current position when they transition into it.
-        var seniorityStateRepo = sp.GetRequiredService<ISeniorityStateRepository>();
-        var vacancyConfigRepo  = sp.GetRequiredService<ISeniorityStateVacancyConfigRepository>();
-
-        var ptraStates = await seniorityStateRepo.GetByParentCtrlNbrAsync(ptraParent.CtrlNbr);
-
-        var vacancyActionsByState = new Dictionary<string, (VacancyAction Action, BoardType? Board)>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Active"]           = (VacancyAction.MoveToBoard, BoardType.Hangout),
-            ["Cut Back"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Dismissed"]        = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Inactive"]         = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Leave of Absence"] = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Medical Leave"]    = (VacancyAction.MoveToBoard, BoardType.ExtendedAbsence),
-            ["Retired"]          = (VacancyAction.VacateAndBulletin, null),
-            ["Terminated"]       = (VacancyAction.VacateAndBulletin, null),
-        };
-
-        foreach (var state in ptraStates)
-        {
-            if (!vacancyActionsByState.TryGetValue(state.StateDescription, out var mapping))
-                continue;
-
-            var existingConfig = await vacancyConfigRepo.GetBySeniorityStateAsync(ptraRailroad.CtrlNbr, state.CtrlNbr);
-            if (existingConfig is null)
-                await vacancyConfigRepo.AddAsync(SeniorityStateVacancyConfig.Create(
-                    ptraParent.CtrlNbr,
-                    ptraRailroad.CtrlNbr,
-                    state.CtrlNbr,
-                    mapping.Action,
-                    mapping.Board));
-            else
-            {
-                existingConfig.Update(mapping.Action, mapping.Board);
-                await vacancyConfigRepo.UpdateAsync(existingConfig);
-            }
-        }
     }
 }

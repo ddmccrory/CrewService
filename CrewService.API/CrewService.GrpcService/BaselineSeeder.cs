@@ -7,8 +7,12 @@ using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Notifications;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Infrastructure.Models.UserAccount;
+using CrewService.Domain.Modules.Workflows;
+using CrewService.Domain.ValueObjects;
+using CrewService.Application.Workflows;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using System.Text.Json;
 using System.Security.Claims;
 namespace CrewService.GrpcService;
 
@@ -99,7 +103,7 @@ internal static class BaselineSeeder
         ("admin/permissions", "Permissions", "Administration", "/admin/permissions"),
         ("admin/audit-log", "Audit Log", "Administration", "/admin/audit-log"),
         ("admin/required-positions-strategies", "Position Formulas", "Administration", "/admin/required-positions-strategies"),
-        ("admin/seniority-vacancy-configs", "Vacancy Actions", "Administration", "/admin/seniority-vacancy-configs"),
+        ("admin/workflow-templates", "Workflow Templates", "Administration", "/admin/workflow-templates"),
         ("admin/seniority-move-policies", "Seniority Move Policies", "Administration", "/admin/seniority-move-policies"),
         ("admin/absence-approval-policy", "Absence Approval Policy", "Administration", "/admin/absence-approval-policy"),
         ("admin/call-sheet-rules", "Call Sheet Rules", "Administration", "/admin/call-sheet-rules"),
@@ -175,7 +179,7 @@ internal static class BaselineSeeder
         ["admin/permissions"] = ["SystemAdmin"],
         ["admin/audit-log"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/required-positions-strategies"] = ["SystemAdmin"],
-        ["admin/seniority-vacancy-configs"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
+        ["admin/workflow-templates"] = ["SystemAdmin"],
         ["admin/seniority-move-policies"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/absence-approval-policy"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/call-sheet-rules"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
@@ -197,6 +201,7 @@ internal static class BaselineSeeder
         };
 
         await BackfillGroupPathsAsync(sp);
+        await SeedSystemGroupTypesAsync(sp);
         await SeedRolesAsync(sp);
         await SeedFeaturesAsync(sp);
         await SeedDefaultPermissionsAsync(sp);
@@ -204,6 +209,142 @@ internal static class BaselineSeeder
         await SeedNotificationTypeConfigsAsync(sp);
         await SeedSystemAdminAsync(sp);
         await SeedStaticRequiredPositionsStrategyAsync(sp);
+        await SeedWorkflowReferenceDataAsync(sp);
+        await SeedEmployeeCreatedInviteWorkflowAsync(sp);
+        await SeedSeniorityStateChangedWorkflowAsync(sp);
+    }
+
+    private static async Task SeedWorkflowReferenceDataAsync(IServiceProvider sp)
+    {
+        var triggerTypeRepo = sp.GetRequiredService<IWorkflowTriggerTypeRepository>();
+        var effectTypeRepo = sp.GetRequiredService<IWorkflowEffectTypeRepository>();
+        var operatorTypeRepo = sp.GetRequiredService<IWorkflowOperatorTypeRepository>();
+        var metadataFieldTypeRepo = sp.GetRequiredService<IWorkflowMetadataFieldTypeRepository>();
+
+        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated);
+        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStateChanged);
+
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation);
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing);
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.AddToRosterBoard, WorkflowEffectTypes.AddToRosterBoard);
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition);
+
+        await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.EqualsOperator, "Equals");
+        await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.NotEquals, "Does Not Equal");
+
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority State");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.DepartmentCtrlNbr, "Department CtrlNbr");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.DepartmentName, "Department Name");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.CraftCtrlNbr, "Craft CtrlNbr");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority State CtrlNbr");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority State Name");
+
+        async Task EnsureTriggerTypeAsync(string code, string name)
+        {
+            var existing = await triggerTypeRepo.GetByCodeAsync(code);
+            if (existing is null)
+            {
+                await triggerTypeRepo.AddAsync(WorkflowTriggerType.Create(code, name));
+                return;
+            }
+
+            if (!existing.IsActive || !string.Equals(existing.Name, name, StringComparison.Ordinal))
+            {
+                existing.Update(code, name, isActive: true);
+                await triggerTypeRepo.UpdateAsync(existing);
+            }
+        }
+
+        async Task EnsureEffectTypeAsync(string code, string name)
+        {
+            var existing = await effectTypeRepo.GetByCodeAsync(code);
+            if (existing is null)
+            {
+                await effectTypeRepo.AddAsync(WorkflowEffectType.Create(code, name));
+                return;
+            }
+
+            if (!existing.IsActive || !string.Equals(existing.Name, name, StringComparison.Ordinal))
+            {
+                existing.Update(code, name, isActive: true);
+                await effectTypeRepo.UpdateAsync(existing);
+            }
+        }
+
+        async Task EnsureOperatorTypeAsync(string code, string name)
+        {
+            var existing = await operatorTypeRepo.GetByCodeAsync(code);
+            if (existing is null)
+            {
+                await operatorTypeRepo.AddAsync(WorkflowOperatorType.Create(code, name));
+                return;
+            }
+
+            if (!existing.IsActive || !string.Equals(existing.Name, name, StringComparison.Ordinal))
+            {
+                existing.Update(code, name, isActive: true);
+                await operatorTypeRepo.UpdateAsync(existing);
+            }
+        }
+
+        async Task EnsureMetadataFieldTypeAsync(string code, string name)
+        {
+            var existing = await metadataFieldTypeRepo.GetByCodeAsync(code);
+            if (existing is null)
+            {
+                await metadataFieldTypeRepo.AddAsync(WorkflowMetadataFieldType.Create(code, name));
+                return;
+            }
+
+            if (!existing.IsActive || !string.Equals(existing.Name, name, StringComparison.Ordinal))
+            {
+                existing.Update(code, name, isActive: true);
+                await metadataFieldTypeRepo.UpdateAsync(existing);
+            }
+        }
+    }
+
+    private static async Task SeedSystemGroupTypesAsync(IServiceProvider sp)
+    {
+        var parentRepo = sp.GetRequiredService<IParentRepository>();
+        var groupTypeRepo = sp.GetRequiredService<IGroupTypeRepository>();
+
+        var parents = await parentRepo.GetAllAsync();
+        foreach (var parent in parents)
+        {
+            if (parent.CtrlNbr is null)
+                continue;
+
+            var existingRailroadType = await groupTypeRepo.GetByNameAsync("Railroad", parent.CtrlNbr);
+            if (existingRailroadType is null)
+            {
+                await groupTypeRepo.AddAsync(GroupType.Create(
+                    name: "Railroad",
+                    description: "Railroad operational boundaries",
+                    isWorkArea: true,
+                    parentCtrlNbr: parent.CtrlNbr));
+                continue;
+            }
+
+            var desiredDescription = string.IsNullOrWhiteSpace(existingRailroadType.Description)
+                ? "Railroad operational boundaries"
+                : existingRailroadType.Description;
+
+            if (existingRailroadType.IsWorkArea && desiredDescription == existingRailroadType.Description)
+                continue;
+
+            existingRailroadType.Update(
+                name: existingRailroadType.Name,
+                description: desiredDescription,
+                isWorkArea: true,
+                flagsJson: existingRailroadType.FlagsJson,
+                parentCtrlNbr: existingRailroadType.ParentCtrlNbr,
+                railroadCtrlNbr: existingRailroadType.RailroadCtrlNbr,
+                parentGroupTypeCtrlNbr: existingRailroadType.ParentGroupTypeCtrlNbr);
+
+            await groupTypeRepo.UpdateAsync(existingRailroadType);
+        }
     }
 
     private static async Task SeedNotificationTypeConfigsAsync(IServiceProvider sp)
@@ -370,5 +511,256 @@ internal static class BaselineSeeder
             name: "Static",
             description: "Fixed required-position count set manually per board. Default for all crafts.",
             formulaType: "Static"));
+    }
+
+    private static async Task SeedEmployeeCreatedInviteWorkflowAsync(IServiceProvider sp)
+    {
+        var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        var roleRepo = sp.GetRequiredService<IRoleRepository>();
+        var templateRepo = sp.GetRequiredService<IWorkflowTemplateRepository>();
+        var versionRepo = sp.GetRequiredService<IWorkflowVersionRepository>();
+        var triggerTypeRepo = sp.GetRequiredService<IWorkflowTriggerTypeRepository>();
+        var effectTypeRepo = sp.GetRequiredService<IWorkflowEffectTypeRepository>();
+
+        var employeeRole = await roleRepo.GetByNameAsync("Employee");
+        if (employeeRole is null)
+            return;
+
+        var employeeCreatedTriggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.EmployeeCreated);
+        var sendInvitationEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.SendInvitation);
+        if (employeeCreatedTriggerType is null || sendInvitationEffectType is null)
+            return;
+
+        var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+        foreach (var railroad in railroads)
+        {
+            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, employeeCreatedTriggerType.CtrlNbr))
+                .FirstOrDefault(w => string.Equals(w.Name, "Invite New Employee", StringComparison.OrdinalIgnoreCase));
+
+            if (existingTemplate is null)
+            {
+                existingTemplate = WorkflowTemplate.Create(
+                    railroad.CtrlNbr,
+                    name: "Invite New Employee",
+                    triggerTypeCtrlNbr: employeeCreatedTriggerType.CtrlNbr,
+                    isEnabled: true);
+
+                await templateRepo.AddAsync(existingTemplate);
+            }
+
+            var existingPublished = await versionRepo.GetLatestPublishedByRailroadAndTriggerAsync(railroad.CtrlNbr, employeeCreatedTriggerType.CtrlNbr);
+            if (existingPublished is not null && existingPublished.WorkflowTemplateCtrlNbr == existingTemplate.CtrlNbr)
+                continue;
+
+            var definition = new WorkflowDefinition(
+                TriggerTypeCtrlNbr: employeeCreatedTriggerType.CtrlNbr,
+                TriggerConditionGroupOperator: "ALL",
+                TriggerConditions: [],
+                Steps:
+                [
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 1,
+                        Name: "Send Invitation",
+                        IsEnabled: true,
+                        FailurePolicy: "StopWorkflow",
+                        ConditionGroupOperator: "ALL",
+                        Conditions: [],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: sendInvitationEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>
+                                {
+                                    ["roleCtrlNbr"] = employeeRole.CtrlNbr.Value.ToString(),
+                                    ["expirationDays"] = "7",
+                                    ["railroadCtrlNbr"] = railroad.CtrlNbr.Value.ToString()
+                                })
+                        ])
+                ]);
+
+            var existingVersions = await versionRepo.GetByTemplateAsync(existingTemplate.CtrlNbr);
+            var nextVersion = existingVersions.Count == 0 ? 1 : existingVersions.Max(v => v.VersionNumber) + 1;
+
+            var version = WorkflowVersion.Create(
+                existingTemplate.CtrlNbr,
+                versionNumber: nextVersion,
+                definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                notes: "Seeded default Employee Created invitation workflow",
+                status: WorkflowVersionStatus.Published);
+
+            await versionRepo.AddAsync(version);
+        }
+    }
+
+    private static async Task SeedSeniorityStateChangedWorkflowAsync(IServiceProvider sp)
+    {
+        var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        var templateRepo = sp.GetRequiredService<IWorkflowTemplateRepository>();
+        var versionRepo = sp.GetRequiredService<IWorkflowVersionRepository>();
+        var triggerTypeRepo = sp.GetRequiredService<IWorkflowTriggerTypeRepository>();
+        var effectTypeRepo = sp.GetRequiredService<IWorkflowEffectTypeRepository>();
+        var operatorTypeRepo = sp.GetRequiredService<IWorkflowOperatorTypeRepository>();
+        var metadataFieldTypeRepo = sp.GetRequiredService<IWorkflowMetadataFieldTypeRepository>();
+
+        var seniorityStateChangedTriggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged);
+        var addToRosterBoardEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.AddToRosterBoard);
+        var vacateAndBulletinEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition);
+        var equalsOperatorType = await operatorTypeRepo.GetByCodeAsync(WorkflowOperatorTypeCodes.EqualsOperator);
+        var newSeniorityStateMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NewSeniorityState);
+
+        if (seniorityStateChangedTriggerType is null
+            || addToRosterBoardEffectType is null
+            || vacateAndBulletinEffectType is null
+            || equalsOperatorType is null
+            || newSeniorityStateMetadataFieldType is null)
+        {
+            return;
+        }
+
+        var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+        foreach (var railroad in railroads)
+        {
+            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, seniorityStateChangedTriggerType.CtrlNbr))
+                .FirstOrDefault(w => string.Equals(w.Name, "Seniority State Change", StringComparison.OrdinalIgnoreCase));
+
+            if (existingTemplate is null)
+            {
+                existingTemplate = WorkflowTemplate.Create(
+                    railroad.CtrlNbr,
+                    name: "Seniority State Change",
+                    triggerTypeCtrlNbr: seniorityStateChangedTriggerType.CtrlNbr,
+                    isEnabled: true);
+
+                await templateRepo.AddAsync(existingTemplate);
+            }
+
+            var existingPublished = await versionRepo.GetLatestPublishedByRailroadAndTriggerAsync(
+                railroad.CtrlNbr,
+                seniorityStateChangedTriggerType.CtrlNbr);
+            if (existingPublished is not null && existingPublished.WorkflowTemplateCtrlNbr == existingTemplate.CtrlNbr)
+                continue;
+
+            var definition = new WorkflowDefinition(
+                TriggerTypeCtrlNbr: seniorityStateChangedTriggerType.CtrlNbr,
+                TriggerConditionGroupOperator: "ALL",
+                TriggerConditions: [],
+                Steps:
+                [
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 1,
+                        Name: "Active -> Hangout",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ALL",
+                        Conditions:
+                        [
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Active")
+                        ],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: addToRosterBoardEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>
+                                {
+                                    [WorkflowOptionKeys.EffectOption] = "Hangout"
+                                })
+                        ]),
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 2,
+                        Name: "Any Inactive -> Extended Absence",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ANY",
+                        Conditions:
+                        [
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Cut Back"),
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Inactive"),
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Leave of Absence"),
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Medical Leave")
+                        ],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: addToRosterBoardEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>
+                                {
+                                    [WorkflowOptionKeys.EffectOption] = "Extended Absence"
+                                })
+                        ]),
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 3,
+                        Name: "Any Off Property -> Vacate and Bulletin",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ANY",
+                        Conditions:
+                        [
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Retired"),
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Terminated")
+                        ],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: vacateAndBulletinEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>())
+                        ])
+                ]);
+
+            var existingVersions = await versionRepo.GetByTemplateAsync(existingTemplate.CtrlNbr);
+            var nextVersion = existingVersions.Count == 0 ? 1 : existingVersions.Max(v => v.VersionNumber) + 1;
+
+            var version = WorkflowVersion.Create(
+                existingTemplate.CtrlNbr,
+                versionNumber: nextVersion,
+                definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                notes: "Seeded default Seniority State Changed workflow",
+                status: WorkflowVersionStatus.Published);
+
+            await versionRepo.AddAsync(version);
+        }
     }
 }

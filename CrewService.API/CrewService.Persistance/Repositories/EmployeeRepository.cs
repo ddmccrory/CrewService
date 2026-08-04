@@ -56,6 +56,19 @@ internal sealed class EmployeeRepository(CrewServiceDbContext dbContext, ICurren
             .SingleOrDefaultAsync(e => e.EmployeeNumber == employeeNumber);
     }
 
+    public async Task<Employee?> GetBySocialSecurityNumberAsync(string socialSecurityNumber, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(socialSecurityNumber))
+            throw new ArgumentException("The social security number cannot be null or empty", nameof(socialSecurityNumber));
+
+        return await DbContext.Set<Employee>()
+            .Include(e => e.Addresses)
+            .Include(e => e.PhoneNumbers)
+            .Include(e => e.EmailAddresses)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(e => e.SocialSecurityNumber == socialSecurityNumber, ct);
+    }
+
     public async Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(userId))

@@ -31,7 +31,6 @@ builder.Services.AddScoped<RosterClient>();
 builder.Services.AddScoped<RosterBoardClient>();
 builder.Services.AddScoped<SeniorityClient>();
 builder.Services.AddScoped<SeniorityStateClient>();
-builder.Services.AddScoped<SeniorityVacancyConfigClient>();
 builder.Services.AddScoped<TenantConfigClient>();
 builder.Services.AddScoped<DepartmentClient>();
 builder.Services.AddScoped<CrewClient>();
@@ -48,6 +47,7 @@ builder.Services.AddScoped<NotificationsClient>();
 builder.Services.AddScoped<BackgroundServicesClient>();
 builder.Services.AddScoped<AbsenceClient>();
 builder.Services.AddScoped<VacancyAssignmentClient>();
+builder.Services.AddScoped<WorkflowTemplatesClient>();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
 

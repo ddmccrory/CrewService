@@ -74,9 +74,8 @@ public sealed class CraftDeletionCascadeTests : IDisposable
     {
         var factory = new OrchestrationUnitOfWorkFactory(
             _connection,
-            _crewContext,
-            _userContext,
             _currentUser,
+            new TestFieldEncryptor(),
             NullLoggerFactory.Instance);
 
         return new CraftAppService(factory, new CrewService.Application.TenantConfig.RailroadResolver());

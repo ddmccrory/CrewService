@@ -291,7 +291,6 @@ public sealed class CallSheetIncumbentSyncServiceTests
         public IRosterRepository Rosters => null!;
         public ISeniorityRepository Seniority => null!;
         public ISeniorityStateRepository SeniorityStates => null!;
-        public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => null!;
         public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => null!;
         public IGroupTypeRepository GroupTypes => null!;
         public IDynamicGroupRepository DynamicGroups => DynamicGroupRepo;

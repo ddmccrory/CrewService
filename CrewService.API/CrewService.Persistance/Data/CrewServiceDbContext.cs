@@ -8,6 +8,7 @@ using CrewService.Domain.Models.Railroads;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.Workflows;
 using CrewService.Domain.Outbox;
 using CrewService.Domain.Primitives;
 using CrewService.Domain.ValueObjects;
@@ -46,11 +47,16 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Roster> Rosters => Set<Roster>();
     public DbSet<Seniority> Seniority => Set<Seniority>();
     public DbSet<SeniorityState> SeniorityStates => Set<SeniorityState>();
-    public DbSet<SeniorityStateVacancyConfig> SeniorityStateVacancyConfigs => Set<SeniorityStateVacancyConfig>();
-    public DbSet<SeniorityStateTypeVacancyDefault> SeniorityStateTypeVacancyDefaults => Set<SeniorityStateTypeVacancyDefault>();
     public DbSet<PendingSeniorityStateChange> PendingSeniorityStateChanges => Set<PendingSeniorityStateChange>();
     public DbSet<UserParentAssignment> UserParentAssignments => Set<UserParentAssignment>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<WorkflowTemplate> WorkflowTemplates => Set<WorkflowTemplate>();
+    public DbSet<WorkflowVersion> WorkflowVersions => Set<WorkflowVersion>();
+    public DbSet<WorkflowExecutionHistory> WorkflowExecutionHistories => Set<WorkflowExecutionHistory>();
+    public DbSet<WorkflowTriggerType> WorkflowTriggerTypes => Set<WorkflowTriggerType>();
+    public DbSet<WorkflowEffectType> WorkflowEffectTypes => Set<WorkflowEffectType>();
+    public DbSet<WorkflowOperatorType> WorkflowOperatorTypes => Set<WorkflowOperatorType>();
+    public DbSet<WorkflowMetadataFieldType> WorkflowMetadataFieldTypes => Set<WorkflowMetadataFieldType>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // TenantConfig Module

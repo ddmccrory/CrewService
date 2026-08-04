@@ -38,9 +38,8 @@ public class OrchestrationUnitOfWorkNestedTransactionTests
 
         var uowFactory = new OrchestrationUnitOfWorkFactory(
             connection,
-            crewContext,
-            userContext,
             currentUser,
+            encryptor,
             NullLoggerFactory.Instance);
 
         await using var outerUow = await uowFactory.CreateAsync(cancellationToken: TestContext.Current.CancellationToken);

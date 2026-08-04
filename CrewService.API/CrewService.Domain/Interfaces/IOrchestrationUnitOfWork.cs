@@ -17,6 +17,7 @@ using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.UserAccess;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Workflows;
 
 namespace CrewService.Domain.Interfaces;
 
@@ -67,6 +68,24 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IInvitationRepository Invitations { get; }
 
     // ──────────────────────────────────────────────────────────────────
+    // Workflows
+    // ──────────────────────────────────────────────────────────────────
+    IWorkflowTemplateRepository WorkflowTemplates =>
+        throw new NotSupportedException("WorkflowTemplates repository is not implemented for this unit of work.");
+    IWorkflowVersionRepository WorkflowVersions =>
+        throw new NotSupportedException("WorkflowVersions repository is not implemented for this unit of work.");
+    IWorkflowExecutionHistoryRepository WorkflowExecutionHistories =>
+        throw new NotSupportedException("WorkflowExecutionHistories repository is not implemented for this unit of work.");
+    IWorkflowTriggerTypeRepository WorkflowTriggerTypes =>
+        throw new NotSupportedException("WorkflowTriggerTypes repository is not implemented for this unit of work.");
+    IWorkflowEffectTypeRepository WorkflowEffectTypes =>
+        throw new NotSupportedException("WorkflowEffectTypes repository is not implemented for this unit of work.");
+    IWorkflowOperatorTypeRepository WorkflowOperatorTypes =>
+        throw new NotSupportedException("WorkflowOperatorTypes repository is not implemented for this unit of work.");
+    IWorkflowMetadataFieldTypeRepository WorkflowMetadataFieldTypes =>
+        throw new NotSupportedException("WorkflowMetadataFieldTypes repository is not implemented for this unit of work.");
+
+    // ──────────────────────────────────────────────────────────────────
     // Payroll Tiers
     // ──────────────────────────────────────────────────────────────────
     IPayrollTierRepository PayrollTiers { get; }
@@ -92,9 +111,6 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IRosterRepository Rosters { get; }
     ISeniorityRepository Seniority { get; }
     ISeniorityStateRepository SeniorityStates { get; }
-    ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs { get; }
-    ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults =>
-        throw new NotSupportedException("SeniorityStateTypeVacancyDefaults repository is not implemented for this unit of work.");
     IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges { get; }
 
     // ──────────────────────────────────────────────────────────────────
@@ -203,6 +219,10 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     // Absence & Vacancy
     // ──────────────────────────────────────────────────────────────────
     IAbsenceRequestRepository AbsenceRequests { get; }
+    IAbsenceRequestWaitListRecordRepository AbsenceRequestWaitListRecords =>
+        throw new NotSupportedException("AbsenceRequestWaitListRecords repository is not implemented for this unit of work.");
+    IAbsenceRequestWaitListLinkRepository AbsenceRequestWaitListLinks =>
+        throw new NotSupportedException("AbsenceRequestWaitListLinks repository is not implemented for this unit of work.");
     IVacancyImpactRepository VacancyImpacts { get; }
 
     // ──────────────────────────────────────────────────────────────────

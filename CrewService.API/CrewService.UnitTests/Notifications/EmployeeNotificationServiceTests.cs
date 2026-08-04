@@ -665,6 +665,7 @@ internal sealed class FakeEmployeeRepo(Employee? employeeByUserId) : FakeNotific
 {
     public override Task<Employee?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default) => Task.FromResult(employeeByUserId);
     public Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber) => Task.FromResult<Employee?>(null);
+    public Task<Employee?> GetBySocialSecurityNumberAsync(string socialSecurityNumber, CancellationToken ct = default) => Task.FromResult<Employee?>(null);
     public Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default) => Task.FromResult(employeeByUserId);
     public Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr) => Task.FromResult(new List<Employee>());
     public Task<List<Employee>> GetListByClientCtrlNbrAsync(ControlNumber clientCtrlNbr) => Task.FromResult(new List<Employee>());
@@ -902,7 +903,6 @@ internal sealed class FakeNotificationUoW : IOrchestrationUnitOfWork
     public IEmployeePriorServiceCreditRepository EmployeePriorServiceCredits => throw new NotImplementedException();
     public ISeniorityRepository Seniority => throw new NotImplementedException();
     public ISeniorityStateRepository SeniorityStates => throw new NotImplementedException();
-    public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => throw new NotImplementedException();
     public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => throw new NotImplementedException();
     public IGroupTypeRepository GroupTypes => throw new NotImplementedException();
     public IGroupAttributeDefinitionRepository AttributeDefinitions => throw new NotImplementedException();

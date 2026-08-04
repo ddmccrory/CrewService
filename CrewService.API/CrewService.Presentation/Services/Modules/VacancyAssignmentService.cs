@@ -122,10 +122,12 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         }
 
         var employeeInfoByCtrlNbr = await employeeNameService.GetEmployeeInfoBatchAsync(
+            uow,
             eligibleBoards
                 .SelectMany(b => b.Positions)
                 .Select(p => p.EmployeeCtrlNbr)
-                .Distinct());
+                .Distinct(),
+            context.CancellationToken);
 
         var boardEmployeeCtrlNbrs = eligibleBoards
             .SelectMany(b => b.Positions)

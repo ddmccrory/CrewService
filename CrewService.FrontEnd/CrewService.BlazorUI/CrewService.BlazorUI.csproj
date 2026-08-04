@@ -42,7 +42,6 @@
     <Protobuf Include="..\..\Protos\roster.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\seniority.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\seniority_state.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
-    <Protobuf Include="..\..\Protos\seniority_vacancy_config.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\user_parent_assignment.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\authorization.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\tenant_config.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
@@ -65,6 +64,7 @@
     <Protobuf Include="..\..\Protos\modules\daily_operations.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\qualifications.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
     <Protobuf Include="..\..\Protos\modules\notifications.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
+    <Protobuf Include="..\..\Protos\modules\workflow_templates.proto" GrpcServices="Client" ProtoRoot="..\..\Protos" />
   </ItemGroup>
 
   <ItemGroup>

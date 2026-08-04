@@ -16,6 +16,7 @@ namespace CrewService.Domain.Modules.Employees;
 public interface IEmployeeRepository : IRepository<Employee>
 {
     Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber);
+    Task<Employee?> GetBySocialSecurityNumberAsync(string socialSecurityNumber, CancellationToken ct = default);
     Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default);
     Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr);
     Task<List<Employee>> GetListByClientCtrlNbrAsync(ControlNumber clientCtrlNbr);
@@ -173,16 +174,4 @@ public interface IEmployeeQualificationSuspensionRepository : IRepository<Employ
         ControlNumber employeeCtrlNbr, ControlNumber qualificationTypeCtrlNbr, CancellationToken ct = default);
     Task<List<EmployeeQualificationSuspension>> GetByEmployeeCtrlNbrAsync(
         ControlNumber employeeCtrlNbr, CancellationToken ct = default);
-}
-
-public interface ISeniorityStateVacancyConfigRepository : IRepository<SeniorityStateVacancyConfig>
-{
-    Task<List<SeniorityStateVacancyConfig>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
-    Task<SeniorityStateVacancyConfig?> GetBySeniorityStateAsync(ControlNumber railroadCtrlNbr, ControlNumber seniorityStateCtrlNbr, CancellationToken ct = default);
-}
-
-public interface ISeniorityStateTypeVacancyDefaultRepository : IRepository<SeniorityStateTypeVacancyDefault>
-{
-    Task<List<SeniorityStateTypeVacancyDefault>> GetByRailroadCtrlNbrAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default);
-    Task<SeniorityStateTypeVacancyDefault?> GetByStateTypeAsync(ControlNumber railroadCtrlNbr, StateType stateType, CancellationToken ct = default);
 }

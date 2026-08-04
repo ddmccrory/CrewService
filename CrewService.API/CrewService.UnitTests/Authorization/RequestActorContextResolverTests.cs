@@ -90,6 +90,7 @@ public sealed class RequestActorContextResolverTests
     private sealed class FakeEmployeeRepository(Employee? employeeByUserId, Employee? employeeByNumber) : IEmployeeRepository
     {
         public Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber) => Task.FromResult(employeeByNumber);
+        public Task<Employee?> GetBySocialSecurityNumberAsync(string socialSecurityNumber, CancellationToken ct = default) => Task.FromResult<Employee?>(null);
         public Task<Employee?> GetByUserIdAsync(string userId, CancellationToken ct = default) => Task.FromResult(employeeByUserId);
 
         public Task<List<Employee>> GetByClientCtrlNbrAsync(ControlNumber clientCtrlNbr) => Task.FromResult(new List<Employee>());

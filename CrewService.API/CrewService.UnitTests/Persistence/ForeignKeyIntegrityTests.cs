@@ -82,6 +82,9 @@ public class ForeignKeyIntegrityTests
             ("PositionChangeRecord", "RailroadCtrlNbr"),
             ("PositionChangeRecord", "EmployeeCtrlNbr"),
             ("PositionChangeRecord", "SourceCtrlNbr"),
+            // Workflow execution history snapshot/scoping fields are denormalized context values
+            ("WorkflowExecutionHistory", "AggregateCtrlNbr"),
+            ("WorkflowExecutionHistory", "RailroadCtrlNbr"),
         };
 
         var orphans = new List<string>();

@@ -213,73 +213,92 @@ public sealed class CrewsAppService(
     public Task EndCrewIncumbencyAsync(ControlNumber ctrlNbr, DateTime endUtc, CancellationToken ct = default)
         => EndCrewIncumbencyAsync(ctrlNbr, endUtc, reassignEmployee: true, ct);
 
+    public async Task<PositionVacateResult?> EndCrewIncumbencyInOrchestrationAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber ctrlNbr,
+        DateTime endUtc,
+        bool reassignEmployee,
+        CancellationToken ct = default)
+    {
+        var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ctrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Incumbency {ctrlNbr.Value} not found.");
+        incumbency.End(endUtc);
+        uow.CrewIncumbencies.Update(incumbency);
+
+        var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, ct);
+        if (crewPosition is null)
+            return null;
+
+        var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct)
+            ?? throw new InvalidOperationException($"Crew {crewPosition.CrewCtrlNbr.Value} not found for position {crewPosition.CtrlNbr.Value}.");
+        if (crew.DepartmentCtrlNbr is null)
+            throw new InvalidOperationException($"Crew {crew.CtrlNbr.Value} is missing a department; department reassignment is required.");
+
+        if (reassignEmployee)
+        {
+            await departmentReassignmentService.ReassignEmployeeAsync(
+                uow,
+                incumbency.EmployeeCtrlNbr,
+                crew.DepartmentCtrlNbr,
+                ct);
+        }
+
+        var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
+        if (positionAssignment is null)
+            return null;
+
+        // Remove the assignment row so occupancy checks see the position as open.
+        // Repost is performed synchronously after commit via VacancyRepostService.
+        // Do not raise PositionAssignmentVacatedDomainEvent on this path; that event
+        // is also handled by the domain-event reactor and could race with the
+        // synchronous repost, creating duplicate bulletins for the same position.
+        uow.PositionAssignments.Remove(positionAssignment);
+        await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
+            uow,
+            crewPosition.StaffablePositionCtrlNbr,
+            incumbentEmployeeCtrlNbr: null,
+            ct);
+        await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
+            uow,
+            crewPosition.StaffablePositionCtrlNbr,
+            ct);
+
+        return new PositionVacateResult(crewPosition.StaffablePositionCtrlNbr, incumbency.EmployeeCtrlNbr);
+    }
+
     public async Task EndCrewIncumbencyAsync(
         ControlNumber ctrlNbr,
         DateTime endUtc,
         bool reassignEmployee,
         CancellationToken ct = default)
     {
-        ControlNumber? vacatedStaffablePositionCtrlNbr = null;
-        ControlNumber? previousIncumbentCtrlNbr = null;
-
+        PositionVacateResult? vacatedPosition;
         await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
-            var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ctrlNbr, ct)
-                ?? throw new KeyNotFoundException($"Incumbency {ctrlNbr.Value} not found.");
-            incumbency.End(endUtc);
-            uow.CrewIncumbencies.Update(incumbency);
-
-            var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, ct);
-            if (crewPosition is not null)
-            {
-                var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct)
-                    ?? throw new InvalidOperationException($"Crew {crewPosition.CrewCtrlNbr.Value} not found for position {crewPosition.CtrlNbr.Value}.");
-                if (crew.DepartmentCtrlNbr is null)
-                    throw new InvalidOperationException($"Crew {crew.CtrlNbr.Value} is missing a department; department reassignment is required.");
-
-                if (reassignEmployee)
-                {
-                    await departmentReassignmentService.ReassignEmployeeAsync(
-                        uow,
-                        incumbency.EmployeeCtrlNbr,
-                        crew.DepartmentCtrlNbr,
-                        ct);
-                }
-
-                var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
-                if (positionAssignment is not null)
-                {
-                    // Remove the assignment row so occupancy checks see the position as open.
-                    // Repost is performed synchronously after commit via VacancyRepostService.
-                    // Do not raise PositionAssignmentVacatedDomainEvent on this path; that event
-                    // is also handled by the domain-event reactor and could race with the
-                    // synchronous repost, creating duplicate bulletins for the same position.
-                    uow.PositionAssignments.Remove(positionAssignment);
-                    await CallSheetIncumbentSyncService.SyncStaffablePositionIncumbentAsync(
-                        uow,
-                        crewPosition.StaffablePositionCtrlNbr,
-                        incumbentEmployeeCtrlNbr: null,
-                        ct);
-                    await vacancyProjectionSyncService.ReconcileFromStaffablePositionChangeAsync(
-                        uow,
-                        crewPosition.StaffablePositionCtrlNbr,
-                        ct);
-                    vacatedStaffablePositionCtrlNbr = crewPosition.StaffablePositionCtrlNbr;
-                    previousIncumbentCtrlNbr = incumbency.EmployeeCtrlNbr;
-                }
-            }
+            vacatedPosition = await EndCrewIncumbencyInOrchestrationAsync(
+                uow,
+                ctrlNbr,
+                endUtc,
+                reassignEmployee,
+                ct);
             await uow.CommitAsync(ct);
         }
 
         // Auto-bulletin the freed crew position via the centralized policy, synchronously and in the
         // same request. The vacate is already committed so the repost sees the position as open. Any
         // crew position that is vacated is bulletined here — no reliance on background reaction.
-        if (vacatedStaffablePositionCtrlNbr is not null)
+        if (vacatedPosition?.VacatedStaffablePositionCtrlNbr is not null)
         {
             await vacancyRepostService.RepostVacatedPositionAsync(
-                vacatedStaffablePositionCtrlNbr, previousIncumbentCtrlNbr, ct);
+                vacatedPosition.VacatedStaffablePositionCtrlNbr,
+                vacatedPosition.PreviousIncumbentCtrlNbr,
+                ct);
         }
     }
+
+    public sealed record PositionVacateResult(
+        ControlNumber VacatedStaffablePositionCtrlNbr,
+        ControlNumber? PreviousIncumbentCtrlNbr);
 
     // ── Crew Assignments ─────────────────────────────────────────────────────
 

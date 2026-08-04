@@ -24,7 +24,9 @@ using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Persistance.Repositories;
 using CrewService.Domain.Modules.UserAccess;
+using CrewService.Domain.Modules.Workflows;
 using CrewService.Infrastructure.Models.UserAccount;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -38,6 +40,8 @@ namespace CrewService.Persistance.UnitOfWork;
 internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
 {
     private readonly DbTransaction _transaction;
+    private readonly SqliteConnection _connection;
+    private readonly bool _ownsConnection;
     private readonly CrewServiceDbContext _crewContext;
     private readonly UserAccessDbContext _userContext;
     private readonly IDomainEventReactor? _reactor;
@@ -78,8 +82,6 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IRosterRepository? _rosters;
     private ISeniorityRepository? _seniority;
     private ISeniorityStateRepository? _seniorityStates;
-    private ISeniorityStateVacancyConfigRepository? _seniorityStateVacancyConfigs;
-    private ISeniorityStateTypeVacancyDefaultRepository? _seniorityStateTypeVacancyDefaults;
     private IPendingSeniorityStateChangeRepository? _pendingSeniorityStateChanges;
 
     // ──────────────────────────────────────────────────────────────────
@@ -179,6 +181,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // Lazy-initialized repositories: Absence & Vacancy
     // ──────────────────────────────────────────────────────────────────
     private IAbsenceRequestRepository? _absenceRequests;
+    private IAbsenceRequestWaitListRecordRepository? _absenceRequestWaitListRecords;
+    private IAbsenceRequestWaitListLinkRepository? _absenceRequestWaitListLinks;
     private IVacancyImpactRepository? _vacancyImpacts;
 
     // ──────────────────────────────────────────────────────────────────
@@ -221,6 +225,13 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IPositionChangeRecordRepository? _positionChangeRecords;
     private IUserParentAssignmentRepository? _userParentAssignments;
     private IInvitationRepository? _invitations;
+    private IWorkflowTemplateRepository? _workflowTemplates;
+    private IWorkflowVersionRepository? _workflowVersions;
+    private IWorkflowExecutionHistoryRepository? _workflowExecutionHistories;
+    private IWorkflowTriggerTypeRepository? _workflowTriggerTypes;
+    private IWorkflowEffectTypeRepository? _workflowEffectTypes;
+    private IWorkflowOperatorTypeRepository? _workflowOperatorTypes;
+    private IWorkflowMetadataFieldTypeRepository? _workflowMetadataFieldTypes;
     private IPayrollTierRepository? _payrollTiers;
 
     public string CorrelationId { get; }
@@ -254,8 +265,6 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IRosterRepository Rosters => _rosters ??= new RosterRepository(_crewContext, _currentUserService);
     public ISeniorityRepository Seniority => _seniority ??= new SeniorityRepository(_crewContext, _currentUserService);
     public ISeniorityStateRepository SeniorityStates => _seniorityStates ??= new SeniorityStateRepository(_crewContext, _currentUserService);
-    public ISeniorityStateVacancyConfigRepository SeniorityStateVacancyConfigs => _seniorityStateVacancyConfigs ??= new SeniorityStateVacancyConfigRepository(_crewContext, _currentUserService);
-    public ISeniorityStateTypeVacancyDefaultRepository SeniorityStateTypeVacancyDefaults => _seniorityStateTypeVacancyDefaults ??= new SeniorityStateTypeVacancyDefaultRepository(_crewContext, _currentUserService);
     public IPendingSeniorityStateChangeRepository PendingSeniorityStateChanges => _pendingSeniorityStateChanges ??= new PendingSeniorityStateChangeRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
@@ -362,6 +371,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     // Repository Properties: Absence & Vacancy
     // ──────────────────────────────────────────────────────────────────
     public IAbsenceRequestRepository AbsenceRequests => _absenceRequests ??= new AbsenceRequestRepository(_crewContext, _currentUserService);
+    public IAbsenceRequestWaitListRecordRepository AbsenceRequestWaitListRecords => _absenceRequestWaitListRecords ??= new AbsenceRequestWaitListRecordRepository(_crewContext, _currentUserService);
+    public IAbsenceRequestWaitListLinkRepository AbsenceRequestWaitListLinks => _absenceRequestWaitListLinks ??= new AbsenceRequestWaitListLinkRepository(_crewContext, _currentUserService);
     public IVacancyImpactRepository VacancyImpacts => _vacancyImpacts ??= new VacancyImpactRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
@@ -412,10 +423,19 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IPositionChangeRecordRepository PositionChangeRecords => _positionChangeRecords ??= new PositionChangeRecordRepository(_crewContext, _currentUserService);
     public IUserParentAssignmentRepository UserParentAssignments => _userParentAssignments ??= new UserParentAssignmentRepository(_crewContext, _currentUserService);
     public IInvitationRepository Invitations => _invitations ??= new InvitationRepository(_crewContext, _currentUserService);
+    public IWorkflowTemplateRepository WorkflowTemplates => _workflowTemplates ??= new WorkflowTemplateRepository(_crewContext, _currentUserService);
+    public IWorkflowVersionRepository WorkflowVersions => _workflowVersions ??= new WorkflowVersionRepository(_crewContext, _currentUserService);
+    public IWorkflowExecutionHistoryRepository WorkflowExecutionHistories => _workflowExecutionHistories ??= new WorkflowExecutionHistoryRepository(_crewContext, _currentUserService);
+    public IWorkflowTriggerTypeRepository WorkflowTriggerTypes => _workflowTriggerTypes ??= new WorkflowTriggerTypeRepository(_crewContext, _currentUserService);
+    public IWorkflowEffectTypeRepository WorkflowEffectTypes => _workflowEffectTypes ??= new WorkflowEffectTypeRepository(_crewContext, _currentUserService);
+    public IWorkflowOperatorTypeRepository WorkflowOperatorTypes => _workflowOperatorTypes ??= new WorkflowOperatorTypeRepository(_crewContext, _currentUserService);
+    public IWorkflowMetadataFieldTypeRepository WorkflowMetadataFieldTypes => _workflowMetadataFieldTypes ??= new WorkflowMetadataFieldTypeRepository(_crewContext, _currentUserService);
     public IPayrollTierRepository PayrollTiers => _payrollTiers ??= new PayrollTierRepository(_crewContext, _currentUserService);
 
     internal OrchestrationUnitOfWork(
         DbTransaction transaction,
+        SqliteConnection connection,
+        bool ownsConnection,
         CrewServiceDbContext crewContext,
         UserAccessDbContext userContext,
         ICurrentUserService currentUserService,
@@ -428,6 +448,8 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
         IDomainEventReactor? reactor = null)
     {
         _transaction = transaction;
+        _connection = connection;
+        _ownsConnection = ownsConnection;
         _crewContext = crewContext;
         _userContext = userContext;
         _currentUserService = currentUserService;
@@ -546,7 +568,24 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             {
                 var reactor = _reactor;
                 var capturedEvents = domainEvents;
-                _ = Task.Run(() => reactor.ReactAsync(capturedEvents, cancellationToken), CancellationToken.None);
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await reactor.ReactAsync(capturedEvents, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                        {
+                            _logger.LogError(
+                                ex,
+                                "Background domain event reaction failed. CorrelationId: {CorrelationId}, OrchestrationId: {OrchestrationId}",
+                                CorrelationId,
+                                OrchestrationId);
+                        }
+                    }
+                }, CancellationToken.None);
             }
 
             // Dispatch messages for immediate publishing (if dispatcher available)
@@ -631,7 +670,10 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
                 {
                     CorrelationId = CorrelationId,
                     OrchestrationId = OrchestrationId,
-                    IdempotencyKey = $"{_idempotencyKey}:{domainEvent.EventType}:{domainEvent.AggregateId}:{domainEvent.EventId}"
+                    IdempotencyKey = $"{_idempotencyKey}:{domainEvent.EventType}:{domainEvent.AggregateId}:{domainEvent.EventId}",
+                    ActorUserIdentifier = _currentUserService.GetUserIdentifier(),
+                    ActorUserName = _currentUserService.GetUserName(),
+                    ActorParentCtrlNbr = _currentUserService.GetParentCtrlNbr()
                 };
                 domainEvents.Add(enrichedEvent);
             }
@@ -685,5 +727,11 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
             await _userContext.Database.UseTransactionAsync(null);
             await _transaction.DisposeAsync();
         }
+
+        await _crewContext.DisposeAsync();
+        await _userContext.DisposeAsync();
+
+        if (_ownsConnection)
+            await _connection.DisposeAsync();
     }
 }

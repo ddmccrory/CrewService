@@ -10,6 +10,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Authorization;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
@@ -151,6 +152,14 @@ public class EmployeeService(
 
         try
         {
+            var existingEmployee = await _employeeAppService.GetByNumberAsync(request.EmployeeNumber, context.CancellationToken);
+            if (existingEmployee is not null)
+                throw new RpcException(new Status(StatusCode.AlreadyExists, $"Employee number '{request.EmployeeNumber}' already exists."));
+
+            var existingBySsn = await _employeeAppService.GetBySocialSecurityNumberAsync(request.SocialSecurityNumber, context.CancellationToken);
+            if (existingBySsn is not null)
+                throw new RpcException(new Status(StatusCode.AlreadyExists, "Social security number already exists."));
+
             MaritalStatus? maritalStatus = string.IsNullOrEmpty(request.MaritalStatus)
                 ? null : System.Enum.Parse<MaritalStatus>(request.MaritalStatus, ignoreCase: true);
 
@@ -170,6 +179,7 @@ public class EmployeeService(
                 string.IsNullOrEmpty(request.FirstName) ? null : request.FirstName,
                 string.IsNullOrEmpty(request.MiddleName) ? null : request.MiddleName,
                 string.IsNullOrEmpty(request.LastName) ? null : request.LastName,
+                railroadCtrlNbr: ResolveRailroadCtrlNbr(context),
                 ct: context.CancellationToken);
 
             return new CreateEmployeeResponse
@@ -183,11 +193,25 @@ public class EmployeeService(
         catch (RpcException) { throw; }
         catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message)); }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database update failure in CreateEmployeeAsync. {InnerMessage}", ex.InnerException?.Message);
+            throw new RpcException(new Status(StatusCode.AlreadyExists,
+                "Unable to create employee because a record with the same employee number or social security number already exists."));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception in CreateEmployeeAsync");
             throw new RpcException(new Status(StatusCode.Internal, ex.Message));
         }
+    }
+
+    private static ControlNumber? ResolveRailroadCtrlNbr(ServerCallContext context)
+    {
+        var header = context.GetHttpContext().Request.Headers["x-railroad-ctrl-nbr"].FirstOrDefault();
+        return long.TryParse(header, out var railroadCtrlNbr) && railroadCtrlNbr > 0
+            ? ControlNumber.Create(railroadCtrlNbr)
+            : null;
     }
 
     public override async Task<UpdateEmployeeResponse> UpdateEmployeeAsync(UpdateEmployeeRequest request, ServerCallContext context)

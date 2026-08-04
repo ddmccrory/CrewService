@@ -67,6 +67,7 @@ public sealed class Employee : Entity
 
     public static Employee Create(
         ControlNumber clientCtrlNbr,
+        ControlNumber? railroadCtrlNbr,
         string userId,
         string employeeNumber,
         string ssn,
@@ -85,9 +86,41 @@ public sealed class Employee : Entity
             gender, race, birthDate, employmentDate, employmentStatusCtrlNbr);
 
         employee.Raise(new EmployeeCreatedDomainEvent(
-            employee.CtrlNbr, clientCtrlNbr, email, invitedByUserId, invitedByUserName, parentName));
+            employee.CtrlNbr, clientCtrlNbr, railroadCtrlNbr, email, invitedByUserId, invitedByUserName, parentName));
 
         return employee;
+    }
+
+    public static Employee Create(
+        ControlNumber clientCtrlNbr,
+        string userId,
+        string employeeNumber,
+        string ssn,
+        Gender gender,
+        Race race,
+        DateTime birthDate,
+        DateTime employmentDate,
+        ControlNumber employmentStatusCtrlNbr,
+        string email,
+        string invitedByUserId,
+        string invitedByUserName,
+        string parentName = "")
+    {
+        return Create(
+            clientCtrlNbr,
+            railroadCtrlNbr: null,
+            userId,
+            employeeNumber,
+            ssn,
+            gender,
+            race,
+            birthDate,
+            employmentDate,
+            employmentStatusCtrlNbr,
+            email,
+            invitedByUserId,
+            invitedByUserName,
+            parentName);
     }
 
     public Employee Update(
@@ -181,9 +214,15 @@ public sealed class Employee : Entity
         return phone;
     }
 
-    public EmailAddress AddEmailAddress(string email, ControlNumber emailTypeCtrlNbr)
+    public EmailAddress AddEmailAddress(string email, ControlNumber emailTypeCtrlNbr, bool isPrimary = false)
     {
-        var emailAddress = EmailAddress.Create(CtrlNbr, emailTypeCtrlNbr, email);
+        if (isPrimary)
+        {
+            foreach (var existing in _emailAddresses)
+                existing.SetPrimary(false);
+        }
+
+        var emailAddress = EmailAddress.Create(CtrlNbr, emailTypeCtrlNbr, email, isPrimary);
         _emailAddresses.Add(emailAddress);
         Raise(new EmployeeUpdatedDomainEvent(CtrlNbr, payload: new { Action = "AddEmail", EmailCtrlNbr = emailAddress.CtrlNbr.Value }));
         return emailAddress;

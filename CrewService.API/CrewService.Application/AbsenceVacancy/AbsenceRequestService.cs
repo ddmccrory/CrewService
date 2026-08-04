@@ -17,8 +17,6 @@ public sealed class AbsenceRequestService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IAbsenceCodeRepository absenceCodeRepository,
     IAbsenceApprovalPolicyResolver approvalPolicyResolver,
-    IAbsenceRequestWaitListRecordRepository waitListRecordRepository,
-    IAbsenceRequestWaitListLinkRepository waitListLinkRepository,
     ICraftAbsenceWaitListPolicyRepository craftWaitListPolicyRepository,
     IAbsenceWaitListAllowancePolicyRepository waitListAllowancePolicyRepository,
     AbsenceStartProposalService absenceStartProposalService,
@@ -59,13 +57,13 @@ public sealed class AbsenceRequestService(
     public async Task CancelWaitListAsync(ControlNumber waitListRecordCtrlNbr)
     {
         await using var uow = await uowFactory.CreateAsync();
-        var waitListRecord = await waitListRecordRepository.GetByCtrlNbrAsync(waitListRecordCtrlNbr)
+        var waitListRecord = await uow.AbsenceRequestWaitListRecords.GetByCtrlNbrAsync(waitListRecordCtrlNbr)
             ?? throw new KeyNotFoundException($"Waitlist record {waitListRecordCtrlNbr.Value} not found.");
 
         if (waitListRecord.AssignedAtUtc.HasValue)
             throw new InvalidOperationException("Assigned waitlist records cannot be cancelled.");
 
-        waitListRecordRepository.Remove(waitListRecord);
+        uow.AbsenceRequestWaitListRecords.Remove(waitListRecord);
         await uow.CommitAsync();
     }
 
@@ -219,7 +217,7 @@ public sealed class AbsenceRequestService(
                         context.CraftCtrlNbr,
                         context.DepartmentCtrlNbr);
 
-                waitListRecordRepository.Add(waitListRecord);
+                uow.AbsenceRequestWaitListRecords.Add(waitListRecord);
 
                 await uow.CommitAsync();
 
@@ -816,7 +814,7 @@ public sealed class AbsenceRequestService(
             return null;
         }
 
-        var pending = await waitListRecordRepository.GetPendingByDateAsync(requestDateUtc, waitListType);
+        var pending = await uow.AbsenceRequestWaitListRecords.GetPendingByDateAsync(requestDateUtc, waitListType);
         var waitListRecord = pending
             .Where(r => r.CraftCtrlNbr == context.CraftCtrlNbr)
             .OrderBy(r => r.EntryUtc)
@@ -845,10 +843,10 @@ public sealed class AbsenceRequestService(
         uow.AbsenceRequests.Add(promotedRequest);
 
         waitListRecord.MarkAssigned(DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc), promotionNotes);
-        waitListRecordRepository.Update(waitListRecord);
+        uow.AbsenceRequestWaitListRecords.Update(waitListRecord);
 
         var link = AbsenceRequestWaitListLink.Create(promotedRequest.CtrlNbr, waitListRecord.CtrlNbr);
-        waitListLinkRepository.Add(link);
+        uow.AbsenceRequestWaitListLinks.Add(link);
 
         return new WaitListPromotionResult(promotedRequest, waitListRecord);
     }

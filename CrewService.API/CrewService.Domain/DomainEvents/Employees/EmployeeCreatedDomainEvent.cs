@@ -8,6 +8,7 @@ public sealed record EmployeeCreatedDomainEvent : DomainEvent
     public EmployeeCreatedDomainEvent(
         ControlNumber aggregateCtrlNbr,
         ControlNumber clientCtrlNbr,
+        ControlNumber? railroadCtrlNbr,
         string email,
         string invitedByUserId,
         string invitedByUserName,
@@ -17,6 +18,7 @@ public sealed record EmployeeCreatedDomainEvent : DomainEvent
             {
                 AggregateCtrlNbr = aggregateCtrlNbr.Value,
                 ClientCtrlNbr = clientCtrlNbr.Value,
+                RailroadCtrlNbr = railroadCtrlNbr?.Value,
                 Email = email,
                 InvitedByUserId = invitedByUserId,
                 InvitedByUserName = invitedByUserName,
