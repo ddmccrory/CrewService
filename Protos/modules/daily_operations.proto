@@ -16,6 +16,15 @@ service DailyOperationsSrvc {
   rpc GetVacancyResolution (GetVacancyResolutionRequest) returns (GetVacancyResolutionResponse) {
     option (google.api.http) = { get: "/v1/daily-operations/vacancy-resolution/{work_area_group_ctrl_nbr}/{target_date}" };
   }
+  rpc GetVacancyFillCandidates (GetVacancyFillCandidatesRequest) returns (GetVacancyFillCandidatesResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/vacancy-resolution/candidates" body: "*" };
+  }
+  rpc FillVacancyPosition (FillVacancyPositionRequest) returns (FillVacancyPositionResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/vacancy-resolution/fill" body: "*" };
+  }
+  rpc GetVacancyFillAuditReport (GetVacancyFillAuditReportRequest) returns (GetVacancyFillAuditReportResponse) {
+    option (google.api.http) = { post: "/v1/daily-operations/vacancy-resolution/audit-report" body: "*" };
+  }
   rpc GenerateCallSheet (GenerateCallSheetRequest) returns (GenerateCallSheetResponse) {
     option (google.api.http) = { post: "/v1/daily-operations/call-sheet/generate" body: "*" };
   }
@@ -100,6 +109,92 @@ message GetVacancyResolutionRequest {
 
 message GetVacancyResolutionResponse {
   repeated VacancyResolutionShiftCard shifts = 1;
+}
+
+message GetVacancyFillCandidatesRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 position_slot_ctrl_nbr = 3;
+  optional int64 craft_ctrl_nbr = 4;
+}
+
+message GetVacancyFillCandidatesResponse {
+  repeated VacancyFillCandidateResponse candidates = 1;
+}
+
+message VacancyFillCandidateResponse {
+  int64 employee_ctrl_nbr = 1;
+  string employee_number = 2;
+  string employee_name = 3;
+  string board_type = 4;
+  int32 board_order = 5;
+  int64 call_sequence = 6;
+  string qualification_status = 7;
+  string status_display = 8;
+  string projected_vacancy_display = 9;
+  string on_duty_display = 10;
+  repeated VacancyCandidateContactResponse contacts = 11;
+}
+
+message VacancyCandidateContactResponse {
+  string contact_type = 1;
+  string contact_value = 2;
+  int32 calling_order = 3;
+}
+
+message FillVacancyPositionRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 position_slot_ctrl_nbr = 3;
+  int64 employee_ctrl_nbr = 4;
+  bool force_override = 5;
+  string force_reason = 6;
+  string dispatcher_note = 7;
+  bool accepted = 8;
+  bool is_late_call = 9;
+  string late_call_note = 10;
+  string arrival_follow_up_note = 11;
+  optional google.protobuf.Timestamp accepted_at_utc = 12;
+  optional google.protobuf.Timestamp expected_arrival_at_utc = 13;
+  optional int64 craft_ctrl_nbr = 14;
+}
+
+message FillVacancyPositionResponse {
+  bool success = 1;
+  string status = 2;
+  int64 shift_instance_ctrl_nbr = 3;
+  int64 position_slot_ctrl_nbr = 4;
+  int64 employee_ctrl_nbr = 5;
+  int64 on_duty_record_ctrl_nbr = 6;
+  int64 vacancy_fill_log_ctrl_nbr = 7;
+}
+
+message GetVacancyFillAuditReportRequest {
+  int64 work_area_group_ctrl_nbr = 1;
+  string target_date = 2;
+  optional int64 department_ctrl_nbr = 3;
+}
+
+message GetVacancyFillAuditReportResponse {
+  repeated VacancyFillAuditRecordResponse records = 1;
+}
+
+message VacancyFillAuditRecordResponse {
+  int64 vacancy_fill_log_ctrl_nbr = 1;
+  int64 shift_instance_ctrl_nbr = 2;
+  int64 position_slot_ctrl_nbr = 3;
+  string assignment_code = 4;
+  string craft_role_name = 5;
+  int64 employee_ctrl_nbr = 6;
+  string employee_name = 7;
+  string status = 8;
+  bool force_override = 9;
+  string force_reason = 10;
+  bool is_late_call = 11;
+  string late_call_note = 12;
+  string arrival_follow_up_note = 13;
+  string dispatcher_note = 14;
+  google.protobuf.Timestamp created_at_utc = 15;
 }
 
 message VacancyResolutionShiftCard {

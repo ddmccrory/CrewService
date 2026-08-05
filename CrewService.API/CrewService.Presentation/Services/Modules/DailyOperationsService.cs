@@ -80,6 +80,123 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         return response;
     }
 
+    public override async Task<GetVacancyFillCandidatesResponse> GetVacancyFillCandidates(
+        GetVacancyFillCandidatesRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<VacancyResolutionOrchestrationService>();
+
+        var candidates = await svc.GetFillCandidatesAsync(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+            ControlNumber.Create(request.ShiftInstanceCtrlNbr),
+            ControlNumber.Create(request.PositionSlotCtrlNbr),
+            request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null,
+            context.CancellationToken);
+
+        var response = new GetVacancyFillCandidatesResponse();
+        foreach (var candidate in candidates)
+        {
+            var row = new VacancyFillCandidateResponse
+            {
+                EmployeeCtrlNbr = candidate.EmployeeCtrlNbr.Value,
+                EmployeeNumber = candidate.EmployeeNumber,
+                EmployeeName = candidate.EmployeeName,
+                BoardType = candidate.BoardType,
+                BoardOrder = candidate.BoardOrder,
+                CallSequence = candidate.CallSequence,
+                QualificationStatus = candidate.QualificationStatus,
+                StatusDisplay = candidate.StatusDisplay,
+                ProjectedVacancyDisplay = candidate.ProjectedVacancyDisplay,
+                OnDutyDisplay = candidate.OnDutyDisplay
+            };
+
+            row.Contacts.AddRange(candidate.Contacts.Select(c => new VacancyCandidateContactResponse
+            {
+                ContactType = c.ContactType,
+                ContactValue = c.ContactValue,
+                CallingOrder = c.CallingOrder
+            }));
+
+            response.Candidates.Add(row);
+        }
+
+        return response;
+    }
+
+    public override async Task<FillVacancyPositionResponse> FillVacancyPosition(
+        FillVacancyPositionRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<VacancyResolutionOrchestrationService>();
+
+        var result = await svc.FillVacancyAsync(
+            new VacancyFillRequest(
+                WorkAreaGroupCtrlNbr: ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+                ShiftInstanceCtrlNbr: ControlNumber.Create(request.ShiftInstanceCtrlNbr),
+                PositionSlotCtrlNbr: ControlNumber.Create(request.PositionSlotCtrlNbr),
+                EmployeeCtrlNbr: ControlNumber.Create(request.EmployeeCtrlNbr),
+                ForceOverride: request.ForceOverride,
+                ForceReason: request.ForceReason,
+                DispatcherNote: request.DispatcherNote,
+                Accepted: request.Accepted,
+                IsLateCall: request.IsLateCall,
+                LateCallNote: request.LateCallNote,
+                ArrivalFollowUpNote: request.ArrivalFollowUpNote,
+                AcceptedAtUtc: request.AcceptedAtUtc?.ToDateTime(),
+                ExpectedArrivalAtUtc: request.ExpectedArrivalAtUtc?.ToDateTime(),
+                CraftCtrlNbr: request.HasCraftCtrlNbr ? ControlNumber.Create(request.CraftCtrlNbr) : null),
+            context.CancellationToken);
+
+        return new FillVacancyPositionResponse
+        {
+            Success = result.Success,
+            Status = result.Status,
+            ShiftInstanceCtrlNbr = result.ShiftInstanceCtrlNbr.Value,
+            PositionSlotCtrlNbr = result.PositionSlotCtrlNbr.Value,
+            EmployeeCtrlNbr = result.EmployeeCtrlNbr.Value,
+            OnDutyRecordCtrlNbr = result.OnDutyRecordCtrlNbr.Value,
+            VacancyFillLogCtrlNbr = result.VacancyFillLogCtrlNbr.Value
+        };
+    }
+
+    public override async Task<GetVacancyFillAuditReportResponse> GetVacancyFillAuditReport(
+        GetVacancyFillAuditReportRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<VacancyResolutionOrchestrationService>();
+
+        if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
+
+        var records = await svc.GetAuditReportAsync(
+            ControlNumber.Create(request.WorkAreaGroupCtrlNbr),
+            targetDate,
+            request.HasDepartmentCtrlNbr ? ControlNumber.Create(request.DepartmentCtrlNbr) : null,
+            context.CancellationToken);
+
+        var response = new GetVacancyFillAuditReportResponse();
+        response.Records.AddRange(records.Select(r => new VacancyFillAuditRecordResponse
+        {
+            VacancyFillLogCtrlNbr = r.VacancyFillLogCtrlNbr.Value,
+            ShiftInstanceCtrlNbr = r.ShiftInstanceCtrlNbr.Value,
+            PositionSlotCtrlNbr = r.PositionSlotCtrlNbr.Value,
+            AssignmentCode = r.AssignmentCode,
+            CraftRoleName = r.CraftRoleName,
+            EmployeeCtrlNbr = r.EmployeeCtrlNbr.Value,
+            EmployeeName = r.EmployeeName,
+            Status = r.Status,
+            ForceOverride = r.ForceOverride,
+            ForceReason = r.ForceReason ?? string.Empty,
+            IsLateCall = r.IsLateCall,
+            LateCallNote = r.LateCallNote ?? string.Empty,
+            ArrivalFollowUpNote = r.ArrivalFollowUpNote ?? string.Empty,
+            DispatcherNote = r.DispatcherNote ?? string.Empty,
+            CreatedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.CreatedAtUtc, DateTimeKind.Utc))
+        }));
+
+        return response;
+    }
+
     public override async Task<GetVacancyResolutionResponse> GetVacancyResolution(
         GetVacancyResolutionRequest request,
         ServerCallContext context)

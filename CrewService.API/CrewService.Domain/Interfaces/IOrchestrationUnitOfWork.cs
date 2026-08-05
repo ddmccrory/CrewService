@@ -191,6 +191,8 @@ public interface IOrchestrationUnitOfWork : IAsyncDisposable, IDisposable
     IDispatchDecisionLogRepository DispatchDecisionLogs { get; }
     IDispatchOverrideRepository DispatchOverrides { get; }
     IEmployeeBookingRepository EmployeeBookings { get; }
+    IVacancyFillLogRepository VacancyFillLogs =>
+        throw new NotSupportedException("VacancyFillLogs repository is not implemented for this unit of work.");
 
     // ──────────────────────────────────────────────────────────────────
     // FRA Compliance

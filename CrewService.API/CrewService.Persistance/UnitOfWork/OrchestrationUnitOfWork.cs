@@ -153,6 +153,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     private IDispatchDecisionLogRepository? _dispatchDecisionLogs;
     private IDispatchOverrideRepository? _dispatchOverrides;
     private IEmployeeBookingRepository? _employeeBookings;
+    private IVacancyFillLogRepository? _vacancyFillLogs;
 
     // ──────────────────────────────────────────────────────────────────
     // Lazy-initialized repositories: Qualifications
@@ -344,6 +345,7 @@ internal sealed class OrchestrationUnitOfWork : IOrchestrationUnitOfWork
     public IDispatchDecisionLogRepository DispatchDecisionLogs => _dispatchDecisionLogs ??= new DispatchDecisionLogRepository(_crewContext, _currentUserService);
     public IDispatchOverrideRepository DispatchOverrides => _dispatchOverrides ??= new DispatchOverrideRepository(_crewContext, _currentUserService);
     public IEmployeeBookingRepository EmployeeBookings => _employeeBookings ??= new EmployeeBookingRepository(_crewContext, _currentUserService);
+    public IVacancyFillLogRepository VacancyFillLogs => _vacancyFillLogs ??= new VacancyFillLogRepository(_crewContext, _currentUserService);
 
     // ──────────────────────────────────────────────────────────────────
     // Repository Properties: Qualifications

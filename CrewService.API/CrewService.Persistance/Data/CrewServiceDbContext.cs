@@ -109,6 +109,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     public DbSet<Domain.Modules.Dispatching.DispatchDecisionLog> DispatchDecisionLogs => Set<Domain.Modules.Dispatching.DispatchDecisionLog>();
     public DbSet<Domain.Modules.Dispatching.DispatchOverride> DispatchOverrides => Set<Domain.Modules.Dispatching.DispatchOverride>();
     public DbSet<Domain.Modules.Dispatching.EmployeeBooking> EmployeeBookings => Set<Domain.Modules.Dispatching.EmployeeBooking>();
+    public DbSet<Domain.Modules.Dispatching.VacancyFillLog> VacancyFillLogs => Set<Domain.Modules.Dispatching.VacancyFillLog>();
 
     // FraCompliance Module
     public DbSet<Domain.Modules.FraCompliance.RegulatoryStandard> RegulatoryStandards => Set<Domain.Modules.FraCompliance.RegulatoryStandard>();
