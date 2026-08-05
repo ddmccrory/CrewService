@@ -116,6 +116,75 @@ public sealed class EmployeeBooking : Entity
     }
 }
 
+public sealed class VacancyFillLog : Entity
+{
+    public ControlNumber WorkAreaGroupCtrlNbr { get; private set; }
+    public ControlNumber ShiftInstanceCtrlNbr { get; private set; }
+    public ControlNumber PositionSlotCtrlNbr { get; private set; }
+    public ControlNumber EmployeeCtrlNbr { get; private set; }
+    public ControlNumber? OnDutyRecordCtrlNbr { get; private set; }
+    public string AssignmentCode { get; private set; } = string.Empty;
+    public string CraftRoleName { get; private set; } = string.Empty;
+    public bool ForceOverride { get; private set; }
+    public string? ForceReason { get; private set; }
+    public bool Accepted { get; private set; }
+    public DateTime? AcceptedAtUtc { get; private set; }
+    public bool IsLateCall { get; private set; }
+    public string? LateCallNote { get; private set; }
+    public string? ArrivalFollowUpNote { get; private set; }
+    public string? DispatcherNote { get; private set; }
+    public string Status { get; private set; } = string.Empty;
+    public DateTime CreatedAtUtc { get; private set; }
+
+    private VacancyFillLog()
+    {
+        WorkAreaGroupCtrlNbr = null!;
+        ShiftInstanceCtrlNbr = null!;
+        PositionSlotCtrlNbr = null!;
+        EmployeeCtrlNbr = null!;
+    }
+
+    public static VacancyFillLog Create(
+        ControlNumber workAreaGroupCtrlNbr,
+        ControlNumber shiftInstanceCtrlNbr,
+        ControlNumber positionSlotCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber? onDutyRecordCtrlNbr,
+        string assignmentCode,
+        string craftRoleName,
+        bool forceOverride,
+        string? forceReason,
+        bool accepted,
+        DateTime? acceptedAtUtc,
+        bool isLateCall,
+        string? lateCallNote,
+        string? arrivalFollowUpNote,
+        string? dispatcherNote,
+        string status)
+    {
+        return new VacancyFillLog
+        {
+            WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+            ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+            PositionSlotCtrlNbr = positionSlotCtrlNbr,
+            EmployeeCtrlNbr = employeeCtrlNbr,
+            OnDutyRecordCtrlNbr = onDutyRecordCtrlNbr,
+            AssignmentCode = assignmentCode,
+            CraftRoleName = craftRoleName,
+            ForceOverride = forceOverride,
+            ForceReason = forceReason,
+            Accepted = accepted,
+            AcceptedAtUtc = acceptedAtUtc,
+            IsLateCall = isLateCall,
+            LateCallNote = lateCallNote,
+            ArrivalFollowUpNote = arrivalFollowUpNote,
+            DispatcherNote = dispatcherNote,
+            Status = status,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+    }
+}
+
 // Domain Events
 public sealed record DispatchDecisionLoggedDomainEvent : DomainEvent
 {

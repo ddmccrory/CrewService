@@ -1,5 +1,6 @@
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,40 @@ internal class DispatchProjectionConfiguration : IEntityTypeConfiguration<Dispat
         builder.OwnsOne(p => p.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
         builder.OwnsOne(p => p.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+    }
+}
+
+internal class VacancyFillLogConfiguration : IEntityTypeConfiguration<VacancyFillLog>
+{
+    public void Configure(EntityTypeBuilder<VacancyFillLog> builder)
+    {
+        builder.HasKey(l => l.CtrlNbr);
+        builder.Property(l => l.CtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(l => l.WorkAreaGroupCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(l => l.ShiftInstanceCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(l => l.PositionSlotCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(l => l.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
+        builder.Property(l => l.OnDutyRecordCtrlNbr).HasConversion(
+            c => c == null ? (long?)null : c.Value,
+            v => v == null ? null : ControlNumber.Create(v.Value));
+
+        builder.Property(l => l.AssignmentCode).HasMaxLength(32).IsRequired();
+        builder.Property(l => l.CraftRoleName).HasMaxLength(128).IsRequired();
+        builder.Property(l => l.ForceReason).HasMaxLength(512);
+        builder.Property(l => l.LateCallNote).HasMaxLength(1024);
+        builder.Property(l => l.ArrivalFollowUpNote).HasMaxLength(1024);
+        builder.Property(l => l.DispatcherNote).HasMaxLength(1024);
+        builder.Property(l => l.Status).HasMaxLength(32).IsRequired();
+
+        builder.HasOne<DynamicGroup>().WithMany().HasForeignKey(l => l.WorkAreaGroupCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ShiftInstance>().WithMany().HasForeignKey(l => l.ShiftInstanceCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PositionSlotInstance>().WithMany().HasForeignKey(l => l.PositionSlotCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(l => l.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<OnDutyRecord>().WithMany().HasForeignKey(l => l.OnDutyRecordCtrlNbr).OnDelete(DeleteBehavior.Restrict);
+
+        builder.OwnsOne(l => l.CreatedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(l => l.ModifiedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
+        builder.OwnsOne(l => l.DeletedBy, a => { a.Property(x => x.AuditName).HasConversion(n => n.Value, v => Name.Create(v)).HasMaxLength(50); });
     }
 }
 

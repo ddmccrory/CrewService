@@ -25,6 +25,17 @@ public interface IEmployeeBookingRepository : IRepository<EmployeeBooking>
     Task<bool> HasOverlapAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc);
 }
 
+public interface IVacancyFillLogRepository : IRepository<VacancyFillLog>
+{
+    Task<List<VacancyFillLog>> GetByShiftAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default);
+    Task<List<VacancyFillLog>> GetByWorkAreaAndDateRangeAsync(
+        ControlNumber workAreaGroupCtrlNbr,
+        DateTime startUtc,
+        DateTime endUtc,
+        ControlNumber? departmentCtrlNbr,
+        CancellationToken ct = default);
+}
+
 public interface IOnDutyRecordRepository : IRepository<OnDutyRecord>
 {
     Task<IReadOnlyList<OnDutyRecord>> GetRecentForEmployeeAsync(ControlNumber employeeCtrlNbr, int dayCount, CancellationToken ct = default);

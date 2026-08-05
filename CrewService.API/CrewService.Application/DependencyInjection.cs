@@ -71,6 +71,7 @@ public static class DependencyInjection
         services.AddSingleton<IWorkerHeartbeatRegistry, WorkerHeartbeatRegistry>();
         services.AddHostedService<BackgroundWorkers.Workers.DailyCallSheetWorker>();
         services.AddScoped<DailyOperationsService>();
+        services.AddScoped<VacancyResolutionOrchestrationService>();
         services.AddScoped<CallSheetIncumbentSyncService>();
         services.AddScoped<OnDutyPlacementService>();
         services.AddScoped<TieUpService>();
