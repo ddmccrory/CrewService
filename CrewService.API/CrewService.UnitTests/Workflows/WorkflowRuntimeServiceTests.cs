@@ -13,8 +13,10 @@ using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.TenantConfig;
+using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Workflows;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
@@ -64,7 +66,8 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         {
             _crewContext.Set<WorkflowTriggerType>().AddRange(
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated),
-                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged));
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged),
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested, TriggerTypes.VacancyPlaceOnDutyRequested));
         }
 
         if (!_crewContext.Set<WorkflowEffectType>().Any())
@@ -73,7 +76,8 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation),
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing),
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.AddToRosterBoard, WorkflowEffectTypes.AddToRosterBoard),
-                WorkflowEffectType.Create(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition));
+                WorkflowEffectType.Create(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition),
+                WorkflowEffectType.Create(WorkflowEffectTypeCodes.PlaceOnDuty, WorkflowEffectTypes.PlaceOnDuty));
         }
 
         if (!_crewContext.Set<WorkflowOperatorType>().Any())
@@ -331,6 +335,76 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
             ct);
     }
 
+    [Fact]
+    public async Task ExecuteVacancyPlaceOnDutyRequestedAsync_WithPublishedWorkflow_CreatesOnDutyRecord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var railroadCtrlNbr = await SeedRailroadAsync("RR-VPOD-1", ct);
+        var employee = await SeedEmployeeAsync(withPrimaryEmail: true, ct);
+        var positionSlotCtrlNbr = await SeedAdHocPositionSlotAsync(railroadCtrlNbr, ct);
+
+        await SeedVacancyPlaceOnDutyWorkflowVersionAsync(railroadCtrlNbr, ct);
+
+        var runtime = BuildRuntimeService();
+        var onDutyTimeUtc = new DateTime(2026, 8, 1, 12, 0, 0, DateTimeKind.Utc);
+        var scheduledOnDutyTimeUtc = new DateTime(2026, 8, 1, 11, 0, 0, DateTimeKind.Utc);
+
+        var executed = await runtime.ExecuteVacancyPlaceOnDutyRequestedAsync(
+            railroadCtrlNbr,
+            new WorkflowPlaceOnDutyRuntimePayload(
+                PositionSlotCtrlNbr: positionSlotCtrlNbr,
+                EmployeeCtrlNbr: employee.CtrlNbr,
+                OnDutyTimeUtc: onDutyTimeUtc,
+                ScheduledOnDutyTimeUtc: scheduledOnDutyTimeUtc,
+                IsAssigned: true,
+                LateCallThresholdMinutes: 30),
+            correlationId: "test-vpod-1",
+            ct: ct);
+
+        Assert.True(executed);
+
+        var onDuty = Assert.Single(_crewContext.OnDutyRecords.Where(r =>
+            r.PositionSlotCtrlNbr == positionSlotCtrlNbr &&
+            r.EmployeeCtrlNbr == employee.CtrlNbr));
+
+        Assert.Equal(onDutyTimeUtc, onDuty.OnDutyTimeUtc);
+        Assert.Equal(scheduledOnDutyTimeUtc, onDuty.ScheduledOnDutyTimeUtc);
+        Assert.True(onDuty.IsAssigned);
+        Assert.Equal(OnDutyStatus.OnDuty, onDuty.Status);
+    }
+
+    [Fact]
+    public async Task ExecuteVacancyPlaceOnDutyRequestedAsync_WhenCalledTwice_DoesNotCreateDuplicateOnDutyRecord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var railroadCtrlNbr = await SeedRailroadAsync("RR-VPOD-2", ct);
+        var employee = await SeedEmployeeAsync(withPrimaryEmail: true, ct);
+        var positionSlotCtrlNbr = await SeedAdHocPositionSlotAsync(railroadCtrlNbr, ct);
+
+        await SeedVacancyPlaceOnDutyWorkflowVersionAsync(railroadCtrlNbr, ct);
+
+        var runtime = BuildRuntimeService();
+        var payload = new WorkflowPlaceOnDutyRuntimePayload(
+            PositionSlotCtrlNbr: positionSlotCtrlNbr,
+            EmployeeCtrlNbr: employee.CtrlNbr,
+            OnDutyTimeUtc: new DateTime(2026, 8, 2, 12, 0, 0, DateTimeKind.Utc),
+            ScheduledOnDutyTimeUtc: new DateTime(2026, 8, 2, 11, 30, 0, DateTimeKind.Utc),
+            IsAssigned: true,
+            LateCallThresholdMinutes: 30);
+
+        var first = await runtime.ExecuteVacancyPlaceOnDutyRequestedAsync(railroadCtrlNbr, payload, "test-vpod-2a", ct);
+        var second = await runtime.ExecuteVacancyPlaceOnDutyRequestedAsync(railroadCtrlNbr, payload, "test-vpod-2b", ct);
+
+        Assert.True(first);
+        Assert.True(second);
+
+        var matching = _crewContext.OnDutyRecords.Where(r =>
+            r.PositionSlotCtrlNbr == positionSlotCtrlNbr &&
+            r.EmployeeCtrlNbr == employee.CtrlNbr).ToList();
+
+        Assert.Single(matching);
+    }
+
     private WorkflowRuntimeService BuildRuntimeService(IWorkflowPostCommitDispatcher? postCommitDispatcher = null)
     {
         var uowFactory = new OrchestrationUnitOfWorkFactory(
@@ -356,7 +430,10 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
             invitationService,
             new NoOpVacancyRepostService());
         var workflowEffectRunner = new WorkflowEffectRunner(
-            new WorkflowEffectHandlerFactory([new SendInvitationWorkflowDatabaseEffect(invitationService)]),
+            new WorkflowEffectHandlerFactory([
+                new SendInvitationWorkflowDatabaseEffect(invitationService),
+                new PlaceOnDutyWorkflowDatabaseEffect()
+            ]),
             new WorkflowEffectExecutionTemplate(new WorkflowEffectExecutionGuard()));
         var triggerTemplate = new WorkflowTriggerExecutionTemplate(
             workflowEffectRunner,
@@ -550,6 +627,112 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         var version = WorkflowVersion.Create(template.CtrlNbr, versionNumber, definitionJson, notes: "seed", status);
         _crewContext.WorkflowVersions.Add(version);
         await _crewContext.SaveChangesAsync(ct);
+    }
+
+    private async Task SeedVacancyPlaceOnDutyWorkflowVersionAsync(ControlNumber railroadCtrlNbr, CancellationToken ct)
+    {
+        var triggerTypeCtrlNbr = await _crewContext.Set<WorkflowTriggerType>()
+            .Where(t => t.Code == WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var effectTypeCtrlNbr = await _crewContext.Set<WorkflowEffectType>()
+            .Where(t => t.Code == WorkflowEffectTypeCodes.PlaceOnDuty)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var template = WorkflowTemplate.Create(
+            railroadCtrlNbr,
+            name: "Vacancy Place On Duty",
+            triggerTypeCtrlNbr: triggerTypeCtrlNbr,
+            isEnabled: true);
+
+        _crewContext.WorkflowTemplates.Add(template);
+        await _crewContext.SaveChangesAsync(ct);
+
+        var definition = new WorkflowDefinition(
+            TriggerTypeCtrlNbr: triggerTypeCtrlNbr,
+            TriggerConditionGroupOperator: "ALL",
+            TriggerConditions: [],
+            [
+                new WorkflowStepDefinition(
+                    CtrlNbr: ControlNumber.Create(),
+                    Order: 1,
+                    Name: "Place On Duty",
+                    IsEnabled: true,
+                    FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                    ConditionGroupOperator: "ALL",
+                    Conditions: [],
+                    Effects:
+                    [
+                        new WorkflowEffectDefinition(
+                            CtrlNbr: ControlNumber.Create(),
+                            Order: 1,
+                            IsEnabled: true,
+                            EffectTypeCtrlNbr: effectTypeCtrlNbr,
+                            Options: new Dictionary<string, string>())
+                    ])
+            ]);
+
+        var version = WorkflowVersion.Create(
+            template.CtrlNbr,
+            versionNumber: 1,
+            definitionJson: JsonSerializer.Serialize(definition),
+            notes: "seed vacancy place on duty",
+            status: WorkflowVersionStatus.Published);
+
+        _crewContext.WorkflowVersions.Add(version);
+        await _crewContext.SaveChangesAsync(ct);
+    }
+
+    private async Task<ControlNumber> SeedAdHocPositionSlotAsync(ControlNumber railroadCtrlNbr, CancellationToken ct)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var department = Department.Create(
+            parentCtrlNbr: null,
+            dynamicGroupCtrlNbr: railroadCtrlNbr,
+            name: "Dispatch");
+        _crewContext.Set<Department>().Add(department);
+
+        var workInstance = WorkInstance.Create(
+            assignmentGroupCtrlNbr: null,
+            workAreaGroupCtrlNbr: railroadCtrlNbr,
+            startUtc: nowUtc.Date,
+            endUtc: nowUtc.Date.AddHours(12),
+            callTimeUtc: null,
+            status: "Planned");
+        _crewContext.WorkInstances.Add(workInstance);
+
+        var shiftDefinition = ShiftDefinition.Create(
+            workAreaGroupCtrlNbr: railroadCtrlNbr,
+            shiftCode: "D1",
+            displayName: "Day Shift",
+            displayOrder: 1,
+            isActive: true);
+        _crewContext.ShiftDefinitions.Add(shiftDefinition);
+        await _crewContext.SaveChangesAsync(ct);
+
+        var shift = ShiftInstance.Create(
+            workInstance.CtrlNbr,
+            shiftDefinition.CtrlNbr,
+            shiftCode: "D1",
+            shiftDisplayName: "Day Shift",
+            departmentCtrlNbr: department.CtrlNbr,
+            departmentName: department.Name);
+
+        shift.AddAdHocAssignment(
+            assignmentCode: "A1",
+            assignmentName: "Ad Hoc Assignment",
+            groupName: "Group",
+            groupCode: "G1",
+            onDutyTime: new TimeOnly(8, 0),
+            offDutyTime: new TimeOnly(16, 0),
+            craftRoleNames: ["Engineer"]);
+
+        _crewContext.ShiftInstances.Add(shift);
+        await _crewContext.SaveChangesAsync(ct);
+
+        return shift.PositionSlots.Single().CtrlNbr;
     }
 
     private static EmployeeCreatedDomainEvent CreateEvent(Employee employee, ControlNumber parentCtrlNbr, ControlNumber railroadCtrlNbr)
