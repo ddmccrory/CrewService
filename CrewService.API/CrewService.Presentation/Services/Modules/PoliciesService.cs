@@ -334,7 +334,16 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
             var rule = await svc.GetDepartmentReassignmentRuleAsync(ControlNumber.Create(request.DepartmentCtrlNbr), context.CancellationToken);
             return MapDepartmentReassignmentRule(rule);
         }
-        catch (KeyNotFoundException ex) { throw new RpcException(new Status(StatusCode.NotFound, ex.Message)); }
+        catch (KeyNotFoundException)
+        {
+            // Missing policy is a valid configuration state for a department.
+            // Return an empty response (CtrlNbr == 0) so callers can treat it as "not configured"
+            // without relying on exception flow.
+            return new DepartmentReassignmentRuleResponse
+            {
+                DepartmentCtrlNbr = request.DepartmentCtrlNbr
+            };
+        }
     }
 
     public override async Task<DepartmentReassignmentRuleResponse> UpsertDepartmentReassignmentRule(

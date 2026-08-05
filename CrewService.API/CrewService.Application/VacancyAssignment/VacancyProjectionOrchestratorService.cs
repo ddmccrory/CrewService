@@ -167,7 +167,7 @@ public sealed class VacancyProjectionOrchestratorService(
             var restedCandidates = new List<SkipRuleCandidate>();
             foreach (var candidate in candidates)
             {
-                var context = await skipContextProvider.BuildAsync(candidate, skipSlot, ct);
+                var context = await skipContextProvider.BuildAsync(uow, candidate, skipSlot, ct);
                 if (context.IsRested)
                     restedCandidates.Add(candidate);
             }
@@ -286,7 +286,7 @@ public sealed class VacancyProjectionOrchestratorService(
             var restedCandidates = new List<SkipRuleCandidate>();
             foreach (var candidate in candidates)
             {
-                var context = await skipContextProvider.BuildAsync(candidate, skipSlot, ct);
+                var context = await skipContextProvider.BuildAsync(uow, candidate, skipSlot, ct);
                 if (context.IsRested)
                     restedCandidates.Add(candidate);
             }

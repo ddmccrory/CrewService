@@ -1,5 +1,6 @@
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.VacancyAssignment.Rules;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.Interfaces.Repositories;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.WorkManagement;
@@ -255,6 +256,9 @@ public class VacancyResolutionEngineTests
 
     private sealed class FakeSkipContextProvider(SkipContext ctx) : ISkipContextProvider
     {
+        public Task<SkipContext> BuildAsync(IOrchestrationUnitOfWork uow, SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+            => Task.FromResult(ctx);
+
         public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
             => Task.FromResult(ctx);
     }

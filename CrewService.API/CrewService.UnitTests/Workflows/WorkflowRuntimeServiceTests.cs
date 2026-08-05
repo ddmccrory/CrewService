@@ -64,7 +64,7 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         {
             _crewContext.Set<WorkflowTriggerType>().AddRange(
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated),
-                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStateChanged));
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged));
         }
 
         if (!_crewContext.Set<WorkflowEffectType>().Any())
@@ -86,13 +86,13 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         if (!_crewContext.Set<WorkflowMetadataFieldType>().Any())
         {
             _crewContext.Set<WorkflowMetadataFieldType>().AddRange(
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority State"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority Status"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.DepartmentCtrlNbr, "Department CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.DepartmentName, "Department Name"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftCtrlNbr, "Craft CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name"),
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority State CtrlNbr"),
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority State Name"));
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority Status CtrlNbr"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name"));
         }
 
         _crewContext.SaveChanges();
@@ -284,7 +284,7 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteSeniorityStateChangedAsync_WhenNoPublishedWorkflow_DoesNotThrow()
+    public async Task ExecuteSeniorityStatusChangedAsync_WhenNoPublishedWorkflow_DoesNotThrow()
     {
         var ct = TestContext.Current.CancellationToken;
         var railroad = await SeedRailroadWithParentAsync("RR-SEN-1", ct);
@@ -324,7 +324,7 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
 
         var runtime = BuildRuntimeService();
 
-        await runtime.ExecuteSeniorityStateChangedAsync(
+        await runtime.ExecuteSeniorityStatusChangedAsync(
             employeeCtrlNbr: ControlNumber.Create(20001),
             newSeniorityStateCtrlNbr: state.CtrlNbr,
             rosterCtrlNbr: roster.CtrlNbr,

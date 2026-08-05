@@ -574,6 +574,9 @@ public sealed class VacancyProjectionOrchestratorServiceTests
 
     private sealed class FakeSkipContextProvider(IReadOnlySet<long> restedEmployeeCtrlNbrs) : ISkipContextProvider
     {
+        public Task<SkipContext> BuildAsync(IOrchestrationUnitOfWork uow, SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+            => BuildAsync(candidate, slot, ct);
+
         public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
         {
             var isRested = restedEmployeeCtrlNbrs.Contains(candidate.EmployeeCtrlNbr.Value);

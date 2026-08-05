@@ -344,7 +344,9 @@ else if (HasRailroad)
         => TruncateWithEllipsis(GetIncumbentFullDisplay(slot), EmployeeDisplayMaxChars);
 
     private static string GetProjectedEmployeeFullDisplay(DailyPositionSlotResponse slot)
-        => string.Empty;
+        => string.IsNullOrWhiteSpace(slot.ProjectedEmployeeName)
+            ? string.Empty
+            : slot.ProjectedEmployeeName;
 
     private static string GetProjectedEmployeeDisplay(DailyPositionSlotResponse slot)
         => TruncateWithEllipsis(GetProjectedEmployeeFullDisplay(slot), EmployeeDisplayMaxChars);

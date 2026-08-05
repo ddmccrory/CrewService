@@ -524,6 +524,15 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         IReadOnlyList<CrewService.Domain.Modules.Dispatching.OnDutyRecord> onDutyRecords;
         IReadOnlyDictionary<ControlNumber, SlotVacancyEvaluation> vacancyEvaluations = new Dictionary<ControlNumber, SlotVacancyEvaluation>();
         Dictionary<ControlNumber, DateTime?> vacancyImpactStartLocalBySlot = [];
+        var projectedEmployeeBySlot = new Dictionary<ControlNumber, ControlNumber>();
+        var incumbentEmployeeCtrlNbrs = shift.PositionSlots
+            .Where(s => s.IncumbentEmployeeCtrlNbr is not null)
+            .Select(s => s.IncumbentEmployeeCtrlNbr!)
+            .Distinct()
+            .ToList();
+        var projectedEmployeeCtrlNbrs = new HashSet<ControlNumber>();
+        Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoMap;
+        Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> projectedEmployeeInfoMap;
 
         await using (var uow = await serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>()
             .CreateAsync())
@@ -555,25 +564,7 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                         ? DateTime.SpecifyKind(openImpact.ImpactStartUtc, DateTimeKind.Utc)
                         : TimeZoneInfo.ConvertTime(DateTime.SpecifyKind(openImpact.ImpactStartUtc, DateTimeKind.Utc), workAreaTimeZone));
             }
-        }
 
-        var slotOnDutyMap = onDutyRecords
-            .GroupBy(r => r.PositionSlotCtrlNbr)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.OnDutyTimeUtc).First().CtrlNbr);
-
-        var employeeCtrlNbrs = shift.PositionSlots
-            .Where(s => s.IncumbentEmployeeCtrlNbr is not null)
-            .Select(s => s.IncumbentEmployeeCtrlNbr!)
-            .Distinct()
-            .ToList();
-        var employeeInfoMap = await employeeNameSvc.GetEmployeeInfoBatchAsync(employeeCtrlNbrs);
-
-        var projectedEmployeeBySlot = new Dictionary<ControlNumber, ControlNumber>();
-        var projectedEmployeeCtrlNbrs = new HashSet<ControlNumber>();
-
-        await using (var uow = await serviceProvider.GetRequiredService<IOrchestrationUnitOfWorkFactory>()
-            .CreateAsync())
-        {
             foreach (var slot in shift.PositionSlots)
             {
                 var projections = await uow.DispatchProjections.GetByPositionSlotAsync(slot.CtrlNbr);
@@ -584,11 +575,16 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
                 projectedEmployeeBySlot[slot.CtrlNbr] = projectedEmployeeCtrlNbr;
                 projectedEmployeeCtrlNbrs.Add(projectedEmployeeCtrlNbr);
             }
+
+            employeeInfoMap = await employeeNameSvc.GetEmployeeInfoBatchAsync(uow, incumbentEmployeeCtrlNbrs);
+            projectedEmployeeInfoMap = projectedEmployeeCtrlNbrs.Count == 0
+                ? []
+                : await employeeNameSvc.GetEmployeeInfoBatchAsync(uow, projectedEmployeeCtrlNbrs);
         }
 
-        var projectedEmployeeInfoMap = projectedEmployeeCtrlNbrs.Count == 0
-            ? new Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)>()
-            : await employeeNameSvc.GetEmployeeInfoBatchAsync(projectedEmployeeCtrlNbrs);
+        var slotOnDutyMap = onDutyRecords
+            .GroupBy(r => r.PositionSlotCtrlNbr)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.OnDutyTimeUtc).First().CtrlNbr);
 
         var effectiveShiftStatus = targetDate.HasValue && nowLocal.HasValue
             ? ResolveShiftDisplayStatus(shift, targetDate.Value, nowLocal.Value)

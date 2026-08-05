@@ -1,6 +1,7 @@
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
+using CrewService.Domain.Interfaces;
 using System.Text.Json;
 
 namespace CrewService.Application.VacancyAssignment;
@@ -41,6 +42,7 @@ public sealed record BoardSnapshotSlot(
 public interface ISkipContextProvider
 {
     Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default);
+    Task<SkipContext> BuildAsync(IOrchestrationUnitOfWork uow, SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default);
 }
 
 public interface IOpenSlotProvider

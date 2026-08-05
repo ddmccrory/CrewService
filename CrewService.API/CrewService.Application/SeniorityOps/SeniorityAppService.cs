@@ -315,7 +315,7 @@ public sealed class SeniorityAppService(
         // Trigger workflow execution after the seniority-state write UoW is committed.
         if (previousStateCtrlNbr != seniorityStateCtrlNbr)
         {
-            await workflowRuntimeService.ExecuteSeniorityStateChangedAsync(
+            await workflowRuntimeService.ExecuteSeniorityStatusChangedAsync(
                 employeeCtrlNbr,
                 seniorityStateCtrlNbr,
                 rosterCtrlNbr,
@@ -575,7 +575,7 @@ public sealed class SeniorityAppService(
 
             if (previousState != pending.ToSeniorityStateCtrlNbr)
             {
-                await workflowRuntimeService.ExecuteSeniorityStateChangedAsync(
+                await workflowRuntimeService.ExecuteSeniorityStatusChangedAsync(
                     seniority.EmployeeCtrlNbr,
                     pending.ToSeniorityStateCtrlNbr,
                     seniority.RosterCtrlNbr,

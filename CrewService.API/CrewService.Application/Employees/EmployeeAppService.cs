@@ -70,6 +70,17 @@ public sealed class EmployeeAppService(
         ControlNumber? railroadCtrlNbr = null,
         CancellationToken ct = default)
     {
+        var normalizedFirstName = firstName?.Trim() ?? string.Empty;
+        var normalizedLastName = lastName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedFirstName))
+            throw new InvalidOperationException("First name is required.");
+        if (string.IsNullOrWhiteSpace(normalizedLastName))
+            throw new InvalidOperationException("Last name is required.");
+        if (string.IsNullOrWhiteSpace(socialSecurityNumber) || !IsValidSocialSecurityNumber(socialSecurityNumber))
+            throw new InvalidOperationException("Social Security Number must be in XXX-XX-XXXX format.");
+        if (birthDate <= new DateTime(1900, 1, 1))
+            throw new InvalidOperationException("Birth date is required.");
+
         // Step 1 — Create Identity user (idempotent: reuse if already exists)
         var existingUser = await userAccountService.FindByEmailAsync(email);
         string userId;
@@ -114,19 +125,30 @@ public sealed class EmployeeAppService(
         uow.Employees.Add(employee);
 
         // Step 4 — Update Identity user name in the same transaction (shared connection, no lock contention)
-        if (!string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(lastName))
-        {
-            var fn = firstName?.Trim() ?? string.Empty;
-            var mn = middleName?.Trim();
-            var ln = lastName?.Trim() ?? string.Empty;
-            var fullName = string.Join(" ", new[] { fn, ln }.Where(s => !string.IsNullOrEmpty(s)));
-            var fullNameLnf = string.IsNullOrEmpty(ln) ? fn : $"{ln}, {fn}";
-            await uow.UpdateUserProfileAsync(userId, fn, mn, ln, fullName, fullNameLnf, employeeNumber, ct);
-        }
+        var mn = middleName?.Trim();
+        var fullName = string.Join(" ", new[] { normalizedFirstName, normalizedLastName }.Where(s => !string.IsNullOrEmpty(s)));
+        var fullNameLnf = $"{normalizedLastName}, {normalizedFirstName}";
+        await uow.UpdateUserProfileAsync(userId, normalizedFirstName, mn, normalizedLastName, fullName, fullNameLnf, employeeNumber, ct);
 
         await uow.CommitAsync(ct);
 
         return employee;
+    }
+
+    private static bool IsValidSocialSecurityNumber(string value)
+    {
+        return value.Length == 11
+            && char.IsDigit(value[0])
+            && char.IsDigit(value[1])
+            && char.IsDigit(value[2])
+            && value[3] == '-'
+            && char.IsDigit(value[4])
+            && char.IsDigit(value[5])
+            && value[6] == '-'
+            && char.IsDigit(value[7])
+            && char.IsDigit(value[8])
+            && char.IsDigit(value[9])
+            && char.IsDigit(value[10]);
     }
 
     public async Task<Employee> UpdateAsync(
