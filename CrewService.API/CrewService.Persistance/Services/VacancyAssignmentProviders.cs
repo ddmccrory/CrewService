@@ -5,6 +5,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Crews;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Interfaces;
 using CrewService.Domain.ValueObjects;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
@@ -163,7 +164,23 @@ internal sealed class SkipContextProvider(
     EmployeeEligibilityService eligibilityService) : ISkipContextProvider
 {
     public async Task<SkipContext> BuildAsync(
+        IOrchestrationUnitOfWork uow,
         SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+    {
+        return await BuildAsyncInternal(uow, candidate, slot, ct);
+    }
+
+    public async Task<SkipContext> BuildAsync(
+        SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+    {
+        return await BuildAsyncInternal(null, candidate, slot, ct);
+    }
+
+    private async Task<SkipContext> BuildAsyncInternal(
+        IOrchestrationUnitOfWork? uow,
+        SkipRuleCandidate candidate,
+        SkipRuleSlot slot,
+        CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         var empCtrl = candidate.EmployeeCtrlNbr;
@@ -193,7 +210,9 @@ internal sealed class SkipContextProvider(
             .Where(r => r.EmployeeCtrlNbr == empCtrl && r.OnDutyTimeUtc >= sevenDaysAgo)
             .ToListAsync(ct);
 
-        var eligibility = await eligibilityService.CheckEligibilityAsync(empCtrl, slot.PositionSlotCtrlNbr, ct);
+        var eligibility = uow is not null
+            ? await eligibilityService.CheckEligibilityAsync(uow, empCtrl, slot.PositionSlotCtrlNbr, ct)
+            : await eligibilityService.CheckEligibilityAsync(empCtrl, slot.PositionSlotCtrlNbr, ct);
 
         return new SkipContext
         {

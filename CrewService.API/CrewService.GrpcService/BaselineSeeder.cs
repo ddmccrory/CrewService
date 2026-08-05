@@ -211,7 +211,7 @@ internal static class BaselineSeeder
         await SeedStaticRequiredPositionsStrategyAsync(sp);
         await SeedWorkflowReferenceDataAsync(sp);
         await SeedEmployeeCreatedInviteWorkflowAsync(sp);
-        await SeedSeniorityStateChangedWorkflowAsync(sp);
+        await SeedSeniorityStatusChangedWorkflowAsync(sp);
     }
 
     private static async Task SeedWorkflowReferenceDataAsync(IServiceProvider sp)
@@ -222,7 +222,7 @@ internal static class BaselineSeeder
         var metadataFieldTypeRepo = sp.GetRequiredService<IWorkflowMetadataFieldTypeRepository>();
 
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated);
-        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStateChanged);
+        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged);
 
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing);
@@ -232,13 +232,13 @@ internal static class BaselineSeeder
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.EqualsOperator, "Equals");
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.NotEquals, "Does Not Equal");
 
-        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority State");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority Status");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.DepartmentCtrlNbr, "Department CtrlNbr");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.DepartmentName, "Department Name");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.CraftCtrlNbr, "Craft CtrlNbr");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name");
-        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority State CtrlNbr");
-        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority State Name");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority Status CtrlNbr");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name");
 
         async Task EnsureTriggerTypeAsync(string code, string name)
         {
@@ -596,7 +596,7 @@ internal static class BaselineSeeder
         }
     }
 
-    private static async Task SeedSeniorityStateChangedWorkflowAsync(IServiceProvider sp)
+    private static async Task SeedSeniorityStatusChangedWorkflowAsync(IServiceProvider sp)
     {
         var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
         var templateRepo = sp.GetRequiredService<IWorkflowTemplateRepository>();
@@ -606,46 +606,64 @@ internal static class BaselineSeeder
         var operatorTypeRepo = sp.GetRequiredService<IWorkflowOperatorTypeRepository>();
         var metadataFieldTypeRepo = sp.GetRequiredService<IWorkflowMetadataFieldTypeRepository>();
 
-        var seniorityStateChangedTriggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged);
+        var seniorityStatusChangedTriggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged);
         var addToRosterBoardEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.AddToRosterBoard);
         var vacateAndBulletinEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition);
         var equalsOperatorType = await operatorTypeRepo.GetByCodeAsync(WorkflowOperatorTypeCodes.EqualsOperator);
-        var newSeniorityStateMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NewSeniorityState);
+        var newSeniorityStatusMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NewSeniorityState);
+        var legacySeniorityStateTriggerType = await triggerTypeRepo.GetByCodeAsync("Seniority State Changed");
 
-        if (seniorityStateChangedTriggerType is null
+        if (seniorityStatusChangedTriggerType is null
             || addToRosterBoardEffectType is null
             || vacateAndBulletinEffectType is null
             || equalsOperatorType is null
-            || newSeniorityStateMetadataFieldType is null)
+            || newSeniorityStatusMetadataFieldType is null)
         {
             return;
         }
 
         var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+
+        if (legacySeniorityStateTriggerType is not null)
+        {
+            await ConsolidateLegacySeniorityStateWorkflowAsync(
+                railroads,
+                templateRepo,
+                triggerTypeRepo,
+                seniorityStatusChangedTriggerType,
+                legacySeniorityStateTriggerType);
+        }
+
         foreach (var railroad in railroads)
         {
-            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, seniorityStateChangedTriggerType.CtrlNbr))
-                .FirstOrDefault(w => string.Equals(w.Name, "Seniority State Change", StringComparison.OrdinalIgnoreCase));
+            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, seniorityStatusChangedTriggerType.CtrlNbr))
+                .FirstOrDefault(w => string.Equals(w.Name, "Seniority Status Change", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(w.Name, "Seniority State Change", StringComparison.OrdinalIgnoreCase));
 
             if (existingTemplate is null)
             {
                 existingTemplate = WorkflowTemplate.Create(
                     railroad.CtrlNbr,
-                    name: "Seniority State Change",
-                    triggerTypeCtrlNbr: seniorityStateChangedTriggerType.CtrlNbr,
+                    name: "Seniority Status Change",
+                    triggerTypeCtrlNbr: seniorityStatusChangedTriggerType.CtrlNbr,
                     isEnabled: true);
 
                 await templateRepo.AddAsync(existingTemplate);
             }
+            else if (!string.Equals(existingTemplate.Name, "Seniority Status Change", StringComparison.Ordinal))
+            {
+                existingTemplate.UpdateDefinition("Seniority Status Change", existingTemplate.TriggerTypeCtrlNbr, existingTemplate.IsEnabled);
+                await templateRepo.UpdateAsync(existingTemplate);
+            }
 
             var existingPublished = await versionRepo.GetLatestPublishedByRailroadAndTriggerAsync(
                 railroad.CtrlNbr,
-                seniorityStateChangedTriggerType.CtrlNbr);
+                seniorityStatusChangedTriggerType.CtrlNbr);
             if (existingPublished is not null && existingPublished.WorkflowTemplateCtrlNbr == existingTemplate.CtrlNbr)
                 continue;
 
             var definition = new WorkflowDefinition(
-                TriggerTypeCtrlNbr: seniorityStateChangedTriggerType.CtrlNbr,
+                TriggerTypeCtrlNbr: seniorityStatusChangedTriggerType.CtrlNbr,
                 TriggerConditionGroupOperator: "ALL",
                 TriggerConditions: [],
                 Steps:
@@ -661,7 +679,7 @@ internal static class BaselineSeeder
                         [
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Active")
                         ],
@@ -688,22 +706,22 @@ internal static class BaselineSeeder
                         [
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Cut Back"),
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Inactive"),
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Leave of Absence"),
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Medical Leave")
                         ],
@@ -730,12 +748,12 @@ internal static class BaselineSeeder
                         [
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Retired"),
                             new WorkflowConditionDefinition(
                                 CtrlNbr: ControlNumber.Create(),
-                                FieldTypeCtrlNbr: newSeniorityStateMetadataFieldType.CtrlNbr,
+                                FieldTypeCtrlNbr: newSeniorityStatusMetadataFieldType.CtrlNbr,
                                 OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
                                 Value: "Terminated")
                         ],
@@ -757,10 +775,49 @@ internal static class BaselineSeeder
                 existingTemplate.CtrlNbr,
                 versionNumber: nextVersion,
                 definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
-                notes: "Seeded default Seniority State Changed workflow",
+                notes: "Seeded default Seniority Status Changed workflow",
                 status: WorkflowVersionStatus.Published);
 
             await versionRepo.AddAsync(version);
+        }
+
+        static async Task ConsolidateLegacySeniorityStateWorkflowAsync(
+            IReadOnlyList<DynamicGroup> railroads,
+            IWorkflowTemplateRepository templateRepo,
+            IWorkflowTriggerTypeRepository triggerTypeRepo,
+            WorkflowTriggerType seniorityStatusChangedTriggerType,
+            WorkflowTriggerType legacySeniorityStateTriggerType)
+        {
+            foreach (var railroad in railroads)
+            {
+                var statusTemplates = await templateRepo.GetByRailroadAndTriggerTypeAsync(
+                    railroad.CtrlNbr,
+                    seniorityStatusChangedTriggerType.CtrlNbr);
+
+                var legacyTemplates = await templateRepo.GetByRailroadAndTriggerTypeAsync(
+                    railroad.CtrlNbr,
+                    legacySeniorityStateTriggerType.CtrlNbr);
+
+                foreach (var legacyTemplate in legacyTemplates)
+                {
+                    var desiredName = string.Equals(legacyTemplate.Name, "Seniority State Change", StringComparison.OrdinalIgnoreCase)
+                        ? "Seniority Status Change"
+                        : legacyTemplate.Name;
+
+                    var hasMatchingStatusTemplate = statusTemplates.Any(t => string.Equals(t.Name, desiredName, StringComparison.OrdinalIgnoreCase));
+                    if (hasMatchingStatusTemplate)
+                    {
+                        await templateRepo.DeleteAsync(legacyTemplate.CtrlNbr);
+                        continue;
+                    }
+
+                    legacyTemplate.UpdateDefinition(desiredName, seniorityStatusChangedTriggerType.CtrlNbr, legacyTemplate.IsEnabled);
+                    await templateRepo.UpdateAsync(legacyTemplate);
+                    statusTemplates.Add(legacyTemplate);
+                }
+            }
+
+            await triggerTypeRepo.DeleteAsync(legacySeniorityStateTriggerType.CtrlNbr);
         }
     }
 }

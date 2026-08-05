@@ -53,10 +53,12 @@ else
                                maxlength="11"
                                value="@createModel!.SocialSecurityNumber"
                                @oninput="OnSsnInput" />
+                        <ValidationMessage For="() => createModel!.SocialSecurityNumber" class="text-danger" />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Birth Date</label>
                         <InputDate @bind-Value="createModel!.BirthDate" class="form-control" />
+                        <ValidationMessage For="() => createModel!.BirthDate" class="text-danger" />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Employment Date</label>
@@ -65,12 +67,13 @@ else
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Employment Status</label>
-                        <SelectInput TItem="EmploymentStatusResponse" TValue="long"
-                            @bind-Value="createModel!.EmploymentStatusCtrlNbr"
-                            Items="employmentStatuses"
-                            ValueSelector="s => s.CtrlNbr"
-                            TextSelector="s => s.StatusName"
-                            Placeholder="-- Select Status --" />
+                        <InputSelect @bind-Value="createModel!.EmploymentStatusCtrlNbr" class="form-select">
+                            <option value="0">-- Select Status --</option>
+                            @foreach (var status in employmentStatuses)
+                            {
+                                <option value="@status.CtrlNbr">@status.StatusName</option>
+                            }
+                        </InputSelect>
                         <ValidationMessage For="() => createModel!.EmploymentStatusCtrlNbr" class="text-danger" />
                     </div>
                     <div class="col-md-12">
@@ -108,6 +111,7 @@ else
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">First Name</label>
                         <InputText @bind-Value="saveModel.FirstName" class="form-control" placeholder="First Name" />
+                        <ValidationMessage For="() => saveModel.FirstName" class="text-danger" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Middle Name</label>
@@ -116,6 +120,7 @@ else
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Last Name</label>
                         <InputText @bind-Value="saveModel.LastName" class="form-control" placeholder="Last Name" />
+                        <ValidationMessage For="() => saveModel.LastName" class="text-danger" />
                     </div>
                 </div>
                 <hr class="my-3" />
@@ -204,7 +209,7 @@ else
         </BodyContent>
         <Footer>
             <button type="button" class="btn btn-outline-secondary" @onclick="CloseSaveModal">Cancel</button>
-            <button type="submit" form="save-employee-form" class="btn btn-primary" disabled="@isSaving">
+            <button type="submit" form="save-employee-form" class="btn btn-primary" disabled="@IsSaveDisabled">
                 <span class="bi bi-check-circle me-1"></span> @(editCtrlNbr > 0 ? "Update" : "Create")
             </button>
         </Footer>
@@ -290,6 +295,10 @@ else
     private long deleteCtrlNbr;
     private string deleteName = "";
 
+    private static readonly EmailAddressAttribute EmailAddressValidator = new();
+
+    private bool IsSaveDisabled => isSaving || (editCtrlNbr == 0 && !IsCreateFormReady());
+
     protected override async Task LoadDataAsync()
     {
         if (CurrentUser.UseEmployeeProfilePath && CurrentUser.Employee is not null)
@@ -339,6 +348,15 @@ else
         {
             var response = await EmploymentStatusClient.GetAllAsync(SelectedParentCtrlNbr!.Value);
             employmentStatuses = response.Statuses;
+
+            if (showSaveModal
+                && editCtrlNbr == 0
+                && createModel is not null
+                && createModel.EmploymentStatusCtrlNbr <= 0
+                && employmentStatuses.Count == 1)
+            {
+                createModel.EmploymentStatusCtrlNbr = employmentStatuses[0].CtrlNbr;
+            }
         }
         catch (Exception ex)
         {
@@ -352,6 +370,8 @@ else
     {
         editCtrlNbr = 0;
         createModel = new EmployeeCreateModel { EmploymentDate = DateTime.Today };
+        if (employmentStatuses.Count == 1)
+            createModel.EmploymentStatusCtrlNbr = employmentStatuses[0].CtrlNbr;
         saveModel = createModel;
         showSaveModal = true;
     }
@@ -470,13 +490,33 @@ else
         };
     }
 
-    private sealed class EmployeeCreateModel : EmployeeProfileModel
+    private bool IsCreateFormReady()
+    {
+        if (createModel is null)
+            return false;
+
+        return !string.IsNullOrWhiteSpace(createModel.EmployeeNumber)
+            && !string.IsNullOrWhiteSpace(createModel.FirstName)
+            && !string.IsNullOrWhiteSpace(createModel.LastName)
+            && !string.IsNullOrWhiteSpace(createModel.SocialSecurityNumber)
+            && EmailAddressValidator.IsValid(createModel.Email)
+            && createModel.BirthDate.HasValue
+            && createModel.EmploymentDate.HasValue
+            && createModel.EmploymentStatusCtrlNbr > 0
+            && !string.IsNullOrWhiteSpace(createModel.Email);
+    }
+
+    private sealed class EmployeeCreateModel : EmployeeProfileModel, IValidatableObject
     {
         [Required(ErrorMessage = "Employee Number is required.")]
         [StringLength(50)]
         public string? EmployeeNumber { get; set; }
 
+        [Required(ErrorMessage = "Social Security Number is required.")]
+        [RegularExpression(@"^\d{3}-\d{2}-\d{4}$", ErrorMessage = "Social Security Number must be in XXX-XX-XXXX format.")]
         public string? SocialSecurityNumber { get; set; }
+
+        [Required(ErrorMessage = "Birth Date is required.")]
         public DateTime? BirthDate { get; set; }
 
         [Required(ErrorMessage = "Employment Date is required.")]
@@ -488,5 +528,14 @@ else
         [Required(ErrorMessage = "Email Address is required.")]
         [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
         public string? Email { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (string.IsNullOrWhiteSpace(FirstName))
+                yield return new ValidationResult("First Name is required.", [nameof(FirstName)]);
+
+            if (string.IsNullOrWhiteSpace(LastName))
+                yield return new ValidationResult("Last Name is required.", [nameof(LastName)]);
+        }
     }
 }

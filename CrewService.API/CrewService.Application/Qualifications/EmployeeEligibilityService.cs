@@ -21,6 +21,15 @@ public sealed class EmployeeEligibilityService(
         CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        return await CheckEligibilityAsync(uow, employeeCtrlNbr, positionSlotCtrlNbr, ct);
+    }
+
+    public async Task<EligibilityResult> CheckEligibilityAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber positionSlotCtrlNbr,
+        CancellationToken ct = default)
+    {
         var blockingReasons = new List<BlockingReason>();
 
         // ── 1. Slot-level requirements (explicit overrides) ──────────────────

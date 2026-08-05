@@ -1,4 +1,6 @@
 using CrewService.Application.Employees;
+using CrewService.Application.Models.UserAccount;
+using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.ValueObjects;
@@ -23,7 +25,13 @@ public sealed class EmployeeNameService(
     {
         if (string.IsNullOrEmpty(userId)) return string.Empty;
         var user = await userAccountService.FindByIdAsync(userId);
-        return user?.FullNameLNF ?? string.Empty;
+        if (user is null)
+            return string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(user.FirstName) && !string.IsNullOrWhiteSpace(user.LastName))
+            return FormatFullNameLnf(user.FirstName, user.MiddleName ?? string.Empty, user.LastName);
+
+        return string.Empty;
     }
 
     /// <summary>
@@ -38,9 +46,18 @@ public sealed class EmployeeNameService(
 
         var users = await userAccountService.GetNamesByIdsAsync(ids);
 
-        return users
-            .Where(u => u.FullNameLNF is not null)
-            .ToDictionary(u => u.Id, u => u.FullNameLNF!, StringComparer.Ordinal);
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var user in users)
+        {
+            var display = !string.IsNullOrWhiteSpace(user.FirstName) && !string.IsNullOrWhiteSpace(user.LastName)
+                ? FormatFullNameLnf(user.FirstName, user.MiddleName ?? string.Empty, user.LastName)
+                : string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(display))
+                result[user.Id] = display;
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -91,16 +108,11 @@ public sealed class EmployeeNameService(
         if (distinct.Count == 0) return [];
 
         var employees = await employeeAppService.GetByCtrlNbrsAsync(distinct);
+        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+        var users = await userAccountService.GetNamesByIdsAsync(userIds!);
+        var usersById = users.ToDictionary(u => u.Id, StringComparer.Ordinal);
 
-        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct();
-        var nameMap = await GetFullNameLnfBatchAsync(userIds!);
-
-        return employees.ToDictionary(
-            e => e.CtrlNbr,
-            e => (
-                FullNameLnf: e.UserId is not null && nameMap.TryGetValue(e.UserId, out var n) ? n : string.Empty,
-                EmployeeNumber: e.EmployeeNumber ?? string.Empty
-            ));
+        return BuildDeterministicEmployeeInfoMap(employees, usersById);
     }
 
     public async Task<Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)>> GetEmployeeInfoBatchAsync(
@@ -113,15 +125,37 @@ public sealed class EmployeeNameService(
 
         var employees = await uow.Employees.GetByCtrlNbrsAsync(distinct, ct);
 
-        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct();
-        var nameMap = await GetFullNameLnfBatchAsync(userIds!);
+        var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+        var users = await userAccountService.GetNamesByIdsAsync(userIds!);
+        var usersById = users.ToDictionary(u => u.Id, StringComparer.Ordinal);
 
-        return employees.ToDictionary(
-            e => e.CtrlNbr,
-            e => (
-                FullNameLnf: e.UserId is not null && nameMap.TryGetValue(e.UserId, out var n) ? n : string.Empty,
-                EmployeeNumber: e.EmployeeNumber ?? string.Empty
-            ));
+        return BuildDeterministicEmployeeInfoMap(employees, usersById);
+    }
+
+    private static Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> BuildDeterministicEmployeeInfoMap(
+        IEnumerable<Employee> employees,
+        IReadOnlyDictionary<string, UserNameDto> usersById)
+    {
+        var result = new Dictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)>();
+
+        foreach (var employee in employees)
+        {
+            if (string.IsNullOrWhiteSpace(employee.UserId))
+                throw new InvalidOperationException($"Employee {employee.CtrlNbr.Value} has no UserId.");
+
+            if (!usersById.TryGetValue(employee.UserId, out var user))
+                throw new InvalidOperationException($"Employee {employee.CtrlNbr.Value} references missing user '{employee.UserId}'.");
+
+            if (string.IsNullOrWhiteSpace(user.FirstName) || string.IsNullOrWhiteSpace(user.LastName))
+                throw new InvalidOperationException(
+                    $"User '{employee.UserId}' for employee {employee.CtrlNbr.Value} is missing required first/last name.");
+
+            result[employee.CtrlNbr] = (
+                FormatFullNameLnf(user.FirstName, user.MiddleName ?? string.Empty, user.LastName),
+                employee.EmployeeNumber ?? string.Empty);
+        }
+
+        return result;
     }
 
     /// <summary>

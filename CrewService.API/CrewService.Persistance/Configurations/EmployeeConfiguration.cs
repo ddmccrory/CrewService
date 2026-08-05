@@ -57,6 +57,13 @@ internal class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
 
         builder.HasOne<EmploymentStatus>().WithMany().HasForeignKey(e => e.EmploymentStatusCtrlNbr).OnDelete(DeleteBehavior.Restrict);
 
+        builder.ToTable(tableBuilder =>
+        {
+            tableBuilder.HasCheckConstraint(
+                "CK_Employee_BirthDate_Required",
+                "[BirthDate] > '1900-01-01T00:00:00.0000000'");
+        });
+
         builder.HasMany(e => e.Addresses)
             .WithOne()
             .HasForeignKey(a => a.EmployeeCtrlNbr)

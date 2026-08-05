@@ -137,7 +137,7 @@ public sealed class WorkflowRuntimeService(
         await workflowPostCommitDispatcher.DispatchAsync(postCommitWorkItems, ct);
     }
 
-    public async Task<bool> ExecuteSeniorityStateChangedAsync(
+    public async Task<bool> ExecuteSeniorityStatusChangedAsync(
         ControlNumber employeeCtrlNbr,
         ControlNumber newSeniorityStateCtrlNbr,
         ControlNumber rosterCtrlNbr,
@@ -152,7 +152,7 @@ public sealed class WorkflowRuntimeService(
             if (roster is null)
             {
                 logger.LogWarning(
-                    "WorkflowRuntimeService: Seniority-state trigger skipped because roster {Roster} was not found.",
+                    "WorkflowRuntimeService: Seniority-status trigger skipped because roster {Roster} was not found.",
                     rosterCtrlNbr.Value);
                 return false;
             }
@@ -161,7 +161,7 @@ public sealed class WorkflowRuntimeService(
             if (railroadCtrlNbr is null)
             {
                 logger.LogWarning(
-                    "WorkflowRuntimeService: Seniority-state trigger skipped because railroad could not be resolved from work area {WorkArea}.",
+                    "WorkflowRuntimeService: Seniority-status trigger skipped because railroad could not be resolved from work area {WorkArea}.",
                     roster.WorkAreaGroupCtrlNbr.Value);
                 return false;
             }
@@ -186,7 +186,7 @@ public sealed class WorkflowRuntimeService(
 
             var seniorityState = await uow.SeniorityStates.GetByCtrlNbrAsync(newSeniorityStateCtrlNbr, ct)
                 ?? throw new InvalidOperationException(
-                    $"Seniority state {newSeniorityStateCtrlNbr.Value} was not found for workflow trigger.");
+                    $"Seniority status {newSeniorityStateCtrlNbr.Value} was not found for workflow trigger.");
 
             var metadata = await BuildSeniorityWorkflowMetadataAsync(
                 uow,
@@ -441,7 +441,7 @@ public sealed class WorkflowRuntimeService(
         return metadata;
     }
 
-    private static WorkflowMetadataContext BuildSeniorityStateMetadata(SeniorityState seniorityState)
+    private static WorkflowMetadataContext BuildSeniorityStatusMetadata(SeniorityState seniorityState)
     {
         var metadata = new WorkflowMetadataContext();
         metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.NewSeniorityState] = seniorityState.StateDescription;
@@ -456,7 +456,7 @@ public sealed class WorkflowRuntimeService(
         SeniorityState seniorityState,
         CancellationToken ct)
     {
-        var metadata = BuildSeniorityStateMetadata(seniorityState);
+        var metadata = BuildSeniorityStatusMetadata(seniorityState);
 
         var roster = await uow.Rosters.GetByCtrlNbrAsync(rosterCtrlNbr, ct);
         if (roster is null)
@@ -537,7 +537,7 @@ public sealed class WorkflowRuntimeService(
 public static class TriggerTypes
 {
     public const string EmployeeCreated = "Employee Created";
-    public const string SeniorityStateChanged = "Seniority State Changed";
+    public const string SeniorityStatusChanged = "Seniority Status Changed";
 }
 
 public static class WorkflowEffectTypes
@@ -582,7 +582,7 @@ public static class WorkflowOperators
 public static class WorkflowTriggerTypeCodes
 {
     public const string EmployeeCreated = TriggerTypes.EmployeeCreated;
-    public const string SeniorityStatusChanged = TriggerTypes.SeniorityStateChanged;
+    public const string SeniorityStatusChanged = TriggerTypes.SeniorityStatusChanged;
 }
 
 public static class WorkflowEffectTypeCodes

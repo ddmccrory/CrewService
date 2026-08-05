@@ -20,5 +20,13 @@ internal sealed class UserAccessDbContext(DbContextOptions<UserAccessDbContext> 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.FullNameLNF)
             .HasDatabaseName("FullNameIndexLNF");
+
+        modelBuilder.Entity<User>()
+            .ToTable(tableBuilder =>
+            {
+                tableBuilder.HasCheckConstraint(
+                    "CK_AspNetUsers_EmployeeName_Required",
+                    "[EmployeeNumber] IS NULL OR ([FirstName] IS NOT NULL AND [FirstName] <> '' AND [LastName] IS NOT NULL AND [LastName] <> '')");
+            });
     }
 }

@@ -39,6 +39,9 @@ internal static class TestCallSheetVacancyProjectionSyncFactory
 
     private sealed class AlwaysRestedSkipContextProvider : ISkipContextProvider
     {
+        public Task<SkipContext> BuildAsync(IOrchestrationUnitOfWork uow, SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
+            => Task.FromResult(new SkipContext { IsRested = true, IsQualified = true });
+
         public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
             => Task.FromResult(new SkipContext { IsRested = true, IsQualified = true });
     }

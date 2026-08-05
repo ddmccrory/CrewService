@@ -120,7 +120,7 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         {
             _crewContext.Set<WorkflowTriggerType>().AddRange(
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated),
-                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStateChanged));
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged));
         }
 
         if (!_crewContext.Set<WorkflowEffectType>().Any())
@@ -142,13 +142,13 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         if (!_crewContext.Set<WorkflowMetadataFieldType>().Any())
         {
             _crewContext.Set<WorkflowMetadataFieldType>().AddRange(
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority State"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.NewSeniorityState, "New Seniority Status"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.DepartmentCtrlNbr, "Department CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.DepartmentName, "Department Name"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftCtrlNbr, "Craft CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name"),
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority State CtrlNbr"),
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority State Name"));
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority Status CtrlNbr"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name"));
         }
 
         _crewContext.SaveChanges();
