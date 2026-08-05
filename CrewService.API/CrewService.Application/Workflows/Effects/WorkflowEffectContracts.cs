@@ -21,7 +21,16 @@ public sealed record WorkflowEffectRuntimeContext(
     ControlNumber TriggerRailroadCtrlNbr,
     ControlNumber? EmployeeCtrlNbr,
     ControlNumber? RosterCtrlNbr,
-    ControlNumber? SeniorityStateCtrlNbr);
+    ControlNumber? SeniorityStateCtrlNbr,
+    WorkflowPlaceOnDutyRuntimePayload? PlaceOnDutyPayload = null);
+
+public sealed record WorkflowPlaceOnDutyRuntimePayload(
+    ControlNumber PositionSlotCtrlNbr,
+    ControlNumber EmployeeCtrlNbr,
+    DateTime OnDutyTimeUtc,
+    DateTime ScheduledOnDutyTimeUtc,
+    bool IsAssigned,
+    int LateCallThresholdMinutes = 0);
 
 public sealed record WorkflowEffectPostCommitWorkItem(
     string WorkType,

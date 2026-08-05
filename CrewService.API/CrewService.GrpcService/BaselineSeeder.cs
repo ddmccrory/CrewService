@@ -212,6 +212,7 @@ internal static class BaselineSeeder
         await SeedWorkflowReferenceDataAsync(sp);
         await SeedEmployeeCreatedInviteWorkflowAsync(sp);
         await SeedSeniorityStatusChangedWorkflowAsync(sp);
+        await SeedVacancyPlaceOnDutyWorkflowAsync(sp);
     }
 
     private static async Task SeedWorkflowReferenceDataAsync(IServiceProvider sp)
@@ -223,11 +224,13 @@ internal static class BaselineSeeder
 
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated);
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged);
+        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested, TriggerTypes.VacancyPlaceOnDutyRequested);
 
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.AddToRosterBoard, WorkflowEffectTypes.AddToRosterBoard);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition);
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.PlaceOnDuty, WorkflowEffectTypes.PlaceOnDuty);
 
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.EqualsOperator, "Equals");
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.NotEquals, "Does Not Equal");
@@ -302,6 +305,84 @@ internal static class BaselineSeeder
                 existing.Update(code, name, isActive: true);
                 await metadataFieldTypeRepo.UpdateAsync(existing);
             }
+        }
+    }
+
+    private static async Task SeedVacancyPlaceOnDutyWorkflowAsync(IServiceProvider sp)
+    {
+        var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        var templateRepo = sp.GetRequiredService<IWorkflowTemplateRepository>();
+        var versionRepo = sp.GetRequiredService<IWorkflowVersionRepository>();
+        var triggerTypeRepo = sp.GetRequiredService<IWorkflowTriggerTypeRepository>();
+        var effectTypeRepo = sp.GetRequiredService<IWorkflowEffectTypeRepository>();
+
+        var triggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested);
+        var placeOnDutyEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.PlaceOnDuty);
+
+        if (triggerType is null || placeOnDutyEffectType is null)
+            return;
+
+        var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+
+        foreach (var railroad in railroads)
+        {
+            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, triggerType.CtrlNbr))
+                .FirstOrDefault(w => string.Equals(w.Name, "Vacancy Place On Duty", StringComparison.OrdinalIgnoreCase));
+
+            if (existingTemplate is null)
+            {
+                existingTemplate = WorkflowTemplate.Create(
+                    railroad.CtrlNbr,
+                    name: "Vacancy Place On Duty",
+                    triggerTypeCtrlNbr: triggerType.CtrlNbr,
+                    isEnabled: true);
+
+                await templateRepo.AddAsync(existingTemplate);
+            }
+
+            var existingPublished = await versionRepo.GetLatestPublishedByRailroadAndTriggerAsync(
+                railroad.CtrlNbr,
+                triggerType.CtrlNbr);
+
+            if (existingPublished is not null && existingPublished.WorkflowTemplateCtrlNbr == existingTemplate.CtrlNbr)
+                continue;
+
+            var definition = new WorkflowDefinition(
+                TriggerTypeCtrlNbr: triggerType.CtrlNbr,
+                TriggerConditionGroupOperator: "ALL",
+                TriggerConditions: [],
+                Steps:
+                [
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 1,
+                        Name: "Place On Duty",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ALL",
+                        Conditions: [],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: placeOnDutyEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>())
+                        ])
+                ]);
+
+            var existingVersions = await versionRepo.GetByTemplateAsync(existingTemplate.CtrlNbr);
+            var nextVersion = existingVersions.Count == 0 ? 1 : existingVersions.Max(v => v.VersionNumber) + 1;
+
+            var version = WorkflowVersion.Create(
+                existingTemplate.CtrlNbr,
+                versionNumber: nextVersion,
+                definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                notes: "Seeded default Vacancy Place On Duty workflow",
+                status: WorkflowVersionStatus.Published);
+
+            await versionRepo.AddAsync(version);
         }
     }
 

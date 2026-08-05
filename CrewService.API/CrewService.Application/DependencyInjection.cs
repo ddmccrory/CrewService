@@ -216,6 +216,7 @@ public static class DependencyInjection
         services.AddScoped<SeniorityWorkflowAssignmentPath>();
         services.AddScoped<IDatabaseWorkflowEffect, SeniorityWorkflowDatabaseEffect>();
         services.AddScoped<IDatabaseWorkflowEffect, AddToRosterBoardWorkflowDatabaseEffect>();
+        services.AddScoped<IDatabaseWorkflowEffect, PlaceOnDutyWorkflowDatabaseEffect>();
         services.AddScoped<IRequirementEvaluator, ManualCompletionEvaluator>();
         services.AddScoped<IRequirementEvaluator, TimeFromEventEvaluator>();
         services.AddScoped<IRequirementEvaluator, ActivityCountEvaluator>();
