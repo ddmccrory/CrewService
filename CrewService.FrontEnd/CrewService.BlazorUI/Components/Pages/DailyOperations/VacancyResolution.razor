@@ -154,8 +154,8 @@ else if (HasRailroad)
                                     <div class="d-flex flex-wrap align-items-center gap-1">
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-primary"
-                                                disabled
-                                                title="Fill Vacancy is not available yet">
+                                                disabled="@isFillingVacancy"
+                                                @onclick="() => OpenFillVacancyModal(shift, slot)">
                                             <span class="bi bi-person-plus me-1"></span>Fill Vacancy
                                         </button>
                                         <button type="button"
@@ -178,6 +178,151 @@ else if (HasRailroad)
 <ConfirmModal Visible="showDoNotFillModal" ItemName="@doNotFillItemName" IsSaving="isDoNotFilling"
               ActionVerb="Do Not Fill" ButtonIcon="bi bi-slash-circle" ButtonClass="btn-warning"
               OnConfirm="ConfirmDoNotFill" OnCancel="() => showDoNotFillModal = false" />
+
+<Modal Visible="showFillVacancyModal"
+       Title="Fill Vacancy"
+       Icon="bi bi-person-plus"
+       Size="lg"
+       OnClose="CloseFillVacancyModal">
+    <BodyContent>
+        @if (isLoadingFillCandidates)
+        {
+            <LoadingMessage ContainerClass="d-flex align-items-center gap-2" />
+        }
+        else
+        {
+            <div class="mb-2">
+                <div class="small text-muted">@fillVacancyContextText</div>
+            </div>
+
+            @if (fillCandidates.Count == 0)
+            {
+                <div class="alert alert-warning mb-2">No eligible candidates found.</div>
+            }
+            else
+            {
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Candidate</label>
+                    <select class="form-select form-select-sm" @bind="selectedFillEmployeeCtrlNbr">
+                        <option value="0">-- Select Candidate --</option>
+                        @foreach (var candidate in fillCandidates)
+                        {
+                            <option value="@candidate.EmployeeCtrlNbr">@candidate.EmployeeName (@candidate.EmployeeNumber) - @candidate.BoardType #@candidate.BoardOrder</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedCandidate is not null)
+                {
+                    <div class="card mb-2">
+                        <div class="card-header py-2"><strong>Contact</strong></div>
+                        <div class="card-body py-2">
+                            @if (selectedCandidate.Contacts.Count == 0)
+                            {
+                                <span class="text-muted">No contact details available.</span>
+                            }
+                            else
+                            {
+                                <ul class="mb-0">
+                                    @foreach (var contact in selectedCandidate.Contacts.OrderBy(c => c.CallingOrder))
+                                    {
+                                        <li>@contact.ContactType: @contact.ContactValue</li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="fillAcceptedToggle" @bind="fillAccepted" />
+                    <label class="form-check-label" for="fillAcceptedToggle">Accepted</label>
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="forceOverrideToggle" @bind="forceOverride" />
+                    <label class="form-check-label" for="forceOverrideToggle">Force Override (Daily)</label>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Force Reason</label>
+                    <InputTextArea @bind-Value="forceReason" class="form-control" rows="2" />
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="lateCallToggle" @bind="isLateCall" />
+                    <label class="form-check-label" for="lateCallToggle">Late Call</label>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Late Call Note</label>
+                    <InputTextArea @bind-Value="lateCallNote" class="form-control" rows="2" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Arrival Follow-Up Note</label>
+                    <InputTextArea @bind-Value="arrivalFollowUpNote" class="form-control" rows="2" />
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Dispatcher Note</label>
+                    <InputTextArea @bind-Value="dispatcherNote" class="form-control" rows="2" />
+                </div>
+            }
+        }
+    </BodyContent>
+    <Footer>
+        <button type="button" class="btn btn-secondary" @onclick="CloseFillVacancyModal">Cancel</button>
+        <button type="button" class="btn btn-primary"
+                disabled="@(isFillingVacancy || selectedFillEmployeeCtrlNbr == 0 || fillCandidates.Count == 0)"
+                @onclick="ConfirmFillVacancy">
+            @if (isFillingVacancy)
+            {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            <span class="bi bi-person-check me-1"></span>Fill Vacancy
+        </button>
+    </Footer>
+</Modal>
+
+@if (fillAuditRecords.Count > 0)
+{
+    <div class="card mt-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Vacancy Fill Audit</strong>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="LoadFillAuditAsync">Refresh</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Assignment</th>
+                        <th>Role</th>
+                        <th>Employee</th>
+                        <th>Status</th>
+                        <th>Force</th>
+                        <th>Late Call</th>
+                        <th>Created (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var record in fillAuditRecords)
+                    {
+                        <tr>
+                            <td>@record.AssignmentCode</td>
+                            <td>@record.CraftRoleName</td>
+                            <td>@record.EmployeeName</td>
+                            <td>@record.Status</td>
+                            <td>@(record.ForceOverride ? "Yes" : "No")</td>
+                            <td>@(record.IsLateCall ? "Yes" : "No")</td>
+                            <td>@record.CreatedAtUtc.ToDateTime().ToString("u")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
 
 @code {
     private bool isLoading;
@@ -210,6 +355,25 @@ else if (HasRailroad)
     private int? yesterdayVacancyCount;
     private int? todayVacancyCount;
     private int? tomorrowVacancyCount;
+    private bool showFillVacancyModal;
+    private bool isLoadingFillCandidates;
+    private bool isFillingVacancy;
+    private long fillShiftCtrlNbr;
+    private long fillSlotCtrlNbr;
+    private string fillVacancyContextText = string.Empty;
+    private readonly List<VacancyFillCandidateResponse> fillCandidates = [];
+    private long selectedFillEmployeeCtrlNbr;
+    private bool fillAccepted = true;
+    private bool forceOverride;
+    private string forceReason = string.Empty;
+    private bool isLateCall;
+    private string lateCallNote = string.Empty;
+    private string arrivalFollowUpNote = string.Empty;
+    private string dispatcherNote = string.Empty;
+    private readonly List<VacancyFillAuditRecordResponse> fillAuditRecords = [];
+
+    private VacancyFillCandidateResponse? selectedCandidate
+        => fillCandidates.FirstOrDefault(c => c.EmployeeCtrlNbr == selectedFillEmployeeCtrlNbr);
 
     protected override string? FeatureKey => "daily/vacancy-resolution";
 
@@ -302,6 +466,7 @@ else if (HasRailroad)
                 .ToList();
 
             await LoadRelativeVacancyCountsAsync();
+            await LoadFillAuditAsync();
         }
         catch (Exception ex)
         {
@@ -471,6 +636,115 @@ else if (HasRailroad)
         finally
         {
             isDoNotFilling = false;
+        }
+    }
+
+    private async Task OpenFillVacancyModal(VacancyResolutionShiftCard shift, DailyPositionSlotResponse slot)
+    {
+        fillShiftCtrlNbr = shift.ShiftInstanceCtrlNbr;
+        fillSlotCtrlNbr = slot.CtrlNbr;
+        fillVacancyContextText = $"{slot.AssignmentCode.ToUpperInvariant()} - {slot.CraftRoleName}";
+
+        fillCandidates.Clear();
+        selectedFillEmployeeCtrlNbr = 0;
+        fillAccepted = true;
+        forceOverride = false;
+        forceReason = string.Empty;
+        isLateCall = false;
+        lateCallNote = string.Empty;
+        arrivalFollowUpNote = string.Empty;
+        dispatcherNote = string.Empty;
+
+        isLoadingFillCandidates = true;
+        pageErrorMessage = null;
+        showFillVacancyModal = true;
+
+        try
+        {
+            var candidates = await DailyOperationsClient.GetVacancyFillCandidatesAsync(
+                selectedWorkAreaCtrlNbr,
+                shift.ShiftInstanceCtrlNbr,
+                slot.CtrlNbr);
+
+            fillCandidates.AddRange(candidates.Candidates);
+            if (fillCandidates.Count == 1)
+                selectedFillEmployeeCtrlNbr = fillCandidates[0].EmployeeCtrlNbr;
+        }
+        catch (Exception ex)
+        {
+            pageErrorMessage = $"Failed to load fill candidates: {ex.Message}";
+            showFillVacancyModal = false;
+        }
+        finally
+        {
+            isLoadingFillCandidates = false;
+        }
+    }
+
+    private void CloseFillVacancyModal()
+    {
+        showFillVacancyModal = false;
+    }
+
+    private async Task ConfirmFillVacancy()
+    {
+        if (selectedFillEmployeeCtrlNbr == 0)
+            return;
+
+        isFillingVacancy = true;
+        pageErrorMessage = null;
+
+        try
+        {
+            await DailyOperationsClient.FillVacancyPositionAsync(
+                selectedWorkAreaCtrlNbr,
+                fillShiftCtrlNbr,
+                fillSlotCtrlNbr,
+                selectedFillEmployeeCtrlNbr,
+                forceOverride,
+                forceReason,
+                dispatcherNote,
+                fillAccepted,
+                isLateCall,
+                lateCallNote,
+                arrivalFollowUpNote,
+                acceptedAtUtc: fillAccepted ? DateTime.UtcNow : null,
+                expectedArrivalAtUtc: isLateCall ? DateTime.UtcNow : null);
+
+            showFillVacancyModal = false;
+            await LoadVacanciesAsync();
+        }
+        catch (Exception ex)
+        {
+            pageErrorMessage = $"Failed to fill vacancy: {ex.Message}";
+        }
+        finally
+        {
+            isFillingVacancy = false;
+        }
+    }
+
+    private async Task LoadFillAuditAsync()
+    {
+        if (!HasRailroad || selectedWorkAreaCtrlNbr == 0)
+        {
+            fillAuditRecords.Clear();
+            return;
+        }
+
+        try
+        {
+            var report = await DailyOperationsClient.GetVacancyFillAuditReportAsync(
+                selectedWorkAreaCtrlNbr,
+                selectedDate.ToString("yyyy-MM-dd"),
+                selectedDepartmentCtrlNbr);
+
+            fillAuditRecords.Clear();
+            fillAuditRecords.AddRange(report.Records);
+        }
+        catch
+        {
+            fillAuditRecords.Clear();
         }
     }
 }

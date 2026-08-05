@@ -18,6 +18,97 @@ public sealed class DailyOperationsClient(GrpcChannelProvider channelProvider, C
         catch (Exception ex) { LogException(ex); throw; }
     }
 
+    public async Task<GetVacancyFillCandidatesResponse> GetVacancyFillCandidatesAsync(
+        long workAreaGroupCtrlNbr,
+        long shiftInstanceCtrlNbr,
+        long positionSlotCtrlNbr,
+        long craftCtrlNbr = 0)
+    {
+        try
+        {
+            var request = new GetVacancyFillCandidatesRequest
+            {
+                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                PositionSlotCtrlNbr = positionSlotCtrlNbr
+            };
+
+            if (craftCtrlNbr > 0)
+                request.CraftCtrlNbr = craftCtrlNbr;
+
+            return await _client.GetVacancyFillCandidatesAsync(request);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<FillVacancyPositionResponse> FillVacancyPositionAsync(
+        long workAreaGroupCtrlNbr,
+        long shiftInstanceCtrlNbr,
+        long positionSlotCtrlNbr,
+        long employeeCtrlNbr,
+        bool forceOverride,
+        string forceReason,
+        string dispatcherNote,
+        bool accepted,
+        bool isLateCall,
+        string lateCallNote,
+        string arrivalFollowUpNote,
+        DateTime? acceptedAtUtc,
+        DateTime? expectedArrivalAtUtc,
+        long craftCtrlNbr = 0)
+    {
+        try
+        {
+            var request = new FillVacancyPositionRequest
+            {
+                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+                ShiftInstanceCtrlNbr = shiftInstanceCtrlNbr,
+                PositionSlotCtrlNbr = positionSlotCtrlNbr,
+                EmployeeCtrlNbr = employeeCtrlNbr,
+                ForceOverride = forceOverride,
+                ForceReason = forceReason ?? string.Empty,
+                DispatcherNote = dispatcherNote ?? string.Empty,
+                Accepted = accepted,
+                IsLateCall = isLateCall,
+                LateCallNote = lateCallNote ?? string.Empty,
+                ArrivalFollowUpNote = arrivalFollowUpNote ?? string.Empty
+            };
+
+            if (acceptedAtUtc is not null)
+                request.AcceptedAtUtc = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(acceptedAtUtc.Value, DateTimeKind.Utc));
+
+            if (expectedArrivalAtUtc is not null)
+                request.ExpectedArrivalAtUtc = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(expectedArrivalAtUtc.Value, DateTimeKind.Utc));
+
+            if (craftCtrlNbr > 0)
+                request.CraftCtrlNbr = craftCtrlNbr;
+
+            return await _client.FillVacancyPositionAsync(request);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
+    public async Task<GetVacancyFillAuditReportResponse> GetVacancyFillAuditReportAsync(
+        long workAreaGroupCtrlNbr,
+        string targetDate,
+        long departmentCtrlNbr = 0)
+    {
+        try
+        {
+            var request = new GetVacancyFillAuditReportRequest
+            {
+                WorkAreaGroupCtrlNbr = workAreaGroupCtrlNbr,
+                TargetDate = targetDate
+            };
+
+            if (departmentCtrlNbr > 0)
+                request.DepartmentCtrlNbr = departmentCtrlNbr;
+
+            return await _client.GetVacancyFillAuditReportAsync(request);
+        }
+        catch (Exception ex) { LogException(ex); throw; }
+    }
+
     public async Task<GetVacancyResolutionResponse> GetVacancyResolutionAsync(
         long workAreaGroupCtrlNbr,
         string targetDate,
