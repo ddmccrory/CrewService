@@ -9,6 +9,7 @@ using CrewService.Presentation.Formatting;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
+using System.Globalization;
 
 namespace CrewService.Presentation.Services.Modules;
 
@@ -164,6 +165,7 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
         ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<VacancyResolutionOrchestrationService>();
+        var clock = serviceProvider.GetRequiredService<IWorkAreaClock>();
 
         if (!DateOnly.TryParse(request.TargetDate, out var targetDate))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid target_date format. Use yyyy-MM-dd."));
@@ -191,8 +193,22 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             LateCallNote = r.LateCallNote ?? string.Empty,
             ArrivalFollowUpNote = r.ArrivalFollowUpNote ?? string.Empty,
             DispatcherNote = r.DispatcherNote ?? string.Empty,
-            CreatedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.CreatedAtUtc, DateTimeKind.Utc))
+            CreatedAtUtc = Timestamp.FromDateTime(DateTime.SpecifyKind(r.CreatedAtUtc, DateTimeKind.Utc)),
+            CreatedAtLocal = string.Empty
         }));
+
+        foreach (var row in response.Records)
+        {
+            var source = records.FirstOrDefault(x => x.VacancyFillLogCtrlNbr.Value == row.VacancyFillLogCtrlNbr);
+            if (source is null)
+                continue;
+
+            var tz = await clock.GetWorkAreaTimeZoneAsync(source.WorkAreaGroupCtrlNbr, context.CancellationToken);
+            var local = tz is null
+                ? DateTime.SpecifyKind(source.CreatedAtUtc, DateTimeKind.Utc)
+                : TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(source.CreatedAtUtc, DateTimeKind.Utc), tz);
+            row.CreatedAtLocal = local.ToString("MM/dd/yyyy HH:mm", CultureInfo.InvariantCulture);
+        }
 
         return response;
     }

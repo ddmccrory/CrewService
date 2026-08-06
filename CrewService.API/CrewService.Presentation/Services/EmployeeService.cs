@@ -160,16 +160,17 @@ public class EmployeeService(
             if (existingBySsn is not null)
                 throw new RpcException(new Status(StatusCode.AlreadyExists, "Social security number already exists."));
 
-            MaritalStatus? maritalStatus = string.IsNullOrEmpty(request.MaritalStatus)
-                ? null : System.Enum.Parse<MaritalStatus>(request.MaritalStatus, ignoreCase: true);
+            var maritalStatus = ParseOptionalMaritalStatus(request.MaritalStatus);
+            var gender = ParseRequiredGender(request.Gender);
+            var race = ParseRace(request.Race);
 
             var employee = await _employeeAppService.CreateAsync(
                 ControlNumber.Create(request.ClientCtrlNbr),
                 request.Email,
                 request.EmployeeNumber,
                 request.SocialSecurityNumber,
-                System.Enum.Parse<Gender>(request.Gender, ignoreCase: true),
-                System.Enum.Parse<Race>(request.Race, ignoreCase: true),
+                gender,
+                race,
                 request.BirthDate.ToDateTime(),
                 request.EmploymentDate.ToDateTime(),
                 ControlNumber.Create(request.EmploymentStatusCtrlNbr),
@@ -461,8 +462,36 @@ public class EmployeeService(
 
     private static Race ParseRace(string value)
     {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid race."));
+
         var normalized = value.Replace(" ", string.Empty, StringComparison.Ordinal);
-        return System.Enum.Parse<Race>(normalized, ignoreCase: true);
+        if (System.Enum.TryParse<Race>(normalized, ignoreCase: true, out var race))
+            return race;
+
+        throw new RpcException(new Status(StatusCode.InvalidArgument, $"Invalid race '{value}'."));
+    }
+
+    private static Gender ParseRequiredGender(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Please provide a valid gender."));
+
+        if (System.Enum.TryParse<Gender>(value, ignoreCase: true, out var gender))
+            return gender;
+
+        throw new RpcException(new Status(StatusCode.InvalidArgument, $"Invalid gender '{value}'."));
+    }
+
+    private static MaritalStatus? ParseOptionalMaritalStatus(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (System.Enum.TryParse<MaritalStatus>(value, ignoreCase: true, out var maritalStatus))
+            return maritalStatus;
+
+        throw new RpcException(new Status(StatusCode.InvalidArgument, $"Invalid marital status '{value}'."));
     }
 
     private async Task EnsureCanEditEmployeeDetailAsync(long requestedEmployeeCtrlNbr, ServerCallContext context)

@@ -199,6 +199,8 @@ public sealed class RosterBoardPosition : Entity
     public ControlNumber EmployeeCtrlNbr { get; private set; }
     public ControlNumber StaffablePositionCtrlNbr { get; private set; }
     public int PositionOrder { get; private set; }
+    public DateTime? TieUpOrderUtc { get; private set; }
+    public int OrderSeedBoardPosition { get; private set; }
 
     private RosterBoardPosition()
     {
@@ -216,12 +218,35 @@ public sealed class RosterBoardPosition : Entity
             RosterBoardCtrlNbr = rosterBoardCtrlNbr,
             EmployeeCtrlNbr = employeeCtrlNbr,
             StaffablePositionCtrlNbr = staffablePositionCtrlNbr,
-            PositionOrder = positionOrder
+            PositionOrder = positionOrder,
+            OrderSeedBoardPosition = positionOrder
         };
     }
 
     internal void UpdateOrder(int newOrder)
     {
         PositionOrder = newOrder;
+        if (OrderSeedBoardPosition <= 0)
+            OrderSeedBoardPosition = newOrder;
+    }
+
+    public void SetOrderSeedBoardPosition(int boardPosition)
+    {
+        if (boardPosition <= 0)
+            throw new InvalidOperationException("Board position seed must be greater than zero.");
+
+        OrderSeedBoardPosition = boardPosition;
+    }
+
+    public void SetTieUpOrderUtc(DateTime tieUpTimeUtc)
+    {
+        TieUpOrderUtc = DateTime.SpecifyKind(tieUpTimeUtc, DateTimeKind.Utc);
+    }
+
+    public void SetTieUpOrderUtcIfLater(DateTime tieUpTimeUtc)
+    {
+        var normalized = DateTime.SpecifyKind(tieUpTimeUtc, DateTimeKind.Utc);
+        if (TieUpOrderUtc is null || normalized > TieUpOrderUtc.Value)
+            TieUpOrderUtc = normalized;
     }
 }

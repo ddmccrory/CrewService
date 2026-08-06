@@ -69,6 +69,14 @@ public sealed class BoardSlotInstance : Entity
         Status = BoardSlotStatus.Called;
     }
 
+    public void RecordCallSequence(long callSequence)
+    {
+        if (callSequence <= 0)
+            throw new ArgumentOutOfRangeException(nameof(callSequence), "Call sequence must be greater than zero.");
+
+        CallSequence = callSequence;
+    }
+
     public void MarkOnDuty()
     {
         Status = BoardSlotStatus.OnDuty;

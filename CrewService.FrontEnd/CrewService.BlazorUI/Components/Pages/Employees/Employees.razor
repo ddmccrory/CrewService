@@ -495,15 +495,20 @@ else
         if (createModel is null)
             return false;
 
+        var hasValidSsn = !string.IsNullOrWhiteSpace(createModel.SocialSecurityNumber)
+            && System.Text.RegularExpressions.Regex.IsMatch(createModel.SocialSecurityNumber, @"^\d{3}-\d{2}-\d{4}$");
+
         return !string.IsNullOrWhiteSpace(createModel.EmployeeNumber)
             && !string.IsNullOrWhiteSpace(createModel.FirstName)
             && !string.IsNullOrWhiteSpace(createModel.LastName)
-            && !string.IsNullOrWhiteSpace(createModel.SocialSecurityNumber)
+            && hasValidSsn
             && EmailAddressValidator.IsValid(createModel.Email)
             && createModel.BirthDate.HasValue
             && createModel.EmploymentDate.HasValue
             && createModel.EmploymentStatusCtrlNbr > 0
-            && !string.IsNullOrWhiteSpace(createModel.Email);
+            && !string.IsNullOrWhiteSpace(createModel.Email)
+            && !string.IsNullOrWhiteSpace(createModel.Gender)
+            && !string.IsNullOrWhiteSpace(createModel.Race);
     }
 
     private sealed class EmployeeCreateModel : EmployeeProfileModel, IValidatableObject

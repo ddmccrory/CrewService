@@ -193,6 +193,10 @@ else if (HasRailroad)
         {
             <div class="mb-2">
                 <div class="small text-muted">@fillVacancyContextText</div>
+                @if (!string.IsNullOrWhiteSpace(fillVacancyProjectedEmployeeText))
+                {
+                    <div class="small text-muted">Projected Employee: <strong>@fillVacancyProjectedEmployeeText</strong></div>
+                }
             </div>
 
             @if (fillCandidates.Count == 0)
@@ -302,7 +306,7 @@ else if (HasRailroad)
                         <th>Status</th>
                         <th>Force</th>
                         <th>Late Call</th>
-                        <th>Created (UTC)</th>
+                        <th>Created</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -315,7 +319,7 @@ else if (HasRailroad)
                             <td>@record.Status</td>
                             <td>@(record.ForceOverride ? "Yes" : "No")</td>
                             <td>@(record.IsLateCall ? "Yes" : "No")</td>
-                            <td>@record.CreatedAtUtc.ToDateTime().ToString("u")</td>
+                            <td>@record.CreatedAtLocal</td>
                         </tr>
                     }
                 </tbody>
@@ -361,6 +365,7 @@ else if (HasRailroad)
     private long fillShiftCtrlNbr;
     private long fillSlotCtrlNbr;
     private string fillVacancyContextText = string.Empty;
+    private string fillVacancyProjectedEmployeeText = string.Empty;
     private readonly List<VacancyFillCandidateResponse> fillCandidates = [];
     private long selectedFillEmployeeCtrlNbr;
     private bool fillAccepted = true;
@@ -509,9 +514,24 @@ else if (HasRailroad)
         => TruncateWithEllipsis(GetIncumbentFullDisplay(slot), EmployeeDisplayMaxChars);
 
     private static string GetProjectedEmployeeFullDisplay(DailyPositionSlotResponse slot)
-        => string.IsNullOrWhiteSpace(slot.ProjectedEmployeeName)
-            ? string.Empty
-            : slot.ProjectedEmployeeName;
+    {
+        if (!slot.HasProjectedEmployeeCtrlNbr)
+            return string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(slot.ProjectedEmployeeNumber)
+            && !string.IsNullOrWhiteSpace(slot.ProjectedEmployeeName))
+        {
+            return $"{slot.ProjectedEmployeeNumber.ToUpperInvariant()} - {slot.ProjectedEmployeeName}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(slot.ProjectedEmployeeNumber))
+            return slot.ProjectedEmployeeNumber.ToUpperInvariant();
+
+        if (!string.IsNullOrWhiteSpace(slot.ProjectedEmployeeName))
+            return slot.ProjectedEmployeeName;
+
+        return $"Emp #{slot.ProjectedEmployeeCtrlNbr}";
+    }
 
     private static string GetProjectedEmployeeDisplay(DailyPositionSlotResponse slot)
         => TruncateWithEllipsis(GetProjectedEmployeeFullDisplay(slot), EmployeeDisplayMaxChars);
@@ -644,6 +664,7 @@ else if (HasRailroad)
         fillShiftCtrlNbr = shift.ShiftInstanceCtrlNbr;
         fillSlotCtrlNbr = slot.CtrlNbr;
         fillVacancyContextText = $"{slot.AssignmentCode.ToUpperInvariant()} - {slot.CraftRoleName}";
+        fillVacancyProjectedEmployeeText = GetProjectedEmployeeFullDisplay(slot);
 
         fillCandidates.Clear();
         selectedFillEmployeeCtrlNbr = 0;
@@ -667,8 +688,15 @@ else if (HasRailroad)
                 slot.CtrlNbr);
 
             fillCandidates.AddRange(candidates.Candidates);
-            if (fillCandidates.Count == 1)
+            var projectedCandidate = fillCandidates.FirstOrDefault(c => string.Equals(c.QualificationStatus, "Projected", StringComparison.OrdinalIgnoreCase));
+            if (projectedCandidate is not null)
+            {
+                selectedFillEmployeeCtrlNbr = projectedCandidate.EmployeeCtrlNbr;
+            }
+            else if (fillCandidates.Count == 1)
+            {
                 selectedFillEmployeeCtrlNbr = fillCandidates[0].EmployeeCtrlNbr;
+            }
         }
         catch (Exception ex)
         {
@@ -684,6 +712,7 @@ else if (HasRailroad)
     private void CloseFillVacancyModal()
     {
         showFillVacancyModal = false;
+        fillVacancyProjectedEmployeeText = string.Empty;
     }
 
     private async Task ConfirmFillVacancy()

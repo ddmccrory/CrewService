@@ -4,6 +4,7 @@ using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.Policies;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 
@@ -12,7 +13,8 @@ namespace CrewService.Application.DailyOperations;
 public sealed class VacancyResolutionOrchestrationService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     WorkflowRuntimeService workflowRuntimeService,
-    OnDutyPlacementService onDutyPlacementService)
+    OnDutyPlacementService onDutyPlacementService,
+    CallSheetVacancyProjectionSyncService vacancyProjectionSyncService)
 {
     public async Task<IReadOnlyList<VacancyFillCandidateDto>> GetFillCandidatesAsync(
         ControlNumber workAreaGroupCtrlNbr,
@@ -33,6 +35,7 @@ public sealed class VacancyResolutionOrchestrationService(
         var boardRows = await GetCandidateBoardRowsAsync(uow, workAreaGroupCtrlNbr, shift, resolvedCraftCtrlNbr, ct);
         var activeBoards = await uow.RosterBoards.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
         var boardTypeByCtrlNbr = activeBoards.ToDictionary(b => b.CtrlNbr, b => b.BoardType);
+        var projectedEmployeeCtrlNbr = await GetProjectedEmployeeCtrlNbrAsync(uow, slot.CtrlNbr);
 
         var employeesByCtrlNbr = new Dictionary<ControlNumber, Domain.Models.Employees.Employee>();
         foreach (var employeeCtrlNbr in boardRows.Select(b => b.EmployeeCtrlNbr).Distinct())
@@ -42,7 +45,45 @@ public sealed class VacancyResolutionOrchestrationService(
                 employeesByCtrlNbr[employeeCtrlNbr] = employee;
         }
 
-        return boardRows
+        if (projectedEmployeeCtrlNbr is not null && !employeesByCtrlNbr.ContainsKey(projectedEmployeeCtrlNbr))
+        {
+            var projectedEmployee = await uow.Employees.GetByCtrlNbrAsync(projectedEmployeeCtrlNbr, ct);
+            if (projectedEmployee is not null)
+                employeesByCtrlNbr[projectedEmployeeCtrlNbr] = projectedEmployee;
+        }
+
+        var candidates = new List<VacancyFillCandidateDto>();
+        if (projectedEmployeeCtrlNbr is not null
+            && employeesByCtrlNbr.TryGetValue(projectedEmployeeCtrlNbr, out var projectedEmployeeInfo))
+        {
+            var projectedBoardRow = boardRows.FirstOrDefault(r => r.EmployeeCtrlNbr == projectedEmployeeCtrlNbr);
+            var projectedContacts = BuildContacts(projectedEmployeeInfo);
+
+            var projectedBoardType = projectedBoardRow is not null
+                && boardTypeByCtrlNbr.TryGetValue(projectedBoardRow.RosterBoardCtrlNbr, out var matchedBoardType)
+                    ? matchedBoardType.ToString()
+                    : BoardType.ExtraBoard.ToString();
+
+            candidates.Add(new VacancyFillCandidateDto(
+                projectedEmployeeCtrlNbr,
+                projectedEmployeeInfo.EmployeeNumber,
+                projectedBoardRow?.EmployeeName
+                    ?? (!string.IsNullOrWhiteSpace(projectedEmployeeInfo.EmployeeNumber)
+                        ? projectedEmployeeInfo.EmployeeNumber
+                        : $"Emp #{projectedEmployeeCtrlNbr.Value}"),
+                projectedBoardType,
+                projectedBoardRow?.BoardOrder ?? 0,
+                projectedBoardRow?.CallSequence ?? 0,
+                QualificationStatus: "Projected",
+                StatusDisplay: "Projected",
+                ProjectedVacancyDisplay: projectedBoardRow?.PositionName ?? slot.AssignmentName,
+                OnDutyDisplay: string.Empty,
+                projectedContacts,
+                projectedBoardRow?.CtrlNbr ?? ControlNumber.Create(0)));
+        }
+
+        candidates.AddRange(boardRows
+            .Where(row => projectedEmployeeCtrlNbr is null || row.EmployeeCtrlNbr != projectedEmployeeCtrlNbr)
             .Select(row =>
             {
                 employeesByCtrlNbr.TryGetValue(row.EmployeeCtrlNbr, out var employee);
@@ -64,7 +105,9 @@ public sealed class VacancyResolutionOrchestrationService(
                     contacts,
                     row.CtrlNbr);
             })
-            .ToList();
+            .ToList());
+
+        return candidates;
     }
 
     public async Task<VacancyFillResult> FillVacancyAsync(
@@ -87,8 +130,12 @@ public sealed class VacancyResolutionOrchestrationService(
             ? null
             : request.ArrivalFollowUpNote.Trim();
 
-        ControlNumber onDutyRecordCtrlNbr;
-        string finalStatus;
+        ControlNumber? resolvedCraftCtrlNbr;
+        ControlNumber railroadCtrlNbr;
+        DateTime scheduledOnDutyUtc;
+    DateTime defaultOffDutyUtc;
+        DateTime requestedOnDutyUtc;
+        int lateCallThresholdMinutes;
 
         await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
         {
@@ -98,7 +145,6 @@ public sealed class VacancyResolutionOrchestrationService(
             var slot = shift.PositionSlots.SingleOrDefault(s => s.CtrlNbr == request.PositionSlotCtrlNbr)
                 ?? throw new KeyNotFoundException($"Position slot {request.PositionSlotCtrlNbr.Value} not found on shift.");
 
-            var existingFillForEmployee = slot.IncumbentEmployeeCtrlNbr == request.EmployeeCtrlNbr;
             var slotIsClosed = slot.Status is PositionSlotStatus.Annulled
                 or PositionSlotStatus.DoNotFill
                 or PositionSlotStatus.TiedUp;
@@ -106,16 +152,10 @@ public sealed class VacancyResolutionOrchestrationService(
             if (slotIsClosed)
                 throw new InvalidOperationException("Cannot fill a closed position slot.");
 
-            var resolvedCraftCtrlNbr = request.CraftCtrlNbr ?? await ResolveCraftCtrlNbrAsync(uow, slot, ct);
+            resolvedCraftCtrlNbr = request.CraftCtrlNbr ?? await ResolveCraftCtrlNbrAsync(uow, slot, ct);
             var operationsPolicy = resolvedCraftCtrlNbr is null
                 ? null
                 : await uow.CraftOperationsPolicies.GetByCraftAsync(resolvedCraftCtrlNbr.Value, ct);
-
-            var cascadePolicy = resolvedCraftCtrlNbr is null
-                ? null
-                : await uow.BoardCascadePolicies.GetByWorkAreaAndCraftAsync(request.WorkAreaGroupCtrlNbr, resolvedCraftCtrlNbr.Value);
-            var activeBoards = await uow.RosterBoards.GetActiveByWorkAreaAsync(request.WorkAreaGroupCtrlNbr, ct);
-            var boardTypeByCtrlNbr = activeBoards.ToDictionary(b => b.CtrlNbr, b => b.BoardType);
 
             if (shift.DepartmentCtrlNbr is not null)
             {
@@ -124,49 +164,96 @@ public sealed class VacancyResolutionOrchestrationService(
                     throw new InvalidOperationException("Vacancy fill is disabled by pool policy for this department.");
             }
 
-            var lateCallThresholdMinutes = operationsPolicy?.LateCallThresholdMinutes ?? 0;
+            lateCallThresholdMinutes = operationsPolicy?.LateCallThresholdMinutes ?? 0;
 
             var work = await uow.WorkInstances.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, ct)
                 ?? throw new KeyNotFoundException($"Work instance {shift.WorkInstanceCtrlNbr.Value} not found.");
 
-            var railroadCtrlNbr = (await uow.DynamicGroups.GetByCtrlNbrAsync(request.WorkAreaGroupCtrlNbr, ct))?.OwningRailroadCtrlNbr
+            railroadCtrlNbr = (await uow.DynamicGroups.GetByCtrlNbrAsync(request.WorkAreaGroupCtrlNbr, ct))?.OwningRailroadCtrlNbr
                 ?? throw new InvalidOperationException($"Unable to resolve railroad for work area {request.WorkAreaGroupCtrlNbr.Value}.");
 
-            var scheduledOnDutyUtc = DateTime.SpecifyKind(work.StartUtc.Date + slot.OnDutyTime.ToTimeSpan(), DateTimeKind.Utc);
-            var requestedOnDutyUtc = request.ExpectedArrivalAtUtc
+            scheduledOnDutyUtc = DateTime.SpecifyKind(work.StartUtc.Date + slot.OnDutyTime.ToTimeSpan(), DateTimeKind.Utc);
+            var defaultOffDutyDate = slot.OffDutyTime <= slot.OnDutyTime
+                ? work.StartUtc.Date.AddDays(1)
+                : work.StartUtc.Date;
+            defaultOffDutyUtc = DateTime.SpecifyKind(defaultOffDutyDate + slot.OffDutyTime.ToTimeSpan(), DateTimeKind.Utc);
+            requestedOnDutyUtc = request.ExpectedArrivalAtUtc
                 ?? request.AcceptedAtUtc
                 ?? DateTime.UtcNow;
+        }
 
-            var payload = new WorkflowPlaceOnDutyRuntimePayload(
-                PositionSlotCtrlNbr: slot.CtrlNbr,
-                EmployeeCtrlNbr: request.EmployeeCtrlNbr,
-                OnDutyTimeUtc: requestedOnDutyUtc,
-                ScheduledOnDutyTimeUtc: scheduledOnDutyUtc,
-                IsAssigned: true,
-                LateCallThresholdMinutes: lateCallThresholdMinutes);
+        var payload = new WorkflowPlaceOnDutyRuntimePayload(
+            PositionSlotCtrlNbr: request.PositionSlotCtrlNbr,
+            EmployeeCtrlNbr: request.EmployeeCtrlNbr,
+            OnDutyTimeUtc: requestedOnDutyUtc,
+            ScheduledOnDutyTimeUtc: scheduledOnDutyUtc,
+            IsAssigned: true,
+            LateCallThresholdMinutes: lateCallThresholdMinutes);
 
-            var workflowExecuted = await workflowRuntimeService.ExecuteVacancyPlaceOnDutyRequestedAsync(
-                railroadCtrlNbr,
-                payload,
-                correlationId: null,
+        var workflowExecuted = await workflowRuntimeService.ExecuteVacancyPlaceOnDutyRequestedAsync(
+            railroadCtrlNbr,
+            payload,
+            correlationId: null,
+            ct);
+
+        if (!workflowExecuted)
+        {
+            await onDutyPlacementService.ExecuteAsync(
+                request.PositionSlotCtrlNbr,
+                request.EmployeeCtrlNbr,
+                requestedOnDutyUtc,
+                scheduledOnDutyUtc,
+                isAssigned: true,
+                lateCallThresholdMinutes,
                 ct);
+        }
 
-            if (!workflowExecuted)
-            {
-                await onDutyPlacementService.ExecuteAsync(
-                    slot.CtrlNbr,
-                    request.EmployeeCtrlNbr,
-                    requestedOnDutyUtc,
-                    scheduledOnDutyUtc,
-                    isAssigned: true,
-                    lateCallThresholdMinutes,
-                    ct);
-            }
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var shift = await uow.ShiftInstances.GetByCtrlNbrAsync(request.ShiftInstanceCtrlNbr, ct)
+                ?? throw new KeyNotFoundException($"Shift instance {request.ShiftInstanceCtrlNbr.Value} not found.");
+
+            var slot = shift.PositionSlots.SingleOrDefault(s => s.CtrlNbr == request.PositionSlotCtrlNbr)
+                ?? throw new KeyNotFoundException($"Position slot {request.PositionSlotCtrlNbr.Value} not found on shift.");
+
+            var slotIsClosed = slot.Status is PositionSlotStatus.Annulled
+                or PositionSlotStatus.DoNotFill
+                or PositionSlotStatus.TiedUp;
+
+            if (slotIsClosed)
+                throw new InvalidOperationException("Cannot fill a closed position slot.");
+
+            var existingFillForEmployee = slot.IncumbentEmployeeCtrlNbr == request.EmployeeCtrlNbr;
+            var operationsPolicy = resolvedCraftCtrlNbr is null
+                ? null
+                : await uow.CraftOperationsPolicies.GetByCraftAsync(resolvedCraftCtrlNbr.Value, ct);
+            var activeBoards = await uow.RosterBoards.GetActiveByWorkAreaAsync(request.WorkAreaGroupCtrlNbr, ct);
+
+            await EnsureShiftBoardSlotCoverageAsync(
+                uow,
+                shift,
+                activeBoards,
+                resolvedCraftCtrlNbr,
+                ct);
 
             var onDutyRecord = await ResolveOnDutyRecordAsync(uow, slot.CtrlNbr, request.EmployeeCtrlNbr, ct)
                 ?? throw new InvalidOperationException("On-duty record was not created for filled vacancy.");
 
-            onDutyRecordCtrlNbr = onDutyRecord.CtrlNbr;
+            var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(request.WorkAreaGroupCtrlNbr, ct);
+            var railroad = workArea?.OwningRailroadCtrlNbr is null
+                ? null
+                : await uow.DynamicGroups.GetByCtrlNbrAsync(workArea.OwningRailroadCtrlNbr, ct);
+            var workPeriodMode = railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
+            var (workPeriodStartUtc, workPeriodEndUtc) = ResolveCurrentWorkPeriodBounds(workPeriodMode, onDutyRecord.OnDutyTimeUtc);
+            var onDutyHistory = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(
+                request.EmployeeCtrlNbr,
+                workPeriodStartUtc,
+                workPeriodEndUtc,
+                ct);
+            var daysWorked = onDutyHistory
+                .Select(r => DateTime.SpecifyKind(r.OnDutyTimeUtc, DateTimeKind.Utc).Date)
+                .Distinct()
+                .Count();
 
             if (!existingFillForEmployee)
                 slot.Fill(request.EmployeeCtrlNbr, isIncumbent: true);
@@ -179,11 +266,17 @@ public sealed class VacancyResolutionOrchestrationService(
                 request.EmployeeCtrlNbr,
                 request.ForceOverride,
                 operationsPolicy,
-                cascadePolicy,
-                boardTypeByCtrlNbr,
+                resolvedCraftCtrlNbr,
+                slot,
+                onDutyRecord.ConsecutiveDays,
+                daysWorked,
+                defaultOffDutyUtc,
+                activeBoards,
                 ct);
 
-            finalStatus = request.ForceOverride ? VacancyFillStatusCodes.FilledForced : VacancyFillStatusCodes.Filled;
+            await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
+
+            var finalStatus = request.ForceOverride ? VacancyFillStatusCodes.FilledForced : VacancyFillStatusCodes.Filled;
             var decisionJson = $"{{\"ForceOverride\":{request.ForceOverride.ToString().ToLowerInvariant()},\"Accepted\":{request.Accepted.ToString().ToLowerInvariant()}}}";
             uow.DispatchDecisionLogs.Add(DispatchDecisionLog.Create(
                 slot.CtrlNbr,
@@ -198,7 +291,7 @@ public sealed class VacancyResolutionOrchestrationService(
                 request.ShiftInstanceCtrlNbr,
                 request.PositionSlotCtrlNbr,
                 request.EmployeeCtrlNbr,
-                onDutyRecordCtrlNbr,
+                onDutyRecord.CtrlNbr,
                 assignmentCode: slot.AssignmentCode,
                 craftRoleName: slot.CraftRoleName,
                 forceOverride: request.ForceOverride,
@@ -221,7 +314,7 @@ public sealed class VacancyResolutionOrchestrationService(
                 ShiftInstanceCtrlNbr: request.ShiftInstanceCtrlNbr,
                 PositionSlotCtrlNbr: request.PositionSlotCtrlNbr,
                 EmployeeCtrlNbr: request.EmployeeCtrlNbr,
-                OnDutyRecordCtrlNbr: onDutyRecordCtrlNbr,
+                OnDutyRecordCtrlNbr: onDutyRecord.CtrlNbr,
                 VacancyFillLogCtrlNbr: fillLog.CtrlNbr);
         }
     }
@@ -262,7 +355,8 @@ public sealed class VacancyResolutionOrchestrationService(
             l.LateCallNote,
             l.ArrivalFollowUpNote,
             l.DispatcherNote,
-            l.CreatedAtUtc)).ToList();
+            l.CreatedAtUtc,
+            l.WorkAreaGroupCtrlNbr)).ToList();
     }
 
     private static IReadOnlyList<VacancyCandidateContactDto> BuildContacts(Domain.Models.Employees.Employee? employee)
@@ -289,10 +383,20 @@ public sealed class VacancyResolutionOrchestrationService(
         CancellationToken ct)
     {
         var activeBoards = await uow.RosterBoards.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
-        var candidateBoardTypes = await ResolveCandidateBoardTypesAsync(uow, workAreaGroupCtrlNbr, craftCtrlNbr);
-        var candidateBoardIds = activeBoards
-            .Where(b => candidateBoardTypes.Contains(b.BoardType))
+        var scopedBoards = activeBoards
             .Where(b => craftCtrlNbr is null || b.CraftCtrlNbr == craftCtrlNbr)
+            .ToList();
+
+        HashSet<BoardType>? candidateBoardTypes = null;
+        if (craftCtrlNbr is not null)
+        {
+            var policy = await uow.BoardCascadePolicies.GetByWorkAreaAndCraftAsync(workAreaGroupCtrlNbr, craftCtrlNbr.Value);
+            if (!string.IsNullOrWhiteSpace(policy?.SelectionStrategy))
+                candidateBoardTypes = ParseBoardTypeStrategy(policy.SelectionStrategy);
+        }
+
+        var candidateBoardIds = scopedBoards
+            .Where(b => candidateBoardTypes is null || candidateBoardTypes.Contains(b.BoardType))
             .Select(b => b.CtrlNbr)
             .ToHashSet();
 
@@ -308,7 +412,7 @@ public sealed class VacancyResolutionOrchestrationService(
     private static HashSet<BoardType> ParseBoardTypeStrategy(string? selectionStrategy)
     {
         if (string.IsNullOrWhiteSpace(selectionStrategy))
-            return [BoardType.ExtraBoard];
+            throw new InvalidOperationException("Board selection strategy is required and cannot be empty.");
 
         var tokens = selectionStrategy
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -322,19 +426,10 @@ public sealed class VacancyResolutionOrchestrationService(
                 types.Add(parsed);
         }
 
-        return types.Count == 0 ? [BoardType.ExtraBoard] : types;
-    }
+        if (types.Count == 0)
+            throw new InvalidOperationException($"Board selection strategy '{selectionStrategy}' did not resolve to any valid board types.");
 
-    private async Task<HashSet<BoardType>> ResolveCandidateBoardTypesAsync(
-        IOrchestrationUnitOfWork uow,
-        ControlNumber workAreaGroupCtrlNbr,
-        ControlNumber? craftCtrlNbr)
-    {
-        if (craftCtrlNbr is null)
-            return [BoardType.ExtraBoard];
-
-        var policy = await uow.BoardCascadePolicies.GetByWorkAreaAndCraftAsync(workAreaGroupCtrlNbr, craftCtrlNbr.Value);
-        return ParseBoardTypeStrategy(policy?.SelectionStrategy);
+        return types;
     }
 
     private async Task<ControlNumber?> ResolveCraftCtrlNbrAsync(
@@ -366,31 +461,73 @@ public sealed class VacancyResolutionOrchestrationService(
             .FirstOrDefault();
     }
 
+    private static async Task<ControlNumber?> GetProjectedEmployeeCtrlNbrAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber positionSlotCtrlNbr)
+    {
+        var projections = await uow.DispatchProjections.GetByPositionSlotAsync(positionSlotCtrlNbr);
+        return projections.FirstOrDefault()?.ProjectedEmployeeCtrlNbr;
+    }
+
     private static async Task ApplyBoardSideEffectsAsync(
         IOrchestrationUnitOfWork uow,
         ShiftInstance shift,
         ControlNumber employeeCtrlNbr,
         bool forceOverride,
         CraftOperationsPolicy? operationsPolicy,
-        BoardCascadePolicy? cascadePolicy,
-        IReadOnlyDictionary<ControlNumber, BoardType> boardTypeByCtrlNbr,
+        ControlNumber? craftCtrlNbr,
+        PositionSlotInstance filledSlot,
+        int consecutiveDays,
+        int daysWorked,
+        DateTime defaultOffDutyUtc,
+        IReadOnlyList<RosterBoard> activeBoards,
         CancellationToken ct)
     {
-        var allowedBoardTypes = ParseBoardTypeStrategy(cascadePolicy?.SelectionStrategy);
+        var candidateBoards = activeBoards
+            .Where(b => craftCtrlNbr is null || b.CraftCtrlNbr == craftCtrlNbr)
+            .Where(b => b.Positions.Any(p => p.EmployeeCtrlNbr == employeeCtrlNbr))
+            .ToList();
+
+        if (candidateBoards.Count != 1)
+            throw new InvalidOperationException(
+                $"Unable to resolve authoritative roster board for employee {employeeCtrlNbr.Value}. Matched boards: {candidateBoards.Count}.");
+
+        var selectedRosterBoard = candidateBoards[0];
+
+        EnsureAuthoritativeBoardSlotExists(shift, selectedRosterBoard, employeeCtrlNbr);
+
         var selectedBoardSlot = shift.BoardSlots
             .Where(b => b.EmployeeCtrlNbr == employeeCtrlNbr)
-            .Where(b => boardTypeByCtrlNbr.TryGetValue(b.RosterBoardCtrlNbr, out var boardType) && allowedBoardTypes.Contains(boardType))
+            .Where(b => b.RosterBoardCtrlNbr == selectedRosterBoard.CtrlNbr)
             .OrderBy(b => b.BoardOrder)
             .ThenBy(b => b.CallSequence)
             .FirstOrDefault();
 
+        var nextCallSequence = shift.BoardSlots.Count == 0
+            ? 1L
+            : shift.BoardSlots.Max(b => b.CallSequence) + 1L;
+
+        var selectedPosition = selectedRosterBoard.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr)
+            ?? throw new InvalidOperationException(
+                $"Employee {employeeCtrlNbr.Value} is not on roster board {selectedRosterBoard.CtrlNbr.Value}.");
+
+        if (selectedBoardSlot is null)
+            throw new InvalidOperationException(
+                $"Authoritative board slot is missing for employee {employeeCtrlNbr.Value} on shift {shift.CtrlNbr.Value}, board {selectedRosterBoard.CtrlNbr.Value}.");
+
         if (selectedBoardSlot is not null)
         {
+            selectedBoardSlot.RecordCallSequence(nextCallSequence);
+            selectedBoardSlot.UpdateOperationalTracking(daysWorked, consecutiveDays, selectedBoardSlot.RestAvailableAtUtc);
             selectedBoardSlot.Call();
             selectedBoardSlot.MarkOnDuty();
             if (forceOverride)
                 selectedBoardSlot.Reposition(1);
         }
+
+        StampBoardOrderKeysFromCall(selectedRosterBoard, employeeCtrlNbr, defaultOffDutyUtc);
+        ReorderBoardByProtectedKeys(selectedRosterBoard);
+        await uow.RosterBoards.UpdateAsync(selectedRosterBoard, ct);
 
         if (operationsPolicy?.DeleteConflictingNextShift == true)
         {
@@ -399,6 +536,143 @@ public sealed class VacancyResolutionOrchestrationService(
         }
 
         await uow.ShiftInstances.UpdateAsync(shift, ct);
+    }
+
+    private static void StampBoardOrderKeysFromCall(
+        RosterBoard board,
+        ControlNumber employeeCtrlNbr,
+        DateTime defaultOffDutyUtc)
+    {
+        var selectedPosition = board.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr);
+        if (selectedPosition is null)
+            throw new InvalidOperationException(
+                $"Employee {employeeCtrlNbr.Value} is not on roster board {board.CtrlNbr.Value}.");
+
+        selectedPosition.SetOrderSeedBoardPosition(selectedPosition.PositionOrder);
+        selectedPosition.SetTieUpOrderUtc(defaultOffDutyUtc);
+    }
+
+    private static void ReorderBoardByProtectedKeys(RosterBoard board)
+    {
+        var orderedPositions = board.Positions
+            .OrderBy(p => p.TieUpOrderUtc ?? DateTime.MinValue)
+            .ThenBy(p => p.OrderSeedBoardPosition)
+            .ThenBy(p => p.PositionOrder)
+            .ThenBy(p => p.CtrlNbr.Value)
+            .ToList();
+
+        var ordering = new List<(ControlNumber PositionCtrlNbr, int NewOrder)>();
+        var order = 1;
+        foreach (var position in orderedPositions)
+            ordering.Add((position.CtrlNbr, order++));
+
+        board.ReorderPositions(ordering);
+    }
+
+    private static async Task EnsureShiftBoardSlotCoverageAsync(
+        IOrchestrationUnitOfWork uow,
+        ShiftInstance shift,
+        IReadOnlyList<RosterBoard> activeBoards,
+        ControlNumber? craftCtrlNbr,
+        CancellationToken ct)
+    {
+        var scopedBoards = activeBoards
+            .Where(b => craftCtrlNbr is null || b.CraftCtrlNbr == craftCtrlNbr)
+            .Where(b => b.IsActive)
+            .ToList();
+
+        if (scopedBoards.Count == 0)
+            return;
+
+        var employeeCtrlNbrs = scopedBoards
+            .SelectMany(b => b.Positions)
+            .Select(p => p.EmployeeCtrlNbr)
+            .Distinct()
+            .ToList();
+
+        var employees = await uow.Employees.GetByCtrlNbrsAsync(employeeCtrlNbrs, ct);
+        var employeeNumberByCtrlNbr = employees.ToDictionary(e => e.CtrlNbr, e => e.EmployeeNumber);
+
+        foreach (var board in scopedBoards)
+        {
+            foreach (var position in board.Positions
+                         .OrderBy(p => p.PositionOrder)
+                         .ThenBy(p => p.CtrlNbr.Value))
+            {
+                var exists = shift.BoardSlots.Any(b =>
+                    b.RosterBoardCtrlNbr == board.CtrlNbr
+                    && b.RosterBoardPositionCtrlNbr == position.CtrlNbr
+                    && b.EmployeeCtrlNbr == position.EmployeeCtrlNbr);
+
+                if (exists)
+                    continue;
+
+                var employeeNumber = employeeNumberByCtrlNbr.TryGetValue(position.EmployeeCtrlNbr, out var resolvedEmployeeNumber)
+                    ? resolvedEmployeeNumber
+                    : $"Emp #{position.EmployeeCtrlNbr.Value}";
+
+                shift.AddBoardSlot(
+                    board.CtrlNbr,
+                    position.CtrlNbr,
+                    position.EmployeeCtrlNbr,
+                    position.PositionOrder,
+                    0,
+                    board.Name,
+                    employeeNumber,
+                    positionName: string.Empty,
+                    daysWorked: 0,
+                    consecutiveDays: 0,
+                    restAvailableAtUtc: null);
+            }
+        }
+    }
+
+    private static void EnsureAuthoritativeBoardSlotExists(
+        ShiftInstance shift,
+        RosterBoard board,
+        ControlNumber employeeCtrlNbr)
+    {
+        var exists = shift.BoardSlots
+            .Any(b => b.EmployeeCtrlNbr == employeeCtrlNbr
+                      && b.RosterBoardCtrlNbr == board.CtrlNbr);
+
+        if (!exists)
+            throw new InvalidOperationException(
+                $"Authoritative board slot is missing for employee {employeeCtrlNbr.Value} on shift {shift.CtrlNbr.Value}, board {board.CtrlNbr.Value}.");
+    }
+
+    private static (DateTime StartUtc, DateTime EndUtc) ResolveCurrentWorkPeriodBounds(WorkPeriodMode mode, DateTime referenceUtc)
+    {
+        var day = DateTime.SpecifyKind(referenceUtc, DateTimeKind.Utc).Date;
+
+        if (mode == WorkPeriodMode.Monthly)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, start.AddMonths(1));
+        }
+
+        if (mode == WorkPeriodMode.Weekly)
+        {
+            var start = day.AddDays(-(int)day.DayOfWeek);
+            return (start, start.AddDays(7));
+        }
+
+        if (mode == WorkPeriodMode.BiWeekly)
+        {
+            var yearStart = new DateTime(day.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var periodIndex = (int)((day - yearStart).TotalDays / 14);
+            var start = yearStart.AddDays(periodIndex * 14);
+            return (start, start.AddDays(14));
+        }
+
+        if (day.Day <= 15)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc));
+        }
+
+        var secondHalfStart = new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc);
+        return (secondHalfStart, secondHalfStart.AddDays(-15).AddMonths(1));
     }
 }
 
@@ -461,7 +735,8 @@ public sealed record VacancyFillAuditRecordDto(
     string? LateCallNote,
     string? ArrivalFollowUpNote,
     string? DispatcherNote,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    ControlNumber WorkAreaGroupCtrlNbr);
 
 public static class VacancyFillStatusCodes
 {

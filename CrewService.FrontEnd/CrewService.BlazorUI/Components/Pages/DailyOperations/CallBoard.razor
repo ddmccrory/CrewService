@@ -115,6 +115,8 @@ else if (HasRailroad)
                     <td>@row.RowNumber</td>
                     <td>@row.EmployeeName</td>
                     <td>@row.Status</td>
+                    <td>@row.CallSequenceDisplay</td>
+                    <td>@row.TieUpOrderDisplay</td>
                     <td>@row.RestTimeDisplay</td>
                     <td>@row.ConsecutiveDaysDisplay</td>
                     <td>@row.DaysWorkedDisplay</td>
@@ -229,14 +231,16 @@ else if (HasRailroad)
     private readonly IReadOnlyList<DataTableColumn<CurrentBoardRow>> currentBoardColumns =
     [
         new("#", r => r.RowNumber, sortKey: "RowNumber", width: "6%"),
-        new("Employee", r => r.EmployeeName, width: "21%"),
-        new("Status", r => r.Status, width: "11%"),
-        new("24Hr Rest", r => r.RestTimeDisplay, width: "12%"),
-        new("CD", r => r.ConsecutiveDaysDisplay, width: "6%", headerTooltip: "Consecutive Days (FRA): employee's current FRA consecutive-day count."),
-        new("DW", r => r.DaysWorkedDisplay, width: "6%", headerTooltip: "Days Worked (Current Work Period): distinct on-duty days in the railroad work period."),
-        new("Board Position", r => r.BoardPositionDisplay, width: "14%"),
-        new("Projected Vacancy", r => r.ProjectedVacancyDisplay, width: "14%"),
-        new("On Duty", r => r.OnDutyDisplay, width: "10%")
+        new("Employee", r => r.EmployeeName, width: "16%"),
+        new("Status", r => r.Status, width: "8%"),
+        new("Call Seq", r => r.CallSequenceDisplay, width: "8%", headerTooltip: "Backend call sequence evidence."),
+        new("Tie-Up Order", r => r.TieUpOrderDisplay, width: "16%", headerTooltip: "MMddyyHHmm - nn"),
+        new("24Hr Rest", r => r.RestTimeDisplay, width: "10%"),
+        new("CD", r => r.ConsecutiveDaysDisplay, width: "5%", headerTooltip: "Consecutive Days (FRA): employee's current FRA consecutive-day count."),
+        new("DW", r => r.DaysWorkedDisplay, width: "5%", headerTooltip: "Days Worked (Current Work Period): distinct on-duty days in the railroad work period."),
+        new("Board Position", r => ResolveBoardPositionSortValue(r.BoardPositionDisplay), width: "10%"),
+        new("Projected Vacancy", r => r.ProjectedVacancyDisplay, width: "12%"),
+        new("On Duty", r => r.OnDutyDisplay, width: "6%")
     ];
 
     private readonly IReadOnlyList<DataTableColumn<BoardSnapshotRowDetail>> snapshotColumns =
@@ -387,6 +391,8 @@ else if (HasRailroad)
                     r.RowNumber,
                     r.EmployeeName,
                     r.StatusDisplay,
+                    r.CallSequence.ToString(),
+                    FormatTieUpOrderDisplay(r.TieUpAt, r.BoardOrder),
                     r.RestTimeDisplay,
                     r.ConsecutiveDaysDisplay,
                     r.DaysWorkedDisplay,
@@ -538,10 +544,25 @@ else if (HasRailroad)
         return utc.ToLocalTime().ToString("MM/dd/yyyy HH:mm");
     }
 
+    private static string FormatTieUpOrderDisplay(global::Google.Protobuf.WellKnownTypes.Timestamp? timestamp, int boardOrder)
+    {
+        var boardOrderKey = boardOrder > 0 ? boardOrder.ToString("D2") : "—";
+        if (timestamp is null)
+            return $"— - {boardOrderKey}";
+
+        var utc = timestamp.ToDateTime().ToUniversalTime();
+        return $"{utc:MMddyyHHmm} - {boardOrderKey}";
+    }
+
     private static string GetSelectedEmployeeDisplay(BoardSelectionDecisionItem decision)
         => decision.SelectedEmployeeCtrlNbr > 0
             ? decision.SelectedEmployeeCtrlNbr.ToString()
             : "—";
+
+    private static int ResolveBoardPositionSortValue(string boardPositionDisplay)
+        => int.TryParse(boardPositionDisplay, out var boardPosition)
+            ? boardPosition
+            : int.MaxValue;
 
     private void ApplyNavigationParameters()
     {
@@ -589,6 +610,8 @@ else if (HasRailroad)
         int RowNumber,
         string EmployeeName,
         string Status,
+        string CallSequenceDisplay,
+        string TieUpOrderDisplay,
         string RestTimeDisplay,
         string ConsecutiveDaysDisplay,
         string DaysWorkedDisplay,
