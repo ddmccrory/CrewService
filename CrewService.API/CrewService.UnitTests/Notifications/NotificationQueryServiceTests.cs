@@ -299,12 +299,13 @@ public class NotificationQueryServiceTests
     }
 
     [Fact]
-    public async Task GetMyNotifications_NoLinkedEmployee_Throws()
+    public async Task GetMyNotifications_NoLinkedEmployee_ReturnsEmpty()
     {
         var (service, _) = Build(employee: null, UserGuid);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.GetMyNotificationsAsync(TestContext.Current.CancellationToken));
+        var result = await service.GetMyNotificationsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(result);
     }
 
     [Fact]
@@ -314,6 +315,26 @@ public class NotificationQueryServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.GetMyNotificationsAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task GetMyUnacknowledged_NoLinkedEmployee_ReturnsEmpty()
+    {
+        var (service, _) = Build(employee: null, UserGuid);
+
+        var result = await service.GetMyUnacknowledgedAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetMyUnacknowledgedCount_NoLinkedEmployee_ReturnsZero()
+    {
+        var (service, _) = Build(employee: null, UserGuid);
+
+        var result = await service.GetMyUnacknowledgedCountAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result);
     }
 
     private static RosterBoard SetupHangoutAutoMoveScenario(FakeNotificationUoW uow, Employee employee)

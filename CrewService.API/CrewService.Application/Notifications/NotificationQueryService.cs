@@ -21,15 +21,27 @@ public sealed class NotificationQueryService(
     ICurrentUserService currentUserService,
     ISeniorityMoveSignal? seniorityMoveSignal = null)
 {
-    private async Task<Employee> ResolveCurrentEmployeeAsync(IOrchestrationUnitOfWork uow, CancellationToken ct)
+    private async Task<Employee?> TryResolveCurrentEmployeeAsync(IOrchestrationUnitOfWork uow, CancellationToken ct)
     {
         var userId = currentUserService.GetUserId();
         if (userId == Guid.Empty)
+            return null;
+
+        return await uow.Employees.GetByUserIdAsync(userId.ToString(), ct);
+    }
+
+    private async Task<Employee> ResolveCurrentEmployeeAsync(IOrchestrationUnitOfWork uow, CancellationToken ct)
+    {
+        var userId = currentUserService.GetUserId();
+        var employee = await TryResolveCurrentEmployeeAsync(uow, ct);
+        if (employee is not null)
+            return employee;
+
+        if (userId == Guid.Empty)
             throw new InvalidOperationException("No authenticated user is available to resolve notifications for.");
 
-        return await uow.Employees.GetByUserIdAsync(userId.ToString(), ct)
-            ?? throw new InvalidOperationException(
-                $"The current user '{userId}' is not linked to an employee record.");
+        throw new InvalidOperationException(
+            $"The current user '{userId}' is not linked to an employee record.");
     }
 
     // ── Read paths ───────────────────────────────────────────────────────
@@ -40,7 +52,14 @@ public sealed class NotificationQueryService(
     public async Task<IReadOnlyList<EmployeeNotification>> GetMyNotificationsAsync(CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var employee = await ResolveCurrentEmployeeAsync(uow, ct);
+        var userId = currentUserService.GetUserId();
+        if (userId == Guid.Empty)
+            throw new InvalidOperationException("No authenticated user is available to resolve notifications for.");
+
+        var employee = await TryResolveCurrentEmployeeAsync(uow, ct);
+        if (employee is null)
+            return [];
+
         return await uow.EmployeeNotifications.GetByEmployeeAsync(employee.CtrlNbr, ct);
     }
 
@@ -51,7 +70,14 @@ public sealed class NotificationQueryService(
     public async Task<IReadOnlyList<EmployeeNotification>> GetMyUnacknowledgedAsync(CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var employee = await ResolveCurrentEmployeeAsync(uow, ct);
+        var userId = currentUserService.GetUserId();
+        if (userId == Guid.Empty)
+            throw new InvalidOperationException("No authenticated user is available to resolve notifications for.");
+
+        var employee = await TryResolveCurrentEmployeeAsync(uow, ct);
+        if (employee is null)
+            return [];
+
         var open = await uow.EmployeeNotifications.GetUnacknowledgedByEmployeeAsync(employee.CtrlNbr, ct);
         var nowUtc = DateTime.UtcNow;
         return [.. open.Where(n => IsAwaitingAcknowledgementAt(n, nowUtc))];
@@ -64,7 +90,14 @@ public sealed class NotificationQueryService(
     public async Task<int> GetMyUnacknowledgedCountAsync(CancellationToken ct = default)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var employee = await ResolveCurrentEmployeeAsync(uow, ct);
+        var userId = currentUserService.GetUserId();
+        if (userId == Guid.Empty)
+            throw new InvalidOperationException("No authenticated user is available to resolve notifications for.");
+
+        var employee = await TryResolveCurrentEmployeeAsync(uow, ct);
+        if (employee is null)
+            return 0;
+
         var open = await uow.EmployeeNotifications.GetUnacknowledgedByEmployeeAsync(employee.CtrlNbr, ct);
         var nowUtc = DateTime.UtcNow;
         return open.Count(n => IsAwaitingAcknowledgementAt(n, nowUtc));
