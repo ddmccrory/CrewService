@@ -33,7 +33,9 @@ public class VacancyResolutionTests
 
         Assert.Contains("Vacancy Fill Audit", source, StringComparison.Ordinal);
         Assert.Contains("GetVacancyFillAuditReportAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Created (UTC)", source, StringComparison.Ordinal);
+        Assert.Contains("Created", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Created (UTC)", source, StringComparison.Ordinal);
+        Assert.Contains("@record.CreatedAtLocal", source, StringComparison.Ordinal);
     }
 
     private static string GetVacancyResolutionRazorPath()

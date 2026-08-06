@@ -514,12 +514,14 @@ internal static class DevDataSeeder
                 csxParent.CtrlNbr,
                 email,
                 empNumber,
-                socialSecurityNumber: $"{100 + i:D3}-{50 + i % 100:D2}-{1000 + i:D4}",
+                socialSecurityNumber: $"{100 + i:D3}-{i % 100:D2}-{1000 + i:D4}",
                 gender: genders[i % genders.Length],
                 race: races[i % races.Length],
                 birthDate: new DateTime(1965, 1, 1).AddDays(i * 73),
                 employmentDate: new DateTime(2015, 1, 1).AddDays(i * 12),
                 activeStatus.CtrlNbr,
+                firstName: firstName,
+                lastName: lastName,
                 sendInvitation: false);
 
             // Set a known dev password so seed accounts can log in without accepting the invitation.
@@ -649,12 +651,14 @@ internal static class DevDataSeeder
                 ptraParentCore.CtrlNbr,
                 email,
                 empNumber,
-                socialSecurityNumber: $"{200 + i:D3}-{50 + i % 100:D2}-{2000 + i:D4}",
+                socialSecurityNumber: $"{200 + i:D3}-{i % 100:D2}-{2000 + i:D4}",
                 gender: ptraGenders[i % ptraGenders.Length],
                 race: ptraRaces[i % ptraRaces.Length],
                 birthDate: new DateTime(1968, 1, 1).AddDays(i * 73),
                 employmentDate: new DateTime(2016, 1, 1).AddDays(i * 12),
                 ptraActiveStatus.CtrlNbr,
+                firstName: firstName,
+                lastName: lastName,
                 sendInvitation: false);
 
             // Set a known dev password so seed accounts can log in without accepting the invitation.

@@ -16,12 +16,12 @@ public class CallBoardTests
     }
 
     [Fact]
-    public void VacancyAssignmentService_CurrentBoard_OrdersByTieUpThenBoardOrder_AssignsRowNumber_AndUsesCanonicalEmployeeName()
+    public void VacancyAssignmentService_CurrentBoard_OrdersByBoardNameThenRowNumber_AssignsRowNumber_AndUsesCanonicalEmployeeName()
     {
         var source = File.ReadAllText(GetVacancyAssignmentServicePath());
 
-        Assert.Contains(".OrderBy(r => ResolveSortTieUpOrder(r))", source, StringComparison.Ordinal);
-        Assert.Contains(".ThenBy(r => ResolveSortBoardOrder(r))", source, StringComparison.Ordinal);
+        Assert.Contains(".OrderBy(r => r.BoardName)", source, StringComparison.Ordinal);
+        Assert.Contains(".ThenBy(r => r.RowNumber)", source, StringComparison.Ordinal);
         Assert.Contains("rows[i].RowNumber = i + 1;", source, StringComparison.Ordinal);
         Assert.Contains("EmployeeName = authoritativeEmployeeName", source, StringComparison.Ordinal);
     }
