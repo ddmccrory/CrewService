@@ -255,29 +255,31 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
 
         var response = new GetCurrentCallBoardResponse();
         var rows = eligibleBoards
-            .SelectMany(board => board.Positions.Select(position =>
-            {
-                operationalByBoardAndEmployee.TryGetValue((board.CtrlNbr.Value, position.EmployeeCtrlNbr.Value), out var opRow);
-                vacancyProjectionByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var projectedProjection);
-                var projectedSlot = projectedProjection.Slot;
-                rest24ByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var rest24Utc);
-                return MapCurrentCallBoardRow(
-                    board,
-                    position,
-                    opRow,
-                    projectedSlot,
-                    projectedProjection.ProjectedEmployeeCtrlNbr,
-                    rest24Utc == default ? null : rest24Utc,
-                    boardTypeByCtrlNbr,
-                    employeeInfoByCtrlNbr,
-                    fraConsecutiveDaysByEmployee,
-                    workPeriodDaysWorkedByEmployee,
-                    tz,
-                    clock.UtcNow.UtcDateTime);
-            }))
-            .OrderBy(r => ResolveSortTieUpOrder(r))
-            .ThenBy(r => ResolveSortBoardOrder(r))
-            .ThenBy(r => r.BoardName)
+            .SelectMany(board => board.Positions
+                .OrderBy(position => position.PositionOrder)
+                .ThenBy(position => position.CtrlNbr.Value)
+                .Select(position =>
+                {
+                    operationalByBoardAndEmployee.TryGetValue((board.CtrlNbr.Value, position.EmployeeCtrlNbr.Value), out var opRow);
+                    vacancyProjectionByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var projectedProjection);
+                    var projectedSlot = projectedProjection.Slot;
+                    rest24ByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var rest24Utc);
+                    return MapCurrentCallBoardRow(
+                        board,
+                        position,
+                        opRow,
+                        projectedSlot,
+                        projectedProjection.ProjectedEmployeeCtrlNbr,
+                        rest24Utc == default ? null : rest24Utc,
+                        boardTypeByCtrlNbr,
+                        employeeInfoByCtrlNbr,
+                        fraConsecutiveDaysByEmployee,
+                        workPeriodDaysWorkedByEmployee,
+                        tz,
+                        clock.UtcNow.UtcDateTime);
+                }))
+            .OrderBy(r => r.BoardName)
+            .ThenBy(r => r.RowNumber)
             .ThenBy(r => r.EmployeeName)
             .ToList();
 
@@ -418,12 +420,18 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
     {
         var resolvedStatus = ResolveLegacyStatus(slot, utcNow, workAreaTimeZone);
         var resolvedRestDisplay = ResolveRestTimeDisplay(twentyFourHourRestAtUtc, workAreaTimeZone);
-        var resolvedConsecutiveDays = fraConsecutiveDaysByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var fraConsecutiveDays)
-            ? fraConsecutiveDays.ToString()
-            : "—";
-        var resolvedDaysWorked = workPeriodDaysWorkedByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var workPeriodDaysWorked)
-            ? workPeriodDaysWorked.ToString()
-            : "—";
+        var resolvedConsecutiveDaysValue = slot is not null
+            ? slot.ConsecutiveDays
+            : fraConsecutiveDaysByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0);
+        var resolvedDaysWorkedValue = slot is not null
+            ? slot.DaysWorked
+            : workPeriodDaysWorkedByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0);
+        var resolvedConsecutiveDays = resolvedConsecutiveDaysValue.ToString();
+        var resolvedDaysWorked = resolvedDaysWorkedValue.ToString();
+        var resolvedTieUpOrderSeed = position.OrderSeedBoardPosition > 0
+            ? position.OrderSeedBoardPosition
+            : throw new InvalidOperationException(
+                $"Missing OrderSeedBoardPosition for roster board position {position.CtrlNbr.Value} (employee {position.EmployeeCtrlNbr.Value}).");
         var resolvedBoardPosition = position.PositionOrder > 0
             ? position.PositionOrder.ToString()
             : "—";
@@ -439,7 +447,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             ShiftInstanceCtrlNbr = slot?.ShiftInstanceCtrlNbr.Value ?? 0,
             RosterBoardCtrlNbr = board.CtrlNbr.Value,
             EmployeeCtrlNbr = position.EmployeeCtrlNbr.Value,
-            BoardOrder = position.PositionOrder > 0 ? position.PositionOrder : int.MaxValue,
+            BoardOrder = resolvedTieUpOrderSeed > 0 ? resolvedTieUpOrderSeed : int.MaxValue,
             CallSequence = slot?.CallSequence ?? 0,
             Status = slot?.Status.ToString() ?? "Available",
             BoardName = board.Name,
@@ -448,8 +456,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
                 : BoardType.ExtraBoard.ToString(),
             EmployeeName = authoritativeEmployeeName,
             PositionName = slot?.PositionName ?? string.Empty,
-            DaysWorked = workPeriodDaysWorkedByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0),
-            ConsecutiveDays = fraConsecutiveDaysByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0),
+            DaysWorked = resolvedDaysWorkedValue,
+            ConsecutiveDays = resolvedConsecutiveDaysValue,
             RowNumber = position.PositionOrder,
             StatusDisplay = resolvedStatus,
             RestTimeDisplay = resolvedRestDisplay,
@@ -464,8 +472,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         if (position.CtrlNbr is not null)
             row.RosterBoardPositionCtrlNbr = position.CtrlNbr.Value;
 
-        if (slot?.TieUpAtUtc is not null)
-            row.TieUpAt = Timestamp.FromDateTime(DateTime.SpecifyKind(slot.TieUpAtUtc.Value, DateTimeKind.Utc));
+        if (position.TieUpOrderUtc is not null)
+            row.TieUpAt = Timestamp.FromDateTime(DateTime.SpecifyKind(position.TieUpOrderUtc.Value, DateTimeKind.Utc));
 
         if (twentyFourHourRestAtUtc is not null)
             row.RestAvailableAt = Timestamp.FromDateTime(DateTime.SpecifyKind(twentyFourHourRestAtUtc.Value, DateTimeKind.Utc));
@@ -485,18 +493,6 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             ? fallbackEmployeeName
             : "Name Not Available";
     }
-
-    private static long ResolveSortTieUpOrder(CurrentCallBoardRow row)
-    {
-        if (row.TieUpAt is null)
-            return long.MaxValue;
-
-        var utc = row.TieUpAt.ToDateTime().ToUniversalTime();
-        return long.Parse(utc.ToString("yyyyMMddHHmm"));
-    }
-
-    private static int ResolveSortBoardOrder(CurrentCallBoardRow row)
-        => row.BoardOrder;
 
     private static (DateTime StartUtc, DateTime EndUtc) ResolveCurrentWorkPeriodBounds(WorkPeriodMode mode, DateTime nowUtc)
     {

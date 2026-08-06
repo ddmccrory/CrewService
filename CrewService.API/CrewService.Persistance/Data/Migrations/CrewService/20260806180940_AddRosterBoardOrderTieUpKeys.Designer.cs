@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806180940_AddRosterBoardOrderTieUpKeys")]
+    partial class AddRosterBoardOrderTieUpKeys
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -1577,8 +1580,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("OrderSeedBoardPosition")
+                    b.Property<int?>("OrderSeedBoardPosition")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("OrderTieUpTimeUtc")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("PositionOrder")
                         .HasColumnType("INTEGER");
@@ -1588,9 +1594,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.Property<long>("StaffablePositionCtrlNbr")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("TieUpOrderUtc")
-                        .HasColumnType("TEXT");
 
                     b.HasKey("CtrlNbr");
 

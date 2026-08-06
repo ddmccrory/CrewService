@@ -188,6 +188,64 @@ public class RosterBoardPositionTests
         Assert.Equal(ControlNumber.Create(200), pos.EmployeeCtrlNbr);
         Assert.Equal(staffablePosition.CtrlNbr, pos.StaffablePositionCtrlNbr);
         Assert.Equal(1, pos.PositionOrder);
+        Assert.Equal(1, pos.OrderSeedBoardPosition);
+        Assert.Null(pos.TieUpOrderUtc);
+    }
+
+    [Fact]
+    public void Reorder_ByProtectedKeys_IsDeterministic()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var staffable1 = StaffablePosition.Create(StaffablePositionType.Board);
+        var staffable2 = StaffablePosition.Create(StaffablePositionType.Board);
+        var staffable3 = StaffablePosition.Create(StaffablePositionType.Board);
+
+        var pos1 = board.AddPosition(ControlNumber.Create(200), 1, staffable1.CtrlNbr);
+        var pos2 = board.AddPosition(ControlNumber.Create(201), 2, staffable2.CtrlNbr);
+        var pos3 = board.AddPosition(ControlNumber.Create(202), 3, staffable3.CtrlNbr);
+
+        var t = new DateTime(2026, 8, 6, 22, 0, 0, DateTimeKind.Utc);
+        pos1.SetTieUpOrderUtc(t);
+        pos2.SetTieUpOrderUtc(t);
+        pos3.SetTieUpOrderUtc(t.AddMinutes(30));
+
+        pos1.SetOrderSeedBoardPosition(2);
+        pos2.SetOrderSeedBoardPosition(1);
+        pos3.SetOrderSeedBoardPosition(3);
+
+        var ordering = board.Positions
+            .OrderBy(p => p.TieUpOrderUtc ?? DateTime.MinValue)
+            .ThenBy(p => p.OrderSeedBoardPosition)
+            .ThenBy(p => p.PositionOrder)
+            .ThenBy(p => p.CtrlNbr.Value)
+            .Select((p, index) => (p.CtrlNbr, index + 1))
+            .ToList();
+
+        board.ReorderPositions(ordering);
+
+        Assert.Equal(1, pos2.PositionOrder);
+        Assert.Equal(2, pos1.PositionOrder);
+        Assert.Equal(3, pos3.PositionOrder);
+    }
+
+    [Fact]
+    public void SetTieUpOrderUtcIfLater_OnlyMovesForward()
+    {
+        var board = RosterBoard.Create(
+            ControlNumber.Create(10), ControlNumber.Create(100), "Test");
+        var pos = board.AddPosition(ControlNumber.Create(200), 1, StaffablePosition.Create(StaffablePositionType.Board).CtrlNbr);
+
+        var initial = new DateTime(2026, 8, 6, 20, 0, 0, DateTimeKind.Utc);
+        var earlier = initial.AddMinutes(-10);
+        var later = initial.AddMinutes(45);
+
+        pos.SetTieUpOrderUtc(initial);
+        pos.SetTieUpOrderUtcIfLater(earlier);
+        Assert.Equal(initial, pos.TieUpOrderUtc);
+
+        pos.SetTieUpOrderUtcIfLater(later);
+        Assert.Equal(later, pos.TieUpOrderUtc);
     }
 }
 

@@ -82,6 +82,8 @@ public sealed class CallSheetGenerationService(
 
             await uow.ShiftInstances.AddAsync(shiftInstance, ct);
 
+            await SeedShiftBoardSlotsAsync(uow, shiftInstance, workAreaGroupCtrlNbr, ct);
+
             await CreateScheduledOnDutyRecordsAsync(uow, shiftInstance, workAreaGroupCtrlNbr, targetDate, ct);
             await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shiftInstance, ct);
 
@@ -164,6 +166,8 @@ public sealed class CallSheetGenerationService(
 
             await uow.ShiftInstances.AddAsync(newShift, ct);
 
+            await SeedShiftBoardSlotsAsync(uow, newShift, workInstance.WorkAreaGroupCtrlNbr, ct);
+
             await CreateScheduledOnDutyRecordsAsync(uow, newShift, workInstance.WorkAreaGroupCtrlNbr, targetDate, ct);
             await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, newShift, ct);
 
@@ -211,6 +215,54 @@ public sealed class CallSheetGenerationService(
                 isAssigned);
 
             await uow.OnDutyRecords.AddAsync(record, ct);
+        }
+    }
+
+    private static async Task SeedShiftBoardSlotsAsync(
+        IOrchestrationUnitOfWork uow,
+        ShiftInstance shiftInstance,
+        ControlNumber workAreaGroupCtrlNbr,
+        CancellationToken ct)
+    {
+        if (uow.RosterBoards is null || uow.Employees is null)
+            return;
+
+        var activeBoards = await uow.RosterBoards.GetActiveByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        if (activeBoards.Count == 0)
+            return;
+
+        var employeeCtrlNbrs = activeBoards
+            .SelectMany(b => b.Positions)
+            .Select(p => p.EmployeeCtrlNbr)
+            .Distinct()
+            .ToList();
+
+        var employees = await uow.Employees.GetByCtrlNbrsAsync(employeeCtrlNbrs, ct);
+        var employeeNumberByCtrlNbr = employees.ToDictionary(e => e.CtrlNbr, e => e.EmployeeNumber);
+
+        foreach (var board in activeBoards)
+        {
+            foreach (var position in board.Positions
+                         .OrderBy(p => p.PositionOrder)
+                         .ThenBy(p => p.CtrlNbr.Value))
+            {
+                var employeeNumber = employeeNumberByCtrlNbr.TryGetValue(position.EmployeeCtrlNbr, out var resolvedEmployeeNumber)
+                    ? resolvedEmployeeNumber
+                    : $"Emp #{position.EmployeeCtrlNbr.Value}";
+
+                shiftInstance.AddBoardSlot(
+                    board.CtrlNbr,
+                    position.CtrlNbr,
+                    position.EmployeeCtrlNbr,
+                    position.PositionOrder,
+                    0,
+                    board.Name,
+                    employeeNumber,
+                    positionName: string.Empty,
+                    daysWorked: 0,
+                    consecutiveDays: 0,
+                    restAvailableAtUtc: null);
+            }
         }
     }
 

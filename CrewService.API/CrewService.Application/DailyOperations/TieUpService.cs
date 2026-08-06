@@ -6,6 +6,7 @@ using CrewService.Application.FraCompliance;
 using CrewService.Application.Notifications;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.FraCompliance;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
@@ -69,9 +70,32 @@ public sealed class TieUpService(
             if (slot is not null)
             {
                 slot.MarkTiedUp();
+
+                var boardSlot = shift.BoardSlots
+                    .Where(b => b.EmployeeCtrlNbr == onDutyRecord.EmployeeCtrlNbr)
+                    .OrderByDescending(b => b.CallSequence)
+                    .ThenBy(b => b.CtrlNbr.Value)
+                    .FirstOrDefault();
+
+                if (boardSlot is not null)
+                {
+                    boardSlot.MarkTiedUp(boardSlot.CallSequence);
+                    boardSlot.UpdateOperationalTracking(
+                        boardSlot.DaysWorked,
+                        onDutyRecord.ConsecutiveDays,
+                        offDutyRecord.TwentyFourHourRestAtUtc);
+                }
+
                 uow.ShiftInstances.Update(shift);
             }
         }
+
+        await ApplyBoardOrderTieUpAdjustmentAsync(
+            uow,
+            onDutyRecord.EmployeeCtrlNbr,
+            craftCtrlNbr,
+            offDutyTimeUtc,
+            ct);
 
         await uow.OffDutyRecords.AddAsync(offDutyRecord, ct);
 
@@ -206,6 +230,56 @@ public sealed class TieUpService(
         var excessMinutes = Math.Max(0, totalMinutes - 720);
         var penalty = excessMinutes > 0 ? Math.Ceiling(excessMinutes / 60m) : 0;
         return baseRest + penalty;
+    }
+
+    private static async Task ApplyBoardOrderTieUpAdjustmentAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        DateTime actualOffDutyTimeUtc,
+        CancellationToken ct)
+    {
+        var employeeAssignments = await uow.PositionAssignments.GetByEmployeeAsync(employeeCtrlNbr);
+        if (employeeAssignments.Count == 0)
+            return;
+
+        var staffablePositionIds = employeeAssignments
+            .Select(a => a.StaffablePositionCtrlNbr)
+            .ToHashSet();
+
+        var activeBoards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(craftCtrlNbr, ct);
+        var candidateBoards = activeBoards
+            .Where(b => b.IsActive)
+            .Where(b => b.Positions.Any(p => staffablePositionIds.Contains(p.StaffablePositionCtrlNbr)))
+            .ToList();
+
+        if (candidateBoards.Count == 0)
+            return;
+
+        var selectedBoard = candidateBoards
+            .Where(b => b.Positions.Any(p => p.EmployeeCtrlNbr == employeeCtrlNbr))
+            .OrderBy(b => b.CtrlNbr.Value)
+            .FirstOrDefault();
+
+        if (selectedBoard is null)
+            return;
+
+        var selectedPosition = selectedBoard.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr);
+        if (selectedPosition is null)
+            return;
+
+        selectedPosition.SetTieUpOrderUtcIfLater(actualOffDutyTimeUtc);
+
+        var ordering = selectedBoard.Positions
+            .OrderBy(p => p.TieUpOrderUtc ?? DateTime.MinValue)
+            .ThenBy(p => p.OrderSeedBoardPosition)
+            .ThenBy(p => p.PositionOrder)
+            .ThenBy(p => p.CtrlNbr.Value)
+            .Select((p, index) => (p.CtrlNbr, index + 1))
+            .ToList();
+
+        selectedBoard.ReorderPositions(ordering);
+        await uow.RosterBoards.UpdateAsync(selectedBoard, ct);
     }
 }
 

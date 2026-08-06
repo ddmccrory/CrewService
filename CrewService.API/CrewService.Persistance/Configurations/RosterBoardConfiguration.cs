@@ -50,6 +50,8 @@ internal class RosterBoardPositionConfiguration : IEntityTypeConfiguration<Roste
         builder.Property(p => p.RosterBoardCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.EmployeeCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v));
         builder.Property(p => p.StaffablePositionCtrlNbr).HasConversion(c => c.Value, v => ControlNumber.Create(v)).IsRequired();
+        builder.Property(p => p.TieUpOrderUtc);
+        builder.Property(p => p.OrderSeedBoardPosition).IsRequired();
 
         builder.HasOne<StaffablePosition>().WithOne().HasForeignKey<RosterBoardPosition>(p => p.StaffablePositionCtrlNbr).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.EmployeeCtrlNbr).OnDelete(DeleteBehavior.Restrict);
