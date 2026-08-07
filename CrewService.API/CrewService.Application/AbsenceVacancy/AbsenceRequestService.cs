@@ -253,12 +253,15 @@ public sealed class AbsenceRequestService(
             absence.Approve(approvedByCtrlNbr);
         }
 
+        var activeAbsenceCountBeforeStart = 0;
+
         if (autoMarkOffOnApproval
             && absence.ApprovedAtUtc.HasValue
             && absence.DeniedAtUtc is null
             && absence.CancelledAtUtc is null
             && ShouldAutoMarkOffImmediately(absence.ScheduledStartUtc, markOffReferenceUtc, approvalPolicy))
         {
+            activeAbsenceCountBeforeStart = (await uow.AbsenceRequests.GetActiveMarkupBoundAsync(employeeCtrlNbr)).Count;
             absence.Exercise(markOffReferenceUtc);
         }
 
@@ -267,6 +270,11 @@ public sealed class AbsenceRequestService(
         if (absence.StartRecords.Count > 0)
         {
             await uow.SaveAsync();
+            await ApplyExtraBoardAbsenceStartOrderingIfFirstAsync(
+                uow,
+                absence.EmployeeCtrlNbr,
+                absence.StartRecords[0].ActualStartUtc,
+                activeAbsenceCountBeforeStart);
             await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: markOffReferenceUtc);
         }
 
@@ -656,16 +664,26 @@ public sealed class AbsenceRequestService(
 
         absence.Approve(approvedByCtrlNbr);
 
+        var activeAbsenceCountBeforeStart = 0;
+
         if (absence.AutoMarkOffOnApproval
             && ShouldAutoMarkOffImmediately(absence.ScheduledStartUtc, DateTime.UtcNow, approvalPolicy))
         {
+            activeAbsenceCountBeforeStart = (await uow.AbsenceRequests.GetActiveMarkupBoundAsync(absence.EmployeeCtrlNbr)).Count;
             absence.Exercise(DateTime.UtcNow);
         }
 
         uow.AbsenceRequests.Update(absence);
 
         if (absence.StartRecords.Count > 0)
+        {
+            await ApplyExtraBoardAbsenceStartOrderingIfFirstAsync(
+                uow,
+                absence.EmployeeCtrlNbr,
+                absence.StartRecords[0].ActualStartUtc,
+                activeAbsenceCountBeforeStart);
             await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc));
+        }
 
         await uow.CommitAsync();
 
@@ -705,10 +723,26 @@ public sealed class AbsenceRequestService(
         if (due.Count == 0)
             return 0;
 
+        var activeAbsenceCountsByEmployee = new Dictionary<long, int>();
+        foreach (var employeeCtrlNbr in due.Select(r => r.EmployeeCtrlNbr).Distinct())
+            activeAbsenceCountsByEmployee[employeeCtrlNbr.Value] = (await uow.AbsenceRequests.GetActiveMarkupBoundAsync(employeeCtrlNbr)).Count;
+
         foreach (var request in due)
         {
+            var employeeKey = request.EmployeeCtrlNbr.Value;
+            var activeAbsenceCountBeforeStart = activeAbsenceCountsByEmployee[employeeKey];
+
             request.Exercise(asOf);
             uow.AbsenceRequests.Update(request);
+
+            await ApplyExtraBoardAbsenceStartOrderingIfFirstAsync(
+                uow,
+                request.EmployeeCtrlNbr,
+                request.StartRecords[0].ActualStartUtc,
+                activeAbsenceCountBeforeStart,
+                ct);
+
+            activeAbsenceCountsByEmployee[employeeKey] = activeAbsenceCountBeforeStart + 1;
         }
 
         foreach (var request in due)
@@ -733,6 +767,95 @@ public sealed class AbsenceRequestService(
         await using var syncUow = await uowFactory.CreateAsync(cancellationToken: ct);
         await ReconcileVacancyProjectionsForEmployeeAsync(syncUow, employeeCtrlNbr, effectiveFromUtc: DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc), ct);
         await syncUow.CommitAsync(ct);
+    }
+
+    private async Task ApplyExtraBoardAbsenceStartOrderingIfFirstAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        DateTime actualStartUtc,
+        int activeAbsenceCountBeforeStart,
+        CancellationToken ct = default)
+    {
+        if (activeAbsenceCountBeforeStart > 0)
+            return;
+
+        await ApplyExtraBoardAbsenceTieUpOrderingAsync(
+            uow,
+            employeeCtrlNbr,
+            DateTime.SpecifyKind(actualStartUtc, DateTimeKind.Utc),
+            keepAtBottomWhileMarkedOff: true,
+            ct);
+    }
+
+    private async Task ApplyExtraBoardAbsenceEndOrderingIfFinalAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        DateTime actualEndUtc,
+        int activeAbsenceCountBeforeEnd,
+        CancellationToken ct = default)
+    {
+        if (activeAbsenceCountBeforeEnd != 1)
+            return;
+
+        await ApplyExtraBoardAbsenceTieUpOrderingAsync(
+            uow,
+            employeeCtrlNbr,
+            DateTime.SpecifyKind(actualEndUtc, DateTimeKind.Utc),
+            keepAtBottomWhileMarkedOff: false,
+            ct);
+    }
+
+    private async Task ApplyExtraBoardAbsenceTieUpOrderingAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        DateTime tieUpUtc,
+        bool keepAtBottomWhileMarkedOff,
+        CancellationToken ct = default)
+    {
+        var context = await ResolveWaitListContextAsync(
+            uow,
+            employeeCtrlNbr,
+            DateTime.SpecifyKind(tieUpUtc, DateTimeKind.Utc));
+
+        if (context.CraftCtrlNbr is null)
+            return;
+
+        var boards = await uow.RosterBoards.GetByCraftCtrlNbrAsync(context.CraftCtrlNbr, ct);
+        var board = boards
+            .Where(b => b.IsActive && b.BoardType == BoardType.ExtraBoard)
+            .FirstOrDefault(b => b.Positions.Any(p => p.EmployeeCtrlNbr == employeeCtrlNbr));
+
+        if (board is null)
+            return;
+
+        var selectedPosition = board.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr);
+        if (selectedPosition is null)
+            return;
+
+        var normalizedTieUpUtc = DateTime.SpecifyKind(tieUpUtc, DateTimeKind.Utc);
+        var effectiveTieUpUtc = keepAtBottomWhileMarkedOff
+            ? normalizedTieUpUtc.AddYears(10)
+            : normalizedTieUpUtc;
+        selectedPosition.SetTieUpOrderUtc(effectiveTieUpUtc);
+
+        var orderedWithoutSelected = board.Positions
+            .Where(p => p.CtrlNbr != selectedPosition.CtrlNbr)
+            .OrderBy(p => p.TieUpOrderUtc ?? DateTime.MinValue)
+            .ThenBy(p => p.PositionOrder)
+            .ThenBy(p => p.CtrlNbr.Value)
+            .ToList();
+
+        var insertAfterIndex = orderedWithoutSelected.FindLastIndex(
+            p => (p.TieUpOrderUtc ?? DateTime.MinValue) <= effectiveTieUpUtc);
+
+        orderedWithoutSelected.Insert(insertAfterIndex + 1, selectedPosition);
+
+        var ordering = orderedWithoutSelected
+            .Select((position, index) => (position.CtrlNbr, index + 1))
+            .ToList();
+
+        board.ReorderPositions(ordering);
+        await uow.RosterBoards.UpdateAsync(board, ct);
     }
 
     private async Task ReconcileVacancyProjectionsForEmployeeAsync(
@@ -857,8 +980,15 @@ public sealed class AbsenceRequestService(
         var absence = await uow.AbsenceRequests.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
 
+        var activeAbsenceCountBeforeStart = (await uow.AbsenceRequests.GetActiveMarkupBoundAsync(absence.EmployeeCtrlNbr)).Count;
         absence.Exercise(DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc));
         uow.AbsenceRequests.Update(absence);
+
+        await ApplyExtraBoardAbsenceStartOrderingIfFirstAsync(
+            uow,
+            absence.EmployeeCtrlNbr,
+            absence.StartRecords[0].ActualStartUtc,
+            activeAbsenceCountBeforeStart);
 
         await ReconcileVacancyProjectionsForEmployeeAsync(uow, absence.EmployeeCtrlNbr, effectiveFromUtc: DateTime.SpecifyKind(exercisedUtc, DateTimeKind.Utc));
         await uow.CommitAsync();

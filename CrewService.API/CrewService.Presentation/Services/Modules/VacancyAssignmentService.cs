@@ -1,4 +1,5 @@
 using CrewService.Application.VacancyAssignment;
+using CrewService.Application.Absence;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
@@ -36,13 +37,15 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         ServerCallContext context)
     {
         var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
+        var workAreaClock = serviceProvider.GetRequiredService<Application.Time.IWorkAreaClock>();
         await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
 
         var shiftInstanceCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
         var snapshots = await uow.BoardSnapshots.GetByShiftInstanceAsync(shiftInstanceCtrlNbr, context.CancellationToken);
+        var workAreaTimeZone = await ResolveWorkAreaTimeZoneByShiftAsync(uow, workAreaClock, shiftInstanceCtrlNbr, context.CancellationToken);
 
         var response = new GetBoardSnapshotTimelineResponse();
-        response.Snapshots.AddRange(snapshots.Select(MapSnapshotTimelineItem));
+        response.Snapshots.AddRange(snapshots.Select(snapshot => MapSnapshotTimelineItem(snapshot, workAreaTimeZone)));
         return response;
     }
 
@@ -51,15 +54,22 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         ServerCallContext context)
     {
         var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
+        var workAreaClock = serviceProvider.GetRequiredService<Application.Time.IWorkAreaClock>();
         await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
 
         var snapshotCtrlNbr = ControlNumber.Create(request.SnapshotCtrlNbr);
         var snapshot = await uow.BoardSnapshots.GetByCtrlNbrAsync(snapshotCtrlNbr, context.CancellationToken)
             ?? throw new RpcException(new Status(StatusCode.NotFound, $"Board snapshot {request.SnapshotCtrlNbr} not found."));
 
+        var workAreaTimeZone = await ResolveWorkAreaTimeZoneByShiftAsync(
+            uow,
+            workAreaClock,
+            snapshot.ShiftInstanceCtrlNbr,
+            context.CancellationToken);
+
         return new GetBoardSnapshotDetailResponse
         {
-            Snapshot = MapSnapshotDetail(snapshot)
+            Snapshot = MapSnapshotDetail(snapshot, workAreaTimeZone)
         };
     }
 
@@ -68,13 +78,15 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         ServerCallContext context)
     {
         var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
+        var workAreaClock = serviceProvider.GetRequiredService<Application.Time.IWorkAreaClock>();
         await using var uow = await uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
 
         var shiftInstanceCtrlNbr = ControlNumber.Create(request.ShiftInstanceCtrlNbr);
         var decisions = await uow.BoardSelectionDecisions.GetByShiftInstanceAsync(shiftInstanceCtrlNbr, context.CancellationToken);
+        var workAreaTimeZone = await ResolveWorkAreaTimeZoneByShiftAsync(uow, workAreaClock, shiftInstanceCtrlNbr, context.CancellationToken);
 
         var response = new GetBoardSelectionDecisionsResponse();
-        response.Decisions.AddRange(decisions.Select(MapDecisionItem));
+        response.Decisions.AddRange(decisions.Select(decision => MapDecisionItem(decision, workAreaTimeZone)));
         return response;
     }
 
@@ -86,6 +98,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         var uowFactory = serviceProvider.GetRequiredService<Domain.Interfaces.IOrchestrationUnitOfWorkFactory>();
         var clock = serviceProvider.GetRequiredService<Application.Time.IWorkAreaClock>();
         var employeeNameService = serviceProvider.GetRequiredService<EmployeeNameService>();
+        var absenceCodeRepository = serviceProvider.GetRequiredService<IAbsenceCodeRepository>();
 
         if (request.WorkAreaGroupCtrlNbr <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "work_area_group_ctrl_nbr is required."));
@@ -134,6 +147,42 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             .Select(p => p.EmployeeCtrlNbr)
             .Distinct()
             .ToList();
+
+        var markOffCodeByEmployee = new Dictionary<ControlNumber, string>();
+        var markOffCodeByCtrlNbr = new Dictionary<long, string?>();
+
+        foreach (var employeeCtrlNbr in boardEmployeeCtrlNbrs)
+        {
+            var employeeAbsences = await uow.AbsenceRequests.GetByEmployeeAsync(employeeCtrlNbr);
+            var activeAbsence = employeeAbsences
+                .Where(a => a.ApprovedAtUtc.HasValue
+                    && a.DeniedAtUtc is null
+                    && a.CancelledAtUtc is null
+                    && a.StartRecords.Count > 0
+                    && a.EndRecords.Count == 0)
+                .OrderByDescending(a => a.StartRecords[0].ActualStartUtc)
+                .ThenByDescending(a => a.CtrlNbr.Value)
+                .FirstOrDefault();
+
+            if (activeAbsence is null)
+                continue;
+
+            string? markOffCode = null;
+            if (activeAbsence.AbsenceCodeCtrlNbr is not null)
+            {
+                var key = activeAbsence.AbsenceCodeCtrlNbr.Value;
+                if (!markOffCodeByCtrlNbr.TryGetValue(key, out markOffCode))
+                {
+                    var code = await absenceCodeRepository.GetByCtrlNbrAsync(activeAbsence.AbsenceCodeCtrlNbr, context.CancellationToken);
+                    markOffCode = code?.Code;
+                    markOffCodeByCtrlNbr[key] = markOffCode;
+                }
+            }
+
+            markOffCode ??= activeAbsence.ReasonCode;
+            if (!string.IsNullOrWhiteSpace(markOffCode))
+                markOffCodeByEmployee[employeeCtrlNbr] = markOffCode.Trim();
+        }
 
         var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(workAreaCtrlNbr, context.CancellationToken);
         var railroadCtrlNbr = workArea?.OwningRailroadCtrlNbr;
@@ -270,6 +319,9 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
                         opRow,
                         projectedSlot,
                         projectedProjection.ProjectedEmployeeCtrlNbr,
+                        markOffCodeByEmployee.TryGetValue(position.EmployeeCtrlNbr, out var markOffCode)
+                            ? markOffCode
+                            : null,
                         rest24Utc == default ? null : rest24Utc,
                         boardTypeByCtrlNbr,
                         employeeInfoByCtrlNbr,
@@ -306,7 +358,9 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         return resp;
     }
 
-    private static BoardSnapshotTimelineItem MapSnapshotTimelineItem(Domain.Modules.WorkManagement.BoardSnapshot snapshot)
+    private static BoardSnapshotTimelineItem MapSnapshotTimelineItem(
+        Domain.Modules.WorkManagement.BoardSnapshot snapshot,
+        TimeZoneInfo? workAreaTimeZone)
     {
         var item = new BoardSnapshotTimelineItem
         {
@@ -316,7 +370,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             TriggerSource = snapshot.TriggerSource,
             DecisionSequence = snapshot.DecisionSequence,
             CapturedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(snapshot.CapturedAtUtc, DateTimeKind.Utc)),
-            RowCount = snapshot.Rows.Count
+            RowCount = snapshot.Rows.Count,
+            CapturedAtDisplay = ResolveLocalizedDateTimeDisplay(snapshot.CapturedAtUtc, workAreaTimeZone)
         };
 
         if (snapshot.VacancyImpactCtrlNbr is not null)
@@ -325,7 +380,9 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         return item;
     }
 
-    private static BoardSnapshotDetail MapSnapshotDetail(Domain.Modules.WorkManagement.BoardSnapshot snapshot)
+    private static BoardSnapshotDetail MapSnapshotDetail(
+        Domain.Modules.WorkManagement.BoardSnapshot snapshot,
+        TimeZoneInfo? workAreaTimeZone)
     {
         var detail = new BoardSnapshotDetail
         {
@@ -334,7 +391,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             PositionSlotInstanceCtrlNbr = snapshot.PositionSlotInstanceCtrlNbr?.Value ?? 0,
             TriggerSource = snapshot.TriggerSource,
             DecisionSequence = snapshot.DecisionSequence,
-            CapturedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(snapshot.CapturedAtUtc, DateTimeKind.Utc))
+            CapturedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(snapshot.CapturedAtUtc, DateTimeKind.Utc)),
+            CapturedAtDisplay = ResolveLocalizedDateTimeDisplay(snapshot.CapturedAtUtc, workAreaTimeZone)
         };
 
         if (snapshot.VacancyImpactCtrlNbr is not null)
@@ -344,12 +402,14 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             .OrderBy(r => r.BoardOrder)
             .ThenBy(r => r.CallSequence)
             .ThenBy(r => r.CtrlNbr.Value)
-            .Select(MapSnapshotRowDetail));
+            .Select(row => MapSnapshotRowDetail(row, workAreaTimeZone)));
 
         return detail;
     }
 
-    private static BoardSnapshotRowDetail MapSnapshotRowDetail(Domain.Modules.WorkManagement.BoardSnapshotRow row)
+    private static BoardSnapshotRowDetail MapSnapshotRowDetail(
+        Domain.Modules.WorkManagement.BoardSnapshotRow row,
+        TimeZoneInfo? workAreaTimeZone)
     {
         var detail = new BoardSnapshotRowDetail
         {
@@ -363,7 +423,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             Status = row.Status,
             BoardName = row.BoardName,
             EmployeeName = row.EmployeeName,
-            PositionName = row.PositionName
+            PositionName = row.PositionName,
+            TieUpAtDisplay = ResolveLocalizedDateTimeDisplay(row.TieUpAtUtc, workAreaTimeZone)
         };
 
         if (row.RosterBoardPositionCtrlNbr is not null)
@@ -375,7 +436,9 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         return detail;
     }
 
-    private static BoardSelectionDecisionItem MapDecisionItem(Domain.Modules.WorkManagement.BoardSelectionDecision decision)
+    private static BoardSelectionDecisionItem MapDecisionItem(
+        Domain.Modules.WorkManagement.BoardSelectionDecision decision,
+        TimeZoneInfo? workAreaTimeZone)
     {
         var item = new BoardSelectionDecisionItem
         {
@@ -386,7 +449,8 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             DecisionSequence = decision.DecisionSequence,
             DecisionSource = decision.DecisionSource,
             DecisionPhase = decision.DecisionPhase,
-            DecisionJson = decision.DecisionJson ?? string.Empty
+            DecisionJson = decision.DecisionJson ?? string.Empty,
+            OccurredAtDisplay = ResolveLocalizedDateTimeDisplay(decision.OccurredAtUtc, workAreaTimeZone)
         };
 
         if (decision.VacancyImpactCtrlNbr is not null)
@@ -410,6 +474,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         Domain.Modules.WorkManagement.BoardSlotInstance? slot,
         Domain.Modules.WorkManagement.PositionSlotInstance? projectedSlot,
         ControlNumber? projectedEmployeeCtrlNbr,
+        string? markOffCodeDisplay,
         DateTime? twentyFourHourRestAtUtc,
         IReadOnlyDictionary<ControlNumber, string> boardTypeByCtrlNbr,
         IReadOnlyDictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoByCtrlNbr,
@@ -418,7 +483,10 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         TimeZoneInfo? workAreaTimeZone,
         DateTime utcNow)
     {
-        var resolvedStatus = ResolveLegacyStatus(slot, utcNow, workAreaTimeZone);
+        var isMarkedOff = !string.IsNullOrWhiteSpace(markOffCodeDisplay);
+        var resolvedStatus = isMarkedOff
+            ? "Marked Off"
+            : ResolveLegacyStatus(slot, utcNow, workAreaTimeZone);
         var resolvedRestDisplay = ResolveRestTimeDisplay(twentyFourHourRestAtUtc, workAreaTimeZone);
         var resolvedConsecutiveDaysValue = slot is not null
             ? slot.ConsecutiveDays
@@ -428,10 +496,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             : workPeriodDaysWorkedByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0);
         var resolvedConsecutiveDays = resolvedConsecutiveDaysValue.ToString();
         var resolvedDaysWorked = resolvedDaysWorkedValue.ToString();
-        var resolvedTieUpOrderSeed = position.OrderSeedBoardPosition > 0
-            ? position.OrderSeedBoardPosition
-            : throw new InvalidOperationException(
-                $"Missing OrderSeedBoardPosition for roster board position {position.CtrlNbr.Value} (employee {position.EmployeeCtrlNbr.Value}).");
+        var resolvedBoardOrder = position.PositionOrder > 0 ? position.PositionOrder : int.MaxValue;
         var resolvedBoardPosition = position.PositionOrder > 0
             ? position.PositionOrder.ToString()
             : "—";
@@ -447,9 +512,11 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             ShiftInstanceCtrlNbr = slot?.ShiftInstanceCtrlNbr.Value ?? 0,
             RosterBoardCtrlNbr = board.CtrlNbr.Value,
             EmployeeCtrlNbr = position.EmployeeCtrlNbr.Value,
-            BoardOrder = resolvedTieUpOrderSeed > 0 ? resolvedTieUpOrderSeed : int.MaxValue,
+            BoardOrder = resolvedBoardOrder,
             CallSequence = slot?.CallSequence ?? 0,
-            Status = slot?.Status.ToString() ?? "Available",
+            Status = isMarkedOff
+                ? Domain.Modules.WorkManagement.BoardSlotStatus.MarkedOff.ToString()
+                : slot?.Status.ToString() ?? "Available",
             BoardName = board.Name,
             BoardType = boardTypeByCtrlNbr.TryGetValue(board.CtrlNbr, out var boardType)
                 ? boardType
@@ -466,7 +533,10 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             BoardPositionDisplay = resolvedBoardPosition,
             ProjectedVacancyDisplay = ResolveProjectedVacancyDisplay(projectedSlot),
             ProjectedEmployeeDisplay = ResolveProjectedEmployeeDisplay(projectedEmployeeCtrlNbr, employeeInfoByCtrlNbr),
-            OnDutyDisplay = ResolveProjectedOnDutyDisplay(projectedSlot)
+            OnDutyDisplay = ResolveProjectedOnDutyDisplay(projectedSlot),
+            IsMarkedOff = isMarkedOff,
+            MarkOffCodeDisplay = markOffCodeDisplay ?? string.Empty,
+            TieUpOrderDisplay = ResolveTieUpOrderDisplay(position.TieUpOrderUtc, resolvedBoardOrder, workAreaTimeZone)
         };
 
         if (position.CtrlNbr is not null)
@@ -587,6 +657,23 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             ? "—"
             : projectedSlot.OnDutyTime.ToString("HH:mm");
 
+    private static string ResolveTieUpOrderDisplay(
+        DateTime? tieUpAtUtc,
+        int boardOrder,
+        TimeZoneInfo? workAreaTimeZone)
+    {
+        var boardOrderKey = boardOrder > 0 ? boardOrder.ToString("D2") : "—";
+        if (tieUpAtUtc is null)
+            return $"— - {boardOrderKey}";
+
+        var utc = DateTime.SpecifyKind(tieUpAtUtc.Value, DateTimeKind.Utc);
+        var local = workAreaTimeZone is null
+            ? utc
+            : TimeZoneInfo.ConvertTimeFromUtc(utc, workAreaTimeZone);
+
+        return $"{local:MMddyyHHmm} - {boardOrderKey}";
+    }
+
     private static string ResolveProjectedEmployeeDisplay(
         ControlNumber? projectedEmployeeCtrlNbr,
         IReadOnlyDictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoByCtrlNbr)
@@ -601,6 +688,35 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         }
 
         return projectedEmployeeCtrlNbr.Value.ToString();
+    }
+
+    private static string ResolveLocalizedDateTimeDisplay(DateTime? utcDateTime, TimeZoneInfo? workAreaTimeZone)
+    {
+        if (utcDateTime is null)
+            return "—";
+
+        var utc = DateTime.SpecifyKind(utcDateTime.Value, DateTimeKind.Utc);
+        var local = workAreaTimeZone is null
+            ? utc
+            : TimeZoneInfo.ConvertTimeFromUtc(utc, workAreaTimeZone);
+        return local.ToString("MM/dd/yyyy HH:mm");
+    }
+
+    private static async Task<TimeZoneInfo?> ResolveWorkAreaTimeZoneByShiftAsync(
+        Domain.Interfaces.IOrchestrationUnitOfWork uow,
+        Application.Time.IWorkAreaClock workAreaClock,
+        ControlNumber shiftInstanceCtrlNbr,
+        CancellationToken ct)
+    {
+        var shift = await uow.ShiftInstances.GetByCtrlNbrAsync(shiftInstanceCtrlNbr, ct);
+        if (shift is null)
+            return null;
+
+        var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, ct);
+        if (workInstance is null)
+            return null;
+
+        return await workAreaClock.GetWorkAreaTimeZoneAsync(uow, workInstance.WorkAreaGroupCtrlNbr, ct);
     }
 
     private static string ResolveLegacyStatus(

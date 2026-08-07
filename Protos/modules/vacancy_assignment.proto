@@ -63,6 +63,7 @@ message BoardSnapshotTimelineItem {
   int32 decision_sequence = 6;
   google.protobuf.Timestamp captured_at = 7;
   int32 row_count = 8;
+  string captured_at_display = 9;
 }
 
 message GetBoardSnapshotTimelineResponse {
@@ -82,6 +83,7 @@ message BoardSnapshotDetail {
   int32 decision_sequence = 6;
   google.protobuf.Timestamp captured_at = 7;
   repeated BoardSnapshotRowDetail rows = 8;
+  string captured_at_display = 9;
 }
 
 message BoardSnapshotRowDetail {
@@ -98,6 +100,7 @@ message BoardSnapshotRowDetail {
   string board_name = 11;
   string employee_name = 12;
   string position_name = 13;
+  string tie_up_at_display = 14;
 }
 
 message GetBoardSnapshotDetailResponse {
@@ -121,6 +124,7 @@ message BoardSelectionDecisionItem {
   string decision_source = 10;
   string decision_phase = 11;
   string decision_json = 12;
+  string occurred_at_display = 13;
 }
 
 message GetBoardSelectionDecisionsResponse {
@@ -160,6 +164,9 @@ message CurrentCallBoardRow {
   string projected_vacancy_display = 23;
   string on_duty_display = 24;
   string projected_employee_display = 25;
+  bool is_marked_off = 26;
+  string mark_off_code_display = 27;
+  string tie_up_order_display = 28;
 }
 
 message GetCurrentCallBoardResponse {
