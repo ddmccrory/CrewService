@@ -113,7 +113,20 @@ else if (HasRailroad)
                        EmptyMessage="No live board rows available for the selected craft.">
                 <RowContent Context="row">
                     <td>@row.RowNumber</td>
-                    <td>@row.EmployeeName</td>
+                    <td>
+                        @if (row.IsMarkedOff)
+                        {
+                            <span class="text-decoration-line-through text-danger">@row.EmployeeName</span>
+                            @if (!string.IsNullOrWhiteSpace(row.MarkOffCodeDisplay))
+                            {
+                                <span class="ms-1 text-danger">(@row.MarkOffCodeDisplay)</span>
+                            }
+                        }
+                        else
+                        {
+                            @row.EmployeeName
+                        }
+                    </td>
                     <td>@row.Status</td>
                     <td>@row.CallSequenceDisplay</td>
                     <td>@row.TieUpOrderDisplay</td>
@@ -145,7 +158,7 @@ else if (HasRailroad)
                         <option value="0">-- Select Snapshot --</option>
                         @foreach (var snapshot in timelineItems)
                         {
-                            <option value="@snapshot.SnapshotCtrlNbr">Seq @snapshot.DecisionSequence · @ToLocalDisplay(snapshot.CapturedAt)</option>
+                            <option value="@snapshot.SnapshotCtrlNbr">Seq @snapshot.DecisionSequence · @snapshot.CapturedAtDisplay</option>
                         }
                     </select>
                 </div>
@@ -155,7 +168,7 @@ else if (HasRailroad)
             {
                 <div class="alert alert-secondary py-2 mb-3">
                     <div><strong>Decision Sequence:</strong> @selectedDecision.DecisionSequence</div>
-                    <div><strong>Occurred:</strong> @ToLocalDisplay(selectedDecision.OccurredAt)</div>
+                    <div><strong>Occurred:</strong> @selectedDecision.OccurredAtDisplay</div>
                     <div><strong>Source:</strong> @selectedDecision.DecisionSource</div>
                     <div><strong>Phase:</strong> @selectedDecision.DecisionPhase</div>
                     <div><strong>Selected Employee:</strong> @GetSelectedEmployeeDisplay(selectedDecision)</div>
@@ -175,7 +188,7 @@ else if (HasRailroad)
                     <td>@row.EmployeeName</td>
                     <td>@row.PositionName</td>
                     <td>@row.CallSequence</td>
-                    <td>@ToLocalDisplay(row.TieUpAt)</td>
+                    <td>@row.TieUpAtDisplay</td>
                     <td>@row.Status</td>
                     <td>
                         @if (selectedDecision?.SelectedBoardSlotInstanceCtrlNbr == row.BoardSlotInstanceCtrlNbr)
@@ -390,9 +403,11 @@ else if (HasRailroad)
                 .Select(r => new CurrentBoardRow(
                     r.RowNumber,
                     r.EmployeeName,
+                    r.IsMarkedOff,
+                    r.MarkOffCodeDisplay,
                     r.StatusDisplay,
                     r.CallSequence.ToString(),
-                    FormatTieUpOrderDisplay(r.TieUpAt, r.BoardOrder),
+                    r.TieUpOrderDisplay,
                     r.RestTimeDisplay,
                     r.ConsecutiveDaysDisplay,
                     r.DaysWorkedDisplay,
@@ -535,25 +550,6 @@ else if (HasRailroad)
         }
     }
 
-    private static string ToLocalDisplay(global::Google.Protobuf.WellKnownTypes.Timestamp? timestamp)
-    {
-        if (timestamp is null)
-            return "—";
-
-        var utc = timestamp.ToDateTime();
-        return utc.ToLocalTime().ToString("MM/dd/yyyy HH:mm");
-    }
-
-    private static string FormatTieUpOrderDisplay(global::Google.Protobuf.WellKnownTypes.Timestamp? timestamp, int boardOrder)
-    {
-        var boardOrderKey = boardOrder > 0 ? boardOrder.ToString("D2") : "—";
-        if (timestamp is null)
-            return $"— - {boardOrderKey}";
-
-        var utc = timestamp.ToDateTime().ToUniversalTime();
-        return $"{utc:MMddyyHHmm} - {boardOrderKey}";
-    }
-
     private static string GetSelectedEmployeeDisplay(BoardSelectionDecisionItem decision)
         => decision.SelectedEmployeeCtrlNbr > 0
             ? decision.SelectedEmployeeCtrlNbr.ToString()
@@ -609,6 +605,8 @@ else if (HasRailroad)
     private sealed record CurrentBoardRow(
         int RowNumber,
         string EmployeeName,
+        bool IsMarkedOff,
+        string MarkOffCodeDisplay,
         string Status,
         string CallSequenceDisplay,
         string TieUpOrderDisplay,

@@ -26,6 +26,36 @@ public class CallBoardTests
         Assert.Contains("EmployeeName = authoritativeEmployeeName", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CallBoard_MarkedOffEmployee_UsesRedStrikeThroughAndRedCode()
+    {
+        var source = File.ReadAllText(GetCallBoardRazorPath());
+
+        Assert.Contains("text-decoration-line-through text-danger", source, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"ms-1 text-danger\">(@row.MarkOffCodeDisplay)</span>", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CallBoard_HistoryTimestamps_UseBackendDisplayFields_NotClientLocalConversion()
+    {
+        var source = File.ReadAllText(GetCallBoardRazorPath());
+
+        Assert.Contains("@snapshot.CapturedAtDisplay", source, StringComparison.Ordinal);
+        Assert.Contains("@selectedDecision.OccurredAtDisplay", source, StringComparison.Ordinal);
+        Assert.Contains("@row.TieUpAtDisplay", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToLocalDisplay(", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VacancyAssignmentService_MapsBackendHistoryDisplayFields()
+    {
+        var source = File.ReadAllText(GetVacancyAssignmentServicePath());
+
+        Assert.Contains("CapturedAtDisplay = ResolveLocalizedDateTimeDisplay", source, StringComparison.Ordinal);
+        Assert.Contains("OccurredAtDisplay = ResolveLocalizedDateTimeDisplay", source, StringComparison.Ordinal);
+        Assert.Contains("TieUpAtDisplay = ResolveLocalizedDateTimeDisplay", source, StringComparison.Ordinal);
+    }
+
     private static string GetCallBoardRazorPath()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
