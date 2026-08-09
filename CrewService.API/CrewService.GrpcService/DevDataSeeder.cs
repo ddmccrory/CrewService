@@ -119,10 +119,10 @@ internal static class DevDataSeeder
         // ?? Scenario 1: Simple (no placements) ??????????????????????
         // No placement rows -- backward-compatible scenario
 
-        // ?? Scenario 2: PTRA (Legacy Railroad) ??????????????????????
+        // ?? Scenario 2: Simple Railroad ??????????????????????
         // Railroad is the work area; hierarchy: Railroad -> Location
         SetParent(simpleCorpResp.CtrlNbr.Value);
-        var ptraLocationType = GroupType.Create("Location", "PTRA operational locations", isWorkArea: false, parentCtrlNbr: simpleCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
+        var ptraLocationType = GroupType.Create("Location", "Simple Railroad operational locations", isWorkArea: false, parentCtrlNbr: simpleCorpResp.CtrlNbr, parentGroupTypeCtrlNbr: ptraRailroadType.CtrlNbr.Value);
         await groupTypeRepo.AddAsync(ptraLocationType);
 
         var northYard = DynamicGroup.Create(ptraLocationType.CtrlNbr.Value, "North Yard", parentGroupCtrlNbr: ptraRR.CtrlNbr.Value, path: null, isWorkArea: false, code: "NOYD", parentCtrlNbr: simpleCorpResp.CtrlNbr, railroadCtrlNbr: ptraRR.CtrlNbr.Value);
@@ -305,7 +305,7 @@ internal static class DevDataSeeder
             }
         }
 
-        // Backfill SMPL/PTRA-scenario Location group type hierarchy: Location -> Railroad
+        // Backfill SMPL scenario Location group type hierarchy: Location -> Railroad
         SetParent(ptraParentCore.CtrlNbr.Value);
         groupTypesBackfill = await groupTypeRepo.GetAllAsync();
         var ptraRailroadTypeBackfill = groupTypesBackfill.FirstOrDefault(gt => gt.Name == "Railroad" && gt.ParentCtrlNbr == ptraParentCore.CtrlNbr.Value);
@@ -550,7 +550,7 @@ internal static class DevDataSeeder
 
         } // end employee guard
 
-        // ?? PTRA Employees with Addresses, Phone Numbers, Email Addresses ????
+        // ?? SMPL Employees with Addresses, Phone Numbers, Email Addresses ????
         var ptraExistingEmployees = await employeeRepo.GetByClientCtrlNbrAsync(ptraParentCore.CtrlNbr);
         if (ptraExistingEmployees.Count == 0)
         {
@@ -628,8 +628,8 @@ internal static class DevDataSeeder
         {
             var firstName = ptraFirstNames[i % ptraFirstNames.Length];
             var lastName  = ptraLastNames[i];
-            var empNumber = $"PTRA{i + 1:D4}";
-            var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@ptra.example.com";
+            var empNumber = $"SMPL{i + 1:D4}";
+            var email     = $"{firstName.ToLower()}.{lastName.ToLower()}{i + 1}@smpl.example.com";
 
             // Create passwordless user + employee + email address atomically via the app service.
             // sendInvitation: false — seeded accounts get dev passwords via userMgr, invitations are not needed.
@@ -685,7 +685,7 @@ internal static class DevDataSeeder
             }
         }
 
-        } // end PTRA employee guard
+        } // end SMPL employee guard
 
         // ?? Upgrade specific employee assignments via invitation flow ????
         var csxCorp = csxParentCore;
