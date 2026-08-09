@@ -233,10 +233,31 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         }
 
         var operationalByBoardAndEmployee = new Dictionary<(long BoardCtrlNbr, long EmployeeCtrlNbr), Domain.Modules.WorkManagement.BoardSlotInstance>();
+        var calledAssignmentPositionByShiftAndEmployee = new Dictionary<(long ShiftInstanceCtrlNbr, long EmployeeCtrlNbr), string>();
         var rest24ByEmployee = new Dictionary<ControlNumber, DateTime>();
 
         foreach (var shift in shifts)
         {
+            foreach (var positionSlot in shift.PositionSlots
+                         .OrderBy(s => s.DisplayOrder)
+                         .ThenBy(s => s.CtrlNbr.Value))
+            {
+                if (positionSlot.IncumbentEmployeeCtrlNbr is not { } incumbentEmployeeCtrlNbr)
+                    continue;
+
+                var key = (shift.CtrlNbr.Value, incumbentEmployeeCtrlNbr.Value);
+                if (calledAssignmentPositionByShiftAndEmployee.ContainsKey(key))
+                    continue;
+
+                var assignmentPositionDisplay = ResolveAssignmentPositionDisplay(
+                    positionSlot.AssignmentCode,
+                    positionSlot.CraftRoleName,
+                    positionSlot.AssignmentName);
+
+                if (!string.IsNullOrWhiteSpace(assignmentPositionDisplay))
+                    calledAssignmentPositionByShiftAndEmployee[key] = assignmentPositionDisplay;
+            }
+
             foreach (var slot in shift.BoardSlots.Where(s => boardCtrlNbrs.Contains(s.RosterBoardCtrlNbr)))
             {
                 var key = (slot.RosterBoardCtrlNbr.Value, slot.EmployeeCtrlNbr.Value);
@@ -325,18 +346,21 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
                         rest24Utc == default ? null : rest24Utc,
                         boardTypeByCtrlNbr,
                         employeeInfoByCtrlNbr,
+                        calledAssignmentPositionByShiftAndEmployee,
                         fraConsecutiveDaysByEmployee,
                         workPeriodDaysWorkedByEmployee,
                         tz,
                         clock.UtcNow.UtcDateTime);
                 }))
-            .OrderBy(r => r.BoardName)
-            .ThenBy(r => r.RowNumber)
-            .ThenBy(r => r.EmployeeName)
+            .OrderBy(r => r.BoardName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(ResolveTieUpOrderSortKey)
+            .ThenBy(ResolveCallSequenceSortKey)
+            .ThenBy(ResolveBoardOrderSortKey)
+            .ThenBy(r => r.EmployeeName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.EmployeeCtrlNbr)
             .ToList();
 
-        for (var i = 0; i < rows.Count; i++)
-            rows[i].RowNumber = i + 1;
+        ApplyDisplayBoardOrdering(rows, tz);
 
         response.Rows.AddRange(rows);
 
@@ -478,6 +502,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         DateTime? twentyFourHourRestAtUtc,
         IReadOnlyDictionary<ControlNumber, string> boardTypeByCtrlNbr,
         IReadOnlyDictionary<ControlNumber, (string FullNameLnf, string EmployeeNumber)> employeeInfoByCtrlNbr,
+        IReadOnlyDictionary<(long ShiftInstanceCtrlNbr, long EmployeeCtrlNbr), string> calledAssignmentPositionByShiftAndEmployee,
         IReadOnlyDictionary<ControlNumber, int> fraConsecutiveDaysByEmployee,
         IReadOnlyDictionary<ControlNumber, int> workPeriodDaysWorkedByEmployee,
         TimeZoneInfo? workAreaTimeZone,
@@ -487,6 +512,14 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         var resolvedStatus = isMarkedOff
             ? "Marked Off"
             : ResolveLegacyStatus(slot, utcNow, workAreaTimeZone);
+        var calledAssignmentPositionDisplay = ResolveCalledAssignmentPositionDisplay(slot, calledAssignmentPositionByShiftAndEmployee);
+        if (!isMarkedOff
+            && slot?.Status == Domain.Modules.WorkManagement.BoardSlotStatus.Called
+            && !string.IsNullOrWhiteSpace(calledAssignmentPositionDisplay))
+        {
+            resolvedStatus = $"Called for {calledAssignmentPositionDisplay}";
+        }
+
         var resolvedRestDisplay = ResolveRestTimeDisplay(twentyFourHourRestAtUtc, workAreaTimeZone);
         var resolvedConsecutiveDaysValue = slot is not null
             ? slot.ConsecutiveDays
@@ -536,7 +569,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
             OnDutyDisplay = ResolveProjectedOnDutyDisplay(projectedSlot),
             IsMarkedOff = isMarkedOff,
             MarkOffCodeDisplay = markOffCodeDisplay ?? string.Empty,
-            TieUpOrderDisplay = ResolveTieUpOrderDisplay(position.TieUpOrderUtc, resolvedBoardOrder, workAreaTimeZone)
+            TieUpOrderDisplay = ResolveTieUpOrderDisplay(position.TieUpOrderUtc, workAreaTimeZone)
         };
 
         if (position.CtrlNbr is not null)
@@ -551,6 +584,35 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         return row;
     }
 
+    private static int ResolveBoardOrderSortKey(CurrentCallBoardRow row)
+        => row.BoardOrder > 0
+            ? row.BoardOrder
+            : int.MaxValue;
+
+    private static DateTime ResolveTieUpOrderSortKey(CurrentCallBoardRow row)
+        => row.TieUpAt is null
+            ? DateTime.MinValue
+            : DateTime.SpecifyKind(row.TieUpAt.ToDateTime(), DateTimeKind.Utc);
+
+    private static long ResolveCallSequenceSortKey(CurrentCallBoardRow row)
+        => row.CallSequence;
+
+    private static void ApplyDisplayBoardOrdering(List<CurrentCallBoardRow> rows, TimeZoneInfo? workAreaTimeZone)
+    {
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            var nextPosition = index + 1;
+
+            row.RowNumber = nextPosition;
+            row.BoardOrder = nextPosition;
+            row.BoardPositionDisplay = nextPosition.ToString();
+
+            var tieUpAtUtc = row.TieUpAt is null ? (DateTime?)null : row.TieUpAt.ToDateTime();
+            row.TieUpOrderDisplay = ResolveTieUpOrderDisplay(tieUpAtUtc, workAreaTimeZone);
+        }
+    }
+
     private static string ResolveEmployeeDisplayName(string? slotEmployeeName, string fallbackEmployeeName)
     {
         if (!string.IsNullOrWhiteSpace(slotEmployeeName)
@@ -562,6 +624,41 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         return !string.IsNullOrWhiteSpace(fallbackEmployeeName)
             ? fallbackEmployeeName
             : "Name Not Available";
+    }
+
+    private static string ResolveAssignmentPositionDisplay(
+        string assignmentCode,
+        string craftRoleName,
+        string assignmentName)
+    {
+        var assignmentDisplay = !string.IsNullOrWhiteSpace(assignmentCode)
+            ? assignmentCode.Trim()
+            : assignmentName.Trim();
+        var positionDisplay = craftRoleName.Trim();
+
+        if (string.IsNullOrWhiteSpace(assignmentDisplay))
+            return positionDisplay;
+        if (string.IsNullOrWhiteSpace(positionDisplay))
+            return assignmentDisplay;
+
+        return $"{assignmentDisplay} {positionDisplay}";
+    }
+
+    private static string ResolveCalledAssignmentPositionDisplay(
+        Domain.Modules.WorkManagement.BoardSlotInstance? slot,
+        IReadOnlyDictionary<(long ShiftInstanceCtrlNbr, long EmployeeCtrlNbr), string> calledAssignmentPositionByShiftAndEmployee)
+    {
+        if (slot is null || slot.Status != Domain.Modules.WorkManagement.BoardSlotStatus.Called)
+            return string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(slot.PositionName))
+            return slot.PositionName.Trim();
+
+        return calledAssignmentPositionByShiftAndEmployee.TryGetValue(
+            (slot.ShiftInstanceCtrlNbr.Value, slot.EmployeeCtrlNbr.Value),
+            out var assignmentPositionDisplay)
+            ? assignmentPositionDisplay
+            : string.Empty;
     }
 
     private static (DateTime StartUtc, DateTime EndUtc) ResolveCurrentWorkPeriodBounds(WorkPeriodMode mode, DateTime nowUtc)
@@ -659,19 +756,17 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
 
     private static string ResolveTieUpOrderDisplay(
         DateTime? tieUpAtUtc,
-        int boardOrder,
         TimeZoneInfo? workAreaTimeZone)
     {
-        var boardOrderKey = boardOrder > 0 ? boardOrder.ToString("D2") : "—";
         if (tieUpAtUtc is null)
-            return $"— - {boardOrderKey}";
+            return "—";
 
         var utc = DateTime.SpecifyKind(tieUpAtUtc.Value, DateTimeKind.Utc);
         var local = workAreaTimeZone is null
             ? utc
             : TimeZoneInfo.ConvertTimeFromUtc(utc, workAreaTimeZone);
 
-        return $"{local:MMddyyHHmm} - {boardOrderKey}";
+        return $"{local:MMddyyHHmm}";
     }
 
     private static string ResolveProjectedEmployeeDisplay(
