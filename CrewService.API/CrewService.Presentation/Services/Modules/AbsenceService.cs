@@ -148,12 +148,15 @@ public class AbsenceService(IServiceProvider serviceProvider)
 
         var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
 
-        await using var uow = await _uowFactory.CreateAsync(cancellationToken: context.CancellationToken);
-        var absenceRequest = await uow.AbsenceRequests.GetByCtrlNbrAsync(ControlNumber.Create(request.AbsenceRequestCtrlNbr), context.CancellationToken)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Absence request {request.AbsenceRequestCtrlNbr} not found."));
+        ControlNumber absenceCodeCtrlNbr;
+        await using (var uow = await _uowFactory.CreateAsync(cancellationToken: context.CancellationToken))
+        {
+            var absenceRequest = await uow.AbsenceRequests.GetByCtrlNbrAsync(ControlNumber.Create(request.AbsenceRequestCtrlNbr), context.CancellationToken)
+                ?? throw new RpcException(new Status(StatusCode.NotFound, $"Absence request {request.AbsenceRequestCtrlNbr} not found."));
 
-        if (absenceRequest.AbsenceCodeCtrlNbr is null)
-            throw new RpcException(new Status(StatusCode.FailedPrecondition, "Absence request is missing an absence code."));
+            absenceCodeCtrlNbr = absenceRequest.AbsenceCodeCtrlNbr
+                ?? throw new RpcException(new Status(StatusCode.FailedPrecondition, "Absence request is missing an absence code."));
+        }
 
         var actorContext = await _actorContextResolver.ResolveAsync(ct: context.CancellationToken);
         if (!actorContext.ParentCtrlNbr.HasValue || actorContext.ParentCtrlNbr.Value <= 0)
@@ -161,7 +164,7 @@ public class AbsenceService(IServiceProvider serviceProvider)
 
         var selectedRailroadCtrlNbr = await GetSelectedRailroadCtrlNbrAsync(context.CancellationToken);
 
-        var policy = await svc.ResolveApprovalPolicyAsync(absenceRequest.AbsenceCodeCtrlNbr, context.CancellationToken);
+        var policy = await svc.ResolveApprovalPolicyAsync(absenceCodeCtrlNbr, context.CancellationToken);
         var approvers = await svc.GetApprovalOfficersAsync(
             ControlNumber.Create(actorContext.ParentCtrlNbr.Value),
             ControlNumber.Create(selectedRailroadCtrlNbr),
