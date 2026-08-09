@@ -245,15 +245,21 @@ public sealed class VacancyResolutionOrchestrationService(
                 : await uow.DynamicGroups.GetByCtrlNbrAsync(workArea.OwningRailroadCtrlNbr, ct);
             var workPeriodMode = railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
             var (workPeriodStartUtc, workPeriodEndUtc) = ResolveCurrentWorkPeriodBounds(workPeriodMode, onDutyRecord.OnDutyTimeUtc);
-            var onDutyHistory = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(
+            var onDutyHistory = await uow.OnDutyRecords.GetWorkedForEmployeeInRangeAsync(
                 request.EmployeeCtrlNbr,
                 workPeriodStartUtc,
                 workPeriodEndUtc,
                 ct);
-            var daysWorked = onDutyHistory
+            var daysWorkedFromRecords = onDutyHistory.Count > 0
+                ? onDutyHistory.Max(r => r.DaysWorked)
+                : 0;
+            var fallbackDaysWorked = onDutyHistory
                 .Select(r => DateTime.SpecifyKind(r.OnDutyTimeUtc, DateTimeKind.Utc).Date)
                 .Distinct()
                 .Count();
+            var daysWorked = daysWorkedFromRecords > 0 ? daysWorkedFromRecords : fallbackDaysWorked;
+
+            onDutyRecord.UpdateOperationalTracking(daysWorked, onDutyRecord.ConsecutiveDays);
 
             if (!existingFillForEmployee)
                 slot.Fill(request.EmployeeCtrlNbr, isIncumbent: true);
@@ -268,13 +274,12 @@ public sealed class VacancyResolutionOrchestrationService(
                 operationsPolicy,
                 resolvedCraftCtrlNbr,
                 slot,
-                onDutyRecord.ConsecutiveDays,
-                daysWorked,
+                onDutyRecord,
                 defaultOffDutyUtc,
                 activeBoards,
                 ct);
 
-            await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
+            await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, request.PositionSlotCtrlNbr, ct);
 
             var finalStatus = request.ForceOverride ? VacancyFillStatusCodes.FilledForced : VacancyFillStatusCodes.Filled;
             var decisionJson = $"{{\"ForceOverride\":{request.ForceOverride.ToString().ToLowerInvariant()},\"Accepted\":{request.Accepted.ToString().ToLowerInvariant()}}}";
@@ -477,8 +482,7 @@ public sealed class VacancyResolutionOrchestrationService(
         CraftOperationsPolicy? operationsPolicy,
         ControlNumber? craftCtrlNbr,
         PositionSlotInstance filledSlot,
-        int consecutiveDays,
-        int daysWorked,
+        OnDutyRecord onDutyRecord,
         DateTime defaultOffDutyUtc,
         IReadOnlyList<RosterBoard> activeBoards,
         CancellationToken ct)
@@ -518,14 +522,19 @@ public sealed class VacancyResolutionOrchestrationService(
         if (selectedBoardSlot is not null)
         {
             selectedBoardSlot.RecordCallSequence(nextCallSequence);
-            selectedBoardSlot.UpdateOperationalTracking(daysWorked, consecutiveDays, selectedBoardSlot.RestAvailableAtUtc);
-            selectedBoardSlot.Call();
-            selectedBoardSlot.MarkOnDuty();
+            selectedBoardSlot.UpdateOperationalTracking(onDutyRecord.DaysWorked, onDutyRecord.ConsecutiveDays, selectedBoardSlot.RestAvailableAtUtc);
+            var calledForPositionName = string.IsNullOrWhiteSpace(filledSlot.AssignmentCode)
+                ? filledSlot.CraftRoleName
+                : string.IsNullOrWhiteSpace(filledSlot.CraftRoleName)
+                    ? filledSlot.AssignmentCode
+                    : $"{filledSlot.AssignmentCode} {filledSlot.CraftRoleName}";
+
+            selectedBoardSlot.Call(calledForPositionName);
             if (forceOverride)
                 selectedBoardSlot.Reposition(1);
         }
 
-        StampBoardOrderKeysFromCall(selectedRosterBoard, employeeCtrlNbr, defaultOffDutyUtc);
+        StampBoardOrderKeysFromCall(selectedRosterBoard, employeeCtrlNbr, selectedPosition.PositionOrder, defaultOffDutyUtc);
         ReorderBoardByProtectedKeys(selectedRosterBoard);
         await uow.RosterBoards.UpdateAsync(selectedRosterBoard, ct);
 
@@ -541,6 +550,7 @@ public sealed class VacancyResolutionOrchestrationService(
     private static void StampBoardOrderKeysFromCall(
         RosterBoard board,
         ControlNumber employeeCtrlNbr,
+        int calledBoardOrder,
         DateTime defaultOffDutyUtc)
     {
         var selectedPosition = board.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr);
@@ -548,7 +558,11 @@ public sealed class VacancyResolutionOrchestrationService(
             throw new InvalidOperationException(
                 $"Employee {employeeCtrlNbr.Value} is not on roster board {board.CtrlNbr.Value}.");
 
-        selectedPosition.SetOrderSeedBoardPosition(selectedPosition.PositionOrder);
+        if (calledBoardOrder <= 0)
+            throw new InvalidOperationException(
+                $"Called board order is invalid for employee {employeeCtrlNbr.Value} on roster board {board.CtrlNbr.Value}.");
+
+        selectedPosition.SetOrderSeedBoardPosition(calledBoardOrder);
         selectedPosition.SetTieUpOrderUtc(defaultOffDutyUtc);
     }
 

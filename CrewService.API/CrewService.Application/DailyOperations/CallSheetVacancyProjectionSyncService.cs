@@ -41,52 +41,71 @@ public sealed class CallSheetVacancyProjectionSyncService(
     public async Task ReconcileFromShiftChangeAsync(
         IOrchestrationUnitOfWork uow,
         ShiftInstance anchorShift,
+        ControlNumber? anchorPositionSlotCtrlNbr,
         CancellationToken ct = default)
     {
         var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(anchorShift.WorkInstanceCtrlNbr, ct)
             ?? throw new InvalidOperationException($"Work instance {anchorShift.WorkInstanceCtrlNbr.Value} not found.");
 
-        var shiftDefinitions = await uow.ShiftDefinitions.GetByWorkAreaAsync(workInstance.WorkAreaGroupCtrlNbr);
-        var shiftsInWorkInstance = await uow.ShiftInstances.GetByWorkInstanceAsync(workInstance.CtrlNbr, ct);
-        if (shiftsInWorkInstance.Count == 0)
+        var workAreaGroupCtrlNbr = workInstance.WorkAreaGroupCtrlNbr;
+        var shiftDefinitions = await uow.ShiftDefinitions.GetByWorkAreaAsync(workAreaGroupCtrlNbr);
+        var incompleteShifts = await uow.ShiftInstances.GetIncompleteByWorkAreaAsync(workAreaGroupCtrlNbr, ct);
+        if (incompleteShifts.Count == 0)
             return;
 
-        var orderedShifts = shiftsInWorkInstance
-            .OrderBy(s => ResolveShiftDisplayOrder(shiftDefinitions, s.ShiftCode))
+        var workInstanceByCtrlNbr = new Dictionary<ControlNumber, WorkInstance>();
+        foreach (var workInstanceCtrlNbr in incompleteShifts.Select(s => s.WorkInstanceCtrlNbr).Distinct())
+        {
+            var resolvedWorkInstance = await uow.WorkInstances.GetByCtrlNbrAsync(workInstanceCtrlNbr, ct);
+            if (resolvedWorkInstance is not null)
+                workInstanceByCtrlNbr[workInstanceCtrlNbr] = resolvedWorkInstance;
+        }
+
+        var orderedShifts = incompleteShifts
+            .Where(s => workInstanceByCtrlNbr.ContainsKey(s.WorkInstanceCtrlNbr))
+            .OrderBy(s => DateTime.SpecifyKind(workInstanceByCtrlNbr[s.WorkInstanceCtrlNbr].StartUtc, DateTimeKind.Utc))
+            .ThenBy(s => ResolveShiftDisplayOrder(shiftDefinitions, s.ShiftCode))
             .ThenBy(s => s.CtrlNbr.Value)
             .ToList();
 
-        if (orderedShifts.All(s => s.CtrlNbr != anchorShift.CtrlNbr))
-        {
-            orderedShifts.Add(anchorShift);
-            orderedShifts = orderedShifts
-                .OrderBy(s => ResolveShiftDisplayOrder(shiftDefinitions, s.ShiftCode))
-                .ThenBy(s => s.CtrlNbr.Value)
-                .ToList();
-        }
+        if (orderedShifts.Count == 0)
+            return;
 
         var anchorIndex = orderedShifts.FindIndex(s => s.CtrlNbr == anchorShift.CtrlNbr);
         if (anchorIndex < 0)
             return;
 
-        var targetDate = DateOnly.FromDateTime(DateTime.SpecifyKind(workInstance.StartUtc, DateTimeKind.Utc));
         var forwardShifts = orderedShifts.Skip(anchorIndex).ToList();
+        if (forwardShifts.Count == 0)
+            return;
 
         foreach (var shift in forwardShifts)
         {
+            var shiftWorkInstance = workInstanceByCtrlNbr[shift.WorkInstanceCtrlNbr];
+            var targetDate = DateOnly.FromDateTime(DateTime.SpecifyKind(shiftWorkInstance.StartUtc, DateTimeKind.Utc));
+
             _ = await vacancyEvaluationService.ApplyEvaluatedStateAsync(
                 uow,
                 shift,
-                workInstance.WorkAreaGroupCtrlNbr,
+                workAreaGroupCtrlNbr,
                 targetDate,
                 ct);
         }
 
         await vacancyProjectionOrchestrator.ReconcileForShiftsAsync(
             uow,
-            workInstance.WorkAreaGroupCtrlNbr,
+            workAreaGroupCtrlNbr,
             forwardShifts,
+            anchorPositionSlotCtrlNbr,
             ct);
+    }
+
+    public Task ReconcileFromShiftChangeAsync(
+        IOrchestrationUnitOfWork uow,
+        ShiftInstance anchorShift,
+        CancellationToken ct = default)
+    {
+        return ReconcileFromShiftChangeAsync(uow, anchorShift, anchorPositionSlotCtrlNbr: null, ct);
     }
 
     private static int ResolveShiftDisplayOrder(

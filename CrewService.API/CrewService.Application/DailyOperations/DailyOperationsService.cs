@@ -21,7 +21,19 @@ public sealed class DailyOperationsService(
         if (workInstances.Count == 0)
             return [];
 
-        return await uow.ShiftInstances.GetByWorkInstanceAsync(workInstances[0].CtrlNbr, ct);
+        var orderedWorkInstances = workInstances
+            .OrderBy(w => DateTime.SpecifyKind(w.StartUtc, DateTimeKind.Utc))
+            .ThenBy(w => w.CtrlNbr.Value)
+            .ToList();
+
+        var shifts = new List<ShiftInstance>();
+        foreach (var workInstance in orderedWorkInstances)
+        {
+            var workInstanceShifts = await uow.ShiftInstances.GetByWorkInstanceAsync(workInstance.CtrlNbr, ct);
+            shifts.AddRange(workInstanceShifts);
+        }
+
+        return shifts;
     }
 
     public async Task<ShiftInstance> GetShiftInstanceAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
@@ -94,7 +106,7 @@ public sealed class DailyOperationsService(
 
         slot.MarkDoNotFill();
         await uow.ShiftInstances.UpdateAsync(shift, ct);
-        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, ct);
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, shift, slotCtrlNbr, ct);
         await uow.CommitAsync(ct);
         return shift;
     }

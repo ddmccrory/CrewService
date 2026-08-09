@@ -85,8 +85,7 @@ public sealed class VacancyProjectionOrchestratorService(
             var workEndUtc = DateTime.SpecifyKind(workInstance.EndUtc, DateTimeKind.Utc);
 
             if (normalizedFromUtc.HasValue
-                && workStartUtc < normalizedFromUtc.Value
-                && workEndUtc < normalizedFromUtc.Value)
+                && !await ShiftMayContainVacancyAtOrAfterAsync(uow, shift, workEndUtc, normalizedFromUtc.Value, ct))
             {
                 continue;
             }
@@ -109,21 +108,45 @@ public sealed class VacancyProjectionOrchestratorService(
             ct);
     }
 
+    public Task ReconcileForShiftsAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber workAreaGroupCtrlNbr,
+        IReadOnlyList<ShiftInstance> orderedShifts,
+        CancellationToken ct = default)
+    {
+        return ReconcileForShiftsAsync(
+            uow,
+            workAreaGroupCtrlNbr,
+            orderedShifts,
+            anchorPositionSlotCtrlNbr: null,
+            ct);
+    }
+
     public async Task ReconcileForShiftsAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber workAreaGroupCtrlNbr,
         IReadOnlyList<ShiftInstance> orderedShifts,
+        ControlNumber? anchorPositionSlotCtrlNbr,
         CancellationToken ct = default)
     {
         if (orderedShifts.Count == 0)
             return;
 
         var vacancyContexts = new List<OrderedSlotVacancyContext>();
+        var onDutyUtcBySlot = new Dictionary<ControlNumber, DateTime>();
 
         for (var shiftOrder = 0; shiftOrder < orderedShifts.Count; shiftOrder++)
         {
             var shift = orderedShifts[shiftOrder];
-            var contexts = await BuildSlotContextsAsync(uow, shift.PositionSlots, ct);
+            var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, ct);
+            if (workInstance is null)
+                continue;
+
+            var shiftStartDateUtc = DateTime.SpecifyKind(workInstance.StartUtc, DateTimeKind.Utc).Date;
+            var scopedSlots = shiftOrder == 0 && anchorPositionSlotCtrlNbr is not null
+                ? GetProjectionScopedSlotsForAnchor(shift.PositionSlots, anchorPositionSlotCtrlNbr)
+                : shift.PositionSlots;
+            var contexts = await BuildSlotContextsAsync(uow, scopedSlots, ct);
 
             foreach (var context in contexts)
             {
@@ -131,6 +154,9 @@ public sealed class VacancyProjectionOrchestratorService(
                 {
                     _ = await EnsureOpenVacancyAsync(uow, workAreaGroupCtrlNbr, context, ct);
                     vacancyContexts.Add(new OrderedSlotVacancyContext(shiftOrder, context));
+                    onDutyUtcBySlot[context.Slot.CtrlNbr] = DateTime.SpecifyKind(
+                        shiftStartDateUtc + context.Slot.OnDutyTime.ToTimeSpan(),
+                        DateTimeKind.Utc);
                     continue;
                 }
 
@@ -142,8 +168,8 @@ public sealed class VacancyProjectionOrchestratorService(
         if (vacancyContexts.Count == 0)
             return;
 
-        var projectionSequenceByCraft = new Dictionary<ControlNumber, int>();
         var nowUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        var reservedEmployeeCtrlNbrs = new HashSet<long>();
 
         var orderedVacancies = vacancyContexts
             .OrderBy(v => v.ShiftOrder)
@@ -164,27 +190,20 @@ public sealed class VacancyProjectionOrchestratorService(
                 skipSlot,
                 ct);
 
-            var restedCandidates = new List<SkipRuleCandidate>();
-            foreach (var candidate in candidates)
-            {
-                var context = await skipContextProvider.BuildAsync(uow, candidate, skipSlot, ct);
-                if (context.IsRested)
-                    restedCandidates.Add(candidate);
-            }
+            var vacancyOnDutyUtc = onDutyUtcBySlot.TryGetValue(vacancy.Slot.CtrlNbr, out var slotOnDutyUtc)
+                ? slotOnDutyUtc
+                : nowUtc;
 
-            var sequenceIndex = projectionSequenceByCraft.TryGetValue(vacancy.CraftCtrlNbr, out var currentSequence)
-                ? currentSequence
-                : 0;
+            var projectedEmployeeCtrlNbr = await SelectProjectedEmployeeAsync(
+                uow,
+                candidates,
+                skipSlot,
+                vacancyOnDutyUtc,
+                reservedEmployeeCtrlNbrs,
+                ct);
 
-            ControlNumber? projectedEmployeeCtrlNbr = null;
-            if (restedCandidates.Count > 0)
-            {
-                var selected = restedCandidates[sequenceIndex % restedCandidates.Count];
-                projectedEmployeeCtrlNbr = selected.EmployeeCtrlNbr;
-                sequenceIndex++;
-            }
-
-            projectionSequenceByCraft[vacancy.CraftCtrlNbr] = sequenceIndex;
+            if (projectedEmployeeCtrlNbr is not null)
+                reservedEmployeeCtrlNbrs.Add(projectedEmployeeCtrlNbr.Value);
 
             await ReplaceProjectionAsync(
                 uow,
@@ -197,26 +216,27 @@ public sealed class VacancyProjectionOrchestratorService(
                     ShiftOrder = orderedVacancy.ShiftOrder,
                     VacancyOrder = new { vacancy.Slot.AssignmentCode, vacancy.Slot.DisplayOrder },
                     CandidateCount = candidates.Count,
-                    RestedCandidateCount = restedCandidates.Count,
-                    SequenceIndex = sequenceIndex
+                    SelectedEmployeeCtrlNbr = projectedEmployeeCtrlNbr?.Value
                 }));
         }
     }
 
+    [Obsolete("Use ReconcileForShiftsAsync with an anchored forward shift list.")]
     public Task ReconcileForShiftAsync(
         IOrchestrationUnitOfWork uow,
         ShiftInstance shift,
         ControlNumber workAreaGroupCtrlNbr,
         CancellationToken ct = default)
     {
-        return ReconcileForShiftAsync(
+        return ReconcileForShiftsAsync(
             uow,
-            shift,
             workAreaGroupCtrlNbr,
-            projectionSequenceByCraft: null,
+            [shift],
+            anchorPositionSlotCtrlNbr: null,
             ct);
     }
 
+    [Obsolete("Use ReconcileForShiftsAsync with an anchored forward shift list.")]
     public Task ReconcileForShiftAsync(
         IOrchestrationUnitOfWork uow,
         ShiftInstance shift,
@@ -224,12 +244,13 @@ public sealed class VacancyProjectionOrchestratorService(
         IDictionary<ControlNumber, int>? projectionSequenceByCraft,
         CancellationToken ct = default)
     {
-        return ReconcileForShiftSlotsAsync(
+        _ = projectionSequenceByCraft;
+
+        return ReconcileForShiftsAsync(
             uow,
-            shift,
             workAreaGroupCtrlNbr,
-            shift.PositionSlots,
-            projectionSequenceByCraft,
+            [shift],
+            anchorPositionSlotCtrlNbr: null,
             ct);
     }
 
@@ -243,6 +264,12 @@ public sealed class VacancyProjectionOrchestratorService(
     {
         if (slots.Count == 0)
             return;
+
+        var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(shift.WorkInstanceCtrlNbr, ct);
+        if (workInstance is null)
+            return;
+
+        var shiftStartDateUtc = DateTime.SpecifyKind(workInstance.StartUtc, DateTimeKind.Utc).Date;
 
         var contexts = await BuildSlotContextsAsync(uow, slots, ct);
         var vacancyContexts = new List<SlotVacancyContext>();
@@ -271,8 +298,9 @@ public sealed class VacancyProjectionOrchestratorService(
             .ThenBy(v => v.Slot.CtrlNbr.Value)
             .ToList();
 
-        projectionSequenceByCraft ??= new Dictionary<ControlNumber, int>();
+        _ = projectionSequenceByCraft;
         var nowUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        var reservedEmployeeCtrlNbrs = new HashSet<long>();
 
         foreach (var vacancy in orderedVacancies)
         {
@@ -283,27 +311,20 @@ public sealed class VacancyProjectionOrchestratorService(
                 skipSlot,
                 ct);
 
-            var restedCandidates = new List<SkipRuleCandidate>();
-            foreach (var candidate in candidates)
-            {
-                var context = await skipContextProvider.BuildAsync(uow, candidate, skipSlot, ct);
-                if (context.IsRested)
-                    restedCandidates.Add(candidate);
-            }
+            var vacancyOnDutyUtc = DateTime.SpecifyKind(
+                shiftStartDateUtc + vacancy.Slot.OnDutyTime.ToTimeSpan(),
+                DateTimeKind.Utc);
 
-            ControlNumber? projectedEmployeeCtrlNbr = null;
-            var sequenceIndex = projectionSequenceByCraft.TryGetValue(vacancy.CraftCtrlNbr, out var currentSequence)
-                ? currentSequence
-                : 0;
+            var projectedEmployeeCtrlNbr = await SelectProjectedEmployeeAsync(
+                uow,
+                candidates,
+                skipSlot,
+                vacancyOnDutyUtc,
+                reservedEmployeeCtrlNbrs,
+                ct);
 
-            if (restedCandidates.Count > 0)
-            {
-                var selected = restedCandidates[sequenceIndex % restedCandidates.Count];
-                projectedEmployeeCtrlNbr = selected.EmployeeCtrlNbr;
-                sequenceIndex++;
-            }
-
-            projectionSequenceByCraft[vacancy.CraftCtrlNbr] = sequenceIndex;
+            if (projectedEmployeeCtrlNbr is not null)
+                reservedEmployeeCtrlNbrs.Add(projectedEmployeeCtrlNbr.Value);
 
             await ReplaceProjectionAsync(
                 uow,
@@ -315,10 +336,32 @@ public sealed class VacancyProjectionOrchestratorService(
                     Source = nameof(VacancyProjectionOrchestratorService),
                     VacancyOrder = new { vacancy.Slot.AssignmentCode, vacancy.Slot.DisplayOrder },
                     CandidateCount = candidates.Count,
-                    RestedCandidateCount = restedCandidates.Count,
-                    SequenceIndex = sequenceIndex
+                    SelectedEmployeeCtrlNbr = projectedEmployeeCtrlNbr?.Value
                 }));
         }
+    }
+
+    private async Task<ControlNumber?> SelectProjectedEmployeeAsync(
+        IOrchestrationUnitOfWork uow,
+        IReadOnlyList<SkipRuleCandidate> candidates,
+        SkipRuleSlot skipSlot,
+        DateTime vacancyOnDutyUtc,
+        ISet<long> reservedEmployeeCtrlNbrs,
+        CancellationToken ct)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (reservedEmployeeCtrlNbrs.Contains(candidate.EmployeeCtrlNbr.Value))
+                continue;
+
+            var context = await skipContextProvider.BuildAsync(uow, candidate, skipSlot, ct);
+            if (!IsEligibleForVacancy(context, vacancyOnDutyUtc))
+                continue;
+
+            return candidate.EmployeeCtrlNbr;
+        }
+
+        return null;
     }
 
     private static async Task<IReadOnlyList<ImpactedShiftContext>> GetImpactedIncompleteShiftsAsync(
@@ -333,6 +376,23 @@ public sealed class VacancyProjectionOrchestratorService(
         var incumbentImpactedShifts = await uow.ShiftInstances.GetIncompleteByIncumbentEmployeeAsync(employeeCtrlNbr, ct);
         foreach (var shift in incumbentImpactedShifts)
         {
+            if (seen.Add(shift.CtrlNbr))
+                shifts.Add(shift);
+        }
+
+        // Include incomplete shifts tied to this employee through existing on-duty records, even when
+        // the employee is no longer the current incumbent (e.g., marked-off/coverage transitions).
+        var onDutyRecords = await uow.OnDutyRecords.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        foreach (var onDutyRecord in onDutyRecords.OrderByDescending(r => r.OnDutyTimeUtc))
+        {
+            var tieUpContext = await uow.OnDutyRecords.GetTieUpContextAsync(onDutyRecord.CtrlNbr, ct);
+            if (tieUpContext is null)
+                continue;
+
+            var shift = await uow.ShiftInstances.GetByCtrlNbrAsync(tieUpContext.ShiftInstanceCtrlNbr, ct);
+            if (shift is null || shift.IsComplete)
+                continue;
+
             if (seen.Add(shift.CtrlNbr))
                 shifts.Add(shift);
         }
@@ -370,8 +430,7 @@ public sealed class VacancyProjectionOrchestratorService(
             var workEndUtc = DateTime.SpecifyKind(workInstance.EndUtc, DateTimeKind.Utc);
 
             if (effectiveFromUtc.HasValue
-                && workStartUtc < effectiveFromUtc.Value
-                && workEndUtc < effectiveFromUtc.Value)
+                && !await ShiftMayContainVacancyAtOrAfterAsync(uow, shift, workEndUtc, effectiveFromUtc.Value, ct))
             {
                 continue;
             }
@@ -384,6 +443,26 @@ public sealed class VacancyProjectionOrchestratorService(
             .ThenBy(c => c.Shift.ShiftCode, StringComparer.OrdinalIgnoreCase)
             .ThenBy(c => c.Shift.CtrlNbr.Value)
             .ToList();
+    }
+
+    private static async Task<bool> ShiftMayContainVacancyAtOrAfterAsync(
+        IOrchestrationUnitOfWork uow,
+        ShiftInstance shift,
+        DateTime workEndUtc,
+        DateTime effectiveFromUtc,
+        CancellationToken ct)
+    {
+        var normalizedEffectiveFromUtc = DateTime.SpecifyKind(effectiveFromUtc, DateTimeKind.Utc);
+
+        var slotCtrlNbrs = shift.PositionSlots.Select(s => s.CtrlNbr).ToList();
+        if (slotCtrlNbrs.Count == 0)
+            return workEndUtc > normalizedEffectiveFromUtc;
+
+        var onDutyRecords = await uow.OnDutyRecords.GetByPositionSlotsAsync(slotCtrlNbrs, ct);
+        if (onDutyRecords.Any(r => DateTime.SpecifyKind(r.OnDutyTimeUtc, DateTimeKind.Utc) >= normalizedEffectiveFromUtc))
+            return true;
+
+        return workEndUtc > normalizedEffectiveFromUtc;
     }
 
     private static async Task<IReadOnlyList<SlotVacancyContext>> BuildSlotContextsAsync(
@@ -492,6 +571,25 @@ public sealed class VacancyProjectionOrchestratorService(
         return $"{slot.AssignmentName} — Position {slot.DisplayOrder}";
     }
 
+    private static IReadOnlyList<PositionSlotInstance> GetProjectionScopedSlotsForAnchor(
+        IReadOnlyList<PositionSlotInstance> slots,
+        ControlNumber anchorPositionSlotCtrlNbr)
+    {
+        var ordered = slots
+            .OrderBy(s => GetAssignmentOrderGroup(s.AssignmentCode))
+            .ThenBy(s => GetNumericAssignmentOrder(s.AssignmentCode))
+            .ThenBy(s => s.AssignmentCode, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.DisplayOrder)
+            .ThenBy(s => s.CtrlNbr.Value)
+            .ToList();
+
+        var anchorIndex = ordered.FindIndex(s => s.CtrlNbr == anchorPositionSlotCtrlNbr);
+        if (anchorIndex < 0)
+            return ordered;
+
+        return ordered.Skip(anchorIndex).ToList();
+    }
+
     private static async Task ClearProjectionsAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber positionSlotCtrlNbr)
@@ -531,4 +629,22 @@ public sealed class VacancyProjectionOrchestratorService(
     private sealed record OrderedSlotVacancyContext(
         int ShiftOrder,
         SlotVacancyContext Context);
+
+    private static bool IsEligibleForVacancy(SkipContext context, DateTime vacancyOnDutyUtc)
+    {
+        if (context.HasActiveOnDuty)
+            return false;
+
+        if (context.IsMarkedOff)
+            return false;
+
+        if (!context.IsQualified)
+            return false;
+
+        if (context.RestedAtUtc is null)
+            return true;
+
+        var restedAtUtc = DateTime.SpecifyKind(context.RestedAtUtc.Value, DateTimeKind.Utc);
+        return restedAtUtc <= DateTime.SpecifyKind(vacancyOnDutyUtc, DateTimeKind.Utc);
+    }
 }
