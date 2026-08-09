@@ -857,6 +857,8 @@ public class EmployeeService(
                 EmployeeCtrlNbr = r.EmployeeCtrlNbr,
                 CraftCtrlNbr = r.CraftCtrlNbr,
                 AssignmentOffDutyLocal = r.AssignmentOffDutyLocalIso,
+                CanChangeRecord = r.CanChangeRecord,
+                ChangeRecordUntilUtc = r.ChangeRecordUntilUtc?.ToString("o") ?? string.Empty,
             });
         }
         return response;

@@ -194,6 +194,8 @@ message EmployeeOnDutyRecord {
   int64  employee_ctrl_nbr = 28;
   int64  craft_ctrl_nbr = 29;
   string assignment_off_duty_local = 30;
+  bool can_change_record = 31;
+  string change_record_until_utc = 32;
 }
 
 message CompleteDeferredOnDutyRecordRequest {

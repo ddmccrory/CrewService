@@ -27,6 +27,8 @@ public sealed class EmployeeAppService(
     IEmployeeOnDutyQueryService onDutyQueryService,
     TieUpService tieUpService)
 {
+    private const int PostCompletionChangeWindowDays = 4;
+
     // ── Employee CRUD ────────────────────────────────────────────────────────
 
     public async Task<List<Employee>> GetAllAsync(
@@ -792,7 +794,8 @@ public sealed class EmployeeAppService(
 
         var tieUpContext = await uow.OnDutyRecords.GetTieUpContextAsync(onDuty.CtrlNbr, ct);
 
-        if (offDuty.RestedAtUtc > workAreaClock.UtcNow.UtcDateTime)
+        var requiresDeferredCompletion = onDuty.CompletionStatus == OnDutyCompletionStatus.PendingEmployeeCompletion;
+        if (requiresDeferredCompletion && offDuty.RestedAtUtc > workAreaClock.UtcNow.UtcDateTime)
             throw new InvalidOperationException("Employee is not yet rested for deferred completion.");
 
         onDuty.CompleteByEmployee();
@@ -865,6 +868,12 @@ public sealed class EmployeeAppService(
             slotDisplay.TryGetValue(r.PositionSlotCtrlNbr, out var display);
 
             var tz = ResolveTimeZone(display?.TimeZoneId, tzCache);
+            var changeRecordUntilUtc = ResolveChangeRecordUntilUtc(r.OnDutyTimeUtc, tz);
+            var canChangeRecord = CanChangeCompletedRecord(
+                r.CompletionStatus,
+                r.OnDutyTimeUtc,
+                tz,
+                workAreaClock.UtcNow.UtcDateTime);
 
             offDutyMap.TryGetValue(r.CtrlNbr, out var off);
             DateTime? offUtc = off?.OffDutyTimeUtc;
@@ -899,10 +908,35 @@ public sealed class EmployeeAppService(
                 ResolveEmployeeNumber(r.EmployeeCtrlNbr, employeeMap),
                 r.EmployeeCtrlNbr.Value,
                 display?.CraftCtrlNbr ?? 0,
-                ResolveAssignmentOffDutyLocalIso(r.OnDutyTimeUtc, display, tz)));
+                ResolveAssignmentOffDutyLocalIso(r.OnDutyTimeUtc, display, tz),
+                canChangeRecord,
+                changeRecordUntilUtc));
         }
 
         return items;
+    }
+
+    private static bool CanChangeCompletedRecord(
+        OnDutyCompletionStatus completionStatus,
+        DateTime onDutyTimeUtc,
+        TimeZoneInfo? timeZone,
+        DateTime utcNow)
+    {
+        if (completionStatus != OnDutyCompletionStatus.Completed)
+            return false;
+
+        var localToday = TimeZoneInfo.ConvertTimeFromUtc(utcNow, timeZone ?? TimeZoneInfo.Utc).Date;
+        var localOnDutyDate = TimeZoneInfo.ConvertTimeFromUtc(onDutyTimeUtc, timeZone ?? TimeZoneInfo.Utc).Date;
+        var closeAfterDate = localOnDutyDate.AddDays(PostCompletionChangeWindowDays);
+        return localToday <= closeAfterDate;
+    }
+
+    private static DateTime ResolveChangeRecordUntilUtc(DateTime onDutyTimeUtc, TimeZoneInfo? timeZone)
+    {
+        var zone = timeZone ?? TimeZoneInfo.Utc;
+        var localOnDutyDate = TimeZoneInfo.ConvertTimeFromUtc(onDutyTimeUtc, zone).Date;
+        var localWindowExclusiveEnd = localOnDutyDate.AddDays(PostCompletionChangeWindowDays + 1);
+        return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localWindowExclusiveEnd, DateTimeKind.Unspecified), zone);
     }
 
     private static string ResolveEmployeeName(

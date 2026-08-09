@@ -1726,21 +1726,26 @@ else if (HasRailroad)
         _ => "bg-info"
     };
 
-    private static string GetSlotStatusBadgeClass(DailyPositionSlotResponse slot) => slot.Status switch
+    private static string GetSlotStatusBadgeClass(DailyPositionSlotResponse slot)
     {
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "bg-danger",
-        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "bg-warning text-dark",
-        PositionSlotStatusEnum.PositionSlotStatusSkipped => "bg-secondary",
-        PositionSlotStatusEnum.PositionSlotStatusFilled => "bg-info",
-        PositionSlotStatusEnum.PositionSlotStatusOnDuty => "bg-success",
-        PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "bg-danger",
-        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "bg-secondary",
-        PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "bg-danger",
-        PositionSlotStatusEnum.PositionSlotStatusUnavailable => "bg-danger",
-        PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "bg-primary",
-        PositionSlotStatusEnum.PositionSlotStatusNoBids => "bg-primary",
-        _ => "bg-warning text-dark" // Open
-    };
+        if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusTiedUp)
+            return slot.IsOnDutyRecordCompleted ? "bg-primary" : "bg-warning text-dark";
+
+        return slot.Status switch
+        {
+            PositionSlotStatusEnum.PositionSlotStatusAnnulled => "bg-danger",
+            PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "bg-warning text-dark",
+            PositionSlotStatusEnum.PositionSlotStatusSkipped => "bg-secondary",
+            PositionSlotStatusEnum.PositionSlotStatusFilled => "bg-info",
+            PositionSlotStatusEnum.PositionSlotStatusOnDuty => "bg-success",
+            PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "bg-danger",
+            PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "bg-danger",
+            PositionSlotStatusEnum.PositionSlotStatusUnavailable => "bg-danger",
+            PositionSlotStatusEnum.PositionSlotStatusExtraBoard => "bg-primary",
+            PositionSlotStatusEnum.PositionSlotStatusNoBids => "bg-primary",
+            _ => "bg-warning text-dark" // Open
+        };
+    }
 
     private static string GetSlotDisplayStatus(DailyPositionSlotResponse slot) => slot.Status switch
     {
@@ -1832,19 +1837,24 @@ else if (HasRailroad)
             ? "**DNF**"
             : string.Empty;
 
-    private static string GetSlotEmployeeCssClass(DailyPositionSlotResponse slot) => slot.Status switch
+    private static string GetSlotEmployeeCssClass(DailyPositionSlotResponse slot)
     {
-        PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "text-primary text-decoration-line-through",
-        _ when slot.UseLegacyMarkedOffStyling => "text-danger text-decoration-line-through",
-        PositionSlotStatusEnum.PositionSlotStatusFilled => "",
-        PositionSlotStatusEnum.PositionSlotStatusOnDuty => "text-success fw-bold",
-        PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "text-danger fw-bold",
-        PositionSlotStatusEnum.PositionSlotStatusTiedUp => "text-warning fw-bold",
-        PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "text-danger text-decoration-line-through",
-        PositionSlotStatusEnum.PositionSlotStatusUnavailable => "text-danger text-decoration-line-through",
-        PositionSlotStatusEnum.PositionSlotStatusAnnulled => "text-primary",
-        _ => ""
-    };
+        if (slot.Status == PositionSlotStatusEnum.PositionSlotStatusTiedUp)
+            return slot.IsOnDutyRecordCompleted ? "text-primary fw-bold" : "text-warning fw-bold";
+
+        return slot.Status switch
+        {
+            PositionSlotStatusEnum.PositionSlotStatusDoNotFill => "text-primary text-decoration-line-through",
+            _ when slot.UseLegacyMarkedOffStyling => "text-danger text-decoration-line-through",
+            PositionSlotStatusEnum.PositionSlotStatusFilled => "",
+            PositionSlotStatusEnum.PositionSlotStatusOnDuty => "text-success fw-bold",
+            PositionSlotStatusEnum.PositionSlotStatusOnDutyOvertime => "text-danger fw-bold",
+            PositionSlotStatusEnum.PositionSlotStatusMarkedOff => "text-danger text-decoration-line-through",
+            PositionSlotStatusEnum.PositionSlotStatusUnavailable => "text-danger text-decoration-line-through",
+            PositionSlotStatusEnum.PositionSlotStatusAnnulled => "text-primary",
+            _ => ""
+        };
+    }
 
     private const int VacancyDisplayWidth = 15;
 

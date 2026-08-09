@@ -3,6 +3,7 @@ using CrewService.Application.TenantConfig;
 using CrewService.Application.Time;
 using CrewService.Application.BackgroundWorkers;
 using CrewService.Domain.Interfaces;
+using CrewService.Domain.Modules.Dispatching;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.ValueObjects;
 using CrewService.Presentation.Formatting;
@@ -719,6 +720,12 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             .GroupBy(r => r.PositionSlotCtrlNbr)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.OnDutyTimeUtc).First().CtrlNbr);
 
+        var slotOnDutyCompletionMap = onDutyRecords
+            .GroupBy(r => r.PositionSlotCtrlNbr)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.OnDutyTimeUtc).First().CompletionStatus == OnDutyCompletionStatus.Completed);
+
         var effectiveShiftStatus = targetDate.HasValue && nowLocal.HasValue
             ? ResolveShiftDisplayStatus(shift, targetDate.Value, nowLocal.Value)
             : shift.Status;
@@ -774,6 +781,10 @@ public class DailyOperationsService(IServiceProvider serviceProvider) : DailyOpe
             };
             if (slotOnDutyMap.TryGetValue(slot.CtrlNbr, out var onDutyCtrlNbr))
                 slotResp.OnDutyRecordCtrlNbr = onDutyCtrlNbr.Value;
+
+            if (slotOnDutyCompletionMap.TryGetValue(slot.CtrlNbr, out var isOnDutyRecordCompleted))
+                slotResp.IsOnDutyRecordCompleted = isOnDutyRecordCompleted;
+
             slotResp.CrewName = slot.CrewName;
             slotResp.CrewType = slot.CrewType;
 
