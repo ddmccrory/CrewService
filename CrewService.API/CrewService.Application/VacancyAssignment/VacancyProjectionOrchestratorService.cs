@@ -382,7 +382,7 @@ public sealed class VacancyProjectionOrchestratorService(
 
         // Include incomplete shifts tied to this employee through existing on-duty records, even when
         // the employee is no longer the current incumbent (e.g., marked-off/coverage transitions).
-        var onDutyRecords = await uow.OnDutyRecords.GetByEmployeeAsync(employeeCtrlNbr, ct);
+        var onDutyRecords = await uow.OnDutyRecords.GetIncompleteForEmployeeAsync(employeeCtrlNbr, ct);
         foreach (var onDutyRecord in onDutyRecords.OrderByDescending(r => r.OnDutyTimeUtc))
         {
             var tieUpContext = await uow.OnDutyRecords.GetTieUpContextAsync(onDutyRecord.CtrlNbr, ct);

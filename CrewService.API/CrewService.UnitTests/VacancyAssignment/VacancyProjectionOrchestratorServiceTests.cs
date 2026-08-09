@@ -411,7 +411,6 @@ public sealed class VacancyProjectionOrchestratorServiceTests
                     DateTime.SpecifyKind(new DateTime(2026, 8, 8, 4, 59, 0), DateTimeKind.Utc),
                     10m,
                     0,
-                    0,
                     isAssigned: true)
             ]);
 
