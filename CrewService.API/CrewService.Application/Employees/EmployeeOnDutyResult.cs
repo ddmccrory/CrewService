@@ -38,7 +38,9 @@ public sealed record EmployeeOnDutyRecordItem(
     string        EmployeeNumber,
     long          EmployeeCtrlNbr,
     long          CraftCtrlNbr,
-    string        AssignmentOffDutyLocalIso);
+    string        AssignmentOffDutyLocalIso,
+    bool          CanChangeRecord,
+    DateTime?     ChangeRecordUntilUtc);
 
 /// <summary>
 /// The completed on-duty history windows offered on the employee-detail On-Duty History tab,

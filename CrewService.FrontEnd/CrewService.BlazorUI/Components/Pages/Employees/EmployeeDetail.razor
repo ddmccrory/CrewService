@@ -1976,7 +1976,13 @@ else
                                         <button class="btn btn-sm btn-outline-secondary" disabled title="Coming soon">
                                             <span class="bi bi-eye"></span> Review
                                         </button>
-                                        <button class="btn btn-sm btn-outline-primary" disabled title="Coming soon">
+                                        <button class="btn btn-sm btn-outline-primary"
+                                                disabled="@(!CanChangeCompletedOnDuty(r) || completingOnDutyRecordCtrlNbr == r.CtrlNbr)"
+                                                @onclick="() => OpenCompleteOnDutyModal(r, isChange: true)">
+                                            @if (completingOnDutyRecordCtrlNbr == r.CtrlNbr)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                            }
                                             <span class="bi bi-pencil"></span> Change
                                         </button>
                                         <button class="btn btn-sm btn-outline-dark" disabled title="Coming soon">
@@ -2030,7 +2036,7 @@ else
             <Footer>
                 <button type="button" class="btn btn-outline-secondary" @onclick="CloseCompleteOnDutyModal">Cancel</button>
                 <button type="button" class="btn btn-success" disabled="@(completingOnDutyRecordCtrlNbr.HasValue || !isOffDutyTimeConfirmedByEmployee)" @onclick="ConfirmCompleteOnDutyAsync">
-                    <span class="bi bi-check2-circle me-1"></span> Complete
+                    <span class="bi bi-check2-circle me-1"></span> @completeOnDutyActionText
                 </button>
             </Footer>
         </Modal>
@@ -2087,23 +2093,31 @@ else
         return DateTimeOffset.UtcNow >= restedAtUtc.ToUniversalTime();
     }
 
+    private static bool CanChangeCompletedOnDuty(EmployeeOnDutyRecord record)
+        => string.Equals(record.CompletionStatus, "Completed", StringComparison.OrdinalIgnoreCase)
+           && record.CanChangeRecord;
+
     private bool showCompleteOnDutyModal;
     private string completeOnDutyModalTitle = string.Empty;
     private string completeOnDutyItemName = string.Empty;
+    private string completeOnDutyActionText = "Complete";
     private DateTime completeOnDutyTieUpLocal = DateTime.UtcNow;
     private TimeSpan completeOnDutyWorkAreaOffset = TimeSpan.Zero;
     private bool isOffDutyTimeConfirmedByEmployee;
     private EmployeeOnDutyRecord? pendingCompleteOnDutyRecord;
 
-    private void OpenCompleteOnDutyModal(EmployeeOnDutyRecord record)
+    private void OpenCompleteOnDutyModal(EmployeeOnDutyRecord record, bool isChange = false)
     {
-        if (!CanCompleteDeferredOnDuty(record))
+        if (!CanCompleteDeferredOnDuty(record) && !CanChangeCompletedOnDuty(record))
             return;
 
         pendingCompleteOnDutyRecord = record;
         var assignment = string.IsNullOrWhiteSpace(record.AssignmentCode) ? "Assignment" : record.AssignmentCode.ToUpperInvariant();
         var position = string.IsNullOrWhiteSpace(record.CraftRoleName) ? "Position" : record.CraftRoleName;
-        completeOnDutyModalTitle = $"Complete On-Duty — {assignment} — {position}";
+        completeOnDutyModalTitle = isChange
+            ? $"Change On-Duty Record — {assignment} — {position}"
+            : $"Complete On-Duty — {assignment} — {position}";
+        completeOnDutyActionText = isChange ? "Change" : "Complete";
         completeOnDutyItemName = $"{assignment} / {position}";
 
         completeOnDutyTieUpLocal = ResolveDefaultCompleteTieUpLocal(record);
@@ -2177,7 +2191,7 @@ else
 
     private async Task CompleteDeferredOnDutyAsync(EmployeeOnDutyRecord record, DateTime offDutyTimeUtc)
     {
-        if (!CanCompleteDeferredOnDuty(record))
+        if (!CanCompleteDeferredOnDuty(record) && !CanChangeCompletedOnDuty(record))
             return;
 
         completingOnDutyRecordCtrlNbr = record.CtrlNbr;
@@ -2193,8 +2207,11 @@ else
                 return;
             }
 
-            successMessage = "On-duty record completed successfully.";
+            successMessage = CanChangeCompletedOnDuty(record)
+                ? "On-duty record changed successfully."
+                : "On-duty record completed successfully.";
             await LoadWorkTabAsync();
+            onDutyHistoryLoaded = false;
         }
         catch (Exception ex)
         {
