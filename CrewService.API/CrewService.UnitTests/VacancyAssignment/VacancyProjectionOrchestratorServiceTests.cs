@@ -41,7 +41,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             candidateEmployeeCtrlNbrs: [701, 702, 703],
             restedEmployeeCtrlNbrs: new HashSet<long> { 701, 702, 703 });
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         var ordered = fixture.Shift.PositionSlots
             .OrderBy(s => s.AssignmentCode, StringComparer.OrdinalIgnoreCase)
@@ -67,12 +67,13 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             candidateEmployeeCtrlNbrs: [801, 802],
             restedEmployeeCtrlNbrs: new HashSet<long> { 801, 802 });
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         var ordered = fixture.Shift.PositionSlots.OrderBy(s => s.DisplayOrder).Select(s => s.CtrlNbr).ToList();
         AssertProjectionEmployee(fixture.ProjectionRepo, ordered[0], 801);
         AssertProjectionEmployee(fixture.ProjectionRepo, ordered[1], 802);
-        AssertProjectionEmployee(fixture.ProjectionRepo, ordered[2], 801);
+        var thirdProjection = fixture.ProjectionRepo.Seeded.Single(p => p.PositionSlotCtrlNbr == ordered[2]);
+        Assert.Null(thirdProjection.ProjectedEmployeeCtrlNbr);
     }
 
     [Fact]
@@ -83,7 +84,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             candidateEmployeeCtrlNbrs: [901],
             restedEmployeeCtrlNbrs: new HashSet<long>());
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         var projection = Assert.Single(fixture.ProjectionRepo.Seeded);
         Assert.Null(projection.ProjectedEmployeeCtrlNbr);
@@ -99,7 +100,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
 
         var slot = Assert.Single(fixture.Shift.PositionSlots);
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         var openVacancy = Assert.Single(fixture.VacancyRepo.Seeded);
         Assert.Equal("Open", openVacancy.Status);
@@ -107,7 +108,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
 
         slot.ClearMarkedOff();
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         Assert.Equal("Abolished", openVacancy.Status);
         Assert.Empty(fixture.ProjectionRepo.Seeded);
@@ -121,8 +122,8 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             candidateEmployeeCtrlNbrs: [1101],
             restedEmployeeCtrlNbrs: new HashSet<long> { 1101 });
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         Assert.Single(fixture.VacancyRepo.Seeded, v => v.Status == "Open");
         Assert.Single(fixture.ProjectionRepo.Seeded);
@@ -140,7 +141,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             candidateEmployeeCtrlNbrs: [1201, 1202],
             restedEmployeeCtrlNbrs: new HashSet<long> { 1201, 1202 });
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         var slot10 = fixture.Shift.PositionSlots.Single(s => s.AssignmentCode == "10");
         var slot2 = fixture.Shift.PositionSlots.Single(s => s.AssignmentCode == "2");
@@ -161,7 +162,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             candidateEmployeeCtrlNbrs: [1301, 1302],
             restedEmployeeCtrlNbrs: new HashSet<long> { 1301, 1302 });
 
-        await fixture.Sut.ReconcileForShiftAsync(fixture.Uow, fixture.Shift, fixture.WorkAreaCtrlNbr, TestContext.Current.CancellationToken);
+        await fixture.Sut.ReconcileForShiftsAsync(fixture.Uow, fixture.WorkAreaCtrlNbr, [fixture.Shift], TestContext.Current.CancellationToken);
 
         var slot2 = fixture.Shift.PositionSlots.Single(s => s.DisplayOrder == 2);
         var slot10 = fixture.Shift.PositionSlots.Single(s => s.DisplayOrder == 10);
@@ -365,6 +366,80 @@ public sealed class VacancyProjectionOrchestratorServiceTests
     }
 
     [Fact]
+    public async Task ReconcileForEmployeeAsync_UsesEmployeeOnDutySlotWhenIncumbentNoLongerMatches()
+    {
+        var targetEmployeeCtrlNbr = ControlNumber.Create(9900);
+        var replacementEmployeeCtrlNbr = ControlNumber.Create(9901);
+        var craftCtrlNbr = ControlNumber.Create(121);
+        var craftRole = CraftRole.Create(craftCtrlNbr, "H", "Helper");
+
+        var workAreaCtrlNbr = ControlNumber.Create(4400);
+        var start = DateTime.SpecifyKind(new DateTime(2026, 8, 8, 0, 0, 0), DateTimeKind.Utc);
+
+        var workInstance = WorkInstance.Create(null, workAreaCtrlNbr, start, start.AddDays(1), null);
+        var shift = ShiftInstance.Create(workInstance.CtrlNbr, ControlNumber.Create(5200), "3", "Third Shift");
+
+        var staffablePositionCtrlNbr = ControlNumber.Create(8800);
+        var crewPosition = CrewPosition.Create(ControlNumber.Create(6800), craftRole.CtrlNbr, 1, staffablePositionCtrlNbr);
+
+        var slot = shift.AddPositionSlot(
+            crewPosition.CtrlNbr,
+            replacementEmployeeCtrlNbr,
+            1,
+            ControlNumber.Create(8600),
+            "350",
+            "Assignment 350",
+            craftRole.Name,
+            "Group",
+            "GRP",
+            new TimeOnly(23, 59),
+            new TimeOnly(7, 59));
+        slot.MarkMarkedOff();
+
+        var shiftRepo = new FakeShiftInstanceRepository([shift]);
+        var workRepo = new FakeWorkInstanceRepository([workInstance]);
+        var assignmentRepo = new FakePositionAssignmentRepository([PositionAssignment.Create(staffablePositionCtrlNbr, targetEmployeeCtrlNbr, PositionAssignmentType.Direct)]);
+        var crewPositionRepo = new FakeCrewPositionRepository([crewPosition]);
+        var craftRoleRepo = new FakeCraftRoleRepository([craftRole]);
+        var vacancyRepo = new FakePositionVacancyRepository();
+        var projectionRepo = new FakeDispatchProjectionRepository();
+        var onDutyRepo = new FakeOnDutyRecordRepository(
+            [
+                OnDutyRecord.CreateScheduled(
+                    slot.CtrlNbr,
+                    targetEmployeeCtrlNbr,
+                    DateTime.SpecifyKind(new DateTime(2026, 8, 8, 4, 59, 0), DateTimeKind.Utc),
+                    10m,
+                    0,
+                    0,
+                    isAssigned: true)
+            ]);
+
+        var uow = new FakeOrchestrationUow(
+            shiftRepo,
+            workRepo,
+            crewPositionRepo,
+            assignmentRepo,
+            craftRoleRepo,
+            vacancyRepo,
+            projectionRepo,
+            onDutyRepo);
+
+        var candidateProvider = new FakeBoardCandidateProvider(
+            [new SkipRuleCandidate(ControlNumber.Create(1950), ControlNumber.Create(19500), 1)]);
+        var skipContextProvider = new FakeSkipContextProvider(new HashSet<long> { 1950 });
+        var sut = new VacancyProjectionOrchestratorService(candidateProvider, skipContextProvider);
+
+        await sut.ReconcileForEmployeeAsync(
+            uow,
+            targetEmployeeCtrlNbr,
+            DateTime.SpecifyKind(new DateTime(2026, 8, 8, 0, 2, 0), DateTimeKind.Utc),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains(projectionRepo.Seeded, p => p.PositionSlotCtrlNbr == slot.CtrlNbr);
+    }
+
+    [Fact]
     public async Task ReconcileForShiftAsync_WithSharedSequence_AdvancesAcrossShifts()
     {
         var fixture = Fixture.Create(
@@ -388,20 +463,10 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             new TimeOnly(23, 0));
         secondShift.PositionSlots[0].MarkMarkedOff();
 
-        var sequence = new Dictionary<ControlNumber, int>();
-
-        await fixture.Sut.ReconcileForShiftAsync(
+        await fixture.Sut.ReconcileForShiftsAsync(
             fixture.Uow,
-            fixture.Shift,
             fixture.WorkAreaCtrlNbr,
-            sequence,
-            TestContext.Current.CancellationToken);
-
-        await fixture.Sut.ReconcileForShiftAsync(
-            fixture.Uow,
-            secondShift,
-            fixture.WorkAreaCtrlNbr,
-            sequence,
+            [fixture.Shift, secondShift],
             TestContext.Current.CancellationToken);
 
         var firstProjection = fixture.ProjectionRepo.Seeded.Single(p => p.PositionSlotCtrlNbr == fixture.Shift.PositionSlots[0].CtrlNbr);
@@ -461,6 +526,65 @@ public sealed class VacancyProjectionOrchestratorServiceTests
 
         Assert.Equal(1701, secondProjection.ProjectedEmployeeCtrlNbr!.Value);
         Assert.Equal(1702, thirdProjection.ProjectedEmployeeCtrlNbr!.Value);
+    }
+
+    [Fact]
+    public async Task ReconcileForShiftsAsync_WithAnchorSlot_ReevaluatesAnchorForwardOnly()
+    {
+        var fixture = Fixture.Create(
+            slotSpecs:
+            [
+                new SlotSpec("500", 1, MarkedOff: true),
+                new SlotSpec("500", 2, MarkedOff: true),
+                new SlotSpec("500", 3, MarkedOff: true)
+            ],
+            candidateEmployeeCtrlNbrs: [2101, 2102, 2103, 2104],
+            restedEmployeeCtrlNbrs: new HashSet<long> { 2101, 2102, 2103, 2104 });
+
+        var crewPosition = fixture.CrewPositions[0];
+        var laterShift = ShiftInstance.Create(fixture.Shift.WorkInstanceCtrlNbr, ControlNumber.Create(5004), "2", "Second Shift");
+        var laterSlot = laterShift.AddPositionSlot(
+            crewPosition.CtrlNbr,
+            fixture.TargetEmployeeCtrlNbr,
+            1,
+            ControlNumber.Create(8400),
+            "600",
+            "Assignment 600",
+            "Foreman",
+            "Group",
+            "GRP",
+            new TimeOnly(15, 0),
+            new TimeOnly(23, 0));
+        laterSlot.MarkMarkedOff();
+
+        var anchorSlot = fixture.Shift.PositionSlots.Single(s => s.DisplayOrder == 2);
+
+        await fixture.Sut.ReconcileForShiftsAsync(
+            fixture.Uow,
+            fixture.WorkAreaCtrlNbr,
+            [fixture.Shift, laterShift],
+            anchorSlot.CtrlNbr,
+            TestContext.Current.CancellationToken);
+
+        var firstSlot = fixture.Shift.PositionSlots.Single(s => s.DisplayOrder == 1);
+        var thirdSlot = fixture.Shift.PositionSlots.Single(s => s.DisplayOrder == 3);
+
+        Assert.DoesNotContain(fixture.ProjectionRepo.Seeded, p => p.PositionSlotCtrlNbr == firstSlot.CtrlNbr);
+
+        var anchorProjection = fixture.ProjectionRepo.Seeded.Single(p => p.PositionSlotCtrlNbr == anchorSlot.CtrlNbr);
+        var thirdProjection = fixture.ProjectionRepo.Seeded.Single(p => p.PositionSlotCtrlNbr == thirdSlot.CtrlNbr);
+        var laterProjection = fixture.ProjectionRepo.Seeded.Single(p => p.PositionSlotCtrlNbr == laterSlot.CtrlNbr);
+
+        Assert.Equal(2101, anchorProjection.ProjectedEmployeeCtrlNbr!.Value);
+        Assert.Equal(2102, thirdProjection.ProjectedEmployeeCtrlNbr!.Value);
+        Assert.Equal(2103, laterProjection.ProjectedEmployeeCtrlNbr!.Value);
+
+        var projectedEmployees = fixture.ProjectionRepo.Seeded
+            .Where(p => p.ProjectedEmployeeCtrlNbr is not null)
+            .Select(p => p.ProjectedEmployeeCtrlNbr!.Value)
+            .ToList();
+
+        Assert.Equal(projectedEmployees.Count, projectedEmployees.Distinct().Count());
     }
 
     private static void AssertProjectionEmployee(FakeDispatchProjectionRepository repo, ControlNumber slotCtrlNbr, long expectedEmployeeCtrlNbr)
@@ -580,7 +704,15 @@ public sealed class VacancyProjectionOrchestratorServiceTests
         public Task<SkipContext> BuildAsync(SkipRuleCandidate candidate, SkipRuleSlot slot, CancellationToken ct = default)
         {
             var isRested = restedEmployeeCtrlNbrs.Contains(candidate.EmployeeCtrlNbr.Value);
-            return Task.FromResult(new SkipContext { IsRested = isRested, IsQualified = true, HasActiveOnDuty = false });
+            return Task.FromResult(new SkipContext
+            {
+                IsRested = isRested,
+                IsQualified = true,
+                HasActiveOnDuty = false,
+                RestedAtUtc = isRested
+                    ? DateTime.SpecifyKind(DateTime.UnixEpoch, DateTimeKind.Utc)
+                    : DateTime.SpecifyKind(new DateTime(9999, 12, 31, 0, 0, 0), DateTimeKind.Utc)
+            });
         }
     }
 
@@ -677,6 +809,40 @@ public sealed class VacancyProjectionOrchestratorServiceTests
             => Task.FromResult(roles.FirstOrDefault(r => r.CtrlNbr == ctrlNbr));
     }
 
+    private sealed class FakeOnDutyRecordRepository(IReadOnlyList<OnDutyRecord> records)
+        : FakeRepository<OnDutyRecord>, IOnDutyRecordRepository
+    {
+        public Task<IReadOnlyList<OnDutyRecord>> GetRecentForEmployeeAsync(ControlNumber employeeCtrlNbr, int dayCount, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetByPositionSlotsAsync(IReadOnlyList<ControlNumber> positionSlotCtrlNbrs, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => positionSlotCtrlNbrs.Contains(r.PositionSlotCtrlNbr)).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetByEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr).OrderByDescending(r => r.OnDutyTimeUtc).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetOpenForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.Status != OnDutyStatus.TiedUp).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetIncompleteForEmployeeAsync(ControlNumber employeeCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.CompletionStatus != OnDutyCompletionStatus.Completed).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetNotStartedForRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.OnDutyTimeUtc >= startUtc && r.OnDutyTimeUtc < endUtc).ToList());
+
+        public Task<IReadOnlyList<OnDutyRecord>> GetWorkedForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.OnDutyTimeUtc >= startUtc && r.OnDutyTimeUtc < endUtc).ToList());
+
+        public Task<IReadOnlyList<OnDutyCompletionStatus>> GetCompletionStatusesForShiftAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyCompletionStatus>>([]);
+
+        public Task<OnDutyTieUpContext?> GetTieUpContextAsync(ControlNumber onDutyRecordCtrlNbr, CancellationToken ct = default)
+            => Task.FromResult<OnDutyTieUpContext?>(null);
+    }
+
     private sealed class FakePositionVacancyRepository : FakeRepository<PositionVacancy>, IPositionVacancyRepository
     {
         public List<PositionVacancy> Seeded { get; } = [];
@@ -720,7 +886,8 @@ public sealed class VacancyProjectionOrchestratorServiceTests
         IPositionAssignmentRepository positionAssignments,
         ICraftRoleRepository craftRoles,
         IPositionVacancyRepository positionVacancies,
-        IDispatchProjectionRepository dispatchProjections) : IOrchestrationUnitOfWork
+        IDispatchProjectionRepository dispatchProjections,
+        IOnDutyRecordRepository? onDutyRecords = null) : IOrchestrationUnitOfWork
     {
         public string CorrelationId => string.Empty;
         public string OrchestrationId => string.Empty;
@@ -770,7 +937,7 @@ public sealed class VacancyProjectionOrchestratorServiceTests
         public IPositionSlotRepository PositionSlots => null!;
         public ISlotRequirementRepository SlotRequirements => null!;
         public IShiftDefinitionRepository ShiftDefinitions => null!;
-        public IOnDutyRecordRepository OnDutyRecords => null!;
+        public IOnDutyRecordRepository OnDutyRecords => onDutyRecords ?? new FakeOnDutyRecordRepository([]);
         public IOffDutyRecordRepository OffDutyRecords => null!;
         public ICraftOperationsPolicyRepository CraftOperationsPolicies => null!;
         public ICraftDisplacementPolicyRepository CraftDisplacementPolicies => null!;

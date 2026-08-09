@@ -591,7 +591,8 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         var options = new Dictionary<string, string>
         {
             [WorkflowOptionKeys.RoleCtrlNbr] = roleCtrlNbr.Value.ToString(),
-            [WorkflowOptionKeys.RailroadCtrlNbr] = railroadCtrlNbr.Value.ToString()
+            [WorkflowOptionKeys.RailroadCtrlNbr] = railroadCtrlNbr.Value.ToString(),
+            [WorkflowOptionKeys.RoleSource] = WorkflowRoleSources.Selected
         };
 
         if (includeExpirationDays)
@@ -742,6 +743,7 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
             clientCtrlNbr: parentCtrlNbr,
             railroadCtrlNbr: railroadCtrlNbr,
             email: "event.payload@example.com",
+            employeeUserId: employee.UserId,
             invitedByUserId: "trigger-user-id",
             invitedByUserName: "Trigger User",
             parentName: "Parent");
