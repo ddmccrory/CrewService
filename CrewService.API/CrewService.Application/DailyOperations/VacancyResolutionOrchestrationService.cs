@@ -245,21 +245,15 @@ public sealed class VacancyResolutionOrchestrationService(
                 : await uow.DynamicGroups.GetByCtrlNbrAsync(workArea.OwningRailroadCtrlNbr, ct);
             var workPeriodMode = railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
             var (workPeriodStartUtc, workPeriodEndUtc) = ResolveCurrentWorkPeriodBounds(workPeriodMode, onDutyRecord.OnDutyTimeUtc);
-            var onDutyHistory = await uow.OnDutyRecords.GetWorkedForEmployeeInRangeAsync(
+            var onDutyHistory = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(
                 request.EmployeeCtrlNbr,
                 workPeriodStartUtc,
                 workPeriodEndUtc,
                 ct);
-            var daysWorkedFromRecords = onDutyHistory.Count > 0
-                ? onDutyHistory.Max(r => r.DaysWorked)
-                : 0;
-            var fallbackDaysWorked = onDutyHistory
+            var daysWorked = onDutyHistory
                 .Select(r => DateTime.SpecifyKind(r.OnDutyTimeUtc, DateTimeKind.Utc).Date)
                 .Distinct()
                 .Count();
-            var daysWorked = daysWorkedFromRecords > 0 ? daysWorkedFromRecords : fallbackDaysWorked;
-
-            onDutyRecord.UpdateOperationalTracking(daysWorked, onDutyRecord.ConsecutiveDays);
 
             if (!existingFillForEmployee)
                 slot.Fill(request.EmployeeCtrlNbr, isIncumbent: true);
@@ -273,8 +267,8 @@ public sealed class VacancyResolutionOrchestrationService(
                 request.ForceOverride,
                 operationsPolicy,
                 resolvedCraftCtrlNbr,
-                slot,
                 onDutyRecord,
+                daysWorked,
                 defaultOffDutyUtc,
                 activeBoards,
                 ct);
@@ -481,8 +475,8 @@ public sealed class VacancyResolutionOrchestrationService(
         bool forceOverride,
         CraftOperationsPolicy? operationsPolicy,
         ControlNumber? craftCtrlNbr,
-        PositionSlotInstance filledSlot,
         OnDutyRecord onDutyRecord,
+        int daysWorked,
         DateTime defaultOffDutyUtc,
         IReadOnlyList<RosterBoard> activeBoards,
         CancellationToken ct)
@@ -522,14 +516,8 @@ public sealed class VacancyResolutionOrchestrationService(
         if (selectedBoardSlot is not null)
         {
             selectedBoardSlot.RecordCallSequence(nextCallSequence);
-            selectedBoardSlot.UpdateOperationalTracking(onDutyRecord.DaysWorked, onDutyRecord.ConsecutiveDays, selectedBoardSlot.RestAvailableAtUtc);
-            var calledForPositionName = string.IsNullOrWhiteSpace(filledSlot.AssignmentCode)
-                ? filledSlot.CraftRoleName
-                : string.IsNullOrWhiteSpace(filledSlot.CraftRoleName)
-                    ? filledSlot.AssignmentCode
-                    : $"{filledSlot.AssignmentCode} {filledSlot.CraftRoleName}";
-
-            selectedBoardSlot.Call(calledForPositionName);
+            selectedBoardSlot.UpdateOperationalTracking(daysWorked, onDutyRecord.ConsecutiveDays, selectedBoardSlot.RestAvailableAtUtc);
+            selectedBoardSlot.Call();
             if (forceOverride)
                 selectedBoardSlot.Reposition(1);
         }
