@@ -128,12 +128,12 @@ else if (HasRailroad)
                         }
                     </td>
                     <td>@row.Status</td>
-                    <td>@row.CallSequenceDisplay</td>
+                    <td>@row.BoardPositionDisplay</td>
                     <td>@row.TieUpOrderDisplay</td>
+                    <td>@row.CallSequenceDisplay</td>
                     <td>@row.RestTimeDisplay</td>
                     <td>@row.ConsecutiveDaysDisplay</td>
                     <td>@row.DaysWorkedDisplay</td>
-                    <td>@row.BoardPositionDisplay</td>
                     <td>@row.ProjectedVacancyDisplay</td>
                     <td>@row.OnDutyDisplay</td>
                 </RowContent>
@@ -246,12 +246,12 @@ else if (HasRailroad)
         new("#", r => r.RowNumber, sortKey: "RowNumber", width: "6%"),
         new("Employee", r => r.EmployeeName, width: "16%"),
         new("Status", r => r.Status, width: "8%"),
+        new("Board Position", r => ResolveBoardPositionSortValue(r.BoardPositionDisplay), width: "10%"),
+        new("Tie-Up Order", r => r.TieUpOrderDisplay, width: "16%", headerTooltip: "MMddyyHHmm"),
         new("Call Seq", r => r.CallSequenceDisplay, width: "8%", headerTooltip: "Backend call sequence evidence."),
-        new("Tie-Up Order", r => r.TieUpOrderDisplay, width: "16%", headerTooltip: "MMddyyHHmm - nn"),
         new("24Hr Rest", r => r.RestTimeDisplay, width: "10%"),
         new("CD", r => r.ConsecutiveDaysDisplay, width: "5%", headerTooltip: "Consecutive Days (FRA): employee's current FRA consecutive-day count."),
         new("DW", r => r.DaysWorkedDisplay, width: "5%", headerTooltip: "Days Worked (Current Work Period): distinct on-duty days in the railroad work period."),
-        new("Board Position", r => ResolveBoardPositionSortValue(r.BoardPositionDisplay), width: "10%"),
         new("Projected Vacancy", r => r.ProjectedVacancyDisplay, width: "12%"),
         new("On Duty", r => r.OnDutyDisplay, width: "6%")
     ];
