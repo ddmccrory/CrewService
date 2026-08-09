@@ -13,6 +13,7 @@
 @inject InvitationsClient InvitationsClient
 @inject TenantConfigClient ConfigClient
 @inject AuthorizationClient AuthorizationClient
+@inject EmployeeClient EmployeeClient
 
 <PageTitle>Invitations</PageTitle>
 
@@ -43,11 +44,45 @@ else
         <BodyContent>
             <EditForm Model="createModel" OnValidSubmit="CreateInvitation" id="create-invitation-form">
                 <DataAnnotationsValidator />
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Email Address</label>
-                    <InputText @bind-Value="createModel.Email" class="form-control" placeholder="jane@railroad.com" />
-                    <ValidationMessage For="() => createModel.Email" class="text-danger" />
-                </div>
+                @if (HasParent)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Invite Target</label>
+                        <InputRadioGroup @bind-Value="createModel.TargetType" class="d-flex gap-3">
+                            <div class="form-check">
+                                <InputRadio Value="InvitationTargetType.Email" class="form-check-input" id="invite-target-email" />
+                                <label class="form-check-label" for="invite-target-email">Email address</label>
+                            </div>
+                            <div class="form-check">
+                                <InputRadio Value="InvitationTargetType.Employee" class="form-check-input" id="invite-target-employee" />
+                                <label class="form-check-label" for="invite-target-employee">Existing employee</label>
+                            </div>
+                        </InputRadioGroup>
+                    </div>
+                }
+
+                @if (!HasParent || createModel.TargetType == InvitationTargetType.Email)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email Address</label>
+                        <InputText @bind-Value="createModel.Email" class="form-control" placeholder="jane@railroad.com" />
+                        <ValidationMessage For="() => createModel.Email" class="text-danger" />
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Employee</label>
+                        <SelectInput TItem="GetEmployeeResponse" TValue="long"
+                                     @bind-Value="createModel.EmployeeCtrlNbr"
+                                     Items="parentEmployees"
+                                     ValueSelector="@(e => e.CtrlNbr)"
+                                     TextSelector="@(e => BuildEmployeeOptionDisplay(e))"
+                                     Placeholder="-- Select Employee --"
+                                     class="form-select" />
+                        <ValidationMessage For="() => createModel.EmployeeCtrlNbr" class="text-danger" />
+                    </div>
+                }
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Role</label>
                     <SelectInput TItem="string" TValue="string"
@@ -160,6 +195,7 @@ else
     private CreateInvitationModel createModel = new();
     private List<string> availableRoles = [];
     private List<GroupResponse> parentRailroads = [];
+    private List<GetEmployeeResponse> parentEmployees = [];
     private bool showRailroadDropdown;
     private HashSet<long> userRailroadCtrlNbrs = [];
     private string activeTab = "Pending";
@@ -238,6 +274,7 @@ else
         if (HasParent)
         {
             await LoadParentRailroads();
+            await LoadParentEmployees();
             await LoadInvitations();
         }
         else if (IsSystemAdmin)
@@ -253,17 +290,20 @@ else
         if (HasParent)
         {
             await LoadParentRailroads();
+            await LoadParentEmployees();
             await LoadInvitations();
         }
         else if (IsSystemAdmin)
         {
             parentRailroads = [];
+            parentEmployees = [];
             await LoadInvitations();
         }
         else
         {
             invitations = null;
             parentRailroads = [];
+            parentEmployees = [];
         }
     }
 
@@ -279,6 +319,25 @@ else
             var (roles, railroads) = InvitationRoleResolver.Resolve(CurrentUser.User!, allSystemRoles);
             availableRoles = [.. roles];
             userRailroadCtrlNbrs = railroads;
+        }
+    }
+
+    private async Task LoadParentEmployees()
+    {
+        if (!HasParent)
+        {
+            parentEmployees = [];
+            return;
+        }
+
+        try
+        {
+            var response = await EmployeeClient.GetAllAsync(SelectedParentCtrlNbr!.Value);
+            parentEmployees = [.. response.Employees.OrderBy(e => e.FullNameLnf)];
+        }
+        catch
+        {
+            parentEmployees = [];
         }
     }
 
@@ -337,8 +396,18 @@ else
     private void OpenCreateForm()
     {
         createModel = new();
+        if (!HasParent)
+            createModel.TargetType = InvitationTargetType.Email;
         showRailroadDropdown = false;
         showCreateForm = true;
+    }
+
+    private static string BuildEmployeeOptionDisplay(GetEmployeeResponse employee)
+    {
+        var number = string.IsNullOrWhiteSpace(employee.EmployeeNumber)
+            ? employee.CtrlNbr.ToString()
+            : employee.EmployeeNumber.ToUpperInvariant();
+        return $"{number} — {employee.FullNameLnf}";
     }
 
     private string GetRailroadName(long ctrlNbr)
@@ -355,15 +424,21 @@ else
             successMessage = null;
 
             var parentCtrlNbr = SelectedParentCtrlNbr ?? 0;
+            var isEmployeeTarget = HasParent && createModel.TargetType == InvitationTargetType.Employee;
+            var inviteEmail = isEmployeeTarget ? string.Empty : createModel.Email;
+            var employeeCtrlNbr = isEmployeeTarget ? createModel.EmployeeCtrlNbr : 0;
 
             await InvitationsClient.CreateAsync(
-                createModel.Email,
+                inviteEmail,
                 parentCtrlNbr,
                 createModel.Role,
                 createModel.ExpirationDays,
-                createModel.RailroadCtrlNbr);
+                createModel.RailroadCtrlNbr,
+                employeeCtrlNbr);
 
-            successMessage = $"Invitation sent to {createModel.Email}.";
+            successMessage = isEmployeeTarget
+                ? $"Invitation sent to {BuildSelectedEmployeeDisplay(createModel.EmployeeCtrlNbr)}."
+                : $"Invitation sent to {createModel.Email}.";
             showCreateForm = false;
             showRailroadDropdown = false;
             createModel = new();
@@ -375,6 +450,12 @@ else
             showCreateForm = true;
         }
         finally { isSaving = false; }
+    }
+
+    private string BuildSelectedEmployeeDisplay(long employeeCtrlNbr)
+    {
+        var employee = parentEmployees.FirstOrDefault(e => e.CtrlNbr == employeeCtrlNbr);
+        return employee is null ? employeeCtrlNbr.ToString() : BuildEmployeeOptionDisplay(employee);
     }
 
     private async Task ResendInvitation(long ctrlNbr)
@@ -411,11 +492,19 @@ else
         }
     }
 
-    private sealed class CreateInvitationModel
+    private enum InvitationTargetType
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.EmailAddress]
+        Email,
+        Employee
+    }
+
+    private sealed class CreateInvitationModel : System.ComponentModel.DataAnnotations.IValidatableObject
+    {
         public string Email { get; set; } = "";
+
+        public InvitationTargetType TargetType { get; set; } = InvitationTargetType.Email;
+
+        public long EmployeeCtrlNbr { get; set; }
 
         [System.ComponentModel.DataAnnotations.Required]
         public string Role { get; set; } = "";
@@ -424,5 +513,41 @@ else
         public int ExpirationDays { get; set; } = 7;
 
         public long RailroadCtrlNbr { get; set; }
+
+        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(
+            System.ComponentModel.DataAnnotations.ValidationContext validationContext)
+        {
+            if (TargetType == InvitationTargetType.Email)
+            {
+                if (string.IsNullOrWhiteSpace(Email))
+                {
+                    yield return new System.ComponentModel.DataAnnotations.ValidationResult(
+                        "Email is required.", [nameof(Email)]);
+                    yield break;
+                }
+
+                var isValidEmail = true;
+                try
+                {
+                    _ = new System.Net.Mail.MailAddress(Email);
+                }
+                catch
+                {
+                    isValidEmail = false;
+                }
+
+                if (!isValidEmail)
+                {
+                    yield return new System.ComponentModel.DataAnnotations.ValidationResult(
+                        "Email address is invalid.", [nameof(Email)]);
+                }
+            }
+
+            if (TargetType == InvitationTargetType.Employee && EmployeeCtrlNbr <= 0)
+            {
+                yield return new System.ComponentModel.DataAnnotations.ValidationResult(
+                    "Employee is required.", [nameof(EmployeeCtrlNbr)]);
+            }
+        }
     }
 }

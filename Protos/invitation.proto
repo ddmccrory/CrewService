@@ -58,6 +58,7 @@ message CreateInvitationRequest {
 	string role = 3;
 	int32 expiration_days = 4;
 	int64 railroad_ctrl_nbr = 5;
+	int64 employee_ctrl_nbr = 6;
 }
 
 message GetInvitationRequest {

@@ -24,8 +24,14 @@ public class InvitationService(
     {
         var errors = new Dictionary<string, string[]>();
 
-        if (string.IsNullOrEmpty(request.Email))
-            errors.Add("Email", ["Required"]);
+        var hasEmail = !string.IsNullOrWhiteSpace(request.Email);
+        var hasEmployee = request.EmployeeCtrlNbr > 0;
+
+        if (hasEmail == hasEmployee)
+            errors.Add("InvitationTarget", ["Provide exactly one target: either email or employee."]);
+
+        if (!hasEmail && !hasEmployee)
+            errors.Add("Email", ["Required when no employee is selected"]);
 
         var isSystemAdminInvite = request.Role == Roles.SystemAdmin;
 
@@ -76,9 +82,14 @@ public class InvitationService(
 
         var expirationDays = request.ExpirationDays > 0 ? request.ExpirationDays : 7;
         var parentName = await _invitationAppService.GetParentNameAsync(parentCtrlNbr, context.CancellationToken);
+        var resolvedEmail = await _invitationAppService.ResolveInvitationEmailAsync(
+            request.Email,
+            request.EmployeeCtrlNbr,
+            request.ParentCtrlNbr,
+            context.CancellationToken);
 
         var invitation = await _invitationAppService.CreateAsync(
-            request.Email, parentCtrlNbr, request.Role, railroadCtrlNbr,
+            resolvedEmail, parentCtrlNbr, request.Role, railroadCtrlNbr,
             expirationDays, parentName, context.CancellationToken);
 
         return MapToResponse(invitation);

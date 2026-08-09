@@ -223,4 +223,37 @@ public sealed class InvitationAppService(
         var railroads = await uow.DynamicGroups.GetByGroupTypeNameAsync("Railroad", ControlNumber.Create(parentCtrlNbr));
         return railroads.Any(rr => rr.CtrlNbr.Value == railroadCtrlNbr);
     }
+
+    public async Task<string> ResolveInvitationEmailAsync(
+        string email,
+        long employeeCtrlNbr,
+        long parentCtrlNbr,
+        CancellationToken ct = default)
+    {
+        var hasEmail = !string.IsNullOrWhiteSpace(email);
+        var hasEmployee = employeeCtrlNbr > 0;
+
+        if (hasEmail == hasEmployee)
+            throw new ValidationException("InvitationTarget", "Provide exactly one target: either email or employee.");
+
+        if (hasEmail)
+            return email.Trim();
+
+        if (parentCtrlNbr <= 0)
+            throw new ValidationException("ParentCtrlNbr", "ParentCtrlNbr is required when inviting by employee.");
+
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var employee = await uow.Employees.GetByCtrlNbrAsync(ControlNumber.Create(employeeCtrlNbr), ct);
+        if (employee is null)
+            throw new ValidationException("EmployeeCtrlNbr", "Employee not found.");
+
+        if (employee.ClientCtrlNbr.Value != parentCtrlNbr)
+            throw new ValidationException("EmployeeCtrlNbr", "Employee does not belong to the selected parent.");
+
+        var primaryEmail = employee.EmailAddresses.FirstOrDefault(e => e.IsPrimary)?.Email;
+        if (string.IsNullOrWhiteSpace(primaryEmail))
+            throw new ValidationException("EmployeeCtrlNbr", "Selected employee does not have a primary email address.");
+
+        return primaryEmail;
+    }
 }
