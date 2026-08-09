@@ -647,20 +647,11 @@ public sealed class AbsenceRequestService(
 
     public async Task<AbsenceRequest> ApproveAsync(ControlNumber ctrlNbr, ControlNumber approvedByCtrlNbr)
     {
+        var approvalPolicy = await ResolveApprovalPolicyForApprovalAsync(ctrlNbr);
+
         await using var uow = await uowFactory.CreateAsync();
         var absence = await uow.AbsenceRequests.GetByCtrlNbrAsync(ctrlNbr)
             ?? throw new KeyNotFoundException($"Absence request {ctrlNbr} not found.");
-
-        Domain.Modules.AbsenceVacancy.AbsenceCode? absenceCode = null;
-        if (absence.AbsenceCodeCtrlNbr is not null)
-        {
-            absenceCode = await absenceCodeRepository.GetByCtrlNbrAsync(absence.AbsenceCodeCtrlNbr)
-                ?? throw new KeyNotFoundException($"Absence code {absence.AbsenceCodeCtrlNbr.Value} not found.");
-        }
-
-        var approvalPolicy = absenceCode is null
-            ? Application.AbsenceVacancy.AbsenceApprovalPolicy.ForLevel(AbsenceApprovalLevel.CallerManager)
-            : await approvalPolicyResolver.ResolveAsync(absenceCode);
 
         absence.Approve(approvedByCtrlNbr);
 
@@ -702,6 +693,25 @@ public sealed class AbsenceRequestService(
         NotifyAutoMarkUpIfScheduledEnd(absence);
 
         return absence;
+    }
+
+    private async Task<Application.AbsenceVacancy.AbsenceApprovalPolicy> ResolveApprovalPolicyForApprovalAsync(ControlNumber requestCtrlNbr)
+    {
+        ControlNumber? absenceCodeCtrlNbr;
+        await using (var readUow = await uowFactory.CreateAsync())
+        {
+            var existing = await readUow.AbsenceRequests.GetByCtrlNbrAsync(requestCtrlNbr)
+                ?? throw new KeyNotFoundException($"Absence request {requestCtrlNbr} not found.");
+            absenceCodeCtrlNbr = existing.AbsenceCodeCtrlNbr;
+        }
+
+        if (absenceCodeCtrlNbr is null)
+            return Application.AbsenceVacancy.AbsenceApprovalPolicy.ForLevel(AbsenceApprovalLevel.CallerManager);
+
+        var absenceCode = await absenceCodeRepository.GetByCtrlNbrAsync(absenceCodeCtrlNbr)
+            ?? throw new KeyNotFoundException($"Absence code {absenceCodeCtrlNbr.Value} not found.");
+
+        return await approvalPolicyResolver.ResolveAsync(absenceCode);
     }
 
     public async Task<AbsenceRequest> DenyAsync(ControlNumber ctrlNbr, ControlNumber deniedByCtrlNbr)
