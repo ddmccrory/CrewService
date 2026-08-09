@@ -2594,10 +2594,10 @@ internal static class DevDataSeeder
         await SeedDefaultBoardPositionOrderAsync(simpleCorpCore.CtrlNbr);
         await SeedDefaultBoardPositionOrderAsync(csxParentCore.CtrlNbr);
 
-        await SeedPtraAnnualizedStrategyAsync(sp);
+        await SeedSimpleCorpAnnualizedStrategyAsync(sp);
     }
 
-    private static async Task SeedPtraAnnualizedStrategyAsync(IServiceProvider sp)
+    private static async Task SeedSimpleCorpAnnualizedStrategyAsync(IServiceProvider sp)
     {
         var parentRepo        = sp.GetRequiredService<IParentRepository>();
         var groupRepo         = sp.GetRequiredService<IDynamicGroupRepository>();
