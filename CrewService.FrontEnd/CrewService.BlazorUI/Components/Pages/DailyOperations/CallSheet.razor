@@ -279,7 +279,7 @@ else if (HasRailroad)
                                                                                     @{ var hVacancy = GetSlotVacancyDisplay(slot); }
                                                                                     @if (!string.IsNullOrEmpty(hVacancy))
                                                                                     {
-                                                                                        <strong class="text-primary small font-monospace flex-grow-1 text-truncate">@hVacancy</strong>
+                                                                                        <strong class="text-primary small font-monospace flex-grow-1 text-truncate" title="@GetSlotProjectedEmployeeHoverText(slot)">@hVacancy</strong>
                                                                                     }
                                                                                     else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                                                     {
@@ -477,11 +477,11 @@ else if (HasRailroad)
                                                         @{ var vacancyText = GetSlotVacancyDisplay(slot); }
                                                         @if (!string.IsNullOrEmpty(vacancyText))
                                                         {
-                                                            <strong class="text-primary small font-monospace">@vacancyText</strong>
+                                                            <strong class="text-primary small font-monospace" title="@GetSlotProjectedEmployeeHoverText(slot)">@vacancyText</strong>
                                                         }
                                                         else if (slot.HasIncumbentEmployeeCtrlNbr)
                                                         {
-                                                            <span class="@GetSlotEmployeeCssClass(slot)">@GetSlotEmployeeDisplay(slot)</span>
+                                                            <span class="@GetSlotEmployeeCssClass(slot)" title="@GetSlotProjectedEmployeeHoverText(slot)">@GetSlotEmployeeDisplay(slot)</span>
                                                             @if (!string.IsNullOrWhiteSpace(GetSlotAbsenceCodeDisplay(slot)))
                                                             {
                                                                 <span class="@GetSlotAbsenceCodeCssClass(slot)">(@GetSlotAbsenceCodeDisplay(slot))</span>
@@ -1784,11 +1784,11 @@ else if (HasRailroad)
     private static string GetSlotProjectedEmployeeHoverText(DailyPositionSlotResponse slot)
     {
         if (!slot.HasProjectedEmployeeCtrlNbr)
-            return GetSlotEmployeeDisplay(slot);
+            return string.Empty;
 
         var projectedEmployeeDisplay = BuildProjectedEmployeeDisplay(slot);
         if (string.IsNullOrWhiteSpace(projectedEmployeeDisplay))
-            return GetSlotEmployeeDisplay(slot);
+            return string.Empty;
 
         return $"Projected employee: {projectedEmployeeDisplay}";
     }

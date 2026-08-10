@@ -289,7 +289,7 @@ else if (HasRailroad)
     </Footer>
 </Modal>
 
-@if (fillAuditRecords.Count > 0)
+@if (includeClosed && fillAuditRecords.Count > 0)
 {
     <div class="card mt-3">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -471,7 +471,14 @@ else if (HasRailroad)
                 .ToList();
 
             await LoadRelativeVacancyCountsAsync();
-            await LoadFillAuditAsync();
+            if (includeClosed)
+            {
+                await LoadFillAuditAsync();
+            }
+            else
+            {
+                fillAuditRecords.Clear();
+            }
         }
         catch (Exception ex)
         {
