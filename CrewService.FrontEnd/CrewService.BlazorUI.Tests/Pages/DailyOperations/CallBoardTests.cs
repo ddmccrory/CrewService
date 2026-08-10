@@ -20,9 +20,9 @@ public class CallBoardTests
     {
         var source = File.ReadAllText(GetVacancyAssignmentServicePath());
 
-        Assert.Contains(".OrderBy(r => r.BoardName)", source, StringComparison.Ordinal);
-        Assert.Contains(".ThenBy(r => r.RowNumber)", source, StringComparison.Ordinal);
-        Assert.Contains("rows[i].RowNumber = i + 1;", source, StringComparison.Ordinal);
+        Assert.Contains(".OrderBy(r => r.BoardName, StringComparer.OrdinalIgnoreCase)", source, StringComparison.Ordinal);
+        Assert.Contains(".ThenBy(ResolveBoardOrderSortKey)", source, StringComparison.Ordinal);
+        Assert.Contains("row.RowNumber = nextPosition;", source, StringComparison.Ordinal);
         Assert.Contains("EmployeeName = authoritativeEmployeeName", source, StringComparison.Ordinal);
     }
 

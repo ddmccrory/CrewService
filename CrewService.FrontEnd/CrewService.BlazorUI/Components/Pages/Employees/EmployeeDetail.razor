@@ -1549,11 +1549,17 @@ else
                 return;
             }
 
-            if (CurrentUser.UseEmployeeProfilePath && CurrentUser.Employee.CtrlNbr != CtrlNbr)
+            if (IsFeatureReadOnly && CurrentUser.Employee.CtrlNbr != CtrlNbr)
             {
                 Nav.NavigateTo("/employee-profile", replace: true);
                 return;
             }
+        }
+
+        if (IsFeatureReadOnly && CurrentUser.Employee is null)
+        {
+            Nav.NavigateTo("Account/AccessDenied", replace: true);
+            return;
         }
 
         if (!HasParent)
