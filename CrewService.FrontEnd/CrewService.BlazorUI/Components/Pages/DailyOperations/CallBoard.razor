@@ -39,7 +39,7 @@ else if (HasRailroad)
     {
         <p class="text-muted mb-3">Daily operations for <strong>@SelectedRailroadName</strong></p>
 
-        <div class="row align-items-end g-2 mb-3">
+        <div class="row align-items-end g-2" style="padding-bottom: 2.5rem; margin-bottom: 0.75rem;">
             <div class="col-auto">
                 <label class="form-label fw-semibold">Work Area</label>
                 <FilterSelect TItem="GroupResponse" TValue="long"
@@ -51,11 +51,18 @@ else if (HasRailroad)
                               Placeholder="-- Select Work Area --"
                               class="form-select form-select-sm" style="width: 220px;" />
             </div>
-            <div class="col-auto">
+            <div class="col-auto" style="position: relative; width: 180px;">
                 <label class="form-label fw-semibold">Date</label>
-                <input type="date" class="form-control form-control-sm" style="width: 180px;"
+                <input type="date" class="form-control form-control-sm" style="width: 100%;"
                        value="@selectedDate.ToString("yyyy-MM-dd")"
                        @onchange="OnDateChanged" />
+                <div style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 3;">
+                    <RelativeDaySelector YesterdayCount="yesterdayProjectedVacancyCount"
+                                         TodayCount="todayProjectedVacancyCount"
+                                         TomorrowCount="tomorrowProjectedVacancyCount"
+                                         WidthPx="180"
+                                         OnSelectOffset="SetDate" />
+                </div>
             </div>
             <div class="col-auto">
                 <label class="form-label fw-semibold">Craft</label>
@@ -214,6 +221,9 @@ else if (HasRailroad)
     private bool isLoading;
     private string? pageErrorMessage;
     private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private int? yesterdayProjectedVacancyCount;
+    private int? todayProjectedVacancyCount;
+    private int? tomorrowProjectedVacancyCount;
     private long selectedWorkAreaCtrlNbr;
     private long selectedCraftCtrlNbr;
     private long selectedShiftInstanceCtrlNbr;
@@ -316,6 +326,9 @@ else if (HasRailroad)
         decisionItems.Clear();
         selectedDecision = null;
         activeTab = CurrentTabKey;
+        yesterdayProjectedVacancyCount = null;
+        todayProjectedVacancyCount = null;
+        tomorrowProjectedVacancyCount = null;
 
         if (HasRailroad)
             await LoadDataAsync();
@@ -345,6 +358,12 @@ else if (HasRailroad)
             else if (activeTab == HistoryTabKey)
                 await LoadHistoryShiftsAsync();
         }
+    }
+
+    private Task SetDate(int offsetFromToday)
+    {
+        var target = DateOnly.FromDateTime(DateTime.Today.AddDays(offsetFromToday)).ToString("yyyy-MM-dd");
+        return OnDateChanged(new ChangeEventArgs { Value = target });
     }
 
     private async Task OnWorkAreaChangedAsync()
@@ -391,7 +410,12 @@ else if (HasRailroad)
         currentBoardRows.Clear();
 
         if (selectedWorkAreaCtrlNbr <= 0 || selectedCraftCtrlNbr <= 0 || !HasRailroad)
+        {
+            yesterdayProjectedVacancyCount = null;
+            todayProjectedVacancyCount = null;
+            tomorrowProjectedVacancyCount = null;
             return;
+        }
 
         try
         {
@@ -417,12 +441,71 @@ else if (HasRailroad)
                     r.ProjectedVacancyDisplay,
                     r.OnDutyDisplay))
                 .ToList();
+
+            await LoadRelativeProjectedVacancyCountsAsync();
         }
         catch (RpcException ex)
         {
             pageErrorMessage = ex.Status.Detail;
+            yesterdayProjectedVacancyCount = null;
+            todayProjectedVacancyCount = null;
+            tomorrowProjectedVacancyCount = null;
         }
     }
+
+    private async Task LoadRelativeProjectedVacancyCountsAsync()
+    {
+        if (selectedWorkAreaCtrlNbr <= 0 || selectedCraftCtrlNbr <= 0 || !HasRailroad)
+        {
+            yesterdayProjectedVacancyCount = null;
+            todayProjectedVacancyCount = null;
+            tomorrowProjectedVacancyCount = null;
+            return;
+        }
+
+        try
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var offsets = new[] { -1, 0, 1 };
+
+            var tasks = offsets.Select(async offset =>
+            {
+                var response = await VacancyAssignmentClient.GetCurrentCallBoardAsync(
+                    selectedWorkAreaCtrlNbr,
+                    selectedCraftCtrlNbr,
+                    selectedBoardType,
+                    today.AddDays(offset));
+
+                return (offset, response);
+            });
+
+            var results = await Task.WhenAll(tasks);
+            yesterdayProjectedVacancyCount = ToDisplayCount(CountProjectedVacancies(results.First(r => r.offset == -1).response));
+            todayProjectedVacancyCount = ToDisplayCount(CountProjectedVacancies(results.First(r => r.offset == 0).response));
+            tomorrowProjectedVacancyCount = ToDisplayCount(CountProjectedVacancies(results.First(r => r.offset == 1).response));
+        }
+        catch
+        {
+            yesterdayProjectedVacancyCount = null;
+            todayProjectedVacancyCount = null;
+            tomorrowProjectedVacancyCount = null;
+        }
+    }
+
+    private static int CountProjectedVacancies(GetCurrentCallBoardResponse response)
+        => response.Rows.Count(r => HasProjectedVacancy(r.ProjectedVacancyDisplay));
+
+    private static bool HasProjectedVacancy(string? projectedVacancyDisplay)
+    {
+        if (string.IsNullOrWhiteSpace(projectedVacancyDisplay))
+            return false;
+
+        var normalized = projectedVacancyDisplay.Trim();
+        return !string.Equals(normalized, "—", StringComparison.Ordinal)
+            && !string.Equals(normalized, "-", StringComparison.Ordinal);
+    }
+
+    private static int? ToDisplayCount(int count) => count > 0 ? count : null;
 
     private async Task LoadHistoryShiftsAsync()
     {
