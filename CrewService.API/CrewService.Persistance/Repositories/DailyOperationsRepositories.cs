@@ -207,6 +207,15 @@ internal sealed class OnDutyRecordRepository(CrewServiceDbContext dbContext, ICu
                         && r.OnDutyTimeUtc < endUtc)
             .OrderByDescending(r => r.OnDutyTimeUtc)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<OnDutyRecord>> GetOperationalForEmployeeInRangeAsync(
+        ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default) =>
+        await DbContext.Set<OnDutyRecord>()
+            .Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr
+                        && r.OnDutyTimeUtc >= startUtc
+                        && r.OnDutyTimeUtc < endUtc)
+            .OrderByDescending(r => r.OnDutyTimeUtc)
+            .ToListAsync(ct);
 }
 
 internal sealed class OffDutyRecordRepository(CrewServiceDbContext dbContext, ICurrentUserService currentUserService)

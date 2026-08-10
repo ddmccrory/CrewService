@@ -245,7 +245,7 @@ public sealed class VacancyResolutionOrchestrationService(
                 : await uow.DynamicGroups.GetByCtrlNbrAsync(workArea.OwningRailroadCtrlNbr, ct);
             var workPeriodMode = railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
             var (workPeriodStartUtc, workPeriodEndUtc) = ResolveCurrentWorkPeriodBounds(workPeriodMode, onDutyRecord.OnDutyTimeUtc);
-            var onDutyHistory = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(
+            var onDutyHistory = await uow.OnDutyRecords.GetOperationalForEmployeeInRangeAsync(
                 request.EmployeeCtrlNbr,
                 workPeriodStartUtc,
                 workPeriodEndUtc,
@@ -501,9 +501,18 @@ public sealed class VacancyResolutionOrchestrationService(
             .ThenBy(b => b.CallSequence)
             .FirstOrDefault();
 
-        var nextCallSequence = shift.BoardSlots.Count == 0
+        var craftScopedBoardCtrlNbrs = activeBoards
+            .Where(b => craftCtrlNbr is null || b.CraftCtrlNbr == craftCtrlNbr)
+            .Select(b => b.CtrlNbr)
+            .ToHashSet();
+
+        var craftScopedBoardSlots = shift.BoardSlots
+            .Where(b => craftScopedBoardCtrlNbrs.Contains(b.RosterBoardCtrlNbr))
+            .ToList();
+
+        var nextCallSequence = craftScopedBoardSlots.Count == 0
             ? 1L
-            : shift.BoardSlots.Max(b => b.CallSequence) + 1L;
+            : craftScopedBoardSlots.Max(b => b.CallSequence) + 1L;
 
         var selectedPosition = selectedRosterBoard.Positions.FirstOrDefault(p => p.EmployeeCtrlNbr == employeeCtrlNbr)
             ?? throw new InvalidOperationException(
