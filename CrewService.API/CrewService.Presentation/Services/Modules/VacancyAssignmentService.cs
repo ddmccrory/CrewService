@@ -218,7 +218,7 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
 
             fraConsecutiveDaysByEmployee[employeeCtrlNbr] = consecutiveDays;
 
-            var onDutyHistory = await uow.OnDutyRecords.GetForEmployeeInRangeAsync(
+            var onDutyHistory = await uow.OnDutyRecords.GetOperationalForEmployeeInRangeAsync(
                 employeeCtrlNbr,
                 workPeriodStartUtc,
                 workPeriodEndUtc,
@@ -524,9 +524,9 @@ public class VacancyAssignmentService(IServiceProvider serviceProvider)
         var resolvedConsecutiveDaysValue = slot is not null
             ? slot.ConsecutiveDays
             : fraConsecutiveDaysByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0);
-        var resolvedDaysWorkedValue = slot is not null
-            ? slot.DaysWorked
-            : workPeriodDaysWorkedByEmployee.GetValueOrDefault(position.EmployeeCtrlNbr, 0);
+        var resolvedDaysWorkedValue = workPeriodDaysWorkedByEmployee.GetValueOrDefault(
+            position.EmployeeCtrlNbr,
+            slot?.DaysWorked ?? 0);
         var resolvedConsecutiveDays = resolvedConsecutiveDaysValue.ToString();
         var resolvedDaysWorked = resolvedDaysWorkedValue.ToString();
         var resolvedBoardOrder = position.PositionOrder > 0 ? position.PositionOrder : int.MaxValue;

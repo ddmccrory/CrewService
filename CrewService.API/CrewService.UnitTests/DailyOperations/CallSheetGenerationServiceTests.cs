@@ -185,6 +185,9 @@ public class CallSheetGenerationServiceTests
         public Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
 
+        public Task<IReadOnlyList<OnDutyRecord>> GetOperationalForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>([]);
+
         public Task<IReadOnlyList<OnDutyCompletionStatus>> GetCompletionStatusesForShiftAsync(ControlNumber shiftInstanceCtrlNbr, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyCompletionStatus>>([]);
 

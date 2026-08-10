@@ -67,6 +67,14 @@ public interface IOnDutyRecordRepository : IRepository<OnDutyRecord>
     Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default);
 
     /// <summary>
+    /// Operational on-duty records for an employee whose on-duty time falls within
+    /// <paramref name="startUtc"/> (inclusive) and <paramref name="endUtc"/> (exclusive), most
+    /// recent first. Includes all on-duty statuses (scheduled/called/on-duty/tied-up) for runtime
+    /// board and tie-up calculations.
+    /// </summary>
+    Task<IReadOnlyList<OnDutyRecord>> GetOperationalForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default);
+
+    /// <summary>
     /// Returns completion statuses for on-duty records that belong to a shift instance via
     /// PositionSlotInstance relationships.
     /// </summary>

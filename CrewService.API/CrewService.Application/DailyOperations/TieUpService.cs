@@ -7,6 +7,7 @@ using CrewService.Application.Notifications;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Boards;
+using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
 
 namespace CrewService.Application.DailyOperations;
@@ -60,6 +61,14 @@ public sealed class TieUpService(
         onDutyRecord.TieUp(requiresDeferredEmployeeCompletion: isQuickTieUp || !offDutyTimeConfirmed);
 
         var tieUpContext = await uow.OnDutyRecords.GetTieUpContextAsync(onDutyRecord.CtrlNbr, ct);
+        var workArea = tieUpContext is null
+            ? null
+            : await uow.DynamicGroups.GetByCtrlNbrAsync(tieUpContext.WorkAreaCtrlNbr, ct);
+        var railroad = workArea?.OwningRailroadCtrlNbr is null
+            ? null
+            : await uow.DynamicGroups.GetByCtrlNbrAsync(workArea.OwningRailroadCtrlNbr, ct);
+        var workPeriodMode = railroad?.WorkPeriodMode ?? WorkPeriodMode.HalfMonth;
+        var daysWorkedAtTieUp = await ResolveWorkPeriodDaysWorkedAsync(uow, onDutyRecord, workPeriodMode, ct);
 
         var shift = tieUpContext is null
             ? null
@@ -81,7 +90,7 @@ public sealed class TieUpService(
                 {
                     boardSlot.MarkTiedUp(boardSlot.CallSequence);
                     boardSlot.UpdateOperationalTracking(
-                        boardSlot.DaysWorked,
+                        daysWorkedAtTieUp,
                         onDutyRecord.ConsecutiveDays,
                         offDutyRecord.TwentyFourHourRestAtUtc);
                 }
@@ -101,7 +110,6 @@ public sealed class TieUpService(
 
         if (isQuickTieUp && tieUpContext is not null)
         {
-            var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(tieUpContext.WorkAreaCtrlNbr, ct);
             var railroadCtrlNbr = railroadResolver.ResolveFromGroup(workArea);
             if (workArea is not null && railroadCtrlNbr is not null)
             {
@@ -212,6 +220,25 @@ public sealed class TieUpService(
             isQuickTieUp);
     }
 
+    private static async Task<int> ResolveWorkPeriodDaysWorkedAsync(
+        IOrchestrationUnitOfWork uow,
+        OnDutyRecord onDutyRecord,
+        WorkPeriodMode workPeriodMode,
+        CancellationToken ct)
+    {
+        var (workPeriodStartUtc, workPeriodEndUtc) = ResolveCurrentWorkPeriodBounds(workPeriodMode, onDutyRecord.OnDutyTimeUtc);
+        var onDutyHistory = await uow.OnDutyRecords.GetOperationalForEmployeeInRangeAsync(
+            onDutyRecord.EmployeeCtrlNbr,
+            workPeriodStartUtc,
+            workPeriodEndUtc,
+            ct);
+
+        return onDutyHistory
+            .Select(r => DateTime.SpecifyKind(r.OnDutyTimeUtc, DateTimeKind.Utc).Date)
+            .Distinct()
+            .Count();
+    }
+
     private static decimal CalculateRestHours(CraftOperationsPolicy? policy, int totalMinutes)
     {
         if (policy is null) return 10m;
@@ -280,6 +307,40 @@ public sealed class TieUpService(
 
         selectedBoard.ReorderPositions(ordering);
         await uow.RosterBoards.UpdateAsync(selectedBoard, ct);
+    }
+
+    private static (DateTime StartUtc, DateTime EndUtc) ResolveCurrentWorkPeriodBounds(WorkPeriodMode mode, DateTime referenceUtc)
+    {
+        var day = DateTime.SpecifyKind(referenceUtc, DateTimeKind.Utc).Date;
+
+        if (mode == WorkPeriodMode.Monthly)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, start.AddMonths(1));
+        }
+
+        if (mode == WorkPeriodMode.Weekly)
+        {
+            var start = day.AddDays(-(int)day.DayOfWeek);
+            return (start, start.AddDays(7));
+        }
+
+        if (mode == WorkPeriodMode.BiWeekly)
+        {
+            var yearStart = new DateTime(day.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var periodIndex = (int)((day - yearStart).TotalDays / 14);
+            var start = yearStart.AddDays(periodIndex * 14);
+            return (start, start.AddDays(14));
+        }
+
+        if (day.Day <= 15)
+        {
+            var start = new DateTime(day.Year, day.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (start, new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc));
+        }
+
+        var secondHalfStart = new DateTime(day.Year, day.Month, 16, 0, 0, 0, DateTimeKind.Utc);
+        return (secondHalfStart, secondHalfStart.AddDays(-15).AddMonths(1));
     }
 }
 

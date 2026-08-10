@@ -73,39 +73,42 @@ else
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Employee</label>
-                        <SelectInput TItem="GetEmployeeResponse" TValue="long"
-                                     @bind-Value="createModel.EmployeeCtrlNbr"
-                                     Items="parentEmployees"
-                                     ValueSelector="@(e => e.CtrlNbr)"
-                                     TextSelector="@(e => BuildEmployeeOptionDisplay(e))"
-                                     Placeholder="-- Select Employee --"
-                                     class="form-select" />
+                        <FilterSelect TItem="GetEmployeeResponse" TValue="long"
+                                      @bind-Value="createModel.EmployeeCtrlNbr"
+                                      Items="parentEmployees"
+                                      ValueSelector="@(e => e.CtrlNbr)"
+                                      TextSelector="@(e => BuildEmployeeOptionDisplay(e))"
+                                      Placeholder="-- Select Employee --"
+                                      Searchable="true"
+                                      class="form-control" />
                         <ValidationMessage For="() => createModel.EmployeeCtrlNbr" class="text-danger" />
                     </div>
                 }
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Role</label>
-                    <SelectInput TItem="string" TValue="string"
-                                 @bind-Value="createModel.Role"
-                                 @bind-Value:after="OnRoleChanged"
-                                 Items="availableRoles"
-                                 ValueSelector="@(r => r)"
-                                 TextSelector="@(r => r)"
-                                 Placeholder="-- Select Role --"
-                                 class="form-select" />
+                    <FilterSelect TItem="string" TValue="string"
+                                  @bind-Value="createModel.Role"
+                                  @bind-Value:after="OnRoleChanged"
+                                  Items="availableRoles"
+                                  ValueSelector="@(r => r)"
+                                  TextSelector="@(r => r)"
+                                  Placeholder="-- Select Role --"
+                                  Searchable="true"
+                                  class="form-control" />
                     <ValidationMessage For="() => createModel.Role" class="text-danger" />
                 </div>
                 @if (showRailroadDropdown && HasParent)
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Railroad</label>
-                        <SelectInput TItem="GroupResponse" TValue="long"
-                                     @bind-Value="createModel.RailroadCtrlNbr"
-                                     Items="parentRailroads"
-                                     ValueSelector="@(rr => rr.CtrlNbr)"
-                                     TextSelector="@(rr => rr.Name)"
-                                     Placeholder="-- Select Railroad --"
-                                     class="form-select" />
+                        <FilterSelect TItem="GroupResponse" TValue="long"
+                                      @bind-Value="createModel.RailroadCtrlNbr"
+                                      Items="parentRailroads"
+                                      ValueSelector="@(rr => rr.CtrlNbr)"
+                                      TextSelector="@(rr => rr.Name)"
+                                      Placeholder="-- Select Railroad --"
+                                      Searchable="true"
+                                      class="form-control" />
                     </div>
                 }
                 <div class="mb-0">

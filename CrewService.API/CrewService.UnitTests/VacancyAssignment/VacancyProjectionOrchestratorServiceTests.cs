@@ -832,6 +832,9 @@ public sealed class VacancyProjectionOrchestratorServiceTests
         public Task<IReadOnlyList<OnDutyRecord>> GetForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.OnDutyTimeUtc >= startUtc && r.OnDutyTimeUtc < endUtc).ToList());
 
+        public Task<IReadOnlyList<OnDutyRecord>> GetOperationalForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.OnDutyTimeUtc >= startUtc && r.OnDutyTimeUtc < endUtc).ToList());
+
         public Task<IReadOnlyList<OnDutyRecord>> GetWorkedForEmployeeInRangeAsync(ControlNumber employeeCtrlNbr, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<OnDutyRecord>>(records.Where(r => r.EmployeeCtrlNbr == employeeCtrlNbr && r.OnDutyTimeUtc >= startUtc && r.OnDutyTimeUtc < endUtc).ToList());
 
