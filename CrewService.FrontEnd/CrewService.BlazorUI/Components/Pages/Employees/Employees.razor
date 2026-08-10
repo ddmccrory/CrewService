@@ -301,7 +301,7 @@ else
 
     protected override async Task LoadDataAsync()
     {
-        if (CurrentUser.UseEmployeeProfilePath && CurrentUser.Employee is not null)
+        if (IsFeatureReadOnly)
         {
             NavigationManager.NavigateTo("/employee-profile", replace: true);
             return;
