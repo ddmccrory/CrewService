@@ -17,6 +17,41 @@ public sealed class WorkflowTemplatesService(IServiceProvider serviceProvider) :
         return response;
     }
 
+    public override async Task<GetWorkflowStepFilterMetadataResponse> GetStepFilterMetadata(
+        GetWorkflowStepFilterMetadataRequest request,
+        ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<WorkflowTemplateManagementService>();
+
+        try
+        {
+            var metadata = await svc.GetStepFilterMetadataAsync(
+                ControlNumber.Create(request.RailroadCtrlNbr),
+                ControlNumber.Create(request.TriggerTypeCtrlNbr),
+                request.TriggerConditions.Select(c => new WorkflowConditionValueDto(
+                    c.FieldTypeCtrlNbr > 0
+                        ? ControlNumber.Create(c.FieldTypeCtrlNbr)
+                        : throw new InvalidOperationException("triggerCondition.fieldTypeCtrlNbr must be a valid control number."),
+                    c.Value)).ToList(),
+                context.CancellationToken);
+
+            var response = new GetWorkflowStepFilterMetadataResponse();
+            response.MetadataFieldTypes.AddRange(metadata.MetadataFieldTypes.Select(m => new WorkflowMetadataFieldTypeReference
+            {
+                CtrlNbr = m.CtrlNbr.Value,
+                Code = m.Code,
+                Name = m.Name,
+                AllowedValues = { m.AllowedValues }
+            }));
+
+            return response;
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
+        }
+    }
+
     public override async Task<WorkflowTemplateDetailResponse> GetByCtrlNbr(GetWorkflowTemplateRequest request, ServerCallContext context)
     {
         var svc = serviceProvider.GetRequiredService<WorkflowTemplateManagementService>();

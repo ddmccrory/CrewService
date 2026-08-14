@@ -193,7 +193,7 @@ else if (HasRailroad)
                                                             <option value="@op.CtrlNbr">@op.Name</option>
                                                         }
                                                     </select>
-                                                    <select class="form-select form-select-sm" @bind="condition.Value" @bind:after="MarkActiveWorkflowAsDraft">
+                                                    <select class="form-select form-select-sm" @bind="condition.Value" @bind:after="() => OnTriggerConditionValueChanged(condition)">
                                                         <option value="">Select value...</option>
                                                         @foreach (var valueOption in GetAllowedValuesForCondition(condition))
                                                         {
@@ -300,14 +300,14 @@ else if (HasRailroad)
                                                                         <option value="ALL">All of</option>
                                                                         <option value="ANY">Any of</option>
                                                                     </select>
-                                                                    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => AddCondition(step)" disabled="@(!HasMetadataFieldsForActiveWorkflow())">
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => AddCondition(step)" disabled="@(!HasStepMetadataFieldsForActiveWorkflow())">
                                                                         <span class="bi bi-plus-circle me-1"></span>Add Filter
                                                                     </button>
                                                                 </div>
 
-                                                                @if (!HasMetadataFieldsForActiveWorkflow())
+                                                                @if (!HasStepMetadataFieldsForActiveWorkflow())
                                                                 {
-                                                                    <div class="small text-muted">No trigger metadata filters are available. This step will run when reached.</div>
+                                                                    <div class="small text-muted">No step metadata filters are available. This step will run when reached.</div>
                                                                 }
                                                                 else
                                                                 {
@@ -323,21 +323,21 @@ else if (HasRailroad)
                                                                             <div class="d-flex align-items-center gap-2 mb-2">
                                                                                 <select class="form-select form-select-sm" @bind="condition.FieldTypeCtrlNbr" @bind:after="() => OnConditionFieldChanged(step, condition)">
                                                                                     <option value="">Select value...</option>
-                                                                                    @foreach (var field in GetMetadataFieldsForActiveWorkflow())
+                                                        @foreach (var field in GetStepMetadataFieldsForActiveWorkflow())
                                                                                     {
                                                                                         <option value="@field.CtrlNbr">@field.Label</option>
                                                                                     }
                                                                                 </select>
                                                                                 <select class="form-select form-select-sm" @bind="condition.OperatorTypeCtrlNbr" @bind:after="MarkActiveWorkflowAsDraft">
                                                                                     <option value="">Select value...</option>
-                                                                                    @foreach (var op in GetOperatorsForCondition(condition))
+                                                                                    @foreach (var op in GetOperatorsForStepCondition(condition))
                                                                                     {
                                                                                         <option value="@op.CtrlNbr">@op.Name</option>
                                                                                     }
                                                                                 </select>
                                                                                 <select class="form-select form-select-sm" @bind="condition.Value" @bind:after="MarkActiveWorkflowAsDraft">
                                                                                     <option value="">Select value...</option>
-                                                                                    @foreach (var valueOption in GetAllowedValuesForCondition(condition))
+                                                                                    @foreach (var valueOption in GetAllowedValuesForStepCondition(condition))
                                                                                     {
                                                                                         <option value="@valueOption">@valueOption</option>
                                                                                     }
@@ -385,6 +385,31 @@ else if (HasRailroad)
                                                                                             <option value="@boardType">@boardType</option>
                                                                                         }
                                                                                     </select>
+                                                                                </div>
+                                                                            }
+                                                                            else if (IsEffectType(effect, createSeniorityMoveEffectTypeCtrlNbr))
+                                                                            {
+                                                                                <div class="border rounded p-2 bg-body-tertiary">
+                                                                                    <div class="d-flex flex-column gap-2">
+                                                                                        <div class="input-group input-group-sm" style="max-width: 360px;">
+                                                                                            <span class="input-group-text" style="width: 90px;">Board</span>
+                                                                                            <select class="form-select" @bind="effect.EffectOption" @bind:after="MarkActiveWorkflowAsDraft">
+                                                                                                <option value="">Select value...</option>
+                                                                                                @foreach (var boardType in boardTypeOptions)
+                                                                                                {
+                                                                                                    <option value="@boardType">@boardType</option>
+                                                                                                }
+                                                                                            </select>
+                                                                                        </div>
+                                                                                        <div class="input-group input-group-sm" style="max-width: 260px;">
+                                                                                            <span class="input-group-text" style="width: 90px;">Delay Hrs</span>
+                                                                                            <input type="number"
+                                                                                                   min="0"
+                                                                                                   class="form-control"
+                                                                                                   @bind="effect.AutoMoveDelayHours"
+                                                                                                   @bind:after="MarkActiveWorkflowAsDraft" />
+                                                                                        </div>
+                                                                                    </div>
                                                                                 </div>
                                                                             }
                                                                             else if (IsEffectType(effect, sendInvitationEffectTypeCtrlNbr))
@@ -668,6 +693,7 @@ else if (HasRailroad)
         public int Order { get; set; }
         public long EffectTypeCtrlNbr { get; set; }
         public string? EffectOption { get; set; }
+        public int AutoMoveDelayHours { get; set; }
         public int ExpirationDays { get; set; } = 7;
         public string EmailSource { get; set; } = "primary";
         public bool IsEnabled { get; set; } = true;
@@ -757,15 +783,19 @@ else if (HasRailroad)
     private readonly List<WorkflowOperatorOption> operatorTypeOptions = [];
     private readonly Dictionary<long, string> triggerTypeNameByCtrlNbr = [];
     private long addToRosterBoardEffectTypeCtrlNbr;
+    private long createSeniorityMoveEffectTypeCtrlNbr;
     private long sendInvitationEffectTypeCtrlNbr;
     private long callWorkflowEffectTypeCtrlNbr;
     private long departmentNameMetadataFieldTypeCtrlNbr;
     private long craftNameMetadataFieldTypeCtrlNbr;
     private long seniorityStateNameMetadataFieldTypeCtrlNbr;
     private long newSeniorityStateMetadataFieldTypeCtrlNbr;
+    private long notificationTypeMetadataFieldTypeCtrlNbr;
+    private long boardTypeMetadataFieldTypeCtrlNbr;
 
     private readonly List<RoleOption> roleOptions = [];
     private readonly Dictionary<long, List<string>> triggerFilterValueOptionsByFieldCtrlNbr = [];
+    private readonly Dictionary<long, TriggerMetadataFieldDefinition> stepMetadataFieldsByCtrlNbr = [];
 
     private static readonly List<string> boardTypeOptions =
     [
@@ -779,6 +809,23 @@ else if (HasRailroad)
     private static readonly List<(string Value, string Label)> invitationEmailSourceOptions =
     [
         ("primary", "Primary Email")
+    ];
+
+    private static readonly List<string> notificationTypeOptions =
+    [
+        "BoardPlacement",
+        "BulletinAward",
+        "BulletinCancellation",
+        "BulletinLost",
+        "ForceAssign",
+        "GeneralInformation",
+        "PositionChange",
+        "SafetyBulletin",
+        "SeniorityMove",
+        "SeniorityMoveCancelled",
+        "TieUp",
+        "WaitListPromotion",
+        "WorkAreaChange"
     ];
 
     private readonly List<WorkflowTemplateDraft> workflows = [];
@@ -826,12 +873,16 @@ else if (HasRailroad)
             operatorTypeOptions.Clear();
             triggerTypeNameByCtrlNbr.Clear();
             addToRosterBoardEffectTypeCtrlNbr = 0;
+            createSeniorityMoveEffectTypeCtrlNbr = 0;
             sendInvitationEffectTypeCtrlNbr = 0;
             callWorkflowEffectTypeCtrlNbr = 0;
             departmentNameMetadataFieldTypeCtrlNbr = 0;
             craftNameMetadataFieldTypeCtrlNbr = 0;
             seniorityStateNameMetadataFieldTypeCtrlNbr = 0;
             newSeniorityStateMetadataFieldTypeCtrlNbr = 0;
+            notificationTypeMetadataFieldTypeCtrlNbr = 0;
+            boardTypeMetadataFieldTypeCtrlNbr = 0;
+            stepMetadataFieldsByCtrlNbr.Clear();
 
             workflows.Clear();
 
@@ -853,6 +904,45 @@ else if (HasRailroad)
         finally
         {
             isPageLoading = false;
+        }
+    }
+
+    private async Task LoadStepFilterMetadataAsync()
+    {
+        stepMetadataFieldsByCtrlNbr.Clear();
+
+        if (activeWorkflow is null || !HasRailroad || SelectedRailroadCtrlNbr is not long railroadCtrlNbr)
+            return;
+
+        if (!activeWorkflow.CanStartFromTrigger || activeWorkflow.TriggerTypeCtrlNbr <= 0)
+            return;
+
+        var triggerConditions = activeWorkflow.TriggerConditions
+            .Where(c => c.FieldTypeCtrlNbr > 0)
+            .Select(c => new WorkflowConditionPayload
+            {
+                CtrlNbr = c.CtrlNbr,
+                FieldTypeCtrlNbr = c.FieldTypeCtrlNbr,
+                OperatorTypeCtrlNbr = c.OperatorTypeCtrlNbr,
+                Value = c.Value
+            })
+            .ToList();
+
+        var response = await WorkflowTemplatesClient.GetStepFilterMetadataAsync(
+            railroadCtrlNbr,
+            activeWorkflow.TriggerTypeCtrlNbr,
+            triggerConditions);
+
+        foreach (var field in response.MetadataFieldTypes)
+        {
+            stepMetadataFieldsByCtrlNbr[field.CtrlNbr] = new TriggerMetadataFieldDefinition
+            {
+                CtrlNbr = field.CtrlNbr,
+                Key = field.Code,
+                Label = field.Name,
+                AllowedValues = field.AllowedValues.ToList(),
+                AllowedOperators = operatorTypeOptions.ToList()
+            };
         }
     }
 
@@ -885,6 +975,16 @@ else if (HasRailroad)
     private async Task LoadTriggerFilterValueOptionsAsync()
     {
         triggerFilterValueOptionsByFieldCtrlNbr.Clear();
+
+        if (notificationTypeMetadataFieldTypeCtrlNbr > 0)
+        {
+            triggerFilterValueOptionsByFieldCtrlNbr[notificationTypeMetadataFieldTypeCtrlNbr] = notificationTypeOptions
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        if (boardTypeMetadataFieldTypeCtrlNbr > 0)
+            triggerFilterValueOptionsByFieldCtrlNbr[boardTypeMetadataFieldTypeCtrlNbr] = boardTypeOptions;
 
         if (SelectedParentCtrlNbr is not long parentCtrlNbr || SelectedRailroadCtrlNbr is not long railroadCtrlNbr)
             return;
@@ -946,6 +1046,7 @@ else if (HasRailroad)
             if (seniorityStateNameMetadataFieldTypeCtrlNbr > 0)
                 triggerFilterValueOptionsByFieldCtrlNbr[seniorityStateNameMetadataFieldTypeCtrlNbr] = [];
         }
+
     }
 
     private async Task LoadReferenceCatalogAsync(long railroadCtrlNbr)
@@ -977,12 +1078,18 @@ else if (HasRailroad)
                     CtrlNbr = m.CtrlNbr,
                     Key = m.Code,
                     Label = m.Name,
-                    AllowedValues = [],
+                    AllowedValues = string.Equals(m.Code, "notificationType", StringComparison.Ordinal)
+                        ? notificationTypeOptions
+                        : string.Equals(m.Code, "boardType", StringComparison.Ordinal)
+                            ? boardTypeOptions
+                            : [],
                     AllowedOperators = operatorTypeOptions.ToList()
                 });
 
         addToRosterBoardEffectTypeCtrlNbr = response.EffectTypes
             .FirstOrDefault(e => string.Equals(e.Code, "Add to Roster Board", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        createSeniorityMoveEffectTypeCtrlNbr = response.EffectTypes
+            .FirstOrDefault(e => string.Equals(e.Code, "Create Seniority Move", StringComparison.Ordinal))?.CtrlNbr ?? 0;
         sendInvitationEffectTypeCtrlNbr = response.EffectTypes
             .FirstOrDefault(e => string.Equals(e.Code, "Send Invitation", StringComparison.Ordinal))?.CtrlNbr ?? 0;
         callWorkflowEffectTypeCtrlNbr = response.EffectTypes
@@ -996,6 +1103,10 @@ else if (HasRailroad)
             .FirstOrDefault(m => string.Equals(m.Code, "seniorityStateName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
         newSeniorityStateMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
             .FirstOrDefault(m => string.Equals(m.Code, "newSeniorityState", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        notificationTypeMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
+            .FirstOrDefault(m => string.Equals(m.Code, "notificationType", StringComparison.Ordinal))?.CtrlNbr ?? 0;
+        boardTypeMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
+            .FirstOrDefault(m => string.Equals(m.Code, "boardType", StringComparison.Ordinal))?.CtrlNbr ?? 0;
 
         var metadataFieldCtrlNbrByTriggerCtrlNbr = response.TriggerMetadataFieldMaps
             .GroupBy(m => m.TriggerTypeCtrlNbr)
@@ -1123,6 +1234,8 @@ else if (HasRailroad)
         if (activeWorkflow is null)
             return;
 
+        await LoadStepFilterMetadataAsync();
+
         CollapseAllSteps(activeWorkflow);
 
         detailsModalTitle = $"Workflow Details — {activeWorkflow.Name}";
@@ -1247,7 +1360,7 @@ else if (HasRailroad)
         if (activeWorkflow is null)
             return;
 
-        if (!HasMetadataFieldsForActiveWorkflow())
+        if (!HasStepMetadataFieldsForActiveWorkflow())
             return;
 
         var condition = CreateDefaultCondition();
@@ -1303,7 +1416,7 @@ else if (HasRailroad)
         if (activeWorkflow is null)
             return;
 
-        MarkActiveWorkflowAsDraft();
+        _ = RefreshStepFilterMetadataAsync();
     }
 
     private void ToggleActiveWorkflowTriggerStart()
@@ -1324,7 +1437,7 @@ else if (HasRailroad)
             activeWorkflow.TriggerTypeCtrlNbr = 0;
 
         activeWorkflow.TriggerTypeName = ResolveTriggerTypeName(activeWorkflow.TriggerTypeCtrlNbr);
-        MarkActiveWorkflowAsDraft();
+        _ = RefreshStepFilterMetadataAsync();
     }
 
     private void AddTriggerCondition()
@@ -1343,7 +1456,7 @@ else if (HasRailroad)
             return;
 
         activeWorkflow.TriggerConditions.Add(condition);
-        MarkActiveWorkflowAsDraft();
+        _ = RefreshStepFilterMetadataAsync();
     }
 
     private void RemoveTriggerCondition(Guid conditionId)
@@ -1353,7 +1466,7 @@ else if (HasRailroad)
 
         var removed = activeWorkflow.TriggerConditions.RemoveAll(c => c.Id == conditionId);
         if (removed > 0)
-            MarkActiveWorkflowAsDraft();
+            _ = RefreshStepFilterMetadataAsync();
     }
 
     private void RemoveCondition(WorkflowStepDraft step, Guid conditionId)
@@ -1368,7 +1481,24 @@ else if (HasRailroad)
         if (activeWorkflow is null)
             return;
 
+        _ = condition;
+        _ = RefreshStepFilterMetadataAsync();
+    }
+
+    private void OnTriggerConditionValueChanged(WorkflowConditionDraft condition)
+    {
+        if (activeWorkflow is null)
+            return;
+
+        _ = condition;
+        _ = RefreshStepFilterMetadataAsync();
+    }
+
+    private async Task RefreshStepFilterMetadataAsync()
+    {
+        await LoadStepFilterMetadataAsync();
         MarkActiveWorkflowAsDraft();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OnConditionFieldChanged(WorkflowStepDraft step, WorkflowConditionDraft condition)
@@ -1376,6 +1506,8 @@ else if (HasRailroad)
         if (activeWorkflow is null)
             return;
 
+        _ = step;
+        _ = condition;
         MarkActiveWorkflowAsDraft();
     }
 
@@ -1391,6 +1523,18 @@ else if (HasRailroad)
     private bool HasMetadataFieldsForActiveWorkflow()
     {
         return activeWorkflow is not null && GetMetadataFieldsForActiveWorkflow().Any();
+    }
+
+    private IEnumerable<TriggerMetadataFieldDefinition> GetStepMetadataFieldsForActiveWorkflow()
+    {
+        return stepMetadataFieldsByCtrlNbr.Values
+            .Where(field => GetAllowedValuesForField(field).Count > 0)
+            .OrderBy(field => field.Label, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private bool HasStepMetadataFieldsForActiveWorkflow()
+    {
+        return GetStepMetadataFieldsForActiveWorkflow().Any();
     }
 
     private IEnumerable<string> GetCallableWorkflowNames(Guid callerWorkflowId)
@@ -1412,12 +1556,31 @@ else if (HasRailroad)
         return field?.AllowedOperators ?? [];
     }
 
+    private IEnumerable<WorkflowOperatorOption> GetOperatorsForStepCondition(WorkflowConditionDraft condition)
+    {
+        var field = GetStepMetadataFieldsForActiveWorkflow()
+            .FirstOrDefault(f => f.CtrlNbr == condition.FieldTypeCtrlNbr);
+
+        return field?.AllowedOperators ?? [];
+    }
+
     private IEnumerable<string> GetAllowedValuesForCondition(WorkflowConditionDraft condition)
     {
         if (activeWorkflow is null)
             return [];
 
         var field = GetMetadataFieldsForTrigger(activeWorkflow.TriggerTypeCtrlNbr)
+            .FirstOrDefault(f => f.CtrlNbr == condition.FieldTypeCtrlNbr);
+
+        if (field is null)
+            return [];
+
+        return GetAllowedValuesForField(field);
+    }
+
+    private IEnumerable<string> GetAllowedValuesForStepCondition(WorkflowConditionDraft condition)
+    {
+        var field = GetStepMetadataFieldsForActiveWorkflow()
             .FirstOrDefault(f => f.CtrlNbr == condition.FieldTypeCtrlNbr);
 
         if (field is null)
@@ -1530,7 +1693,10 @@ else if (HasRailroad)
 
         activeWorkflow = MapDetail(detail);
         if (activeWorkflow is not null)
+        {
+            await LoadStepFilterMetadataAsync();
             CollapseAllSteps(activeWorkflow);
+        }
 
         statusMessage = $"Loaded version v{versionNumber} as a draft. Save or publish to create a new version.";
         await LoadDataAsync();
@@ -1548,6 +1714,7 @@ else if (HasRailroad)
         if (mapped is not null)
         {
             activeWorkflow = mapped;
+            await LoadStepFilterMetadataAsync();
             workflows.RemoveAll(w => w.CtrlNbr == mapped.CtrlNbr);
             workflows.Add(new WorkflowTemplateDraft
             {
@@ -1644,6 +1811,15 @@ else if (HasRailroad)
                         Value = string.Equals(effect.EmailSource, "primary", StringComparison.OrdinalIgnoreCase) ? "true" : "false"
                     });
                 }
+                else if (IsEffectType(effect, createSeniorityMoveEffectTypeCtrlNbr) && !string.IsNullOrWhiteSpace(effect.EffectOption))
+                {
+                    effectPayload.Options.Add(new WorkflowEffectOptionPayload { Key = "boardType", Value = effect.EffectOption });
+                    effectPayload.Options.Add(new WorkflowEffectOptionPayload
+                    {
+                        Key = "autoMoveDelayHours",
+                        Value = Math.Max(0, effect.AutoMoveDelayHours).ToString()
+                    });
+                }
 
                 stepPayload.Effects.Add(effectPayload);
             }
@@ -1719,6 +1895,7 @@ else if (HasRailroad)
                 Order = effect.Order,
                 EffectTypeCtrlNbr = effect.EffectTypeCtrlNbr,
                 EffectOption = effect.EffectOption,
+                AutoMoveDelayHours = ResolveAutoMoveDelayHours(effect),
                 ExpirationDays = ResolveExpirationDays(effect),
                 EmailSource = ResolveEmailSource(effect),
                 IsEnabled = effect.IsEnabled
@@ -1762,6 +1939,18 @@ else if (HasRailroad)
         }
 
         return 7;
+    }
+
+    private static int ResolveAutoMoveDelayHours(WorkflowEffectPayload effect)
+    {
+        if (effect.Options.Any(o => o.Key == "autoMoveDelayHours"))
+        {
+            var delayHoursValue = effect.Options.FirstOrDefault(o => o.Key == "autoMoveDelayHours")?.Value;
+            if (int.TryParse(delayHoursValue, out var delayHours) && delayHours >= 0)
+                return delayHours;
+        }
+
+        return 0;
     }
 
     private static string ResolveEmailSource(WorkflowEffectPayload effect)

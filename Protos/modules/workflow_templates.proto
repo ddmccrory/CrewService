@@ -46,6 +46,10 @@ service WorkflowTemplatesSrvc {
   rpc GetReferenceCatalog(GetWorkflowReferenceCatalogRequest) returns (GetWorkflowReferenceCatalogResponse) {
 	option (google.api.http) = { get: "/v1/workflow-templates/reference-catalog" };
   }
+
+  rpc GetStepFilterMetadata(GetWorkflowStepFilterMetadataRequest) returns (GetWorkflowStepFilterMetadataResponse) {
+	option (google.api.http) = { post: "/v1/workflow-templates/step-filter-metadata" body: "*" };
+  }
 }
 
 message GetWorkflowTemplatesRequest {
@@ -242,9 +246,20 @@ message WorkflowMetadataFieldTypeReference {
   int64 ctrl_nbr = 1;
   string code = 2;
   string name = 3;
+  repeated string allowed_values = 4;
 }
 
 message WorkflowTriggerMetadataFieldMap {
   int64 trigger_type_ctrl_nbr = 1;
   int64 metadata_field_type_ctrl_nbr = 2;
+}
+
+message GetWorkflowStepFilterMetadataRequest {
+  int64 railroad_ctrl_nbr = 1;
+  int64 trigger_type_ctrl_nbr = 2;
+  repeated WorkflowConditionPayload trigger_conditions = 3;
+}
+
+message GetWorkflowStepFilterMetadataResponse {
+  repeated WorkflowMetadataFieldTypeReference metadata_field_types = 1;
 }

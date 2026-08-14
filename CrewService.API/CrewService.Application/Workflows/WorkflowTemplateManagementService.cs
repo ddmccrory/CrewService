@@ -3,6 +3,8 @@ using System.Text.Json.Nodes;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.Employees;
+using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
 using CrewService.Domain.Modules.Workflows;
@@ -53,6 +55,59 @@ public sealed class WorkflowTemplateManagementService(
         }
 
         return summaries;
+    }
+
+    public async Task<WorkflowStepFilterMetadataDto> GetStepFilterMetadataAsync(
+        ControlNumber railroadCtrlNbr,
+        ControlNumber triggerTypeCtrlNbr,
+        List<WorkflowConditionValueDto> triggerConditions,
+        CancellationToken ct = default)
+    {
+        _ = railroadCtrlNbr;
+
+        var triggerType = await workflowTriggerTypeRepository.GetByCtrlNbrAsync(triggerTypeCtrlNbr, ct)
+            ?? throw new InvalidOperationException($"Trigger type {triggerTypeCtrlNbr.Value} was not found.");
+
+        if (!string.Equals(triggerType.Code, WorkflowTriggerTypeCodes.NotificationAccepted, StringComparison.Ordinal))
+            return new WorkflowStepFilterMetadataDto([]);
+
+        var notificationTypeField = await workflowMetadataFieldTypeRepository.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NotificationType, ct);
+        if (notificationTypeField is null)
+            return new WorkflowStepFilterMetadataDto([]);
+
+        var isBoardPlacementSelected = triggerConditions.Any(c =>
+            c.FieldTypeCtrlNbr == notificationTypeField.CtrlNbr
+            && string.Equals(c.Value, NotificationCategories.BoardPlacement, StringComparison.OrdinalIgnoreCase));
+
+        if (!isBoardPlacementSelected)
+            return new WorkflowStepFilterMetadataDto([]);
+
+        var boardTypeField = await workflowMetadataFieldTypeRepository.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.BoardType, ct);
+        if (boardTypeField is null)
+            return new WorkflowStepFilterMetadataDto([]);
+
+        var boardTypeValues = Enum.GetNames<BoardType>()
+            .Select(NormalizeBoardTypeValue)
+            .ToList();
+
+        var boardTypeMetadata = new WorkflowMetadataFieldTypeWithValuesDto(
+            boardTypeField.CtrlNbr,
+            boardTypeField.Code,
+            boardTypeField.Name,
+            boardTypeValues);
+
+        return new WorkflowStepFilterMetadataDto([boardTypeMetadata]);
+
+        static string NormalizeBoardTypeValue(string value)
+        {
+            return value switch
+            {
+                nameof(BoardType.ExtendedAbsence) => "Extended Absence",
+                nameof(BoardType.ExtraBoard) => "Extra Board",
+                nameof(BoardType.NewHire) => "New Hires",
+                _ => value
+            };
+        }
     }
 
     public async Task<WorkflowTemplateDetail> GetDetailAsync(ControlNumber templateCtrlNbr, CancellationToken ct = default)
@@ -318,6 +373,12 @@ public sealed class WorkflowTemplateManagementService(
                 WorkflowMetadataFieldTypeCodes.CraftName,
                 WorkflowMetadataFieldTypeCodes.SeniorityStateName,
                 WorkflowMetadataFieldTypeCodes.NewSeniorityState
+            ]);
+
+        AddMapForTrigger(
+            WorkflowTriggerTypeCodes.NotificationAccepted,
+            [
+                WorkflowMetadataFieldTypeCodes.NotificationType
             ]);
 
         return new WorkflowReferenceCatalogDto(
@@ -683,9 +744,28 @@ public sealed class WorkflowTemplateManagementService(
 
         var sendInvitationEffectType = await workflowEffectTypeRepository.GetByCodeAsync(WorkflowEffectTypeCodes.SendInvitation, ct);
         var addToRosterBoardEffectType = await workflowEffectTypeRepository.GetByCodeAsync(WorkflowEffectTypeCodes.AddToRosterBoard, ct);
+        var createSeniorityMoveEffectType = await workflowEffectTypeRepository.GetByCodeAsync(WorkflowEffectTypeCodes.CreateSeniorityMove, ct);
         var callWorkflowEffectType = await workflowEffectTypeRepository.GetByCodeAsync("Call Workflow", ct);
+        var notificationAcceptedTriggerType = await workflowTriggerTypeRepository.GetByCodeAsync(WorkflowTriggerTypeCodes.NotificationAccepted, ct);
+        var notificationTypeMetadataFieldType = await workflowMetadataFieldTypeRepository.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NotificationType, ct);
+        var boardTypeMetadataFieldType = await workflowMetadataFieldTypeRepository.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.BoardType, ct);
+
+        var enforceBoardTypeDependency = notificationAcceptedTriggerType is not null
+            && notificationTypeMetadataFieldType is not null
+            && boardTypeMetadataFieldType is not null
+            && request.TriggerTypeCtrlNbr == notificationAcceptedTriggerType.CtrlNbr;
 
         ValidateConditions(request.TriggerConditions, "trigger");
+        var triggerHasBoardPlacementNotificationType = false;
+        if (enforceBoardTypeDependency)
+        {
+            triggerHasBoardPlacementNotificationType = ValidateBoardTypeRequiresBoardPlacementNotificationType(
+                request.TriggerConditions,
+                "trigger",
+                notificationTypeMetadataFieldType!.CtrlNbr,
+                boardTypeMetadataFieldType!.CtrlNbr,
+                allowByParentScope: false);
+        }
 
         foreach (var step in request.Steps)
         {
@@ -696,6 +776,15 @@ public sealed class WorkflowTemplateManagementService(
                 throw new InvalidOperationException("Each workflow step must include at least one effect before publish.");
 
             ValidateConditions(step.Conditions, $"step '{step.Name}'");
+            if (enforceBoardTypeDependency)
+            {
+                ValidateBoardTypeRequiresBoardPlacementNotificationType(
+                    step.Conditions,
+                    $"step '{step.Name}'",
+                    notificationTypeMetadataFieldType!.CtrlNbr,
+                    boardTypeMetadataFieldType!.CtrlNbr,
+                    allowByParentScope: triggerHasBoardPlacementNotificationType);
+            }
 
             foreach (var effect in step.Effects)
             {
@@ -707,6 +796,25 @@ public sealed class WorkflowTemplateManagementService(
                     && string.IsNullOrWhiteSpace(effect.EffectOption))
                 {
                     throw new InvalidOperationException("Add to Roster Board effect requires a board selection.");
+                }
+
+                if (createSeniorityMoveEffectType is not null
+                    && effect.EffectTypeCtrlNbr == createSeniorityMoveEffectType.CtrlNbr)
+                {
+                    var boardType = string.IsNullOrWhiteSpace(effect.EffectOption)
+                        ? effect.Options.FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.BoardType, StringComparison.OrdinalIgnoreCase))?.Value
+                        : effect.EffectOption;
+
+                    if (string.IsNullOrWhiteSpace(boardType))
+                        throw new InvalidOperationException("Create Seniority Move effect requires a board selection.");
+
+                    var autoMoveDelayHoursRaw = effect.Options.FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.AutoMoveDelayHours, StringComparison.OrdinalIgnoreCase))?.Value;
+                    if (string.IsNullOrWhiteSpace(autoMoveDelayHoursRaw)
+                        || !int.TryParse(autoMoveDelayHoursRaw, out var autoMoveDelayHours)
+                        || autoMoveDelayHours < 0)
+                    {
+                        throw new InvalidOperationException("Create Seniority Move effect requires autoMoveDelayHours greater than or equal to 0.");
+                    }
                 }
 
                 if (callWorkflowEffectType is not null
@@ -754,6 +862,27 @@ public sealed class WorkflowTemplateManagementService(
                 }
             }
         }
+
+        static bool ValidateBoardTypeRequiresBoardPlacementNotificationType(
+            List<WorkflowConditionUpsertRequest> conditions,
+            string scope,
+            ControlNumber notificationTypeFieldTypeCtrlNbr,
+            ControlNumber boardTypeFieldTypeCtrlNbr,
+            bool allowByParentScope)
+        {
+            var hasBoardTypeCondition = conditions.Any(c => c.FieldTypeCtrlNbr == boardTypeFieldTypeCtrlNbr);
+            var hasBoardPlacementNotificationTypeCondition = conditions.Any(c =>
+                c.FieldTypeCtrlNbr == notificationTypeFieldTypeCtrlNbr
+                && string.Equals(c.Value, NotificationCategories.BoardPlacement, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasBoardTypeCondition)
+                return hasBoardPlacementNotificationTypeCondition;
+
+            if (!hasBoardPlacementNotificationTypeCondition && !allowByParentScope)
+                throw new InvalidOperationException($"Board Type conditions in {scope} require Notification Type = {NotificationCategories.BoardPlacement} in the same scope or trigger scope.");
+
+            return hasBoardPlacementNotificationTypeCondition;
+        }
     }
 
     private async Task<WorkflowTemplateUpsertRequest> NormalizeUpsertRequestAsync(WorkflowTemplateUpsertRequest request, CancellationToken ct)
@@ -794,7 +923,9 @@ public sealed class WorkflowTemplateManagementService(
             return normalizedRequest;
 
         var sendInvitationEffectType = await workflowEffectTypeRepository.GetByCodeAsync(WorkflowEffectTypeCodes.SendInvitation, ct);
-        if (sendInvitationEffectType is null)
+        var createSeniorityMoveEffectType = await workflowEffectTypeRepository.GetByCodeAsync(WorkflowEffectTypeCodes.CreateSeniorityMove, ct);
+
+        if (sendInvitationEffectType is null && createSeniorityMoveEffectType is null)
             return normalizedRequest;
 
         normalizedSteps = new List<WorkflowStepUpsertRequest>(normalizedRequest.Steps.Count);
@@ -804,58 +935,101 @@ public sealed class WorkflowTemplateManagementService(
             var normalizedEffects = new List<WorkflowEffectUpsertRequest>(step.Effects.Count);
             foreach (var effect in step.Effects)
             {
-                if (effect.EffectTypeCtrlNbr != sendInvitationEffectType.CtrlNbr)
+                if (sendInvitationEffectType is not null
+                    && effect.EffectTypeCtrlNbr == sendInvitationEffectType.CtrlNbr)
                 {
-                    normalizedEffects.Add(effect);
+                    var roleCtrlNbrOption = effect.Options.FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.RoleCtrlNbr, StringComparison.OrdinalIgnoreCase));
+                    if (roleCtrlNbrOption is null || string.IsNullOrWhiteSpace(roleCtrlNbrOption.Value) || !long.TryParse(roleCtrlNbrOption.Value, out var roleCtrlNbrRaw) || roleCtrlNbrRaw <= 0)
+                        throw new InvalidOperationException("Send Invitation effect requires a valid roleCtrlNbr option.");
+
+                    var roleCtrlNbr = ControlNumber.Create(roleCtrlNbrRaw);
+                    var role = await roleRepository.GetByCtrlNbrAsync(roleCtrlNbr, ct)
+                        ?? throw new InvalidOperationException($"Role {roleCtrlNbrRaw} not found for Send Invitation effect.");
+
+                    var normalizedExpirationDays = effect.Options
+                        .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.ExpirationDays, StringComparison.OrdinalIgnoreCase))?.Value;
+                    var expirationDays = 7;
+                    if (!string.IsNullOrWhiteSpace(normalizedExpirationDays)
+                        && int.TryParse(normalizedExpirationDays, out var parsedExpirationDays)
+                        && parsedExpirationDays > 0)
+                    {
+                        expirationDays = Math.Min(parsedExpirationDays, 90);
+                    }
+
+                    var usePrimaryEmail = true;
+                    var usePrimaryEmailRaw = effect.Options
+                        .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.UsePrimaryEmail, StringComparison.OrdinalIgnoreCase))?.Value;
+                    if (!string.IsNullOrWhiteSpace(usePrimaryEmailRaw) && bool.TryParse(usePrimaryEmailRaw, out var parsedUsePrimaryEmail))
+                        usePrimaryEmail = parsedUsePrimaryEmail;
+
+                    var normalizedOptions = effect.Options
+                        .Where(o => !string.Equals(o.Key, WorkflowOptionKeys.RoleCtrlNbr, StringComparison.OrdinalIgnoreCase)
+                                    && !string.Equals(o.Key, WorkflowOptionKeys.ExpirationDays, StringComparison.OrdinalIgnoreCase)
+                                    && !string.Equals(o.Key, WorkflowOptionKeys.UsePrimaryEmail, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    AddOrReplaceOption(WorkflowOptionKeys.RoleCtrlNbr, role.CtrlNbr.Value.ToString());
+                    AddOrReplaceOption(WorkflowOptionKeys.ExpirationDays, expirationDays.ToString());
+                    AddOrReplaceOption(WorkflowOptionKeys.UsePrimaryEmail, usePrimaryEmail ? "true" : "false");
+
+                    var normalizedEffect = effect with
+                    {
+                        Options = normalizedOptions,
+                        EffectOption = role.CtrlNbr.Value.ToString()
+                    };
+
+                    normalizedEffects.Add(normalizedEffect);
                     continue;
+
+                    void AddOrReplaceOption(string key, string value)
+                    {
+                        normalizedOptions.RemoveAll(o => string.Equals(o.Key, key, StringComparison.OrdinalIgnoreCase));
+                        normalizedOptions.Add(new WorkflowEffectOptionDto(key, value));
+                    }
                 }
 
-                var roleCtrlNbrOption = effect.Options.FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.RoleCtrlNbr, StringComparison.OrdinalIgnoreCase));
-                if (roleCtrlNbrOption is null || string.IsNullOrWhiteSpace(roleCtrlNbrOption.Value) || !long.TryParse(roleCtrlNbrOption.Value, out var roleCtrlNbrRaw) || roleCtrlNbrRaw <= 0)
-                    throw new InvalidOperationException("Send Invitation effect requires a valid roleCtrlNbr option.");
-
-                var roleCtrlNbr = ControlNumber.Create(roleCtrlNbrRaw);
-                var role = await roleRepository.GetByCtrlNbrAsync(roleCtrlNbr, ct)
-                    ?? throw new InvalidOperationException($"Role {roleCtrlNbrRaw} not found for Send Invitation effect.");
-
-                var normalizedExpirationDays = effect.Options
-                    .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.ExpirationDays, StringComparison.OrdinalIgnoreCase))?.Value;
-                var expirationDays = 7;
-                if (!string.IsNullOrWhiteSpace(normalizedExpirationDays)
-                    && int.TryParse(normalizedExpirationDays, out var parsedExpirationDays)
-                    && parsedExpirationDays > 0)
+                if (createSeniorityMoveEffectType is not null
+                    && effect.EffectTypeCtrlNbr == createSeniorityMoveEffectType.CtrlNbr)
                 {
-                    expirationDays = Math.Min(parsedExpirationDays, 90);
+                    var boardType = string.IsNullOrWhiteSpace(effect.EffectOption)
+                        ? effect.Options.FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.BoardType, StringComparison.OrdinalIgnoreCase))?.Value
+                        : effect.EffectOption;
+                    if (string.IsNullOrWhiteSpace(boardType))
+                        throw new InvalidOperationException("Create Seniority Move effect requires a valid boardType option.");
+
+                    var autoMoveDelayHoursRaw = effect.Options
+                        .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.AutoMoveDelayHours, StringComparison.OrdinalIgnoreCase))?.Value;
+                    var autoMoveDelayHours = 0;
+                    if (!string.IsNullOrWhiteSpace(autoMoveDelayHoursRaw)
+                        && int.TryParse(autoMoveDelayHoursRaw, out var parsedDelayHours)
+                        && parsedDelayHours >= 0)
+                    {
+                        autoMoveDelayHours = parsedDelayHours;
+                    }
+
+                    var normalizedCreateMoveOptions = effect.Options
+                        .Where(o => !string.Equals(o.Key, WorkflowOptionKeys.BoardType, StringComparison.OrdinalIgnoreCase)
+                                    && !string.Equals(o.Key, WorkflowOptionKeys.AutoMoveDelayHours, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    AddOrReplaceCreateMoveOption(WorkflowOptionKeys.BoardType, boardType.Trim());
+                    AddOrReplaceCreateMoveOption(WorkflowOptionKeys.AutoMoveDelayHours, autoMoveDelayHours.ToString());
+
+                    normalizedEffects.Add(effect with
+                    {
+                        Options = normalizedCreateMoveOptions,
+                        EffectOption = boardType.Trim()
+                    });
+
+                    continue;
+
+                    void AddOrReplaceCreateMoveOption(string key, string value)
+                    {
+                        normalizedCreateMoveOptions.RemoveAll(o => string.Equals(o.Key, key, StringComparison.OrdinalIgnoreCase));
+                        normalizedCreateMoveOptions.Add(new WorkflowEffectOptionDto(key, value));
+                    }
                 }
 
-                var usePrimaryEmail = true;
-                var usePrimaryEmailRaw = effect.Options
-                    .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.UsePrimaryEmail, StringComparison.OrdinalIgnoreCase))?.Value;
-                if (!string.IsNullOrWhiteSpace(usePrimaryEmailRaw) && bool.TryParse(usePrimaryEmailRaw, out var parsedUsePrimaryEmail))
-                    usePrimaryEmail = parsedUsePrimaryEmail;
-
-                var normalizedOptions = effect.Options
-                    .Where(o => !string.Equals(o.Key, WorkflowOptionKeys.RoleCtrlNbr, StringComparison.OrdinalIgnoreCase)
-                                && !string.Equals(o.Key, WorkflowOptionKeys.ExpirationDays, StringComparison.OrdinalIgnoreCase)
-                                && !string.Equals(o.Key, WorkflowOptionKeys.UsePrimaryEmail, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                AddOrReplaceOption(WorkflowOptionKeys.RoleCtrlNbr, role.CtrlNbr.Value.ToString());
-                AddOrReplaceOption(WorkflowOptionKeys.ExpirationDays, expirationDays.ToString());
-                AddOrReplaceOption(WorkflowOptionKeys.UsePrimaryEmail, usePrimaryEmail ? "true" : "false");
-
-                var normalizedEffect = effect with
-                {
-                    Options = normalizedOptions,
-                    EffectOption = role.CtrlNbr.Value.ToString()
-                };
-
-                normalizedEffects.Add(normalizedEffect);
-
-                void AddOrReplaceOption(string key, string value)
-                {
-                    normalizedOptions.RemoveAll(o => string.Equals(o.Key, key, StringComparison.OrdinalIgnoreCase));
-                    normalizedOptions.Add(new WorkflowEffectOptionDto(key, value));
-                }
+                normalizedEffects.Add(effect);
             }
 
             normalizedSteps.Add(step with { Effects = normalizedEffects });
@@ -941,6 +1115,10 @@ public sealed record WorkflowConditionDto(
     ControlNumber OperatorTypeCtrlNbr,
     string Value);
 
+public sealed record WorkflowConditionValueDto(
+    ControlNumber FieldTypeCtrlNbr,
+    string Value);
+
 public sealed record WorkflowEffectDto(
     ControlNumber CtrlNbr,
     int Order,
@@ -959,6 +1137,15 @@ public sealed record WorkflowReferenceItemDto(
 public sealed record WorkflowTriggerMetadataFieldMapDto(
     ControlNumber TriggerTypeCtrlNbr,
     ControlNumber MetadataFieldTypeCtrlNbr);
+
+public sealed record WorkflowMetadataFieldTypeWithValuesDto(
+    ControlNumber CtrlNbr,
+    string Code,
+    string Name,
+    List<string> AllowedValues);
+
+public sealed record WorkflowStepFilterMetadataDto(
+    List<WorkflowMetadataFieldTypeWithValuesDto> MetadataFieldTypes);
 
 public sealed record WorkflowReferenceCatalogDto(
     List<WorkflowReferenceItemDto> TriggerTypes,

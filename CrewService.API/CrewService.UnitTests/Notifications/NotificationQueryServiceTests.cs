@@ -91,7 +91,7 @@ public class NotificationQueryServiceTests
     }
 
     [Fact]
-    public async Task Acknowledge_BoardPlacementWithRosterBoardSubject_SchedulesHangoutAutoMove()
+    public async Task Acknowledge_BoardPlacementWithRosterBoardSubject_DoesNotScheduleDirectMove()
     {
         var employee = MakeEmployee(UserGuid.ToString());
         var (service, uow) = Build(employee, UserGuid);
@@ -118,18 +118,13 @@ public class NotificationQueryServiceTests
 
         await service.AcknowledgeAsync(notification.CtrlNbr, TestContext.Current.CancellationToken);
 
-        var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
-        Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
-        Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
-        var targetBoard = Assert.Single(uow.RosterBoardRepo.SeededBoards, b => b.BoardType == BoardType.ExtraBoard);
-        Assert.DoesNotContain(targetBoard.Positions, p => p.EmployeeCtrlNbr == employee.CtrlNbr);
-        Assert.Empty(uow.StaffablePositionRepo.AddedEntities);
+        Assert.Empty(uow.SeniorityMoveRepo.AddedEntities);
         Assert.False(projection.IsOpen);
         Assert.Equal(PositionChangeClosedReasons.Acknowledged, projection.ClosedReason);
     }
 
     [Fact]
-    public async Task RecordManualAcknowledgement_BoardPlacementWithRosterBoardSubject_SchedulesHangoutAutoMove()
+    public async Task RecordManualAcknowledgement_BoardPlacementWithRosterBoardSubject_DoesNotScheduleDirectMove()
     {
         var employee = MakeEmployee(UserGuid.ToString());
         var (service, uow) = Build(employee, UserGuid);
@@ -152,16 +147,11 @@ public class NotificationQueryServiceTests
             notes: "Reached employee",
             TestContext.Current.CancellationToken);
 
-        var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
-        Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
-        Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
-        var targetBoard = Assert.Single(uow.RosterBoardRepo.SeededBoards, b => b.BoardType == BoardType.ExtraBoard);
-        Assert.DoesNotContain(targetBoard.Positions, p => p.EmployeeCtrlNbr == employee.CtrlNbr);
-        Assert.Empty(uow.StaffablePositionRepo.AddedEntities);
+        Assert.Empty(uow.SeniorityMoveRepo.AddedEntities);
     }
 
     [Fact]
-    public async Task RecordManualAcknowledgement_WhenAlreadyOnTargetBoard_DoesNotScheduleDuplicateHangoutMove()
+    public async Task RecordManualAcknowledgement_WhenAlreadyOnTargetBoard_DoesNotScheduleDirectMove()
     {
         var employee = MakeEmployee(UserGuid.ToString());
         var (service, uow) = Build(employee, UserGuid);
@@ -202,7 +192,7 @@ public class NotificationQueryServiceTests
     }
 
     [Fact]
-    public async Task RecordManualAcknowledgement_NewBoardPlacement_ReplacesExistingActiveHangoutMove()
+    public async Task RecordManualAcknowledgement_NewBoardPlacement_DoesNotMutateExistingMoveDirectly()
     {
         var employee = MakeEmployee(UserGuid.ToString());
         var (service, uow) = Build(employee, UserGuid);
@@ -238,16 +228,13 @@ public class NotificationQueryServiceTests
             notes: "Reached employee",
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(SeniorityMoveStatus.Cancelled, existingMove.Status);
-        Assert.Equal("Superseded by a newer acknowledged hangout placement.", existingMove.CancellationReason);
-
-        var replacementMove = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
-        Assert.Equal(SeniorityMoveType.Hangout, replacementMove.MoveType);
-        Assert.Equal(targetBoard.CtrlNbr, replacementMove.TargetPositionCtrlNbr);
+        Assert.Equal(SeniorityMoveStatus.Pending, existingMove.Status);
+        Assert.Null(existingMove.CancellationReason);
+        Assert.Empty(uow.SeniorityMoveRepo.AddedEntities);
     }
 
     [Fact]
-    public async Task RecordManualAcknowledgement_ConfirmedOnAlreadyAcknowledgedBoardPlacement_StillSchedulesHangoutAutoMove()
+    public async Task RecordManualAcknowledgement_ConfirmedOnAlreadyAcknowledgedBoardPlacement_DoesNotScheduleDirectMove()
     {
         var employee = MakeEmployee(UserGuid.ToString());
         var (service, uow) = Build(employee, UserGuid);
@@ -271,9 +258,7 @@ public class NotificationQueryServiceTests
             notes: "Reached employee",
             TestContext.Current.CancellationToken);
 
-        var move = Assert.Single(uow.SeniorityMoveRepo.AddedEntities);
-        Assert.Equal(employee.CtrlNbr, move.EmployeeCtrlNbr);
-        Assert.Equal(SeniorityMoveType.Hangout, move.MoveType);
+        Assert.Empty(uow.SeniorityMoveRepo.AddedEntities);
     }
 
     [Fact]
@@ -355,11 +340,6 @@ public class NotificationQueryServiceTests
 
         uow.RosterBoardRepo.SeededBoards.Add(sourceBoard);
         uow.RosterBoardRepo.SeededBoards.Add(targetBoard);
-        uow.CraftOperationsPolicyRepo.SeededPolicy = CraftOperationsPolicy.Create(
-            CraftCtrlNbr,
-            hangoutAutoMoveEnabled: true,
-            hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
-            hangoutAutoMoveDelayHours: 48);
         uow.PositionAssignmentRepo.Seeded.Add(PositionAssignment.Create(
             sourceStaffablePosition.CtrlNbr,
             employee.CtrlNbr,

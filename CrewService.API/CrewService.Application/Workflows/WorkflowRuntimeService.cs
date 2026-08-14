@@ -284,6 +284,133 @@ public sealed class WorkflowRuntimeService(
         return true;
     }
 
+    public async Task<bool> ExecuteNotificationAcceptedAsync(
+        ControlNumber railroadCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        string notificationType,
+        string? notificationBoardType,
+        string? correlationId = null,
+        CancellationToken ct = default)
+    {
+        IReadOnlyList<WorkflowEffectPostCommitWorkItem> postCommitWorkItems;
+
+        {
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+            var referenceData = await LoadReferenceDataAsync(uow, ct);
+            if (!referenceData.TriggerTypeCtrlNbrByCode.TryGetValue(
+                    WorkflowTriggerTypeCodes.NotificationAccepted,
+                    out var triggerTypeCtrlNbr))
+            {
+                throw new InvalidOperationException(
+                    $"Workflow trigger type '{WorkflowTriggerTypeCodes.NotificationAccepted}' was not found.");
+            }
+
+            var publishedVersion = await uow.WorkflowVersions.GetLatestPublishedByRailroadAndTriggerAsync(
+                railroadCtrlNbr,
+                triggerTypeCtrlNbr,
+                ct);
+
+            if (publishedVersion is null)
+            {
+                logger.LogInformation(
+                    "WorkflowRuntimeService: No published workflow found for trigger '{TriggerType}' and railroad {Railroad}; skipping.",
+                    WorkflowTriggerTypeCodes.NotificationAccepted,
+                    railroadCtrlNbr.Value);
+                return false;
+            }
+
+            var definition = DeserializeDefinition(publishedVersion.DefinitionJson);
+            var metadata = new WorkflowMetadataContext();
+            metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.NotificationType] = notificationType;
+            if (!string.IsNullOrWhiteSpace(notificationBoardType))
+                metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.BoardType] = notificationBoardType;
+
+            if (!ShouldExecuteConditions(definition.TriggerConditionGroupOperator, definition.TriggerConditions, metadata, referenceData))
+            {
+                var skippedHistory = WorkflowExecutionHistory.Start(
+                    publishedVersion.WorkflowTemplateCtrlNbr,
+                    publishedVersion.CtrlNbr,
+                    publishedVersion.VersionNumber,
+                    railroadCtrlNbr,
+                    triggerTypeCtrlNbr,
+                    employeeCtrlNbr,
+                    correlationId);
+
+                skippedHistory.Complete(
+                    WorkflowExecutionStatus.Skipped,
+                    JsonSerializer.Serialize(new
+                    {
+                        Reason = "Trigger conditions did not match.",
+                        TriggerConditionGroupOperator = definition.TriggerConditionGroupOperator,
+                        TriggerConditions = definition.TriggerConditions
+                    }, JsonOptions));
+
+                uow.WorkflowExecutionHistories.Add(skippedHistory);
+                await uow.CommitAsync(ct);
+                return true;
+            }
+
+            var executionHistory = WorkflowExecutionHistory.Start(
+                publishedVersion.WorkflowTemplateCtrlNbr,
+                publishedVersion.CtrlNbr,
+                publishedVersion.VersionNumber,
+                railroadCtrlNbr,
+                triggerTypeCtrlNbr,
+                employeeCtrlNbr,
+                correlationId);
+
+            uow.WorkflowExecutionHistories.Add(executionHistory);
+            var triggerReferenceData = BuildTriggerReferenceData(referenceData);
+            var runtimeContext = BuildNotificationAcceptedRuntimeContext(railroadCtrlNbr, employeeCtrlNbr);
+
+            try
+            {
+                var triggerResult = await workflowTriggerExecutionTemplate.ExecuteAsync(
+                    new WorkflowTriggerExecutionContext(
+                        uow,
+                        definition,
+                        publishedVersion,
+                        triggerTypeCtrlNbr,
+                        railroadCtrlNbr,
+                        employeeCtrlNbr,
+                        triggerReferenceData,
+                        new WorkflowRuntimeTriggerMetadata(metadata.ValuesByFieldCode),
+                        runtimeContext,
+                        correlationId,
+                        ct));
+
+                executionHistory.Complete(
+                    triggerResult.Status,
+                    JsonSerializer.Serialize(new { Steps = triggerResult.StepOutcomes }, JsonOptions));
+
+                postCommitWorkItems = triggerResult.PostCommitWorkItems;
+                await uow.CommitAsync(ct);
+            }
+            catch (WorkflowTriggerExecutionException ex)
+            {
+                executionHistory.Complete(
+                    WorkflowExecutionStatus.Failed,
+                    JsonSerializer.Serialize(new { Steps = ex.StepOutcomes }, JsonOptions));
+
+                await uow.CommitAsync(ct);
+                throw ex.InnerException ?? ex;
+            }
+            catch
+            {
+                executionHistory.Complete(
+                    WorkflowExecutionStatus.Failed,
+                    JsonSerializer.Serialize(new { Steps = Array.Empty<WorkflowExecutionStepOutcomeRecord>() }, JsonOptions));
+
+                await uow.CommitAsync(ct);
+                throw;
+            }
+        }
+
+        await workflowPostCommitDispatcher.DispatchAsync(postCommitWorkItems, ct);
+        return true;
+    }
+
     public async Task<bool> ExecuteVacancyPlaceOnDutyRequestedAsync(
         ControlNumber railroadCtrlNbr,
         WorkflowPlaceOnDutyRuntimePayload payload,
@@ -533,6 +660,23 @@ public sealed class WorkflowRuntimeService(
             PlaceOnDutyPayload: payload);
     }
 
+    private static WorkflowEffectRuntimeContext BuildNotificationAcceptedRuntimeContext(
+        ControlNumber railroadCtrlNbr,
+        ControlNumber employeeCtrlNbr)
+    {
+        return new WorkflowEffectRuntimeContext(
+            PrimaryEmail: null,
+            ClientCtrlNbr: 0,
+            TriggerEmail: string.Empty,
+            InvitedByUserId: string.Empty,
+            InvitedByUserName: string.Empty,
+            TriggerRailroadCtrlNbr: railroadCtrlNbr,
+            EmployeeCtrlNbr: employeeCtrlNbr,
+            RosterCtrlNbr: null,
+            SeniorityStateCtrlNbr: null,
+            PlaceOnDutyPayload: null);
+    }
+
     private static async Task<WorkflowMetadataContext> BuildEmployeeMetadataAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
@@ -678,6 +822,7 @@ public static class TriggerTypes
     public const string EmployeeCreated = "Employee Created";
     public const string SeniorityStatusChanged = "Seniority Status Changed";
     public const string VacancyPlaceOnDutyRequested = "Vacancy Place On Duty Requested";
+    public const string NotificationAccepted = "Notification Accepted";
 }
 
 public static class WorkflowEffectTypes
@@ -687,6 +832,7 @@ public static class WorkflowEffectTypes
     public const string AddToRosterBoard = "Add to Roster Board";
     public const string VacatePositionAndBulletinPosition = "Vacate Position & Bulletin Position";
     public const string PlaceOnDuty = "Place On Duty";
+    public const string CreateSeniorityMove = "Create Seniority Move";
 }
 
 public static class WorkflowFailurePolicies
@@ -701,6 +847,8 @@ public static class WorkflowOptionKeys
     public const string ExpirationDays = "expirationDays";
     public const string RailroadCtrlNbr = "railroadCtrlNbr";
     public const string UsePrimaryEmail = "usePrimaryEmail";
+    public const string BoardType = "boardType";
+    public const string AutoMoveDelayHours = "autoMoveDelayHours";
 }
 
 public static class WorkflowMetadataKeys
@@ -712,6 +860,8 @@ public static class WorkflowMetadataKeys
     public const string CraftName = "craftName";
     public const string SeniorityStateCtrlNbr = "seniorityStateCtrlNbr";
     public const string SeniorityStateName = "seniorityStateName";
+    public const string NotificationType = "notificationType";
+    public const string BoardType = "boardType";
 }
 
 public static class WorkflowOperators
@@ -725,6 +875,7 @@ public static class WorkflowTriggerTypeCodes
     public const string EmployeeCreated = TriggerTypes.EmployeeCreated;
     public const string SeniorityStatusChanged = TriggerTypes.SeniorityStatusChanged;
     public const string VacancyPlaceOnDutyRequested = TriggerTypes.VacancyPlaceOnDutyRequested;
+    public const string NotificationAccepted = TriggerTypes.NotificationAccepted;
 }
 
 public static class WorkflowEffectTypeCodes
@@ -734,6 +885,7 @@ public static class WorkflowEffectTypeCodes
     public const string AddToRosterBoard = WorkflowEffectTypes.AddToRosterBoard;
     public const string VacatePositionAndBulletinPosition = WorkflowEffectTypes.VacatePositionAndBulletinPosition;
     public const string PlaceOnDuty = WorkflowEffectTypes.PlaceOnDuty;
+    public const string CreateSeniorityMove = WorkflowEffectTypes.CreateSeniorityMove;
 }
 
 public static class WorkflowOperatorTypeCodes
@@ -751,4 +903,6 @@ public static class WorkflowMetadataFieldTypeCodes
     public const string CraftName = WorkflowMetadataKeys.CraftName;
     public const string SeniorityStateCtrlNbr = WorkflowMetadataKeys.SeniorityStateCtrlNbr;
     public const string SeniorityStateName = WorkflowMetadataKeys.SeniorityStateName;
+    public const string NotificationType = WorkflowMetadataKeys.NotificationType;
+    public const string BoardType = WorkflowMetadataKeys.BoardType;
 }
