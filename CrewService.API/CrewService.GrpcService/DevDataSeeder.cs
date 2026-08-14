@@ -1762,18 +1762,11 @@ internal static class DevDataSeeder
                 var existingCraftOpsPolicy = await craftOpsPolicyRepo.GetByCraftAsync(craft.CtrlNbr);
                 if (existingCraftOpsPolicy is null)
                 {
-                    await craftOpsPolicyRepo.AddAsync(CraftOperationsPolicy.Create(
-                        craft.CtrlNbr,
-                        hangoutAutoMoveEnabled: true,
-                        hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
-                        hangoutAutoMoveDelayHours: 48));
+                    await craftOpsPolicyRepo.AddAsync(CraftOperationsPolicy.Create(craft.CtrlNbr));
                 }
                 else
                 {
-                    existingCraftOpsPolicy.Update(
-                        hangoutAutoMoveEnabled: true,
-                        hangoutAutoMoveTargetBoardType: BoardType.ExtraBoard.ToString(),
-                        hangoutAutoMoveDelayHours: 48);
+                    existingCraftOpsPolicy.Update();
                     await craftOpsPolicyRepo.UpdateAsync(existingCraftOpsPolicy);
                 }
 

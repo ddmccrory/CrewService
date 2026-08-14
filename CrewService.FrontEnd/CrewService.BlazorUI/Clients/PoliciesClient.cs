@@ -101,38 +101,6 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    // ── Craft Operations Policy ───────────────────────────────────────
-
-    public async Task<CraftOperationsPolicyResponse?> GetCraftOperationsPolicyAsync(long craftCtrlNbr)
-    {
-        try
-        {
-            var response = await _client.GetCraftOperationsPolicyAsync(new GetCraftOperationsPolicyRequest { CraftCtrlNbr = craftCtrlNbr });
-            return response.CtrlNbr > 0 ? response : null;
-        }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
-        catch (Exception ex) { LogException(ex); throw; }
-    }
-
-    public async Task<CraftOperationsPolicyResponse> UpsertCraftOperationsPolicyAsync(
-        long craftCtrlNbr,
-        bool hangoutAutoMoveEnabled,
-        string hangoutAutoMoveTargetBoardType,
-        int hangoutAutoMoveDelayHours)
-    {
-        try
-        {
-            return await _client.UpsertCraftOperationsPolicyAsync(new UpsertCraftOperationsPolicyRequest
-            {
-                CraftCtrlNbr = craftCtrlNbr,
-                HangoutAutoMoveEnabled = hangoutAutoMoveEnabled,
-                HangoutAutoMoveTargetBoardType = hangoutAutoMoveTargetBoardType,
-                HangoutAutoMoveDelayHours = hangoutAutoMoveDelayHours
-            });
-        }
-        catch (Exception ex) { LogException(ex); throw; }
-    }
-
     // ── Call Sheet Rules ────────────────────────────────────────────────
 
     public async Task<CallSheetRuleResponse?> GetCallSheetRuleAsync(long departmentCtrlNbr)
