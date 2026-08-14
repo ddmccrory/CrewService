@@ -28,15 +28,9 @@ public sealed class SeniorityWorkflowAssignmentPath(
 
             if (staffablePosition.PositionType == StaffablePositionType.Crew)
             {
-                if (assignment.AssignmentSourceCtrlNbr is null)
-                {
-                    throw new InvalidOperationException(
-                        $"Crew assignment source is missing for employee {employeeCtrlNbr.Value} on staffable position {assignment.StaffablePositionCtrlNbr.Value}.");
-                }
-
-                var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(assignment.AssignmentSourceCtrlNbr, ct)
+                var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(assignment.StaffablePositionCtrlNbr)
                     ?? throw new InvalidOperationException(
-                        $"Crew position {assignment.AssignmentSourceCtrlNbr.Value} was not found for employee {employeeCtrlNbr.Value} assignment.");
+                        $"Crew position for staffable position {assignment.StaffablePositionCtrlNbr.Value} was not found for employee {employeeCtrlNbr.Value} assignment.");
 
                 var incumbency = await uow.CrewIncumbencies.GetActiveByPositionAsync(crewPosition.CtrlNbr, DateTime.UtcNow);
                 if (incumbency is null)
