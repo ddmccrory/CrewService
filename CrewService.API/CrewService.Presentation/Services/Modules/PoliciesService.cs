@@ -130,53 +130,6 @@ public class PoliciesService(IServiceProvider serviceProvider) : PoliciesSrvc.Po
         catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
     }
 
-    public override async Task<CraftOperationsPolicyResponse> GetCraftOperationsPolicy(
-        GetCraftOperationsPolicyRequest request, ServerCallContext context)
-    {
-        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
-        try
-        {
-            var policy = await svc.GetCraftOperationsPolicyAsync(ControlNumber.Create(request.CraftCtrlNbr), context.CancellationToken);
-            return MapCraftOperationsPolicy(policy);
-        }
-        catch (KeyNotFoundException)
-        {
-            // Missing policy is a valid configuration state for a craft.
-            // Return an empty response (CtrlNbr == 0) so callers can treat it as "not configured"
-            // without relying on exception flow.
-            return new CraftOperationsPolicyResponse
-            {
-                CraftCtrlNbr = request.CraftCtrlNbr
-            };
-        }
-    }
-
-    public override async Task<CraftOperationsPolicyResponse> UpsertCraftOperationsPolicy(
-        UpsertCraftOperationsPolicyRequest request, ServerCallContext context)
-    {
-        var svc = serviceProvider.GetRequiredService<Application.Policies.PoliciesService>();
-        try
-        {
-            var policy = await svc.GetOrUpsertCraftOperationsPolicyAsync(
-                request.CraftCtrlNbr,
-                request.HangoutAutoMoveEnabled,
-                request.HangoutAutoMoveTargetBoardType,
-                request.HangoutAutoMoveDelayHours,
-                context.CancellationToken);
-            return MapCraftOperationsPolicy(policy);
-        }
-        catch (InvalidOperationException ex) { throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message)); }
-    }
-
-    private static CraftOperationsPolicyResponse MapCraftOperationsPolicy(CraftOperationsPolicy p) => new()
-    {
-        CtrlNbr = p.CtrlNbr.Value,
-        CraftCtrlNbr = p.CraftCtrlNbr.Value,
-        HangoutAutoMoveEnabled = p.HangoutAutoMoveEnabled,
-        HangoutAutoMoveTargetBoardType = p.HangoutAutoMoveTargetBoardType,
-        HangoutAutoMoveDelayHours = p.HangoutAutoMoveDelayHours
-    };
-
     private static AbsenceApprovalPolicyResponse MapAbsenceApprovalPolicy(AbsenceApprovalPolicy p) => new()
     {
         CtrlNbr = p.CtrlNbr.Value,

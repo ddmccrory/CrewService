@@ -189,4 +189,27 @@ public sealed class WorkflowTemplatesClient(
             throw;
         }
     }
+
+    public async Task<GetWorkflowStepFilterMetadataResponse> GetStepFilterMetadataAsync(
+        long railroadCtrlNbr,
+        long triggerTypeCtrlNbr,
+        IEnumerable<WorkflowConditionPayload> triggerConditions)
+    {
+        try
+        {
+            var request = new GetWorkflowStepFilterMetadataRequest
+            {
+                RailroadCtrlNbr = railroadCtrlNbr,
+                TriggerTypeCtrlNbr = triggerTypeCtrlNbr
+            };
+
+            request.TriggerConditions.AddRange(triggerConditions);
+            return await _client.GetStepFilterMetadataAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
 }

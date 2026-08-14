@@ -22,12 +22,6 @@ service PoliciesSrvc {
   rpc UpsertCraftAbsenceWaitListPolicy(UpsertCraftAbsenceWaitListPolicyRequest) returns (CraftAbsenceWaitListPolicyResponse) {
     option (google.api.http) = { put: "/v1/policies/absence-waitlist/{craft_ctrl_nbr}" body: "*" };
   }
-  rpc GetCraftOperationsPolicy(GetCraftOperationsPolicyRequest) returns (CraftOperationsPolicyResponse) {
-    option (google.api.http) = { get: "/v1/policies/craft-operations/{craft_ctrl_nbr}" };
-  }
-  rpc UpsertCraftOperationsPolicy(UpsertCraftOperationsPolicyRequest) returns (CraftOperationsPolicyResponse) {
-    option (google.api.http) = { put: "/v1/policies/craft-operations/{craft_ctrl_nbr}" body: "*" };
-  }
   rpc GetDisplacementPolicy(GetDisplacementPolicyRequest) returns (DisplacementPolicyResponse) {
     option (google.api.http) = { get: "/v1/policies/displacement/{craft_ctrl_nbr}" };
   }
@@ -170,25 +164,6 @@ message CraftAbsenceWaitListPolicyResponse {
   int32 compensable_day_max_assignments = 3;
   int32 vacation_week_max_assignments = 4;
   bool is_enabled = 5;
-}
-
-message GetCraftOperationsPolicyRequest {
-  int64 craft_ctrl_nbr = 1;
-}
-
-message UpsertCraftOperationsPolicyRequest {
-  int64 craft_ctrl_nbr = 1;
-  bool hangout_auto_move_enabled = 2;
-  string hangout_auto_move_target_board_type = 3;
-  int32 hangout_auto_move_delay_hours = 4;
-}
-
-message CraftOperationsPolicyResponse {
-  int64 ctrl_nbr = 1;
-  int64 craft_ctrl_nbr = 2;
-  bool hangout_auto_move_enabled = 3;
-  string hangout_auto_move_target_board_type = 4;
-  int32 hangout_auto_move_delay_hours = 5;
 }
 
 message GetDisplacementPolicyRequest { int64 craft_ctrl_nbr = 1; }

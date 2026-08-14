@@ -225,12 +225,14 @@ internal static class BaselineSeeder
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated);
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged);
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested, TriggerTypes.VacancyPlaceOnDutyRequested);
+        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.NotificationAccepted, TriggerTypes.NotificationAccepted);
 
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.AddToRosterBoard, WorkflowEffectTypes.AddToRosterBoard);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.PlaceOnDuty, WorkflowEffectTypes.PlaceOnDuty);
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.CreateSeniorityMove, WorkflowEffectTypes.CreateSeniorityMove);
 
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.EqualsOperator, "Equals");
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.NotEquals, "Does Not Equal");
@@ -242,6 +244,8 @@ internal static class BaselineSeeder
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority Status CtrlNbr");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.NotificationType, "Notification Type");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.BoardType, "Board Type");
 
         async Task EnsureTriggerTypeAsync(string code, string name)
         {

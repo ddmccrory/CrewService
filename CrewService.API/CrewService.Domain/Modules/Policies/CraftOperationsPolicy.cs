@@ -12,9 +12,6 @@ public sealed class CraftOperationsPolicy : Entity
     public decimal ConsecutiveDayResetHours { get; private set; }
     public bool DeleteConflictingNextShift { get; private set; }
     public bool AutoAnnulCreatesOffDuty { get; private set; }
-    public bool HangoutAutoMoveEnabled { get; private set; }
-    public string HangoutAutoMoveTargetBoardType { get; private set; } = "ExtraBoard";
-    public int HangoutAutoMoveDelayHours { get; private set; }
 
     private CraftOperationsPolicy()
     {
@@ -28,10 +25,7 @@ public sealed class CraftOperationsPolicy : Entity
         decimal? fixedRestHours = null,
         decimal consecutiveDayResetHours = 24m,
         bool deleteConflictingNextShift = false,
-        bool autoAnnulCreatesOffDuty = false,
-        bool hangoutAutoMoveEnabled = false,
-        string hangoutAutoMoveTargetBoardType = "ExtraBoard",
-        int hangoutAutoMoveDelayHours = 48)
+        bool autoAnnulCreatesOffDuty = false)
     {
         return new CraftOperationsPolicy
         {
@@ -41,10 +35,7 @@ public sealed class CraftOperationsPolicy : Entity
             FixedRestHours = fixedRestHours,
             ConsecutiveDayResetHours = consecutiveDayResetHours,
             DeleteConflictingNextShift = deleteConflictingNextShift,
-            AutoAnnulCreatesOffDuty = autoAnnulCreatesOffDuty,
-            HangoutAutoMoveEnabled = hangoutAutoMoveEnabled,
-            HangoutAutoMoveTargetBoardType = hangoutAutoMoveTargetBoardType,
-            HangoutAutoMoveDelayHours = hangoutAutoMoveDelayHours
+            AutoAnnulCreatesOffDuty = autoAnnulCreatesOffDuty
         };
     }
 
@@ -54,10 +45,7 @@ public sealed class CraftOperationsPolicy : Entity
         decimal? fixedRestHours = null,
         decimal? consecutiveDayResetHours = null,
         bool? deleteConflictingNextShift = null,
-        bool? autoAnnulCreatesOffDuty = null,
-        bool? hangoutAutoMoveEnabled = null,
-        string? hangoutAutoMoveTargetBoardType = null,
-        int? hangoutAutoMoveDelayHours = null)
+        bool? autoAnnulCreatesOffDuty = null)
     {
         if (lateCallThresholdMinutes.HasValue) LateCallThresholdMinutes = lateCallThresholdMinutes.Value;
         if (restCalculationStrategy is not null) RestCalculationStrategy = restCalculationStrategy;
@@ -65,8 +53,5 @@ public sealed class CraftOperationsPolicy : Entity
         if (consecutiveDayResetHours.HasValue) ConsecutiveDayResetHours = consecutiveDayResetHours.Value;
         if (deleteConflictingNextShift.HasValue) DeleteConflictingNextShift = deleteConflictingNextShift.Value;
         if (autoAnnulCreatesOffDuty.HasValue) AutoAnnulCreatesOffDuty = autoAnnulCreatesOffDuty.Value;
-        if (hangoutAutoMoveEnabled.HasValue) HangoutAutoMoveEnabled = hangoutAutoMoveEnabled.Value;
-        if (hangoutAutoMoveTargetBoardType is not null) HangoutAutoMoveTargetBoardType = hangoutAutoMoveTargetBoardType;
-        if (hangoutAutoMoveDelayHours.HasValue) HangoutAutoMoveDelayHours = hangoutAutoMoveDelayHours.Value;
     }
 }

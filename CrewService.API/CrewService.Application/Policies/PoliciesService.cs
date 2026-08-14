@@ -63,53 +63,6 @@ public sealed class PoliciesService(IOrchestrationUnitOfWorkFactory uowFactory, 
         return move;
     }
 
-    public async Task<CraftOperationsPolicy> GetCraftOperationsPolicyAsync(
-        ControlNumber craftCtrlNbr, CancellationToken ct = default)
-    {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        return await uow.CraftOperationsPolicies.GetByCraftAsync(craftCtrlNbr, ct)
-            ?? throw new KeyNotFoundException($"Craft operations policy for craft {craftCtrlNbr} not found.");
-    }
-
-    public async Task<CraftOperationsPolicy> GetOrUpsertCraftOperationsPolicyAsync(
-        long craftCtrlNbr,
-        bool hangoutAutoMoveEnabled,
-        string hangoutAutoMoveTargetBoardType,
-        int hangoutAutoMoveDelayHours,
-        CancellationToken ct = default)
-    {
-        if (!Enum.TryParse<BoardType>(hangoutAutoMoveTargetBoardType, ignoreCase: true, out var boardType))
-            throw new InvalidOperationException($"Invalid Hangout auto-move target board type '{hangoutAutoMoveTargetBoardType}'.");
-
-        if (hangoutAutoMoveDelayHours < 0)
-            throw new InvalidOperationException("Hangout auto-move delay hours must be greater than or equal to 0.");
-
-        var normalizedTargetBoardType = boardType.ToString();
-
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-        var craftCn = ControlNumber.Create(craftCtrlNbr);
-        var existing = await uow.CraftOperationsPolicies.GetByCraftAsync(craftCn, ct);
-        if (existing is not null)
-        {
-            existing.Update(
-                hangoutAutoMoveEnabled: hangoutAutoMoveEnabled,
-                hangoutAutoMoveTargetBoardType: normalizedTargetBoardType,
-                hangoutAutoMoveDelayHours: hangoutAutoMoveDelayHours);
-            await uow.CraftOperationsPolicies.UpdateAsync(existing, ct);
-            await uow.CommitAsync(ct);
-            return existing;
-        }
-
-        var policy = CraftOperationsPolicy.Create(
-            craftCn,
-            hangoutAutoMoveEnabled: hangoutAutoMoveEnabled,
-            hangoutAutoMoveTargetBoardType: normalizedTargetBoardType,
-            hangoutAutoMoveDelayHours: hangoutAutoMoveDelayHours);
-        await uow.CraftOperationsPolicies.AddAsync(policy, ct);
-        await uow.CommitAsync(ct);
-        return policy;
-    }
-
     public async Task<CraftDisplacementPolicy> GetOrUpsertDisplacementPolicyAsync(
         long craftCtrlNbr, int windowHours, string seniorityBasis, string defaultAction,
         string? eligibilitySelectorJson, CancellationToken ct = default)
