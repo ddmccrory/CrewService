@@ -13,14 +13,14 @@
     <PackageReference Include="bootstrap" Version="5.3.8" />
     <PackageReference Include="Google.Api.CommonProtos" Version="2.17.0" />
     <PackageReference Include="Google.Protobuf" Version="3.35.1" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.80.0" />
-    <PackageReference Include="Grpc.Net.Client.Web" Version="2.80.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.81.1">
+    <PackageReference Include="Grpc.Net.Client" Version="2.83.0" />
+    <PackageReference Include="Grpc.Net.Client.Web" Version="2.83.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.83.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.9" />
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.85.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.87.0" />
   </ItemGroup>
 
   <ItemGroup>
