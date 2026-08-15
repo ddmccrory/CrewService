@@ -35,7 +35,17 @@ public sealed class WorkflowTemplateManagementService(
         foreach (var template in templates)
         {
             var versions = await workflowVersionRepository.GetByTemplateAsync(template.CtrlNbr, ct);
-            var latestVersion = versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+            var latestDraftVersion = versions
+                .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Draft, StringComparison.Ordinal))
+                .OrderByDescending(v => v.SavedAtUtc)
+                .ThenByDescending(v => v.VersionNumber)
+                .FirstOrDefault();
+            var latestPublishedVersion = versions
+                .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Published, StringComparison.Ordinal))
+                .OrderByDescending(v => v.VersionNumber)
+                .FirstOrDefault();
+
+            var latestVersion = latestDraftVersion ?? latestPublishedVersion;
             var latestStepCount = 0;
             if (latestVersion is not null)
             {
@@ -49,8 +59,8 @@ public sealed class WorkflowTemplateManagementService(
                 template.TriggerTypeCtrlNbr is not null,
                 template.TriggerTypeCtrlNbr,
                 template.IsEnabled,
-                latestVersion?.Status ?? WorkflowVersionStatus.Draft,
-                latestVersion?.VersionNumber ?? 0,
+                latestDraftVersion is not null ? WorkflowVersionStatus.Draft : latestPublishedVersion?.Status ?? WorkflowVersionStatus.Draft,
+                latestPublishedVersion?.VersionNumber ?? 0,
                 latestStepCount));
         }
 
@@ -63,51 +73,39 @@ public sealed class WorkflowTemplateManagementService(
         List<WorkflowConditionValueDto> triggerConditions,
         CancellationToken ct = default)
     {
-        _ = railroadCtrlNbr;
-
         var triggerType = await workflowTriggerTypeRepository.GetByCtrlNbrAsync(triggerTypeCtrlNbr, ct)
             ?? throw new InvalidOperationException($"Trigger type {triggerTypeCtrlNbr.Value} was not found.");
 
-        if (!string.Equals(triggerType.Code, WorkflowTriggerTypeCodes.NotificationAccepted, StringComparison.Ordinal))
-            return new WorkflowStepFilterMetadataDto([]);
+        var metadataFieldTypes = await workflowMetadataFieldTypeRepository.GetAllActiveAsync(ct);
+        var metadataFieldTypeByCode = metadataFieldTypes.ToDictionary(field => field.Code, StringComparer.Ordinal);
+        var metadataAllowedValuesByCode = await BuildMetadataAllowedValuesByCodeAsync(railroadCtrlNbr, ct);
 
-        var notificationTypeField = await workflowMetadataFieldTypeRepository.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NotificationType, ct);
-        if (notificationTypeField is null)
-            return new WorkflowStepFilterMetadataDto([]);
-
-        var isBoardPlacementSelected = triggerConditions.Any(c =>
-            c.FieldTypeCtrlNbr == notificationTypeField.CtrlNbr
-            && string.Equals(c.Value, NotificationCategories.BoardPlacement, StringComparison.OrdinalIgnoreCase));
-
-        if (!isBoardPlacementSelected)
-            return new WorkflowStepFilterMetadataDto([]);
-
-        var boardTypeField = await workflowMetadataFieldTypeRepository.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.BoardType, ct);
-        if (boardTypeField is null)
-            return new WorkflowStepFilterMetadataDto([]);
-
-        var boardTypeValues = Enum.GetNames<BoardType>()
-            .Select(NormalizeBoardTypeValue)
-            .ToList();
-
-        var boardTypeMetadata = new WorkflowMetadataFieldTypeWithValuesDto(
-            boardTypeField.CtrlNbr,
-            boardTypeField.Code,
-            boardTypeField.Name,
-            boardTypeValues);
-
-        return new WorkflowStepFilterMetadataDto([boardTypeMetadata]);
-
-        static string NormalizeBoardTypeValue(string value)
+        if (string.Equals(triggerType.Code, WorkflowTriggerTypeCodes.NotificationAccepted, StringComparison.Ordinal))
         {
-            return value switch
-            {
-                nameof(BoardType.ExtendedAbsence) => "Extended Absence",
-                nameof(BoardType.ExtraBoard) => "Extra Board",
-                nameof(BoardType.NewHire) => "New Hires",
-                _ => value
-            };
+            if (!metadataFieldTypeByCode.TryGetValue(WorkflowMetadataFieldTypeCodes.NotificationType, out var notificationTypeField))
+                return new WorkflowStepFilterMetadataDto([]);
+
+            var isBoardPlacementSelected = triggerConditions.Any(c =>
+                c.FieldTypeCtrlNbr == notificationTypeField.CtrlNbr
+                && string.Equals(c.Value, NotificationCategories.BoardPlacement, StringComparison.OrdinalIgnoreCase));
+
+            if (!isBoardPlacementSelected)
+                return new WorkflowStepFilterMetadataDto([]);
+
+            return BuildStepFilterMetadata(
+                [WorkflowMetadataFieldTypeCodes.BoardType],
+                metadataFieldTypeByCode,
+                metadataAllowedValuesByCode);
         }
+
+        var mappedFieldCodes = GetDefaultMetadataFieldCodesForTrigger(triggerType.Code);
+        if (mappedFieldCodes.Count == 0)
+            return new WorkflowStepFilterMetadataDto([]);
+
+        return BuildStepFilterMetadata(
+            mappedFieldCodes,
+            metadataFieldTypeByCode,
+            metadataAllowedValuesByCode);
     }
 
     public async Task<WorkflowTemplateDetail> GetDetailAsync(ControlNumber templateCtrlNbr, CancellationToken ct = default)
@@ -346,57 +344,42 @@ public sealed class WorkflowTemplateManagementService(
 
     public async Task<WorkflowReferenceCatalogDto> GetReferenceCatalogAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
     {
-        _ = railroadCtrlNbr;
-
         var triggerTypes = await workflowTriggerTypeRepository.GetAllActiveAsync(ct);
         var effectTypes = await workflowEffectTypeRepository.GetAllActiveAsync(ct);
         var operatorTypes = await workflowOperatorTypeRepository.GetAllActiveAsync(ct);
         var metadataFieldTypes = await workflowMetadataFieldTypeRepository.GetAllActiveAsync(ct);
+        var metadataAllowedValuesByCode = await BuildMetadataAllowedValuesByCodeAsync(railroadCtrlNbr, ct);
 
         var triggerTypeByCode = triggerTypes.ToDictionary(t => t.Code, StringComparer.Ordinal);
         var metadataFieldTypeByCode = metadataFieldTypes.ToDictionary(t => t.Code, StringComparer.Ordinal);
 
         var triggerMetadataFieldMaps = new List<WorkflowTriggerMetadataFieldMapDto>();
 
-        AddMapForTrigger(
-            WorkflowTriggerTypeCodes.EmployeeCreated,
-            [
-                WorkflowMetadataFieldTypeCodes.DepartmentName,
-                WorkflowMetadataFieldTypeCodes.CraftName,
-                WorkflowMetadataFieldTypeCodes.SeniorityStateName
-            ]);
-
-        AddMapForTrigger(
-            WorkflowTriggerTypeCodes.SeniorityStatusChanged,
-            [
-                WorkflowMetadataFieldTypeCodes.DepartmentName,
-                WorkflowMetadataFieldTypeCodes.CraftName,
-                WorkflowMetadataFieldTypeCodes.SeniorityStateName,
-                WorkflowMetadataFieldTypeCodes.NewSeniorityState
-            ]);
-
-        AddMapForTrigger(
-            WorkflowTriggerTypeCodes.NotificationAccepted,
-            [
-                WorkflowMetadataFieldTypeCodes.NotificationType
-            ]);
+        foreach (var triggerType in triggerTypes)
+            AddMapForTrigger(triggerType.Code, GetDefaultMetadataFieldCodesForTrigger(triggerType.Code));
 
         return new WorkflowReferenceCatalogDto(
             TriggerTypes: triggerTypes
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name))
+                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name, []))
                 .ToList(),
             EffectTypes: effectTypes
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name))
+                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name, []))
                 .ToList(),
             OperatorTypes: operatorTypes
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name))
+                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name, []))
                 .ToList(),
             MetadataFieldTypes: metadataFieldTypes
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(t => new WorkflowReferenceItemDto(t.CtrlNbr, t.Code, t.Name))
+                .Select(t => new WorkflowReferenceItemDto(
+                    t.CtrlNbr,
+                    t.Code,
+                    t.Name,
+                    metadataAllowedValuesByCode.TryGetValue(t.Code, out var allowedValues)
+                        ? allowedValues
+                        : []))
                 .ToList(),
             TriggerMetadataFieldMaps: triggerMetadataFieldMaps);
 
@@ -413,6 +396,139 @@ public sealed class WorkflowTemplateManagementService(
                 triggerMetadataFieldMaps.Add(new WorkflowTriggerMetadataFieldMapDto(triggerType.CtrlNbr, fieldType.CtrlNbr));
             }
         }
+    }
+
+    private async Task<Dictionary<string, List<string>>> BuildMetadataAllowedValuesByCodeAsync(
+        ControlNumber railroadCtrlNbr,
+        CancellationToken ct)
+    {
+        var metadataAllowedValuesByCode = new Dictionary<string, List<string>>(StringComparer.Ordinal)
+        {
+            [WorkflowMetadataFieldTypeCodes.NotificationType] = GetNotificationTypeValues(),
+            [WorkflowMetadataFieldTypeCodes.BoardType] = GetBoardTypeValues()
+        };
+
+        var railroad = await dynamicGroupRepository.GetByCtrlNbrAsync(railroadCtrlNbr, ct);
+        var parentCtrlNbr = railroad?.ParentCtrlNbr;
+
+        var departments = await departmentRepository.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+        metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.DepartmentName] = GetDistinctNonEmptySorted(departments.Select(d => d.Name));
+
+        var crafts = await craftRepository.GetByParentAndRailroadAsync(parentCtrlNbr, railroadCtrlNbr);
+        metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.CraftName] = GetDistinctNonEmptySorted(crafts.Select(c => c.CraftName));
+
+        if (parentCtrlNbr is not null)
+        {
+            var seniorityStates = await seniorityStateRepository.GetByParentCtrlNbrAsync(parentCtrlNbr);
+            var stateNames = GetDistinctNonEmptySorted(seniorityStates.Select(s => s.StateDescription));
+            metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.SeniorityStateName] = stateNames;
+            metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.NewSeniorityState] = stateNames;
+        }
+        else
+        {
+            metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.SeniorityStateName] = [];
+            metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.NewSeniorityState] = [];
+        }
+
+        return metadataAllowedValuesByCode;
+    }
+
+    private static List<string> GetNotificationTypeValues()
+    {
+        return
+        [
+            NotificationCategories.BoardPlacement,
+            NotificationCategories.BulletinAward,
+            NotificationCategories.BulletinCancellation,
+            NotificationCategories.BulletinLost,
+            NotificationCategories.ForceAssign,
+            NotificationCategories.GeneralInformation,
+            NotificationCategories.PositionChange,
+            NotificationCategories.SafetyBulletin,
+            NotificationCategories.SeniorityMove,
+            NotificationCategories.SeniorityMoveCancelled,
+            NotificationCategories.TieUp,
+            NotificationCategories.WaitListPromotion,
+            NotificationCategories.WorkAreaChange
+        ];
+    }
+
+    private static List<string> GetBoardTypeValues()
+    {
+        return Enum.GetNames<BoardType>()
+            .Select(NormalizeBoardTypeValue)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeBoardTypeValue(string value)
+    {
+        return value switch
+        {
+            nameof(BoardType.ExtendedAbsence) => "Extended Absence",
+            nameof(BoardType.ExtraBoard) => "Extra Board",
+            nameof(BoardType.NewHire) => "New Hires",
+            _ => value
+        };
+    }
+
+    private static List<string> GetDistinctNonEmptySorted(IEnumerable<string?> values)
+    {
+        return values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetDefaultMetadataFieldCodesForTrigger(string triggerTypeCode)
+    {
+        return triggerTypeCode switch
+        {
+            WorkflowTriggerTypeCodes.EmployeeCreated =>
+            [
+                WorkflowMetadataFieldTypeCodes.DepartmentName,
+                WorkflowMetadataFieldTypeCodes.CraftName,
+                WorkflowMetadataFieldTypeCodes.SeniorityStateName
+            ],
+            WorkflowTriggerTypeCodes.SeniorityStatusChanged =>
+            [
+                WorkflowMetadataFieldTypeCodes.DepartmentName,
+                WorkflowMetadataFieldTypeCodes.CraftName,
+                WorkflowMetadataFieldTypeCodes.SeniorityStateName,
+                WorkflowMetadataFieldTypeCodes.NewSeniorityState
+            ],
+            WorkflowTriggerTypeCodes.NotificationAccepted =>
+            [
+                WorkflowMetadataFieldTypeCodes.NotificationType
+            ],
+            _ => []
+        };
+    }
+
+    private static WorkflowStepFilterMetadataDto BuildStepFilterMetadata(
+        IReadOnlyList<string> fieldCodes,
+        IReadOnlyDictionary<string, WorkflowMetadataFieldType> metadataFieldTypeByCode,
+        IReadOnlyDictionary<string, List<string>> metadataAllowedValuesByCode)
+    {
+        var fields = new List<WorkflowMetadataFieldTypeWithValuesDto>(fieldCodes.Count);
+
+        foreach (var fieldCode in fieldCodes.Distinct(StringComparer.Ordinal))
+        {
+            if (!metadataFieldTypeByCode.TryGetValue(fieldCode, out var fieldType))
+                continue;
+
+            fields.Add(new WorkflowMetadataFieldTypeWithValuesDto(
+                fieldType.CtrlNbr,
+                fieldType.Code,
+                fieldType.Name,
+                metadataAllowedValuesByCode.TryGetValue(fieldType.Code, out var allowedValues)
+                    ? allowedValues
+                    : []));
+        }
+
+        return new WorkflowStepFilterMetadataDto(fields);
     }
 
     public async Task<WorkflowTemplateDetail> CreateTemplateAsync(
@@ -483,17 +599,37 @@ public sealed class WorkflowTemplateManagementService(
         var sourceVersion = versions.FirstOrDefault(v => v.VersionNumber == versionNumber)
             ?? throw new KeyNotFoundException($"Workflow template version v{versionNumber} not found.");
 
-        var nextVersionNumber = versions.Count == 0 ? 1 : versions.Max(v => v.VersionNumber) + 1;
-        var restoredVersion = WorkflowVersion.Create(
-            workflowTemplateCtrlNbr: template.CtrlNbr,
-            versionNumber: nextVersionNumber,
-            definitionJson: sourceVersion.DefinitionJson,
-            notes: string.IsNullOrWhiteSpace(notes)
-                ? $"Restored from v{versionNumber}"
-                : notes.Trim(),
-            status: WorkflowVersionStatus.Draft);
+        var latestDraftVersion = versions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Draft, StringComparison.Ordinal))
+            .OrderByDescending(v => v.SavedAtUtc)
+            .ThenByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+        var latestPublishedVersionNumber = versions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Published, StringComparison.Ordinal))
+            .Select(v => v.VersionNumber)
+            .DefaultIfEmpty(0)
+            .Max();
 
-        await workflowVersionRepository.AddAsync(restoredVersion, ct);
+        var draftNotes = string.IsNullOrWhiteSpace(notes)
+            ? $"Restored from v{versionNumber}"
+            : notes.Trim();
+
+        if (latestDraftVersion is null)
+        {
+            var restoredVersion = WorkflowVersion.Create(
+                workflowTemplateCtrlNbr: template.CtrlNbr,
+                versionNumber: latestPublishedVersionNumber + 1,
+                definitionJson: sourceVersion.DefinitionJson,
+                notes: draftNotes,
+                status: WorkflowVersionStatus.Draft);
+
+            await workflowVersionRepository.AddAsync(restoredVersion, ct);
+        }
+        else
+        {
+            latestDraftVersion.SaveDraft(sourceVersion.DefinitionJson, draftNotes);
+            await workflowVersionRepository.UpdateAsync(latestDraftVersion, ct);
+        }
 
         return await BuildDetailAsync(template, ct);
     }
@@ -542,23 +678,68 @@ public sealed class WorkflowTemplateManagementService(
         await workflowTemplateRepository.UpdateAsync(template, ct);
 
         var versions = await workflowVersionRepository.GetByTemplateAsync(templateCtrlNbr, ct);
-        var nextVersionNumber = versions.Count == 0 ? 1 : versions.Max(v => v.VersionNumber) + 1;
+        var latestDraftVersion = versions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Draft, StringComparison.Ordinal))
+            .OrderByDescending(v => v.SavedAtUtc)
+            .ThenByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+        var latestPublishedVersionNumber = versions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Published, StringComparison.Ordinal))
+            .Select(v => v.VersionNumber)
+            .DefaultIfEmpty(0)
+            .Max();
+        var nextPublishedVersionNumber = latestPublishedVersionNumber + 1;
 
         var definition = BuildDefinition(
             triggerTypeCtrlNbr,
             request.TriggerConditionGroupOperator,
             request.TriggerConditions,
             request.Steps);
-        var version = WorkflowVersion.Create(
-            workflowTemplateCtrlNbr: templateCtrlNbr,
-            versionNumber: nextVersionNumber,
-            definitionJson: JsonSerializer.Serialize(definition, JsonOptions),
-            notes: string.IsNullOrWhiteSpace(request.VersionNotes)
-                ? (status == WorkflowVersionStatus.Published ? "Published" : "Draft save")
-                : request.VersionNotes.Trim(),
-            status: status);
 
-        await workflowVersionRepository.AddAsync(version, ct);
+        var definitionJson = JsonSerializer.Serialize(definition, JsonOptions);
+        var notes = string.IsNullOrWhiteSpace(request.VersionNotes)
+            ? (status == WorkflowVersionStatus.Published ? "Published" : "Draft save")
+            : request.VersionNotes.Trim();
+
+        if (string.Equals(status, WorkflowVersionStatus.Draft, StringComparison.Ordinal))
+        {
+            if (latestDraftVersion is null)
+            {
+                var draftVersion = WorkflowVersion.Create(
+                    workflowTemplateCtrlNbr: templateCtrlNbr,
+                    versionNumber: nextPublishedVersionNumber,
+                    definitionJson: definitionJson,
+                    notes: notes,
+                    status: WorkflowVersionStatus.Draft);
+
+                await workflowVersionRepository.AddAsync(draftVersion, ct);
+            }
+            else
+            {
+                latestDraftVersion.SaveDraft(definitionJson, notes);
+                await workflowVersionRepository.UpdateAsync(latestDraftVersion, ct);
+            }
+        }
+        else
+        {
+            if (latestDraftVersion is null)
+            {
+                var publishedVersion = WorkflowVersion.Create(
+                    workflowTemplateCtrlNbr: templateCtrlNbr,
+                    versionNumber: nextPublishedVersionNumber,
+                    definitionJson: definitionJson,
+                    notes: notes,
+                    status: WorkflowVersionStatus.Published);
+
+                await workflowVersionRepository.AddAsync(publishedVersion, ct);
+            }
+            else
+            {
+                latestDraftVersion.SaveDraft(definitionJson, notes);
+                latestDraftVersion.Publish();
+                await workflowVersionRepository.UpdateAsync(latestDraftVersion, ct);
+            }
+        }
 
         return await BuildDetailAsync(template, ct);
     }
@@ -567,13 +748,25 @@ public sealed class WorkflowTemplateManagementService(
     {
         var versions = await workflowVersionRepository.GetByTemplateAsync(template.CtrlNbr, ct);
         var orderedVersions = versions.OrderByDescending(v => v.VersionNumber).ToList();
-        var currentVersion = orderedVersions.FirstOrDefault();
+        var latestDraftVersion = orderedVersions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Draft, StringComparison.Ordinal))
+            .OrderByDescending(v => v.SavedAtUtc)
+            .ThenByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+        var latestPublishedVersion = orderedVersions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Published, StringComparison.Ordinal))
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+
+        var currentVersion = latestDraftVersion ?? latestPublishedVersion;
 
         var currentDefinition = currentVersion is null
             ? new WorkflowDefinition(template.TriggerTypeCtrlNbr, "ALL", [], [])
             : DeserializeDefinition(currentVersion.DefinitionJson);
 
-        var versionRows = orderedVersions.Select(v =>
+        var versionRows = orderedVersions
+            .Where(v => string.Equals(v.Status, WorkflowVersionStatus.Published, StringComparison.Ordinal))
+            .Select(v =>
         {
             var snapshot = DeserializeDefinition(v.DefinitionJson);
             return new WorkflowTemplateVersionDto(
@@ -592,8 +785,8 @@ public sealed class WorkflowTemplateManagementService(
             template.TriggerTypeCtrlNbr is not null,
             template.TriggerTypeCtrlNbr,
             template.IsEnabled,
-            currentVersion?.Status ?? WorkflowVersionStatus.Draft,
-            currentVersion?.VersionNumber ?? 0,
+            latestDraftVersion is not null ? WorkflowVersionStatus.Draft : latestPublishedVersion?.Status ?? WorkflowVersionStatus.Draft,
+            latestPublishedVersion?.VersionNumber ?? 0,
             currentDefinition.TriggerConditionGroupOperator,
             currentDefinition.TriggerConditions.Select(c => new WorkflowConditionDto(c.CtrlNbr, c.FieldTypeCtrlNbr, c.OperatorTypeCtrlNbr, c.Value)).ToList(),
             MapSteps(currentDefinition.Steps),
@@ -1132,7 +1325,8 @@ public sealed record WorkflowEffectOptionDto(string Key, string Value);
 public sealed record WorkflowReferenceItemDto(
     ControlNumber CtrlNbr,
     string Code,
-    string Name);
+    string Name,
+    List<string> AllowedValues);
 
 public sealed record WorkflowTriggerMetadataFieldMapDto(
     ControlNumber TriggerTypeCtrlNbr,

@@ -11,9 +11,6 @@
 
 @inject AuthorizationClient AuthorizationClient
 @inject WorkflowTemplatesClient WorkflowTemplatesClient
-@inject DepartmentClient DepartmentClient
-@inject CraftClient CraftClient
-@inject SeniorityStateClient SeniorityStateClient
 
 <PageTitle>Workflow Templates — Crew Service</PageTitle>
 
@@ -76,7 +73,9 @@ else if (HasRailroad)
                                     <label class="form-check-label ms-2">@(workflow.IsEnabled ? "Enabled" : "Disabled")</label>
                                 </div>
                             </td>
-                            <td>@(workflow.CurrentVersionNumber > 0 ? $"v{workflow.CurrentVersionNumber}" : "Draft")</td>
+                            <td>@(string.Equals(workflow.Status, "Draft", StringComparison.OrdinalIgnoreCase)
+                                ? "Draft"
+                                : workflow.CurrentVersionNumber > 0 ? $"v{workflow.CurrentVersionNumber}" : "Draft")</td>
                             <td>@workflow.StepCount</td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
@@ -233,7 +232,9 @@ else if (HasRailroad)
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label fw-semibold mb-1">Version</label>
-                                            <input class="form-control form-control-sm" style="max-width: 120px;" value="@(activeWorkflow.CurrentVersionNumber > 0 ? $"v{activeWorkflow.CurrentVersionNumber}" : "Draft")" disabled />
+                                            <input class="form-control form-control-sm" style="max-width: 120px;" value="@(string.Equals(activeWorkflow.Status, "Draft", StringComparison.OrdinalIgnoreCase)
+                                                ? "Draft"
+                                                : activeWorkflow.CurrentVersionNumber > 0 ? $"v{activeWorkflow.CurrentVersionNumber}" : "Draft")" disabled />
                                         </div>
                                     </div>
                                 </div>
@@ -380,7 +381,7 @@ else if (HasRailroad)
                                                                                     <span class="input-group-text">Board</span>
                                                                                     <select class="form-select" @bind="effect.EffectOption" @bind:after="MarkActiveWorkflowAsDraft">
                                                                                         <option value="">Select value...</option>
-                                                                                        @foreach (var boardType in boardTypeOptions)
+                                                                                        @foreach (var boardType in GetBoardTypeOptionsForEffects())
                                                                                         {
                                                                                             <option value="@boardType">@boardType</option>
                                                                                         }
@@ -395,7 +396,7 @@ else if (HasRailroad)
                                                                                             <span class="input-group-text" style="width: 90px;">Board</span>
                                                                                             <select class="form-select" @bind="effect.EffectOption" @bind:after="MarkActiveWorkflowAsDraft">
                                                                                                 <option value="">Select value...</option>
-                                                                                                @foreach (var boardType in boardTypeOptions)
+                                                                                                @foreach (var boardType in GetBoardTypeOptionsForEffects())
                                                                                                 {
                                                                                                     <option value="@boardType">@boardType</option>
                                                                                                 }
@@ -764,7 +765,9 @@ else if (HasRailroad)
         new("Trigger Name", w => w.CanStartFromTrigger && !string.IsNullOrWhiteSpace(w.TriggerTypeName) ? w.TriggerTypeName : "—", width: "260px"),
         new("Status", w => w.Status, width: "140px"),
         new("Enabled", w => w.IsEnabled ? "Enabled" : "Disabled", width: "120px"),
-        new("Version", w => w.CurrentVersionNumber > 0 ? $"v{w.CurrentVersionNumber}" : "Draft", width: "120px"),
+        new("Version", w => string.Equals(w.Status, "Draft", StringComparison.OrdinalIgnoreCase)
+            ? "Draft"
+            : w.CurrentVersionNumber > 0 ? $"v{w.CurrentVersionNumber}" : "Draft", width: "120px"),
         new("Steps", w => w.StepCount, width: "90px"),
         DataTableColumn<WorkflowTemplateDraft>.Actions("340px")
     ];
@@ -786,46 +789,15 @@ else if (HasRailroad)
     private long createSeniorityMoveEffectTypeCtrlNbr;
     private long sendInvitationEffectTypeCtrlNbr;
     private long callWorkflowEffectTypeCtrlNbr;
-    private long departmentNameMetadataFieldTypeCtrlNbr;
-    private long craftNameMetadataFieldTypeCtrlNbr;
-    private long seniorityStateNameMetadataFieldTypeCtrlNbr;
-    private long newSeniorityStateMetadataFieldTypeCtrlNbr;
-    private long notificationTypeMetadataFieldTypeCtrlNbr;
     private long boardTypeMetadataFieldTypeCtrlNbr;
 
     private readonly List<RoleOption> roleOptions = [];
-    private readonly Dictionary<long, List<string>> triggerFilterValueOptionsByFieldCtrlNbr = [];
+    private readonly Dictionary<long, TriggerMetadataFieldDefinition> metadataFieldsByCtrlNbr = [];
     private readonly Dictionary<long, TriggerMetadataFieldDefinition> stepMetadataFieldsByCtrlNbr = [];
-
-    private static readonly List<string> boardTypeOptions =
-    [
-        "Hangout",
-        "Extended Absence",
-        "Extra Board",
-        "Training",
-        "New Hires"
-    ];
 
     private static readonly List<(string Value, string Label)> invitationEmailSourceOptions =
     [
         ("primary", "Primary Email")
-    ];
-
-    private static readonly List<string> notificationTypeOptions =
-    [
-        "BoardPlacement",
-        "BulletinAward",
-        "BulletinCancellation",
-        "BulletinLost",
-        "ForceAssign",
-        "GeneralInformation",
-        "PositionChange",
-        "SafetyBulletin",
-        "SeniorityMove",
-        "SeniorityMoveCancelled",
-        "TieUp",
-        "WaitListPromotion",
-        "WorkAreaChange"
     ];
 
     private readonly List<WorkflowTemplateDraft> workflows = [];
@@ -876,12 +848,8 @@ else if (HasRailroad)
             createSeniorityMoveEffectTypeCtrlNbr = 0;
             sendInvitationEffectTypeCtrlNbr = 0;
             callWorkflowEffectTypeCtrlNbr = 0;
-            departmentNameMetadataFieldTypeCtrlNbr = 0;
-            craftNameMetadataFieldTypeCtrlNbr = 0;
-            seniorityStateNameMetadataFieldTypeCtrlNbr = 0;
-            newSeniorityStateMetadataFieldTypeCtrlNbr = 0;
-            notificationTypeMetadataFieldTypeCtrlNbr = 0;
             boardTypeMetadataFieldTypeCtrlNbr = 0;
+            metadataFieldsByCtrlNbr.Clear();
             stepMetadataFieldsByCtrlNbr.Clear();
 
             workflows.Clear();
@@ -890,7 +858,6 @@ else if (HasRailroad)
                 return;
 
             await LoadReferenceCatalogAsync(SelectedRailroadCtrlNbr.Value);
-            await LoadTriggerFilterValueOptionsAsync();
 
             var response = await WorkflowTemplatesClient.GetByRailroadAsync(SelectedRailroadCtrlNbr.Value);
             workflows.AddRange(response.Workflows.Select(MapSummary));
@@ -972,83 +939,6 @@ else if (HasRailroad)
         }
     }
 
-    private async Task LoadTriggerFilterValueOptionsAsync()
-    {
-        triggerFilterValueOptionsByFieldCtrlNbr.Clear();
-
-        if (notificationTypeMetadataFieldTypeCtrlNbr > 0)
-        {
-            triggerFilterValueOptionsByFieldCtrlNbr[notificationTypeMetadataFieldTypeCtrlNbr] = notificationTypeOptions
-                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
-        if (boardTypeMetadataFieldTypeCtrlNbr > 0)
-            triggerFilterValueOptionsByFieldCtrlNbr[boardTypeMetadataFieldTypeCtrlNbr] = boardTypeOptions;
-
-        if (SelectedParentCtrlNbr is not long parentCtrlNbr || SelectedRailroadCtrlNbr is not long railroadCtrlNbr)
-            return;
-
-        try
-        {
-            var departmentsResponse = await DepartmentClient.GetAllAsync(parentCtrlNbr, railroadCtrlNbr);
-            var departmentNames = departmentsResponse.Departments
-                .Select(d => d.Name)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (departmentNameMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[departmentNameMetadataFieldTypeCtrlNbr] = departmentNames;
-        }
-        catch
-        {
-            if (departmentNameMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[departmentNameMetadataFieldTypeCtrlNbr] = [];
-        }
-
-        try
-        {
-            var craftsResponse = await CraftClient.GetAllCraftsAsync(parentCtrlNbr, railroadCtrlNbr);
-            var craftNames = craftsResponse.Crafts
-                .Select(c => c.CraftName)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (craftNameMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[craftNameMetadataFieldTypeCtrlNbr] = craftNames;
-        }
-        catch
-        {
-            if (craftNameMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[craftNameMetadataFieldTypeCtrlNbr] = [];
-        }
-
-        try
-        {
-            var statesResponse = await SeniorityStateClient.GetAllAsync(parentCtrlNbr);
-            var stateNames = statesResponse.States
-                .Select(s => s.StateDescription)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (seniorityStateNameMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[seniorityStateNameMetadataFieldTypeCtrlNbr] = stateNames;
-
-            if (stateNames.Count > 0 && newSeniorityStateMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[newSeniorityStateMetadataFieldTypeCtrlNbr] = stateNames;
-        }
-        catch
-        {
-            if (seniorityStateNameMetadataFieldTypeCtrlNbr > 0)
-                triggerFilterValueOptionsByFieldCtrlNbr[seniorityStateNameMetadataFieldTypeCtrlNbr] = [];
-        }
-
-    }
-
     private async Task LoadReferenceCatalogAsync(long railroadCtrlNbr)
     {
         var response = await WorkflowTemplatesClient.GetReferenceCatalogAsync(railroadCtrlNbr);
@@ -1070,21 +960,18 @@ else if (HasRailroad)
 
         effectTypeOptions.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name));
 
-        var metadataFieldsByCtrlNbr = response.MetadataFieldTypes
-            .ToDictionary(
-                m => m.CtrlNbr,
-                m => new TriggerMetadataFieldDefinition
-                {
-                    CtrlNbr = m.CtrlNbr,
-                    Key = m.Code,
-                    Label = m.Name,
-                    AllowedValues = string.Equals(m.Code, "notificationType", StringComparison.Ordinal)
-                        ? notificationTypeOptions
-                        : string.Equals(m.Code, "boardType", StringComparison.Ordinal)
-                            ? boardTypeOptions
-                            : [],
-                    AllowedOperators = operatorTypeOptions.ToList()
-                });
+        metadataFieldsByCtrlNbr.Clear();
+        foreach (var metadataField in response.MetadataFieldTypes)
+        {
+            metadataFieldsByCtrlNbr[metadataField.CtrlNbr] = new TriggerMetadataFieldDefinition
+            {
+                CtrlNbr = metadataField.CtrlNbr,
+                Key = metadataField.Code,
+                Label = metadataField.Name,
+                AllowedValues = metadataField.AllowedValues.ToList(),
+                AllowedOperators = operatorTypeOptions.ToList()
+            };
+        }
 
         addToRosterBoardEffectTypeCtrlNbr = response.EffectTypes
             .FirstOrDefault(e => string.Equals(e.Code, "Add to Roster Board", StringComparison.Ordinal))?.CtrlNbr ?? 0;
@@ -1095,16 +982,6 @@ else if (HasRailroad)
         callWorkflowEffectTypeCtrlNbr = response.EffectTypes
             .FirstOrDefault(e => string.Equals(e.Code, "Call Workflow", StringComparison.Ordinal))?.CtrlNbr ?? 0;
 
-        departmentNameMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
-            .FirstOrDefault(m => string.Equals(m.Code, "departmentName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
-        craftNameMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
-            .FirstOrDefault(m => string.Equals(m.Code, "craftName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
-        seniorityStateNameMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
-            .FirstOrDefault(m => string.Equals(m.Code, "seniorityStateName", StringComparison.Ordinal))?.CtrlNbr ?? 0;
-        newSeniorityStateMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
-            .FirstOrDefault(m => string.Equals(m.Code, "newSeniorityState", StringComparison.Ordinal))?.CtrlNbr ?? 0;
-        notificationTypeMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
-            .FirstOrDefault(m => string.Equals(m.Code, "notificationType", StringComparison.Ordinal))?.CtrlNbr ?? 0;
         boardTypeMetadataFieldTypeCtrlNbr = response.MetadataFieldTypes
             .FirstOrDefault(m => string.Equals(m.Code, "boardType", StringComparison.Ordinal))?.CtrlNbr ?? 0;
 
@@ -1527,8 +1404,15 @@ else if (HasRailroad)
 
     private IEnumerable<TriggerMetadataFieldDefinition> GetStepMetadataFieldsForActiveWorkflow()
     {
+        var conditionFieldTypeCtrlNbrs = activeWorkflow?.Steps
+            .SelectMany(step => step.Conditions)
+            .Where(condition => condition.FieldTypeCtrlNbr > 0)
+            .Select(condition => condition.FieldTypeCtrlNbr)
+            .ToHashSet() ?? [];
+
         return stepMetadataFieldsByCtrlNbr.Values
-            .Where(field => GetAllowedValuesForField(field).Count > 0)
+            .Where(field => conditionFieldTypeCtrlNbrs.Contains(field.CtrlNbr)
+                || GetAllowedValuesForField(field).Count > 0)
             .OrderBy(field => field.Label, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -1586,18 +1470,28 @@ else if (HasRailroad)
         if (field is null)
             return [];
 
-        return GetAllowedValuesForField(field);
+        var allowedValues = GetAllowedValuesForField(field);
+        if (string.IsNullOrWhiteSpace(condition.Value))
+            return allowedValues;
+
+        return allowedValues.Any(value => string.Equals(value, condition.Value, StringComparison.OrdinalIgnoreCase))
+            ? allowedValues
+            : allowedValues.Concat([condition.Value]);
     }
 
     private IReadOnlyList<string> GetAllowedValuesForField(TriggerMetadataFieldDefinition field)
     {
-        if (triggerFilterValueOptionsByFieldCtrlNbr.TryGetValue(field.CtrlNbr, out var dynamicValues)
-            && dynamicValues.Count > 0)
-        {
-            return dynamicValues;
-        }
-
         return field.AllowedValues;
+    }
+
+    private IEnumerable<string> GetBoardTypeOptionsForEffects()
+    {
+        if (boardTypeMetadataFieldTypeCtrlNbr <= 0)
+            return [];
+
+        return metadataFieldsByCtrlNbr.TryGetValue(boardTypeMetadataFieldTypeCtrlNbr, out var boardTypeField)
+            ? boardTypeField.AllowedValues
+            : [];
     }
 
     private WorkflowStepDraft CreateDefaultStep(int order)
@@ -1631,7 +1525,7 @@ else if (HasRailroad)
             Order = order,
             EffectTypeCtrlNbr = 0,
             EffectOption = string.Empty,
-            EmailSource = string.Empty,
+            EmailSource = "primary",
             IsEnabled = true
         };
     }
@@ -1732,7 +1626,7 @@ else if (HasRailroad)
 
         statusMessage = publish
             ? $"Published version v{detail.CurrentVersionNumber}."
-            : $"Saved draft version v{detail.CurrentVersionNumber}.";
+            : "Saved draft.";
         versionNotes = string.Empty;
     }
 
@@ -1797,28 +1691,14 @@ else if (HasRailroad)
 
                 if (IsEffectType(effect, sendInvitationEffectTypeCtrlNbr) && !string.IsNullOrWhiteSpace(effect.EffectOption))
                 {
-                    effectPayload.Options.Add(new WorkflowEffectOptionPayload { Key = "roleCtrlNbr", Value = effect.EffectOption });
-
-                    effectPayload.Options.Add(new WorkflowEffectOptionPayload
-                    {
-                        Key = "expirationDays",
-                        Value = effect.ExpirationDays.ToString()
-                    });
-
-                    effectPayload.Options.Add(new WorkflowEffectOptionPayload
-                    {
-                        Key = "usePrimaryEmail",
-                        Value = string.Equals(effect.EmailSource, "primary", StringComparison.OrdinalIgnoreCase) ? "true" : "false"
-                    });
+                    effectPayload.ExpirationDays = effect.ExpirationDays <= 0 ? 7 : Math.Min(effect.ExpirationDays, 90);
+                    effectPayload.EmailSource = string.IsNullOrWhiteSpace(effect.EmailSource)
+                        ? "primary"
+                        : effect.EmailSource;
                 }
                 else if (IsEffectType(effect, createSeniorityMoveEffectTypeCtrlNbr) && !string.IsNullOrWhiteSpace(effect.EffectOption))
                 {
-                    effectPayload.Options.Add(new WorkflowEffectOptionPayload { Key = "boardType", Value = effect.EffectOption });
-                    effectPayload.Options.Add(new WorkflowEffectOptionPayload
-                    {
-                        Key = "autoMoveDelayHours",
-                        Value = Math.Max(0, effect.AutoMoveDelayHours).ToString()
-                    });
+                    effectPayload.AutoMoveDelayHours = Math.Max(0, effect.AutoMoveDelayHours);
                 }
 
                 stepPayload.Effects.Add(effectPayload);
@@ -1895,9 +1775,9 @@ else if (HasRailroad)
                 Order = effect.Order,
                 EffectTypeCtrlNbr = effect.EffectTypeCtrlNbr,
                 EffectOption = effect.EffectOption,
-                AutoMoveDelayHours = ResolveAutoMoveDelayHours(effect),
-                ExpirationDays = ResolveExpirationDays(effect),
-                EmailSource = ResolveEmailSource(effect),
+                AutoMoveDelayHours = effect.AutoMoveDelayHours,
+                ExpirationDays = effect.ExpirationDays <= 0 ? 7 : Math.Min(effect.ExpirationDays, 90),
+                EmailSource = string.IsNullOrWhiteSpace(effect.EmailSource) ? "primary" : effect.EmailSource,
                 IsEnabled = effect.IsEnabled
             }).ToList()
         }));
@@ -1928,42 +1808,6 @@ else if (HasRailroad)
 
     private static bool IsEffectType(WorkflowEffectDraft effect, long effectTypeCtrlNbr)
         => effectTypeCtrlNbr > 0 && effect.EffectTypeCtrlNbr == effectTypeCtrlNbr;
-
-    private static int ResolveExpirationDays(WorkflowEffectPayload effect)
-    {
-        if (effect.Options.Any(o => o.Key == "expirationDays"))
-        {
-            var expirationDaysValue = effect.Options.FirstOrDefault(o => o.Key == "expirationDays")?.Value;
-            if (int.TryParse(expirationDaysValue, out var expirationDays) && expirationDays > 0)
-                return Math.Min(expirationDays, 90);
-        }
-
-        return 7;
-    }
-
-    private static int ResolveAutoMoveDelayHours(WorkflowEffectPayload effect)
-    {
-        if (effect.Options.Any(o => o.Key == "autoMoveDelayHours"))
-        {
-            var delayHoursValue = effect.Options.FirstOrDefault(o => o.Key == "autoMoveDelayHours")?.Value;
-            if (int.TryParse(delayHoursValue, out var delayHours) && delayHours >= 0)
-                return delayHours;
-        }
-
-        return 0;
-    }
-
-    private static string ResolveEmailSource(WorkflowEffectPayload effect)
-    {
-        if (effect.Options.Any(o => o.Key == "usePrimaryEmail"))
-        {
-            var usePrimaryEmailValue = effect.Options.FirstOrDefault(o => o.Key == "usePrimaryEmail")?.Value;
-            if (bool.TryParse(usePrimaryEmailValue, out var usePrimaryEmail))
-                return usePrimaryEmail ? "primary" : "trigger";
-        }
-
-        return "primary";
-    }
 
     private static void ReorderSteps(List<WorkflowStepDraft> workflowSteps)
     {

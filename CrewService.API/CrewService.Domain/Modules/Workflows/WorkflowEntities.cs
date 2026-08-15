@@ -117,6 +117,15 @@ public sealed class WorkflowVersion : Entity
         return version;
     }
 
+    public void SaveDraft(string definitionJson, string notes)
+    {
+        DefinitionJson = definitionJson;
+        Notes = notes;
+        Status = WorkflowVersionStatus.Draft;
+        SavedAtUtc = DateTime.UtcNow;
+        PublishedAtUtc = null;
+    }
+
     public void Publish()
     {
         if (Status == WorkflowVersionStatus.Published)

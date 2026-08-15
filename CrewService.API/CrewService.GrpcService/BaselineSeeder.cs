@@ -213,6 +213,7 @@ internal static class BaselineSeeder
         await SeedStaticRequiredPositionsStrategyAsync(sp);
         await SeedWorkflowReferenceDataAsync(sp);
         await SeedEmployeeCreatedInviteWorkflowAsync(sp);
+        await SeedCreateXbSeniorityMoveWorkflowAsync(sp);
         await SeedSeniorityStatusChangedWorkflowAsync(sp);
         await SeedVacancyPlaceOnDutyWorkflowAsync(sp);
     }
@@ -677,6 +678,114 @@ internal static class BaselineSeeder
                 versionNumber: nextVersion,
                 definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
                 notes: "Seeded default Employee Created invitation workflow",
+                status: WorkflowVersionStatus.Published);
+
+            await versionRepo.AddAsync(version);
+        }
+    }
+
+    private static async Task SeedCreateXbSeniorityMoveWorkflowAsync(IServiceProvider sp)
+    {
+        var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        var templateRepo = sp.GetRequiredService<IWorkflowTemplateRepository>();
+        var versionRepo = sp.GetRequiredService<IWorkflowVersionRepository>();
+        var triggerTypeRepo = sp.GetRequiredService<IWorkflowTriggerTypeRepository>();
+        var effectTypeRepo = sp.GetRequiredService<IWorkflowEffectTypeRepository>();
+        var operatorTypeRepo = sp.GetRequiredService<IWorkflowOperatorTypeRepository>();
+        var metadataFieldTypeRepo = sp.GetRequiredService<IWorkflowMetadataFieldTypeRepository>();
+
+        var notificationAcceptedTriggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.NotificationAccepted);
+        var createSeniorityMoveEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.CreateSeniorityMove);
+        var equalsOperatorType = await operatorTypeRepo.GetByCodeAsync(WorkflowOperatorTypeCodes.EqualsOperator);
+        var notificationTypeMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.NotificationType);
+        var boardTypeMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.BoardType);
+
+        if (notificationAcceptedTriggerType is null
+            || createSeniorityMoveEffectType is null
+            || equalsOperatorType is null
+            || notificationTypeMetadataFieldType is null
+            || boardTypeMetadataFieldType is null)
+        {
+            return;
+        }
+
+        var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+        foreach (var railroad in railroads)
+        {
+            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, notificationAcceptedTriggerType.CtrlNbr))
+                .FirstOrDefault(w => string.Equals(w.Name, "Create XB Seniority Move", StringComparison.OrdinalIgnoreCase));
+
+            if (existingTemplate is null)
+            {
+                existingTemplate = WorkflowTemplate.Create(
+                    railroad.CtrlNbr,
+                    name: "Create XB Seniority Move",
+                    triggerTypeCtrlNbr: notificationAcceptedTriggerType.CtrlNbr,
+                    isEnabled: true);
+
+                await templateRepo.AddAsync(existingTemplate);
+            }
+            else if (!string.Equals(existingTemplate.Name, "Create XB Seniority Move", StringComparison.Ordinal))
+            {
+                existingTemplate.UpdateDefinition("Create XB Seniority Move", existingTemplate.TriggerTypeCtrlNbr, existingTemplate.IsEnabled);
+                await templateRepo.UpdateAsync(existingTemplate);
+            }
+
+            var existingVersions = await versionRepo.GetByTemplateAsync(existingTemplate.CtrlNbr);
+            if (existingVersions.Any(v => string.Equals(v.Status, WorkflowVersionStatus.Published, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            var definition = new WorkflowDefinition(
+                TriggerTypeCtrlNbr: notificationAcceptedTriggerType.CtrlNbr,
+                TriggerConditionGroupOperator: "ALL",
+                TriggerConditions:
+                [
+                    new WorkflowConditionDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        FieldTypeCtrlNbr: notificationTypeMetadataFieldType.CtrlNbr,
+                        OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                        Value: NotificationCategories.BoardPlacement)
+                ],
+                Steps:
+                [
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 1,
+                        Name: "Create Seniority Move",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ALL",
+                        Conditions:
+                        [
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: boardTypeMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Hangout")
+                        ],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: createSeniorityMoveEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>
+                                {
+                                    [WorkflowOptionKeys.EffectOption] = "Extra Board",
+                                    [WorkflowOptionKeys.BoardType] = "Extra Board",
+                                    [WorkflowOptionKeys.AutoMoveDelayHours] = "48"
+                                })
+                        ])
+                ]);
+
+            var nextVersion = existingVersions.Count == 0 ? 1 : existingVersions.Max(v => v.VersionNumber) + 1;
+
+            var version = WorkflowVersion.Create(
+                existingTemplate.CtrlNbr,
+                versionNumber: nextVersion,
+                definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                notes: "Workflow to create an extra board seniority move when an employee acknowledges a hangout notification",
                 status: WorkflowVersionStatus.Published);
 
             await versionRepo.AddAsync(version);
