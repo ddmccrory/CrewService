@@ -1,3 +1,4 @@
+using CrewService.Domain.Diagnostics;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace CrewService.Infrastructure.Outbox;
 
@@ -18,11 +20,13 @@ public sealed class OutboxPublisherService(
     IMessagePublisher messagePublisher,
     OutboxDispatcher dispatcher,
     IOptions<OutboxPublisherOptions> options,
+    IHandledFailureLogger handledFailureLogger,
     ILogger<OutboxPublisherService> logger) : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
     private readonly IMessagePublisher _messagePublisher = messagePublisher;
     private readonly OutboxDispatcher _dispatcher = dispatcher;
+    private readonly IHandledFailureLogger _handledFailureLogger = handledFailureLogger;
     private readonly ILogger<OutboxPublisherService> _logger = logger;
     private readonly OutboxPublisherOptions _options = options.Value;
 
@@ -77,6 +81,23 @@ public sealed class OutboxPublisherService(
                         "Error publishing channel message. MessageId: {MessageId}, EventType: {EventType}",
                         message.MessageId, message.EventType);
                 }
+
+                await _handledFailureLogger.LogAsync(new HandledFailureLogRequest(
+                    SourceLayer: "BackgroundWorker",
+                    Component: nameof(OutboxPublisherService),
+                    Operation: "ProcessChannelMessagesAsync",
+                    ErrorCode: "OUTBOX_CHANNEL_PUBLISH_EXCEPTION",
+                    Message: "Exception publishing outbox channel message.",
+                    Severity: "Error",
+                    Exception: ex,
+                    PayloadJson: JsonSerializer.Serialize(new
+                    {
+                        messageId = message.MessageId,
+                        eventType = message.EventType,
+                        aggregateType = message.AggregateType
+                    }),
+                    Method: "BackgroundWorker"),
+                    stoppingToken);
             }
         }
     }
@@ -109,6 +130,17 @@ public sealed class OutboxPublisherService(
             {
                 if (_logger.IsEnabled(LogLevel.Error))
                     _logger.LogError(ex, "Error in outbox polling cycle.");
+
+                await _handledFailureLogger.LogAsync(new HandledFailureLogRequest(
+                    SourceLayer: "BackgroundWorker",
+                    Component: nameof(OutboxPublisherService),
+                    Operation: "ProcessPollingAsync",
+                    ErrorCode: "OUTBOX_POLLING_EXCEPTION",
+                    Message: "Exception during outbox polling cycle.",
+                    Severity: "Error",
+                    Exception: ex,
+                    Method: "BackgroundWorker"),
+                    stoppingToken);
             }
 
             await Task.Delay(_options.PollingInterval, stoppingToken);
@@ -207,6 +239,22 @@ public sealed class OutboxPublisherService(
                 {
                     message.MarkAsFailed();
                     failCount++;
+
+                    await _handledFailureLogger.LogAsync(new HandledFailureLogRequest(
+                        SourceLayer: "BackgroundWorker",
+                        Component: nameof(OutboxPublisherService),
+                        Operation: "ProcessPendingMessagesAsync",
+                        ErrorCode: "OUTBOX_PUBLISH_RETURNED_FALSE",
+                        Message: "Outbox publish returned false; message marked as failed.",
+                        Severity: "Warning",
+                        PayloadJson: JsonSerializer.Serialize(new
+                        {
+                            messageId = message.MessageId,
+                            eventType = message.EventType,
+                            retries = message.Retries
+                        }),
+                        Method: "BackgroundWorker"),
+                        cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -215,6 +263,23 @@ public sealed class OutboxPublisherService(
                 failCount++;
                 if (_logger.IsEnabled(LogLevel.Error))
                     _logger.LogError(ex, "Exception publishing outbox message. MessageId: {MessageId}", message.MessageId);
+
+                await _handledFailureLogger.LogAsync(new HandledFailureLogRequest(
+                    SourceLayer: "BackgroundWorker",
+                    Component: nameof(OutboxPublisherService),
+                    Operation: "ProcessPendingMessagesAsync",
+                    ErrorCode: "OUTBOX_POLLING_PUBLISH_EXCEPTION",
+                    Message: "Exception publishing outbox message during polling.",
+                    Severity: "Error",
+                    Exception: ex,
+                    PayloadJson: JsonSerializer.Serialize(new
+                    {
+                        messageId = message.MessageId,
+                        eventType = message.EventType,
+                        retries = message.Retries
+                    }),
+                    Method: "BackgroundWorker"),
+                    cancellationToken);
             }
         }
 

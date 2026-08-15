@@ -1,10 +1,13 @@
 using CrewService.BlazorUI.Clients;
 using CrewService.BlazorUI.Components;
 using CrewService.BlazorUI.Components.Account;
+using CrewService.BlazorUI.Models;
 using CrewService.BlazorUI.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +41,7 @@ builder.Services.AddScoped<AssignmentClient>();
 builder.Services.AddScoped<WorkManagementClient>();
 builder.Services.AddScoped<DailyOperationsClient>();
 builder.Services.AddScoped<AuditLogClient>();
+builder.Services.AddScoped<ErrorLogClient>();
 builder.Services.AddScoped<QualificationsClient>();
 builder.Services.AddScoped<FraComplianceClient>();
 builder.Services.AddScoped<BulletinsClient>();
@@ -77,6 +81,7 @@ builder.Services.AddScoped<CircuitBootstrapService>();
 builder.Services.AddScoped<EmployeeProfileService>();
 builder.Services.AddScoped<RailroadReferenceDataService>();
 builder.Services.AddScoped<IAppConnectivityService, ApiHeartbeatService>();
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
@@ -112,6 +117,37 @@ app.MapPost("/Account/Logout", async (HttpContext context) =>
 
     return Results.Redirect("/Account/Login");
 });
+
+app.MapPost("/internal/client-errors", async (
+    ClientRuntimeErrorReport report,
+    HttpContext context,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(report.Message))
+        return Results.BadRequest("Message is required.");
+
+    var token = context.User.FindFirst("AccessToken")?.Value;
+    if (string.IsNullOrWhiteSpace(token))
+        return Results.Unauthorized();
+
+    var apiBaseUrl = configuration["CrewServiceApiUrl"];
+    if (string.IsNullOrWhiteSpace(apiBaseUrl))
+        return Results.Problem("CrewServiceApiUrl is not configured.", statusCode: StatusCodes.Status500InternalServerError);
+
+    using var client = httpClientFactory.CreateClient();
+    client.BaseAddress = new Uri(apiBaseUrl);
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+    var response = await client.PostAsJsonAsync("/v1/error-logs/client", report, cancellationToken);
+
+    if (response.IsSuccessStatusCode)
+        return Results.Accepted();
+
+    var detail = await response.Content.ReadAsStringAsync(cancellationToken);
+    return Results.Problem(detail, statusCode: (int)response.StatusCode);
+}).RequireAuthorization().DisableAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()

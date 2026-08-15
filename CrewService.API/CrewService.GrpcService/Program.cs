@@ -6,11 +6,13 @@ using CrewService.Persistance;
 using CrewService.Presentation;
 using CrewService.Presentation.Services;
 using CrewService.Presentation.Services.Modules;
+using CrewService.Domain.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.Filters;
 using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +64,7 @@ builder.Services.AddGrpc(options =>
 }).AddJsonTranscoding();
 builder.Services.AddTransient<ParentService>();
 builder.Services.AddScoped<EmployeeNameService>();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
@@ -102,6 +105,61 @@ app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = true });
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapPost("/v1/error-logs/client", async (
+    ClientRuntimeErrorIngestRequest request,
+    HttpContext httpContext,
+    IErrorLogWriter errorLogWriter,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Message))
+        return Results.BadRequest("Message is required.");
+
+    var parentCtrlNbr = request.ParentCtrlNbr ?? TryParseHeaderAsLong(httpContext.Request.Headers["x-parent-ctrl-nbr"].FirstOrDefault());
+    var railroadCtrlNbr = request.RailroadCtrlNbr ?? TryParseHeaderAsLong(httpContext.Request.Headers["x-railroad-ctrl-nbr"].FirstOrDefault());
+
+    var traceId = request.TraceId
+        ?? System.Diagnostics.Activity.Current?.Id
+        ?? httpContext.TraceIdentifier;
+
+    var payloadJson = JsonSerializer.Serialize(new
+    {
+        schemaVersion = "1.0",
+        pipeline = "client-runtime-ingest",
+        sourceApp = request.SourceApp,
+        sourceLayer = request.SourceLayer,
+        errorCode = request.ErrorCode,
+        message = request.Message,
+        exceptionType = request.ExceptionType,
+        stackTrace = request.StackTrace,
+        url = request.Url,
+        method = request.Method,
+        userAgent = request.UserAgent,
+        metadata = request.Metadata,
+        payloadJson = request.PayloadJson,
+        timestampUtc = DateTime.UtcNow
+    });
+
+    await errorLogWriter.WriteAsync(new ErrorLogWriteRequest(
+        OccurredAtUtc: DateTime.UtcNow,
+        ErrorKind: string.IsNullOrWhiteSpace(request.ErrorKind) ? ErrorLogKinds.ClientRuntime : request.ErrorKind,
+        SourceApp: string.IsNullOrWhiteSpace(request.SourceApp) ? "BlazorWasm" : request.SourceApp,
+        SourceLayer: string.IsNullOrWhiteSpace(request.SourceLayer) ? "BrowserRuntime" : request.SourceLayer,
+        Severity: string.IsNullOrWhiteSpace(request.Severity) ? "Error" : request.Severity,
+        ErrorCode: string.IsNullOrWhiteSpace(request.ErrorCode) ? "CLIENT_RUNTIME_ERROR" : request.ErrorCode,
+        ExceptionType: string.IsNullOrWhiteSpace(request.ExceptionType) ? "ClientRuntimeError" : request.ExceptionType,
+        Message: request.Message,
+        TraceId: traceId,
+        Route: request.Url,
+        Method: string.IsNullOrWhiteSpace(request.Method) ? "Browser" : request.Method,
+        PerformedBy: httpContext.User.Identity?.Name ?? string.Empty,
+        ParentCtrlNbr: parentCtrlNbr,
+        RailroadCtrlNbr: railroadCtrlNbr,
+        PayloadJson: payloadJson),
+        cancellationToken);
+
+    return Results.Accepted();
+}).RequireAuthorization();
 
 app.MapGrpcService<AccountService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<AddressTypeService>().EnableGrpcWeb().RequireAuthorization();
@@ -144,6 +202,7 @@ app.MapGrpcService<ElectronicCallingService>().EnableGrpcWeb().RequireAuthorizat
 app.MapGrpcService<BackgroundServicesService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<RosterBoardService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<AuditLogService>().EnableGrpcWeb().RequireAuthorization();
+app.MapGrpcService<ErrorLogService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<HolidayPayrollService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<HolidayManagementService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<ReportingExportsService>().EnableGrpcWeb().RequireAuthorization();
@@ -152,5 +211,12 @@ app.MapGrpcService<SafetyService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<QualificationsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<NotificationsService>().EnableGrpcWeb().RequireAuthorization();
 app.MapGrpcService<WorkflowTemplatesService>().EnableGrpcWeb().RequireAuthorization();
+
+static long? TryParseHeaderAsLong(string? value)
+{
+    return long.TryParse(value, out var parsed) && parsed > 0
+        ? parsed
+        : null;
+}
 
 await app.RunAsync();

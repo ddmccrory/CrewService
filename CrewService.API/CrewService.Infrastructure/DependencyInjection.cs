@@ -2,7 +2,9 @@ using CrewService.Application.Modules.UserAccount;
 using CrewService.Application.Modules.UserAccess;
 using CrewService.Infrastructure.Email;
 using CrewService.Infrastructure.Services;
+using CrewService.Domain.Diagnostics;
 using CrewService.Domain.Interfaces;
+using CrewService.Infrastructure.Diagnostics;
 using CrewService.Infrastructure.Notifications;
 using CrewService.Infrastructure.Outbox;
 using CrewService.Infrastructure.Reactive;
@@ -33,6 +35,10 @@ public static class DependencyInjection
         // Register operational notifier (Teams webhook)
         services.AddHttpClient();
         services.AddScoped<IOperationalNotifier, TeamsWebhookNotifier>();
+        services.AddSingleton<IHandledFailureLogger, HandledFailureLogger>();
+
+        services.Configure<ErrorLogOperationalReadinessOptions>(
+            configuration.GetSection(ErrorLogOperationalReadinessOptions.SectionName));
 
         // Email service
         services.Configure<SmtpSettings>(
