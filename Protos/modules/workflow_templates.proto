@@ -205,6 +205,9 @@ message WorkflowEffectPayload {
 	int64 effect_type_ctrl_nbr = 3;
   string effect_option = 4;
   repeated WorkflowEffectOptionPayload options = 5;
+	optional string email_source = 7;
+  optional int32 expiration_days = 8;
+  optional int32 auto_move_delay_hours = 9;
 }
 
 message WorkflowEffectOptionPayload {

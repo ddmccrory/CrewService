@@ -350,7 +350,10 @@ public sealed class WorkflowTemplatesService(IServiceProvider serviceProvider) :
             Order = source.Order,
             IsEnabled = source.IsEnabled,
             EffectTypeCtrlNbr = source.EffectTypeCtrlNbr.Value,
-            EffectOption = source.EffectOption
+            EffectOption = source.EffectOption,
+            ExpirationDays = ResolveExpirationDays(source),
+            AutoMoveDelayHours = ResolveAutoMoveDelayHours(source),
+            EmailSource = ResolveEmailSource(source)
         };
 
         response.Options.AddRange(source.Options.Select(o => new WorkflowEffectOptionPayload
@@ -399,13 +402,83 @@ public sealed class WorkflowTemplatesService(IServiceProvider serviceProvider) :
 
     private static WorkflowEffectUpsertRequest MapEffect(WorkflowEffectPayload source)
     {
+        var options = source.Options.Select(o => new WorkflowEffectOptionDto(o.Key, o.Value)).ToList();
+
+        if (!string.IsNullOrWhiteSpace(source.EffectOption))
+        {
+            var effectOption = source.EffectOption.Trim();
+
+            if (long.TryParse(effectOption, out var roleCtrlNbrRaw) && roleCtrlNbrRaw > 0)
+            {
+                AddOrReplaceOption(WorkflowOptionKeys.RoleCtrlNbr, roleCtrlNbrRaw.ToString());
+            }
+            else
+            {
+                AddOrReplaceOption(WorkflowOptionKeys.BoardType, effectOption);
+            }
+        }
+
+        if (source.HasExpirationDays)
+            AddOrReplaceOption(WorkflowOptionKeys.ExpirationDays, Math.Clamp(source.ExpirationDays, 1, 90).ToString());
+
+        if (source.HasEmailSource)
+        {
+            var usePrimaryEmail = string.Equals(source.EmailSource, "primary", StringComparison.OrdinalIgnoreCase)
+                ? "true"
+                : "false";
+            AddOrReplaceOption(WorkflowOptionKeys.UsePrimaryEmail, usePrimaryEmail);
+        }
+
+        if (source.HasAutoMoveDelayHours)
+            AddOrReplaceOption(WorkflowOptionKeys.AutoMoveDelayHours, Math.Max(0, source.AutoMoveDelayHours).ToString());
+
         return new WorkflowEffectUpsertRequest(
             source.CtrlNbr > 0 ? ControlNumber.Create(source.CtrlNbr) : ControlNumber.Create(),
             source.Order,
             source.IsEnabled,
             source.EffectTypeCtrlNbr > 0 ? ControlNumber.Create(source.EffectTypeCtrlNbr) : throw new InvalidOperationException("effect.effectTypeCtrlNbr must be a valid control number."),
             source.EffectOption,
-            source.Options.Select(o => new WorkflowEffectOptionDto(o.Key, o.Value)).ToList());
+            options);
+
+        void AddOrReplaceOption(string key, string value)
+        {
+            options.RemoveAll(o => string.Equals(o.Key, key, StringComparison.OrdinalIgnoreCase));
+            options.Add(new WorkflowEffectOptionDto(key, value));
+        }
+    }
+
+    private static int ResolveExpirationDays(WorkflowEffectDto effect)
+    {
+        var value = effect.Options
+            .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.ExpirationDays, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return !string.IsNullOrWhiteSpace(value)
+            && int.TryParse(value, out var parsed)
+            && parsed > 0
+            ? Math.Min(parsed, 90)
+            : 7;
+    }
+
+    private static int ResolveAutoMoveDelayHours(WorkflowEffectDto effect)
+    {
+        var value = effect.Options
+            .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.AutoMoveDelayHours, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return !string.IsNullOrWhiteSpace(value)
+            && int.TryParse(value, out var parsed)
+            && parsed >= 0
+            ? parsed
+            : 0;
+    }
+
+    private static string ResolveEmailSource(WorkflowEffectDto effect)
+    {
+        var value = effect.Options
+            .FirstOrDefault(o => string.Equals(o.Key, WorkflowOptionKeys.UsePrimaryEmail, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return bool.TryParse(value, out var usePrimaryEmail) && !usePrimaryEmail
+            ? "trigger"
+            : "primary";
     }
 
     private static WorkflowTriggerTypeReference MapReferenceItemToTriggerType(WorkflowReferenceItemDto source)
@@ -444,7 +517,8 @@ public sealed class WorkflowTemplatesService(IServiceProvider serviceProvider) :
         {
             CtrlNbr = source.CtrlNbr.Value,
             Code = source.Code,
-            Name = source.Name
+            Name = source.Name,
+            AllowedValues = { source.AllowedValues }
         };
     }
 }
