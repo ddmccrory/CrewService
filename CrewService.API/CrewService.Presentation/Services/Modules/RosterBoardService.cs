@@ -170,6 +170,27 @@ public class RosterBoardService(
         }
     }
 
+    public override async Task<RosterBoardResponse> MoveRosterBoardPosition(
+        MoveRosterBoardPositionRequest request, ServerCallContext context)
+    {
+        var svc = serviceProvider.GetRequiredService<RosterBoardAppService>();
+        try
+        {
+            var (board, craftName, rosterName, workAreaCtrlNbr, workAreaName) =
+                await svc.MoveRosterBoardPositionAsync(
+                    ControlNumber.Create(request.RosterBoardCtrlNbr),
+                    ControlNumber.Create(request.PositionCtrlNbr),
+                    request.MoveUp,
+                    context.CancellationToken);
+            var tz = await ResolveBoardZoneAsync(workAreaCtrlNbr, context.CancellationToken);
+            return await MapBoardAsync(board, craftName, rosterName, workAreaCtrlNbr, workAreaName, [], tz, svc, context.CancellationToken);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+    }
+
     public override async Task<DeleteResponse> DeleteRosterBoard(
         DeleteRosterBoardRequest request, ServerCallContext context)
     {

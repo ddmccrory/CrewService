@@ -112,39 +112,65 @@ else if (HasRailroad)
 
         @if (activeTab == CurrentTabKey)
         {
-            <DataTable TItem="CurrentBoardRow"
-                       Items="currentBoardRows"
-                       Columns="currentBoardColumns"
-                       DefaultSortColumn="RowNumber"
-                       DefaultSortAscending="true"
-                       EmptyMessage="No live board rows available for the selected craft.">
-                <RowContent Context="row">
-                    <td>@row.RowNumber</td>
-                    <td>
-                        @if (row.IsMarkedOff)
-                        {
-                            <span class="text-decoration-line-through text-danger">@row.EmployeeName</span>
-                            @if (!string.IsNullOrWhiteSpace(row.MarkOffCodeDisplay))
+            @if (isCurrentBoardLoading)
+            {
+                <LoadingMessage Text="Loading board positions..." ContainerClass="d-flex align-items-center gap-2 mt-3 text-muted" />
+            }
+            else
+            {
+                <DataTable TItem="CurrentBoardRow"
+                           Items="currentBoardRows"
+                           Columns="currentBoardColumns"
+                           DefaultSortColumn="RowNumber"
+                           DefaultSortAscending="true"
+                           EmptyMessage="No live board rows available for the selected craft.">
+                    <RowContent Context="row">
+                        <td>@row.RowNumber</td>
+                        <td>
+                            @if (row.IsMarkedOff)
                             {
-                                <span class="ms-1 text-danger">(@row.MarkOffCodeDisplay)</span>
+                                <span class="text-decoration-line-through text-danger">@row.EmployeeName</span>
+                                @if (!string.IsNullOrWhiteSpace(row.MarkOffCodeDisplay))
+                                {
+                                    <span class="ms-1 text-danger">(@row.MarkOffCodeDisplay)</span>
+                                }
                             }
-                        }
-                        else
-                        {
-                            @row.EmployeeName
-                        }
-                    </td>
-                    <td>@row.Status</td>
-                    <td>@row.BoardPositionDisplay</td>
-                    <td>@row.TieUpOrderDisplay</td>
-                    <td>@row.CallSequenceDisplay</td>
-                    <td>@row.RestTimeDisplay</td>
-                    <td>@row.ConsecutiveDaysDisplay</td>
-                    <td>@row.DaysWorkedDisplay</td>
-                    <td>@row.ProjectedVacancyDisplay</td>
-                    <td>@row.OnDutyDisplay</td>
-                </RowContent>
-            </DataTable>
+                            else
+                            {
+                                @row.EmployeeName
+                            }
+                        </td>
+                        <td>@row.Status</td>
+                        <td>@row.BoardPositionDisplay</td>
+                        <td>@row.TieUpOrderDisplay</td>
+                        <td>@row.CallSequenceDisplay</td>
+                        <td>@row.RestTimeDisplay</td>
+                        <td>@row.ConsecutiveDaysDisplay</td>
+                        <td>@row.DaysWorkedDisplay</td>
+                        <td>@row.ProjectedVacancyDisplay</td>
+                        <td>@row.OnDutyDisplay</td>
+                        <td>
+                            @if (!IsFeatureReadOnly)
+                            {
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            disabled="@(!CanMoveUp(row))"
+                                            @onclick="() => MoveUpAsync(row)"
+                                            title="Move up">
+                                        <span class="bi bi-arrow-up"></span>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            disabled="@(!CanMoveDown(row))"
+                                            @onclick="() => MoveDownAsync(row)"
+                                            title="Move down">
+                                        <span class="bi bi-arrow-down"></span>
+                                    </button>
+                                </div>
+                            }
+                        </td>
+                    </RowContent>
+                </DataTable>
+            }
         }
         else
         {
@@ -219,6 +245,8 @@ else if (HasRailroad)
     private const string CurrentTabKey = "current";
     private const string HistoryTabKey = "history";
     private bool isLoading;
+    private bool isCurrentBoardLoading;
+    private bool isReordering;
     private string? pageErrorMessage;
     private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
     private int? yesterdayProjectedVacancyCount;
@@ -263,7 +291,8 @@ else if (HasRailroad)
         new("CD", r => r.ConsecutiveDaysDisplay, width: "5%", headerTooltip: "Consecutive Days (FRA): employee's current FRA consecutive-day count."),
         new("DW", r => r.DaysWorkedDisplay, width: "5%", headerTooltip: "Days Worked (Current Work Period): distinct on-duty days in the railroad work period."),
         new("Projected Vacancy", r => r.ProjectedVacancyDisplay, width: "12%"),
-        new("On Duty", r => r.OnDutyDisplay, width: "6%")
+        new("On Duty", r => r.OnDutyDisplay, width: "6%"),
+        DataTableColumn<CurrentBoardRow>.Actions("8%")
     ];
 
     private readonly IReadOnlyList<DataTableColumn<BoardSnapshotRowDetail>> snapshotColumns =
@@ -406,6 +435,8 @@ else if (HasRailroad)
 
     private async Task LoadCurrentBoardAsync()
     {
+        isCurrentBoardLoading = true;
+        await InvokeAsync(StateHasChanged);
         pageErrorMessage = null;
         currentBoardRows.Clear();
 
@@ -414,6 +445,7 @@ else if (HasRailroad)
             yesterdayProjectedVacancyCount = null;
             todayProjectedVacancyCount = null;
             tomorrowProjectedVacancyCount = null;
+            isCurrentBoardLoading = false;
             return;
         }
 
@@ -428,6 +460,8 @@ else if (HasRailroad)
             currentBoardRows = currentBoard.Rows
                 .Select(r => new CurrentBoardRow(
                     r.RowNumber,
+                    r.RosterBoardCtrlNbr,
+                    r.HasRosterBoardPositionCtrlNbr ? r.RosterBoardPositionCtrlNbr : null,
                     r.EmployeeName,
                     r.IsMarkedOff,
                     r.MarkOffCodeDisplay,
@@ -450,6 +484,10 @@ else if (HasRailroad)
             yesterdayProjectedVacancyCount = null;
             todayProjectedVacancyCount = null;
             tomorrowProjectedVacancyCount = null;
+        }
+        finally
+        {
+            isCurrentBoardLoading = false;
         }
     }
 
@@ -645,6 +683,62 @@ else if (HasRailroad)
             ? boardPosition
             : int.MaxValue;
 
+    private bool CanMoveUp(CurrentBoardRow row)
+    {
+        if (isReordering || row.RosterBoardPositionCtrlNbr is null)
+            return false;
+
+        var boardRows = GetBoardRows(row.RosterBoardCtrlNbr);
+        return boardRows.Count > 1
+            && boardRows[0].RosterBoardPositionCtrlNbr != row.RosterBoardPositionCtrlNbr;
+    }
+
+    private bool CanMoveDown(CurrentBoardRow row)
+    {
+        if (isReordering || row.RosterBoardPositionCtrlNbr is null)
+            return false;
+
+        var boardRows = GetBoardRows(row.RosterBoardCtrlNbr);
+        return boardRows.Count > 1
+            && boardRows[^1].RosterBoardPositionCtrlNbr != row.RosterBoardPositionCtrlNbr;
+    }
+
+    private Task MoveUpAsync(CurrentBoardRow row) => ReorderPositionAsync(row, moveUp: true);
+
+    private Task MoveDownAsync(CurrentBoardRow row) => ReorderPositionAsync(row, moveUp: false);
+
+    private async Task ReorderPositionAsync(CurrentBoardRow row, bool moveUp)
+    {
+        if (row.RosterBoardPositionCtrlNbr is null)
+            return;
+
+        try
+        {
+            isReordering = true;
+            pageErrorMessage = null;
+
+            await RosterBoardClient.MovePositionAsync(
+                row.RosterBoardCtrlNbr,
+                row.RosterBoardPositionCtrlNbr.Value,
+                moveUp);
+            await LoadCurrentBoardAsync();
+        }
+        catch (RpcException ex)
+        {
+            pageErrorMessage = ex.Status.Detail;
+        }
+        finally
+        {
+            isReordering = false;
+        }
+    }
+
+    private List<CurrentBoardRow> GetBoardRows(long rosterBoardCtrlNbr)
+        => currentBoardRows
+            .Where(r => r.RosterBoardCtrlNbr == rosterBoardCtrlNbr && r.RosterBoardPositionCtrlNbr is not null)
+            .OrderBy(r => r.RowNumber)
+            .ToList();
+
     private void ApplyNavigationParameters()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
@@ -689,6 +783,8 @@ else if (HasRailroad)
 
     private sealed record CurrentBoardRow(
         int RowNumber,
+        long RosterBoardCtrlNbr,
+        long? RosterBoardPositionCtrlNbr,
         string EmployeeName,
         bool IsMarkedOff,
         string MarkOffCodeDisplay,

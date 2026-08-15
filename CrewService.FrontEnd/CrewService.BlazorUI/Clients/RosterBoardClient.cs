@@ -142,6 +142,24 @@ public sealed class RosterBoardClient(GrpcChannelProvider channelProvider, Circu
         }
     }
 
+    public async Task<RosterBoardResponse> MovePositionAsync(long rosterBoardCtrlNbr, long positionCtrlNbr, bool moveUp)
+    {
+        try
+        {
+            return await _client.MoveRosterBoardPositionAsync(new MoveRosterBoardPositionRequest
+            {
+                RosterBoardCtrlNbr = rosterBoardCtrlNbr,
+                PositionCtrlNbr = positionCtrlNbr,
+                MoveUp = moveUp
+            });
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            throw;
+        }
+    }
+
     public async Task<GetEligibleEmployeesForRosterBoardResponse> GetEligibleEmployeesAsync(long clientCtrlNbr, long craftCtrlNbr)
     {
         try
