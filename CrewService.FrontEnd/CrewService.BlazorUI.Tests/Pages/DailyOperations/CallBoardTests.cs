@@ -16,6 +16,18 @@ public class CallBoardTests
     }
 
     [Fact]
+    public void CallBoard_CurrentTable_IncludesMoveUpDownActionsThatUseRosterBoardReorder()
+    {
+        var source = File.ReadAllText(GetCallBoardRazorPath());
+
+        Assert.Contains("DataTableColumn<CurrentBoardRow>.Actions(\"8%\")", source, StringComparison.Ordinal);
+        Assert.Contains("@onclick=\"() => MoveUpAsync(row)\"", source, StringComparison.Ordinal);
+        Assert.Contains("@onclick=\"() => MoveDownAsync(row)\"", source, StringComparison.Ordinal);
+        Assert.Contains("await RosterBoardClient.MovePositionAsync(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("await RosterBoardClient.ReorderPositionsAsync(row.RosterBoardCtrlNbr, entries);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VacancyAssignmentService_CurrentBoard_OrdersByBoardNameThenRowNumber_AssignsRowNumber_AndUsesCanonicalEmployeeName()
     {
         var source = File.ReadAllText(GetVacancyAssignmentServicePath());
