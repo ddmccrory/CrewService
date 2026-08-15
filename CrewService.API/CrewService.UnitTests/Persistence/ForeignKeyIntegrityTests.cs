@@ -78,6 +78,9 @@ public class ForeignKeyIntegrityTests
             // Audit log — DomainEventLog is a non-Entity audit record; ParentCtrlNbr is a
             // denormalized scope tag, not a FK to Parents (no cascade/restrict needed)
             ("DomainEventLog", "ParentCtrlNbr"),
+            // Error log — diagnostic scope tags are denormalized capture context, not relational FKs
+            ("ErrorLog", "ParentCtrlNbr"),
+            ("ErrorLog", "RailroadCtrlNbr"),
             // Projection/read-model fields intentionally denormalized or polymorphic
             ("PositionChangeRecord", "RailroadCtrlNbr"),
             ("PositionChangeRecord", "EmployeeCtrlNbr"),

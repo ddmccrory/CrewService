@@ -3,6 +3,7 @@ using System;
 using CrewService.Persistance.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    partial class CrewServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260815153233_AddErrorLog")]
+    partial class AddErrorLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -27,25 +30,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ErrorKind")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ExceptionType")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FingerprintHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("FirstOccurredAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("LastOccurredAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("LoggedAtUtc")
@@ -63,9 +50,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("OccurrenceCount")
-                        .HasColumnType("INTEGER");
-
                     b.Property<long?>("ParentCtrlNbr")
                         .HasColumnType("INTEGER");
 
@@ -79,13 +63,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.Property<long?>("RailroadCtrlNbr")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("ResolvedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ResolvedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("Route")
                         .HasMaxLength(512)
@@ -106,25 +83,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SuppressionReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("TraceId")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
                     b.HasKey("ErrorId");
-
-                    b.HasIndex("ErrorKind");
-
-                    b.HasIndex("FingerprintHash");
 
                     b.HasIndex("OccurredAtUtc");
 
@@ -136,11 +100,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
                     b.HasIndex("SourceApp");
 
-                    b.HasIndex("Status");
-
                     b.HasIndex("TraceId");
-
-                    b.HasIndex("FingerprintHash", "Status");
 
                     b.ToTable("ErrorLogs", (string)null);
                 });

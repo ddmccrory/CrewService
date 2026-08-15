@@ -8,6 +8,7 @@ using CrewService.Application.Qualifications;
 using CrewService.Application.Qualifications.Evaluators;
 using CrewService.Application.RosterBoardOps;
 using CrewService.Application.VacancyAssignment;
+using CrewService.Domain.Diagnostics;
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.AbsenceVacancy;
@@ -301,6 +302,11 @@ public static class DependencyInjection
 
         // Audit Log Query
         services.AddScoped<IAuditLogQuery, AuditLogQuery>();
+        services.AddScoped<IErrorLogQuery, ErrorLogRepository>();
+        services.AddScoped<IErrorLogCommand, ErrorLogRepository>();
+        services.AddSingleton<IErrorLogWriter, ErrorLogWriter>();
+        services.AddHostedService<ErrorLogMaintenanceService>();
+        services.AddHostedService<ErrorLogAlertingService>();
 
         // Contact Repositories (Core)
         services.AddScoped<IAddressRepository, AddressRepository>();

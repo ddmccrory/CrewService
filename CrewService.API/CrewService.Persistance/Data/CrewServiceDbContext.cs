@@ -1,3 +1,4 @@
+using CrewService.Domain.Diagnostics;
 using CrewService.Domain.DomainEvents;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.ContactTypes;
@@ -159,6 +160,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
 
     // Audit
     public DbSet<DomainEventLog> DomainEventLogs => Set<DomainEventLog>();
+    public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
     // Payroll Module
     public DbSet<Domain.Modules.Payroll.EarningCodeRule> EarningCodeRules => Set<Domain.Modules.Payroll.EarningCodeRule>();
