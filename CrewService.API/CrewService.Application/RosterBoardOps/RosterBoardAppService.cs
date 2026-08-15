@@ -411,13 +411,62 @@ public sealed class RosterBoardAppService(
         ReorderRosterBoardPositionsAsync(ControlNumber boardCtrlNbr,
             List<(ControlNumber PositionCtrlNbr, int PositionOrder)> ordering, CancellationToken ct = default)
     {
+        (RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName) reorderResult;
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
         var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct)
             ?? throw new KeyNotFoundException($"Roster board {boardCtrlNbr.Value} not found.");
         board.ReorderPositions(ordering);
         uow.RosterBoards.Update(board);
-        var reorderResult = await ResolveBoardDetailsAsync(uow, board, ct);
+        reorderResult = await ResolveBoardDetailsAsync(uow, board, ct);
         await uow.CommitAsync(ct);
+
+        await ReconcileVacancyProjectionsForBoardOrderChangeAsync(boardCtrlNbr, ct);
+        return reorderResult;
+    }
+
+    public async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
+        MoveRosterBoardPositionAsync(
+            ControlNumber boardCtrlNbr,
+            ControlNumber positionCtrlNbr,
+            bool moveUp,
+            CancellationToken ct = default)
+    {
+        (RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName) reorderResult;
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct)
+            ?? throw new KeyNotFoundException($"Roster board {boardCtrlNbr.Value} not found.");
+
+        var orderedPositions = board.Positions
+            .OrderBy(position => position.PositionOrder)
+            .ThenBy(position => position.CtrlNbr.Value)
+            .ToList();
+
+        var currentIndex = orderedPositions.FindIndex(position => position.CtrlNbr == positionCtrlNbr);
+        if (currentIndex < 0)
+            throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found on roster board {boardCtrlNbr.Value}.");
+
+        var targetIndex = moveUp ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= orderedPositions.Count)
+            return await ResolveBoardDetailsAsync(uow, board, ct);
+
+        var ordering = orderedPositions
+            .Select((position, index) =>
+            {
+                var newOrder = index == currentIndex
+                    ? targetIndex + 1
+                    : index == targetIndex
+                        ? currentIndex + 1
+                        : index + 1;
+                return (PositionCtrlNbr: position.CtrlNbr, PositionOrder: newOrder);
+            })
+            .ToList();
+
+        board.ReorderPositions(ordering);
+        uow.RosterBoards.Update(board);
+        reorderResult = await ResolveBoardDetailsAsync(uow, board, ct);
+        await uow.CommitAsync(ct);
+
+        await ReconcileVacancyProjectionsForBoardOrderChangeAsync(boardCtrlNbr, ct);
         return reorderResult;
     }
 
@@ -483,6 +532,78 @@ public sealed class RosterBoardAppService(
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private async Task ReconcileVacancyProjectionsForBoardOrderChangeAsync(
+        ControlNumber boardCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct);
+        if (board?.RosterCtrlNbr is null)
+            return;
+
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
+        if (roster?.WorkAreaGroupCtrlNbr is null)
+            return;
+
+        var incompleteShifts = await uow.ShiftInstances.GetIncompleteByWorkAreaAsync(roster.WorkAreaGroupCtrlNbr, ct);
+        if (incompleteShifts.Count == 0)
+            return;
+
+        var boardOrderByPositionCtrlNbr = board.Positions
+            .ToDictionary(position => position.CtrlNbr, position => position.PositionOrder);
+
+        var boardOrderSyncChanged = false;
+
+        foreach (var shift in incompleteShifts)
+        {
+            var shiftChanged = false;
+            foreach (var boardSlot in shift.BoardSlots
+                         .Where(slot => slot.RosterBoardCtrlNbr == board.CtrlNbr && slot.RosterBoardPositionCtrlNbr is not null))
+            {
+                if (!boardOrderByPositionCtrlNbr.TryGetValue(boardSlot.RosterBoardPositionCtrlNbr!, out var resolvedBoardOrder))
+                    continue;
+
+                if (boardSlot.BoardOrder == resolvedBoardOrder)
+                    continue;
+
+                boardSlot.SyncBoardOrder(resolvedBoardOrder);
+                shiftChanged = true;
+            }
+
+            if (shiftChanged)
+            {
+                uow.ShiftInstances.Update(shift);
+                boardOrderSyncChanged = true;
+            }
+        }
+
+        var workInstanceStartsByCtrlNbr = new Dictionary<ControlNumber, DateTime>();
+        foreach (var workInstanceCtrlNbr in incompleteShifts.Select(shift => shift.WorkInstanceCtrlNbr).Distinct())
+        {
+            var workInstance = await uow.WorkInstances.GetByCtrlNbrAsync(workInstanceCtrlNbr, ct);
+            if (workInstance is not null)
+            {
+                workInstanceStartsByCtrlNbr[workInstanceCtrlNbr] = DateTime.SpecifyKind(workInstance.StartUtc, DateTimeKind.Utc);
+            }
+        }
+
+        var anchorShift = incompleteShifts
+            .Where(shift => workInstanceStartsByCtrlNbr.ContainsKey(shift.WorkInstanceCtrlNbr))
+            .OrderBy(shift => workInstanceStartsByCtrlNbr[shift.WorkInstanceCtrlNbr])
+            .ThenBy(shift => shift.CtrlNbr.Value)
+            .FirstOrDefault();
+
+        if (anchorShift is null)
+        {
+            if (boardOrderSyncChanged)
+                await uow.CommitAsync(ct);
+            return;
+        }
+
+        await vacancyProjectionSyncService.ReconcileFromShiftChangeAsync(uow, anchorShift, ct);
+        await uow.CommitAsync(ct);
+    }
 
     private static async Task<(RosterBoard Board, string CraftName, string RosterName, long WorkAreaCtrlNbr, string WorkAreaName)>
         ResolveBoardDetailsAsync(IOrchestrationUnitOfWork uow, RosterBoard board, CancellationToken ct)

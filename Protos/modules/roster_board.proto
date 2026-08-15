@@ -35,6 +35,9 @@ service RosterBoardSrvc {
   rpc ReorderRosterBoardPositions (ReorderRosterBoardPositionsRequest) returns (RosterBoardResponse) {
     option (google.api.http) = { post: "/v1/roster-board/{roster_board_ctrl_nbr}/reorder" body: "*" };
   }
+  rpc MoveRosterBoardPosition (MoveRosterBoardPositionRequest) returns (RosterBoardResponse) {
+    option (google.api.http) = { post: "/v1/roster-board/{roster_board_ctrl_nbr}/positions/{position_ctrl_nbr}/move" body: "*" };
+  }
   rpc GetEligibleEmployeesForRosterBoard (GetEligibleEmployeesForRosterBoardRequest) returns (GetEligibleEmployeesForRosterBoardResponse) {
     option (google.api.http) = { get: "/v1/roster-board/eligible-employees" };
   }
@@ -144,6 +147,12 @@ message RestorePositionRequest {
 message ReorderRosterBoardPositionsRequest {
   int64 roster_board_ctrl_nbr = 1;
   repeated PositionOrderEntry entries = 2;
+}
+
+message MoveRosterBoardPositionRequest {
+  int64 roster_board_ctrl_nbr = 1;
+  int64 position_ctrl_nbr = 2;
+  bool move_up = 3;
 }
 
 message PositionOrderEntry {

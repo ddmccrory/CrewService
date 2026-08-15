@@ -98,6 +98,14 @@ public sealed class BoardSlotInstance : Entity
         }
     }
 
+    public void SyncBoardOrder(int newBoardOrder)
+    {
+        if (newBoardOrder <= 0)
+            throw new ArgumentOutOfRangeException(nameof(newBoardOrder), "Board order must be greater than zero.");
+
+        BoardOrder = newBoardOrder;
+    }
+
     public void MarkOff()
     {
         Status = BoardSlotStatus.MarkedOff;
