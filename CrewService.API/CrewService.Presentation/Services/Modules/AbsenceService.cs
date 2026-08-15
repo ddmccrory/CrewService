@@ -4,20 +4,26 @@ using CrewService.Application.Absence;
 using CrewService.Application.Time;
 using CrewService.Application.TenantConfig;
 using CrewService.Domain.Models.Seniority;
+using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.AbsenceVacancy;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.ValueObjects;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Claims;
 
 namespace CrewService.Presentation.Services.Modules;
 
 public class AbsenceService(IServiceProvider serviceProvider)
     : MarkOffSrvc.MarkOffSrvcBase
 {
+    private const string MarkOffFeatureKey = "daily/mark-offs";
+
     private readonly IRequestActorContextResolver _actorContextResolver =
         serviceProvider.GetRequiredService<IRequestActorContextResolver>();
+    private readonly IRequestActorContextPolicy _actorContextPolicy =
+        serviceProvider.GetRequiredService<IRequestActorContextPolicy>();
     private readonly IRailroadResolver _railroadResolver =
         serviceProvider.GetRequiredService<IRailroadResolver>();
     private readonly IWorkAreaClock _workAreaClock =
@@ -28,10 +34,22 @@ public class AbsenceService(IServiceProvider serviceProvider)
     public override async Task<MarkOffAbsenceResponse> CreateAbsenceRequest(
         CreateAbsenceRequestMsg request, ServerCallContext context)
     {
+        if (request.EmployeeCtrlNbr <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Employee control number is required."));
+
         var svc = serviceProvider.GetRequiredService<AbsenceRequestService>();
         var actorContext = await _actorContextResolver.ResolveAsync(
             requestedEmployeeCtrlNbr: request.EmployeeCtrlNbr,
             ct: context.CancellationToken);
+
+        var canCreateForOtherEmployees = await HasFullFeatureRoleAccessAsync(
+            context,
+            actorContext.ParentCtrlNbr,
+            MarkOffFeatureKey,
+            context.CancellationToken);
+
+        if (!_actorContextPolicy.CanAccessRequestedEmployee(actorContext, canCreateForOtherEmployees))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "You do not have permission to create absence requests for this employee."));
 
         var approvedByCtrlNbr = request.HasApprovedByCtrlNbr
             ? ControlNumber.Create(request.ApprovedByCtrlNbr)
@@ -1394,5 +1412,38 @@ public class AbsenceService(IServiceProvider serviceProvider)
             return utc.Date;
 
         return TimeZoneInfo.ConvertTimeFromUtc(utc, displayTimeZone).Date;
+    }
+
+    private async Task<bool> HasFullFeatureRoleAccessAsync(ServerCallContext context, long? parentCtrlNbr, string featureKey, CancellationToken ct)
+    {
+        var user = context.GetHttpContext().User;
+        if (user.Identity?.IsAuthenticated != true)
+            return false;
+
+        await using var uow = await _uowFactory.CreateAsync(cancellationToken: ct);
+        var feature = await uow.Features.GetByKeyAsync(featureKey, ct);
+        if (feature is null)
+            return false;
+
+        var parent = parentCtrlNbr.HasValue ? ControlNumber.Create(parentCtrlNbr.Value) : null;
+        var roleNames = user.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var roleName in roleNames)
+        {
+            var role = await uow.Roles.GetByNameAsync(roleName, ct);
+            if (role is null)
+                continue;
+
+            var permissions = await uow.Permissions.GetEffectivePermissionsAsync(role.CtrlNbr, parent, craftCtrlNbr: null, ct);
+            var hasFullAccess = permissions.Any(p => p.FeatureCtrlNbr == feature.CtrlNbr && p.AccessLevel == AccessLevel.FullAccess);
+            if (hasFullAccess)
+                return true;
+        }
+
+        return false;
     }
 }

@@ -989,6 +989,30 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         Assert.Equal(30L, openRoundTrip.EmployeeCtrlNbr);
     }
 
+    [Fact]
+    public async Task CreateAbsenceRequest_LinkedEmployeeOnBehalfWithoutMarkOffAccess_ThrowsPermissionDenied()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedRailroadAndEmployeesAsync(ct);
+
+        var service = BuildService(
+            utcNow: new DateTimeOffset(2026, 7, 30, 12, 0, 0, TimeSpan.Zero),
+            railroadCtrlNbr: seeded.Railroad.CtrlNbr,
+            actorContextResolver: new LinkedEmployeeActorContextResolver(
+                seeded.Railroad.CtrlNbr.Value,
+                seeded.EmployeeA.CtrlNbr.Value));
+
+        var ex = await Assert.ThrowsAsync<RpcException>(() => service.CreateAbsenceRequest(
+            new CreateAbsenceRequestMsg
+            {
+                EmployeeCtrlNbr = seeded.EmployeeB.CtrlNbr.Value,
+                AbsenceCodeCtrlNbr = 1
+            },
+            TestServerCallContextFactory.Create()));
+
+        Assert.Equal(StatusCode.PermissionDenied, ex.StatusCode);
+    }
+
     private AbsenceService BuildService(
         DateTimeOffset utcNow,
         ControlNumber railroadCtrlNbr,
@@ -996,9 +1020,10 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         IAbsenceCodeRepository? absenceCodeRepository = null,
         IAbsenceRequestWaitListRecordRepository? waitListRecordRepository = null,
         ICraftAbsenceWaitListPolicyRepository? craftWaitListPolicyRepository = null,
-        IAbsenceWaitListAllowancePolicyRepository? waitListAllowancePolicyRepository = null)
+        IAbsenceWaitListAllowancePolicyRepository? waitListAllowancePolicyRepository = null,
+        IRequestActorContextResolver? actorContextResolver = null)
     {
-        var actorContextResolver = new FixedActorContextResolver(railroadCtrlNbr.Value);
+        actorContextResolver ??= new FixedActorContextResolver(railroadCtrlNbr.Value);
         var workAreaClock = new FixedWorkAreaClock(utcNow, workAreaTimeZones);
 
         var factory = new OrchestrationUnitOfWorkFactory(
@@ -1010,6 +1035,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IRequestActorContextResolver>(actorContextResolver);
+        services.AddSingleton<IRequestActorContextPolicy, RequestActorContextPolicy>();
         services.AddSingleton<IWorkAreaClock>(workAreaClock);
         services.AddSingleton<IOrchestrationUnitOfWorkFactory>(factory);
         services.AddSingleton<IRailroadResolver, NullRailroadResolver>();
@@ -1194,6 +1220,33 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
                 IsLinkedEmployee: false,
                 IsSelfEmployeeContext: false,
                 IsActingOnBehalfOfEmployee: requestedEmployeeCtrlNbr.HasValue,
+                ParentCtrlNbr: parentCtrlNbr,
+                RailroadCtrlNbr: railroadCtrlNbrOverride ?? railroadCtrlNbr,
+                WorkAreaCtrlNbr: workAreaCtrlNbr);
+
+            return Task.FromResult(context);
+        }
+    }
+
+    private sealed class LinkedEmployeeActorContextResolver(long railroadCtrlNbr, long currentEmployeeCtrlNbr) : IRequestActorContextResolver
+    {
+        public Task<RequestActorContext> ResolveAsync(
+            long? requestedEmployeeCtrlNbr = null,
+            long? parentCtrlNbr = null,
+            long? railroadCtrlNbrOverride = null,
+            long? workAreaCtrlNbr = null,
+            CancellationToken ct = default)
+        {
+            var isSelfEmployeeContext = requestedEmployeeCtrlNbr.HasValue
+                && requestedEmployeeCtrlNbr.Value == currentEmployeeCtrlNbr;
+
+            var context = new RequestActorContext(
+                CurrentUserId: "00000000-0000-0000-0000-000000000001",
+                CurrentEmployeeCtrlNbr: currentEmployeeCtrlNbr,
+                RequestedEmployeeCtrlNbr: requestedEmployeeCtrlNbr,
+                IsLinkedEmployee: true,
+                IsSelfEmployeeContext: isSelfEmployeeContext,
+                IsActingOnBehalfOfEmployee: requestedEmployeeCtrlNbr.HasValue && !isSelfEmployeeContext,
                 ParentCtrlNbr: parentCtrlNbr,
                 RailroadCtrlNbr: railroadCtrlNbrOverride ?? railroadCtrlNbr,
                 WorkAreaCtrlNbr: workAreaCtrlNbr);
@@ -1399,6 +1452,7 @@ public sealed class AbsenceServiceFiltersTests : IDisposable
         public static ServerCallContext Create()
         {
             var httpContext = new DefaultHttpContext();
+            httpContext.Items["__HttpContext"] = httpContext;
             return TestServerCallContext.Create("/CrewService.Presentation.MarkOffSrvc/Test", httpContext);
         }
     }

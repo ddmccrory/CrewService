@@ -26,6 +26,7 @@ public class EmployeeService(
     ILogger<EmployeeService> logger) : EmployeeSrvc.EmployeeSrvcBase
 {
     private const string EmployeeFeatureKey = "employees";
+    private const string MarkOffFeatureKey = "daily/mark-offs";
 
     private readonly EmployeeAppService _employeeAppService = employeeAppService;
     private readonly IUserAccountService _userAccountService = userAccountService;
@@ -86,6 +87,31 @@ public class EmployeeService(
             craftCtrlNbr,
             departmentCtrlNbr,
             context.CancellationToken);
+
+        var actorContext = await _actorContextResolver.ResolveAsync(
+            parentCtrlNbr: request.ParentCtrlNbr,
+            railroadCtrlNbr: request.RailroadCtrlNbr,
+            ct: context.CancellationToken);
+
+        var canCreateMarkOffsForOtherEmployees = await HasFullFeatureRoleAccessAsync(
+            context,
+            actorContext.ParentCtrlNbr,
+            MarkOffFeatureKey,
+            context.CancellationToken);
+
+        if (!canCreateMarkOffsForOtherEmployees)
+        {
+            if (actorContext.CurrentEmployeeCtrlNbr.HasValue)
+            {
+                employees = employees
+                    .Where(e => e.CtrlNbr.Value == actorContext.CurrentEmployeeCtrlNbr.Value)
+                    .ToList();
+            }
+            else
+            {
+                employees = [];
+            }
+        }
 
         var response = new GetAllEmployeesResponse();
         var userIds = employees.Select(e => e.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().Cast<string>().ToList();
@@ -515,13 +541,16 @@ public class EmployeeService(
     }
 
     private async Task<bool> HasFullEmployeeDetailRoleAccessAsync(ServerCallContext context, long? parentCtrlNbr, CancellationToken ct)
+        => await HasFullFeatureRoleAccessAsync(context, parentCtrlNbr, EmployeeFeatureKey, ct);
+
+    private async Task<bool> HasFullFeatureRoleAccessAsync(ServerCallContext context, long? parentCtrlNbr, string featureKey, CancellationToken ct)
     {
         var user = context.GetHttpContext().User;
         if (user.Identity?.IsAuthenticated != true)
             return false;
 
         await using var uow = await _uowFactory.CreateAsync(cancellationToken: ct);
-        var feature = await uow.Features.GetByKeyAsync(EmployeeFeatureKey, ct);
+        var feature = await uow.Features.GetByKeyAsync(featureKey, ct);
         if (feature is null)
             return false;
 
