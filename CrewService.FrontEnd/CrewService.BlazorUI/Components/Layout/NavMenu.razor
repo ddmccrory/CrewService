@@ -412,9 +412,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules", "admin/department-reassignment-rules"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/error-log", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules", "admin/department-reassignment-rules"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "parents", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules", "admin/department-reassignment-rules")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/error-log", "parents", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules", "admin/department-reassignment-rules")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -468,6 +468,14 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/audit-log">
                                     <span class="bi bi-journal-text" aria-hidden="true"></span> Audit Log
+                                </NavLink>
+                            </div>
+                        }
+                        @if (Permissions.HasAccess("admin/error-log"))
+                        {
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/error-log">
+                                    <span class="bi bi-exclamation-octagon" aria-hidden="true"></span> Error Log
                                 </NavLink>
                             </div>
                         }

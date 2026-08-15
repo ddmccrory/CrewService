@@ -1,0 +1,70 @@
+syntax = "proto3";
+option csharp_namespace = "CrewService.Presentation";
+import "google/api/annotations.proto";
+package error_log;
+
+service ErrorLogSrvc {
+  rpc GetAllErrorLogsAsync(GetAllErrorLogsRequest) returns (GetAllErrorLogsResponse) {
+	option (google.api.http) = { get: "/v1/error-logs" };
+  }
+  rpc UpdateErrorLogStatusAsync(UpdateErrorLogStatusRequest) returns (UpdateErrorLogStatusResponse) {
+	option (google.api.http) = {
+	  patch: "/v1/error-logs/{error_id}/status"
+	  body: "*"
+	};
+  }
+}
+
+message GetAllErrorLogsRequest {
+  int32 page_number = 1;
+  int32 page_size = 2;
+  string search_text = 3;
+  string date_from = 4;
+  string date_to = 5;
+  string severity = 6;
+  string source_app = 7;
+  string error_kind = 8;
+  string status = 9;
+  string fingerprint_hash = 10;
+}
+
+message GetAllErrorLogsResponse {
+  repeated ErrorLogEntry entries = 1;
+  int32 total_count = 2;
+}
+
+message ErrorLogEntry {
+  string error_id = 1;
+  string occurred_at_utc = 2;
+  string severity = 3;
+  string source_app = 4;
+  string source_layer = 5;
+  string error_code = 6;
+  string exception_type = 7;
+  string message = 8;
+  string trace_id = 9;
+  string route = 10;
+  string method = 11;
+  string performed_by = 12;
+  string payload_json = 13;
+  string logged_at_utc = 14;
+  string error_kind = 15;
+  string status = 16;
+  string fingerprint_hash = 17;
+  int32 occurrence_count = 18;
+  string first_occurred_at_utc = 19;
+  string last_occurred_at_utc = 20;
+  string resolved_at_utc = 21;
+  string resolved_by = 22;
+  string suppression_reason = 23;
+}
+
+message UpdateErrorLogStatusRequest {
+  string error_id = 1;
+  string status = 2;
+  string suppression_reason = 3;
+}
+
+message UpdateErrorLogStatusResponse {
+  bool updated = 1;
+}

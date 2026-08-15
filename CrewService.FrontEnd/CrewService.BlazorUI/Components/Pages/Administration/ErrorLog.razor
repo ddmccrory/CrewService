@@ -1,0 +1,418 @@
+@page "/admin/error-log"
+@rendermode InteractiveServer
+
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using CrewService.BlazorUI.Clients
+@using CrewService.Presentation
+
+@inherits AppComponentBase
+
+@attribute [Authorize]
+
+@inject ErrorLogClient ErrorLogClient
+
+<PageTitle>Error Log — Crew Service</PageTitle>
+
+<h1>Error Log</h1>
+@if (ShowSelectRailroadBanner)
+{
+    <div class="alert alert-warning">
+        <span class="bi bi-exclamation-triangle"></span>
+        Please select a railroad in the context switcher to view the error log.
+    </div>
+}
+else if (HasRailroad)
+{
+    <p class="text-muted">Read-only log of captured system errors with AI-ready payload details.</p>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small mb-1">From</label>
+                    <input type="date" class="form-control" @bind="dateFrom" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small mb-1">To</label>
+                    <input type="date" class="form-control" @bind="dateTo" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small mb-1">Severity</label>
+                    <select class="form-select" @bind="severity">
+                        <option value="">All</option>
+                        <option value="Critical">Critical</option>
+                        <option value="Error">Error</option>
+                        <option value="Warning">Warning</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small mb-1">Status</label>
+                    <select class="form-select" @bind="statusFilter">
+                        <option value="">All</option>
+                        <option value="New">New</option>
+                        <option value="Investigating">Investigating</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Suppressed">Suppressed</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small mb-1">Kind</label>
+                    <select class="form-select" @bind="errorKind">
+                        <option value="">All</option>
+                        <option value="UnhandledException">Unhandled Exception</option>
+                        <option value="HandledFailure">Handled Failure</option>
+                        <option value="ClientRuntime">Client Runtime</option>
+                        <option value="Dependency">Dependency</option>
+                        <option value="Validation">Validation</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small mb-1">Source</label>
+                    <select class="form-select" @bind="sourceApp">
+                        <option value="">All</option>
+                        <option value="BackendApi">Backend API</option>
+                        <option value="BlazorServer">Blazor Server</option>
+                        <option value="BlazorWasm">Blazor WASM</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-2 align-items-end mt-1">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small mb-1">Fingerprint</label>
+                    <input type="text" class="form-control" @bind="fingerprintHash" placeholder="Fingerprint hash" />
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label fw-semibold small mb-1">Search</label>
+                    <input type="text"
+                           class="form-control"
+                           placeholder="Search code, message, trace, route, payload…"
+                           @bind="searchText"
+                           @bind:event="oninput"
+                           @onkeydown="OnSearchKeyDown" />
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="button" class="btn btn-primary flex-fill" @onclick="ApplySearch">
+                        <span class="bi bi-search me-1"></span>Search
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary flex-fill" @onclick="ClearSearch">
+                        <span class="bi bi-x-lg me-1"></span>Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <span class="bi bi-exclamation-triangle-fill me-2"></span>@errorMessage
+        </div>
+    }
+
+    @if (entries is null)
+    {
+        <p class="text-muted"><em>Loading error log…</em></p>
+    }
+    else if (entries.Count == 0)
+    {
+        <div class="alert alert-info">No error log entries found.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width:170px">Last Seen (UTC)</th>
+                        <th style="width:120px">Kind</th>
+                        <th style="width:110px">Severity</th>
+                        <th style="width:120px">Status</th>
+                        <th style="width:120px">Source</th>
+                        <th style="width:150px">Code</th>
+                        <th>Message</th>
+                        <th style="width:90px">Count</th>
+                        <th style="width:170px">Fingerprint</th>
+                        <th style="width:140px">User</th>
+                        <th style="width:190px">Actions</th>
+                        <th style="width:80px">Payload</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in entries)
+                    {
+                        <tr>
+                            <td class="text-nowrap">
+                                <div>@FormatTimestamp(entry.LastOccurredAtUtc)</div>
+                                <div class="small text-muted">First: @FormatTimestamp(entry.FirstOccurredAtUtc)</div>
+                            </td>
+                            <td>@entry.ErrorKind</td>
+                            <td><span class="badge @GetSeverityBadgeClass(entry.Severity)">@entry.Severity</span></td>
+                            <td><span class="badge @GetStatusBadgeClass(entry.Status)">@entry.Status</span></td>
+                            <td>@entry.SourceApp</td>
+                            <td class="text-nowrap">@entry.ErrorCode</td>
+                            <td>@entry.Message</td>
+                            <td>@entry.OccurrenceCount</td>
+                            <td class="small text-break">@entry.FingerprintHash</td>
+                            <td>@entry.PerformedBy</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-warning"
+                                            title="Mark investigating"
+                                            @onclick='() => UpdateStatusAsync(entry.ErrorId, "Investigating")'
+                                            disabled="@(isUpdatingStatus.Contains(entry.ErrorId) || entry.Status == "Investigating")">
+                                        Investigate
+                                    </button>
+                                    <button class="btn btn-outline-success"
+                                            title="Mark resolved"
+                                            @onclick='() => UpdateStatusAsync(entry.ErrorId, "Resolved")'
+                                            disabled="@(isUpdatingStatus.Contains(entry.ErrorId) || entry.Status == "Resolved")">
+                                        Resolve
+                                    </button>
+                                    <button class="btn btn-outline-secondary"
+                                            title="Suppress"
+                                            @onclick='() => UpdateStatusAsync(entry.ErrorId, "Suppressed")'
+                                            disabled="@(isUpdatingStatus.Contains(entry.ErrorId) || entry.Status == "Suppressed")">
+                                        Suppress
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(entry.PayloadJson))
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => TogglePayload(entry.ErrorId)">
+                                        <span class="bi @(IsPayloadVisible(entry.ErrorId) ? "bi-chevron-up" : "bi-chevron-down")"></span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                        @if (IsPayloadVisible(entry.ErrorId))
+                        {
+                            <tr>
+                                <td colspan="12" class="bg-body-secondary text-body p-2">
+                                    <pre class="mb-0 small" style="max-height:260px; overflow:auto; white-space:pre-wrap;">@entry.PayloadJson</pre>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-2">
+            <p class="text-muted small mb-0">Showing @((currentPage - 1) * pageSize + 1)–@((currentPage - 1) * pageSize + entries.Count) of @totalCount entries.</p>
+
+            @if (totalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => GoToPageAsync(currentPage - 1)" disabled="@(currentPage <= 1)">Previous</button>
+                        </li>
+                        @foreach (var p in GetVisiblePages())
+                        {
+                            @if (p == -1)
+                            {
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            }
+                            else
+                            {
+                                <li class="page-item @(p == currentPage ? "active" : "")">
+                                    <button class="page-link" @onclick="() => GoToPageAsync(p)">@p</button>
+                                </li>
+                            }
+                        }
+                        <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => GoToPageAsync(currentPage + 1)" disabled="@(currentPage >= totalPages)">Next</button>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </div>
+    }
+}
+
+@code {
+    protected override string? FeatureKey => "admin/error-log";
+
+    private IReadOnlyList<ErrorLogEntry>? entries;
+    private int totalCount;
+    private int currentPage = 1;
+    private const int pageSize = 250;
+    private int totalPages => totalCount > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+    private readonly HashSet<string> expandedPayloads = [];
+    private readonly HashSet<string> isUpdatingStatus = [];
+
+    private string? searchText;
+    private DateTime? dateFrom;
+    private DateTime? dateTo;
+    private string? severity;
+    private string? sourceApp;
+    private string? errorKind;
+    private string? statusFilter;
+    private string? fingerprintHash;
+
+    protected override async Task LoadDataAsync()
+    {
+        if (!HasRailroad)
+        {
+            entries = [];
+            totalCount = 0;
+            return;
+        }
+
+        RequireFeatureAccess();
+        await LoadEntriesAsync();
+    }
+
+    private async Task LoadEntriesAsync()
+    {
+        try
+        {
+            var response = await ErrorLogClient.GetAllAsync(
+                pageNumber: currentPage,
+                pageSize: pageSize,
+                searchText: searchText,
+                dateFrom: dateFrom?.ToString("O"),
+                dateTo: dateTo?.Date.AddDays(1).AddTicks(-1).ToString("O"),
+                severity: severity,
+                sourceApp: sourceApp,
+                errorKind: errorKind,
+                status: statusFilter,
+                fingerprintHash: fingerprintHash);
+
+            entries = response.Entries;
+            totalCount = response.TotalCount;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load error log: {ex.Message}";
+        }
+    }
+
+    private async Task ApplySearch()
+    {
+        currentPage = 1;
+        entries = null;
+        await LoadEntriesAsync();
+    }
+
+    private async Task ClearSearch()
+    {
+        searchText = null;
+        dateFrom = null;
+        dateTo = null;
+        severity = null;
+        sourceApp = null;
+        errorKind = null;
+        statusFilter = null;
+        fingerprintHash = null;
+        currentPage = 1;
+        entries = null;
+        await LoadEntriesAsync();
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await ApplySearch();
+    }
+
+    private async Task UpdateStatusAsync(string errorId, string status)
+    {
+        if (!isUpdatingStatus.Add(errorId))
+            return;
+
+        try
+        {
+            await ErrorLogClient.UpdateStatusAsync(errorId, status);
+            await LoadEntriesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update error status: {ex.Message}";
+        }
+        finally
+        {
+            isUpdatingStatus.Remove(errorId);
+        }
+    }
+
+    private void TogglePayload(string errorId)
+    {
+        if (!expandedPayloads.Remove(errorId))
+            expandedPayloads.Add(errorId);
+    }
+
+    private bool IsPayloadVisible(string errorId) => expandedPayloads.Contains(errorId);
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > totalPages || page == currentPage)
+            return;
+
+        currentPage = page;
+        entries = null;
+        await LoadEntriesAsync();
+    }
+
+    private List<int> GetVisiblePages()
+    {
+        var pages = new List<int>();
+        const int wing = 2;
+
+        pages.Add(1);
+
+        var start = Math.Max(2, currentPage - wing);
+        var end = Math.Min(totalPages - 1, currentPage + wing);
+
+        if (start > 2)
+            pages.Add(-1);
+
+        for (var i = start; i <= end; i++)
+            pages.Add(i);
+
+        if (end < totalPages - 1)
+            pages.Add(-1);
+
+        if (totalPages > 1)
+            pages.Add(totalPages);
+
+        return pages;
+    }
+
+    private static string FormatTimestamp(string isoUtc)
+    {
+        if (DateTime.TryParse(isoUtc, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
+            return dt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+
+        return isoUtc;
+    }
+
+    private static string GetSeverityBadgeClass(string severity)
+    {
+        return severity switch
+        {
+            "Critical" => "text-bg-danger",
+            "Warning" => "text-bg-warning",
+            _ => "text-bg-secondary"
+        };
+    }
+
+    private static string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Resolved" => "text-bg-success",
+            "Suppressed" => "text-bg-dark",
+            "Investigating" => "text-bg-info",
+            _ => "text-bg-primary"
+        };
+    }
+}
